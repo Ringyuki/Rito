@@ -149,7 +149,10 @@ The remaining usability work is narrower but still release-blocking:
    paragraph movement, sticky visual-line movement, line edges and same-chapter edges. Its
    serialized Kit session survives append-only growth, reveals an offscreen focus spread and
    fails closed when focus, navigation ownership or the native selection changes. Platform
-   PageUp/PageDown selection and cross-chapter document edges remain usability work. Mouse
+   PageUp/PageDown now moves one visible spread with a stable page slot and page-local x/y;
+   document edges cross chapter resources, survive lazy publication growth and remain editable by
+   later character movement. Cross-resource exact ranges expose normalized resource-qualified
+   endpoints while omitting the incompatible single-resource locator. Mouse
    repeated-click and trusted Chromium touch
    long-press both pass the
    production Worker/Canvas path; touch acceptance covers word seeding, cross-line
@@ -887,7 +890,8 @@ architecture rather than make an eager whole-book pipeline faster.
    revision-safe restore/go-to. Reader-owned locator intents now atomically take
    over bounded growth, select the target Rust frame and verify its final exact
    projection. Cross-logical-flow selection/annotation geometry is implemented
-   in document order within one chapter; cross-chapter ranges and richer
+   in document order within one chapter. Exact selection/copy and keyboard document edges now
+   cross chapter resources through a durable source span; multi-resource annotation and richer
    list/table semantic retention remain follow-up capability extensions. Native
    search now transports durable exact source ranges and Kit resolves visible
    overlays lazily; eager completion and a missing publication source index

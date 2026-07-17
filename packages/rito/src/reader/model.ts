@@ -112,12 +112,28 @@ export interface ReaderSourcePoint {
   /** UTF-16 code-unit offset within the parsed XHTML text node. */
   readonly textOffset: number;
 }
-
 export interface ReaderSourceRange {
   readonly start: ReaderSourcePoint;
   /** End-exclusive source boundary. */
   readonly end: ReaderSourcePoint;
 }
+export interface ReaderDocumentSourceSpanEndpoint {
+  readonly href: string;
+  readonly sourcePoint: ReaderSourcePoint;
+}
+/** Durable, resource-qualified source identity for both normalized range endpoints. */
+export interface ReaderDocumentSourceSpan {
+  readonly start: ReaderDocumentSourceSpanEndpoint;
+  /** End-exclusive source boundary. */
+  readonly end: ReaderDocumentSourceSpanEndpoint;
+}
+export type ReaderTextSelectionMovement =
+  | `character${'Left' | 'Right'}`
+  | `word${'Left' | 'Right' | 'StartRight'}`
+  | `line${'Up' | 'Down' | 'Start' | 'End'}`
+  | `page${'Up' | 'Down'}`
+  | `paragraph${'Backward' | 'Forward' | 'PreviousStart' | 'NextStart'}`
+  | `${'chapter' | 'document'}${'Start' | 'End'}`;
 
 /** Durable source identity. Page and spread projections are revision-local. */
 export interface ReaderLocator {

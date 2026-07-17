@@ -5,6 +5,7 @@ import type {
   ReaderTextRangeResolution,
 } from '../../../reader';
 import type { CoreTextCaret, CoreTextCaretAddress, CoreTextRangeResponse } from '../core-contracts';
+import { copyAndValidateTextSourceSpan } from '../exact-text-source';
 import type { BrowserReaderInteractionCapture } from './interaction-capture';
 import { copyReaderLocator, sameRevision } from './interaction-capture';
 import type { BrowserReaderRevisionHandle, BrowserReaderState } from './types';
@@ -59,6 +60,12 @@ export function mapRangeResolution(
     requireMatchingPageProjection(state, rect.pageIndex, rect.spreadIndex, 'text range rectangle');
     return toReaderRangeRect(rect);
   });
+  const sourceSpan = copyAndValidateTextSourceSpan(
+    range.sourceSpan,
+    range.sourceLocator,
+    endpoints.start.sourceLocator,
+    endpoints.end.sourceLocator,
+  );
   return {
     status: 'resolved',
     range: {
@@ -66,7 +73,10 @@ export function mapRangeResolution(
       focus,
       ...endpoints,
       selectedText: range.selectedText,
-      sourceLocator: copyReaderLocator(range.sourceLocator),
+      sourceSpan,
+      ...(range.sourceLocator === undefined
+        ? {}
+        : { sourceLocator: copyReaderLocator(range.sourceLocator) }),
       rects,
     },
   };

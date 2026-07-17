@@ -53,6 +53,10 @@ describe('useSelection', () => {
             end: { nodePath: [0], textOffset: 3 },
           },
         },
+        sourceSpan: {
+          start: { href: 'old.xhtml', sourcePoint: { nodePath: [0], textOffset: 0 } },
+          end: { href: 'old.xhtml', sourcePoint: { nodePath: [0], textOffset: 3 } },
+        },
         hasSelection: true,
         text: 'old',
         rects: [{ x: 1, y: 2, width: 3, height: 4 }],
@@ -72,6 +76,7 @@ describe('useSelection', () => {
     expect(latest).toMatchObject({
       range: null,
       sourceLocator: null,
+      sourceSpan: null,
       text: '',
       rects: [],
       viewportRects: [],

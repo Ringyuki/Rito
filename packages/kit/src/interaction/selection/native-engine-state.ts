@@ -61,6 +61,7 @@ export interface NativeSelectionEngineData {
   session: NativeSelectionGestureSession | undefined;
   keyboardSession: NativeSelectionKeyboardSession | undefined;
   keyboardPreferredInlinePosition: number | undefined;
+  keyboardPreferredBlockPosition: number | undefined;
 }
 
 export function createNativeSelectionGestureSession(
@@ -108,6 +109,7 @@ export function beginNativeSelectionHandleDrag(
   }
   data.keyboardSession = undefined;
   data.keyboardPreferredInlinePosition = undefined;
+  data.keyboardPreferredBlockPosition = undefined;
   const fixedCaret = edge === 'start' ? baselineSnapshot.range.end : baselineSnapshot.range.start;
   const session = createNativeSelectionGestureSession(data, 'character', undefined, fixedCaret, {
     edge,
@@ -165,6 +167,7 @@ export function createNativeSelectionEngineData(
     session: undefined,
     keyboardSession: undefined,
     keyboardPreferredInlinePosition: undefined,
+    keyboardPreferredBlockPosition: undefined,
   };
 }
 
@@ -195,6 +198,7 @@ export function cancelNativeSelection(
   data.session = undefined;
   data.keyboardSession = undefined;
   data.keyboardPreferredInlinePosition = undefined;
+  data.keyboardPreferredBlockPosition = undefined;
   if (notify) publishNativeSelection(data, nextState, null);
   else {
     data.state = nextState;
@@ -220,7 +224,8 @@ export function toNativeSelectionSnapshot(range: ReaderTextRange): NativeSelecti
     range,
     text: range.selectedText,
     rects: range.rects,
-    sourceLocator: range.sourceLocator,
+    sourceSpan: range.sourceSpan,
+    sourceLocator: range.sourceLocator ?? null,
     focusDirection: range.focus === range.end ? 'forward' : 'backward',
     focusCaret: { pageIndex: range.focus.pageIndex, geometry: range.focus.geometry },
   };

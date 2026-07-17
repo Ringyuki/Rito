@@ -44,6 +44,7 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
       emitter.emit('selectionChange', {
         range,
         sourceLocator: engines.selection.getSourceLocator(),
+        sourceSpan: engines.selection.getSourceSpan(),
         hasSelection: engines.selection.hasSelection(),
         text: engines.selection.getText(),
         rects: rawRects,

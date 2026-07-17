@@ -45,6 +45,10 @@ describe('Browser reader granular point ranges', () => {
     if (!result || result.status !== 'resolved') throw new Error('Expected resolved point range');
     expect(result.range).toMatchObject({
       selectedText: 'word',
+      sourceSpan: {
+        start: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 1 } },
+        end: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 4 } },
+      },
       sourceLocator: {
         href: 'chapter.xhtml',
         sourceRange: {

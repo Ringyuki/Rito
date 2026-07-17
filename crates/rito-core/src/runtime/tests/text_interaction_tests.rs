@@ -84,9 +84,14 @@ fn pinned_revision_resolves_exact_point_range_and_source_locator() {
     assert_eq!(range.end, right.address);
     assert_eq!(range.rects.len(), 1);
     assert_eq!(range.rects[0].page_index, 0);
-    assert!(range.source_locator.source_range.is_some());
+    assert_eq!(range.source_span.start.href, range.source_span.end.href);
+    let source_locator = range
+        .source_locator
+        .as_ref()
+        .expect("single-resource range keeps its compatible locator");
+    assert!(source_locator.source_range.is_some());
     let locator = document
-        .resolve_source_locator_at(&handle, range.source_locator.clone())
+        .resolve_source_locator_at(&handle, source_locator.clone())
         .expect("returned source range is valid");
     assert!(matches!(
         locator.value,
@@ -94,6 +99,8 @@ fn pinned_revision_resolves_exact_point_range_and_source_locator() {
     ));
     let source_range = range
         .source_locator
+        .as_ref()
+        .expect("single-resource range keeps its compatible locator")
         .source_range
         .clone()
         .expect("selected range owns an exact source range");
@@ -101,7 +108,7 @@ fn pinned_revision_resolves_exact_point_range_and_source_locator() {
         .resolve_exact_source_range_at(
             &handle,
             RuntimeExactSourceRangeRequest {
-                href: range.source_locator.href.clone(),
+                href: source_locator.href.clone(),
                 source_range: source_range.clone(),
             },
         )
@@ -114,6 +121,9 @@ fn pinned_revision_resolves_exact_point_range_and_source_locator() {
     assert_eq!(projected.selected_text, "Wi");
     assert_eq!(projected.source_locator.source_range, Some(source_range));
     assert_eq!(projected.rects, range.rects);
+    let serialized = serde_json::to_value(&range).expect("text range serializes");
+    assert!(serialized.get("sourceSpan").is_some());
+    assert!(serialized.get("sourceLocator").is_some());
 
     let collapsed = document
         .resolve_text_range_at(
@@ -196,9 +206,19 @@ fn cross_paragraph_text_range_round_trips_after_reflow() {
     };
     assert_eq!(selected.selected_text, "first\n\nsecond");
     assert!(selected.rects.len() >= 2);
-    let href = selected.source_locator.href.clone();
+    assert_eq!(
+        selected.source_span.start.href,
+        selected.source_span.end.href
+    );
+    let source_locator = selected
+        .source_locator
+        .as_ref()
+        .expect("single-resource range keeps its compatible locator");
+    let href = source_locator.href.clone();
     let source_range = selected
         .source_locator
+        .as_ref()
+        .expect("single-resource range keeps its compatible locator")
         .source_range
         .clone()
         .expect("cross-paragraph selection owns one durable source range");

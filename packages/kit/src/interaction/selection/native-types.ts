@@ -1,4 +1,5 @@
 import type {
+  ReaderDocumentSourceSpan,
   ReaderLocator,
   ReaderTextSelectionMovement,
   ReaderTextSelectionMovementResolution,
@@ -24,7 +25,8 @@ export interface NativeSelectionSnapshot {
   readonly range: ReaderTextRange;
   readonly text: string;
   readonly rects: ReaderTextRange['rects'];
-  readonly sourceLocator: ReaderLocator;
+  readonly sourceSpan: ReaderDocumentSourceSpan;
+  readonly sourceLocator: ReaderLocator | null;
   readonly focusDirection: NativeSelectionFocusDirection;
   readonly focusCaret: {
     readonly pageIndex: number;

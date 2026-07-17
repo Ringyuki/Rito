@@ -73,6 +73,7 @@ describe('native selection controller event', () => {
     expect(listener).toHaveBeenLastCalledWith({
       range: null,
       sourceLocator: range.sourceLocator,
+      sourceSpan: range.sourceSpan,
       hasSelection: true,
       text: 'selected text',
       rects: [{ x: 1, y: 2, width: 30, height: 18 }],

@@ -11,6 +11,7 @@ import {
   caretAddress,
   caretResponse,
   caretTransport,
+  crossResourceRangeResponse,
   handle,
   movementRequest,
   movementResponse,
@@ -249,9 +250,24 @@ test('direct exact range rejects content forged onto a collapsed caret', () => {
   );
 });
 
+test('direct exact range preserves a cross-resource source span without forging a locator', () => {
+  const request = rangeRequest();
+  const response = crossResourceRangeResponse(request);
+  const raw = rawExactTextDocument([]);
+  raw.resolveTextRangeAtRevisionJson = () =>
+    JSON.stringify({ revision: handle(), value: response });
+  const document = new RitoCoreWasmDocument(raw);
+
+  const result = document.resolveTextRangeAtRevision(handle(), request);
+
+  assert.deepEqual(result.value.resolution.range.sourceSpan, response.resolution.range.sourceSpan);
+  assert.equal('sourceLocator' in result.value.resolution.range, false);
+});
+
 test('direct granular point range rejects forged durable source endpoints', () => {
   const request = pointRangeRequest();
   const response = structuredClone(pointRangeResponse(request));
+  response.resolution.range.sourceSpan.start.sourcePoint.textOffset = 0;
   response.resolution.range.sourceLocator.sourceRange.start.textOffset = 0;
   const raw = rawExactTextDocument([]);
   raw.resolveTextRangeFromPointsAtRevisionJson = () =>

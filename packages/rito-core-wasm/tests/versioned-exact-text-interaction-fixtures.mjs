@@ -64,6 +64,16 @@ export function rangeResponse(request = rangeRequest(), overrides = {}) {
         start: request.anchor,
         end: request.focus,
         selectedText: 'i\n\nTe',
+        sourceSpan: {
+          start: {
+            href: 'Text/chapter.xhtml',
+            sourcePoint: { nodePath: [1, 0], textOffset: 3 },
+          },
+          end: {
+            href: 'Text/chapter.xhtml',
+            sourcePoint: { nodePath: [2, 0], textOffset: 2 },
+          },
+        },
         sourceLocator: {
           href: 'Text/chapter.xhtml',
           sourceRange: {
@@ -86,6 +96,13 @@ export function rangeResponse(request = rangeRequest(), overrides = {}) {
     },
     ...overrides,
   };
+}
+
+export function crossResourceRangeResponse(request = rangeRequest(), overrides = {}) {
+  const response = rangeResponse(request, overrides);
+  response.resolution.range.sourceSpan.end.href = 'Text/next.xhtml';
+  delete response.resolution.range.sourceLocator;
+  return response;
 }
 
 export function exactRect(overrides = {}) {
@@ -195,17 +212,25 @@ export function rangeToPointTransport(
 }
 
 export function movementRequest(overrides = {}) {
-  const { preferredInlinePosition: overrideSticky, ...rest } = overrides;
+  const {
+    preferredInlinePosition: overrideInline,
+    preferredBlockPosition: overrideBlock,
+    ...rest
+  } = overrides;
   const movement = rest.movement ?? 'lineDown';
   const preferredInlinePosition = Object.hasOwn(overrides, 'preferredInlinePosition')
-    ? overrideSticky
-    : stickyPositionForMovement(movement);
+    ? overrideInline
+    : inlinePositionForMovement(movement);
+  const preferredBlockPosition = Object.hasOwn(overrides, 'preferredBlockPosition')
+    ? overrideBlock
+    : blockPositionForMovement(movement);
   return {
     anchor: caretAddress({ charIndex: 1 }),
     focus: caretAddress({ charIndex: 2 }),
     ...rest,
     movement,
     ...(preferredInlinePosition === undefined ? {} : { preferredInlinePosition }),
+    ...(preferredBlockPosition === undefined ? {} : { preferredBlockPosition }),
   };
 }
 
@@ -229,9 +254,12 @@ export function movementResponse(request = movementRequest(), overrides = {}) {
         },
       }).caret,
       range,
-      ...(stickyPositionForMovement(request.movement) === undefined
+      ...(inlinePositionForMovement(request.movement) === undefined
         ? {}
         : { preferredInlinePosition: 28 }),
+      ...(blockPositionForMovement(request.movement) === undefined
+        ? {}
+        : { preferredBlockPosition: 44 }),
     },
     ...overrides,
   };
@@ -309,6 +337,15 @@ function envelope(revisionVersion, value) {
   return JSON.stringify({ revision: handle(revisionVersion), value });
 }
 
-function stickyPositionForMovement(movement) {
-  return movement === 'lineUp' || movement === 'lineDown' ? 28 : undefined;
+function inlinePositionForMovement(movement) {
+  return movement === 'lineUp' ||
+    movement === 'lineDown' ||
+    movement === 'pageUp' ||
+    movement === 'pageDown'
+    ? 28
+    : undefined;
+}
+
+function blockPositionForMovement(movement) {
+  return movement === 'pageUp' || movement === 'pageDown' ? 44 : undefined;
 }

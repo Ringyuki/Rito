@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ReaderLocator } from '@ritojs/core';
+import type { ReaderDocumentSourceSpan, ReaderLocator } from '@ritojs/core';
 import type { ReaderController, SelectionHandleState, TextRange } from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
@@ -13,6 +13,7 @@ interface Rect {
 export interface SelectionState {
   readonly range: TextRange | null;
   readonly sourceLocator: ReaderLocator | null;
+  readonly sourceSpan: ReaderDocumentSourceSpan | null;
   readonly text: string;
   /** Selection rects in spread-content space (legacy — prefer viewportRects). */
   readonly rects: readonly Rect[];
@@ -28,6 +29,7 @@ export interface SelectionState {
 const EMPTY_SELECTION_STATE: SelectionState = {
   range: null,
   sourceLocator: null,
+  sourceSpan: null,
   text: '',
   rects: [],
   viewportRects: [],
@@ -48,10 +50,21 @@ export function useSelection(controller: ReaderController | null): SelectionStat
   useControllerEvent(
     controller,
     'selectionChange',
-    ({ range, sourceLocator, text, rects, viewportRects, focusRect, handles, hasSelection }) => {
+    ({
+      range,
+      sourceLocator,
+      sourceSpan,
+      text,
+      rects,
+      viewportRects,
+      focusRect,
+      handles,
+      hasSelection,
+    }) => {
       setState({
         range,
         sourceLocator,
+        sourceSpan,
         text,
         rects,
         viewportRects,

@@ -17,15 +17,16 @@ pub use types::{
 
 pub(crate) use caret::resolve_text_caret;
 pub(crate) use granularity::resolve_text_range_from_points;
-pub(crate) use movement::resolve_text_selection_movement;
+pub(crate) use movement::{resolve_text_selection_movement, LayoutTextSelectionMovementInput};
 pub(crate) use range::resolve_text_range;
 pub(crate) use range_to_point::resolve_text_range_to_point;
 pub(crate) use source_range::resolve_exact_source_range;
 pub(crate) use types::{
     ExactTextRangeRect, LayoutExactTextRange, LayoutExactTextRangeResolution, LayoutSourcePoint,
-    LayoutTextCaret, LayoutTextCaretResolution, LayoutTextPageRange, LayoutTextPoint,
-    LayoutTextRangeFromPoints, LayoutTextRangeFromPointsResolution, LayoutTextSelectionGranularity,
-    LayoutTextSelectionMovement, LayoutTextSelectionMovementResolution,
+    LayoutTextCaret, LayoutTextCaretResolution, LayoutTextPageRange, LayoutTextPageTarget,
+    LayoutTextPoint, LayoutTextRangeFromPoints, LayoutTextRangeFromPointsResolution,
+    LayoutTextSelectionGranularity, LayoutTextSelectionMovement,
+    LayoutTextSelectionMovementResolution, LayoutTextSelectionMovementTarget,
 };
 
 #[cfg(test)]

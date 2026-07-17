@@ -35,11 +35,21 @@ export function beginNativeKeyboardMovement(
     epoch: ++data.epoch,
     readGeneration: 0,
   };
-  const preferredInlinePosition = isVerticalLineMovement(movement)
-    ? data.keyboardPreferredInlinePosition
+  const preferredInlinePosition =
+    isVerticalLineMovement(movement) || isPageMovement(movement)
+      ? data.keyboardPreferredInlinePosition
+      : undefined;
+  const preferredBlockPosition = isPageMovement(movement)
+    ? data.keyboardPreferredBlockPosition
     : undefined;
   data.keyboardSession = session;
-  return createKeyboardCommand(data, session, movement, preferredInlinePosition);
+  return createKeyboardCommand(
+    data,
+    session,
+    movement,
+    preferredInlinePosition,
+    preferredBlockPosition,
+  );
 }
 
 function createKeyboardCommand(
@@ -47,15 +57,20 @@ function createKeyboardCommand(
   session: NativeSelectionKeyboardSession,
   movement: ReaderTextSelectionMovement,
   preferredInlinePosition: number | undefined,
+  preferredBlockPosition: number | undefined,
 ): NativeSelectionKeyboardCommand {
   let prepared: PreparedKeyboardOutcome | undefined;
   let committed = false;
-  const result = resolveMovement(data, session, movement, preferredInlinePosition).then(
-    (resolved) => {
-      prepared = resolved;
-      return resolved.outcome;
-    },
-  );
+  const result = resolveMovement(
+    data,
+    session,
+    movement,
+    preferredInlinePosition,
+    preferredBlockPosition,
+  ).then((resolved) => {
+    prepared = resolved;
+    return resolved.outcome;
+  });
   return {
     result,
     commit: () => {
@@ -93,6 +108,7 @@ async function resolveMovement(
   session: NativeSelectionKeyboardSession,
   movement: ReaderTextSelectionMovement,
   preferredInlinePosition: number | undefined,
+  preferredBlockPosition: number | undefined,
 ): Promise<PreparedKeyboardOutcome> {
   const capability = data.capability;
   if (!capability.resolveTextSelectionMovement) return cancelledOutcome(session);
@@ -106,6 +122,7 @@ async function resolveMovement(
         focus: snapshot.range.focus,
         movement,
         ...(preferredInlinePosition === undefined ? {} : { preferredInlinePosition }),
+        ...(preferredBlockPosition === undefined ? {} : { preferredBlockPosition }),
       });
       if (!isCurrentKeyboardSession(data, session)) return cancelledOutcome(session);
       if (session.readGeneration !== readGeneration) continue;
@@ -132,13 +149,20 @@ function commitMovement(
   movement: ReaderTextSelectionMovement,
   outcome: Exclude<NativeSelectionKeyboardOutcome, { readonly status: 'cancelled' }>,
 ): void {
-  const vertical = isVerticalLineMovement(movement);
-  if (!vertical) data.keyboardPreferredInlinePosition = undefined;
+  const line = isVerticalLineMovement(movement);
+  const page = isPageMovement(movement);
+  if (!line && !page) data.keyboardPreferredInlinePosition = undefined;
+  if (!page) data.keyboardPreferredBlockPosition = undefined;
   if (outcome.status !== 'resolved') return;
-  if (vertical) data.keyboardPreferredInlinePosition = outcome.preferredInlinePosition;
+  if (line || page) data.keyboardPreferredInlinePosition = outcome.preferredInlinePosition;
+  if (page) data.keyboardPreferredBlockPosition = outcome.preferredBlockPosition;
   publishNativeSelection(data, 'selected', toNativeSelectionSnapshot(outcome.range));
 }
 
 function isVerticalLineMovement(movement: ReaderTextSelectionMovement): boolean {
   return movement === 'lineUp' || movement === 'lineDown';
+}
+
+function isPageMovement(movement: ReaderTextSelectionMovement): boolean {
+  return movement === 'pageUp' || movement === 'pageDown';
 }

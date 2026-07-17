@@ -1,7 +1,9 @@
 import { expect, type Page } from '@playwright/test';
 import {
   createSelectionFixtureEpub,
+  DOCUMENT_FIRST_CHAPTER_TEXT,
   EDGE_FIRST_PAGE_TEXT,
+  PAGE_MOVEMENT_FIRST_TOP,
   SAME_FLOW_FIRST_LINE,
   type SelectionFixtureOptions,
 } from './selection-fixture';
@@ -45,7 +47,27 @@ export async function loadEdgeSelectionFixture(page: Page): Promise<void> {
   await uploadSelectionFixture(page, { layout: 'edge-pages' });
 }
 
+export async function loadDocumentSelectionFixture(page: Page): Promise<void> {
+  await uploadSelectionFixture(page, { layout: 'cross-chapter' });
+}
+
+export async function loadPageMovementSelectionFixture(page: Page): Promise<void> {
+  await uploadSelectionFixture(page, { layout: 'page-movement' });
+}
+
 export async function prepareEdgeSelectionFixture(page: Page): Promise<void> {
+  await prepareSinglePageLazyFixture(page, EDGE_FIRST_PAGE_TEXT);
+}
+
+export async function prepareDocumentSelectionFixture(page: Page): Promise<void> {
+  await prepareSinglePageLazyFixture(page, DOCUMENT_FIRST_CHAPTER_TEXT);
+}
+
+export async function preparePageMovementSelectionFixture(page: Page): Promise<void> {
+  await prepareSinglePageLazyFixture(page, PAGE_MOVEMENT_FIRST_TOP);
+}
+
+async function prepareSinglePageLazyFixture(page: Page, firstPageText: string): Promise<void> {
   await page.getByTestId('reader-context-trigger').click({ button: 'right' });
   await page.getByRole('menuitem', { name: /Reader Settings/ }).click();
   const heading = page.getByRole('heading', { name: 'Reader Settings' });
@@ -59,7 +81,7 @@ export async function prepareEdgeSelectionFixture(page: Page): Promise<void> {
   await expect(shell).toHaveAttribute('data-pagination-complete', 'false');
   await expect.poll(() => currentReaderSpread(page)).toBe(0);
   await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(1);
-  await waitForVisibleDocumentText(page, EDGE_FIRST_PAGE_TEXT);
+  await waitForVisibleDocumentText(page, firstPageText);
   await stableReaderCanvasChecksum(page);
 }
 

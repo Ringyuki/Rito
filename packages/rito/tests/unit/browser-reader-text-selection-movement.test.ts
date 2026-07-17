@@ -52,6 +52,36 @@ describe('Browser reader exact text selection movement', () => {
     expect(result.range).toMatchObject({ selectedText: 'text', rects: [{ spreadIndex: 0 }] });
   });
 
+  it('forwards and returns both sticky page-local coordinates', async () => {
+    const fixture = readyFixture();
+    const selection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
+    const [anchor, focus, anchorAddress, focusAddress] = await bindCaretPair(fixture, selection);
+    fixture.resolveTextSelectionMovementAtRevision.mockResolvedValue(
+      versionedMovement(anchorAddress, caretAddress(0, 4), 0, 24, 48),
+    );
+
+    const result = await selection.resolveTextSelectionMovement({
+      anchor,
+      focus,
+      movement: 'pageDown',
+      preferredInlinePosition: 19.5,
+      preferredBlockPosition: 37.5,
+    });
+
+    expect(fixture.resolveTextSelectionMovementAtRevision).toHaveBeenCalledWith(handle(), {
+      anchor: anchorAddress,
+      focus: focusAddress,
+      movement: 'pageDown',
+      preferredInlinePosition: 19.5,
+      preferredBlockPosition: 37.5,
+    });
+    expect(result).toMatchObject({
+      status: 'resolved',
+      preferredInlinePosition: 24,
+      preferredBlockPosition: 48,
+    });
+  });
+
   it.each([
     { status: 'boundary', boundary: 'start' } as const,
     { status: 'pending', boundary: 'end' } as const,
@@ -283,10 +313,11 @@ function versionedMovement(
   focus: CoreTextCaretAddress,
   revisionVersion = 0,
   preferredInlinePosition?: number,
+  preferredBlockPosition?: number,
 ): CoreVersioned<CoreTextSelectionMovementResponse> {
   return {
     revision: handle(revisionVersion),
-    value: movementResponse(anchor, focus, preferredInlinePosition),
+    value: movementResponse(anchor, focus, preferredInlinePosition, preferredBlockPosition),
   };
 }
 
@@ -294,6 +325,7 @@ function movementResponse(
   anchor: CoreTextCaretAddress,
   focus: CoreTextCaretAddress,
   preferredInlinePosition?: number,
+  preferredBlockPosition?: number,
 ): CoreTextSelectionMovementResponse {
   return {
     revisionId: 'rev',
@@ -307,6 +339,16 @@ function movementResponse(
         start: anchor,
         end: focus,
         selectedText: 'text',
+        sourceSpan: {
+          start: {
+            href: 'chapter.xhtml',
+            sourcePoint: { nodePath: [0], textOffset: anchor.charIndex },
+          },
+          end: {
+            href: 'chapter.xhtml',
+            sourcePoint: { nodePath: [0], textOffset: focus.charIndex },
+          },
+        },
         sourceLocator: {
           href: 'chapter.xhtml',
           sourceRange: {
@@ -331,6 +373,7 @@ function movementResponse(
         ],
       },
       ...(preferredInlinePosition === undefined ? {} : { preferredInlinePosition }),
+      ...(preferredBlockPosition === undefined ? {} : { preferredBlockPosition }),
     },
   };
 }

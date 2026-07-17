@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ReaderLocator } from '@ritojs/core';
+import { buildAnnotationActions } from '../src/controller/facade/annotation-actions';
+import type { ReaderControllerEvents } from '../src/controller/types';
+import { createEmitter } from '../src/utils/event-emitter';
 import {
   buildAnnotationTargetFromLocator,
   resolveVisibleAnnotations,
@@ -10,6 +13,29 @@ import type { CoordinatorState } from '../src/controller/core/coordinator-state'
 import type { AnnotationStore } from '../src/interaction';
 
 describe('native selection annotation target', () => {
+  it('fails closed for a cross-resource selection without a compatible locator', () => {
+    const add = vi.fn();
+    const internals = {
+      engines: {
+        selection: {
+          getSourceLocator: () => null,
+          getSourceSpan: () => ({
+            start: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 1 } },
+            end: { href: 'next.xhtml', sourcePoint: { nodePath: [0], textOffset: 2 } },
+          }),
+          getSnapshot: () => null,
+        },
+      },
+      coordState: {
+        annotationStore: { add, persist: () => Promise.resolve(), getAll: () => [] },
+      },
+    } as unknown as Internals;
+    const actions = buildAnnotationActions(internals, createEmitter<ReaderControllerEvents>());
+
+    expect(actions.addAnnotation({ kind: 'highlight' })).toBeUndefined();
+    expect(add).not.toHaveBeenCalled();
+  });
+
   it('keeps idrefs and resource hrefs in separate namespaces', () => {
     const first = { href: 'a.xhtml', normalizedText: 'a', spans: [] };
     const second = { href: 'chapter.xhtml', normalizedText: 'b', spans: [] };

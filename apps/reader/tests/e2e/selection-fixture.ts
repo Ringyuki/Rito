@@ -15,6 +15,14 @@ export const CJK_SELECTION_TEXT = `${CJK_FIRST_LINE}\n${CJK_SECOND_LINE}`;
 export const EDGE_FIRST_PAGE_TEXT = 'EDGEALPHA';
 export const EDGE_SECOND_PAGE_TEXT = 'EDGEBRAVO';
 export const EDGE_SELECTION_TEXT = `${EDGE_FIRST_PAGE_TEXT}\n\n${EDGE_SECOND_PAGE_TEXT}`;
+export const PAGE_MOVEMENT_TARGET_TEXT = 'MOVETARGET';
+export const PAGE_MOVEMENT_FIRST_TOP = 'FIRST TOP';
+export const PAGE_MOVEMENT_MIDDLE_TOP = 'MIDDLE TOP';
+export const PAGE_MOVEMENT_FINAL_TOP = 'FINAL TOP';
+export const PAGE_MOVEMENT_FORWARD_SELECTION_TEXT = `${PAGE_MOVEMENT_TARGET_TEXT}\nMIDDLE BOTTOM\n\n${PAGE_MOVEMENT_FINAL_TOP}\n${PAGE_MOVEMENT_TARGET_TEXT}`;
+export const DOCUMENT_FIRST_CHAPTER_TEXT = 'DOCUMENTALPHA';
+export const DOCUMENT_SECOND_CHAPTER_TEXT = 'DOCUMENTBRAVO';
+export const DOCUMENT_SELECTION_TEXT = `${DOCUMENT_FIRST_CHAPTER_TEXT}\n\n${DOCUMENT_SECOND_CHAPTER_TEXT}`;
 
 type ZipEntry = Uint8Array | [Uint8Array, { readonly level: number }];
 
@@ -25,7 +33,7 @@ interface FflateApi {
 export interface SelectionFixtureOptions {
   readonly includeImage?: boolean;
   readonly locale?: 'latin' | 'cjk';
-  readonly layout?: 'compact' | 'edge-pages';
+  readonly layout?: 'compact' | 'edge-pages' | 'page-movement' | 'cross-chapter';
 }
 
 export function createSelectionFixtureEpub(options: SelectionFixtureOptions = {}): Buffer {
@@ -36,16 +44,28 @@ export function createSelectionFixtureEpub(options: SelectionFixtureOptions = {}
   const secondLine = cjk ? CJK_SECOND_LINE : SAME_FLOW_SECOND_LINE;
   const crossFlowLine = cjk ? CJK_CROSS_FLOW_LINE : CROSS_FLOW_LINE;
   const edgePages = options.layout === 'edge-pages';
+  const pageMovement = options.layout === 'page-movement';
+  const crossChapter = options.layout === 'cross-chapter';
   const imageManifest = options.includeImage
     ? '<item id="pixel" href="Images/pixel.png" media-type="image/png"/>'
     : '';
   const imageElement = options.includeImage ? '<img src="../Images/pixel.png" alt=""/>' : '';
-  const body = edgePages
-    ? `<p>${EDGE_FIRST_PAGE_TEXT}</p>
+  const body = crossChapter
+    ? `<p>${DOCUMENT_FIRST_CHAPTER_TEXT}</p>`
+    : pageMovement
+      ? `<p>${PAGE_MOVEMENT_FIRST_TOP}<br/>${PAGE_MOVEMENT_TARGET_TEXT}<br/>FIRST BOTTOM</p>
+    <p class="edge-page">${PAGE_MOVEMENT_MIDDLE_TOP}<br/>${PAGE_MOVEMENT_TARGET_TEXT}<br/>MIDDLE BOTTOM</p>
+    <p class="edge-page">${PAGE_MOVEMENT_FINAL_TOP}<br/>${PAGE_MOVEMENT_TARGET_TEXT}<br/>FINAL BOTTOM</p>`
+      : edgePages
+        ? `<p>${EDGE_FIRST_PAGE_TEXT}</p>
     <p class="edge-page">${EDGE_SECOND_PAGE_TEXT}</p>`
-    : `<p>${firstLine}<br/>${secondLine}</p>
+        : `<p>${firstLine}<br/>${secondLine}</p>
     <p>${crossFlowLine}</p>
     ${imageElement}`;
+  const secondChapterManifest = crossChapter
+    ? '<item id="chapter-2" href="Text/chapter-2.xhtml" media-type="application/xhtml+xml"/>'
+    : '';
+  const secondChapterSpine = crossChapter ? '<itemref idref="chapter-2"/>' : '';
   const files: Record<string, ZipEntry> = {
     mimetype: [encoder.encode('application/epub+zip'), { level: 0 }],
     'META-INF/container.xml': encoder.encode(`<?xml version="1.0" encoding="UTF-8"?>
@@ -63,10 +83,11 @@ export function createSelectionFixtureEpub(options: SelectionFixtureOptions = {}
   </metadata>
   <manifest>
     <item id="chapter" href="Text/chapter.xhtml" media-type="application/xhtml+xml"/>
+    ${secondChapterManifest}
     <item id="style" href="book.css" media-type="text/css"/>
     ${imageManifest}
   </manifest>
-  <spine><itemref idref="chapter"/></spine>
+  <spine><itemref idref="chapter"/>${secondChapterSpine}</spine>
 </package>`),
     'OEBPS/Text/chapter.xhtml': encoder.encode(`<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -99,6 +120,13 @@ img {
 }
 `),
   };
+  if (crossChapter) {
+    files['OEBPS/Text/chapter-2.xhtml'] = encoder.encode(`<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head><link rel="stylesheet" type="text/css" href="../book.css"/></head>
+  <body><p>${DOCUMENT_SECOND_CHAPTER_TEXT}</p></body>
+</html>`);
+  }
   if (options.includeImage) {
     files['OEBPS/Images/pixel.png'] = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAGklEQVR4AWP8z8DwnwEJMDGgASYGNMDEgAYAg9ECBvYVtPAAAAAASUVORK5CYII=',

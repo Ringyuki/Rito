@@ -96,6 +96,16 @@ describe('Browser reader exact text selection', () => {
     expect(result.range.end).toBe(anchor);
     expect(result.range).toMatchObject({
       selectedText: 'selected',
+      sourceSpan: {
+        start: {
+          href: 'chapter.xhtml',
+          sourcePoint: { nodePath: [0, 1], textOffset: 2 },
+        },
+        end: {
+          href: 'chapter.xhtml',
+          sourcePoint: { nodePath: [0, 1], textOffset: 8 },
+        },
+      },
       sourceLocator: {
         href: 'chapter.xhtml',
         sourceRange: {
@@ -139,6 +149,68 @@ describe('Browser reader exact text selection', () => {
       status: 'unavailable',
       reason: 'differentChapter',
     });
+  });
+
+  it('preserves cross-resource source endpoints without fabricating a single-resource locator', async () => {
+    const fixture = readyFixture();
+    const anchorAddress = caretAddress(0, 2, 'downstream');
+    const focusAddress = caretAddress(1, 8, 'upstream');
+    fixture.resolveTextCaretAtRevision
+      .mockResolvedValueOnce(versionedCaret(anchorAddress, 'chapter.xhtml'))
+      .mockResolvedValueOnce(versionedCaret(focusAddress, 'next.xhtml'));
+    fixture.resolveTextRangeAtRevision.mockResolvedValue({
+      revision: handle(),
+      value: crossResourceRange(anchorAddress, focusAddress),
+    });
+    const textSelection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
+    const anchor = resolvedCaret(await textSelection.resolveCaret({ pageIndex: 0, x: 1, y: 1 }));
+    const focus = resolvedCaret(await textSelection.resolveCaret({ pageIndex: 1, x: 3, y: 1 }));
+
+    const result = await textSelection.resolveTextRange(anchor, focus);
+
+    expect(result?.status).toBe('resolved');
+    if (!result || result.status !== 'resolved') throw new Error('Expected a resolved range');
+    expect(result.range.sourceSpan).toEqual({
+      start: {
+        href: 'chapter.xhtml',
+        sourcePoint: { nodePath: [0, 1], textOffset: 2 },
+      },
+      end: { href: 'next.xhtml', sourcePoint: { nodePath: [0, 1], textOffset: 8 } },
+    });
+    expect(result.range).not.toHaveProperty('sourceLocator');
+  });
+
+  it('rejects an exact range locator with mixed durable identities', async () => {
+    const fixture = readyFixture();
+    const anchorAddress = caretAddress(0, 2, 'downstream');
+    const focusAddress = caretAddress(0, 8, 'upstream');
+    fixture.resolveTextCaretAtRevision
+      .mockResolvedValueOnce(versionedCaret(anchorAddress))
+      .mockResolvedValueOnce(versionedCaret(focusAddress));
+    const response = resolvedRange(anchorAddress, focusAddress, anchorAddress, focusAddress);
+    if (response.resolution.status !== 'resolved') throw new Error('Expected a resolved fixture');
+    const locator = response.resolution.range.sourceLocator;
+    if (!locator) throw new Error('Expected an exact source locator fixture');
+    fixture.resolveTextRangeAtRevision.mockResolvedValue({
+      revision: handle(),
+      value: {
+        ...response,
+        resolution: {
+          status: 'resolved',
+          range: {
+            ...response.resolution.range,
+            sourceLocator: { ...locator, progression: 0.5 },
+          },
+        },
+      },
+    });
+    const selection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
+    const anchor = resolvedCaret(await selection.resolveCaret({ pageIndex: 0, x: 1, y: 1 }));
+    const focus = resolvedCaret(await selection.resolveCaret({ pageIndex: 0, x: 3, y: 1 }));
+
+    await expect(selection.resolveTextRange(anchor, focus)).rejects.toThrow(
+      'source locator does not match its source span',
+    );
   });
 
   it('atomically rebinds a stable-prefix caret in a later bounded revision', async () => {
@@ -228,26 +300,33 @@ function caretAddress(
   };
 }
 
-function versionedCaret(address: CoreTextCaretAddress): CoreVersioned<CoreTextCaretResponse> {
-  return versionedCaretResolution({
-    status: 'resolved',
-    caret: {
-      address,
-      geometry: { x: 20, y: 12, height: 18 },
-      sourceLocator: {
-        href: 'chapter.xhtml',
-        sourcePoint: { nodePath: [0, 1], textOffset: address.charIndex },
+function versionedCaret(
+  address: CoreTextCaretAddress,
+  href = 'chapter.xhtml',
+): CoreVersioned<CoreTextCaretResponse> {
+  return versionedCaretResolution(
+    {
+      status: 'resolved',
+      caret: {
+        address,
+        geometry: { x: 20, y: 12, height: 18 },
+        sourceLocator: {
+          href,
+          sourcePoint: { nodePath: [0, 1], textOffset: address.charIndex },
+        },
       },
     },
-  });
+    address.pageIndex,
+  );
 }
 
 function versionedCaretResolution(
   resolution: CoreTextCaretResponse['resolution'],
+  pageIndex = 0,
 ): CoreVersioned<CoreTextCaretResponse> {
   return {
     revision: handle(),
-    value: { revisionId: 'rev', pageIndex: 0, spreadIndex: 0, resolution },
+    value: { revisionId: 'rev', pageIndex, spreadIndex: pageIndex, resolution },
   };
 }
 
@@ -267,11 +346,21 @@ function resolvedRange(
         start,
         end,
         selectedText: 'selected',
+        sourceSpan: {
+          start: {
+            href: 'chapter.xhtml',
+            sourcePoint: { nodePath: [0, 1], textOffset: start.charIndex },
+          },
+          end: {
+            href: 'chapter.xhtml',
+            sourcePoint: { nodePath: [0, 1], textOffset: end.charIndex },
+          },
+        },
         sourceLocator: {
           href: 'chapter.xhtml',
           sourceRange: {
-            start: { nodePath: [0, 1], textOffset: 2 },
-            end: { nodePath: [0, 1], textOffset: 8 },
+            start: { nodePath: [0, 1], textOffset: start.charIndex },
+            end: { nodePath: [0, 1], textOffset: end.charIndex },
           },
         },
         rects: [
@@ -312,6 +401,55 @@ function versionedRangeToPoint(
         range: range.resolution.range,
       },
     },
+  };
+}
+
+function crossResourceRange(
+  anchor: CoreTextCaretAddress,
+  focus: CoreTextCaretAddress,
+): CoreTextRangeResponse {
+  return {
+    revisionId: 'rev',
+    resolution: {
+      status: 'resolved',
+      range: {
+        anchor,
+        focus,
+        start: anchor,
+        end: focus,
+        selectedText: 'selected across chapters',
+        sourceSpan: {
+          start: {
+            href: 'chapter.xhtml',
+            sourcePoint: { nodePath: [0, 1], textOffset: anchor.charIndex },
+          },
+          end: {
+            href: 'next.xhtml',
+            sourcePoint: { nodePath: [0, 1], textOffset: focus.charIndex },
+          },
+        },
+        rects: [
+          exactRect(anchor.pageIndex, anchor.charIndex, anchor.charIndex + 1),
+          exactRect(focus.pageIndex, 0, focus.charIndex),
+        ],
+      },
+    },
+  };
+}
+
+function exactRect(pageIndex: number, startCharIndex: number, endCharIndex: number) {
+  return {
+    pageIndex,
+    spreadIndex: pageIndex,
+    x: 10,
+    y: 12,
+    width: 30,
+    height: 18,
+    blockIndex: 0,
+    lineIndex: 0,
+    runIndex: 0,
+    startCharIndex,
+    endCharIndex,
   };
 }
 

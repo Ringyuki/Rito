@@ -6,7 +6,11 @@ use crate::interaction::text::{
 };
 use crate::layout::LogicalTextFlow;
 
-use super::{adjacent_index, boundary, focus_line, line_direction, line_ranges, FocusMovement};
+use super::{
+    adjacent_index, boundary,
+    line::{focus_line, line_direction, line_ranges, LineRange},
+    FocusMovement,
+};
 use crate::interaction::text::movement::context::{MovementCaret, MovementDirection};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -94,7 +98,7 @@ fn move_horizontal(
         granularity,
         &mut words,
     ) {
-        return Ok(FocusMovement::Resolved(target, None));
+        return Ok(FocusMovement::Resolved(target, None, None));
     }
     cross_line(
         positions,
@@ -109,7 +113,7 @@ fn move_horizontal(
 
 fn cross_line(
     positions: &[MovementCaret],
-    lines: &[super::LineRange],
+    lines: &[LineRange],
     current: usize,
     right: bool,
     direction: MovementDirection,
@@ -133,7 +137,7 @@ fn cross_line(
             granularity,
             words,
         ) {
-            return Ok(FocusMovement::Resolved(target, None));
+            return Ok(FocusMovement::Resolved(target, None, None));
         }
         line_index = next;
     }
@@ -141,7 +145,7 @@ fn cross_line(
 
 fn nearest_horizontal_caret(
     positions: &[MovementCaret],
-    line: &super::LineRange,
+    line: &LineRange,
     focus_x: f64,
     right: bool,
     direction: MovementDirection,
@@ -168,7 +172,7 @@ fn nearest_horizontal_caret(
 
 fn line_entry_caret(
     positions: &[MovementCaret],
-    line: &super::LineRange,
+    line: &LineRange,
     document_forward: bool,
     right: bool,
     direction: MovementDirection,

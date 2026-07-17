@@ -2,25 +2,33 @@ use std::sync::Arc;
 
 use crate::layout::LogicalTextFlow;
 
-use super::context::{same_flow, MovementCaret, MovementDirection, PositionGroup};
+use super::context::{same_flow, MovementCaret, PositionGroup};
 use crate::interaction::text::{
-    collect::CollectedTextRun, paragraph_selection::paragraph_bounds,
-    TextInteractionUnavailableReason, TextSelectionBoundary, TextSelectionMovement,
+    collect::CollectedTextRun, paragraph_selection::paragraph_bounds, LayoutTextPageRange,
+    LayoutTextSelectionMovementTarget, TextInteractionUnavailableReason, TextSelectionBoundary,
+    TextSelectionMovement,
 };
 
 mod horizontal;
+mod line;
+mod page;
 
 use horizontal::move_horizontal_focus;
-
-struct LineRange {
-    key: (usize, usize, usize),
-    start: usize,
-    end: usize,
-}
+use line::{move_line, move_line_boundary};
+use page::move_page_focus;
 
 pub(super) enum FocusMovement {
-    Resolved(MovementCaret, Option<f64>),
+    Resolved(MovementCaret, Option<f64>, Option<f64>),
     Boundary(TextSelectionBoundary),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(super) struct FocusMovementInput<'a> {
+    pub(super) movement: TextSelectionMovement,
+    pub(super) language: Option<&'a str>,
+    pub(super) preferred_inline_position: Option<f64>,
+    pub(super) preferred_block_position: Option<f64>,
+    pub(super) target: LayoutTextSelectionMovementTarget,
 }
 
 pub(super) fn move_focus(
@@ -28,86 +36,78 @@ pub(super) fn move_focus(
     positions: &[MovementCaret],
     groups: &[PositionGroup],
     focus: &MovementCaret,
-    movement: TextSelectionMovement,
-    language: Option<&str>,
-    preferred_inline_position: Option<f64>,
+    input: FocusMovementInput<'_>,
 ) -> Result<FocusMovement, TextInteractionUnavailableReason> {
-    match movement {
+    match input.movement {
         TextSelectionMovement::CharacterLeft
         | TextSelectionMovement::CharacterRight
         | TextSelectionMovement::WordLeft
         | TextSelectionMovement::WordRight
         | TextSelectionMovement::WordStartRight => {
-            move_horizontal_focus(positions, focus, movement, language)
+            move_horizontal_focus(positions, focus, input.movement, input.language)
         }
-        TextSelectionMovement::LineUp => {
-            move_line(positions, focus, false, preferred_inline_position)
+        TextSelectionMovement::LineUp | TextSelectionMovement::LineDown => {
+            let down = input.movement == TextSelectionMovement::LineDown;
+            move_line(positions, focus, down, input.preferred_inline_position)
         }
-        TextSelectionMovement::LineDown => {
-            move_line(positions, focus, true, preferred_inline_position)
+        TextSelectionMovement::LineStart | TextSelectionMovement::LineEnd => {
+            let end = input.movement == TextSelectionMovement::LineEnd;
+            move_line_boundary(positions, focus, end)
         }
-        TextSelectionMovement::LineStart => move_line_boundary(positions, focus, false),
-        TextSelectionMovement::LineEnd => move_line_boundary(positions, focus, true),
-        TextSelectionMovement::ParagraphBackward => move_paragraph(runs, groups, focus, false),
-        TextSelectionMovement::ParagraphForward => move_paragraph(runs, groups, focus, true),
-        TextSelectionMovement::ParagraphPreviousStart => {
-            move_adjacent_paragraph_start(runs, groups, focus, false)
+        TextSelectionMovement::PageUp | TextSelectionMovement::PageDown => {
+            move_page_target(positions, focus, input)
         }
-        TextSelectionMovement::ParagraphNextStart => {
-            move_adjacent_paragraph_start(runs, groups, focus, true)
+        TextSelectionMovement::ParagraphBackward | TextSelectionMovement::ParagraphForward => {
+            let forward = input.movement == TextSelectionMovement::ParagraphForward;
+            move_paragraph(runs, groups, focus, forward)
         }
-        TextSelectionMovement::ChapterStart => move_chapter(groups, focus, false),
-        TextSelectionMovement::ChapterEnd => move_chapter(groups, focus, true),
+        TextSelectionMovement::ParagraphPreviousStart
+        | TextSelectionMovement::ParagraphNextStart => {
+            let forward = input.movement == TextSelectionMovement::ParagraphNextStart;
+            move_adjacent_paragraph_start(runs, groups, focus, forward)
+        }
+        TextSelectionMovement::ChapterStart | TextSelectionMovement::DocumentStart => {
+            move_scope_target(groups, focus, input.target, false)
+        }
+        TextSelectionMovement::ChapterEnd | TextSelectionMovement::DocumentEnd => {
+            move_scope_target(groups, focus, input.target, true)
+        }
     }
 }
 
-fn move_line(
+fn move_page_target(
     positions: &[MovementCaret],
     focus: &MovementCaret,
-    down: bool,
-    preferred_inline_position: Option<f64>,
+    input: FocusMovementInput<'_>,
 ) -> Result<FocusMovement, TextInteractionUnavailableReason> {
-    let lines = line_ranges(positions);
-    let current = focus_line(&lines, focus)?;
-    line_direction(positions, &lines[current])?;
-    let Some(target_line) = adjacent_index(current, lines.len(), down) else {
-        return Ok(FocusMovement::Boundary(boundary(down)));
-    };
-    let preferred = preferred_inline_position.unwrap_or(focus.caret.geometry.x);
-    let line = &lines[target_line];
-    line_direction(positions, line)?;
-    let target = positions[line.start..line.end]
-        .iter()
-        .min_by(|left, right| {
-            (left.caret.geometry.x - preferred)
-                .abs()
-                .total_cmp(&(right.caret.geometry.x - preferred).abs())
-        })
-        .cloned()
-        .ok_or(TextInteractionUnavailableReason::VisualGeometryUnavailable)?;
-    Ok(FocusMovement::Resolved(target, Some(preferred)))
+    match input.target {
+        LayoutTextSelectionMovementTarget::Page(target) => move_page_focus(
+            positions,
+            focus,
+            target,
+            input.movement == TextSelectionMovement::PageDown,
+            input.preferred_inline_position,
+            input.preferred_block_position,
+        ),
+        LayoutTextSelectionMovementTarget::Boundary { boundary, .. } => {
+            Ok(FocusMovement::Boundary(boundary))
+        }
+        LayoutTextSelectionMovementTarget::Scope(_) => {
+            Err(TextInteractionUnavailableReason::InvalidCaret)
+        }
+    }
 }
 
-fn move_line_boundary(
-    positions: &[MovementCaret],
+fn move_scope_target(
+    groups: &[PositionGroup],
     focus: &MovementCaret,
+    target: LayoutTextSelectionMovementTarget,
     end: bool,
 ) -> Result<FocusMovement, TextInteractionUnavailableReason> {
-    let lines = line_ranges(positions);
-    let line = &lines[focus_line(&lines, focus)?];
-    line_direction(positions, line)?;
-    let target = if end {
-        positions[line.start..line.end].last()
-    } else {
-        positions[line.start..line.end].first()
-    }
-    .cloned()
-    .ok_or(TextInteractionUnavailableReason::VisualGeometryUnavailable)?;
-    if equivalent_position(&target, focus) {
-        Ok(FocusMovement::Boundary(boundary(end)))
-    } else {
-        Ok(FocusMovement::Resolved(target, None))
-    }
+    let LayoutTextSelectionMovementTarget::Scope(scope) = target else {
+        return Err(TextInteractionUnavailableReason::InvalidCaret);
+    };
+    move_scope(groups, focus, scope, end)
 }
 
 fn move_paragraph(
@@ -140,6 +140,7 @@ fn move_paragraph(
     Ok(FocusMovement::Resolved(
         directional_caret(group, forward),
         None,
+        None,
     ))
 }
 
@@ -167,82 +168,63 @@ fn move_adjacent_paragraph_start(
     Ok(FocusMovement::Resolved(
         directional_caret(group, forward),
         None,
+        None,
     ))
 }
 
-fn move_chapter(
+fn move_scope(
     groups: &[PositionGroup],
     focus: &MovementCaret,
+    scope: LayoutTextPageRange,
     end: bool,
 ) -> Result<FocusMovement, TextInteractionUnavailableReason> {
-    focus_group(groups, focus)?;
-    let target = if end { groups.last() } else { groups.first() }
-        .ok_or(TextInteractionUnavailableReason::SourceUnavailable)?;
+    if !scope_contains(scope, focus.caret.address.page_index) {
+        return Err(TextInteractionUnavailableReason::InvalidCaret);
+    }
+    let mut scoped = groups.iter().filter(|group| {
+        group
+            .carets
+            .iter()
+            .any(|caret| scope_contains(scope, caret.caret.address.page_index))
+    });
+    let target = if end {
+        scoped.next_back()
+    } else {
+        scoped.next()
+    }
+    .ok_or(TextInteractionUnavailableReason::SourceUnavailable)?;
     if same_flow(&target.flow, &focus.flow) && target.logical_offset == focus.logical_offset {
         Ok(FocusMovement::Boundary(boundary(end)))
     } else {
         Ok(FocusMovement::Resolved(
-            directional_caret(target, end),
+            directional_caret_in_scope(target, scope, end)?,
+            None,
             None,
         ))
     }
 }
 
-fn line_ranges(positions: &[MovementCaret]) -> Vec<LineRange> {
-    let mut lines: Vec<LineRange> = Vec::new();
-    for (index, position) in positions.iter().enumerate() {
-        let address = position.caret.address;
-        let key = (address.page_index, address.block_index, address.line_index);
-        if let Some(line) = lines.last_mut().filter(|line| line.key == key) {
-            line.end = index + 1;
-        } else {
-            lines.push(LineRange {
-                key,
-                start: index,
-                end: index + 1,
-            });
-        }
-    }
-    lines
-}
-
-fn line_direction(
-    positions: &[MovementCaret],
-    line: &LineRange,
-) -> Result<MovementDirection, TextInteractionUnavailableReason> {
-    let mut candidates = positions[line.start..line.end].iter();
-    let direction = candidates
-        .next()
-        .map(|candidate| candidate.direction)
-        .ok_or(TextInteractionUnavailableReason::ShapeUnavailable)?;
-    candidates
-        .all(|candidate| candidate.direction == direction)
-        .then_some(direction)
-        .ok_or(TextInteractionUnavailableReason::ShapeUnavailable)
-}
-
-fn focus_line(
-    lines: &[LineRange],
-    focus: &MovementCaret,
-) -> Result<usize, TextInteractionUnavailableReason> {
-    let address = focus.caret.address;
-    let key = (address.page_index, address.block_index, address.line_index);
-    lines
+fn directional_caret_in_scope(
+    group: &PositionGroup,
+    scope: LayoutTextPageRange,
+    forward: bool,
+) -> Result<MovementCaret, TextInteractionUnavailableReason> {
+    let mut carets = group
+        .carets
         .iter()
-        .position(|line| line.key == key)
-        .ok_or(TextInteractionUnavailableReason::InvalidCaret)
+        .filter(|caret| scope_contains(scope, caret.caret.address.page_index));
+    let caret = if forward {
+        carets.next()
+    } else {
+        carets.next_back()
+    };
+    caret
+        .cloned()
+        .ok_or(TextInteractionUnavailableReason::SourceUnavailable)
 }
 
-fn focus_group(
-    groups: &[PositionGroup],
-    focus: &MovementCaret,
-) -> Result<usize, TextInteractionUnavailableReason> {
-    groups
-        .iter()
-        .position(|group| {
-            same_flow(&group.flow, &focus.flow) && group.logical_offset == focus.logical_offset
-        })
-        .ok_or(TextInteractionUnavailableReason::InvalidCaret)
+fn scope_contains(scope: LayoutTextPageRange, page_index: usize) -> bool {
+    scope.first_page <= page_index && page_index <= scope.last_page
 }
 
 fn ordered_flows(groups: &[PositionGroup]) -> Vec<Arc<LogicalTextFlow>> {
@@ -271,10 +253,6 @@ fn adjacent_index(index: usize, len: usize, forward: bool) -> Option<usize> {
     } else {
         index.checked_sub(1)
     }
-}
-
-fn equivalent_position(left: &MovementCaret, right: &MovementCaret) -> bool {
-    same_flow(&left.flow, &right.flow) && left.logical_offset == right.logical_offset
 }
 
 fn boundary(forward: bool) -> TextSelectionBoundary {

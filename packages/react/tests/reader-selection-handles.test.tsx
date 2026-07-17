@@ -235,6 +235,10 @@ function selectionEvent(
         end: { nodePath: [0], textOffset: 4 },
       },
     },
+    sourceSpan: {
+      start: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 0 } },
+      end: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 4 } },
+    },
     hasSelection: true,
     text: 'text',
     rects: [{ x: 10, y: 10, width: 30, height: 10 }],

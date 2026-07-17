@@ -41,12 +41,12 @@ export function point(x: number) {
   return { pageIndex: 0, x, y: 10 };
 }
 
-export function caret(textOffset: number, pageIndex = 0): ReaderTextCaret {
+export function caret(textOffset: number, pageIndex = 0, href = 'chapter.xhtml'): ReaderTextCaret {
   return {
     pageIndex,
     geometry: { x: textOffset, y: 0, height: 18 },
     sourceLocator: {
-      href: 'chapter.xhtml',
+      href,
       sourcePoint: { nodePath: [0], textOffset },
     },
   } as unknown as ReaderTextCaret;
@@ -66,19 +66,29 @@ export function exactRange(
   const end = direction === 'forward' ? focus : anchor;
   const startOffset = start.sourceLocator.sourcePoint?.textOffset ?? 0;
   const endOffset = end.sourceLocator.sourcePoint?.textOffset ?? startOffset;
+  const startHref = start.sourceLocator.href;
+  const endHref = end.sourceLocator.href;
+  const startPoint = { nodePath: [0], textOffset: startOffset };
+  const endPoint = { nodePath: [0], textOffset: endOffset };
   return {
     anchor,
     focus,
     start,
     end,
     selectedText: text,
-    sourceLocator: {
-      href: 'chapter.xhtml',
-      sourceRange: {
-        start: { nodePath: [0], textOffset: startOffset },
-        end: { nodePath: [0], textOffset: endOffset },
+    sourceSpan: {
+      start: {
+        href: startHref,
+        sourcePoint: startPoint,
+      },
+      end: {
+        href: endHref,
+        sourcePoint: endPoint,
       },
     },
+    ...(startHref === endHref
+      ? { sourceLocator: { href: startHref, sourceRange: { start: startPoint, end: endPoint } } }
+      : {}),
     rects: [{ pageIndex: 0, spreadIndex: 0, x: 1, y: 2, width: 30, height: 18 }],
   };
 }

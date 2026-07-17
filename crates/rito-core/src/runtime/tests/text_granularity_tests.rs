@@ -62,20 +62,29 @@ fn runtime_point_range_uses_package_language_and_returns_exact_carets() {
     assert_eq!(range.selected_text, "EU:ssa");
     assert_eq!(range.anchor, anchor_caret.address);
     assert_eq!(range.focus, focus_caret.address);
-    assert_eq!(anchor_caret.source_locator.href, range.source_locator.href);
-    assert_eq!(focus_caret.source_locator.href, range.source_locator.href);
+    let source_locator = range
+        .source_locator
+        .as_ref()
+        .expect("single-resource range keeps its compatible locator");
+    assert_eq!(anchor_caret.source_locator.href, source_locator.href);
+    assert_eq!(focus_caret.source_locator.href, source_locator.href);
     let source_range = range
         .source_locator
+        .as_ref()
+        .expect("single-resource range keeps its compatible locator")
         .source_range
+        .as_ref()
         .expect("resolved range has durable source endpoints");
     assert_eq!(
-        anchor_caret.source_locator.source_point,
-        Some(source_range.start)
+        anchor_caret.source_locator.source_point.as_ref(),
+        Some(&source_range.start)
     );
     assert_eq!(
-        focus_caret.source_locator.source_point,
-        Some(source_range.end)
+        focus_caret.source_locator.source_point.as_ref(),
+        Some(&source_range.end)
     );
+    assert_eq!(range.source_span.start.source_point, source_range.start);
+    assert_eq!(range.source_span.end.source_point, source_range.end);
     assert_ne!(anchor_caret.geometry.x, point.x);
     assert_ne!(focus_caret.geometry.x, point.x);
 }
@@ -130,6 +139,8 @@ fn runtime_paragraph_excludes_source_whitespace_trimmed_by_layout() {
     assert_eq!(focus_caret.address.block_index, 0);
     let source_range = range
         .source_locator
+        .as_ref()
+        .expect("single-resource range keeps its compatible locator")
         .source_range
         .as_ref()
         .expect("paragraph owns an exact source range");

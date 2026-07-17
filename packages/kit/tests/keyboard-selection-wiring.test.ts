@@ -75,6 +75,20 @@ describe('keyboard selection wiring ownership', () => {
     expect(fixture.claimSelectionIntent).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['PageUp', 'pageUp'],
+    ['PageDown', 'pageDown'],
+  ] as const)('owns Shift+%s before spread navigation and issues %s', async (key, movement) => {
+    const fixture = createFixture([Promise.resolve(endBoundary())]);
+
+    fixture.focus();
+    const event = fixture.press(key);
+    await flushMicrotasks();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fixture.begin).toHaveBeenCalledWith(movement);
+  });
+
   it('retries a pending movement after an incomplete revision commits a complete final miss', async () => {
     const fixture = createFixture(
       [Promise.resolve(pendingEnd()), Promise.resolve(endBoundary())],

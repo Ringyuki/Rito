@@ -59,6 +59,7 @@ export type SelectionAccessorsSlice = Pick<
   | 'selectionText'
   | 'selectionRange'
   | 'selectionSourceLocator'
+  | 'selectionSourceSpan'
   | 'beginSelectionHandleDrag'
 >;
 export type AnnotationActionsSlice = Pick<

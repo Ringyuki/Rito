@@ -174,6 +174,9 @@ async function resolveTextSelectionMovement(
       ...(request.preferredInlinePosition === undefined
         ? {}
         : { preferredInlinePosition: request.preferredInlinePosition }),
+      ...(request.preferredBlockPosition === undefined
+        ? {}
+        : { preferredBlockPosition: request.preferredBlockPosition }),
     }),
   );
   if (!value) return undefined;
@@ -212,6 +215,9 @@ function mapMovementResolution(
     ...(resolution.preferredInlinePosition === undefined
       ? {}
       : { preferredInlinePosition: resolution.preferredInlinePosition }),
+    ...(resolution.preferredBlockPosition === undefined
+      ? {}
+      : { preferredBlockPosition: resolution.preferredBlockPosition }),
   };
 }
 

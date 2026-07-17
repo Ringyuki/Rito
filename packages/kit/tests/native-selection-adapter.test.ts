@@ -579,6 +579,34 @@ describe('native SelectionEngine adapter', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it('exposes cross-resource source endpoints without synthesizing a locator', async () => {
+    const anchor = caret(1, 0, 'chapter.xhtml');
+    const focus = caret(5, 1, 'next.xhtml');
+    const sameResource = exactRange(anchor, focus);
+    const { sourceLocator: _sourceLocator, ...crossResource } = sameResource;
+    const range: ReaderTextRange = {
+      ...crossResource,
+      sourceSpan: {
+        start: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 1 } },
+        end: { href: 'next.xhtml', sourcePoint: { nodePath: [0], textOffset: 5 } },
+      },
+    };
+    const capability = capabilityWithRangeToPoint({
+      resolveCaret: vi.fn(),
+      resolveTextRange: vi.fn(),
+      resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+    });
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, projection);
+
+    engine.handlePointerDown({ x: 1, y: 10 }, 'paragraph');
+    engine.handlePointerUp({ x: 1, y: 10 });
+    await flushMicrotasks();
+
+    expect(engine.getSourceSpan()).toEqual(range.sourceSpan);
+    expect(engine.getSourceLocator()).toBeNull();
+  });
+
   it('does not synthesize exact handle carets for the legacy layout path', () => {
     expect(createSelectionEngine().getHandleCarets()).toBeNull();
   });
@@ -597,6 +625,10 @@ function exactRange(
     start,
     end,
     selectedText: 'exact text',
+    sourceSpan: {
+      start: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 10 } },
+      end: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 40 } },
+    },
     sourceLocator: {
       href: 'chapter.xhtml',
       sourceRange: {

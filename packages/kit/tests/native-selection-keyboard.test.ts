@@ -58,6 +58,51 @@ describe('native exact keyboard selection', () => {
     second?.finish();
   });
 
+  it('carries the committed page-local x and y across page movements', async () => {
+    const anchor = caret(2);
+    const initialFocus = caret(6);
+    const nextFocus = caret(9);
+    const finalFocus = caret(12);
+    const resolveMovement = vi
+      .fn<NonNullable<ReaderTextSelectionInteractions['resolveTextSelectionMovement']>>()
+      .mockResolvedValueOnce({
+        status: 'resolved',
+        range: exactRange(anchor, nextFocus, 'forward', 'first page'),
+        preferredInlinePosition: 41,
+        preferredBlockPosition: 73,
+      })
+      .mockResolvedValueOnce({
+        status: 'resolved',
+        range: exactRange(anchor, finalFocus, 'forward', 'second page'),
+        preferredInlinePosition: 41,
+        preferredBlockPosition: 73,
+      });
+    const engine = await selectedEngine(anchor, initialFocus, resolveMovement);
+
+    const first = engine.beginKeyboardMovement('pageDown');
+    await first?.result;
+    expect(first?.commit()).toBe(true);
+    first?.finish();
+    const second = engine.beginKeyboardMovement('pageDown');
+    await second?.result;
+
+    expect(resolveMovement).toHaveBeenNthCalledWith(1, {
+      anchor,
+      focus: initialFocus,
+      movement: 'pageDown',
+    });
+    expect(resolveMovement).toHaveBeenNthCalledWith(2, {
+      anchor,
+      focus: nextFocus,
+      movement: 'pageDown',
+      preferredInlinePosition: 41,
+      preferredBlockPosition: 73,
+    });
+    expect(second?.commit()).toBe(true);
+    second?.finish();
+    expect(engine.getSnapshot()?.range.focus).toBe(finalFocus);
+  });
+
   it('retains a collapsed shaped range so a later reverse movement can cross the anchor', async () => {
     const anchor = caret(4);
     const focus = caret(7);

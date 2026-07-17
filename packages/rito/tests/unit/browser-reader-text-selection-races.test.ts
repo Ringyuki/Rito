@@ -312,6 +312,16 @@ function versionedRange(
           start: anchor,
           end: focus,
           selectedText: 'text',
+          sourceSpan: {
+            start: {
+              href: 'chapter.xhtml',
+              sourcePoint: { nodePath: [0], textOffset: anchor.charIndex },
+            },
+            end: {
+              href: 'chapter.xhtml',
+              sourcePoint: { nodePath: [0], textOffset: focus.charIndex },
+            },
+          },
           sourceLocator: {
             href: 'chapter.xhtml',
             sourceRange: {

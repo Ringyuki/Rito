@@ -82,6 +82,7 @@ function handlePointerDown(
   if (data.state === 'disposed') return;
   data.keyboardSession = undefined;
   data.keyboardPreferredInlinePosition = undefined;
+  data.keyboardPreferredBlockPosition = undefined;
   requireNativeSelectionPoint(point);
   const anchorPoint = copyNativeSelectionPoint(point);
   const session = createNativeSelectionGestureSession(data, granularity, anchorPoint);

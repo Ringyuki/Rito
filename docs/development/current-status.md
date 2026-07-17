@@ -953,10 +953,14 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      supersede newer navigation or portable-position work. Canvas-focused keyboard selection
      now serializes native movement commands, preserves a fixed anchor and collapsed caret
      continuity, retries an append-staled read, retains sticky line x, and transfers the exact
-     gesture through lazy chapter-tail growth without stealing a newer navigation intent.
-     Real Worker/Canvas acceptance covers character expansion/contraction, platform word
-     movement and lazy cross-spread chapter-end reveal. `Shift+PageUp/PageDown` and
-     cross-chapter document edges remain. The
+     gesture through lazy publication growth without stealing a newer navigation intent.
+     Platform PageUp/PageDown extension moves one visible spread, preserves its left/right page
+     slot and sticky page-local x/y, and reveals lazily published focus spreads. Document-edge
+     movement now crosses chapter resources, returns a durable resource-qualified source span,
+     and remains shrinkable with subsequent character movement; the single-resource locator is
+     retained only when it is exact, so cross-resource annotation fails closed. Real
+     Worker/Canvas acceptance covers character expansion/contraction, platform word movement,
+     lazy spread movement and cross-chapter document edges. The
      correctness-complete ICU auto constructor adds approximately
      2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli to the release WASM and raises its
      initial linear memory from 23 to 60 pages. Dictionary-only is larger, while
@@ -1068,13 +1072,7 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the remaining host-native selection behavior: `Shift+PageUp/PageDown` and
-   cross-chapter document-boundary keyboard extension. Exact touch handles, primary drags and
-   character/word/line/paragraph/chapter keyboard movement now cover same-revision and lazy-growth
-   cross-revision spread edges; cross-flow and reverse-direction
-   exact selection/copy, pointer-up persistence, word/paragraph granularity and
-   link-preview chapter context are now green in production-path Reader E2E.
-2. Make the existing latency and memory gates green without weakening their limits. The
+1. Make the existing latency and memory gates green without weakening their limits. The
    cancellation/disposal protocol is already green; investigate the main-thread
    Canvas/frame presentation long tasks and the replacement backing-store
    high-water that currently fail the latency and memory gates. Include the ICU
@@ -1084,11 +1082,11 @@ Work in roadmap order:
    rescan retained chapter runs and recompute ICU boundaries today; measure that
    path and add revision-scoped indexes/caches only when the latency data calls for
    them.
-3. Move the publication-wide footnote scan inside a measured source-index
+2. Move the publication-wide footnote scan inside a measured source-index
    budget.
-4. Replace eager completed-layout search with a durable publication source index
+3. Replace eager completed-layout search with a durable publication source index
    while retaining the implemented lazy, fail-closed exact-source geometry.
-5. Continue the default-Greedy hard bound by addressing the remaining
+4. Continue the default-Greedy hard bound by addressing the remaining
    per-command nested JSON and flat-allocation frame residuals, the document-wide
    chapter-text-index and font/catalog owners that still bypass scheduled
    revision or active-continuation cleanup, and transient configuration owners
@@ -1107,9 +1105,9 @@ Work in roadmap order:
    eager/bounded final equivalence. Measurement and shaping stages are already
    scheduled resumably, although each underlying font call remains
    indivisible.
-6. Reduce remaining browser session policy to explicit core-requested host
+5. Reduce remaining browser session policy to explicit core-requested host
    operations.
-7. Build the pinned WebView/DOM reference harness and declare the baseline
+6. Build the pinned WebView/DOM reference harness and declare the baseline
    transition before broad display or performance work resumes.
 
 ## Immediate Remaining Implementation Plan
@@ -1122,10 +1120,11 @@ touch long press, and both now pass production-path input E2E. Exact touch handl
 Core endpoints, Kit-owned epoch sessions and React DOM pointer capture; their edge dwell
 now continues across already-published spreads and append-only bounded revision growth.
 Keyboard selection now retains an exact fixed-anchor session through character, platform word and
-paragraph, sticky visual-line, line-edge and same-chapter-edge movement, including known and
-lazy-grown spread reveal. End-user interaction parity still needs `Shift+PageUp/PageDown` and
-cross-chapter document edges. Primary mouse, pen and touch long-press drags likewise retain an
-exact session through known and lazy-grown spread-edge navigation. Greedy
+paragraph, sticky visual-line, line-edge, visible-spread and document-edge movement, including
+known and lazy-grown spread reveal. Cross-chapter ranges carry a durable resource-qualified source
+span while preserving the legacy exact locator only for a single resource; cross-resource
+annotation remains deliberately unavailable. Primary mouse, pen and touch long-press drags
+likewise retain an exact session through known and lazy-grown spread-edge navigation. Greedy
 leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A
 pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,

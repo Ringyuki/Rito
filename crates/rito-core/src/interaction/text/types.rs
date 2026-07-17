@@ -19,12 +19,16 @@ pub enum TextSelectionMovement {
     LineDown,
     LineStart,
     LineEnd,
+    PageUp,
+    PageDown,
     ParagraphBackward,
     ParagraphForward,
     ParagraphPreviousStart,
     ParagraphNextStart,
     ChapterStart,
     ChapterEnd,
+    DocumentStart,
+    DocumentEnd,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -118,6 +122,21 @@ pub(crate) struct LayoutTextPageRange {
     pub(crate) last_page: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LayoutTextPageTarget {
+    pub(crate) page_index: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LayoutTextSelectionMovementTarget {
+    Scope(LayoutTextPageRange),
+    Page(LayoutTextPageTarget),
+    Boundary {
+        boundary: TextSelectionBoundary,
+        scope: LayoutTextPageRange,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct LayoutTextRangeFromPoints {
     pub(crate) anchor_caret: LayoutTextCaret,
@@ -157,6 +176,7 @@ pub(crate) struct LayoutTextSelectionMovement {
     pub(crate) focus_caret: LayoutTextCaret,
     pub(crate) range: Box<LayoutExactTextRange>,
     pub(crate) preferred_inline_position: Option<f64>,
+    pub(crate) preferred_block_position: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

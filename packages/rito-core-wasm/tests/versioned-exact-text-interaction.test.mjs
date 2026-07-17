@@ -7,6 +7,7 @@ import {
   caretAddress,
   caretResponse,
   caretTransport,
+  crossResourceRangeResponse,
   exactRect,
   handle,
   ManualWorker,
@@ -82,7 +83,23 @@ test('worker client rejects malformed exact requests before dispatch', async () 
         handle(),
         movementRequest({ movement: 'wordStartRight', preferredInlinePosition: 28 }),
       ),
-    /preferredInlinePosition is only valid for line movements/,
+    /preferredInlinePosition is only valid for vertical movements/,
+  );
+  assert.throws(
+    () =>
+      client.resolveTextSelectionMovementAtRevision(
+        handle(),
+        movementRequest({ movement: 'lineDown', preferredBlockPosition: 44 }),
+      ),
+    /preferredBlockPosition is only valid for page movements/,
+  );
+  assert.throws(
+    () =>
+      client.resolveTextSelectionMovementAtRevision(
+        handle(),
+        movementRequest({ movement: 'pageDown', preferredBlockPosition: Number.NaN }),
+      ),
+    /preferredBlockPosition must be finite/,
   );
   assert.equal(worker.messages.length, count);
   client.dispose();
@@ -123,14 +140,21 @@ test('worker client strictly binds exact selection movement requests and respons
       (resolution) => {
         resolution.preferredInlinePosition = Number.POSITIVE_INFINITY;
       },
-      /preferredInlinePosition for a non-line movement/,
+      /preferredInlinePosition for a non-vertical movement/,
     ),
     movementMutation(
       movementRequest({ movement: 'lineDown' }),
       (resolution) => {
         delete resolution.preferredInlinePosition;
       },
-      /line movement did not return preferredInlinePosition/,
+      /vertical movement did not return preferredInlinePosition/,
+    ),
+    movementMutation(
+      movementRequest({ movement: 'pageDown' }),
+      (resolution) => {
+        delete resolution.preferredBlockPosition;
+      },
+      /page movement did not return preferredBlockPosition/,
     ),
     movementCase(
       movementTransport(request, {
@@ -193,6 +217,15 @@ test('worker client strictly binds exact selection movement requests and respons
     'preferredInlinePosition' in (await pendingWithoutStickyPosition).value.resolution,
     false,
   );
+
+  const pageRequest = movementRequest({ movement: 'pageDown' });
+  const pendingPage = client.resolveTextSelectionMovementAtRevision(handle(), pageRequest);
+  worker.respondLast({
+    kind: 'resolveTextSelectionMovementAtRevision',
+    revision: handle(),
+    result: movementTransport(pageRequest, movementResponse(pageRequest)),
+  });
+  assert.deepEqual((await pendingPage).value.resolution, movementResponse(pageRequest).resolution);
   client.dispose();
 });
 
@@ -266,6 +299,7 @@ test('worker client strictly binds granular point-range requests, endpoints, and
     pointRangeMutation(
       request,
       (resolution) => {
+        resolution.range.sourceSpan.start.sourcePoint.textOffset = 2;
         resolution.range.sourceLocator.sourceRange.start.textOffset = 2;
       },
       /source endpoints unrelated/,
@@ -522,7 +556,21 @@ test('worker client rejects forged text-range endpoint, source, and rect semanti
           progression: 0.5,
         };
       },
-      /exact source range/,
+      /incompatible exact source locator/,
+    ),
+    rangeMutation(
+      request,
+      (range) => {
+        delete range.sourceLocator;
+      },
+      /incompatible exact source locator/,
+    ),
+    rangeMutation(
+      request,
+      (range) => {
+        range.sourceSpan.end.href = 'Text/next.xhtml';
+      },
+      /source locator for a cross-resource source span/,
     ),
     rangeMutation(
       request,
@@ -549,6 +597,25 @@ test('worker client rejects forged text-range endpoint, source, and rect semanti
     });
     await assert.rejects(pending, fixture.pattern);
   }
+  client.dispose();
+});
+
+test('worker client preserves a cross-resource source span and omits the legacy locator', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+  const request = rangeRequest();
+  const response = crossResourceRangeResponse(request);
+  const pending = client.resolveTextRangeAtRevision(handle(), request);
+  worker.respondLast({
+    kind: 'resolveTextRangeAtRevision',
+    revision: handle(),
+    result: rangeTransport(request, response),
+  });
+
+  const result = await pending;
+
+  assert.deepEqual(result.value.resolution.range.sourceSpan, response.resolution.range.sourceSpan);
+  assert.equal('sourceLocator' in result.value.resolution.range, false);
   client.dispose();
 });
 

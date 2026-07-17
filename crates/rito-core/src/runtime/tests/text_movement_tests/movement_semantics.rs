@@ -25,6 +25,7 @@ fn line_end_at_a_retained_line_edge_is_not_pending() {
                 focus: anchor,
                 movement: TextSelectionMovement::LineEnd,
                 preferred_inline_position: None,
+                preferred_block_position: None,
             },
         )
         .expect("the retained line end resolves");
@@ -42,6 +43,7 @@ fn line_end_at_a_retained_line_edge_is_not_pending() {
                 focus: focus_caret.address,
                 movement: TextSelectionMovement::LineEnd,
                 preferred_inline_position: None,
+                preferred_block_position: None,
             },
         )
         .expect("the known line boundary returns a typed result");
@@ -71,6 +73,7 @@ fn incomplete_chapter_end_rebinds_both_endpoints_before_pending() {
                     focus,
                     movement: TextSelectionMovement::ChapterEnd,
                     preferred_inline_position: None,
+                    preferred_block_position: None,
                 },
             )
             .expect("invalid retained caret returns a typed result");
@@ -117,6 +120,7 @@ fn word_movement_uses_the_package_language() {
                 focus: caret,
                 movement: TextSelectionMovement::WordRight,
                 preferred_inline_position: None,
+                preferred_block_position: None,
             },
         )
         .expect("Finnish word movement resolves");

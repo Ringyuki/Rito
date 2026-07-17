@@ -9,8 +9,7 @@ use super::{
 };
 use crate::{
     interaction::{
-        TextCaretAddress, TextCaretAffinity, TextInteractionUnavailableReason,
-        TextSelectionBoundary, TextSelectionMovement,
+        TextCaretAddress, TextCaretAffinity, TextSelectionBoundary, TextSelectionMovement,
     },
     layout::LineBreaking,
     runtime::{
@@ -22,6 +21,7 @@ use crate::{
 };
 
 mod movement_semantics;
+mod page_document;
 
 #[test]
 fn movement_contract_uses_optional_camel_case_positions_and_typed_pending() {
@@ -32,6 +32,7 @@ fn movement_contract_uses_optional_camel_case_positions_and_typed_pending() {
             focus: address,
             movement: TextSelectionMovement::WordStartRight,
             preferred_inline_position: None,
+            preferred_block_position: None,
         })
         .expect("movement request serializes"),
         json!({
@@ -76,6 +77,7 @@ fn paragraph_next_start_maps_an_incomplete_retained_tail_to_pending() {
                 focus: caret,
                 movement: TextSelectionMovement::ParagraphNextStart,
                 preferred_inline_position: None,
+                preferred_block_position: None,
             },
         )
         .expect("next retained paragraph start resolves");
@@ -92,6 +94,7 @@ fn paragraph_next_start_maps_an_incomplete_retained_tail_to_pending() {
                 focus: focus_caret.address,
                 movement: TextSelectionMovement::ParagraphNextStart,
                 preferred_inline_position: None,
+                preferred_block_position: None,
             },
         )
         .expect("unretained next paragraph returns a typed retained-tail result");
@@ -115,6 +118,7 @@ fn chapter_end_waits_for_the_retained_chapter_to_complete() {
                 focus: caret,
                 movement: TextSelectionMovement::ChapterEnd,
                 preferred_inline_position: None,
+                preferred_block_position: None,
             },
         )
         .expect("chapter end returns a typed retained-tail result");
@@ -141,6 +145,7 @@ fn character_right_maps_an_incomplete_retained_tail_to_pending() {
                     focus,
                     movement: TextSelectionMovement::CharacterRight,
                     preferred_inline_position: None,
+                    preferred_block_position: None,
                 },
             )
             .expect("character movement returns a typed result");
@@ -158,7 +163,7 @@ fn character_right_maps_an_incomplete_retained_tail_to_pending() {
 }
 
 #[test]
-fn movement_rejects_cross_chapter_endpoints_atomically() {
+fn character_left_continues_from_a_cross_chapter_selection() {
     let bytes = multi_chapter_fixture_epub();
     let mut document = pinned_document(&bytes, serif_text_font());
     let mut config = font_aware_layout();
@@ -170,24 +175,45 @@ fn movement_rejects_cross_chapter_endpoints_atomically() {
     let handle = RuntimeRevisionHandle::from(&revision);
     let anchor = caret_for_text(&document, &handle, "chapter one");
     let focus = caret_for_text(&document, &handle, "chapter two active window");
-    let response = document
+    let cross_chapter = document
         .resolve_text_selection_movement_at(
             &handle,
             RuntimeTextSelectionMovementRequest {
                 anchor,
                 focus,
-                movement: TextSelectionMovement::CharacterRight,
+                movement: TextSelectionMovement::ChapterStart,
                 preferred_inline_position: None,
+                preferred_block_position: None,
             },
         )
-        .expect("cross-chapter movement returns a typed result");
+        .expect("the focus moves to its chapter start");
+    let RuntimeTextSelectionMovementResolution::Resolved {
+        focus_caret, range, ..
+    } = cross_chapter.value.resolution
+    else {
+        panic!("the fixed anchor and chapter-start focus form a cross-chapter range");
+    };
+    assert_ne!(range.source_span.start.href, range.source_span.end.href);
 
-    assert_eq!(
-        response.value.resolution,
-        RuntimeTextSelectionMovementResolution::Unavailable {
-            reason: TextInteractionUnavailableReason::DifferentChapter,
-        }
-    );
+    let response = document
+        .resolve_text_selection_movement_at(
+            &handle,
+            RuntimeTextSelectionMovementRequest {
+                anchor,
+                focus: focus_caret.address,
+                movement: TextSelectionMovement::CharacterLeft,
+                preferred_inline_position: None,
+                preferred_block_position: None,
+            },
+        )
+        .expect("character movement crosses the chapter boundary");
+    let RuntimeTextSelectionMovementResolution::Resolved { focus_caret, .. } =
+        response.value.resolution
+    else {
+        panic!("character left reaches the previous chapter's last caret");
+    };
+    assert_eq!(focus_caret.address.page_index, anchor.page_index);
+    assert!(focus_caret.address.char_index > 0);
 }
 
 #[test]
@@ -202,6 +228,7 @@ fn movement_rejects_stale_versions_and_non_finite_preferences() {
         focus: text_address(0),
         movement: TextSelectionMovement::LineDown,
         preferred_inline_position: Some(f64::NAN),
+        preferred_block_position: None,
     };
     let stale = RuntimeRevisionHandle::new(
         &revision.revision_id,

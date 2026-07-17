@@ -5,7 +5,9 @@ use crate::interaction::{
     TextSelectionMovement,
 };
 
-use super::super::{RuntimeSourceLocator, RuntimeSourceLocatorPendingReason, RuntimeSourceRange};
+use super::super::{
+    RuntimeSourceLocator, RuntimeSourceLocatorPendingReason, RuntimeSourcePoint, RuntimeSourceRange,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -99,6 +101,8 @@ pub struct RuntimeTextSelectionMovementRequest {
     pub movement: TextSelectionMovement,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preferred_inline_position: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preferred_block_position: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -121,6 +125,8 @@ pub enum RuntimeTextSelectionMovementResolution {
         range: Box<RuntimeTextRange>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         preferred_inline_position: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        preferred_block_position: Option<f64>,
     },
     Boundary {
         boundary: TextSelectionBoundary,
@@ -221,8 +227,30 @@ pub struct RuntimeTextRange {
     pub start: TextCaretAddress,
     pub end: TextCaretAddress,
     pub selected_text: String,
-    pub source_locator: RuntimeSourceLocator,
+    /// Durable source identity for both normalized range endpoints. Each
+    /// endpoint is resource-qualified so the span can cross spine resources.
+    pub source_span: RuntimeTextSourceSpan,
+    /// Backward-compatible single-resource locator. Cross-resource ranges use
+    /// `source_span` and omit this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_locator: Option<RuntimeSourceLocator>,
     pub rects: Vec<RuntimeExactTextRangeRect>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeTextSourceSpan {
+    pub start: RuntimeTextSourceSpanEndpoint,
+    /// End-exclusive source boundary.
+    pub end: RuntimeTextSourceSpanEndpoint,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeTextSourceSpanEndpoint {
+    /// Canonical manifest href containing `source_point`.
+    pub href: String,
+    pub source_point: RuntimeSourcePoint,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

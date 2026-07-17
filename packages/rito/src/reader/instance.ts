@@ -7,11 +7,13 @@ import type {
   PackageMetadata,
   Page,
   PaginationPolicy,
+  ReaderDocumentSourceSpan,
   ReaderLocator,
   ReaderLocatorResolution,
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
   ReaderPageTargets,
+  ReaderTextSelectionMovement,
   Rect,
   SearchOptions,
   SearchResult,
@@ -94,7 +96,9 @@ export interface ReaderTextRange {
   readonly start: ReaderTextCaret;
   readonly end: ReaderTextCaret;
   readonly selectedText: string;
-  readonly sourceLocator: ReaderLocator;
+  readonly sourceSpan: ReaderDocumentSourceSpan;
+  /** Backward-compatible exact locator for a range contained in one source resource. */
+  readonly sourceLocator?: ReaderLocator | undefined;
   readonly rects: readonly ReaderExactTextRangeRect[];
 }
 
@@ -107,28 +111,12 @@ export type ReaderTextRangeResolution =
 
 export type ReaderTextSelectionGranularity = 'word' | 'paragraph';
 
-export type ReaderTextSelectionMovement =
-  | 'characterLeft'
-  | 'characterRight'
-  | 'wordLeft'
-  | 'wordRight'
-  | 'wordStartRight'
-  | 'lineUp'
-  | 'lineDown'
-  | 'lineStart'
-  | 'lineEnd'
-  | 'paragraphBackward'
-  | 'paragraphForward'
-  | 'paragraphPreviousStart'
-  | 'paragraphNextStart'
-  | 'chapterStart'
-  | 'chapterEnd';
-
 export interface ReaderTextSelectionMovementRequest {
   readonly anchor: ReaderTextCaret;
   readonly focus: ReaderTextCaret;
   readonly movement: ReaderTextSelectionMovement;
   readonly preferredInlinePosition?: number | undefined;
+  readonly preferredBlockPosition?: number | undefined;
 }
 
 export type ReaderTextSelectionMovementResolution =
@@ -136,6 +124,7 @@ export type ReaderTextSelectionMovementResolution =
       readonly status: 'resolved';
       readonly range: ReaderTextRange;
       readonly preferredInlinePosition?: number | undefined;
+      readonly preferredBlockPosition?: number | undefined;
     }
   | { readonly status: 'boundary'; readonly boundary: 'start' | 'end' }
   | { readonly status: 'pending'; readonly boundary: 'start' | 'end' }

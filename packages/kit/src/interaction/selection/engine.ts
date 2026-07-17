@@ -12,10 +12,14 @@
  * Returned rects from `getRects()` are also in spread-content space.
  */
 
-import type { ReaderLocator, ReaderTextSelectionInteractions } from '@ritojs/core';
+import type {
+  ReaderDocumentSourceSpan,
+  ReaderLocator,
+  ReaderTextSelectionInteractions,
+} from '@ritojs/core';
 import type { LayoutConfig, Rect, Spread, TextMeasurer } from '../layout-types';
 import { buildHitMap, resolveCharPosition } from '../core/hit-map';
-import type { TextPosition, TextRange } from '../core/types';
+import type { TextRange } from '../core/types';
 import { compareTextPositions } from '../core/text-traversal';
 import type { AnchoredPosition, SpreadContext } from './spread';
 import { computeSelectionRects, isSamePosition, resolvePageHit } from './spread';
@@ -28,46 +32,27 @@ import type {
 } from './handle-types';
 import type { NativeSelectionGranularity, SelectionSpreadUpdate } from './native-types';
 import { registerLegacySelectionGestureOwner } from './legacy-engine-gesture';
+import type {
+  NativeSelectionProjection,
+  PagedPosition,
+  PointerInput,
+  SelectionSnapshot,
+} from './engine-types';
 
 export type {
   SelectionHandleCarets,
   SelectionHandleDrag,
   SelectionHandleEdge,
 } from './handle-types';
+export type {
+  NativeSelectionProjection,
+  PagedPosition,
+  PointerInput,
+  SelectionSnapshot,
+} from './engine-types';
 
 export type SelectionState = 'idle' | 'selecting' | 'selected';
 export type SelectionGranularity = NativeSelectionGranularity;
-
-export interface PointerInput {
-  readonly x: number;
-  readonly y: number;
-}
-
-/** Anchored endpoint with page awareness. */
-export interface PagedPosition {
-  readonly pageIndex: number;
-  readonly position: TextPosition;
-}
-
-/**
- * Snapshot of the current selection with both user-intent and document-order semantics.
- * - `anchor`/`focus`: pointer direction (where the user started / ended dragging)
- * - `start`/`end`: document order (always start <= end)
- */
-export interface SelectionSnapshot {
-  readonly anchor: PagedPosition;
-  readonly focus: PagedPosition;
-  readonly start: PagedPosition;
-  readonly end: PagedPosition;
-}
-
-/** Controller-owned projection between spread-content and page-content spaces. */
-export interface NativeSelectionProjection {
-  spreadContentToPage(x: number, y: number): { pageIndex: number; x: number; y: number } | null;
-  /** Whether page-local geometry belongs to the currently projected spread. */
-  isPageVisible(pageIndex: number): boolean;
-  pageContentToSpread(pageIndex: number, rect: Rect): Rect;
-}
 
 export interface SelectionEngine {
   beginHandleDrag(edge: SelectionHandleEdge): SelectionHandleDrag | null;
@@ -92,6 +77,8 @@ export interface SelectionEngine {
   getText(): string;
   /** Durable source identity, available for exact native selections. */
   getSourceLocator(): ReaderLocator | null;
+  /** Resource-qualified durable endpoints, available for exact native selections. */
+  getSourceSpan(): ReaderDocumentSourceSpan | null;
   getRects(): readonly Rect[];
   /** Exact focus caret in spread-content coordinates when available. */
   getFocusRect(): Rect | null;
@@ -246,6 +233,7 @@ function buildEngine(s: EngineState): SelectionEngine {
       s.anchor !== undefined && s.focus !== undefined && !isSamePosition(s.anchor, s.focus),
     getText: () => getLegacySelectionText(s.spread, s.anchor, s.focus, getRange(s)),
     getSourceLocator: () => null,
+    getSourceSpan: () => null,
     getRects: () => getRectsFromState(s),
     getFocusRect: () => null,
     getFocusEdge: () => getFocusEdgeFromState(s),

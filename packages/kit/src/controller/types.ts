@@ -2,6 +2,7 @@ import type {
   FootnoteEntry,
   PackageMetadata,
   Page,
+  ReaderDocumentSourceSpan,
   ReaderLocator,
   Spread,
   TocEntry,
@@ -72,6 +73,8 @@ export interface ReaderControllerEvents {
     range: TextRange | null;
     /** Durable source locator for an exact native selection. */
     sourceLocator: ReaderLocator | null;
+    /** Resource-qualified durable endpoints for an exact native selection. */
+    sourceSpan: ReaderDocumentSourceSpan | null;
     /** Explicit because a native selection intentionally has no legacy TextRange. */
     hasSelection: boolean;
     text: string;
@@ -209,6 +212,8 @@ export interface ReaderController {
   readonly selectionRange: TextRange | null;
   /** Durable source locator for a native exact selection. */
   readonly selectionSourceLocator: ReaderLocator | null;
+  /** Resource-qualified durable endpoints for a native exact selection. */
+  readonly selectionSourceSpan: ReaderDocumentSourceSpan | null;
   /**
    * Begin dragging an exact native selection endpoint from a client-space pointer.
    * Returns null when the endpoint is unavailable or the current selection is legacy.

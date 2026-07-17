@@ -78,6 +78,7 @@ export type {
   RitoCoreWasmSearchResponse as CoreSearchResponse,
   RitoCoreWasmTextRangeRequest as CoreTextRangeRequest,
   RitoCoreWasmTextRangeResponse as CoreTextRangeResponse,
+  RitoCoreWasmTextSourceSpan as CoreTextSourceSpan,
   RitoCoreWasmTextRangeFromPointsRequest as CoreTextRangeFromPointsRequest,
   RitoCoreWasmTextRangeFromPointsResponse as CoreTextRangeFromPointsResponse,
   RitoCoreWasmTextSelectionMovementRequest as CoreTextSelectionMovementRequest,

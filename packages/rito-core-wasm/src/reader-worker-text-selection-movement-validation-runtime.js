@@ -26,14 +26,24 @@ const MOVEMENTS = new Set([
   'paragraphNextStart',
   'chapterStart',
   'chapterEnd',
+  'documentStart',
+  'documentEnd',
+  'pageUp',
+  'pageDown',
 ]);
 
 const LINE_MOVEMENTS = new Set(['lineUp', 'lineDown']);
+const PAGE_MOVEMENTS = new Set(['pageUp', 'pageDown']);
 
 export function requireTextSelectionMovementRequest(value, operation) {
   const request = requireExactTextRecord(value, `${operation} request`);
   const movement = requireMovement(request.movement, operation);
-  requireRequestStickyPolicy(movement, request.preferredInlinePosition, operation);
+  requireRequestStickyPolicy(
+    movement,
+    request.preferredInlinePosition,
+    request.preferredBlockPosition,
+    operation,
+  );
   const preferredInlinePosition =
     request.preferredInlinePosition === undefined
       ? undefined
@@ -41,11 +51,19 @@ export function requireTextSelectionMovementRequest(value, operation) {
           request.preferredInlinePosition,
           `${operation} preferredInlinePosition`,
         );
+  const preferredBlockPosition =
+    request.preferredBlockPosition === undefined
+      ? undefined
+      : requireExactTextFinite(
+          request.preferredBlockPosition,
+          `${operation} preferredBlockPosition`,
+        );
   return {
     anchor: requireExactTextCaretAddress(request.anchor, `${operation} anchor`),
     focus: requireExactTextCaretAddress(request.focus, `${operation} focus`),
     movement,
     ...(preferredInlinePosition === undefined ? {} : { preferredInlinePosition }),
+    ...(preferredBlockPosition === undefined ? {} : { preferredBlockPosition }),
   };
 }
 
@@ -75,7 +93,14 @@ function requireMovementResolution(value, request, operation) {
     case 'pending':
       requireAbsentFields(
         resolution,
-        ['anchorCaret', 'focusCaret', 'range', 'preferredInlinePosition', 'reason'],
+        [
+          'anchorCaret',
+          'focusCaret',
+          'range',
+          'preferredInlinePosition',
+          'preferredBlockPosition',
+          'reason',
+        ],
         operation,
       );
       return {
@@ -85,7 +110,14 @@ function requireMovementResolution(value, request, operation) {
     case 'unavailable':
       requireAbsentFields(
         resolution,
-        ['anchorCaret', 'focusCaret', 'range', 'preferredInlinePosition', 'boundary'],
+        [
+          'anchorCaret',
+          'focusCaret',
+          'range',
+          'preferredInlinePosition',
+          'preferredBlockPosition',
+          'boundary',
+        ],
         operation,
       );
       return {
@@ -111,7 +143,12 @@ function requireResolvedMovement(resolution, request, operation) {
     operation,
   );
   requireRangeSourceIdentity(range, anchorCaret, focusCaret, operation);
-  requireResolvedStickyPolicy(request.movement, resolution.preferredInlinePosition, operation);
+  requireResolvedStickyPolicy(
+    request.movement,
+    resolution.preferredInlinePosition,
+    resolution.preferredBlockPosition,
+    operation,
+  );
   const preferredInlinePosition =
     resolution.preferredInlinePosition === undefined
       ? undefined
@@ -119,12 +156,20 @@ function requireResolvedMovement(resolution, request, operation) {
           resolution.preferredInlinePosition,
           `${operation} preferredInlinePosition`,
         );
+  const preferredBlockPosition =
+    resolution.preferredBlockPosition === undefined
+      ? undefined
+      : requireExactTextFinite(
+          resolution.preferredBlockPosition,
+          `${operation} preferredBlockPosition`,
+        );
   return {
     status: 'resolved',
     anchorCaret,
     focusCaret,
     range,
     ...(preferredInlinePosition === undefined ? {} : { preferredInlinePosition }),
+    ...(preferredBlockPosition === undefined ? {} : { preferredBlockPosition }),
   };
 }
 
@@ -137,7 +182,8 @@ function requireMatchingMovementRequest(actual, expected, operation) {
   requireMatchingExactTextCaretAddress(actual.focus, expected.focus, `${operation} request focus`);
   if (
     actual.movement !== expected.movement ||
-    actual.preferredInlinePosition !== expected.preferredInlinePosition
+    actual.preferredInlinePosition !== expected.preferredInlinePosition ||
+    actual.preferredBlockPosition !== expected.preferredBlockPosition
   ) {
     throw new Error(`${operation} returned a movement for a mismatched normalized request`);
   }
@@ -148,21 +194,43 @@ function requireMovement(value, operation) {
   return value;
 }
 
-function requireRequestStickyPolicy(movement, preferredInlinePosition, operation) {
-  if (preferredInlinePosition !== undefined && !LINE_MOVEMENTS.has(movement)) {
-    throw new Error(`${operation} preferredInlinePosition is only valid for line movements`);
+function requireRequestStickyPolicy(
+  movement,
+  preferredInlinePosition,
+  preferredBlockPosition,
+  operation,
+) {
+  if (
+    preferredInlinePosition !== undefined &&
+    !LINE_MOVEMENTS.has(movement) &&
+    !PAGE_MOVEMENTS.has(movement)
+  ) {
+    throw new Error(`${operation} preferredInlinePosition is only valid for vertical movements`);
+  }
+  if (preferredBlockPosition !== undefined && !PAGE_MOVEMENTS.has(movement)) {
+    throw new Error(`${operation} preferredBlockPosition is only valid for page movements`);
   }
 }
 
-function requireResolvedStickyPolicy(movement, preferredInlinePosition, operation) {
-  if (LINE_MOVEMENTS.has(movement)) {
+function requireResolvedStickyPolicy(
+  movement,
+  preferredInlinePosition,
+  preferredBlockPosition,
+  operation,
+) {
+  if (LINE_MOVEMENTS.has(movement) || PAGE_MOVEMENTS.has(movement)) {
     if (preferredInlinePosition === undefined) {
-      throw new Error(`${operation} line movement did not return preferredInlinePosition`);
+      throw new Error(`${operation} vertical movement did not return preferredInlinePosition`);
     }
-    return;
+  } else if (preferredInlinePosition !== undefined) {
+    throw new Error(`${operation} returned preferredInlinePosition for a non-vertical movement`);
   }
-  if (preferredInlinePosition !== undefined) {
-    throw new Error(`${operation} returned preferredInlinePosition for a non-line movement`);
+  if (PAGE_MOVEMENTS.has(movement)) {
+    if (preferredBlockPosition === undefined) {
+      throw new Error(`${operation} page movement did not return preferredBlockPosition`);
+    }
+  } else if (preferredBlockPosition !== undefined) {
+    throw new Error(`${operation} returned preferredBlockPosition for a non-page movement`);
   }
 }
 

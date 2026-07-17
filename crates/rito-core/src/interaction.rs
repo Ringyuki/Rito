@@ -7,9 +7,10 @@ pub(crate) use text::{
     resolve_exact_source_range, resolve_text_caret, resolve_text_range,
     resolve_text_range_from_points, resolve_text_range_to_point, resolve_text_selection_movement,
     ExactTextRangeRect, LayoutExactTextRange, LayoutExactTextRangeResolution, LayoutSourcePoint,
-    LayoutTextCaret, LayoutTextCaretResolution, LayoutTextPageRange, LayoutTextPoint,
-    LayoutTextRangeFromPointsResolution, LayoutTextSelectionGranularity,
-    LayoutTextSelectionMovement, LayoutTextSelectionMovementResolution,
+    LayoutTextCaret, LayoutTextCaretResolution, LayoutTextPageRange, LayoutTextPageTarget,
+    LayoutTextPoint, LayoutTextRangeFromPointsResolution, LayoutTextSelectionGranularity,
+    LayoutTextSelectionMovement, LayoutTextSelectionMovementInput,
+    LayoutTextSelectionMovementResolution, LayoutTextSelectionMovementTarget,
 };
 pub use text::{
     TextCaretAddress, TextCaretAffinity, TextCaretGeometry, TextInteractionUnavailableReason,

@@ -3,7 +3,8 @@ use super::{
     navigation::FocusMovement,
 };
 use crate::interaction::text::{
-    TextInteractionUnavailableReason, TextSelectionBoundary, TextSelectionMovement,
+    LayoutTextPageRange, LayoutTextSelectionMovementTarget, TextInteractionUnavailableReason,
+    TextSelectionBoundary, TextSelectionMovement,
 };
 
 pub(super) fn focus_barrier_reason(
@@ -21,6 +22,7 @@ pub(super) fn blocking_reason(
     focus: &MovementCaret,
     movement: TextSelectionMovement,
     outcome: &FocusMovement,
+    target: LayoutTextSelectionMovementTarget,
 ) -> Option<TextInteractionUnavailableReason> {
     let barrier = match movement {
         TextSelectionMovement::LineStart => line_edge_barrier(barriers, focus, false),
@@ -28,11 +30,59 @@ pub(super) fn blocking_reason(
         TextSelectionMovement::LineUp | TextSelectionMovement::LineDown => {
             vertical_barrier(barriers, focus, outcome)
         }
-        TextSelectionMovement::ChapterStart => scope_barrier(barriers, focus, false),
-        TextSelectionMovement::ChapterEnd => scope_barrier(barriers, focus, true),
+        TextSelectionMovement::PageUp | TextSelectionMovement::PageDown => {
+            page_barrier(barriers, focus, outcome, target)
+        }
+        TextSelectionMovement::ChapterStart
+        | TextSelectionMovement::ChapterEnd
+        | TextSelectionMovement::DocumentStart
+        | TextSelectionMovement::DocumentEnd => scope_target_barrier(
+            barriers,
+            focus,
+            outcome,
+            target,
+            matches!(
+                movement,
+                TextSelectionMovement::ChapterEnd | TextSelectionMovement::DocumentEnd
+            ),
+        ),
         _ => outcome_barrier(barriers, focus, outcome),
     };
     barrier.map(|barrier| barrier.reason)
+}
+
+fn page_barrier<'a>(
+    barriers: &'a [MovementBarrier],
+    focus: &MovementCaret,
+    outcome: &FocusMovement,
+    target: LayoutTextSelectionMovementTarget,
+) -> Option<&'a MovementBarrier> {
+    match target {
+        LayoutTextSelectionMovementTarget::Page(target) => barriers
+            .iter()
+            .find(|barrier| barrier.line_key.0 == target.page_index)
+            .or_else(|| resolved_between_barrier(barriers, focus, outcome)),
+        LayoutTextSelectionMovementTarget::Boundary { boundary, scope } => {
+            range_barrier(barriers, focus, scope, is_end(boundary))
+        }
+        LayoutTextSelectionMovementTarget::Scope(_) => None,
+    }
+}
+
+fn scope_target_barrier<'a>(
+    barriers: &'a [MovementBarrier],
+    focus: &MovementCaret,
+    outcome: &FocusMovement,
+    target: LayoutTextSelectionMovementTarget,
+    forward: bool,
+) -> Option<&'a MovementBarrier> {
+    let LayoutTextSelectionMovementTarget::Scope(scope) = target else {
+        return None;
+    };
+    match outcome {
+        FocusMovement::Resolved(target, ..) => between_barrier(barriers, focus, target),
+        FocusMovement::Boundary(_) => range_barrier(barriers, focus, scope, forward),
+    }
 }
 
 fn line_edge_barrier<'a>(
@@ -52,7 +102,7 @@ fn vertical_barrier<'a>(
     outcome: &FocusMovement,
 ) -> Option<&'a MovementBarrier> {
     match outcome {
-        FocusMovement::Resolved(target, _) => {
+        FocusMovement::Resolved(target, ..) => {
             between_barrier(barriers, focus, target).or_else(|| {
                 let target_line = caret_line_key(target);
                 barriers
@@ -70,9 +120,20 @@ fn outcome_barrier<'a>(
     outcome: &FocusMovement,
 ) -> Option<&'a MovementBarrier> {
     match outcome {
-        FocusMovement::Resolved(target, _) => between_barrier(barriers, focus, target),
+        FocusMovement::Resolved(target, ..) => between_barrier(barriers, focus, target),
         FocusMovement::Boundary(boundary) => scope_barrier(barriers, focus, is_end(*boundary)),
     }
+}
+
+fn resolved_between_barrier<'a>(
+    barriers: &'a [MovementBarrier],
+    focus: &MovementCaret,
+    outcome: &FocusMovement,
+) -> Option<&'a MovementBarrier> {
+    let FocusMovement::Resolved(target, ..) = outcome else {
+        return None;
+    };
+    between_barrier(barriers, focus, target)
 }
 
 fn between_barrier<'a>(
@@ -94,6 +155,17 @@ fn scope_barrier<'a>(
     forward: bool,
 ) -> Option<&'a MovementBarrier> {
     directional_barrier(barriers, focus.run_order, forward, |_| true)
+}
+
+fn range_barrier<'a>(
+    barriers: &'a [MovementBarrier],
+    focus: &MovementCaret,
+    scope: LayoutTextPageRange,
+    forward: bool,
+) -> Option<&'a MovementBarrier> {
+    directional_barrier(barriers, focus.run_order, forward, |barrier| {
+        (scope.first_page..=scope.last_page).contains(&barrier.line_key.0)
+    })
 }
 
 fn directional_barrier(

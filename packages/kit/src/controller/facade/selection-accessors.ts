@@ -35,6 +35,9 @@ export function buildSelectionAccessors(
     get selectionSourceLocator() {
       return internals.engines.selection.getSourceLocator();
     },
+    get selectionSourceSpan() {
+      return internals.engines.selection.getSourceSpan();
+    },
     beginSelectionHandleDrag(edge, origin) {
       return beginHandleDrag(internals, canvas, nav, edge, origin);
     },

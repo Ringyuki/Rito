@@ -114,12 +114,12 @@ export function requireRangeSourceIdentity(range, anchorCaret, focusCaret, opera
   const endCaret = equalExactTextCaretAddress(range.end, focusCaret.address)
     ? focusCaret
     : anchorCaret;
-  const sourceRange = range.sourceLocator.sourceRange;
+  const sourceSpan = range.sourceSpan;
   if (
-    range.sourceLocator.href !== startCaret.sourceLocator.href ||
-    range.sourceLocator.href !== endCaret.sourceLocator.href ||
-    !sameSourcePoint(sourceRange.start, startCaret.sourceLocator.sourcePoint) ||
-    !sameSourcePoint(sourceRange.end, endCaret.sourceLocator.sourcePoint)
+    sourceSpan.start.href !== startCaret.sourceLocator.href ||
+    sourceSpan.end.href !== endCaret.sourceLocator.href ||
+    !sameSourcePoint(sourceSpan.start.sourcePoint, startCaret.sourceLocator.sourcePoint) ||
+    !sameSourcePoint(sourceSpan.end.sourcePoint, endCaret.sourceLocator.sourcePoint)
   ) {
     throw new Error(`${operation} returned source endpoints unrelated to its resolved carets`);
   }

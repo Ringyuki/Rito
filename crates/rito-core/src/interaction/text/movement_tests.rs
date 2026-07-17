@@ -1,8 +1,10 @@
 use super::tests::{address, exact_flow, exact_shape, page, run, slice, uniform_shape};
 use super::{
-    resolve_text_selection_movement, LayoutTextPageRange, LayoutTextSelectionMovement,
-    LayoutTextSelectionMovementResolution, TextCaretAddress, TextCaretAffinity,
-    TextInteractionUnavailableReason, TextSelectionBoundary, TextSelectionMovement,
+    resolve_text_selection_movement, LayoutTextPageRange, LayoutTextPageTarget,
+    LayoutTextSelectionMovement, LayoutTextSelectionMovementInput,
+    LayoutTextSelectionMovementResolution, LayoutTextSelectionMovementTarget, TextCaretAddress,
+    TextCaretAffinity, TextInteractionUnavailableReason, TextSelectionBoundary,
+    TextSelectionMovement,
 };
 use crate::layout::RunShapeDirection;
 
@@ -472,6 +474,121 @@ fn chapter_movement_obeys_the_absolute_page_scope_and_reports_boundaries() {
 }
 
 #[test]
+fn document_movement_uses_the_retained_publication_edges() {
+    let first = exact_flow("ab");
+    let middle = exact_flow("cd");
+    let last = exact_flow("ef");
+    let pages = vec![
+        one_line_page(0, &first, "ab"),
+        one_line_page(1, &middle, "cd"),
+        one_line_page(2, &last, "ef"),
+    ];
+    let focus = address(1, 0, 0, 0, 1, TextCaretAffinity::Upstream);
+
+    let start = resolved(move_selection(
+        &pages,
+        scope(0, 2),
+        focus,
+        focus,
+        TextSelectionMovement::DocumentStart,
+        None,
+    ));
+    assert_eq!(start.focus_caret.address.page_index, 0);
+    assert_eq!(start.focus_caret.address.char_index, 0);
+
+    let end = resolved(move_selection(
+        &pages,
+        scope(0, 2),
+        focus,
+        focus,
+        TextSelectionMovement::DocumentEnd,
+        None,
+    ));
+    assert_eq!(end.focus_caret.address.page_index, 2);
+    assert_eq!(end.focus_caret.address.char_index, 2);
+}
+
+#[test]
+fn chapter_target_can_keep_an_anchor_in_another_chapter() {
+    let anchor_flow = exact_flow("a");
+    let focus_flow = exact_flow("bc");
+    let pages = vec![
+        one_line_page(0, &anchor_flow, "a"),
+        one_line_page(1, &focus_flow, "bc"),
+    ];
+    let anchor = address(0, 0, 0, 0, 1, TextCaretAffinity::Upstream);
+    let focus = address(1, 0, 0, 0, 0, TextCaretAffinity::Downstream);
+    let selection = resolved(move_selection_to_target(
+        &pages,
+        LayoutTextSelectionMovementInput {
+            scope: scope(0, 1),
+            anchor_address: anchor,
+            focus_address: focus,
+            movement: TextSelectionMovement::ChapterEnd,
+            language: None,
+            preferred_inline_position: None,
+            preferred_block_position: None,
+            target: LayoutTextSelectionMovementTarget::Scope(scope(1, 1)),
+        },
+    ));
+
+    assert_eq!(selection.anchor_caret.address, anchor);
+    assert_eq!(selection.focus_caret.address.page_index, 1);
+    assert_eq!(selection.focus_caret.address.char_index, 2);
+}
+
+#[test]
+fn page_movement_keeps_block_position_and_uses_the_sticky_inline_position() {
+    let flow = exact_flow("abcde");
+    let pages = vec![
+        page(
+            0,
+            vec![
+                vec![run("a", slice(&flow, 0, 0, 1), 0.0, 10.0, uniform_shape(1))],
+                vec![run("b", slice(&flow, 0, 1, 2), 0.0, 10.0, uniform_shape(1))],
+            ],
+            None,
+        ),
+        page(
+            1,
+            vec![
+                vec![run("c", slice(&flow, 0, 2, 3), 0.0, 10.0, uniform_shape(1))],
+                vec![run(
+                    "d",
+                    slice(&flow, 0, 3, 4),
+                    20.0,
+                    10.0,
+                    uniform_shape(1),
+                )],
+                vec![run("e", slice(&flow, 0, 4, 5), 0.0, 10.0, uniform_shape(1))],
+            ],
+            None,
+        ),
+    ];
+    let focus = address(0, 0, 1, 0, 1, TextCaretAffinity::Upstream);
+    let selection = resolved(move_selection_to_target(
+        &pages,
+        LayoutTextSelectionMovementInput {
+            scope: scope(0, 1),
+            anchor_address: focus,
+            focus_address: focus,
+            movement: TextSelectionMovement::PageDown,
+            language: None,
+            preferred_inline_position: Some(37.0),
+            preferred_block_position: Some(50.0),
+            target: LayoutTextSelectionMovementTarget::Page(LayoutTextPageTarget { page_index: 1 }),
+        },
+    ));
+
+    assert_eq!(selection.focus_caret.address.page_index, 1);
+    assert_eq!(selection.focus_caret.address.line_index, 1);
+    assert_eq!(selection.focus_caret.geometry.y, 50.0);
+    assert_eq!(selection.focus_caret.geometry.x, 40.0);
+    assert_eq!(selection.preferred_inline_position, Some(37.0));
+    assert_eq!(selection.preferred_block_position, Some(50.0));
+}
+
+#[test]
 fn movement_rebinds_both_endpoints_before_attempting_navigation() {
     let flow = exact_flow("a");
     let pages = vec![one_line_page(0, &flow, "a")];
@@ -504,15 +621,26 @@ fn move_selection(
     movement: TextSelectionMovement,
     preferred_inline_position: Option<f64>,
 ) -> LayoutTextSelectionMovementResolution {
-    resolve_text_selection_movement(
+    move_selection_to_target(
         pages,
-        scope,
-        anchor,
-        focus,
-        movement,
-        None,
-        preferred_inline_position,
+        LayoutTextSelectionMovementInput {
+            scope,
+            anchor_address: anchor,
+            focus_address: focus,
+            movement,
+            language: None,
+            preferred_inline_position,
+            preferred_block_position: None,
+            target: LayoutTextSelectionMovementTarget::Scope(scope),
+        },
     )
+}
+
+fn move_selection_to_target(
+    pages: &[crate::layout::LayoutRuntimePage],
+    input: LayoutTextSelectionMovementInput<'_>,
+) -> LayoutTextSelectionMovementResolution {
+    resolve_text_selection_movement(pages, input)
 }
 
 fn resolved(resolution: LayoutTextSelectionMovementResolution) -> Box<LayoutTextSelectionMovement> {

@@ -7,12 +7,15 @@ describe('platform keyboard selection mapping', () => {
     ['ArrowRight', {}, 'characterRight'],
     ['ArrowUp', {}, 'lineUp'],
     ['ArrowDown', {}, 'lineDown'],
+    ['PageUp', {}, 'pageUp'],
+    ['PageDown', {}, 'pageDown'],
     ['ArrowLeft', { altKey: true }, 'wordLeft'],
     ['ArrowRight', { altKey: true }, 'wordRight'],
     ['ArrowUp', { altKey: true }, 'paragraphBackward'],
     ['ArrowDown', { altKey: true }, 'paragraphForward'],
     ['ArrowLeft', { metaKey: true }, 'lineStart'],
-    ['ArrowDown', { metaKey: true }, 'chapterEnd'],
+    ['ArrowUp', { metaKey: true }, 'documentStart'],
+    ['ArrowDown', { metaKey: true }, 'documentEnd'],
   ] as const)('maps macOS Shift+%s with %o to %s', (key, modifiers, expected) => {
     expect(keyboardSelectionMovement(event(key, modifiers), true)).toBe(expected);
   });
@@ -20,13 +23,15 @@ describe('platform keyboard selection mapping', () => {
   it.each([
     ['ArrowLeft', {}, 'characterLeft'],
     ['ArrowDown', {}, 'lineDown'],
+    ['PageUp', {}, 'pageUp'],
+    ['PageDown', {}, 'pageDown'],
     ['Home', {}, 'lineStart'],
     ['End', {}, 'lineEnd'],
     ['ArrowRight', { ctrlKey: true }, 'wordStartRight'],
     ['ArrowUp', { ctrlKey: true }, 'paragraphPreviousStart'],
     ['ArrowDown', { ctrlKey: true }, 'paragraphNextStart'],
-    ['Home', { ctrlKey: true }, 'chapterStart'],
-    ['End', { ctrlKey: true }, 'chapterEnd'],
+    ['Home', { ctrlKey: true }, 'documentStart'],
+    ['End', { ctrlKey: true }, 'documentEnd'],
   ] as const)('maps Windows/Linux Shift+%s with %o to %s', (key, modifiers, expected) => {
     expect(keyboardSelectionMovement(event(key, modifiers), false)).toBe(expected);
   });
@@ -40,6 +45,8 @@ describe('platform keyboard selection mapping', () => {
     expect(
       keyboardSelectionMovement(event('ArrowLeft', { metaKey: true, altKey: true }), true),
     ).toBeNull();
+    expect(keyboardSelectionMovement(event('PageDown', { ctrlKey: true }), false)).toBeNull();
+    expect(keyboardSelectionMovement(event('PageUp', { metaKey: true }), true)).toBeNull();
   });
 });
 

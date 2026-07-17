@@ -23,6 +23,8 @@ export type {
   ReaderThemeOptions,
   Rect,
   ReaderExactTextRangeRect,
+  ReaderDocumentSourceSpan,
+  ReaderDocumentSourceSpanEndpoint,
   ReaderInteractionTarget,
   ReaderInteractionTargetKind,
   ReaderInteractions,

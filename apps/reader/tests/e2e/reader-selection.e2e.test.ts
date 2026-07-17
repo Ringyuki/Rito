@@ -15,10 +15,14 @@ import {
   currentReaderSpread,
   dragSelection,
   focusReaderSurface,
+  loadDocumentSelectionFixture,
   loadEdgeSelectionFixture,
+  loadPageMovementSelectionFixture,
   loadSelectionFixture,
   pointInsideFirstWord,
+  prepareDocumentSelectionFixture,
   prepareEdgeSelectionFixture,
+  preparePageMovementSelectionFixture,
   readSelectionHighlightBands,
   readerSurface,
   readerSurfaceBounds,
@@ -37,9 +41,16 @@ import {
   CJK_SELECTION_TEXT,
   CROSS_FLOW_LINE,
   CROSS_FLOW_SELECTION_TEXT,
+  DOCUMENT_FIRST_CHAPTER_TEXT,
+  DOCUMENT_SECOND_CHAPTER_TEXT,
+  DOCUMENT_SELECTION_TEXT,
   EDGE_FIRST_PAGE_TEXT,
   EDGE_SECOND_PAGE_TEXT,
   EDGE_SELECTION_TEXT,
+  PAGE_MOVEMENT_FINAL_TOP,
+  PAGE_MOVEMENT_FORWARD_SELECTION_TEXT,
+  PAGE_MOVEMENT_MIDDLE_TOP,
+  PAGE_MOVEMENT_TARGET_TEXT,
   SAME_FLOW_FIRST_LINE,
   SAME_FLOW_PARAGRAPH_SELECTION_TEXT,
   SAME_FLOW_SECOND_LINE,
@@ -321,7 +332,7 @@ test.describe('reader primary selection edge autoscroll acceptance', () => {
     expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
   });
 
-  test('reveals a lazily published spread when keyboard selection extends to chapter end', async ({
+  test('reveals a lazily published spread when keyboard selection extends to document end', async ({
     page,
   }) => {
     const firstLine = requireBand(await requireTextBands(page, 1), 0);
@@ -349,6 +360,85 @@ test.describe('reader primary selection edge autoscroll acceptance', () => {
       .poll(async () => (await readSelectionHighlightBands(page)).length)
       .toBeGreaterThanOrEqual(1);
     expect(await copyFocusedSelection(page)).toBe(EDGE_SELECTION_TEXT);
+  });
+});
+
+test.describe('reader page keyboard selection acceptance', () => {
+  test.beforeEach(async ({ page }) => {
+    await openEmptyReader(page);
+    await loadPageMovementSelectionFixture(page);
+    await preparePageMovementSelectionFixture(page);
+  });
+
+  test('moves exactly one spread and preserves page-local x/y with Shift+PageUp/PageDown', async ({
+    page,
+  }) => {
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => currentReaderSpread(page)).toBe(1);
+    await waitForReaderTransitionEnd(page);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(3);
+    await expect.poll(() => currentReaderSpread(page)).toBe(2);
+    await waitForReaderTransitionEnd(page);
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(() => currentReaderSpread(page)).toBe(1);
+    await waitForReaderTransitionEnd(page);
+    await waitForVisibleDocumentText(page, PAGE_MOVEMENT_MIDDLE_TOP);
+
+    const middleLine = requireBand(await requireTextBands(page, 3), 1);
+    const point = pointInsideFirstWord(middleLine);
+    await page.mouse.dblclick(point.x, point.y);
+    await focusReaderSurface(page);
+    expect(await copyFocusedSelection(page)).toBe(PAGE_MOVEMENT_TARGET_TEXT);
+
+    await page.keyboard.press('Shift+PageDown');
+    await expect.poll(() => currentReaderSpread(page)).toBe(2);
+    await waitForReaderTransitionEnd(page);
+    await waitForVisibleDocumentText(page, PAGE_MOVEMENT_FINAL_TOP);
+    await expect(readerSurface(page)).toBeFocused();
+    expect(await copyFocusedSelection(page)).toBe(PAGE_MOVEMENT_FORWARD_SELECTION_TEXT);
+
+    await page.keyboard.press('Shift+PageUp');
+    await expect.poll(() => currentReaderSpread(page)).toBe(1);
+    await waitForReaderTransitionEnd(page);
+    await waitForVisibleDocumentText(page, PAGE_MOVEMENT_MIDDLE_TOP);
+    await expect(readerSurface(page)).toBeFocused();
+    expect(await copyFocusedSelection(page)).toBe(PAGE_MOVEMENT_TARGET_TEXT);
+  });
+});
+
+test.describe('reader cross-chapter keyboard selection acceptance', () => {
+  test.beforeEach(async ({ page }) => {
+    await openEmptyReader(page);
+    await loadDocumentSelectionFixture(page);
+    await prepareDocumentSelectionFixture(page);
+  });
+
+  test('extends to document end across chapters and remains shrinkable', async ({ page }) => {
+    const firstLine = requireBand(await requireTextBands(page, 1), 0);
+    const point = pointInsideFirstWord(firstLine);
+    await page.mouse.dblclick(point.x, point.y);
+    await focusReaderSurface(page);
+    expect(await copyFocusedSelection(page)).toBe(DOCUMENT_FIRST_CHAPTER_TEXT);
+
+    const apple = await usesAppleKeyboardPlatform(page);
+    await page.keyboard.press(apple ? 'Meta+Shift+ArrowDown' : 'Control+Shift+End');
+
+    const shell = page.getByTestId('reader-shell');
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
+    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
+    await expect.poll(() => currentReaderSpread(page)).toBe(1);
+    await waitForReaderTransitionEnd(page);
+    await waitForVisibleDocumentText(page, DOCUMENT_SECOND_CHAPTER_TEXT);
+    await expect(readerSurface(page)).toBeFocused();
+    expect(await copyFocusedSelection(page)).toBe(DOCUMENT_SELECTION_TEXT);
+
+    await page.keyboard.press('Shift+ArrowLeft');
+    await expect(shell).toHaveAttribute(
+      'data-selection-text-length',
+      String(DOCUMENT_SELECTION_TEXT.length - 1),
+    );
+    expect(await copyFocusedSelection(page)).toBe(DOCUMENT_SELECTION_TEXT.slice(0, -1));
   });
 });
 

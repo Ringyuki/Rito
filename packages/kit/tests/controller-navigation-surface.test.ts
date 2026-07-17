@@ -17,6 +17,7 @@ describe('controller navigation surface', () => {
       getText: vi.fn<SelectionEngine['getText']>(() => ''),
       getSelection: vi.fn<SelectionEngine['getSelection']>(() => null),
       getSourceLocator: vi.fn<SelectionEngine['getSourceLocator']>(() => null),
+      getSourceSpan: vi.fn<SelectionEngine['getSourceSpan']>(() => null),
     };
     const internals = createInternalsStub(selectionMocks);
     const controller = buildController(
@@ -56,9 +57,14 @@ describe('controller navigation surface', () => {
         end: { nodePath: [0], textOffset: 2 },
       },
     });
+    selectionMocks.getSourceSpan.mockReturnValue({
+      start: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 1 } },
+      end: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 2 } },
+    });
     expect(controller.hasSelection).toBe(true);
     expect(controller.selectionText).toBe('live selection');
     expect(controller.selectionSourceLocator?.href).toBe('chapter.xhtml');
+    expect(controller.selectionSourceSpan?.end.sourcePoint.textOffset).toBe(2);
     expect(controller.paginationComplete).toBe(true);
   });
 });
@@ -91,7 +97,7 @@ function createReaderStub(): Reader {
 function createInternalsStub(
   selection: Pick<
     SelectionEngine,
-    'hasSelection' | 'getText' | 'getSelection' | 'getSourceLocator'
+    'hasSelection' | 'getText' | 'getSelection' | 'getSourceLocator' | 'getSourceSpan'
   >,
 ): Internals {
   return {

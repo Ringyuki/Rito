@@ -115,6 +115,7 @@ function buildReadMethods(
   | 'hasSelection'
   | 'getText'
   | 'getSourceLocator'
+  | 'getSourceSpan'
   | 'getRects'
   | 'getFocusRect'
   | 'getFocusEdge'
@@ -128,6 +129,8 @@ function buildReadMethods(
     getText: () => data.native.getSnapshot()?.text ?? '',
     getSourceLocator: () =>
       hasNonCollapsedSnapshot(data) ? (data.native.getSnapshot()?.sourceLocator ?? null) : null,
+    getSourceSpan: () =>
+      hasNonCollapsedSnapshot(data) ? (data.native.getSnapshot()?.sourceSpan ?? null) : null,
     getRects: () => data.projectedRects,
     getFocusRect: () => data.projectedFocusRect,
     getFocusEdge: () => getFocusEdge(data),

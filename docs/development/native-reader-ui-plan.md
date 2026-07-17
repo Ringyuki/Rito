@@ -308,6 +308,10 @@ Baseline shortcuts:
 - `ArrowLeft` / `PageUp`: previous spread
 - `Home` / `End`: first/last available position when supported
 - `Shift` plus the platform navigation keys extends an active selection.
+  - `Shift+PageUp/PageDown` extends by one visible spread while retaining the page slot and
+    page-local position.
+  - macOS `Cmd+Shift+ArrowUp/ArrowDown` and Windows/Linux
+    `Ctrl+Shift+Home/End` extend to the document boundaries.
 - `Cmd/Ctrl+C` copies the retained selection without changing its range.
 - `Escape`: close panel, then hide chrome
 - `Cmd/Ctrl+F`: search

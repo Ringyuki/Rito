@@ -11,16 +11,18 @@ mod granularity;
 mod movement;
 mod range_to_point;
 mod source_match;
+mod source_span;
 mod types;
 
 pub use types::*;
 
 use source_match::source_segments_match;
+use source_span::{compatible_source_locator, runtime_source_point, runtime_text_source_endpoint};
 
 use super::source_locator::{ExactSourceRangePageWindow, PreparedExactSourceRange};
 use super::{
     navigation::spread_index_for_page, page_target::chapter_for_page, RuntimeDocument,
-    RuntimeRevision, RuntimeSourceLocator, RuntimeSourcePoint, RuntimeSourceRange,
+    RuntimeRevision, RuntimeSourceLocator, RuntimeSourcePoint,
 };
 
 impl RuntimeDocument {
@@ -186,21 +188,11 @@ fn runtime_text_range(
 ) -> EpubResult<RuntimeTextRangeResolution> {
     let start_chapter = require_chapter(document, revision, range.start.page_index)?;
     let end_chapter = require_chapter(document, revision, range.end.page_index)?;
-    if start_chapter.href != end_chapter.href {
-        return Ok(RuntimeTextRangeResolution::Unavailable {
-            reason: TextInteractionUnavailableReason::DifferentChapter,
-        });
-    }
-    let source_locator = RuntimeSourceLocator {
-        href: start_chapter.href.clone(),
-        anchor_id: None,
-        source_point: None,
-        source_range: Some(RuntimeSourceRange {
-            start: runtime_source_point(range.source_start),
-            end: runtime_source_point(range.source_end),
-        }),
-        progression: None,
+    let source_span = RuntimeTextSourceSpan {
+        start: runtime_text_source_endpoint(start_chapter, range.source_start),
+        end: runtime_text_source_endpoint(end_chapter, range.source_end),
     };
+    let source_locator = compatible_source_locator(&source_span);
     Ok(RuntimeTextRangeResolution::Resolved {
         range: Box::new(RuntimeTextRange {
             anchor: range.anchor,
@@ -208,6 +200,7 @@ fn runtime_text_range(
             start: range.start,
             end: range.end,
             selected_text: range.selected_text,
+            source_span,
             source_locator,
             rects: range
                 .rects
@@ -241,13 +234,6 @@ fn require_chapter<'a>(
 ) -> EpubResult<&'a crate::epub::LoadedChapter> {
     chapter_for_page(document, revision, page_index)
         .ok_or_else(|| EpubError::new(format!("chapter unavailable for page: {page_index}")))
-}
-
-fn runtime_source_point(point: LayoutSourcePoint) -> RuntimeSourcePoint {
-    RuntimeSourcePoint {
-        node_path: point.node_path,
-        text_offset: point.text_offset,
-    }
 }
 
 fn runtime_range_rect(

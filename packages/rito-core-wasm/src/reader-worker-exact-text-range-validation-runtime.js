@@ -8,7 +8,7 @@ import {
   requireExactTextUnavailableReason,
   requireMatchingExactTextCaretAddress,
 } from './reader-worker-exact-text-interaction-validation-runtime.js';
-import { requireSourceLocatorRequest } from './reader-worker-interaction-validation-runtime.js';
+import { requireExactTextRangeSource } from './reader-worker-text-source-span-validation-runtime.js';
 
 export function requireTextRangeRequest(value, operation) {
   const request = requireExactTextRecord(value, `${operation} request`);
@@ -63,6 +63,17 @@ function requireRangeResolution(value, request, operation) {
 
 export function requireResolvedRange(value, request, operation) {
   const range = requireExactTextRecord(value, `${operation} range`);
+  requireResolvedRangeFields(range, operation);
+  const addresses = requireResolvedRangeAddresses(range, request, operation);
+  const content = requireResolvedRangeContent(range, addresses, operation);
+  return { ...addresses, ...content };
+}
+
+function requireResolvedRangeFields(range, operation) {
+  requireExactFields(range, RESOLVED_RANGE_FIELDS, `${operation} range`);
+}
+
+function requireResolvedRangeAddresses(range, request, operation) {
   const anchor = requireExactTextCaretAddress(range.anchor, `${operation} range anchor`);
   const focus = requireExactTextCaretAddress(range.focus, `${operation} range focus`);
   requireMatchingExactTextCaretAddress(anchor, request.anchor, `${operation} range anchor`);
@@ -70,30 +81,49 @@ export function requireResolvedRange(value, request, operation) {
   const start = requireExactTextCaretAddress(range.start, `${operation} range start`);
   const end = requireExactTextCaretAddress(range.end, `${operation} range end`);
   requireEndpointPair(start, end, anchor, focus, operation);
+  return { anchor, focus, start, end };
+}
+
+function requireResolvedRangeContent(range, addresses, operation) {
   if (typeof range.selectedText !== 'string') {
     throw new Error(`${operation} returned invalid selectedText`);
   }
   requireWellFormedExactTextUtf16(range.selectedText, `${operation} selectedText`);
-  const sourceLocator = requireSourceLocatorRequest(range.sourceLocator, `${operation} range`);
-  if (
-    sourceLocator.sourceRange === undefined ||
-    sourceLocator.sourcePoint !== undefined ||
-    sourceLocator.anchorId !== undefined ||
-    sourceLocator.progression !== undefined
-  ) {
-    throw new Error(`${operation} returned a range without one exact source range`);
-  }
+  const source = requireExactTextRangeSource(range, operation);
   if (!Array.isArray(range.rects)) {
     throw new Error(`${operation} returned malformed exact range rects`);
   }
   if (
-    equalExactTextCaretAddress(start, end) &&
+    equalExactTextCaretAddress(addresses.start, addresses.end) &&
     (range.selectedText.length !== 0 || range.rects.length !== 0)
   ) {
     throw new Error(`${operation} returned content for a collapsed exact range`);
   }
-  const rects = requireRangeRects(range.rects, start, end, operation);
-  return { anchor, focus, start, end, selectedText: range.selectedText, sourceLocator, rects };
+  const rects = requireRangeRects(range.rects, addresses.start, addresses.end, operation);
+  return {
+    selectedText: range.selectedText,
+    ...source,
+    rects,
+  };
+}
+
+const RESOLVED_RANGE_FIELDS = new Set([
+  'anchor',
+  'focus',
+  'start',
+  'end',
+  'selectedText',
+  'sourceSpan',
+  'sourceLocator',
+  'rects',
+]);
+
+function requireExactFields(value, allowedFields, operation) {
+  for (const field of Reflect.ownKeys(value)) {
+    if (typeof field !== 'string' || !allowedFields.has(field)) {
+      throw new Error(`${operation} returned unknown field ${String(field)}`);
+    }
+  }
 }
 
 function requireRangeRects(values, start, end, operation) {
