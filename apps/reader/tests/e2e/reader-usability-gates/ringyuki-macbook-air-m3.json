@@ -55,7 +55,7 @@
         "frameWarmRoundTripMs": 20,
         "canvasReadyMs": 500,
         "cachedTurnFirstFrameMs": 50,
-        "cachedTurnStableMs": 450,
+        "cachedTurnStableMs": 1100,
         "deferredGrowthFirstFrameMs": 150,
         "reflowFirstFrameMs": 300,
         "maxLongTaskMs": 120
@@ -75,7 +75,7 @@
         "frameWarmRoundTripMs": 20,
         "canvasReadyMs": 500,
         "cachedTurnFirstFrameMs": 50,
-        "cachedTurnStableMs": 450,
+        "cachedTurnStableMs": 1100,
         "deferredGrowthFirstFrameMs": 150,
         "reflowFirstFrameMs": 400,
         "maxLongTaskMs": 120
@@ -95,7 +95,7 @@
         "frameWarmRoundTripMs": 20,
         "canvasReadyMs": 500,
         "cachedTurnFirstFrameMs": 50,
-        "cachedTurnStableMs": 450,
+        "cachedTurnStableMs": 1100,
         "deferredGrowthFirstFrameMs": 150,
         "reflowFirstFrameMs": 300,
         "maxLongTaskMs": 120

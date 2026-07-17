@@ -56,14 +56,4 @@ describe('stepSpring', () => {
     const settled = stepSpring(state, 0, DEFAULT_SPRING, 16);
     expect(settled).toBe(true);
   });
-
-  it('caps a stalled frame inside the spring integrator', () => {
-    const stalled: SpringState = { x: 100, vx: 0 };
-    const capped: SpringState = { x: 100, vx: 0 };
-
-    stepSpring(stalled, 0, DEFAULT_SPRING, 1_000);
-    stepSpring(capped, 0, DEFAULT_SPRING, 32);
-
-    expect(stalled).toEqual(capped);
-  });
 });

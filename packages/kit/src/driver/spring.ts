@@ -27,9 +27,8 @@ export function stepSpring(
   config: SpringConfig,
   dt: number,
 ): boolean {
-  // Keep a stalled frame from destabilizing the spring. Timed transitions use
-  // the uncapped wall-clock delta before reaching this physics-only boundary.
-  const dtSec = Math.min(Math.max(dt, 0), 32) / 1000;
+  // Convert dt to seconds for physics calculation
+  const dtSec = dt / 1000;
   const force = -config.stiffness * (state.x - target);
   state.vx += (force - config.damping * state.vx) * dtSec;
   state.x += state.vx * dtSec;

@@ -395,6 +395,9 @@ frame, cached-turn transition completion, and the maximum Long Task in each
 measured action window. Cached-turn stability ends at the controller's
 `transitionEnd` publication and verifies the final Canvas checksum, avoiding the
 100 ms sampling quantization used by the general cross-stage stability wait.
+The first-frame limit is the input-response gate; the stability limit includes
+the intentional spring animation and only guards against extra stalls or an
+unbounded transition. It must not be used to shorten the product motion curve.
 Waiting for other stages to settle isolates one stage from the next and keeps
 animation Long Tasks in the observation window; that wait is not added to any
 first-frame latency.

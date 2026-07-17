@@ -244,62 +244,6 @@ describe('FrameDriver', () => {
     driver.dispose();
   });
 
-  it('settles a timed transition against wall-clock time after a stalled frame', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
-    pool.resize(800, 600, 1);
-    pool.assignSlot('curr', 0);
-    pool.assignSlot('next', 1);
-    const td = createTransitionDriver({ programmaticDurationMs: 180 });
-    td.viewportWidth = 800;
-    const driver = createFrameDriver({
-      surface,
-      pool,
-      transitionDriver: td,
-      contentRenderer: vi.fn(() => true),
-      overlayProvider: () => [],
-      getBackingRatio: () => 1,
-    });
-
-    td.goToTarget('forward', 0, 1);
-    driver.scheduleComposite();
-    flushRaf(16);
-    expect(td.isAnimating).toBe(true);
-
-    flushRaf(216);
-    expect(td.isAnimating).toBe(false);
-    expect(rafCallbacks).toHaveLength(0);
-
-    driver.dispose();
-  });
-
-  it('counts a delayed first frame from the programmatic navigation start', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
-    pool.resize(800, 600, 1);
-    pool.assignSlot('curr', 0);
-    pool.assignSlot('next', 1);
-    const td = createTransitionDriver({ programmaticDurationMs: 180 });
-    td.viewportWidth = 800;
-    const driver = createFrameDriver({
-      surface,
-      pool,
-      transitionDriver: td,
-      contentRenderer: vi.fn(() => true),
-      overlayProvider: () => [],
-      getBackingRatio: () => 1,
-      now: () => 100,
-    });
-
-    td.goToTarget('forward', 0, 1);
-    driver.scheduleComposite();
-    flushRaf(600);
-
-    expect(td.isAnimating).toBe(false);
-    expect(rafCallbacks).toHaveLength(0);
-    driver.dispose();
-  });
-
   it('draws the previous slot during chained forward page turns', () => {
     const surface = createMockSurface();
     const pool = createPageBufferPool();

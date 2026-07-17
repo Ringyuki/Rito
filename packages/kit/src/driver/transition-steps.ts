@@ -32,7 +32,6 @@ export function stepSettling(
   opts: TransitionDriverOptions,
   dt: number,
 ): { nextMode: TransitionMode; instruction: DrawInstruction; settled?: SettledEvent } {
-  if (mode.timing) return stepProgrammaticSettling(mode, dt);
   const spring: SpringState = { x: mode.dx, vx: mode.vx };
   const done = stepSpring(spring, mode.target, opts, dt);
   mode.dx = spring.x;
@@ -53,32 +52,6 @@ export function stepSettling(
     };
   }
   return { nextMode: mode, instruction: turningInstruction(getSlotPositions(mode), mode.dx) };
-}
-
-function stepProgrammaticSettling(
-  mode: TransitionMode & { kind: 'settling' },
-  dt: number,
-): { nextMode: TransitionMode; instruction: DrawInstruction; settled?: SettledEvent } {
-  const timing = mode.timing;
-  if (!timing) throw new Error('Programmatic transition is missing its timing state');
-  const previousDx = mode.dx;
-  timing.elapsedMs = Math.min(timing.durationMs, timing.elapsedMs + Math.max(0, dt));
-  const progress = timing.durationMs === 0 ? 1 : timing.elapsedMs / timing.durationMs;
-  const eased = 1 - (1 - progress) ** 3;
-  mode.dx = timing.startDx + (mode.target - timing.startDx) * eased;
-  mode.vx = dt > 0 ? (mode.dx - previousDx) / dt : 0;
-  if (progress < 1) {
-    return { nextMode: mode, instruction: turningInstruction(getSlotPositions(mode), mode.dx) };
-  }
-  return {
-    nextMode: { kind: 'idle' },
-    instruction: { kind: 'single', slot: 'curr' },
-    settled: {
-      direction: mode.direction,
-      committed: true,
-      targetSpread: mode.incomingSpread ?? mode.outgoingSpread,
-    },
-  };
 }
 
 /** Step the boundary-elastic spring and return the new mode + draw instruction. */
