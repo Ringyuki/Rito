@@ -97,6 +97,27 @@ test('bounded startup validates its growth budget before opening a revision', ()
   assert.equal(createCount, 0);
 });
 
+test('bounded startup rejects simultaneous locator and spread targets before opening a revision', () => {
+  let createCount = 0;
+  const client = fixtureClient({
+    create: async () => {
+      createCount += 1;
+      return versioned(advance(0, 1, true));
+    },
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client);
+
+  assert.throws(
+    () =>
+      session.start({
+        ...startRequest(0),
+        targetLocator: { href: 'chapter.xhtml' },
+      }),
+    /targetLocator and targetSpreadIndex are mutually exclusive/,
+  );
+  assert.equal(createCount, 0);
+});
+
 test('bounded startup defaults an omitted growth budget to its validated startup budget', async () => {
   const calls = [];
   const client = fixtureClient({

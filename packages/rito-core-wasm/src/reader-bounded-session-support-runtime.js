@@ -9,6 +9,7 @@ export function requireBoundedReaderStartRequest(request) {
     throw new TypeError('bounded reader start request must be an object');
   }
   const budget = boundedReaderBudget(request.budget, 'bounded reader start');
+  const target = boundedReaderStartTarget(request);
   return {
     layoutConfig: request.layoutConfig,
     ...(request.lineBreaking !== undefined ? { lineBreaking: request.lineBreaking } : {}),
@@ -17,7 +18,27 @@ export function requireBoundedReaderStartRequest(request) {
       request.growthBudget === undefined
         ? budget
         : boundedReaderBudget(request.growthBudget, 'bounded reader growth'),
+    ...target,
   };
+}
+
+function boundedReaderStartTarget(request) {
+  const hasLocator = request.targetLocator !== undefined;
+  const hasSpread = request.targetSpreadIndex !== undefined;
+  if (hasLocator && hasSpread) {
+    throw new TypeError(
+      'bounded reader start targetLocator and targetSpreadIndex are mutually exclusive',
+    );
+  }
+  if (hasLocator) {
+    return {
+      targetLocator: requireSourceLocatorRequest(
+        request.targetLocator,
+        'bounded reader start target',
+      ),
+    };
+  }
+  return { targetSpreadIndex: requireSpreadIndex(request.targetSpreadIndex ?? 0) };
 }
 
 function boundedReaderBudget(value, operation) {

@@ -42,10 +42,11 @@ export function startInitialControllerFrame(
   reader: Reader,
   contentRenderer: ContentRenderer,
 ): void {
+  const spreadIndex = internals.currentSpread;
   syncCanvasSize(internals, runtime);
-  runtime.pool.assignSlot('curr', 0);
+  runtime.pool.assignSlot('curr', spreadIndex);
   runtime.frameDriver.scheduleComposite();
-  reader.notifyActiveSpread(0);
+  reader.notifyActiveSpread(spreadIndex);
   scheduleControllerPrerender(internals, runtime, contentRenderer);
 }
 

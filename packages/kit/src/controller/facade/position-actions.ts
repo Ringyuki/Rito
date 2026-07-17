@@ -20,10 +20,16 @@ export function buildPositionActions(internals: Internals, nav: Nav): PositionAc
     }
   };
   return {
-    restorePosition: () => {
+    restorePosition: (serialized) => {
       const restoreId = ++latestRestoreId;
       return startAction(() =>
-        restorePosition(internals, nav, activeRestoreLoads, () => restoreId === latestRestoreId),
+        restorePosition(
+          internals,
+          nav,
+          activeRestoreLoads,
+          serialized,
+          () => restoreId === latestRestoreId,
+        ),
       );
     },
     savePosition: () => {
@@ -46,6 +52,7 @@ async function restorePosition(
   internals: Internals,
   nav: Nav,
   activeRestoreLoads: Set<PositionIntent>,
+  preloaded: string | null | undefined,
   isLatestRestore: () => boolean,
 ): Promise<number | undefined> {
   const tracker = internals.engines.position;
@@ -56,7 +63,10 @@ async function restorePosition(
     if (!tracker.owns(intent)) return undefined;
     nav.supersedeForPositionIntent();
     if (!tracker.owns(intent)) return undefined;
-    const loadAttempt = await loadStoredPosition(internals, intent, activeRestoreLoads);
+    const loadAttempt =
+      preloaded === undefined
+        ? await loadStoredPosition(internals, intent, activeRestoreLoads)
+        : ({ kind: 'value', value: preloaded } as const);
     if (loadAttempt.kind === 'superseded') return undefined;
     const serialized = loadAttempt.value ?? null;
     if (!tracker.owns(intent)) return undefined;

@@ -63,6 +63,7 @@ export type {
 export {
   createPositionTracker,
   createReadingPosition,
+  parseReadingPosition,
   projectReadingPosition,
   resolveReadingPosition,
 } from './position';

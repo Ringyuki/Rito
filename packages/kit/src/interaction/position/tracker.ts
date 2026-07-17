@@ -21,7 +21,7 @@ import {
   type PositionLocatorNavigator,
 } from './native';
 import { registerPreservingIntentClaim } from './preserving-intent';
-import { parsePosition } from './parse';
+import { parseReadingPosition } from './parse';
 import { PortablePositionResolver } from './portable-resolution';
 
 export type {
@@ -182,7 +182,7 @@ class PositionTrackerRuntime implements PositionTracker {
   }
 
   async restore(serialized: string, requestedIntent?: PositionIntent): Promise<number | undefined> {
-    const parsed = parsePosition(serialized);
+    const parsed = parseReadingPosition(serialized);
     if (!parsed) return undefined;
     const resolved = await this.resolveForNavigation(parsed, requestedIntent);
     if (!resolved || !this.commit(resolved.intent, resolved.position)) return undefined;

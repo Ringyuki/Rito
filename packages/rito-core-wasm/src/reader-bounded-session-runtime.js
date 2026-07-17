@@ -41,8 +41,8 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   const start = (request) => {
     if (phase !== 'idle') throw new Error(`bounded reader session cannot start while ${phase}`);
     startRequest = requireBoundedReaderStartRequest(request);
-    presentationSpreadIndex = requireSpreadIndex(request.targetSpreadIndex ?? 0);
-    requestedTarget = spreadTarget(presentationSpreadIndex, ++targetSequence);
+    presentationSpreadIndex = startRequest.targetSpreadIndex ?? 0;
+    requestedTarget = initialTarget(startRequest, ++targetSequence);
     phase = 'running';
     return waitForSnapshot();
   };
@@ -375,4 +375,10 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   }
 
   return { start, ensureSpread, ensureLocator, complete, currentSnapshot, cancel, dispose };
+}
+
+function initialTarget(request, token) {
+  return request.targetLocator === undefined
+    ? spreadTarget(request.targetSpreadIndex, token)
+    : locatorTarget(request.targetLocator, token);
 }

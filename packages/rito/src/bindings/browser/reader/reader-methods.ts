@@ -32,6 +32,7 @@ import { trackBrowserReaderHostTask } from './host-tasks';
 export type BrowserReaderAccessorKey =
   | 'metadata'
   | 'totalSpreads'
+  | 'activeSpreadIndex'
   | 'pagination'
   | 'toc'
   | 'chapterMap'

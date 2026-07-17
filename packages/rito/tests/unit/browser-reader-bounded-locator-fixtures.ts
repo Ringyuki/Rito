@@ -172,8 +172,13 @@ export async function waitForCalls(mock: Mock, count: number): Promise<void> {
   expect(mock).toHaveBeenCalledTimes(count);
 }
 
-function spreadSnapshot(revisionId: string, revisionVersion: number): BrowserReaderBoundedSnapshot {
-  const result = revisionResult(revisionId, 1, 1, 0);
+export function spreadSnapshot(
+  revisionId: string,
+  revisionVersion: number,
+  spreadIndex = 0,
+  spreadCount = spreadIndex + 1,
+): BrowserReaderBoundedSnapshot {
+  const result = revisionResult(revisionId, spreadCount, spreadCount, spreadIndex);
   const revision = {
     ...result.bundle.revision,
     revisionVersion,
@@ -191,17 +196,17 @@ function spreadSnapshot(revisionId: string, revisionVersion: number): BrowserRea
       fontFamilies: result.bundle.fontFamilies,
     },
     navigation,
-    target: { kind: 'spread', spreadIndex: 0 },
-    presentationSpreadIndex: 0,
+    target: { kind: 'spread', spreadIndex },
+    presentationSpreadIndex: spreadIndex,
     frameWindow: {
       plan: {
         revisionId,
-        centerSpreadIndex: 0,
-        displaySpreadIndex: 0,
-        spreadIndexes: [0],
+        centerSpreadIndex: spreadIndex,
+        displaySpreadIndex: spreadIndex,
+        spreadIndexes: [spreadIndex],
       },
-      frames: [frameBuffer(revisionId, 0)],
-      spreads: [{ spreadIndex: 0, resources: [] }],
+      frames: [frameBuffer(revisionId, spreadIndex)],
+      spreads: [{ spreadIndex, resources: [] }],
     },
   };
 }

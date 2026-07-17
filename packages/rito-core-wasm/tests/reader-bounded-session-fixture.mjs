@@ -111,6 +111,15 @@ export function startRequest(targetSpreadIndex, budget = 1, growthBudget = 32) {
   };
 }
 
+export function locatorStartRequest(targetLocator, budget = 32, growthBudget = 32) {
+  return {
+    layoutConfig: {},
+    budget: { maxTopLevelNodes: budget },
+    growthBudget: { maxTopLevelNodes: growthBudget },
+    targetLocator,
+  };
+}
+
 export function advance(version, spreadCount, continuing) {
   const revision = summary(version, continuing ? 'ready' : 'complete', spreadCount);
   return {

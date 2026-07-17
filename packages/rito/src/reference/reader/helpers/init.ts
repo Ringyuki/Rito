@@ -48,6 +48,7 @@ export async function initReaderState(
     assets,
     resources,
     spreads: buildSpreads(resources.pages, config, getChapterStartPages(resources.chapterMap)),
+    activeSpreadIndex: 0,
     spreadRenderedListeners: new Set(),
     fontSizeOverride: options.fontSize,
     lineHeightOverride: options.lineHeight,

@@ -129,14 +129,6 @@ export function useReader(
     });
   }, [lineHeight, lineHeightActive, lineHeightForce, fontFamily, rito.controller, rito.isLoaded]);
 
-  // Restore position after load
-  useEffect(() => {
-    if (!rito.isLoaded || !rito.controller) return;
-    void rito.controller.restorePosition().then((idx) => {
-      if (idx !== undefined) rito.goToSpread(idx);
-    });
-  }, [rito.isLoaded]);
-
   // Actions
   const loadFromArrayBuffer = useCallback(
     async (data: ArrayBuffer) => {

@@ -2,6 +2,7 @@ import { useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import { createReader, type Reader } from '@ritojs/core';
 import { createController, type ReaderController } from '@ritojs/kit';
 import {
+  createLoadedState,
   INITIAL,
   type InternalState,
   type LoadedReaderStack,
@@ -10,6 +11,12 @@ import {
   type UseRitoReaderOptions,
 } from './use-rito-reader-model';
 import { waitForInitialReaderLayout } from './use-rito-reader-layout';
+import {
+  hydrateInitialPosition,
+  loadInitialPosition,
+  readerOptionsWithInitialPosition,
+  type InitialPositionLoad,
+} from './use-rito-reader-position';
 import { subscribeReaderControllerEvents } from './use-rito-reader-subscriptions';
 
 const LOADING_INDICATOR_DELAY_MS = 120;
@@ -70,13 +77,20 @@ async function loadReader(
       cancelLoadingIndicator();
       return;
     }
+    const options = optionsRef.current;
+    const initialPosition = await loadInitialPosition(options);
+    if (requestId !== refs.loadRequestIdRef.current) {
+      cancelLoadingIndicator();
+      return;
+    }
     await enqueueReaderCreation(creationTailRef, () =>
       createAndCommitReader(
         resolvedData,
         requestId,
         disposeTask,
         refs,
-        optionsRef.current,
+        options,
+        initialPosition,
         setState,
         cancelLoadingIndicator,
         disposeCurrent,
@@ -107,6 +121,7 @@ async function createAndCommitReader(
   disposeTask: Promise<void>,
   refs: ReaderRefs,
   options: UseRitoReaderOptions,
+  initialPosition: InitialPositionLoad,
   setState: Dispatch<SetStateAction<InternalState>>,
   cancelLoadingIndicator: () => void,
   disposeCurrent: () => Promise<void>,
@@ -117,6 +132,7 @@ async function createAndCommitReader(
     data,
     requestId,
     options,
+    initialPosition,
     refs.canvasRef,
     refs.loadRequestIdRef,
   );
@@ -151,7 +167,7 @@ async function commitLoadedStack(
     refs.readerRef.current = loaded.reader;
     refs.ctrlRef.current = loaded.ctrl;
     refs.detachEventsRef.current = detachEvents;
-    setState(createLoadedState(loaded.reader));
+    setState(createLoadedState(loaded.reader, loaded.ctrl));
   } catch (error) {
     detachEvents?.();
     if (refs.readerRef.current === loaded.reader) refs.readerRef.current = null;
@@ -180,20 +196,25 @@ async function loadReaderStack(
   data: ArrayBuffer,
   requestId: number,
   opts: UseRitoReaderOptions,
+  initialPosition: InitialPositionLoad,
   canvasRef: RefBox<HTMLCanvasElement | null>,
   loadRequestIdRef: RefBox<number>,
 ): Promise<LoadedReaderStack | null> {
   const canvas = getOrCreateCanvas(canvasRef);
   if (!canvas) throw new Error('useRitoReader requires a browser document to create a canvas');
 
-  const reader = await createReader(data, canvas, opts.reader);
+  const reader = await createReader(
+    data,
+    canvas,
+    readerOptionsWithInitialPosition(opts.reader, initialPosition),
+  );
   if (requestId !== loadRequestIdRef.current) {
     await disposeReader(reader);
     return null;
   }
 
   await waitForLayoutOrDispose(reader, requestId, loadRequestIdRef);
-  return createControllerStack(reader, canvas, opts, requestId, loadRequestIdRef);
+  return createControllerStack(reader, canvas, opts, initialPosition, requestId, loadRequestIdRef);
 }
 
 async function waitForLayoutOrDispose(
@@ -213,6 +234,7 @@ async function createControllerStack(
   reader: Reader,
   canvas: HTMLCanvasElement,
   opts: UseRitoReaderOptions,
+  initialPosition: InitialPositionLoad,
   requestId: number,
   loadRequestIdRef: RefBox<number>,
 ): Promise<LoadedReaderStack | null> {
@@ -228,6 +250,7 @@ async function createControllerStack(
     await disposeReader(reader);
     throw error;
   }
+  await hydrateInitialPosition(ctrl, initialPosition);
   if (requestId === loadRequestIdRef.current) return { reader, ctrl };
   disposeController(ctrl);
   await disposeReader(reader);
@@ -253,20 +276,6 @@ async function disposeReader(reader: Reader): Promise<void> {
   } catch {
     // A rejected release must not block cancellation or a replacement load.
   }
-}
-
-function createLoadedState(reader: Reader): InternalState {
-  const hasLayout = reader.totalSpreads > 0;
-  return {
-    isLoaded: hasLayout,
-    isLoading: !hasLayout,
-    error: null,
-    currentSpread: 0,
-    totalSpreads: reader.totalSpreads,
-    metadata: reader.metadata,
-    toc: reader.toc,
-    spreads: reader.spreads,
-  };
 }
 
 function getOrCreateCanvas(canvasRef: RefBox<HTMLCanvasElement | null>): HTMLCanvasElement | null {

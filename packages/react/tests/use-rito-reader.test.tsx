@@ -8,9 +8,10 @@ import type { Reader } from '@ritojs/core';
 import type { ReaderController } from '@ritojs/kit';
 import { useRitoReader, type UseRitoReaderOptions } from '../src/hooks';
 
-const { createReaderMock, createControllerMock } = vi.hoisted(() => ({
+const { createReaderMock, createControllerMock, parseReadingPositionMock } = vi.hoisted(() => ({
   createReaderMock: vi.fn(),
   createControllerMock: vi.fn(),
+  parseReadingPositionMock: vi.fn(),
 }));
 
 vi.mock('@ritojs/core', () => ({
@@ -19,6 +20,7 @@ vi.mock('@ritojs/core', () => ({
 
 vi.mock('@ritojs/kit', () => ({
   createController: createControllerMock,
+  parseReadingPosition: parseReadingPositionMock,
 }));
 
 interface Deferred<T> {
@@ -73,8 +75,13 @@ function createReaderStub(
   } as unknown as Reader;
 }
 
-function createControllerStub(): ReaderController {
+function createControllerStub(
+  currentSpread = 0,
+  restorePosition: () => Promise<number | undefined> = () => Promise.resolve(undefined),
+): ReaderController {
   return {
+    currentSpread,
+    restorePosition: vi.fn(restorePosition),
     dispose: vi.fn(),
     on: vi.fn(() => vi.fn()),
   } as unknown as ReaderController;
@@ -160,6 +167,7 @@ describe('useRitoReader', () => {
     root = createRoot(container);
     createReaderMock.mockReset();
     createControllerMock.mockReset();
+    parseReadingPositionMock.mockReset();
   });
 
   afterEach(() => {

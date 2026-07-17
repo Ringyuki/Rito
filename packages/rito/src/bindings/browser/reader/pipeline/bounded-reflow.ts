@@ -1,4 +1,4 @@
-import type { ReaderOptions } from '../../../../reader';
+import type { ReaderLocator, ReaderOptions } from '../../../../reader';
 import {
   createBrowserReaderBoundedSessionOwner,
   startBrowserReaderBoundedCandidate,
@@ -9,6 +9,7 @@ import type { BrowserReaderQueuedReflow, BrowserReaderState } from '../types';
 import { trackBrowserReaderHostTask } from '../host-tasks';
 import { hostFontMetricSampleCount } from '../../font-metrics';
 import { captureBrowserReaderReflowAnchor } from './reflow-anchor';
+import { copyReaderLocator } from '../interaction-capture';
 import {
   isNoOpReflow,
   isStaleReflow,
@@ -19,9 +20,7 @@ import {
 type State = BrowserReaderState;
 type Request = BrowserReaderQueuedReflow;
 type CandidateResult = 'committed' | 'retry' | 'cancelled';
-
 const activeAborts = new WeakMap<State, AbortController>();
-
 export function scheduleBrowserReaderReflow(
   state: State,
   options: ReaderOptions,
@@ -76,6 +75,7 @@ export async function startBrowserReaderInitialReflow(
       spreadMode,
       lineBreaking,
       onCommitted,
+      options.initialLocator ? copyReaderLocator(options.initialLocator) : undefined,
       abort.signal,
     );
   } catch (error) {
@@ -92,6 +92,7 @@ async function runInitialCandidateLoop(
   spreadMode: 'single' | 'double',
   lineBreaking: 'greedy' | 'optimal',
   onCommitted: (() => void) | undefined,
+  initialLocator: ReaderLocator | undefined,
   signal: AbortSignal,
 ): Promise<void> {
   let owner = initialOwner;
@@ -100,7 +101,16 @@ async function runInitialCandidateLoop(
     const snapshot = await startBrowserReaderBoundedCandidate(
       state,
       owner,
-      { config: request.config, spreadMode, lineBreaking, targetSpreadIndex: 0, onCommitted },
+      {
+        config: request.config,
+        spreadMode,
+        lineBreaking,
+        targetSpreadIndex: 0,
+        onCommitted,
+        ...(initialLocator
+          ? { preserveLocator: initialLocator, fallbackOnLocatorFailure: true }
+          : {}),
+      },
       signal,
     );
     if (snapshot) return;

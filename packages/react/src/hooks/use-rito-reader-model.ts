@@ -1,9 +1,16 @@
 import type { PackageMetadata, Reader, ReaderOptions, Spread, TocEntry } from '@ritojs/core';
-import type { ControllerOptions, ReaderController, TransitionDriverOptions } from '@ritojs/kit';
+import type {
+  ControllerOptions,
+  ReaderController,
+  ReadingPosition,
+  TransitionDriverOptions,
+} from '@ritojs/kit';
 
 export interface UseRitoReaderOptions {
   readonly reader: ReaderOptions;
   readonly controller?: ControllerOptions | undefined;
+  /** Source-anchored position to resolve before the first reader frame is exposed. */
+  readonly initialPosition?: ReadingPosition | null | undefined;
 }
 
 export interface RitoReaderState {
@@ -77,3 +84,17 @@ export const INITIAL: InternalState = {
   toc: [],
   spreads: [],
 };
+
+export function createLoadedState(reader: Reader, controller: ReaderController): InternalState {
+  const hasLayout = reader.totalSpreads > 0;
+  return {
+    isLoaded: hasLayout,
+    isLoading: !hasLayout,
+    error: null,
+    currentSpread: controller.currentSpread,
+    totalSpreads: reader.totalSpreads,
+    metadata: reader.metadata,
+    toc: reader.toc,
+    spreads: reader.spreads,
+  };
+}

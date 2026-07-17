@@ -4,6 +4,7 @@ describe('@ritojs/kit', () => {
   it('exports createController', async () => {
     const mod = await import('../src/index');
     expect(mod.createController).toBeDefined();
+    expect(mod.parseReadingPosition).toBeDefined();
   });
 
   it('exports createKeyboardManager', async () => {

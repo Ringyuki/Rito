@@ -142,10 +142,12 @@ describe('notifyActiveSpread', () => {
     const reader = await buildReader();
     const listener = vi.fn();
     reader.onSpreadRendered(listener);
+    const activeBefore = reader.activeSpreadIndex;
 
     reader.notifyActiveSpread(999);
 
     expect(listener).not.toHaveBeenCalled();
+    expect(reader.activeSpreadIndex).toBe(activeBefore);
 
     await reader.dispose();
   });

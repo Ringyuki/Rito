@@ -41,9 +41,9 @@ export function renderSpreadToContext(
 }
 
 export function notifySpreadRendered(state: BrowserReaderState, index: number): void {
-  state.activeSpreadIndex = index;
   const spread = browserReaderSpreads(state)[index];
   if (!spread) return;
+  state.activeSpreadIndex = index;
   for (const cb of state.spreadRenderedListeners) cb(index, spread);
 }
 

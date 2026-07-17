@@ -28,6 +28,7 @@ export type {
   SearchResult,
   TextRange,
 } from './interaction/index';
+export { parseReadingPosition } from './interaction/index';
 
 export type { OverlayLayer, Rect } from './painter/types';
 export type { TransitionDriverOptions } from './driver/types';

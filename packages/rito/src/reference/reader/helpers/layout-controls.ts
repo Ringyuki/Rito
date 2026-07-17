@@ -106,7 +106,12 @@ function repaginate(
     state.config,
     getChapterStartPages(state.resources.chapterMap),
   );
+  state.activeSpreadIndex = clampActiveSpread(state.activeSpreadIndex, state.spreads.length);
   return true;
+}
+
+function clampActiveSpread(activeSpreadIndex: number, spreadCount: number): number {
+  return Math.max(0, Math.min(activeSpreadIndex, spreadCount - 1));
 }
 
 function toResources(state: ReaderState, paginationResult: Omit<Resources, 'images'>): Resources {

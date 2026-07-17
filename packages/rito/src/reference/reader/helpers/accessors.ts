@@ -11,6 +11,7 @@ export function defineReaderAccessors(
     {
       metadata: { get: () => doc.packageDocument.metadata, enumerable: true },
       totalSpreads: { get: () => state.spreads.length, enumerable: true },
+      activeSpreadIndex: { get: () => state.activeSpreadIndex, enumerable: true },
       toc: { get: () => doc.toc, enumerable: true },
       chapterMap: { get: () => state.resources.chapterMap, enumerable: true },
       manifestHrefMap: { get: () => manifestHrefMap, enumerable: true },

@@ -102,6 +102,28 @@ describe('Browser bounded reflow coordinator', () => {
     expect(state.reflow.active).toBeUndefined();
   });
 
+  it('carries an initial locator into the first bounded candidate', async () => {
+    const foreground = createWorker(() => undefined, 'initial-locator');
+    const state = createState(foreground.worker);
+    const locator = sourceLocator('late.xhtml', 18);
+
+    await startBrowserReaderInitialReflow(
+      state,
+      { ...BASE_READER_OPTIONS, initialLocator: locator },
+      'single',
+      'greedy',
+    );
+
+    const request = mocks.startCandidate.mock.calls[0]?.[2];
+    expect(request).toMatchObject({
+      targetSpreadIndex: 0,
+      preserveLocator: locator,
+      fallbackOnLocatorFailure: true,
+    });
+    expect(request?.preserveLocator).not.toBe(locator);
+    expect(request?.preserveLocator?.sourcePoint?.nodePath).not.toBe(locator.sourcePoint?.nodePath);
+  });
+
   it('retries an initial candidate only after exact font geometry grows', async () => {
     const initial = createWorker(() => undefined, 'initial-font-fallback');
     const calibrated = createWorker(() => undefined, 'initial-font-calibrated');

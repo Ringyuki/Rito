@@ -246,6 +246,7 @@ export function defineBrowserReaderAccessors(
       get: () => normalizePackageMetadata(state.publication.package.metadata),
     },
     totalSpreads: { enumerable: true, get: () => state.revisionBundle.revision.spreadCount },
+    activeSpreadIndex: { enumerable: true, get: () => state.activeSpreadIndex },
     pagination: { enumerable: true, value: pagination },
     toc: { enumerable: true, get: () => state.publication.package.toc },
     chapterMap: {

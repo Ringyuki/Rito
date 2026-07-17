@@ -40,11 +40,23 @@ export interface RitoCoreWasmBoundedReaderSessionClient {
   ): Promise<RitoCoreWasmRevisionRelease>;
 }
 
-export interface RitoCoreWasmBoundedReaderStartRequest extends RitoCoreWasmBoundedRevisionRequest {
+interface RitoCoreWasmBoundedReaderStartBase extends RitoCoreWasmBoundedRevisionRequest {
   /** Work quantum used only after the first snapshot; defaults to `budget`. */
   readonly growthBudget?: import('./revision').RitoCoreWasmRevisionWorkBudget | undefined;
-  readonly targetSpreadIndex?: number | undefined;
 }
+
+export type RitoCoreWasmBoundedReaderStartRequest = RitoCoreWasmBoundedReaderStartBase &
+  (
+    | {
+        /** Durable source target resolved before the first snapshot is published. */
+        readonly targetLocator: RitoCoreWasmSourceLocator;
+        readonly targetSpreadIndex?: never;
+      }
+    | {
+        readonly targetLocator?: never;
+        readonly targetSpreadIndex?: number | undefined;
+      }
+  );
 
 export interface RitoCoreWasmBoundedReaderSnapshot {
   readonly generation: number;

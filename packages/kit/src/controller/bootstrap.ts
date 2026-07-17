@@ -150,7 +150,7 @@ function createControllerInternals(reader: Reader, options: ControllerOptions): 
   try {
     return {
       reader,
-      currentSpread: 0,
+      currentSpread: initialActiveSpread(reader),
       renderScale: options.renderScale ?? 1,
       options,
       engines,
@@ -165,6 +165,16 @@ function createControllerInternals(reader: Reader, options: ControllerOptions): 
     tryDisposeEngines(engines, annotationStore);
     throw error;
   }
+}
+
+function initialActiveSpread(reader: Reader): number {
+  const active: unknown = (reader as { readonly activeSpreadIndex?: unknown }).activeSpreadIndex;
+  if (typeof active !== 'number' || !Number.isSafeInteger(active)) return 0;
+  const lastSpread =
+    Number.isSafeInteger(reader.totalSpreads) && reader.totalSpreads > 0
+      ? reader.totalSpreads - 1
+      : 0;
+  return Math.max(0, Math.min(active, lastSpread));
 }
 
 function disposeEngines(internals: Internals): void {

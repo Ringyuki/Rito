@@ -16,6 +16,7 @@ export interface ReaderState {
   assets: LoadedAssets;
   resources: Resources;
   spreads: readonly Spread[];
+  activeSpreadIndex: number;
   spreadRenderedListeners: Set<SpreadRenderedCallback>;
   /** User font size override. When set, used as rootFontSize during repagination. */
   fontSizeOverride: number | undefined;

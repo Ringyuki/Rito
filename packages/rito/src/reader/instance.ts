@@ -48,7 +48,6 @@ export interface ReaderTextCaret {
   readonly geometry: ReaderTextCaretGeometry;
   readonly sourceLocator: ReaderLocator;
 }
-
 export type ReaderTextCaretResolution =
   | {
       readonly status: 'resolved';
@@ -67,12 +66,10 @@ export type ReaderTextCaretResolution =
       readonly pageIndex: number;
       readonly spreadIndex: number;
     };
-
 export interface ReaderExactTextRangeRect extends Rect {
   readonly pageIndex: number;
   readonly spreadIndex: number;
 }
-
 export type ReaderExactSourceRangeRequest = Required<Pick<ReaderLocator, 'href' | 'sourceRange'>>;
 export interface ReaderExactSourceRange {
   readonly selectedText: string;
@@ -89,7 +86,6 @@ export type ReaderExactSourceRangeResolution =
       readonly status: 'unavailable';
       readonly reason: ReaderTextInteractionUnavailableReason;
     };
-
 export interface ReaderTextRange {
   readonly anchor: ReaderTextCaret;
   readonly focus: ReaderTextCaret;
@@ -200,6 +196,8 @@ export interface ReaderPinnedFontPolicy {
 export interface ReaderOptions {
   readonly width: number;
   readonly height: number;
+  /** Durable source target for bindings that support locator-first initialization. */
+  readonly initialLocator?: ReaderLocator | undefined;
   readonly margin?: number;
   readonly spread?: 'single' | 'double';
   readonly spreadGap?: number;
@@ -231,6 +229,8 @@ export interface ReaderIncrementalPagination {
 export interface Reader {
   readonly metadata: PackageMetadata;
   readonly totalSpreads: number;
+  /** Spread selected by the latest committed layout/navigation transaction. */
+  readonly activeSpreadIndex: number;
   readonly pagination?: ReaderIncrementalPagination;
   readonly toc: readonly TocEntry[];
   readonly chapterMap: ReadonlyMap<string, ChapterRange>;

@@ -25,6 +25,7 @@ import {
   type BrowserReaderBoundedReplacementTarget,
 } from './bounded-font-geometry';
 import { enqueueBrowserReaderCurrentMutation } from './current-mutation-queue';
+import { startBrowserReaderCandidateTarget } from './bounded-candidate-target';
 
 const INITIAL_SPREAD_LAYOUT_NODE_BUDGET = 1;
 const BOUNDED_GROWTH_LAYOUT_NODE_BUDGET = 32;
@@ -37,6 +38,8 @@ export interface BrowserReaderBoundedLayoutRequest {
   readonly lineBreaking: 'greedy' | 'optimal';
   readonly targetSpreadIndex: number;
   readonly preserveLocator?: ReaderLocator | undefined;
+  /** Initial open may recover an invalid/no-page locator to its fallback spread. */
+  readonly fallbackOnLocatorFailure?: boolean | undefined;
   readonly complete?: boolean | undefined;
   readonly expectedActiveSpreadIndex?: number | undefined;
   readonly notifyLayoutCommitted?: boolean | undefined;
@@ -99,21 +102,15 @@ async function runCandidate(
   baseCommitGeneration: number,
   signal?: AbortSignal,
 ): Promise<BrowserReaderBoundedSnapshot | undefined> {
-  let snapshot = await owner.controller.start({
+  const startRequest = {
     layoutConfig: toCoreLayoutConfig(request.config, state.fontMetrics),
     lineBreaking: request.lineBreaking,
     budget: {
-      maxTopLevelNodes:
-        request.targetSpreadIndex === 0
-          ? INITIAL_SPREAD_LAYOUT_NODE_BUDGET
-          : BOUNDED_GROWTH_LAYOUT_NODE_BUDGET,
+      maxTopLevelNodes: candidateStartBudget(request),
     },
     growthBudget: { maxTopLevelNodes: BOUNDED_GROWTH_LAYOUT_NODE_BUDGET },
-    targetSpreadIndex: request.targetSpreadIndex,
-  });
-  if (request.preserveLocator) {
-    snapshot = await owner.controller.ensureLocator(copyReaderLocator(request.preserveLocator));
-  }
+  } as const;
+  let snapshot = await startBrowserReaderCandidateTarget(owner, request, startRequest);
   if (request.complete) snapshot = await owner.controller.complete();
   if (!ownsBrowserReaderBoundedCandidate(state, owner, generation) || signal?.aborted) {
     await abandonBrowserReaderBoundedCandidate(state, owner);
@@ -137,6 +134,12 @@ async function runCandidate(
   }
   if (result.retiredOwner) await retireBrowserReaderBoundedOwner(state, result.retiredOwner);
   return signal?.aborted ? undefined : snapshot;
+}
+
+function candidateStartBudget(request: BrowserReaderBoundedLayoutRequest): number {
+  return request.preserveLocator || request.targetSpreadIndex !== 0
+    ? BOUNDED_GROWTH_LAYOUT_NODE_BUDGET
+    : INITIAL_SPREAD_LAYOUT_NODE_BUDGET;
 }
 
 export function ensureBrowserReaderBoundedSpread(

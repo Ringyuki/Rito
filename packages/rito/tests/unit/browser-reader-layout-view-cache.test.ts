@@ -6,6 +6,16 @@ import type { BrowserReaderState } from '../../src/bindings/browser/reader/types
 import { createState, createWorker, spreadNavigation } from './browser-reader-reflow-fixtures';
 
 describe('Browser reader layout view cache', () => {
+  it('projects the latest committed active spread', () => {
+    const { reader, state } = createFixture();
+    state.activeSpreadIndex = 1;
+
+    expect(reader.activeSpreadIndex).toBe(1);
+
+    state.activeSpreadIndex = 0;
+    expect(reader.activeSpreadIndex).toBe(0);
+  });
+
   it('returns stable accessor references while committed identities stay unchanged', () => {
     const { reader } = createFixture();
     const pages = reader.pages;

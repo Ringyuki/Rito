@@ -83,6 +83,7 @@ describe('createReader', () => {
       // Read-only properties
       expect(reader.metadata).toBeDefined();
       expect(typeof reader.totalSpreads).toBe('number');
+      expect(reader.activeSpreadIndex).toBe(0);
       expect(Array.isArray(reader.toc)).toBe(true);
       expect(reader.chapterMap).toBeInstanceOf(Map);
       expect(Array.isArray(reader.pages)).toBe(true);

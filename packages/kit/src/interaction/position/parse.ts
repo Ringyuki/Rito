@@ -1,7 +1,7 @@
 import type { ReaderLocator, ReaderSourcePoint } from '@ritojs/core';
 import type { ReadingLocator, ReadingPosition } from './model';
 
-export function parsePosition(serialized: string): ReadingPosition | undefined {
+export function parseReadingPosition(serialized: string): ReadingPosition | undefined {
   try {
     const parsed: unknown = JSON.parse(serialized);
     return isPosition(parsed) ? parsed : undefined;

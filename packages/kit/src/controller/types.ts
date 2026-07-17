@@ -228,7 +228,8 @@ export interface ReaderController {
   updateAnnotation(id: string, patch: AnnotationRecordPatch): boolean;
   readonly annotations: readonly AnnotationRecord[];
 
-  restorePosition(): Promise<number | undefined>;
+  /** Restore a preloaded serialized position, or load it from positionStorage when omitted. */
+  restorePosition(serialized?: string | null): Promise<number | undefined>;
   /** Rejects during action setup, an owned restore load, or an active adapter write. */
   savePosition(): Promise<void>;
   /** Resolve and navigate to a serialized source-anchored ReadingPosition. */

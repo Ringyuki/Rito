@@ -6,12 +6,60 @@ import {
   advance,
   deferred,
   fixtureClient,
+  locatorStartRequest,
   revisionNavigation,
   revisionPresentation,
   sourceResolution,
   startRequest,
   versioned,
 } from './reader-bounded-session-fixture.mjs';
+
+test('bounded startup targets a locator before publishing or warming any spread', async () => {
+  const locatorReads = [];
+  const budgets = [];
+  const warmed = [];
+  let presentationCount = 0;
+  const locator = { href: 'late.xhtml', progression: 0.5 };
+  const client = fixtureClient({
+    create: async (request) => {
+      budgets.push(request.budget.maxTopLevelNodes);
+      return versioned(advance(0, 1, true));
+    },
+    continue: async (request) => {
+      budgets.push(request.budget.maxTopLevelNodes);
+      const version = request.revisionVersion + 1;
+      return versioned(advance(version, version === 1 ? 2 : 4, true));
+    },
+    locator: (revision, request, extent) => {
+      locatorReads.push(revision.revisionVersion);
+      return revision.revisionVersion < 2
+        ? pending(revision, request, 'notPaginated')
+        : sourceResolution(revision, request, extent, 3);
+    },
+    presentation: (revision, extent, accepted) => {
+      presentationCount += 1;
+      return presentationEnvelope(revision, extent, accepted);
+    },
+    warm: (_revision, spreadIndex) => {
+      warmed.push(spreadIndex);
+      return { spreadIndex };
+    },
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    yieldControl: async () => {},
+  });
+
+  const snapshot = await session.start(locatorStartRequest(locator));
+
+  assert.equal(snapshot.target.kind, 'locator');
+  assert.equal(snapshot.target.resolution.status, 'resolved');
+  assert.equal(snapshot.presentationSpreadIndex, 3);
+  assert.deepEqual(locatorReads, [0, 1, 2]);
+  assert.deepEqual(budgets, [32, 32, 32]);
+  assert.deepEqual(warmed, [3]);
+  assert.equal(presentationCount, 1);
+  await session.dispose();
+});
 
 test('ensureLocator advances exact revisions until its source target resolves', async () => {
   const locatorReads = [];

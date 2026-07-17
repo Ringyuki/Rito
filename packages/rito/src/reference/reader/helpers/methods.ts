@@ -55,6 +55,7 @@ function buildRenderMethods(
     notifyActiveSpread: (index: number): void => {
       const spread = state.spreads[index];
       if (!spread) return;
+      state.activeSpreadIndex = index;
       for (const cb of state.spreadRenderedListeners) cb(index, spread);
     },
   };
