@@ -144,8 +144,13 @@ The remaining usability work is narrower but still release-blocking:
    touch long-press drags now share the same exact gesture lease, lazy-growth revision
    continuation, adjacent-spread snap and new-mapper replay in both directions.
    Released selections cannot consume that one-shot projection authorization, and
-   pointer/touch cancellation aborts pending growth before finalization. Platform keyboard
-   extension remains usability work. Mouse repeated-click and trusted Chromium touch
+   pointer/touch cancellation aborts pending growth before finalization. Revision-bound
+   keyboard extension now covers physical character movement, platform-specific word and
+   paragraph movement, sticky visual-line movement, line edges and same-chapter edges. Its
+   serialized Kit session survives append-only growth, reveals an offscreen focus spread and
+   fails closed when focus, navigation ownership or the native selection changes. Platform
+   PageUp/PageDown selection and cross-chapter document edges remain usability work. Mouse
+   repeated-click and trusted Chromium touch
    long-press both pass the
    production Worker/Canvas path; touch acceptance covers word seeding, cross-line
    extension with immediate release, retained highlight and cancellation in
@@ -678,8 +683,11 @@ preservation, pointer capture, fast release and cancellation rollback. Exact-han
 edge autoscroll now covers already-published spreads and append-only bounded growth. It
 atomically rebinds the stable-prefix caret against the appended revision and rejects
 replacement layouts. Primary-drag edge scrolling now uses that same selection-owned
-transaction for already-published and lazily appended spreads; keyboard extension must
-likewise follow the host platform rather than introducing Rito-specific interaction rules. Browser acceptance uses real
+transaction for already-published and lazily appended spreads. Keyboard extension now uses an
+atomic fixed-anchor Rust movement contract for physical character, platform word/paragraph,
+sticky visual-line, line-edge and same-chapter edge movement. A bounded chapter-end request grows
+the retained tail and transfers the same exact selection to the newly visible spread. Browser
+acceptance uses real
 Canvas pointer input and the production Worker path, not only mocked caret/range
 unit tests. The controlled Browser proof passes real Canvas multi-line and
 cross-paragraph drags, pointer-up persistence and exact copied text with native

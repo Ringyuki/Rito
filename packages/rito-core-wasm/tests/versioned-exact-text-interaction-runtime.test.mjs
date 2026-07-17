@@ -12,6 +12,9 @@ import {
   caretResponse,
   caretTransport,
   handle,
+  movementRequest,
+  movementResponse,
+  movementTransport,
   pointRequest,
   pointRangeRequest,
   pointRangeResponse,
@@ -44,6 +47,8 @@ test('in-process exact text reads use versioned raw methods and unwrap request-b
   const granular = await client.resolveTextRangeFromPointsAtRevision(handle(3), granularInput);
   const rangeToPointInput = rangeToPointRequest();
   const rangeToPoint = await client.resolveTextRangeToPointAtRevision(handle(3), rangeToPointInput);
+  const movementInput = movementRequest({ movement: 'wordStartRight' });
+  const movement = await client.resolveTextSelectionMovementAtRevision(handle(3), movementInput);
 
   assert.deepEqual(caret, { revision: handle(3), value: caretResponse() });
   assert.deepEqual(range, { revision: handle(3), value: rangeResponse(rangeInput) });
@@ -61,6 +66,10 @@ test('in-process exact text reads use versioned raw methods and unwrap request-b
     revision: handle(3),
     value: rangeToPointResponse(rangeToPointInput),
   });
+  assert.deepEqual(movement, {
+    revision: handle(3),
+    value: movementResponse(movementInput),
+  });
   assert.deepEqual(
     calls.filter(([name]) => name.includes('AtRevision')),
     [
@@ -68,9 +77,30 @@ test('in-process exact text reads use versioned raw methods and unwrap request-b
       ['resolveTextRangeAtRevisionJson', ['rev-1', 3, JSON.stringify(rangeInput)]],
       ['resolveTextRangeFromPointsAtRevisionJson', ['rev-1', 3, JSON.stringify(granularInput)]],
       ['resolveTextRangeToPointAtRevisionJson', ['rev-1', 3, JSON.stringify(rangeToPointInput)]],
+      ['resolveTextSelectionMovementAtRevisionJson', ['rev-1', 3, JSON.stringify(movementInput)]],
     ],
   );
   client.dispose();
+});
+
+test('direct exact movement preserves paragraph-start movement JSON without aliasing', () => {
+  const calls = [];
+  const document = new RitoCoreWasmDocument(rawExactTextDocument(calls));
+
+  for (const movement of ['paragraphPreviousStart', 'paragraphNextStart']) {
+    const request = movementRequest({ movement });
+    assert.deepEqual(document.resolveTextSelectionMovementAtRevision(handle(), request), {
+      revision: handle(),
+      value: movementResponse(request),
+    });
+  }
+
+  assert.deepEqual(
+    calls
+      .filter(([name]) => name === 'resolveTextSelectionMovementAtRevisionJson')
+      .map(([, [, , requestJson]]) => JSON.parse(requestJson).movement),
+    ['paragraphPreviousStart', 'paragraphNextStart'],
+  );
 });
 
 test('payload dispatch echoes normalized exact requests and validates both envelopes', () => {
@@ -140,6 +170,48 @@ test('payload dispatch echoes normalized exact requests and validates both envel
     revision: handle(),
     result: rangeToPointTransport(rangeToPointInput),
   });
+
+  const movementInput = movementRequest({ movement: 'wordStartRight' });
+  const movement = versionedReaderWorkerPayload(
+    {
+      resolveTextSelectionMovementAtRevision: () => ({
+        revision: handle(),
+        value: movementResponse(movementInput),
+      }),
+    },
+    {
+      kind: 'resolveTextSelectionMovementAtRevision',
+      revision: handle(),
+      request: movementInput,
+    },
+  );
+  assert.deepEqual(movement, {
+    kind: 'resolveTextSelectionMovementAtRevision',
+    revision: handle(),
+    result: movementTransport(movementInput),
+  });
+
+  for (const paragraphMovement of ['paragraphPreviousStart', 'paragraphNextStart']) {
+    const paragraphInput = movementRequest({ movement: paragraphMovement });
+    const paragraphResult = versionedReaderWorkerPayload(
+      {
+        resolveTextSelectionMovementAtRevision: () => ({
+          revision: handle(),
+          value: movementResponse(paragraphInput),
+        }),
+      },
+      {
+        kind: 'resolveTextSelectionMovementAtRevision',
+        revision: handle(),
+        request: paragraphInput,
+      },
+    );
+    assert.deepEqual(paragraphResult, {
+      kind: 'resolveTextSelectionMovementAtRevision',
+      revision: handle(),
+      result: movementTransport(paragraphInput),
+    });
+  }
 
   assert.throws(
     () =>
@@ -250,6 +322,45 @@ test('real worker handler dispatches granular point ranges through the validated
       result: rangeToPointTransport(rangeToPointInput),
     },
   });
+
+  const movementInput = movementRequest({ movement: 'wordStartRight' });
+  const movement = await scope.send({
+    id: 4,
+    kind: 'resolveTextSelectionMovementAtRevision',
+    revision: handle(),
+    request: movementInput,
+  });
+  assert.deepEqual(movement, {
+    id: 4,
+    ok: true,
+    payload: {
+      kind: 'resolveTextSelectionMovementAtRevision',
+      revision: handle(),
+      result: movementTransport(movementInput),
+    },
+  });
+
+  for (const [index, paragraphMovement] of [
+    'paragraphPreviousStart',
+    'paragraphNextStart',
+  ].entries()) {
+    const paragraphInput = movementRequest({ movement: paragraphMovement });
+    const paragraphResponse = await scope.send({
+      id: index + 5,
+      kind: 'resolveTextSelectionMovementAtRevision',
+      revision: handle(),
+      request: paragraphInput,
+    });
+    assert.deepEqual(paragraphResponse, {
+      id: index + 5,
+      ok: true,
+      payload: {
+        kind: 'resolveTextSelectionMovementAtRevision',
+        revision: handle(),
+        result: movementTransport(paragraphInput),
+      },
+    });
+  }
 });
 
 function moduleFor(document) {

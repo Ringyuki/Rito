@@ -11,6 +11,7 @@ import type { createNavigation } from './navigation/index';
 import { startInitialControllerFrame } from './runtime-frame';
 import type { ControllerOptions, ReaderController, ReaderControllerEvents } from './types';
 import { wireKeyboard } from './wiring/index';
+import { wireKeyboardSelection } from './wiring/index';
 import { wireTouchGestures } from './wiring/touch';
 
 type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
@@ -124,6 +125,7 @@ function wireIntegrations(
     },
     disposables,
   );
+  wireKeyboardSelection(internals, canvas, nav, emitter, keyboard, disposables);
 
   return { keyboard, modeManager };
 }

@@ -95,6 +95,13 @@ handle or active primary mouse/pen/touch drag into a newly published spread afte
 edge dwell. The projection handoff is authorized by the exact active gesture and
 is consumed once, so a released or replacement selection cannot inherit it. A
 replacement layout or new worker session still invalidates the selection before it is painted.
+While the Canvas owns focus, Kit also maps the host platform's Shift-modified
+character, word, line, paragraph, and chapter-edge chords onto the native movement
+capability. Commands are serialized around one fixed anchor, retain sticky visual-line
+x, retry append-only pagination (including a complete final miss with no new spread),
+and reveal an offscreen focus spread without releasing the exact highlight. Disabling
+or disposing `controller.keyboard`, blurring the Canvas, newer navigation, or a new
+physical selection gesture cancels the queue before a late result can publish.
 The initial `pointerdown`, `touchstart`, or valid handle press also owns a private latest-input barrier.
 It retires older deferred navigation and portable-position work before coordinate mapping; semantic
 mouse restarts and delayed long-press selection inherit that same barrier, while a stable serialized

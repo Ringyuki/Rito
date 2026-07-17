@@ -5,8 +5,14 @@ import type {
   ReaderTextRangeFromPointsResolution,
   ReaderTextRangeResolution,
   ReaderTextSelectionInteractions,
+  ReaderTextSelectionMovementRequest,
+  ReaderTextSelectionMovementResolution,
 } from '../../../reader';
-import type { CoreTextCaretResponse } from '../core-contracts';
+import type {
+  CoreTextCaretAddress,
+  CoreTextCaretResponse,
+  CoreTextSelectionMovementResponse,
+} from '../core-contracts';
 import {
   captureInteraction,
   readCapturedInteraction,
@@ -22,9 +28,11 @@ import {
   canRebindStablePrefixCaret,
   copyCoreAddress,
   mapRangeResolution,
+  requireAddressMatch,
   requireBoundCaret,
   requireMatchingPageProjection,
   requireMatchingRevision,
+  requirePageInCommittedNavigation,
   requireTextPoint,
   sameBoundRevision,
   type CaretBindings,
@@ -41,6 +49,8 @@ export function createBrowserReaderTextSelection(
     resolveTextRangeToPoint: (anchor, focus) =>
       resolveTextRangeToPoint(state, bindings, anchor, focus),
     resolveTextRangeFromPoints: (request) => resolveTextRangeFromPoints(state, bindings, request),
+    resolveTextSelectionMovement: (request) =>
+      resolveTextSelectionMovement(state, bindings, request),
   };
 }
 
@@ -138,4 +148,77 @@ function requireMatchingTextResponse(
     throw new Error('Reader text caret response does not match its page request');
   }
   requireMatchingPageProjection(state, value.pageIndex, value.spreadIndex, 'text caret');
+}
+
+async function resolveTextSelectionMovement(
+  state: BrowserReaderState,
+  bindings: CaretBindings,
+  request: ReaderTextSelectionMovementRequest,
+): Promise<ReaderTextSelectionMovementResolution | undefined> {
+  const anchorBinding = requireBoundCaret(bindings, request.anchor);
+  const focusBinding = requireBoundCaret(bindings, request.focus);
+  if (!sameBoundRevision(anchorBinding, focusBinding)) return undefined;
+  const capture = captureInteraction(state);
+  if (
+    !capture ||
+    !canRebindStablePrefixCaret(anchorBinding, capture.revision) ||
+    !canRebindStablePrefixCaret(focusBinding, capture.revision)
+  ) {
+    return undefined;
+  }
+  const value = await readCapturedInteraction(state, capture, (worker, revision) =>
+    worker.resolveTextSelectionMovementAtRevision(revision, {
+      anchor: copyCoreAddress(anchorBinding.address),
+      focus: copyCoreAddress(focusBinding.address),
+      movement: request.movement,
+      ...(request.preferredInlinePosition === undefined
+        ? {}
+        : { preferredInlinePosition: request.preferredInlinePosition }),
+    }),
+  );
+  if (!value) return undefined;
+  requireMatchingRevision(value.revisionId, capture);
+  return mapMovementResolution(state, bindings, capture, anchorBinding.address, value);
+}
+
+function mapMovementResolution(
+  state: BrowserReaderState,
+  bindings: CaretBindings,
+  capture: BrowserReaderInteractionCapture,
+  requestedAnchor: CoreTextCaretAddress,
+  value: CoreTextSelectionMovementResponse,
+): ReaderTextSelectionMovementResolution {
+  const resolution = value.resolution;
+  if (resolution.status !== 'resolved') return { ...resolution };
+  requireAddressMatch(resolution.anchorCaret.address, requestedAnchor, 'movement anchor');
+  requireCaretProjection(state, resolution.anchorCaret.address.pageIndex, 'movement anchor caret');
+  requireCaretProjection(state, resolution.focusCaret.address.pageIndex, 'movement focus caret');
+  const anchor = bindReaderCaret(bindings, capture, resolution.anchorCaret);
+  const focus = bindReaderCaret(bindings, capture, resolution.focusCaret);
+  const mapped = mapRangeResolution(
+    state,
+    { revisionId: value.revisionId, resolution: { status: 'resolved', range: resolution.range } },
+    anchor,
+    focus,
+    requireBoundCaret(bindings, anchor),
+    requireBoundCaret(bindings, focus),
+  );
+  if (mapped.status !== 'resolved') {
+    throw new Error('Reader text selection movement did not resolve its range');
+  }
+  return {
+    status: 'resolved',
+    range: mapped.range,
+    ...(resolution.preferredInlinePosition === undefined
+      ? {}
+      : { preferredInlinePosition: resolution.preferredInlinePosition }),
+  };
+}
+
+function requireCaretProjection(
+  state: BrowserReaderState,
+  pageIndex: number,
+  subject: string,
+): void {
+  requirePageInCommittedNavigation(state, pageIndex, subject);
 }

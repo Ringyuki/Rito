@@ -190,6 +190,12 @@ whose bounded revision has since appended an immutable page prefix. It rebinds
 that opaque caret and resolves the live point against one currently committed
 revision, so callers never combine geometry from two versions. A replacement
 layout, worker session, or unrelated revision still fails closed.
+`resolveTextSelectionMovement()`, when supported, atomically rebinds a fixed
+anchor and live focus, advances the focus by a typed character, word, visual-line,
+line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
+Vertical line moves return a `preferredInlinePosition` that callers pass into the
+next vertical move to preserve sticky x. Reaching an incomplete retained tail is
+reported as typed `pending`; endpoints in different chapters remain unavailable.
 `interactions.resolveExactSourceRange`, when supported, atomically projects a
 durable `{ href, sourceRange }` through that same committed revision. `href` is
 the canonical manifest resource href, not a spine idref. It returns exact

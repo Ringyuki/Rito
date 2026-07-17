@@ -242,6 +242,11 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /getPageReadingAnchorAtRevision\(/);
   assert.match(declaration, /export interface RitoCoreWasmTextRangeToPointRequest/);
   assert.match(declaration, /resolveTextRangeToPointAtRevision\(/);
+  assert.match(declaration, /export interface RitoCoreWasmTextSelectionMovementRequest/);
+  assert.match(declaration, /\| 'wordStartRight'/);
+  assert.match(declaration, /\| 'paragraphPreviousStart'/);
+  assert.match(declaration, /\| 'paragraphNextStart'/);
+  assert.match(declaration, /resolveTextSelectionMovementAtRevision\(/);
   assert.match(declaration, /export interface RitoCoreWasmPageSemantics/);
   assert.match(declaration, /export type RitoCoreWasmPageReadingAnchor/);
   assert.match(declaration, /readonly preserveLocator\?: RitoCoreWasmSourceLocator/);

@@ -80,6 +80,8 @@ export type {
   RitoCoreWasmTextRangeResponse as CoreTextRangeResponse,
   RitoCoreWasmTextRangeFromPointsRequest as CoreTextRangeFromPointsRequest,
   RitoCoreWasmTextRangeFromPointsResponse as CoreTextRangeFromPointsResponse,
+  RitoCoreWasmTextSelectionMovementRequest as CoreTextSelectionMovementRequest,
+  RitoCoreWasmTextSelectionMovementResponse as CoreTextSelectionMovementResponse,
   RitoCoreWasmViewRevisionRequest as CoreViewRevisionRequest,
   RitoCoreWasmViewRevisionResponse as CoreViewRevisionResponse,
   RitoCoreWasmTextCaretAddress as CoreTextCaretAddress,

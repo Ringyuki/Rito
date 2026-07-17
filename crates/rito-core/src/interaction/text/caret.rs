@@ -179,7 +179,7 @@ fn resolve_point_in_run(run: CollectedTextRun<'_>, x: f64, y: f64) -> LayoutText
     })
 }
 
-fn caret_geometry(
+pub(super) fn caret_geometry(
     run: CollectedTextRun<'_>,
     stop: RunShapeCaretStop,
 ) -> Result<TextCaretGeometry, TextInteractionUnavailableReason> {

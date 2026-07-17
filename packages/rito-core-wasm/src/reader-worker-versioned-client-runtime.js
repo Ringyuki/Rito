@@ -21,6 +21,10 @@ import {
   requireTextRangeToPointTransport,
 } from './reader-worker-text-range-from-points-validation-runtime.js';
 import {
+  requireTextSelectionMovementRequest,
+  requireTextSelectionMovementTransport,
+} from './reader-worker-text-selection-movement-validation-runtime.js';
+import {
   requireExactSourceRangeRequest,
   requireExactSourceRangeTransport,
 } from './reader-worker-exact-source-range-validation-runtime.js';
@@ -226,6 +230,20 @@ export function createVersionedReaderClientMethods(send) {
         { request: expectedRequest },
         (result, handle, operation) =>
           requireTextRangeToPointTransport(result, handle, expectedRequest, operation),
+      );
+    },
+    resolveTextSelectionMovementAtRevision: (revision, request) => {
+      const expectedRequest = requireTextSelectionMovementRequest(
+        request,
+        'resolveTextSelectionMovementAtRevision',
+      );
+      return currentRevisionResult(
+        send,
+        'resolveTextSelectionMovementAtRevision',
+        revision,
+        { request: expectedRequest },
+        (result, handle, operation) =>
+          requireTextSelectionMovementTransport(result, handle, expectedRequest, operation),
       );
     },
     resolveExactSourceRangeAtRevision: (revision, request) => {

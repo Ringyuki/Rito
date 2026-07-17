@@ -11,6 +11,11 @@ import type {
   NativeSelectionState,
 } from './native-types';
 
+export interface NativeSelectionKeyboardSession {
+  readonly epoch: number;
+  readGeneration: number;
+}
+
 export interface NativeSelectionFocusSample {
   readonly sequence: number;
   readonly point: NativeSelectionPoint;
@@ -54,6 +59,8 @@ export interface NativeSelectionEngineData {
   state: NativeSelectionState;
   snapshot: NativeSelectionSnapshot | null;
   session: NativeSelectionGestureSession | undefined;
+  keyboardSession: NativeSelectionKeyboardSession | undefined;
+  keyboardPreferredInlinePosition: number | undefined;
 }
 
 export function createNativeSelectionGestureSession(
@@ -91,7 +98,16 @@ export function beginNativeSelectionHandleDrag(
   ) => void,
 ): NativeSelectionHandleDrag | null {
   const baselineSnapshot = data.snapshot;
-  if (data.state !== 'selected' || !baselineSnapshot || data.session) return null;
+  if (
+    data.state !== 'selected' ||
+    !baselineSnapshot ||
+    baselineSnapshot.text.length === 0 ||
+    data.session
+  ) {
+    return null;
+  }
+  data.keyboardSession = undefined;
+  data.keyboardPreferredInlinePosition = undefined;
   const fixedCaret = edge === 'start' ? baselineSnapshot.range.end : baselineSnapshot.range.start;
   const session = createNativeSelectionGestureSession(data, 'character', undefined, fixedCaret, {
     edge,
@@ -147,6 +163,8 @@ export function createNativeSelectionEngineData(
     state: 'idle',
     snapshot: null,
     session: undefined,
+    keyboardSession: undefined,
+    keyboardPreferredInlinePosition: undefined,
   };
 }
 
@@ -175,6 +193,8 @@ export function cancelNativeSelection(
   if (data.state === 'disposed') return;
   data.epoch += 1;
   data.session = undefined;
+  data.keyboardSession = undefined;
+  data.keyboardPreferredInlinePosition = undefined;
   if (notify) publishNativeSelection(data, nextState, null);
   else {
     data.state = nextState;

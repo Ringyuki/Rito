@@ -28,6 +28,10 @@ import {
   requireTextRangeToPointResponse,
 } from './reader-worker-text-range-from-points-validation-runtime.js';
 import {
+  requireTextSelectionMovementRequest,
+  requireTextSelectionMovementResponse,
+} from './reader-worker-text-selection-movement-validation-runtime.js';
+import {
   requireExactSourceRangeRequest,
   requireExactSourceRangeResponse,
 } from './reader-worker-exact-source-range-validation-runtime.js';
@@ -260,6 +264,26 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
           ),
         (value, revision, operation) =>
           requireTextRangeToPointResponse(value, revision, expectedRequest, operation),
+      );
+    },
+    resolveTextSelectionMovementAtRevision(handle, request) {
+      const expectedRequest = requireTextSelectionMovementRequest(
+        request,
+        'resolveTextSelectionMovementAtRevision',
+      );
+      return versionedRequest(
+        this,
+        'resolveTextSelectionMovementAtRevision',
+        handle,
+        expectedRequest,
+        (revision, json) =>
+          this._inner.resolveTextSelectionMovementAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+            json,
+          ),
+        (value, revision, operation) =>
+          requireTextSelectionMovementResponse(value, revision, expectedRequest, operation),
       );
     },
     resolveExactSourceRangeAtRevision(handle, request) {

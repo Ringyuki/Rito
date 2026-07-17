@@ -792,14 +792,14 @@ fn clipping_cannot_replace_the_nearest_logical_caret() {
     );
 }
 
-fn exact_flow(text: &str) -> Arc<LogicalTextFlow> {
+pub(super) fn exact_flow(text: &str) -> Arc<LogicalTextFlow> {
     fixture_logical_text_flow(
         text,
         vec![(0, text.encode_utf16().count() as u32, Some((vec![1, 2], 0)))],
     )
 }
 
-fn slice(
+pub(super) fn slice(
     flow: &Arc<LogicalTextFlow>,
     span_index: u32,
     logical_start: u32,
@@ -813,7 +813,13 @@ fn slice(
     })
 }
 
-fn run(text: &str, text_mapping: RunTextMapping, x: f64, width: f64, shape: RunShape) -> LineRun {
+pub(super) fn run(
+    text: &str,
+    text_mapping: RunTextMapping,
+    x: f64,
+    width: f64,
+    shape: RunShape,
+) -> LineRun {
     LineRun::Text(TextRunBox {
         text: text.to_owned(),
         text_mapping,
@@ -835,7 +841,11 @@ fn run(text: &str, text_mapping: RunTextMapping, x: f64, width: f64, shape: RunS
     })
 }
 
-fn page(index: usize, lines: Vec<Vec<LineRun>>, paint: Option<Value>) -> LayoutRuntimePage {
+pub(super) fn page(
+    index: usize,
+    lines: Vec<Vec<LineRun>>,
+    paint: Option<Value>,
+) -> LayoutRuntimePage {
     LayoutRuntimePage {
         index,
         width: 400.0,
@@ -871,14 +881,14 @@ fn page(index: usize, lines: Vec<Vec<LineRun>>, paint: Option<Value>) -> LayoutR
     }
 }
 
-fn uniform_shape(length: u32) -> RunShape {
+pub(super) fn uniform_shape(length: u32) -> RunShape {
     let clusters = (0..length)
         .map(|offset| (offset, offset + 1, 10.0))
         .collect::<Vec<_>>();
     exact_shape(&clusters, RunShapeDirection::LeftToRight)
 }
 
-fn exact_shape(clusters: &[(u32, u32, f32)], direction: RunShapeDirection) -> RunShape {
+pub(super) fn exact_shape(clusters: &[(u32, u32, f32)], direction: RunShapeDirection) -> RunShape {
     RunShape::exact(
         RunShapeProvenance::single([1; 8]),
         direction,
@@ -902,7 +912,7 @@ fn exact_shape(clusters: &[(u32, u32, f32)], direction: RunShapeDirection) -> Ru
     )
 }
 
-fn address(
+pub(super) fn address(
     page_index: usize,
     block_index: usize,
     line_index: usize,

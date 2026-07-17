@@ -5,6 +5,7 @@ use crate::runtime::{
     RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResponse,
     RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest,
     RuntimeTextRangeResponse, RuntimeTextRangeToPointRequest, RuntimeTextRangeToPointResponse,
+    RuntimeTextSelectionMovementRequest, RuntimeTextSelectionMovementResponse,
 };
 
 impl RuntimeDocument {
@@ -96,6 +97,17 @@ impl RuntimeDocument {
     ) -> Result<RuntimeVersioned<RuntimeTextRangeToPointResponse>, RuntimeRevisionAccessError> {
         self.versioned_read(handle, |document, revision_id| {
             document.resolve_text_range_to_point_for_revision(revision_id, request)
+        })
+    }
+
+    pub fn resolve_text_selection_movement_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+        request: RuntimeTextSelectionMovementRequest,
+    ) -> Result<RuntimeVersioned<RuntimeTextSelectionMovementResponse>, RuntimeRevisionAccessError>
+    {
+        self.versioned_read(handle, |document, revision_id| {
+            document.resolve_text_selection_movement_for_revision(revision_id, request)
         })
     }
 }

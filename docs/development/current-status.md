@@ -141,7 +141,10 @@ Those names now belong to the old TS reference tree only.
   semantics, and Browser Reader exposes an optional atomic `textSelection`
   capability. Browser carets are opaque objects whose raw Rust addresses are
   privately bound to the worker session, revision version, and commit
-  generation. Kit now treats this capability as authoritative, coalesces async
+  generation. The same exact-version path now exposes an atomic fixed-anchor
+  selection movement operation for physical characters, platform word and paragraph
+  boundaries, sticky visual lines, line edges and same-chapter edges. Kit now treats
+  this capability as authoritative, coalesces async
   pointer samples with latest-result ownership, projects exact page rectangles,
   drives copy and selection UI from native text, and creates persistent
   annotation targets directly from the returned source range. Rust now also
@@ -947,7 +950,13 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      exact gesture lease to cross known or lazily appended spread edges without
      releasing pointer/touch capture. Physical selection presses claim one latest-input
      barrier before coordinate mapping, so delayed semantic/long-press starts cannot
-     supersede newer navigation or portable-position work; platform keyboard semantics remain. The
+     supersede newer navigation or portable-position work. Canvas-focused keyboard selection
+     now serializes native movement commands, preserves a fixed anchor and collapsed caret
+     continuity, retries an append-staled read, retains sticky line x, and transfers the exact
+     gesture through lazy chapter-tail growth without stealing a newer navigation intent.
+     Real Worker/Canvas acceptance covers character expansion/contraction, platform word
+     movement and lazy cross-spread chapter-end reveal. `Shift+PageUp/PageDown` and
+     cross-chapter document edges remain. The
      correctness-complete ICU auto constructor adds approximately
      2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli to the release WASM and raises its
      initial linear memory from 23 to 60 pages. Dictionary-only is larger, while
@@ -1059,8 +1068,9 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the remaining host-native selection behavior: platform keyboard semantics.
-   Exact touch handles and primary drags now cover same-revision and lazy-growth
+1. Complete the remaining host-native selection behavior: `Shift+PageUp/PageDown` and
+   cross-chapter document-boundary keyboard extension. Exact touch handles, primary drags and
+   character/word/line/paragraph/chapter keyboard movement now cover same-revision and lazy-growth
    cross-revision spread edges; cross-flow and reverse-direction
    exact selection/copy, pointer-up persistence, word/paragraph granularity and
    link-preview chapter context are now green in production-path Reader E2E.
@@ -1111,9 +1121,11 @@ word and retained-flow paragraph selection are wired to mouse repeated click and
 touch long press, and both now pass production-path input E2E. Exact touch handles use
 Core endpoints, Kit-owned epoch sessions and React DOM pointer capture; their edge dwell
 now continues across already-published spreads and append-only bounded revision growth.
-End-user interaction parity still needs platform keyboard semantics. Primary mouse,
-pen and touch long-press drags now retain an exact session through known and lazy-grown
-spread-edge navigation. Greedy
+Keyboard selection now retains an exact fixed-anchor session through character, platform word and
+paragraph, sticky visual-line, line-edge and same-chapter-edge movement, including known and
+lazy-grown spread reveal. End-user interaction parity still needs `Shift+PageUp/PageDown` and
+cross-chapter document edges. Primary mouse, pen and touch long-press drags likewise retain an
+exact session through known and lazy-grown spread-edge navigation. Greedy
 leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A
 pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,

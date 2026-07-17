@@ -1,4 +1,3 @@
-import type { ReaderTextRange } from '@ritojs/core';
 import type {
   NativeSelectionCapability,
   NativeSelectionEngine,
@@ -12,25 +11,26 @@ import {
   createNativeSelectionEngineData,
   createNativeSelectionGestureSession,
   disposeNativeSelection,
-  finishNativeSelection,
   isCurrentNativeSelection,
   publishNativeSelection,
   reportNativeSelectionError,
   subscribeNativeSelection,
-  toNativeSelectionSnapshot,
   type NativeSelectionEngineData,
   type NativeSelectionFocusSample,
   type NativeSelectionGestureSession,
-  type NativeSelectionMoveFallback,
 } from './native-engine-state';
 import { isCurrentNativeSelectionRead } from './native-engine-read';
 import {
   finishEmptySelection,
   handleCancelledSample,
   handleUnresolvedSample,
-  settleMoveFallback,
 } from './native-engine-fallback';
 import { captureActiveNativeSelectionGesture } from './native-engine-gesture';
+import {
+  beginNativeKeyboardMovement,
+  canExtendNativeKeyboardSelection,
+} from './native-engine-keyboard';
+import { installNativeSelectionRange } from './native-engine-range';
 
 export function createNativeSelectionEngine(
   capability: NativeSelectionCapability,
@@ -68,6 +68,8 @@ export function createNativeSelectionEngine(
     getSnapshot: () => data.snapshot,
     captureActiveGesture: () => captureActiveNativeSelectionGesture(data),
     hasActiveHandleDrag: () => data.session?.handleDrag !== undefined,
+    canExtendKeyboardSelection: () => canExtendNativeKeyboardSelection(data),
+    beginKeyboardMovement: (movement) => beginNativeKeyboardMovement(data, movement),
     onChange: (listener) => subscribeNativeSelection(data, listener),
   };
 }
@@ -78,6 +80,8 @@ function handlePointerDown(
   granularity: NativeSelectionGestureSession['granularity'] = 'character',
 ): void {
   if (data.state === 'disposed') return;
+  data.keyboardSession = undefined;
+  data.keyboardPreferredInlinePosition = undefined;
   requireNativeSelectionPoint(point);
   const anchorPoint = copyNativeSelectionPoint(point);
   const session = createNativeSelectionGestureSession(data, granularity, anchorPoint);
@@ -213,7 +217,7 @@ async function resolveCharacterSample(
     return;
   }
   session.anchor = rangeResult.range.anchor;
-  installRange(data, session, sample, rangeResult.range);
+  installNativeSelectionRange(data, session, sample, rangeResult.range);
 }
 
 async function resolveSemanticSample(
@@ -242,34 +246,7 @@ async function resolveSemanticSample(
     handleUnresolvedSample(data, session, sample);
     return;
   }
-  installRange(data, session, sample, rangeResult.range);
-}
-
-function installRange(
-  data: NativeSelectionEngineData,
-  session: NativeSelectionGestureSession,
-  sample: NativeSelectionFocusSample,
-  range: ReaderTextRange,
-): void {
-  if (!sample.final && session.ended) {
-    const fallback: NativeSelectionMoveFallback =
-      range.selectedText.length === 0
-        ? { status: session.handleDrag ? 'unresolved' : 'collapsed' }
-        : { status: 'resolved', snapshot: toNativeSelectionSnapshot(range) };
-    settleMoveFallback(data, session, fallback);
-    return;
-  }
-  if (range.selectedText.length === 0) {
-    if (sample.final) finishEmptySelection(data, session);
-    else if (!session.handleDrag) publishNativeSelection(data, 'selecting', null);
-    return;
-  }
-  const snapshot = toNativeSelectionSnapshot(range);
-  if (sample.final) {
-    finishNativeSelection(data, session, snapshot);
-  } else {
-    publishNativeSelection(data, 'selecting', snapshot);
-  }
+  installNativeSelectionRange(data, session, sample, rangeResult.range);
 }
 
 function isRelevant(
@@ -284,6 +261,7 @@ function isRelevant(
 }
 
 function acceptRevisionAppend(data: NativeSelectionEngineData): void {
+  if (data.keyboardSession) data.keyboardSession.readGeneration += 1;
   const session = data.session;
   if (!session || data.state !== 'selecting') return;
   session.readGeneration += 1;

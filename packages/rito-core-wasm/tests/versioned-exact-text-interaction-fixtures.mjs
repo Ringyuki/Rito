@@ -194,6 +194,56 @@ export function rangeToPointTransport(
   return { request, response };
 }
 
+export function movementRequest(overrides = {}) {
+  const { preferredInlinePosition: overrideSticky, ...rest } = overrides;
+  const movement = rest.movement ?? 'lineDown';
+  const preferredInlinePosition = Object.hasOwn(overrides, 'preferredInlinePosition')
+    ? overrideSticky
+    : stickyPositionForMovement(movement);
+  return {
+    anchor: caretAddress({ charIndex: 1 }),
+    focus: caretAddress({ charIndex: 2 }),
+    ...rest,
+    movement,
+    ...(preferredInlinePosition === undefined ? {} : { preferredInlinePosition }),
+  };
+}
+
+export function movementResponse(request = movementRequest(), overrides = {}) {
+  const addresses = rangeRequest({
+    anchor: request.anchor,
+    focus: caretAddress({ pageIndex: 5, lineIndex: 1, charIndex: 2 }),
+  });
+  const range = rangeResponse(addresses).resolution.range;
+  return {
+    revisionId: 'rev-1',
+    resolution: {
+      status: 'resolved',
+      anchorCaret: resolvedCaret({ address: addresses.anchor }).caret,
+      focusCaret: resolvedCaret({
+        address: addresses.focus,
+        geometry: { x: 28, y: 44, height: 16 },
+        sourceLocator: {
+          href: 'Text/chapter.xhtml',
+          sourcePoint: { nodePath: [2, 0], textOffset: 2 },
+        },
+      }).caret,
+      range,
+      ...(stickyPositionForMovement(request.movement) === undefined
+        ? {}
+        : { preferredInlinePosition: 28 }),
+    },
+    ...overrides,
+  };
+}
+
+export function movementTransport(
+  request = movementRequest(),
+  response = movementResponse(request),
+) {
+  return { request, response };
+}
+
 export function rawExactTextDocument(calls) {
   return new Proxy(
     {
@@ -212,6 +262,10 @@ export function rawExactTextDocument(calls) {
       resolveTextRangeToPointAtRevisionJson: (_revisionId, version, requestJson) => {
         const request = JSON.parse(requestJson);
         return envelope(version, rangeToPointResponse(request));
+      },
+      resolveTextSelectionMovementAtRevisionJson: (_revisionId, version, requestJson) => {
+        const request = JSON.parse(requestJson);
+        return envelope(version, movementResponse(request));
       },
     },
     {
@@ -253,4 +307,8 @@ export class ManualWorker {
 
 function envelope(revisionVersion, value) {
   return JSON.stringify({ revision: handle(revisionVersion), value });
+}
+
+function stickyPositionForMovement(movement) {
+  return movement === 'lineUp' || movement === 'lineDown' ? 28 : undefined;
 }

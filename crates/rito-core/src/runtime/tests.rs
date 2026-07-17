@@ -12,6 +12,7 @@ mod reading_anchor_view_tests;
 mod text_granularity_chapter_tests;
 mod text_granularity_tests;
 mod text_interaction_tests;
+mod text_movement_tests;
 
 use std::num::NonZeroUsize;
 

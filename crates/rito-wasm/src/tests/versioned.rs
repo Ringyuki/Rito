@@ -375,6 +375,60 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
         "shapeUnavailable"
     );
 
+    let movement_request = json!({
+        "anchor": address,
+        "focus": address,
+        "movement": "characterRight",
+    });
+    let movement = parse(
+        document
+            .resolve_text_selection_movement_at_revision_json(
+                &revision_id,
+                0,
+                &movement_request.to_string(),
+            )
+            .expect("text selection movement response is returned"),
+    );
+    assert_revision(&movement, &revision_id, 0);
+    assert_eq!(movement["value"]["revisionId"], revision_id);
+    assert_eq!(movement["value"]["resolution"]["status"], "unavailable");
+    assert_eq!(
+        movement["value"]["resolution"]["reason"],
+        "shapeUnavailable"
+    );
+    for movement_name in ["paragraphPreviousStart", "paragraphNextStart"] {
+        let response = parse(
+            document
+                .resolve_text_selection_movement_at_revision_json(
+                    &revision_id,
+                    0,
+                    &json!({
+                        "anchor": address,
+                        "focus": address,
+                        "movement": movement_name,
+                    })
+                    .to_string(),
+                )
+                .expect("paragraph start movement request is accepted"),
+        );
+        assert_eq!(response["value"]["resolution"]["status"], "unavailable");
+        assert_eq!(
+            response["value"]["resolution"]["reason"],
+            "shapeUnavailable"
+        );
+    }
+    let stale_movement = document
+        .resolve_text_selection_movement_at_revision_json(
+            &revision_id,
+            1,
+            &movement_request.to_string(),
+        )
+        .expect_err("stale text selection movement is rejected");
+    assert_eq!(
+        stale_movement.code(),
+        WasmRuntimeErrorCode::StaleRevisionVersion
+    );
+
     let source_point = &target["sourceLocator"]["sourcePoint"];
     let source_offset = source_point["textOffset"]
         .as_u64()
@@ -427,6 +481,13 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
             r#"{"anchor":{"pageIndex":0},"focus":{"pageIndex":0,"x":0,"y":0}}"#,
         )
         .expect_err("malformed range-to-point request is rejected");
+    let bad_movement = document
+        .resolve_text_selection_movement_at_revision_json(
+            &revision_id,
+            0,
+            r#"{"anchor":{"pageIndex":0},"focus":{"pageIndex":0},"movement":"sentenceForward"}"#,
+        )
+        .expect_err("malformed text selection movement is rejected");
     let bad_source_range = document
         .resolve_exact_source_range_at_revision_json(
             &revision_id,
@@ -450,6 +511,10 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
     assert!(bad_range_to_point
         .message()
         .contains("invalid text range to point request JSON"));
+    assert_eq!(bad_movement.code(), WasmRuntimeErrorCode::BadRequest);
+    assert!(bad_movement
+        .message()
+        .contains("invalid text selection movement request JSON"));
     assert_eq!(bad_source_range.code(), WasmRuntimeErrorCode::BadRequest);
     assert!(bad_source_range
         .message()

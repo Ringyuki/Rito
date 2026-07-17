@@ -4,17 +4,27 @@ import {
   consumeSelectionGestureProjection,
   registerSelectionInteractionOwner,
 } from './selection-interaction-owner';
+import { registerSelectionKeyboardOwner } from './selection-keyboard-owner';
 
 /** Register native gesture ownership without widening the public SelectionEngine facade. */
 export function registerNativeAdapterGestureOwner(
   owner: SelectionEngine,
   native: NativeSelectionEngine,
 ): SelectionEngine {
-  return registerSelectionInteractionOwner(owner, () => native.getInteractionGeneration(), {
-    capture: () => native.captureActiveGesture(),
-    owns: (token) => isNativeSelectionGestureLease(token) && token.isActive(),
-    supportsProjectionTransfer: true,
+  const registered = registerSelectionInteractionOwner(
+    owner,
+    () => native.getInteractionGeneration(),
+    {
+      capture: () => native.captureActiveGesture(),
+      owns: (token) => isNativeSelectionGestureLease(token) && token.isActive(),
+      supportsProjectionTransfer: true,
+    },
+  );
+  registerSelectionKeyboardOwner(registered, {
+    canExtend: () => native.canExtendKeyboardSelection(),
+    begin: (movement) => native.beginKeyboardMovement(movement),
   });
+  return registered;
 }
 
 /** Consume a one-shot gesture transfer while retaining the legacy handle-only opt-in. */

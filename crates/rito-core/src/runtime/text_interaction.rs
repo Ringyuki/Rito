@@ -8,6 +8,7 @@ use crate::{
 };
 
 mod granularity;
+mod movement;
 mod range_to_point;
 mod source_match;
 mod types;

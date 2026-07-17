@@ -141,6 +141,29 @@ export async function dragSelection(
   await page.mouse.up();
 }
 
+export async function focusReaderSurface(page: Page): Promise<void> {
+  const surface = readerSurface(page);
+  await surface.focus();
+  await expect(surface).toBeFocused();
+}
+
+export async function copyFocusedSelection(page: Page): Promise<string> {
+  const surface = readerSurface(page);
+  await expect(surface).toBeFocused();
+  const marker = `__rito_selection_clipboard_${String(Date.now())}__`;
+  await page.evaluate((value) => navigator.clipboard.writeText(value), marker);
+  const modifier = (await usesAppleKeyboardPlatform(page)) ? 'Meta' : 'Control';
+  await page.keyboard.press(`${modifier}+c`);
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).not.toBe(marker);
+  return page.evaluate(() => navigator.clipboard.readText());
+}
+
+export function usesAppleKeyboardPlatform(page: Page): Promise<boolean> {
+  return page.evaluate(() =>
+    /Mac|iPhone|iPad|iPod/i.test(`${navigator.platform} ${navigator.userAgent}`),
+  );
+}
+
 export async function requireTextBands(
   page: Page,
   count: number,
@@ -324,7 +347,7 @@ function accessibilityDocument(page: Page) {
   return page.locator('[role="document"][aria-live="polite"]');
 }
 
-function readerSurface(page: Page) {
+export function readerSurface(page: Page) {
   return page.getByTestId('reader-shell').locator('canvas[data-rito-reader-surface="true"]');
 }
 

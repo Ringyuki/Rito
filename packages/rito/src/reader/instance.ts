@@ -107,6 +107,43 @@ export type ReaderTextRangeResolution =
 
 export type ReaderTextSelectionGranularity = 'word' | 'paragraph';
 
+export type ReaderTextSelectionMovement =
+  | 'characterLeft'
+  | 'characterRight'
+  | 'wordLeft'
+  | 'wordRight'
+  | 'wordStartRight'
+  | 'lineUp'
+  | 'lineDown'
+  | 'lineStart'
+  | 'lineEnd'
+  | 'paragraphBackward'
+  | 'paragraphForward'
+  | 'paragraphPreviousStart'
+  | 'paragraphNextStart'
+  | 'chapterStart'
+  | 'chapterEnd';
+
+export interface ReaderTextSelectionMovementRequest {
+  readonly anchor: ReaderTextCaret;
+  readonly focus: ReaderTextCaret;
+  readonly movement: ReaderTextSelectionMovement;
+  readonly preferredInlinePosition?: number | undefined;
+}
+
+export type ReaderTextSelectionMovementResolution =
+  | {
+      readonly status: 'resolved';
+      readonly range: ReaderTextRange;
+      readonly preferredInlinePosition?: number | undefined;
+    }
+  | { readonly status: 'boundary'; readonly boundary: 'start' | 'end' }
+  | { readonly status: 'pending'; readonly boundary: 'start' | 'end' }
+  | {
+      readonly status: 'unavailable';
+      readonly reason: ReaderTextInteractionUnavailableReason;
+    };
+
 export interface ReaderTextRangeFromPointsRequest {
   readonly anchor: ReaderTextPoint;
   readonly focus: ReaderTextPoint;
@@ -135,6 +172,10 @@ export interface ReaderTextSelectionInteractions {
   resolveTextRangeFromPoints(
     request: ReaderTextRangeFromPointsRequest,
   ): Promise<ReaderTextRangeFromPointsResolution | undefined>;
+  /** Atomically advances the focus caret and resolves the exact range in one revision. */
+  resolveTextSelectionMovement?(
+    request: ReaderTextSelectionMovementRequest,
+  ): Promise<ReaderTextSelectionMovementResolution | undefined>;
 }
 
 /** Optional atomic capability for revision-safe semantic interaction reads. */

@@ -47,14 +47,15 @@ const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resource
 const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
 // Worker-scoped revision ownership, stale-result guards, exact selection, durable
-// source reads, granular point ranges, double-page anchors, atomic reflow, locator navigation, and
+// source reads, granular point ranges, fixed-anchor selection movement, double-page anchors,
+// atomic reflow, locator navigation, and
 // exact-version frame/resource/search ownership, failure-isolated disposal, and
 // host-task disposal barriers are required orchestration capabilities.
 const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
 const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3060;
-// Exact native interaction and point-granularity DTOs stay public without exposing
-// revision-local addresses.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 650;
+// Exact native interaction, point-granularity and keyboard-movement DTOs stay public
+// without exposing revision-local addresses.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 700;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

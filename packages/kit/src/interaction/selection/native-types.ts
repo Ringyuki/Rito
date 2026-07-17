@@ -1,5 +1,7 @@
 import type {
   ReaderLocator,
+  ReaderTextSelectionMovement,
+  ReaderTextSelectionMovementResolution,
   ReaderTextRange,
   ReaderTextPoint,
   ReaderTextSelectionInteractions,
@@ -50,6 +52,19 @@ export interface NativeSelectionGestureLease {
   isActive(): boolean;
 }
 
+export type NativeSelectionKeyboardOutcome =
+  | ReaderTextSelectionMovementResolution
+  | { readonly status: 'cancelled' };
+
+/** One serialized keyboard movement whose revision and projection lease stay live until finish. */
+export interface NativeSelectionKeyboardCommand {
+  readonly result: Promise<NativeSelectionKeyboardOutcome>;
+  /** Publish the settled result synchronously after the controller revalidates its ownership. */
+  commit(): boolean;
+  isActive(): boolean;
+  finish(): void;
+}
+
 export interface NativeSelectionEngine {
   beginHandleDrag(edge: NativeSelectionHandleEdge): NativeSelectionHandleDrag | null;
   handlePointerDown(point: NativeSelectionPoint, granularity?: NativeSelectionGranularity): void;
@@ -65,5 +80,9 @@ export interface NativeSelectionEngine {
   getSnapshot(): NativeSelectionSnapshot | null;
   captureActiveGesture(): NativeSelectionGestureLease | null;
   hasActiveHandleDrag(): boolean;
+  canExtendKeyboardSelection(): boolean;
+  beginKeyboardMovement(
+    movement: ReaderTextSelectionMovement,
+  ): NativeSelectionKeyboardCommand | null;
   onChange(listener: (change: NativeSelectionChange) => void): () => void;
 }

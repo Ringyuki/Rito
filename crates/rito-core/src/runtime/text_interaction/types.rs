@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::interaction::{TextCaretAddress, TextCaretGeometry, TextInteractionUnavailableReason};
+use crate::interaction::{
+    TextCaretAddress, TextCaretGeometry, TextInteractionUnavailableReason, TextSelectionBoundary,
+    TextSelectionMovement,
+};
 
 use super::super::{RuntimeSourceLocator, RuntimeSourceLocatorPendingReason, RuntimeSourceRange};
 
@@ -86,6 +89,48 @@ pub struct RuntimeTextRangeToPointRequest {
 pub struct RuntimeTextRangeToPointResponse {
     pub revision_id: String,
     pub resolution: RuntimeTextRangeFromPointsResolution,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeTextSelectionMovementRequest {
+    pub anchor: TextCaretAddress,
+    pub focus: TextCaretAddress,
+    pub movement: TextSelectionMovement,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preferred_inline_position: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeTextSelectionMovementResponse {
+    pub revision_id: String,
+    pub resolution: RuntimeTextSelectionMovementResolution,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum RuntimeTextSelectionMovementResolution {
+    Resolved {
+        anchor_caret: Box<RuntimeTextCaret>,
+        focus_caret: Box<RuntimeTextCaret>,
+        range: Box<RuntimeTextRange>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        preferred_inline_position: Option<f64>,
+    },
+    Boundary {
+        boundary: TextSelectionBoundary,
+    },
+    Pending {
+        boundary: TextSelectionBoundary,
+    },
+    Unavailable {
+        reason: TextInteractionUnavailableReason,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

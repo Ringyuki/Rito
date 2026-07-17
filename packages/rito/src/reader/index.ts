@@ -58,4 +58,7 @@ export type {
   ReaderTextPoint,
   ReaderTextSelectionInteractions,
   ReaderTextSelectionGranularity,
+  ReaderTextSelectionMovement,
+  ReaderTextSelectionMovementRequest,
+  ReaderTextSelectionMovementResolution,
 } from './instance';

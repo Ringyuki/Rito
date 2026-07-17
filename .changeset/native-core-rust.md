@@ -35,5 +35,10 @@ retain precise copied text after immediate release, and suppress target activati
 Every physical selection press now claims one latest-input barrier before resolving coordinates, cancels
 older spread/locator/portable-position work without invalidating a stable reading position, and passes the
 same claim to derived mouse semantics or the delayed long-press instead of letting them reclaim ownership.
+Canvas-focused keyboard selection now uses an atomic Rust fixed-anchor movement contract for physical
+characters, platform-specific word and paragraph boundaries, sticky visual lines, line edges and
+same-chapter edges. Serialized Kit commands retry append-staled reads, preserve collapsed caret continuity,
+fail closed when a newer input or navigation owns the surface, and grow/reveal a lazy chapter tail without
+dropping the retained highlight.
 The locale-aware ICU auto data increases the release WASM by about 2.5 MB raw (1.9 MB gzip) and
 37 initial memory pages; this preserves Chinese, Japanese, Thai, and locale-tailored word behavior.

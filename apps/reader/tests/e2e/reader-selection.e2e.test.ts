@@ -11,18 +11,22 @@ import {
 import {
   chromiumSelectionOracle,
   copySelection,
+  copyFocusedSelection,
   currentReaderSpread,
   dragSelection,
+  focusReaderSurface,
   loadEdgeSelectionFixture,
   loadSelectionFixture,
   pointInsideFirstWord,
   prepareEdgeSelectionFixture,
   readSelectionHighlightBands,
+  readerSurface,
   readerSurfaceBounds,
   requireBand,
   requireTextBands,
   selectionRectCount,
   selectionTextLength,
+  usesAppleKeyboardPlatform,
   waitForReaderTransitionEnd,
   waitForVisibleDocumentText,
   type CanvasTextBand,
@@ -164,6 +168,56 @@ test.describe('reader native text selection acceptance', () => {
   });
 });
 
+test.describe('reader native keyboard selection acceptance', () => {
+  test.beforeEach(async ({ page }) => {
+    await openEmptyReader(page);
+    await loadSelectionFixture(page);
+  });
+
+  test('extends and shrinks an exact selection while keeping Canvas focus and highlight', async ({
+    page,
+  }) => {
+    const firstLine = requireBand(await requireTextBands(page, 1), 0);
+    const point = pointInsideFirstWord(firstLine);
+    await page.mouse.dblclick(point.x, point.y);
+    await focusReaderSurface(page);
+
+    const shell = page.getByTestId('reader-shell');
+    await expect(shell).toHaveAttribute('data-selection-active', 'true');
+    expect(await copyFocusedSelection(page)).toBe('ALPHA');
+
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect(shell).toHaveAttribute('data-selection-text-length', String('ALPHA '.length));
+    await expect.poll(() => selectionRectCount(page)).toBeGreaterThanOrEqual(1);
+    await expect
+      .poll(async () => (await readSelectionHighlightBands(page)).length)
+      .toBeGreaterThanOrEqual(1);
+    expect(await copyFocusedSelection(page)).toBe('ALPHA ');
+
+    await page.keyboard.press('Shift+ArrowLeft');
+    await expect(shell).toHaveAttribute('data-selection-active', 'true');
+    await expect(shell).toHaveAttribute('data-selection-text-length', String('ALPHA'.length));
+    expect(await copyFocusedSelection(page)).toBe('ALPHA');
+  });
+
+  test('uses the platform word-extension chord from an exact word selection', async ({ page }) => {
+    const firstLine = requireBand(await requireTextBands(page, 1), 0);
+    const point = pointInsideFirstWord(firstLine);
+    await page.mouse.dblclick(point.x, point.y);
+    await focusReaderSurface(page);
+
+    const apple = await usesAppleKeyboardPlatform(page);
+    await page.keyboard.press(apple ? 'Alt+Shift+ArrowRight' : 'Control+Shift+ArrowRight');
+
+    const expected = apple ? 'ALPHA FIRST' : 'ALPHA ';
+    await expect(page.getByTestId('reader-shell')).toHaveAttribute(
+      'data-selection-text-length',
+      String(expected.length),
+    );
+    expect(await copyFocusedSelection(page)).toBe(expected);
+  });
+});
+
 test('paints Chinese Source Han selection with Chromium native font geometry', async ({ page }) => {
   await openEmptyReader(page);
   await loadSelectionFixture(page, { locale: 'cjk' });
@@ -265,6 +319,36 @@ test.describe('reader primary selection edge autoscroll acceptance', () => {
     await expectReleasedEdgeSelection(page);
     expect(await currentReaderSpread(page)).toBe(0);
     expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
+  });
+
+  test('reveals a lazily published spread when keyboard selection extends to chapter end', async ({
+    page,
+  }) => {
+    const firstLine = requireBand(await requireTextBands(page, 1), 0);
+    const point = pointInsideFirstWord(firstLine);
+    await page.mouse.dblclick(point.x, point.y);
+    await focusReaderSurface(page);
+    expect(await copyFocusedSelection(page)).toBe(EDGE_FIRST_PAGE_TEXT);
+
+    const apple = await usesAppleKeyboardPlatform(page);
+    await page.keyboard.press(apple ? 'Meta+Shift+ArrowDown' : 'Control+Shift+End');
+
+    const shell = page.getByTestId('reader-shell');
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
+    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
+    await expect.poll(() => currentReaderSpread(page)).toBe(1);
+    await waitForReaderTransitionEnd(page);
+    await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
+    await expect(readerSurface(page)).toBeFocused();
+    await expect(shell).toHaveAttribute('data-selection-active', 'true');
+    await expect(shell).toHaveAttribute(
+      'data-selection-text-length',
+      String(EDGE_SELECTION_TEXT.length),
+    );
+    await expect
+      .poll(async () => (await readSelectionHighlightBands(page)).length)
+      .toBeGreaterThanOrEqual(1);
+    expect(await copyFocusedSelection(page)).toBe(EDGE_SELECTION_TEXT);
   });
 });
 

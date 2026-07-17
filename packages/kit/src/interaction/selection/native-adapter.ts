@@ -124,9 +124,10 @@ function buildReadMethods(
   return {
     getSelection: () => null,
     getSnapshot: () => null,
-    hasSelection: () => data.native.getSnapshot() !== null,
+    hasSelection: () => hasNonCollapsedSnapshot(data),
     getText: () => data.native.getSnapshot()?.text ?? '',
-    getSourceLocator: () => data.native.getSnapshot()?.sourceLocator ?? null,
+    getSourceLocator: () =>
+      hasNonCollapsedSnapshot(data) ? (data.native.getSnapshot()?.sourceLocator ?? null) : null,
     getRects: () => data.projectedRects,
     getFocusRect: () => data.projectedFocusRect,
     getFocusEdge: () => getFocusEdge(data),
@@ -216,7 +217,7 @@ function setSpread(
 
 function handleNativeChange(data: AdapterData): void {
   const snapshot = data.native.getSnapshot();
-  if (!snapshot) {
+  if (!snapshot || snapshot.text.length === 0) {
     clearProjectedSelection(data);
     notifySelection(data);
     return;
@@ -230,6 +231,10 @@ function handleNativeChange(data: AdapterData): void {
     return;
   }
   notifySelection(data);
+}
+
+function hasNonCollapsedSnapshot(data: AdapterData): boolean {
+  return (data.native.getSnapshot()?.text.length ?? 0) > 0;
 }
 
 function projectSnapshot(data: AdapterData, snapshot: NativeSelectionSnapshot): void {

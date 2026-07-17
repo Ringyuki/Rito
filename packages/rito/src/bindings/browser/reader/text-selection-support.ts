@@ -170,10 +170,10 @@ function resolveNormalizedEndpoints(
   throw new Error('Reader text range normalized endpoints do not match its request');
 }
 
-function requireAddressMatch(
+export function requireAddressMatch(
   actual: CoreTextCaretAddress,
   expected: CoreTextCaretAddress,
-  endpoint: 'anchor' | 'focus',
+  endpoint: string,
 ): void {
   if (!sameAddress(actual, expected)) {
     throw new Error(`Reader text range ${endpoint} does not match its request`);

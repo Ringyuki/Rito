@@ -9,6 +9,33 @@ pub enum TextCaretAffinity {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum TextSelectionMovement {
+    CharacterLeft,
+    CharacterRight,
+    WordLeft,
+    WordRight,
+    WordStartRight,
+    LineUp,
+    LineDown,
+    LineStart,
+    LineEnd,
+    ParagraphBackward,
+    ParagraphForward,
+    ParagraphPreviousStart,
+    ParagraphNextStart,
+    ChapterStart,
+    ChapterEnd,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextSelectionBoundary {
+    Start,
+    End,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TextCaretAddress {
     pub page_index: usize,
     pub block_index: usize,
@@ -121,5 +148,20 @@ pub(crate) struct LayoutExactTextRange {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum LayoutExactTextRangeResolution {
     Resolved(Box<LayoutExactTextRange>),
+    Unavailable(TextInteractionUnavailableReason),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct LayoutTextSelectionMovement {
+    pub(crate) anchor_caret: LayoutTextCaret,
+    pub(crate) focus_caret: LayoutTextCaret,
+    pub(crate) range: Box<LayoutExactTextRange>,
+    pub(crate) preferred_inline_position: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum LayoutTextSelectionMovementResolution {
+    Resolved(Box<LayoutTextSelectionMovement>),
+    Boundary(TextSelectionBoundary),
     Unavailable(TextInteractionUnavailableReason),
 }

@@ -10,6 +10,9 @@ import {
   exactRect,
   handle,
   ManualWorker,
+  movementRequest,
+  movementResponse,
+  movementTransport,
   pointRequest,
   pointRangeRequest,
   pointRangeResponse,
@@ -57,7 +60,163 @@ test('worker client rejects malformed exact requests before dispatch', async () 
       ),
     /x must be finite/,
   );
+  assert.throws(
+    () =>
+      client.resolveTextSelectionMovementAtRevision(
+        handle(),
+        movementRequest({ movement: 'visualTeleport' }),
+      ),
+    /invalid movement/,
+  );
+  assert.throws(
+    () =>
+      client.resolveTextSelectionMovementAtRevision(
+        handle(),
+        movementRequest({ preferredInlinePosition: Number.NaN }),
+      ),
+    /preferredInlinePosition must be finite/,
+  );
+  assert.throws(
+    () =>
+      client.resolveTextSelectionMovementAtRevision(
+        handle(),
+        movementRequest({ movement: 'wordStartRight', preferredInlinePosition: 28 }),
+      ),
+    /preferredInlinePosition is only valid for line movements/,
+  );
   assert.equal(worker.messages.length, count);
+  client.dispose();
+});
+
+test('worker client strictly binds exact selection movement requests and responses', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+  const request = movementRequest({ movement: 'wordStartRight' });
+  const cases = [
+    movementCase(
+      movementTransport(movementRequest({ movement: 'lineUp' }), movementResponse(request)),
+      /mismatched normalized request/,
+    ),
+    movementCase(
+      movementTransport(
+        movementRequest({ focus: caretAddress({ charIndex: 9 }) }),
+        movementResponse(request),
+      ),
+      /request focus does not match/,
+    ),
+    movementMutation(
+      request,
+      (resolution) => {
+        resolution.anchorCaret.address.charIndex = 9;
+      },
+      /anchor caret does not match/,
+    ),
+    movementMutation(
+      request,
+      (resolution) => {
+        resolution.range.focus = { ...resolution.range.focus, charIndex: 9 };
+      },
+      /range focus does not match/,
+    ),
+    movementMutation(
+      request,
+      (resolution) => {
+        resolution.preferredInlinePosition = Number.POSITIVE_INFINITY;
+      },
+      /preferredInlinePosition for a non-line movement/,
+    ),
+    movementMutation(
+      movementRequest({ movement: 'lineDown' }),
+      (resolution) => {
+        delete resolution.preferredInlinePosition;
+      },
+      /line movement did not return preferredInlinePosition/,
+    ),
+    movementCase(
+      movementTransport(request, {
+        revisionId: 'rev-other',
+        resolution: { status: 'pending', boundary: 'end' },
+      }),
+      /mismatched revisionId/,
+    ),
+    movementCase(
+      movementTransport(request, {
+        revisionId: 'rev-1',
+        resolution: { status: 'boundary', boundary: 'middle' },
+      }),
+      /invalid text selection boundary/,
+    ),
+  ];
+
+  for (const fixture of cases) {
+    const pending = client.resolveTextSelectionMovementAtRevision(
+      handle(),
+      fixture.request ?? request,
+    );
+    worker.respondLast({
+      kind: 'resolveTextSelectionMovementAtRevision',
+      revision: handle(),
+      result: fixture.result,
+    });
+    await assert.rejects(pending, fixture.pattern);
+  }
+
+  for (const resolution of [
+    { status: 'boundary', boundary: 'start' },
+    { status: 'pending', boundary: 'end' },
+    { status: 'unavailable', reason: 'shapeUnavailable' },
+  ]) {
+    const pending = client.resolveTextSelectionMovementAtRevision(handle(), request);
+    worker.respondLast({
+      kind: 'resolveTextSelectionMovementAtRevision',
+      revision: handle(),
+      result: movementTransport(request, { revisionId: 'rev-1', resolution }),
+    });
+    assert.deepEqual((await pending).value.resolution, resolution);
+  }
+
+  const responseWithoutStickyPosition = movementResponse(request);
+  delete responseWithoutStickyPosition.resolution.preferredInlinePosition;
+  const pendingWithoutStickyPosition = client.resolveTextSelectionMovementAtRevision(
+    handle(),
+    movementRequest({ movement: 'wordStartRight', preferredInlinePosition: undefined }),
+  );
+  worker.respondLast({
+    kind: 'resolveTextSelectionMovementAtRevision',
+    revision: handle(),
+    result: movementTransport(
+      movementRequest({ movement: 'wordStartRight', preferredInlinePosition: undefined }),
+      responseWithoutStickyPosition,
+    ),
+  });
+  assert.equal(
+    'preferredInlinePosition' in (await pendingWithoutStickyPosition).value.resolution,
+    false,
+  );
+  client.dispose();
+});
+
+test('worker client preserves paragraph-start movement requests without aliasing', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+
+  for (const movement of ['paragraphPreviousStart', 'paragraphNextStart']) {
+    const request = movementRequest({ movement });
+    const pending = client.resolveTextSelectionMovementAtRevision(handle(), request);
+    assert.deepEqual(worker.messages.at(-1), {
+      id: worker.messages.at(-1).id,
+      kind: 'resolveTextSelectionMovementAtRevision',
+      revision: handle(),
+      request,
+    });
+    worker.respondLast({
+      kind: 'resolveTextSelectionMovementAtRevision',
+      revision: handle(),
+      result: movementTransport(request, movementResponse(request)),
+    });
+    assert.deepEqual((await pending).value, movementResponse(request));
+  }
+
   client.dispose();
 });
 
@@ -441,6 +600,16 @@ function rangeToPointMutation(request, mutate, pattern) {
   const response = structuredClone(rangeToPointResponse(request));
   mutate(response.resolution);
   return rangeToPointCase(rangeToPointTransport(request, response), pattern);
+}
+
+function movementCase(result, pattern) {
+  return { result, pattern };
+}
+
+function movementMutation(request, mutate, pattern) {
+  const response = structuredClone(movementResponse(request));
+  mutate(response.resolution);
+  return { ...movementCase(movementTransport(request, response), pattern), request };
 }
 
 async function openClient(worker) {
