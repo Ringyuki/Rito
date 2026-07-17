@@ -3,7 +3,7 @@ import type { CoreSearchResponse } from '../core-contracts';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { scheduleBrowserReaderReflow } from './pipeline/bounded-reflow';
 import { getImageObjectUrl, preloadReaderFonts } from '../resources';
-import { browserReaderSpreads } from './layout';
+import { browserReaderSpreads } from '../reader-layout';
 import {
   findRitoCoreWasmReaderActiveTocEntry,
   findRitoCoreWasmReaderSpreadContainingPage,

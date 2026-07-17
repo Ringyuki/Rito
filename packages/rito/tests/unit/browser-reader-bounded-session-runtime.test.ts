@@ -17,7 +17,7 @@ import {
   type BrowserReaderBoundedSessionOwner,
 } from '../../src/bindings/browser/reader-session-host';
 import { isCurrentRevisionHandle } from '../../src/bindings/browser/reader/pipeline/revision-handle';
-import { toCoreLayoutConfig } from '../../src/bindings/browser/reader/layout';
+import { toCoreLayoutConfig } from '../../src/bindings/browser/reader-layout';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
 import { createFontGeometryReplacementWorker } from './browser-reader-bounded-session-runtime-fixtures';
 import {

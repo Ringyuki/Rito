@@ -59,6 +59,23 @@ describe('native selection annotation target', () => {
     expect(state.chapterIndices.has('b')).toBe(false);
   });
 
+  it('reuses the href projection while the Reader source Map is unchanged', () => {
+    const chapter = { href: 'chapter.xhtml', normalizedText: 'text', spans: [] };
+    const source = new Map([['chapter', chapter]]);
+    const state = {
+      chapterIndices: new Map(),
+      chapterIndexSource: null,
+    } as unknown as CoordinatorState;
+    const reader = { getChapterTextIndices: () => source } as never;
+
+    syncChapterIndices(state, reader);
+    const projected = state.chapterIndices;
+    syncChapterIndices(state, reader);
+
+    expect(state.chapterIndices).toBe(projected);
+    expect(state.chapterIndices.get('chapter.xhtml')).toBe(chapter);
+  });
+
   it('derives persistent selectors directly from the exact source range', () => {
     const idref = 'chapter-item';
     const href = 'chapter.xhtml';

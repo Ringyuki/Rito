@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "machine": {
     "id": "ringyuki-macbook-air-m3",
     "platform": "darwin",
@@ -55,6 +55,7 @@
         "frameWarmRoundTripMs": 20,
         "canvasReadyMs": 500,
         "cachedTurnFirstFrameMs": 50,
+        "cachedTurnStableMs": 450,
         "deferredGrowthFirstFrameMs": 150,
         "reflowFirstFrameMs": 300,
         "maxLongTaskMs": 120
@@ -74,6 +75,7 @@
         "frameWarmRoundTripMs": 20,
         "canvasReadyMs": 500,
         "cachedTurnFirstFrameMs": 50,
+        "cachedTurnStableMs": 450,
         "deferredGrowthFirstFrameMs": 150,
         "reflowFirstFrameMs": 400,
         "maxLongTaskMs": 120
@@ -93,6 +95,7 @@
         "frameWarmRoundTripMs": 20,
         "canvasReadyMs": 500,
         "cachedTurnFirstFrameMs": 50,
+        "cachedTurnStableMs": 450,
         "deferredGrowthFirstFrameMs": 150,
         "reflowFirstFrameMs": 300,
         "maxLongTaskMs": 120

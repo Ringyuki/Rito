@@ -84,6 +84,7 @@ export function wireSettledEvents(
         reader,
         pool,
         contentRenderer,
+        eagerPosition: event.direction === 'forward' ? 'next' : 'prev',
       });
     } else {
       restoreCanceledTransition(internals, emitter, reader, event.targetSpread);

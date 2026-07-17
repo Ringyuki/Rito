@@ -83,6 +83,7 @@ export function readerGateTestMetrics(value: number): ReaderUsabilityMetrics {
     frameWarmRoundTripMs: value,
     canvasReadyMs: value,
     cachedTurnFirstFrameMs: value,
+    cachedTurnStableMs: value,
     deferredGrowthFirstFrameMs: value,
     reflowFirstFrameMs: value,
     maxLongTaskMs: value,
@@ -91,7 +92,7 @@ export function readerGateTestMetrics(value: number): ReaderUsabilityMetrics {
 
 export function readerGateTestManifest(): ReaderGateTestJson {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     machine: {
       id: READER_GATE_TEST_ENVIRONMENT.machineId,
       platform: READER_GATE_TEST_ENVIRONMENT.platform,

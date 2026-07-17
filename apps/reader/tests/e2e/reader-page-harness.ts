@@ -55,6 +55,12 @@ export async function waitForReaderSpreadPaint(
   return checksum;
 }
 
+export async function waitForReaderTransitionEnd(page: Page): Promise<void> {
+  await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-transitioning', 'false', {
+    timeout: READER_PAINT_TIMEOUT_MS,
+  });
+}
+
 export async function stableReaderCanvasChecksum(page: Page): Promise<string> {
   return stableReaderChecksum(page, readerCanvasChecksum);
 }

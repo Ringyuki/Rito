@@ -9,21 +9,21 @@ protect browser-rendered output.
 
 ## Layers
 
-| Layer                 | Command                                                                                              | Purpose                                                                                                        |
-| --------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Unit                  | `pnpm test:unit`                                                                                     | Module-level parser, style, layout, render helper, kit, and React tests.                                       |
-| Integration           | `pnpm test:integration`                                                                              | Small end-to-end core flows and focused rare-feature render chains.                                            |
-| Structured golden     | `pnpm test:golden:books`                                                                             | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                            |
-| Render golden         | `pnpm test:golden:render`                                                                            | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens.           |
-| Pixel golden          | `pnpm test:golden:pixel`                                                                             | Browser Canvas PNG output compared against checked-in image goldens.                                           |
-| DOM-free reference    | `pnpm --filter @ritojs/core test:dom-free:reference`                                                 | Built TypeScript reference parses and paginates an EPUB in a real Node worker without bundled DOM parser code. |
-| Reader e2e            | `pnpm test:e2e`                                                                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                     |
-| Reader load profile   | `RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile`                                 | Opt-in production bounded-Worker phase timings, revision extents, Long Tasks, and browser errors.              |
-| Reader usability gate | `RITO_READER_USABILITY_GATE=/abs/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` | Strict named-machine isolated-process cold-start, pinned-corpus load, reflow, and turn thresholds.             |
-| Reader release gate   | `pnpm test:e2e:release-protocol`                                                                     | Pending-response drain, transfer/revision release, dispose ACK, and safe Worker reuse/termination.             |
-| Reader memory gate    | `pnpm test:e2e:memory-gate`                                                                          | Named-machine physical-footprint checkpoints, replacement growth, terminal release, and Worker lifecycle.      |
-| Coverage              | `pnpm test:coverage`                                                                                 | V8 coverage for all published packages, checked against package baselines.                                     |
-| Dependency audit      | `pnpm audit:dependencies`                                                                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                  |
+| Layer                 | Command                                                                                              | Purpose                                                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Unit                  | `pnpm test:unit`                                                                                     | Module-level parser, style, layout, render helper, kit, and React tests.                                                    |
+| Integration           | `pnpm test:integration`                                                                              | Small end-to-end core flows and focused rare-feature render chains.                                                         |
+| Structured golden     | `pnpm test:golden:books`                                                                             | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                                         |
+| Render golden         | `pnpm test:golden:render`                                                                            | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens.                        |
+| Pixel golden          | `pnpm test:golden:pixel`                                                                             | Browser Canvas PNG output compared against checked-in image goldens.                                                        |
+| DOM-free reference    | `pnpm --filter @ritojs/core test:dom-free:reference`                                                 | Built TypeScript reference parses and paginates an EPUB in a real Node worker without bundled DOM parser code.              |
+| Reader e2e            | `pnpm test:e2e`                                                                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                                  |
+| Reader load profile   | `RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile`                                 | Opt-in production bounded-Worker phase timings, revision extents, Long Tasks, and browser errors.                           |
+| Reader usability gate | `RITO_READER_USABILITY_GATE=/abs/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` | Strict named-machine isolated-process cold-start, pinned-corpus load, reflow, and first-frame/until-stable turn thresholds. |
+| Reader release gate   | `pnpm test:e2e:release-protocol`                                                                     | Pending-response drain, transfer/revision release, dispose ACK, and safe Worker reuse/termination.                          |
+| Reader memory gate    | `pnpm test:e2e:memory-gate`                                                                          | Named-machine physical-footprint checkpoints, replacement growth, terminal release, and Worker lifecycle.                   |
+| Coverage              | `pnpm test:coverage`                                                                                 | V8 coverage for all published packages, checked against package baselines.                                                  |
+| Dependency audit      | `pnpm audit:dependencies`                                                                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                               |
 
 ## Current Gates
 
@@ -375,7 +375,7 @@ The opt-in load-profile and usability-gate commands also write
 `apps/reader/playwright-report/index.html`; the gate report contains each raw
 run JSON attachment plus the aggregate threshold summary.
 
-The manifest schema is strict. Schema v2 pins the machine ID, platform,
+The manifest schema is strict. Schema v3 pins the machine ID, platform,
 architecture, CPU model, OS release, browser name and exact version, bundled
 headless browser policy, locale/color scheme, the exact two production
 pinned-font policies, device-pixel ratio, normal and reflow viewports, EPUB paths
@@ -391,9 +391,13 @@ production Reader ready state, navigation to first Canvas, and startup-window
 Long Tasks on the page clock; then `open` round-trip,
 bounded-revision-to-presentation, frame warm, input-to-first-Canvas, cached-turn
 first changed frame, deferred-growth first changed frame, reflow first changed
-frame, and the maximum Long Task in each measured action window. Waiting for the
-Canvas to settle isolates one stage from the next and keeps animation Long Tasks
-in the observation window; that wait is not added to any first-frame latency.
+frame, cached-turn transition completion, and the maximum Long Task in each
+measured action window. Cached-turn stability ends at the controller's
+`transitionEnd` publication and verifies the final Canvas checksum, avoiding the
+100 ms sampling quantization used by the general cross-stage stability wait.
+Waiting for other stages to settle isolates one stage from the next and keeps
+animation Long Tasks in the observation window; that wait is not added to any
+first-frame latency.
 Long Tasks describe the Window main thread; Worker stalls remain visible in
 the separately recorded Worker-operation durations.
 

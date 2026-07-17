@@ -1,8 +1,11 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    epub::{text_measurement_font_assembly_for_layout, ShapeablePublicationFontFace},
-    layout::{parse_font_family_list, LayoutConfig},
+    epub::{
+        resolve_font_face_sources, text_measurement_font_assembly_for_layout_with_sources,
+        ResolvedFontFaceSource, ShapeablePublicationFontFace,
+    },
+    layout::{parse_font_family_list, LayoutConfig, TextMeasurementMode},
 };
 
 use super::{
@@ -18,16 +21,25 @@ impl RuntimeDocument {
         if self.pinned_font_policy.is_empty() {
             return None;
         }
+        if layout_config.text_measurement == TextMeasurementMode::FixtureCompatible {
+            return self.required_font_face_catalog_from_faces(Vec::new());
+        }
         let pinned_faces = self
             .pinned_font_policy
             .measurement_faces_for_layout(layout_config);
-        let assembly = text_measurement_font_assembly_for_layout(
+        let assembly = text_measurement_font_assembly_for_layout_with_sources(
             &self.document,
+            self.resolved_font_face_sources(),
             layout_config,
-            Some(self.text_measurement_cache.clone()),
+            self.text_measurement_cache.clone(),
             pinned_faces,
         );
         self.required_font_face_catalog_from_faces(assembly.shapeable_publication_faces)
+    }
+
+    pub(super) fn resolved_font_face_sources(&self) -> &[ResolvedFontFaceSource] {
+        self.font_face_sources
+            .get_or_init(|| resolve_font_face_sources(&self.document))
     }
 
     pub(super) fn required_font_face_catalog_from_faces(

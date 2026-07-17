@@ -10,6 +10,7 @@ export interface ReaderUsabilityMetrics {
   readonly frameWarmRoundTripMs: number;
   readonly canvasReadyMs: number;
   readonly cachedTurnFirstFrameMs: number;
+  readonly cachedTurnStableMs: number;
   readonly deferredGrowthFirstFrameMs: number;
   readonly reflowFirstFrameMs: number;
   readonly maxLongTaskMs: number;
@@ -25,6 +26,7 @@ export const READER_USABILITY_METRIC_KEYS = [
   'frameWarmRoundTripMs',
   'canvasReadyMs',
   'cachedTurnFirstFrameMs',
+  'cachedTurnStableMs',
   'deferredGrowthFirstFrameMs',
   'reflowFirstFrameMs',
   'maxLongTaskMs',
@@ -45,6 +47,7 @@ export function readerUsabilityMetrics(report: ReaderLoadProfileReport): ReaderU
     frameWarmRoundTripMs: report.milestones.frameWarmRoundTripMs,
     canvasReadyMs: report.milestones.canvasReadyMs,
     cachedTurnFirstFrameMs: report.stages.cachedTurn.durationMs,
+    cachedTurnStableMs: report.stages.cachedTurn.observedDurationMs,
     deferredGrowthFirstFrameMs: report.stages.deferredGrowth.durationMs,
     reflowFirstFrameMs: report.stages.reflow.durationMs,
     maxLongTaskMs: Math.max(
@@ -69,6 +72,7 @@ export function mapReaderUsabilityMetrics(
     frameWarmRoundTripMs: value('frameWarmRoundTripMs'),
     canvasReadyMs: value('canvasReadyMs'),
     cachedTurnFirstFrameMs: value('cachedTurnFirstFrameMs'),
+    cachedTurnStableMs: value('cachedTurnStableMs'),
     deferredGrowthFirstFrameMs: value('deferredGrowthFirstFrameMs'),
     reflowFirstFrameMs: value('reflowFirstFrameMs'),
     maxLongTaskMs: value('maxLongTaskMs'),

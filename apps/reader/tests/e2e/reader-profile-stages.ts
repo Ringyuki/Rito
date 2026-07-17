@@ -8,6 +8,7 @@ import {
   resetToFirstSpread,
   stableReaderCanvasSampleChecksum,
   waitForReaderSpreadPaint,
+  waitForReaderTransitionEnd,
 } from './reader-page-harness';
 import type {
   ReaderProfileStageInput,
@@ -91,7 +92,8 @@ export async function runCachedTurnProfile(
   await page.keyboard.press('ArrowRight');
   await waitForReaderSpreadPaint(page, 1, checksumBefore);
   const paintedAt = await pageNow(page);
-  const checksumAfter = await stableReaderCanvasSampleChecksum(page);
+  await waitForReaderTransitionEnd(page);
+  const checksumAfter = await readerCanvasSampleChecksum(page);
   const observedUntil = await pageNow(page);
   const slice = await finishProbeSlice(page, cursor);
   return transitionResult(checksumAfter, slice, paintedAt, observedUntil, {

@@ -50,9 +50,10 @@ export function captureBrowserReaderCandidateHostFontMetrics(
 export async function replaceBrowserReaderFontGeometryMutation(
   state: BrowserReaderState,
   uncalibratedOwner: BrowserReaderBoundedSessionOwner,
-  target: BrowserReaderBoundedReplacementTarget,
+  target: () => BrowserReaderBoundedReplacementTarget,
   notifyLayoutCommitted: boolean,
   startCandidate: StartCandidate,
+  preserveActiveSpread?: () => boolean,
 ): Promise<BrowserReaderBoundedSnapshot | undefined> {
   while (fontGeometryReplacementIsLive(state, uncalibratedOwner)) {
     const sampleCount = hostFontMetricSampleCount(state.fontMetrics);
@@ -73,7 +74,8 @@ export async function replaceBrowserReaderFontGeometryMutation(
         spreadMode: state.spreadMode,
         lineBreaking: state.lineBreaking,
         notifyLayoutCommitted,
-        ...target,
+        ...(preserveActiveSpread ? { preserveActiveSpread } : {}),
+        ...target(),
       });
       if (snapshot) return snapshot;
       if (hostFontMetricSampleCount(state.fontMetrics) === sampleCount) return undefined;

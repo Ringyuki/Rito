@@ -26,7 +26,17 @@ pub use document::{
     open_document, open_runtime_document, open_runtime_document_owned, LoadedBinaryResource,
     LoadedChapter, LoadedEpubDocument, LoadedTextResource,
 };
-pub(crate) use fonts::{text_measurement_font_assembly_for_layout, ShapeablePublicationFontFace};
+#[cfg(test)]
+pub(crate) use fonts::{
+    font_face_source_cache_metrics, reset_font_face_source_cache_metrics,
+    FontFaceSourceCacheMetrics,
+};
+pub(crate) use fonts::{
+    resolve_font_face_sources, shapeable_publication_families_for_layout_with_sources,
+    text_measurement_font_assembly_for_layout_with_sources,
+    text_measurement_fonts_for_layout_with_sources, ResolvedFontFaceSource,
+    ShapeablePublicationFontFace,
+};
 pub(crate) use layout_bridge::{
     build_prepared_loaded_document_runtime_layout, prepare_runtime_layout_chapter,
     PreparedRuntimeLayoutChapter, PreparedRuntimeLayoutOptions,

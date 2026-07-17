@@ -10,6 +10,14 @@ import { isCurrentRevisionHandle } from './pipeline/revision-handle';
 import { trackBrowserReaderHostTask } from './host-tasks';
 
 const FRAME_CACHE_CAPACITY = 12;
+const completedFrameWindows = new WeakMap<BrowserReaderState, CompletedFrameWindows>();
+
+interface CompletedFrameWindows {
+  readonly workerSessionId: string;
+  readonly revisionId: string;
+  readonly revisionVersion: number;
+  readonly centers: Set<number>;
+}
 
 export function loadFrame(
   state: BrowserReaderState,
@@ -31,6 +39,7 @@ export function cacheFrame(
     const oldestSpreadIndex = state.frames.keys().next().value;
     if (oldestSpreadIndex === undefined) break;
     state.frames.delete(oldestSpreadIndex);
+    completedFrameWindows.delete(state);
   }
 }
 
@@ -51,6 +60,7 @@ export async function ensureFrameLoaded(
 
 export function resetFrameCache(state: BrowserReaderState): void {
   state.frames = new Map();
+  completedFrameWindows.delete(state);
   state.pendingFrameLoads.clear();
   state.pendingImageLoads.clear();
 }
@@ -108,6 +118,7 @@ export function applyBrowserReaderFrameWindow(
       }),
     );
   }
+  markFrameWindowCompleted(state, revision, frameWindow.plan.centerSpreadIndex);
 }
 
 export async function warmBrowserReaderFrameWindow(
@@ -116,11 +127,58 @@ export async function warmBrowserReaderFrameWindow(
 ): Promise<void> {
   const revision = state.revisionHandle;
   if (!revision || !isCurrentRevisionHandle(state, revision)) return;
+  if (frameWindowIsCompleted(state, revision, centerSpreadIndex)) return;
   try {
     await loadFrameWindow(state, revision, centerSpreadIndex);
   } catch {
     // Frame-window resource warmup is opportunistic; rendering can request misses on demand.
   }
+}
+
+function markFrameWindowCompleted(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  centerSpreadIndex: number,
+): void {
+  const current = completedFrameWindows.get(state);
+  if (current && completedWindowMatches(current, revision)) {
+    current.centers.add(centerSpreadIndex);
+    return;
+  }
+  completedFrameWindows.set(state, {
+    workerSessionId: revision.workerSessionId,
+    revisionId: revision.revisionId,
+    revisionVersion: revision.revisionVersion,
+    centers: new Set([centerSpreadIndex]),
+  });
+}
+
+function frameWindowIsCompleted(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  centerSpreadIndex: number,
+): boolean {
+  const completed = completedFrameWindows.get(state);
+  if (!completed || !completedWindowMatches(completed, revision)) return false;
+  const frame = state.frames.get(centerSpreadIndex);
+  return (
+    completed.centers.has(centerSpreadIndex) &&
+    frame !== undefined &&
+    frame.resourceRefs.images.every(
+      (href) => state.images.has(href) || state.pendingImageLoads.has(href),
+    )
+  );
+}
+
+function completedWindowMatches(
+  completed: CompletedFrameWindows,
+  revision: BrowserReaderRevisionHandle,
+): boolean {
+  return (
+    completed.workerSessionId === revision.workerSessionId &&
+    completed.revisionId === revision.revisionId &&
+    completed.revisionVersion === revision.revisionVersion
+  );
 }
 
 function loadFrameWindow(

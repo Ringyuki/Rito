@@ -35,6 +35,8 @@ export interface BrowserReaderBoundedCommitInput extends BrowserReaderBoundedSna
   readonly expectedActiveSpreadIndex?: number | undefined;
   /** Runs inside the atomic publication, before public layout listeners. */
   readonly onCommitted?: (() => void) | undefined;
+  /** Keep navigation stable when background growth was cancelled or superseded. */
+  readonly preserveActiveSpread?: (() => boolean) | undefined;
 }
 
 export interface BrowserReaderBoundedCommitResult {
@@ -174,6 +176,9 @@ function publishBoundedCommit(
   }
   const candidate = state.boundedSessions.candidate === input.owner;
   const retiredOwner = candidate ? state.boundedSessions.current : undefined;
+  const preservedActiveSpread = input.preserveActiveSpread?.()
+    ? state.activeSpreadIndex
+    : undefined;
   if (candidate) {
     state.boundedSessions.current = input.owner;
     state.boundedSessions.candidate = undefined;
@@ -187,7 +192,10 @@ function publishBoundedCommit(
     worker: input.owner.worker,
     initialFrame: prepared.commitFrame.frame,
   });
-  state.activeSpreadIndex = boundedCommitActiveSpread(state, prepared);
+  state.activeSpreadIndex =
+    preservedActiveSpread === undefined
+      ? boundedCommitActiveSpread(state, prepared)
+      : clampSpreadIndex(preservedActiveSpread, prepared.result.bundle.revision.spreadCount);
   reopenCurrentExactReads(state, input, candidate);
   notifyCommitCallback(state, input.onCommitted);
   if (input.notifyLayoutCommitted !== false) notifyLayoutCommitted(state);
@@ -240,6 +248,10 @@ function isEligibleCommit(
     accepted.revisionId === input.snapshot.revision.revisionId &&
     accepted.revisionVersion === input.snapshot.revision.revisionVersion
   );
+}
+
+function clampSpreadIndex(spreadIndex: number, spreadCount: number): number {
+  return Math.max(0, Math.min(spreadIndex, spreadCount - 1));
 }
 
 function notifyCommitCallback(state: BrowserReaderState, callback: (() => void) | undefined): void {

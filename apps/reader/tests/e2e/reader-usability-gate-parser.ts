@@ -48,7 +48,7 @@ export async function loadReaderUsabilityGate(path: string): Promise<ReaderUsabi
     'manifest',
   );
   if (root.schemaVersion !== READER_USABILITY_GATE_SCHEMA_VERSION) {
-    throw invalid('manifest.schemaVersion', 'must equal 2');
+    throw invalid('manifest.schemaVersion', 'must equal 3');
   }
   return {
     schemaVersion: READER_USABILITY_GATE_SCHEMA_VERSION,

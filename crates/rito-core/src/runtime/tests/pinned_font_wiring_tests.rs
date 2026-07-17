@@ -9,6 +9,10 @@ use super::{
     },
 };
 use crate::{
+    epub::{
+        font_face_source_cache_metrics, open_document, reset_font_face_source_cache_metrics,
+        FontFaceSourceCacheMetrics,
+    },
     layout::LineBreaking,
     runtime::{
         frame::chapter_window_layout_config, RuntimeBoundedRevisionRequest,
@@ -230,6 +234,57 @@ fn required_font_faces_exclude_variable_and_unshapeable_publication_faces() {
 }
 
 #[test]
+fn unpinned_font_aware_continuation_reuses_sources_without_catalog_work() {
+    let publication_font = b"not-a-shapeable-font".to_vec();
+    let paragraph = "Font-aware continuation source cache regression text. ".repeat(240);
+    let body = format!("<p>{paragraph}</p><p>{paragraph}</p>");
+    let stylesheet =
+        r#"@font-face { font-family: Author; src: url("book.ttf"); font-weight: 400; }"#;
+    let bytes = content_epub("en", &body, stylesheet, Some(&publication_font));
+    let mut base_config = font_aware_layout();
+    base_config.viewport_width = 120.0;
+    base_config.page_width = 120.0;
+    base_config.margin_left = 12.0;
+    base_config.margin_right = 12.0;
+    let config = chapter_window_layout_config(&base_config);
+    let mut eager = RuntimeDocument::open(&bytes).expect("eager document opens");
+    let eager_revision = eager
+        .create_revision(&config)
+        .expect("eager revision completes");
+    let mut bounded = RuntimeDocument::open(&bytes).expect("bounded document opens");
+    reset_font_face_source_cache_metrics();
+    let initial = bounded
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: config,
+            line_breaking: LineBreaking::Greedy,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 1,
+            },
+        })
+        .expect("bounded revision starts");
+    let initial_font_metrics = font_face_source_cache_metrics();
+    assert_eq!(
+        initial_font_metrics,
+        FontFaceSourceCacheMetrics {
+            stylesheet_parse_count: 1,
+            resource_resolve_count: 1,
+            catalog_hash_count: 0,
+        }
+    );
+
+    let (completed, saw_line_only_resume) = complete_revision(&mut bounded, initial);
+
+    assert!(saw_line_only_resume);
+    assert_eq!(font_face_source_cache_metrics(), initial_font_metrics);
+    assert_revision_layouts_equal(
+        &eager,
+        &eager_revision.revision_id,
+        &bounded,
+        &completed.revision.revision_id,
+    );
+}
+
+#[test]
 fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
     let pinned_font = title_font();
     let author_font = illustration_font();
@@ -293,16 +348,29 @@ fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
         &window_revision.revision_id,
     );
 
-    let mut bounded = RuntimeDocument::open_with_pinned_font_policy(&bytes, input).unwrap();
+    let mut loaded = open_document(&bytes).expect("bounded source document opens");
+    loaded.fonts[0].byte_hash = None;
+    let mut bounded =
+        RuntimeDocument::from_loaded_document_with_pinned_font_policy(loaded, input).unwrap();
+    reset_font_face_source_cache_metrics();
     let initial = bounded
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
-            layout_config: effective_config,
+            layout_config: effective_config.clone(),
             line_breaking: LineBreaking::Greedy,
             budget: RuntimeRevisionWorkBudget {
                 max_top_level_nodes: 1,
             },
         })
         .unwrap();
+    let initial_font_metrics = font_face_source_cache_metrics();
+    assert_eq!(
+        initial_font_metrics,
+        FontFaceSourceCacheMetrics {
+            stylesheet_parse_count: 1,
+            resource_resolve_count: 1,
+            catalog_hash_count: 1,
+        }
+    );
     assert_eq!(initial.processed_top_level_nodes, 1);
     assert_eq!(
         initial.revision.status,
@@ -311,11 +379,29 @@ fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
     assert_eq!(initial.revision.known_extent.page_count, 0);
     let (completed, saw_line_only_resume) = complete_revision(&mut bounded, initial);
     assert!(saw_line_only_resume);
+    assert_eq!(font_face_source_cache_metrics(), initial_font_metrics);
     assert_revision_layouts_equal(
         &eager,
         &first.revision_id,
         &bounded,
         &completed.revision.revision_id,
+    );
+    let bounded_again = bounded
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: effective_config,
+            line_breaking: LineBreaking::Greedy,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 1,
+            },
+        })
+        .unwrap();
+    let (bounded_again, _) = complete_revision(&mut bounded, bounded_again);
+    assert_eq!(font_face_source_cache_metrics(), initial_font_metrics);
+    assert_revision_layouts_equal(
+        &eager,
+        &first.revision_id,
+        &bounded,
+        &bounded_again.revision.revision_id,
     );
     let expected_faces = required_faces(&eager, &first.revision_id);
     assert_eq!(expected_faces.len(), 1);
@@ -324,6 +410,7 @@ fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
         required_faces(&eager, &second.revision_id),
         required_faces(&window, &window_revision.revision_id),
         required_faces(&bounded, &completed.revision.revision_id),
+        required_faces(&bounded, &bounded_again.revision.revision_id),
     ] {
         assert_eq!(faces, expected_faces);
     }

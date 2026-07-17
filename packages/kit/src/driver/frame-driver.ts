@@ -11,6 +11,8 @@ export interface FrameDriverDeps {
   readonly contentRenderer: ContentRenderer;
   readonly overlayProvider: OverlayProvider;
   readonly getBackingRatio: () => number;
+  /** Monotonic clock matching requestAnimationFrame timestamps. */
+  readonly now?: (() => number) | undefined;
 }
 
 /**
@@ -37,6 +39,7 @@ export interface FrameDriver {
 interface FrameDriverState {
   rafId: number | null;
   lastFrameTime: number;
+  firstFrameBaseline: number | null;
   disposed: boolean;
 }
 
@@ -44,6 +47,7 @@ export function createFrameDriver(deps: FrameDriverDeps): FrameDriver {
   const state: FrameDriverState = {
     rafId: null,
     lastFrameTime: 0,
+    firstFrameBaseline: null,
     disposed: false,
   };
 
@@ -63,7 +67,9 @@ function stepFrame(
   state.rafId = null;
   if (state.disposed) return;
 
-  const dt = state.lastFrameTime > 0 ? Math.min(now - state.lastFrameTime, 32) : 16;
+  const baseline = state.lastFrameTime > 0 ? state.lastFrameTime : state.firstFrameBaseline;
+  const dt = baseline === null ? 16 : Math.max(0, now - baseline);
+  state.firstFrameBaseline = null;
   state.lastFrameTime = now;
   compositeFrame(deps, deps.transitionDriver.step(dt));
 
@@ -71,6 +77,7 @@ function stepFrame(
     state.rafId = requestAnimationFrame(onFrame);
   } else {
     state.lastFrameTime = 0;
+    state.firstFrameBaseline = null;
   }
 }
 
@@ -81,15 +88,14 @@ function createFrameDriverApi(
 ): FrameDriver {
   const driver: FrameDriver = {
     scheduleComposite(): void {
-      if (state.disposed) return;
-      if (state.rafId !== null) return; // Already scheduled — idempotent
-      state.rafId = requestAnimationFrame(onFrame);
+      scheduleFrame(deps, state, onFrame);
     },
 
     compositeNow(): void {
       if (state.disposed) return;
       cancelScheduledFrame(state);
       state.lastFrameTime = 0;
+      state.firstFrameBaseline = null;
       compositeFrame(deps, deps.transitionDriver.step(16));
     },
 
@@ -120,6 +126,22 @@ function createFrameDriverApi(
   };
 
   return driver;
+}
+
+function scheduleFrame(
+  deps: FrameDriverDeps,
+  state: FrameDriverState,
+  onFrame: FrameRequestCallback,
+): void {
+  if (state.disposed) return;
+  if (
+    deps.transitionDriver.isAnimating &&
+    state.lastFrameTime === 0 &&
+    state.firstFrameBaseline === null
+  ) {
+    state.firstFrameBaseline = deps.now?.() ?? performance.now();
+  }
+  if (state.rafId === null) state.rafId = requestAnimationFrame(onFrame);
 }
 
 function cancelScheduledFrame(state: FrameDriverState): void {

@@ -78,6 +78,21 @@ describe('Browser reader frame window adapter', () => {
     expect(state.pendingFrameLoads.size).toBe(0);
   });
 
+  it('reuses a completed warm window for the same revision and center', async () => {
+    const warmFrameWindow = vi.fn(
+      (revision: { readonly revisionId: string; readonly revisionVersion: number }) =>
+        Promise.resolve({ revision, value: frameWindowResult([0, 1], 0) }),
+    );
+    const state = frameWindowState([0, 1], () => undefined, {
+      worker: { warmFrameWindowAtRevision: warmFrameWindow },
+    });
+
+    await warmBrowserReaderFrameWindow(state, 0);
+    await warmBrowserReaderFrameWindow(state, 0);
+
+    expect(warmFrameWindow).toHaveBeenCalledOnce();
+  });
+
   it('rejects a stale frame window when two worker sessions use the same revision id', async () => {
     const staleWindow = createDeferred<ReturnType<typeof versionedFrameWindowResult>>();
     const currentWindow = createDeferred<ReturnType<typeof versionedFrameWindowResult>>();

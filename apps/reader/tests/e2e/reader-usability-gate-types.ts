@@ -1,7 +1,7 @@
 import type { ReaderProfileBrowserPolicy, ReaderProfileViewport } from './reader-profile-model';
 import type { ReaderUsabilityMetrics } from './reader-usability-metrics';
 
-export const READER_USABILITY_GATE_SCHEMA_VERSION = 2;
+export const READER_USABILITY_GATE_SCHEMA_VERSION = 3;
 
 export const READER_USABILITY_MACHINE_KEYS = [
   'id',

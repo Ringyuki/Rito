@@ -3,7 +3,10 @@ use super::pinned_font_policy_fixtures::{
     face, illustration_font, policy, sha256_hex, short_sha256, title_font,
 };
 use crate::{
-    epub::open_runtime_document,
+    epub::{
+        font_face_source_cache_metrics, open_runtime_document,
+        reset_font_face_source_cache_metrics, FontFaceSourceCacheMetrics,
+    },
     layout::LineBreaking,
     runtime::{
         frame::chapter_window_layout_config, RuntimeBoundedRevisionRequest, RuntimeDocument,
@@ -92,6 +95,62 @@ fn empty_policy_preserves_legacy_layout_identity() {
         RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION
     );
     assert!(policy.faces.is_empty());
+}
+
+#[test]
+fn fixture_compatible_bounded_layout_never_initializes_font_sources() {
+    let bytes = fixture_epub();
+    let mut baseline = RuntimeDocument::open(&bytes).expect("baseline opens");
+    reset_font_face_source_cache_metrics();
+    let baseline_advance = baseline
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: layout(),
+            line_breaking: LineBreaking::Greedy,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 1,
+            },
+        })
+        .expect("baseline bounded revision starts");
+    assert_eq!(
+        font_face_source_cache_metrics(),
+        FontFaceSourceCacheMetrics::default()
+    );
+    assert!(baseline
+        .revision_bundle(&baseline_advance.revision.revision_id, false)
+        .unwrap()
+        .required_font_faces
+        .is_none());
+
+    let mut pinned = RuntimeDocument::open_with_pinned_font_policy(
+        &bytes,
+        policy(vec![face(
+            title_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("pinned document opens");
+    reset_font_face_source_cache_metrics();
+    let pinned_advance = pinned
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: layout(),
+            line_breaking: LineBreaking::Greedy,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 1,
+            },
+        })
+        .expect("pinned bounded revision starts");
+    assert_eq!(
+        font_face_source_cache_metrics(),
+        FontFaceSourceCacheMetrics::default()
+    );
+    assert!(pinned
+        .revision_bundle(&pinned_advance.revision.revision_id, false)
+        .unwrap()
+        .required_font_faces
+        .expect("pinned fixture-compatible revision keeps its empty catalog")
+        .faces
+        .is_empty());
 }
 
 #[test]

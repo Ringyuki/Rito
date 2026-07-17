@@ -34,7 +34,7 @@ test('strictly parses a manifest and resolves EPUB paths from its directory', as
   const path = await writeManifest(validManifest());
   const gate = await loadReaderUsabilityGate(path);
 
-  expect(gate.schemaVersion).toBe(2);
+  expect(gate.schemaVersion).toBe(3);
   expect(gate.runs).toBe(3);
   expect(gate.browser.isolation).toBe('process-per-run');
   expect(gate.pinnedFonts).toHaveLength(2);
@@ -71,6 +71,20 @@ test('rejects unknown and missing fields at every schema layer', async () => {
   }
 });
 
+test('rejects v2 manifests and a missing cached-turn stability threshold', async () => {
+  const oldSchema = validManifest();
+  oldSchema['schemaVersion'] = 2;
+  await expect(loadReaderUsabilityGate(await writeManifest(oldSchema, 1))).rejects.toThrow(
+    /manifest\.schemaVersion: must equal 3/,
+  );
+
+  const missingStableThreshold = validManifest();
+  delete record(firstCase(missingStableThreshold)['thresholds'])['cachedTurnStableMs'];
+  await expect(
+    loadReaderUsabilityGate(await writeManifest(missingStableThreshold, 2)),
+  ).rejects.toThrow(/missing cachedTurnStableMs/);
+});
+
 test('rejects invalid runs, threshold values, duplicate ids, and SHA-256 shape', async () => {
   const invalidManifests: GateJson[] = [];
   for (const runs of [0, 11, 1.5]) invalidManifests.push({ ...validManifest(), runs });
@@ -101,6 +115,10 @@ test('rejects invalid runs, threshold values, duplicate ids, and SHA-256 shape',
   const badThreshold = validManifest();
   record(firstCase(badThreshold)['thresholds'])['cachedTurnFirstFrameMs'] = 0;
   invalidManifests.push(badThreshold);
+
+  const badStableThreshold = validManifest();
+  record(firstCase(badStableThreshold)['thresholds'])['cachedTurnStableMs'] = 0;
+  invalidManifests.push(badStableThreshold);
 
   const uppercaseHash = validManifest();
   firstCase(uppercaseHash)['sha256'] = 'A'.repeat(64);

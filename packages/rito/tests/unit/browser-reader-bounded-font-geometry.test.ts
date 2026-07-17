@@ -8,7 +8,7 @@ import type { BrowserReaderBoundedSnapshot } from '../../src/bindings/browser/co
 import type { BrowserReaderBoundedSessionOwner } from '../../src/bindings/browser/reader-session-host';
 import type { BrowserReaderBoundedLayoutRequest } from '../../src/bindings/browser/bounded-session-runtime';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
-import { createState, createWorker } from './browser-reader-reflow-fixtures';
+import { createDeferred, createState, createWorker } from './browser-reader-reflow-fixtures';
 
 const TARGETS: readonly {
   readonly name: string;
@@ -76,7 +76,7 @@ describe('Browser bounded font geometry replacement', () => {
         replaceBrowserReaderFontGeometryMutation(
           state,
           currentOwner,
-          target,
+          () => target,
           notifyLayoutCommitted,
           startCandidate,
         ),
@@ -138,13 +138,60 @@ describe('Browser bounded font geometry replacement', () => {
       replaceBrowserReaderFontGeometryMutation(
         state,
         currentOwner,
-        { targetSpreadIndex: 2 },
+        () => ({ targetSpreadIndex: 2 }),
         false,
         startCandidate,
       ),
     ).resolves.toBe(snapshot);
 
     expect(startCandidate).toHaveBeenCalledTimes(2);
+  });
+
+  it('resolves replacement ownership after worker startup and preserves later navigation', async () => {
+    const current = createWorker(() => undefined, 'current-dynamic-target');
+    const candidate = createWorker(() => undefined, 'candidate-dynamic-target');
+    const state = createState(current.worker);
+    const currentOwner = owner(current.worker);
+    state.boundedSessions.current = currentOwner;
+    Object.assign(state, { workerFactory: () => candidate.worker });
+    const opened = createDeferred<Awaited<ReturnType<typeof candidate.worker.open>>>();
+    candidate.open.mockReturnValue(opened.promise);
+    let locatorIsCurrent = true;
+    const target = vi.fn(() => ({
+      targetSpreadIndex: state.activeSpreadIndex,
+      ...(locatorIsCurrent ? { preserveLocator: { href: 'stale.xhtml' } } : {}),
+    }));
+    const snapshot = {} as BrowserReaderBoundedSnapshot;
+    const startCandidate = vi.fn(
+      (
+        _state: BrowserReaderState,
+        _owner: BrowserReaderBoundedSessionOwner,
+        _request: BrowserReaderBoundedLayoutRequest,
+      ) => Promise.resolve(snapshot),
+    );
+
+    const replacement = replaceBrowserReaderFontGeometryMutation(
+      state,
+      currentOwner,
+      target,
+      true,
+      startCandidate,
+      () => !locatorIsCurrent,
+    );
+    await Promise.resolve();
+    state.activeSpreadIndex = 3;
+    locatorIsCurrent = false;
+    opened.resolve({
+      publication: state.publication,
+      pinnedFontPolicy: state.pinnedFonts.summary,
+    });
+
+    await expect(replacement).resolves.toBe(snapshot);
+    const request = startCandidate.mock.calls[0]?.[2];
+    expect(request).toMatchObject({ targetSpreadIndex: 3 });
+    expect(request?.preserveLocator).toBeUndefined();
+    state.activeSpreadIndex = 4;
+    expect(request?.preserveActiveSpread?.()).toBe(true);
   });
 });
 

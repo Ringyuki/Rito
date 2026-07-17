@@ -7,14 +7,12 @@ import type {
 import type { CanvasRenderingTarget } from '../rendering';
 import {
   applyLayoutOverrides,
+  browserReaderChapterMap,
+  browserReaderManifestHrefMap,
   browserReaderPages,
   browserReaderSpreads,
   makeBrowserReaderLayoutConfig,
-} from './layout';
-import {
-  createRitoCoreWasmReaderChapterMap,
-  createRitoCoreWasmReaderManifestHrefMap,
-} from '../core-contracts';
+} from '../reader-layout';
 import {
   scheduleBrowserReaderReflow,
   startBrowserReaderInitialReflow,
@@ -237,7 +235,10 @@ async function warmInitialResources(state: BrowserReaderState): Promise<boolean>
   return metricsChanged;
 }
 
-function defineBrowserReaderAccessors(reader: Partial<Reader>, state: BrowserReaderState): void {
+export function defineBrowserReaderAccessors(
+  reader: Partial<Reader>,
+  state: BrowserReaderState,
+): void {
   const pagination = createBrowserReaderIncrementalPagination(state);
   Object.defineProperties(reader, {
     metadata: {
@@ -249,11 +250,11 @@ function defineBrowserReaderAccessors(reader: Partial<Reader>, state: BrowserRea
     toc: { enumerable: true, get: () => state.publication.package.toc },
     chapterMap: {
       enumerable: true,
-      get: () => createRitoCoreWasmReaderChapterMap(state.revisionBundle.navigation),
+      get: () => browserReaderChapterMap(state),
     },
     manifestHrefMap: {
       enumerable: true,
-      get: () => createRitoCoreWasmReaderManifestHrefMap(state.publication),
+      get: () => browserReaderManifestHrefMap(state),
     },
     pages: { enumerable: true, get: () => browserReaderPages(state) },
     spreads: { enumerable: true, get: () => browserReaderSpreads(state) },

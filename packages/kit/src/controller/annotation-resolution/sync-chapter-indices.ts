@@ -10,6 +10,7 @@ import type { CoordinatorState } from '../core/coordinator-state';
 
 export function syncChapterIndices(state: CoordinatorState, reader: Reader): void {
   const sourceIndices = reader.getChapterTextIndices();
+  if (state.chapterIndexSource === sourceIndices) return;
   const target = new Map<string, ChapterTextIndex>();
   for (const value of sourceIndices.values()) {
     // Keep a single canonical namespace: durable resource hrefs. Mixing idrefs
@@ -17,4 +18,5 @@ export function syncChapterIndices(state: CoordinatorState, reader: Reader): voi
     target.set(value.href, value);
   }
   state.chapterIndices = target;
+  state.chapterIndexSource = sourceIndices;
 }

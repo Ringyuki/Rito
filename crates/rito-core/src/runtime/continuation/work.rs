@@ -2,13 +2,15 @@ use std::num::NonZeroUsize;
 
 use crate::{
     epub::{
-        prepare_runtime_layout_chapter, text_measurement_font_assembly_for_layout, EpubError,
-        EpubResult, PreparedRuntimeLayoutChapter,
+        prepare_runtime_layout_chapter, shapeable_publication_families_for_layout_with_sources,
+        text_measurement_fonts_for_layout_with_sources, EpubError, EpubResult,
+        PreparedRuntimeLayoutChapter,
     },
     layout::{
         image_size::ImageSizeIndex,
         pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget, LayoutWorkMeter},
         runtime_session::{RuntimeChapterLayoutAdvance, RuntimeChapterLayoutSession},
+        TextMeasurementFonts, TextMeasurementMode,
     },
     resources::{binary_summary_from_metadata, BinaryResourceSummary},
     runtime::{revision::runtime_chapter_revision_interactions, RuntimeDocument},
@@ -71,21 +73,27 @@ impl RuntimeDocument {
         record: &mut RuntimeContinuationRecord,
         layout_work: &mut LayoutWorkMeter,
     ) -> RuntimeChapterLayoutAdvance {
-        let pinned_faces = self
-            .pinned_font_policy
-            .measurement_faces_for_layout(&record.layout_config);
-        let assembly = text_measurement_font_assembly_for_layout(
-            &self.document,
-            &record.layout_config,
-            Some(self.text_measurement_cache.clone()),
-            pinned_faces,
-        );
+        let fonts = match record.layout_config.text_measurement {
+            TextMeasurementMode::FixtureCompatible => TextMeasurementFonts::empty(),
+            TextMeasurementMode::FontAware => {
+                let pinned_faces = self
+                    .pinned_font_policy
+                    .measurement_faces_for_layout(&record.layout_config);
+                text_measurement_fonts_for_layout_with_sources(
+                    &self.document,
+                    self.resolved_font_face_sources(),
+                    &record.layout_config,
+                    self.text_measurement_cache.clone(),
+                    pinned_faces,
+                )
+            }
+        };
         record
             .current
             .as_mut()
             .expect("chapter was started")
             .session
-            .advance_with_meter(layout_work, &assembly.fonts)
+            .advance_with_meter(layout_work, &fonts)
     }
 
     fn start_chapter(
@@ -101,21 +109,20 @@ impl RuntimeDocument {
         self.document
             .ensure_chapter_image_dimensions_loaded(chapter_index, 1)?;
         let prepared = self.prepare_cached_document_window(chapter_index, 1, &footnote_targets)?;
-        let pinned_faces = self
-            .pinned_font_policy
-            .measurement_faces_for_layout(&record.layout_config);
-        let available_families = text_measurement_font_assembly_for_layout(
-            &self.document,
-            &record.layout_config,
-            Some(self.text_measurement_cache.clone()),
-            pinned_faces,
-        )
-        .shapeable_publication_families;
         let mut font_fallbacks = self.pinned_font_policy.family_fallbacks_for_layout(
             &record.layout_config,
             &self.document.package.metadata.language,
         );
         if let Some(policy) = font_fallbacks.as_mut() {
+            let pinned_faces = self
+                .pinned_font_policy
+                .measurement_faces_for_layout(&record.layout_config);
+            let available_families = shapeable_publication_families_for_layout_with_sources(
+                &self.document,
+                self.resolved_font_face_sources(),
+                &record.layout_config,
+                &pinned_faces,
+            );
             policy.set_available_publication_families(available_families);
         }
         let PreparedRuntimeLayoutChapter {

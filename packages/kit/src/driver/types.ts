@@ -28,6 +28,7 @@ export type TransitionMode =
       readonly outgoingSpread: number;
       readonly incomingSpread: number | null;
       readonly target: number;
+      readonly timing?: ProgrammaticTransitionTiming;
       dx: number;
       vx: number;
     }
@@ -50,6 +51,8 @@ export interface SettledEvent {
 export interface TransitionDriverOptions {
   readonly stiffness: number;
   readonly damping: number;
+  /** Duration of keyboard, button, TOC, and API-driven page transitions. */
+  readonly programmaticDurationMs: number;
   /** Minimum velocity (px/ms) to commit a swipe even if dx < threshold. */
   readonly velocityCommit: number;
   /** Minimum displacement (px) to commit a swipe. */
@@ -61,7 +64,14 @@ export interface TransitionDriverOptions {
 export const DEFAULT_TRANSITION_OPTIONS: TransitionDriverOptions = {
   stiffness: 180,
   damping: 22,
+  programmaticDurationMs: 140,
   velocityCommit: 0.4,
   swipeThreshold: 50,
   elasticFactor: 0.55,
 };
+
+export interface ProgrammaticTransitionTiming {
+  readonly startDx: number;
+  readonly durationMs: number;
+  elapsedMs: number;
+}

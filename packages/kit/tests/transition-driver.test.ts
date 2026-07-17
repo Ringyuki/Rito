@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTransitionDriver } from '../src/driver/transition-driver';
+import type { TransitionDriverOptions } from '../src/driver/types';
 
 describe('TransitionDriver', () => {
-  function createDriver(
-    opts?: { swipeThreshold?: number; velocityCommit?: number },
-    viewportWidth = 800,
-  ) {
+  function createDriver(opts?: Partial<TransitionDriverOptions>, viewportWidth = 800) {
     const driver = createTransitionDriver(opts);
     driver.viewportWidth = viewportWidth;
     return driver;
@@ -176,6 +174,24 @@ describe('TransitionDriver', () => {
     }
   });
 
+  it('bounds a programmatic transition by its configured duration', () => {
+    const td = createDriver({ programmaticDurationMs: 160 });
+    const onSettled = vi.fn();
+    td.onSettled(onSettled);
+
+    td.goToTarget('forward', 0, 1);
+    for (let frame = 0; frame < 9; frame += 1) td.step(16);
+    expect(td.isAnimating).toBe(true);
+
+    td.step(16);
+    expect(td.isAnimating).toBe(false);
+    expect(onSettled).toHaveBeenCalledWith({
+      direction: 'forward',
+      committed: true,
+      targetSpread: 1,
+    });
+  });
+
   it('settling converges to target and emits onSettled', () => {
     const td = createDriver();
     const onSettled = vi.fn();
@@ -200,12 +216,12 @@ describe('TransitionDriver', () => {
   it('interrupt during settling returns dx/vx and resumes tracking', () => {
     const td = createDriver();
     td.goToTarget('forward', 0, 1);
-    // Step a few frames to build up some dx
-    td.step(16);
     td.step(16);
 
     const state = td.interrupt(1000);
     expect(state).not.toBeNull();
+    if (!state) throw new Error('expected the timed transition to be interruptible');
+    expect(state.vx).toBeCloseTo(state.dx / 16);
     expect(td.mode.kind).toBe('tracking');
   });
 

@@ -1,5 +1,6 @@
 import type { LayoutConfig, ReaderLocator, ReaderLocatorResolution } from '../../reader';
 import { commitBrowserReaderBoundedSnapshot } from './bounded-revision-commit';
+import { ensureCoalescedBrowserReaderBoundedLocator } from './bounded-locator-mutation';
 import type { BrowserReaderBoundedSnapshot } from './core-contracts';
 import {
   abandonBrowserReaderBoundedCandidate,
@@ -16,18 +17,17 @@ import {
   type BrowserReaderBoundedSessionOwner,
   type BrowserReaderExactReadGate,
 } from './reader-session-host';
-import { toCoreLayoutConfig } from './reader/layout';
-import { toReaderLocatorResolution } from './reader/interaction';
+import { toCoreLayoutConfig } from './reader-layout';
 import { copyReaderLocator } from './reader/interaction-capture';
 import type { BrowserReaderState } from './reader/types';
 import {
   replaceBrowserReaderFontGeometryMutation,
   type BrowserReaderBoundedReplacementTarget,
 } from './bounded-font-geometry';
+import { enqueueBrowserReaderCurrentMutation } from './current-mutation-queue';
 
 const INITIAL_SPREAD_LAYOUT_NODE_BUDGET = 1;
 const BOUNDED_GROWTH_LAYOUT_NODE_BUDGET = 32;
-const mutationTails = new WeakMap<BrowserReaderState, Promise<void>>();
 
 export { createBrowserReaderBoundedSessionOwner };
 
@@ -40,6 +40,7 @@ export interface BrowserReaderBoundedLayoutRequest {
   readonly complete?: boolean | undefined;
   readonly expectedActiveSpreadIndex?: number | undefined;
   readonly notifyLayoutCommitted?: boolean | undefined;
+  readonly preserveActiveSpread?: (() => boolean) | undefined;
   readonly onCommitted?: (() => void) | undefined;
 }
 
@@ -127,6 +128,7 @@ async function runCandidate(
     baseCommitGeneration,
     expectedActiveSpreadIndex: request.expectedActiveSpreadIndex,
     notifyLayoutCommitted: request.notifyLayoutCommitted,
+    preserveActiveSpread: request.preserveActiveSpread,
     onCommitted: request.onCommitted,
   });
   if (!result.committed) {
@@ -147,7 +149,7 @@ export function ensureBrowserReaderBoundedSpread(
       new RangeError('Bounded reader spread index must be a non-negative integer'),
     );
   }
-  return enqueueCurrentMutation(state, async () => {
+  return enqueueBrowserReaderCurrentMutation(state, async () => {
     if (signal?.aborted || state.disposed) return undefined;
     if (spreadIndex < state.revisionBundle.revision.spreadCount) return true;
     if (state.revisionBundle.revision.status === 'complete') return false;
@@ -155,7 +157,7 @@ export function ensureBrowserReaderBoundedSpread(
       state,
       (owner) => owner.controller.ensureSpread(spreadIndex),
       false,
-      { targetSpreadIndex: spreadIndex },
+      () => ({ targetSpreadIndex: spreadIndex }),
     );
     if (!snapshot || signal?.aborted) return undefined;
     return spreadIndex < snapshot.revision.spreadCount;
@@ -168,33 +170,28 @@ export function ensureBrowserReaderBoundedLocator(
   signal?: AbortSignal,
 ): Promise<ReaderLocatorResolution | undefined> {
   const copied = copyReaderLocator(locator);
-  return enqueueCurrentMutation(state, async () => {
-    if (signal?.aborted || state.disposed) return undefined;
-    const snapshot = await mutateCurrent(
-      state,
-      (owner) => owner.controller.ensureLocator(copied),
-      false,
-      { targetSpreadIndex: state.activeSpreadIndex, preserveLocator: copied },
-    );
-    if (!snapshot || signal?.aborted) return undefined;
-    if (snapshot.target.kind !== 'locator') {
-      throw new Error('Bounded reader locator mutation returned a different target');
-    }
-    return toReaderLocatorResolution(snapshot.target.resolution);
-  });
+  return ensureCoalescedBrowserReaderBoundedLocator(
+    state,
+    copied,
+    signal,
+    (target, replacementTarget, isCurrent) =>
+      mutateCurrent(state, target, false, replacementTarget, isCurrent),
+  );
 }
 
 export function completeBrowserReaderBoundedSession(
   state: BrowserReaderState,
   signal?: AbortSignal,
 ): Promise<boolean | undefined> {
-  return enqueueCurrentMutation(state, async () => {
+  return enqueueBrowserReaderCurrentMutation(state, async () => {
     if (signal?.aborted || state.disposed) return undefined;
     if (state.revisionBundle.revision.status === 'complete') return true;
-    const snapshot = await mutateCurrent(state, (owner) => owner.controller.complete(), true, {
-      targetSpreadIndex: state.activeSpreadIndex,
-      complete: true,
-    });
+    const snapshot = await mutateCurrent(
+      state,
+      (owner) => owner.controller.complete(),
+      true,
+      () => ({ targetSpreadIndex: state.activeSpreadIndex, complete: true }),
+    );
     if (!snapshot || signal?.aborted) return undefined;
     if (snapshot.target.kind !== 'complete' || snapshot.revision.status !== 'complete') {
       throw new Error('Bounded reader completion mutation did not commit a complete revision');
@@ -207,7 +204,8 @@ async function mutateCurrent(
   state: BrowserReaderState,
   target: (owner: BrowserReaderBoundedSessionOwner) => Promise<BrowserReaderBoundedSnapshot>,
   notifyLayoutCommitted: boolean,
-  replacementTarget: BrowserReaderBoundedReplacementTarget,
+  replacementTarget: () => BrowserReaderBoundedReplacementTarget,
+  isCurrent: () => boolean = () => true,
 ): Promise<BrowserReaderBoundedSnapshot | undefined> {
   const owner = state.boundedSessions.current;
   if (!owner) throw new Error('Browser reader has no current bounded session');
@@ -225,6 +223,7 @@ async function mutateCurrent(
       baseCommitGeneration,
       exactReadGate: gate,
       notifyLayoutCommitted,
+      preserveActiveSpread: () => !isCurrent(),
     });
     if (result.committed) return snapshot;
     if (result.requiresFontGeometryReflow) {
@@ -236,6 +235,7 @@ async function mutateCurrent(
         // mutation started as a stable-prefix pagination append.
         true,
         startBrowserReaderBoundedCandidate,
+        () => !isCurrent(),
       );
       if (replacement) return replacement;
     }
@@ -263,22 +263,6 @@ async function recoverUncommittedMutation(
       new Error('Bounded reader mutation could not restore its exact revision'),
     );
   }
-}
-
-function enqueueCurrentMutation<T>(
-  state: BrowserReaderState,
-  operation: () => Promise<T>,
-): Promise<T> {
-  const previous = mutationTails.get(state) ?? Promise.resolve();
-  const task = previous.catch(() => undefined).then(operation);
-  mutationTails.set(
-    state,
-    task.then(
-      () => undefined,
-      () => undefined,
-    ),
-  );
-  return task;
 }
 
 async function detachFailedCurrentOwner(

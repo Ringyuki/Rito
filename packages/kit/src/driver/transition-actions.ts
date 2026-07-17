@@ -114,6 +114,13 @@ export function goToTargetMode(
     target,
     dx: initialDx,
     vx: 0,
+    timing: {
+      startDx: initialDx,
+      durationMs: Number.isFinite(state.opts.programmaticDurationMs)
+        ? Math.max(0, state.opts.programmaticDurationMs)
+        : 0,
+      elapsedMs: 0,
+    },
   };
 }
 

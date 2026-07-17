@@ -7,6 +7,7 @@ import { cancelBrowserReaderReflow } from './pipeline/bounded-reflow';
 import { createEmptyBrowserReaderRevisionState } from './pipeline/initial-state';
 import type { BrowserReaderState } from './types';
 import { drainBrowserReaderHostTasks } from './host-tasks';
+import { resetBrowserReaderLayoutViewCache } from '../reader-layout';
 
 export function disposeBrowserReaderState(state: BrowserReaderState): void {
   if (state.disposed) return;
@@ -25,6 +26,9 @@ export function disposeBrowserReaderState(state: BrowserReaderState): void {
   });
   runReaderCleanup(state, 'frame cache release', () => {
     resetFrameCache(state);
+  });
+  runReaderCleanup(state, 'layout view cache release', () => {
+    resetBrowserReaderLayoutViewCache(state);
   });
   runReaderCleanup(state, 'publication font release', () => {
     unregisterReaderFonts(state);

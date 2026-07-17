@@ -2,7 +2,7 @@ import { renderFrameCommandsToCanvas, type CanvasRenderingTarget } from './frame
 import { createCanvasImageResolver } from './image-href-resolver';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
-import { browserReaderSpreads } from './reader/layout';
+import { browserReaderSpreads } from './reader-layout';
 
 export type { CanvasRenderingTarget } from './frame-command-renderer';
 

@@ -64,8 +64,10 @@ export interface CoordinatorState {
   mapper: CoordinateMapper | null;
   /** Source-anchored annotation store (new system). */
   annotationStore: AnnotationStore | null;
-  /** Chapter text indices keyed by spine idref, for annotation resolution. */
+  /** Chapter text indices keyed by durable resource href, for annotation resolution. */
   chapterIndices: Map<string, ChapterTextIndex>;
+  /** Reader-owned source Map used to avoid rebuilding the href projection on every turn. */
+  chapterIndexSource: ReadonlyMap<string, ChapterTextIndex> | null;
   /** Resolved annotations for current layout. */
   resolvedAnnotations: readonly ResolvedAnnotation[];
   /** Revision-owned exact source-range projections and in-flight reads. */
@@ -93,6 +95,7 @@ export function createCoordinatorState(): CoordinatorState {
     mapper: null,
     annotationStore: null,
     chapterIndices: new Map(),
+    chapterIndexSource: null,
     resolvedAnnotations: [],
     nativeAnnotationGeometry: createNativeAnnotationGeometryState(),
     nativeSearchGeometry: createNativeSearchGeometryState(),

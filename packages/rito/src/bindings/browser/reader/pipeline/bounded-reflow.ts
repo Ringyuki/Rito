@@ -4,7 +4,7 @@ import {
   startBrowserReaderBoundedCandidate,
 } from '../../bounded-session-runtime';
 import { openBrowserReaderWorker } from '../../pinned-fonts';
-import { applyLayoutOverrides, makeBrowserReaderLayoutConfig } from '../layout';
+import { applyLayoutOverrides, makeBrowserReaderLayoutConfig } from '../../reader-layout';
 import type { BrowserReaderQueuedReflow, BrowserReaderState } from '../types';
 import { trackBrowserReaderHostTask } from '../host-tasks';
 import { hostFontMetricSampleCount } from '../../font-metrics';
