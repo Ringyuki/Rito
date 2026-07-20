@@ -281,7 +281,7 @@ function bundle(version, revisionId = 'rev-1') {
     revision: summary(version, 'ready', revisionId),
     navigation: { revisionId },
     tocTargets: { revisionId, targets: [] },
-    footnotes: { revisionId, entries: {} },
+    footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
     chapterTextIndices: { revisionId, entries: {} },
     fontFamilies: [],
   };
@@ -324,7 +324,7 @@ function versionedValue(property, args, version) {
     return rangeToPointResponse(JSON.parse(args[2]), { revisionId });
   }
   if (property === 'getFootnotesAtRevisionJson') {
-    return { revisionId, entries: {} };
+    return { revisionId, complete: true, pendingKeys: [], entries: {} };
   }
   if (property === 'getChapterTextIndicesAtRevisionJson') {
     return { revisionId, entries: {} };

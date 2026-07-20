@@ -1,0 +1,19 @@
+[package]
+name = "rito-ffi"
+description = "Native C ABI boundary for the platform-independent Rito reader core"
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+rito-core = { path = "../rito-core" }
+
+[lints.rust]
+unsafe_code = "deny"

@@ -1,5 +1,8 @@
+mod chapter_local;
 mod continuation;
-mod fixture;
+mod continuation_locator;
+pub(crate) mod fixture;
+mod font_vertical_metrics;
 mod pinned_font;
 mod versioned;
 

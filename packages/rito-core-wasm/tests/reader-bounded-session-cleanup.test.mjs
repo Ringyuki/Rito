@@ -41,6 +41,41 @@ test('cancel and dispose reject a response that did not release the exact revisi
   }
 });
 
+test('atomic growth rejects forged predecessor transfer-release ownership', async () => {
+  const accepted = [];
+  const released = [];
+  const releasedTransfers = [];
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 1, true)),
+    continue: async () => versioned(advance(1, 2, true)),
+    release: async (revision) => released.push(revision),
+    releaseTransfers: async (revision) => releasedTransfers.push(revision),
+  });
+  const atomicContinue = client.continueRevisionAfterTransferRelease;
+  client.continueRevisionAfterTransferRelease = async (request) => {
+    const continued = await atomicContinue(request);
+    return {
+      ...continued,
+      value: {
+        ...continued.value,
+        releasedRevision: { ...continued.value.releasedRevision, revisionVersion: 99 },
+      },
+    };
+  };
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    yieldControl: async () => {},
+    onAcceptedRevision: ({ revision }) => accepted.push(revision.revisionVersion),
+  });
+
+  await assert.rejects(session.start(startRequest(1)), /continued transfer release/);
+  assert.deepEqual(accepted, [0, 1, 2]);
+  assert.deepEqual(releasedTransfers, [
+    { revisionId: 'rev-1', revisionVersion: 0 },
+    { revisionId: 'rev-1', revisionVersion: 1 },
+  ]);
+  assert.deepEqual(released, [{ revisionId: 'rev-1', revisionVersion: 2 }]);
+});
+
 test('dispose remains terminal when cancel races the same in-flight quantum', async () => {
   const continued = deferred();
   const continueStarted = deferred();
@@ -71,6 +106,7 @@ test('stop during transfer cleanup does not start another layout quantum', async
     let continueCount = 0;
     let transferReleaseCount = 0;
     const client = fixtureClient({
+      atomic: false,
       create: async () => versioned(advance(0, 1, true)),
       continue: async () => {
         continueCount += 1;

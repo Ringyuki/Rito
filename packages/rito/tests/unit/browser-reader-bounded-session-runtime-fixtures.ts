@@ -50,7 +50,12 @@ export function createFontGeometryReplacementWorker(
     getFootnotesAtRevision: vi.fn<BrowserReaderWorkerClient['getFootnotesAtRevision']>(() =>
       Promise.resolve({
         revision,
-        value: { revisionId: revision.revisionId, entries: {} },
+        value: {
+          revisionId: revision.revisionId,
+          complete: true,
+          pendingKeys: [],
+          entries: {},
+        },
       }),
     ),
     getChapterTextIndicesAtRevision: vi.fn<

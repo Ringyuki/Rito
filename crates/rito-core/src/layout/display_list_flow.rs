@@ -129,15 +129,13 @@ fn add_sample_range(indices: &mut BTreeMap<usize, ()>, start: usize, end: usize)
 mod tests {
     use std::collections::BTreeSet;
 
-    use serde_json::json;
-
     use crate::layout::{
         content::{RuntimeBlock, RuntimeChild, RuntimeImage},
         create_layout_config,
         display_list_flow::summarize_display_list_flow,
         line::{LineBox, LineRun, TextRunBox},
         page::RuntimePage,
-        LayoutConfigInput, MarginInput, SpreadMode,
+        LayoutConfigInput, MarginInput, RunPaint, SpreadMode,
     };
 
     #[test]
@@ -244,7 +242,7 @@ mod tests {
                         height: 12.0,
                         font_size: 12.0,
                         interaction_geometry: None,
-                        paint: json!({}),
+                        paint: RunPaint::default(),
                         line_height_px: None,
                         href: None,
                         source_path: None,

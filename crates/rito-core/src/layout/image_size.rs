@@ -29,6 +29,21 @@ impl ImageSizeIndex {
     pub(crate) fn resolve(&self, src: &str) -> Option<ImageSize> {
         self.hrefs.resolve(src)
     }
+
+    pub(crate) fn extend_dimensions(
+        &mut self,
+        dimensions: impl IntoIterator<Item = (String, u32, u32)>,
+    ) {
+        for (href, width, height) in dimensions {
+            self.hrefs.insert(
+                &href,
+                ImageSize {
+                    width: f64::from(width),
+                    height: f64::from(height),
+                },
+            );
+        }
+    }
 }
 
 #[cfg(test)]
@@ -86,6 +101,25 @@ mod tests {
                 .resolve("../Images/Cover%20One.png")
                 .map(|size| size.width),
             Some(300.0)
+        );
+    }
+
+    #[test]
+    fn extends_a_live_index_without_rebuilding_publication_resources() {
+        let mut index = ImageSizeIndex::new(&[]);
+
+        index.extend_dimensions([
+            ("OPS/images/first.png".to_owned(), 3, 5),
+            ("OPS/images/second.png".to_owned(), 7, 11),
+        ]);
+
+        assert_eq!(
+            index.resolve("../images/first.png").map(|size| size.width),
+            Some(3.0)
+        );
+        assert_eq!(
+            index.resolve("images/second.png").map(|size| size.height),
+            Some(11.0)
         );
     }
 }

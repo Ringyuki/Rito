@@ -15,14 +15,12 @@ use super::{
     line_layout::layout_greedy_lines_with_fonts,
     line_metrics::{line_height_px, measure_text_slice_with_fonts},
     style_values::{
-        border_width, number_style, run_border_edge_value, run_paint_value, string_style,
+        border_width, number_style, run_border_edge_from_style, run_paint_from_style, string_style,
     },
     text_mapping::{RunTextMapping, TextMappingUnavailableReason},
     text_measure::{shape_text_with_style, TextMeasurementFonts, TextMeasurementStyle},
     text_shape::{RunShape, RunShapeUnavailableReason},
 };
-use serde_json::Value;
-
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum KpItem {
     Box(KpBox),
@@ -576,7 +574,7 @@ fn build_text_run(
         height,
         font_size,
         interaction_geometry,
-        paint: run_paint_value(&segment.style, is_start, false),
+        paint: run_paint_from_style(&segment.style, is_start, false),
         line_height_px: number_style(&segment.style, "lineHeightPx"),
         href: segment.href.clone(),
         source_path: source_provenance.source_path,
@@ -641,19 +639,10 @@ fn patch_trailing_run(run: &mut TextRunBox, segment: &TextSegment) {
 }
 
 fn patch_border_end(run: &mut TextRunBox, segment: &TextSegment) {
-    let Some(edge) = run_border_edge_value(&segment.style, "borderRight") else {
+    let Some(edge) = run_border_edge_from_style(&segment.style, "borderRight") else {
         return;
     };
-    let Some(paint) = run.paint.as_object_mut() else {
-        return;
-    };
-    let border = paint
-        .entry("border".to_owned())
-        .or_insert_with(|| Value::Object(serde_json::Map::new()));
-    let Some(border) = border.as_object_mut() else {
-        return;
-    };
-    border.insert("end".to_owned(), edge);
+    run.paint.set_end_border(edge);
 }
 
 fn build_atom_run(atom: &AtomSegment, x: f64, line_height: f64, base_font_size: f64) -> AtomRunBox {
@@ -2138,10 +2127,18 @@ mod tests {
         let first = first_text_run(&lines[0]).expect("first line text run");
         let last = last_text_run(lines.last().expect("last line")).expect("last line text run");
 
-        assert!(paint_path(&first.paint, &["border", "end"]).is_none());
+        assert!(first
+            .paint
+            .border()
+            .and_then(|border| border.end.as_ref())
+            .is_none());
         assert_eq!(first.inline_margin_right, None);
         assert!(!last.text.is_empty());
-        assert!(paint_path(&last.paint, &["border", "end"]).is_some());
+        assert!(last
+            .paint
+            .border()
+            .and_then(|border| border.end.as_ref())
+            .is_some());
         assert_eq!(last.inline_margin_right, Some(7.0));
     }
 
@@ -2456,13 +2453,5 @@ mod tests {
             crate::layout::line::LineRun::Text(run) => Some(run),
             crate::layout::line::LineRun::Atom(_) | crate::layout::line::LineRun::Ruby(_) => None,
         })
-    }
-
-    fn paint_path<'a>(paint: &'a Value, path: &[&str]) -> Option<&'a Value> {
-        let mut current = paint;
-        for key in path {
-            current = current.as_object()?.get(*key)?;
-        }
-        Some(current)
     }
 }

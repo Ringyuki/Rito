@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 use super::{extract_ruby_annotations, PendingRubyExtraction};
 use crate::layout::{
     line::{AtomRunBox, LineRun, RubyRunBox, TextRunBox},
+    paint::RunPaint,
     text_mapping::RunTextMapping,
     text_shape::{ExactRunShape, RunShape, RunShapeCluster, RunShapeDirection, RunShapeProvenance},
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
@@ -86,7 +87,7 @@ fn contiguous_ruby_runs_preserve_base_runs_and_derive_annotation_paint() {
             y: 21.0,
             width: 18.0,
             height: 10.0,
-            paint: json!({
+            paint: RunPaint::from_test_wire_value(json!({
                 "color": "#123456",
                 "font": {
                     "family": "Ruby Base",
@@ -94,7 +95,7 @@ fn contiguous_ruby_runs_preserve_base_runs_and_derive_annotation_paint() {
                     "style": "italic",
                     "weight": 650,
                 },
-            }),
+            })),
         })
     );
 }
@@ -147,7 +148,7 @@ fn existing_ruby_and_distinct_or_empty_tags_keep_separate_groups() {
         y: -4.0,
         width: 3.0,
         height: 4.0,
-        paint: json!({ "color": "#abcdef" }),
+        paint: RunPaint::from_test_wire_value(json!({ "color": "#abcdef" })),
     });
     let output = extract_ruby_annotations(
         vec![
@@ -270,7 +271,7 @@ fn text_run(
         height: font_size,
         font_size,
         interaction_geometry: None,
-        paint,
+        paint: RunPaint::from_test_wire_value(paint),
         line_height_px: None,
         href: Some(format!("#{text}")),
         source_path: Some(vec![1, text.len()]),
@@ -320,10 +321,7 @@ fn allocation_pointers(run: &LineRun) -> AllocationPointers {
             .as_deref()
             .expect("fixture source path")
             .as_ptr(),
-        paint_color: run.paint["color"]
-            .as_str()
-            .expect("fixture paint color")
-            .as_ptr(),
+        paint_color: run.paint.color().as_ptr(),
         shape: &**shape,
         shape_clusters: shape.clusters.as_ptr(),
     }

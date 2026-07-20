@@ -176,7 +176,7 @@ fn fallback_mode_and_each_fallback_table_are_part_of_the_profile() {
 }
 
 #[test]
-fn every_vertical_metric_component_is_part_of_the_profile() {
+fn vertical_interaction_metrics_are_not_part_of_the_layout_profile() {
     let baseline = vertical_metric_fonts(vec![vertical_metrics(
         "book", "italic", 500, 20.0, 4.0, 20.0,
     )]);
@@ -201,7 +201,7 @@ fn every_vertical_metric_component_is_part_of_the_profile() {
             "book", "italic", 500, 20.0, 4.0, 21.0,
         )]),
     ] {
-        assert_ne!(baseline.layout_profile_id(), changed.layout_profile_id());
+        assert_eq!(baseline.layout_profile_id(), changed.layout_profile_id());
     }
 }
 

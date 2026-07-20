@@ -1755,10 +1755,7 @@ mod tests {
             "width: 50vw; height: 25vh; margin-top: 10vh; padding-left: 5vw; border-radius: 2vw; top: 10vh; font-size: 10vw",
             16.0,
             16.0,
-            Some(CssViewport {
-                width: 600.0,
-                height: 800.0,
-            }),
+            Some(CssViewport::new(600.0, 800.0)),
         );
 
         assert_eq!(parsed.values["width"], json!(300));

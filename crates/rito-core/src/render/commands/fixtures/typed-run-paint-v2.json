@@ -1,0 +1,157 @@
+{
+  "bytes": [
+    82, 73, 84, 79, 70, 67, 66, 50, 2, 0, 0, 0, 3, 0, 0, 0, 9, 0, 31, 0, 0, 0, 160, 63, 0, 0, 32,
+    64, 0, 128, 241, 66, 0, 0, 193, 65, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 9, 0, 27, 0, 0, 0, 96,
+    192, 0, 0, 33, 66, 0, 0, 161, 66, 0, 0, 134, 65, 2, 0, 0, 0, 255, 255, 255, 255, 1, 0, 0, 0, 10,
+    0, 27, 0, 0, 0, 128, 63, 0, 0, 192, 192, 0, 0, 240, 65, 0, 0, 0, 65, 3, 0, 0, 0, 255, 255, 255,
+    255, 2, 0, 0, 0
+  ],
+  "expectedCommands": [
+    {
+      "href": "#typed",
+      "kind": "paintText",
+      "lineHeightPx": 20,
+      "paint": {
+        "backgroundColor": "#112233",
+        "backgroundRadius": 3.5,
+        "border": {
+          "bottom": {
+            "paint": {
+              "color": "#222222",
+              "style": "dotted"
+            },
+            "widthPx": 2
+          },
+          "end": {
+            "paint": {
+              "color": "#444444",
+              "style": "solid"
+            },
+            "widthPx": 4
+          },
+          "start": {
+            "paint": {
+              "color": "#333333",
+              "style": "dashed"
+            },
+            "widthPx": 3
+          },
+          "top": {
+            "paint": {
+              "color": "#111111",
+              "style": "solid"
+            },
+            "widthPx": 1
+          }
+        },
+        "color": "color(display-p3 1 0.2 0.1)",
+        "decoration": {
+          "color": "#778899",
+          "kind": "underline",
+          "thickness": 1,
+          "y": 14.125
+        },
+        "font": {
+          "family": "Rito Serif",
+          "sizePx": 14.123456,
+          "style": "italic",
+          "weight": 650
+        },
+        "letterSpacingPx": -0.5,
+        "padding": {
+          "bottom": 3,
+          "left": 4,
+          "right": 2,
+          "top": 1
+        },
+        "textShadow": [
+          {
+            "blur": 3,
+            "color": "#445566",
+            "offsetX": 1.235,
+            "offsetY": 2
+          },
+          {
+            "blur": 0,
+            "color": "#556677",
+            "offsetX": -1,
+            "offsetY": 0.5
+          }
+        ],
+        "wordSpacingPx": 1.25
+      },
+      "rect": {
+        "height": 24.125,
+        "width": 120.75,
+        "x": 1.25,
+        "y": 2.5
+      },
+      "sourceText": "Typed paint source",
+      "sourceTextOffset": 3,
+      "text": "Typed paint"
+    },
+    {
+      "kind": "paintText",
+      "paint": {
+        "color": "#000000",
+        "font": {
+          "family": "serif",
+          "sizePx": 16,
+          "style": "normal",
+          "weight": 400
+        }
+      },
+      "rect": {
+        "height": 16.75,
+        "width": 80.5,
+        "x": -3.5,
+        "y": 40.25
+      },
+      "text": "Minimal paint"
+    },
+    {
+      "kind": "paintRuby",
+      "paint": {
+        "color": "#000000",
+        "font": {
+          "family": "serif",
+          "sizePx": 8,
+          "style": "normal",
+          "weight": 400
+        }
+      },
+      "rect": {
+        "height": 8,
+        "width": 30,
+        "x": 1,
+        "y": -6
+      },
+      "text": "ruby"
+    }
+  ],
+  "metadata": {
+    "byteLength": 112,
+    "commandCount": 3,
+    "commandCounts": {
+      "paintRuby": 1,
+      "paintText": 2
+    },
+    "commandHash": "ab71280177946d6f",
+    "payloadTable": [
+      "{\n  \"href\": \"#typed\",\n  \"kind\": \"paintText\",\n  \"lineHeightPx\": 20,\n  \"paint\": {\n    \"backgroundColor\": \"#112233\",\n    \"backgroundRadius\": 3.5,\n    \"border\": {\n      \"bottom\": {\n        \"paint\": {\n          \"color\": \"#222222\",\n          \"style\": \"dotted\"\n        },\n        \"widthPx\": 2\n      },\n      \"end\": {\n        \"paint\": {\n          \"color\": \"#444444\",\n          \"style\": \"solid\"\n        },\n        \"widthPx\": 4\n      },\n      \"start\": {\n        \"paint\": {\n          \"color\": \"#333333\",\n          \"style\": \"dashed\"\n        },\n        \"widthPx\": 3\n      },\n      \"top\": {\n        \"paint\": {\n          \"color\": \"#111111\",\n          \"style\": \"solid\"\n        },\n        \"widthPx\": 1\n      }\n    },\n    \"color\": \"color(display-p3 1 0.2 0.1)\",\n    \"decoration\": {\n      \"color\": \"#778899\",\n      \"kind\": \"underline\",\n      \"thickness\": 1,\n      \"y\": 14.125\n    },\n    \"font\": {\n      \"family\": \"Rito Serif\",\n      \"sizePx\": 14.123456,\n      \"style\": \"italic\",\n      \"weight\": 650\n    },\n    \"letterSpacingPx\": -0.5,\n    \"padding\": {\n      \"bottom\": 3,\n      \"left\": 4,\n      \"right\": 2,\n      \"top\": 1\n    },\n    \"textShadow\": [\n      {\n        \"blur\": 3,\n        \"color\": \"#445566\",\n        \"offsetX\": 1.235,\n        \"offsetY\": 2\n      },\n      {\n        \"blur\": 0,\n        \"color\": \"#556677\",\n        \"offsetX\": -1,\n        \"offsetY\": 0.5\n      }\n    ],\n    \"wordSpacingPx\": 1.25\n  },\n  \"rect\": {\n    \"height\": 24.125,\n    \"width\": 120.75,\n    \"x\": 1.25,\n    \"y\": 2.5\n  },\n  \"sourceText\": \"Typed paint source\",\n  \"sourceTextOffset\": 3,\n  \"text\": \"Typed paint\"\n}",
+      "{\n  \"kind\": \"paintText\",\n  \"paint\": {\n    \"color\": \"#000000\",\n    \"font\": {\n      \"family\": \"serif\",\n      \"sizePx\": 16,\n      \"style\": \"normal\",\n      \"weight\": 400\n    }\n  },\n  \"rect\": {\n    \"height\": 16.75,\n    \"width\": 80.5,\n    \"x\": -3.5,\n    \"y\": 40.25\n  },\n  \"text\": \"Minimal paint\"\n}",
+      "{\n  \"kind\": \"paintRuby\",\n  \"paint\": {\n    \"color\": \"#000000\",\n    \"font\": {\n      \"family\": \"serif\",\n      \"sizePx\": 8,\n      \"style\": \"normal\",\n      \"weight\": 400\n    }\n  },\n  \"rect\": {\n    \"height\": 8,\n    \"width\": 30,\n    \"x\": 1,\n    \"y\": -6\n  },\n  \"text\": \"ruby\"\n}"
+    ],
+    "protocolVersion": 2,
+    "recordStats": {
+      "geometryRecords": 3,
+      "paintRecords": 3,
+      "payloadRecords": 3,
+      "primaryStringRecords": 3,
+      "secondaryStringRecords": 1
+    },
+    "resourceRefCount": 0,
+    "resourceTable": [],
+    "stringTable": ["Typed paint", "#typed", "Minimal paint", "ruby"]
+  }
+}

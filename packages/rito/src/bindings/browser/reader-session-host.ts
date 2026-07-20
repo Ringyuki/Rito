@@ -8,6 +8,10 @@ import type {
   BrowserReaderState,
   BrowserReaderWorkerRevisionHandle,
 } from './reader/types';
+import {
+  beginBrowserReaderSuspendedFrameMisses,
+  resumeBrowserReaderSuspendedFrameMisses,
+} from './suspended-frame-misses';
 import { disposeAndWaitBrowserReaderWorkerClient } from './reader/worker-client';
 
 const READER_SESSION_DISPOSE_TIMEOUT_MS = 1_000;
@@ -53,9 +57,13 @@ export function suspendBrowserReaderExactReads(
   const owner = state.boundedSessions.current;
   if (!owner) return undefined;
   const publicationGeneration = state.revisionHandle?.publicationGeneration;
+  beginBrowserReaderSuspendedFrameMisses(state);
   owner.gateGeneration += 1;
   owner.readsSuspended = true;
   if (state.revisionHandle) {
+    // In-flight window tasks carry the retired exact-read lease. Do not let a
+    // restored lease reuse a promise that can only discard its response.
+    state.pendingFrameLoads.clear();
     state.commitGeneration += 1;
     state.revisionHandle = undefined;
   }
@@ -99,6 +107,7 @@ export function restoreBrowserReaderExactReads(
     commitGeneration: state.commitGeneration,
   };
   gate.owner.readsSuspended = false;
+  resumeBrowserReaderSuspendedFrameMisses(state, gate.owner);
   return true;
 }
 
@@ -118,6 +127,7 @@ export function resumeBrowserReaderExactReads(
     return false;
   }
   gate.owner.readsSuspended = false;
+  resumeBrowserReaderSuspendedFrameMisses(state, gate.owner);
   return true;
 }
 

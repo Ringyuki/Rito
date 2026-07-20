@@ -25,6 +25,17 @@ test('direct mutation facade rolls back committed malformed revisions by exact h
     },
     {
       expected: handle(2),
+      raw: { continueRevisionTowardSourceLocatorJson: () => '{malformed' },
+      invoke: (document) =>
+        document.continueRevisionTowardSourceLocator({
+          ...handle(1),
+          cursor: 'cursor-2',
+          budget: budget(),
+          locator: { href: 'chapter.xhtml' },
+        }),
+    },
+    {
+      expected: handle(2),
       raw: { cancelRevisionJson: () => JSON.stringify(summary(2, 'ready')) },
       invoke: (document) => document.cancelRevision(handle(1)),
     },
@@ -60,6 +71,90 @@ test('worker client rolls back only matched malformed mutation responses', async
     },
     {
       expected: handle(2),
+      start: () =>
+        client.continueRevisionAfterTransferRelease({
+          ...handle(1),
+          cursor: 'cursor-2',
+          budget: budget(),
+        }),
+      kind: 'continueRevisionAfterTransferRelease',
+      result: {
+        advance: forgedAdvance(2),
+        releasedRevision: handle(1),
+        releasedTransferCount: 1,
+      },
+    },
+    {
+      expected: handle(2),
+      start: () =>
+        client.continueRevisionTowardSourceLocator({
+          ...handle(1),
+          cursor: 'cursor-2',
+          budget: budget(),
+          locator: { href: 'chapter.xhtml' },
+        }),
+      kind: 'continueRevisionTowardSourceLocator',
+      result: {
+        advance: forgedAdvance(2),
+        releasedRevision: handle(1),
+        releasedTransferCount: 1,
+        request: { href: 'chapter.xhtml' },
+        canonicalRequest: { href: 'chapter.xhtml' },
+        locatorOutcome: {
+          kind: 'failed',
+          code: 'internal-error',
+          message: 'post-continuation invariant failed',
+        },
+      },
+    },
+    {
+      expected: handle(2),
+      start: () =>
+        client.continueRevisionTowardSourceLocator({
+          ...handle(1),
+          cursor: 'cursor-2',
+          budget: budget(),
+          locator: { href: 'chapter.xhtml' },
+        }),
+      kind: 'continueRevisionTowardSourceLocator',
+      result: {
+        advance: advance(2),
+        releasedRevision: handle(1),
+        releasedTransferCount: 1,
+        request: { href: 'chapter.xhtml' },
+        canonicalRequest: { href: 'chapter.xhtml' },
+        locatorOutcome: {
+          kind: 'resolved',
+          resolution: sourceResolution({ href: 'other.xhtml' }),
+        },
+      },
+    },
+    {
+      expected: handle(2),
+      start: () =>
+        client.continueRevisionTowardSourceLocator({
+          ...handle(1),
+          cursor: 'cursor-2',
+          budget: budget(),
+          locator: { href: 'chapter.xhtml' },
+        }),
+      kind: 'continueRevisionTowardSourceLocator',
+      result: {
+        advance: advance(2),
+        releasedRevision: handle(1),
+        releasedTransferCount: 1,
+        request: { href: 'chapter.xhtml' },
+        canonicalRequest: { href: 'chapter.xhtml' },
+        locatorOutcome: {
+          kind: 'failed',
+          code: 'engine-error',
+          message: 'failed revision must be exact',
+          revision: summary(3, 'failed'),
+        },
+      },
+    },
+    {
+      expected: handle(2),
       start: () => client.cancelRevision(handle(1)),
       kind: 'cancelRevision',
       result: summary(2, 'ready'),
@@ -86,6 +181,95 @@ test('worker client rolls back only matched malformed mutation responses', async
     await assert.rejects(pending);
   }
   client.dispose();
+});
+
+test('worker mutations roll back request-derived next revision for malformed envelopes', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+  const payloads = [
+    { kind: 'unrelated', revision: handle(2), result: advance(2) },
+    {
+      kind: 'continueRevision',
+      revision: { revisionId: 'rev-1', revisionVersion: '2' },
+      result: advance(2),
+    },
+    { kind: 'continueRevision', revision: handle(7), result: advance(2) },
+  ];
+
+  for (const payload of payloads) {
+    const pending = client.continueRevision({
+      ...handle(1),
+      cursor: 'cursor-2',
+      budget: budget(),
+    });
+    const mutationMessageCount = worker.messages.length;
+    worker.respondLast(payload);
+    await waitForMessageCount(worker, mutationMessageCount + 1);
+    const rollback = worker.messages.at(-1);
+    assert.equal(rollback.kind, 'releaseRevisionAtRevision');
+    assert.deepEqual(rollback.revision, handle(2));
+    worker.respond(rollback.id, {
+      kind: 'releaseRevisionAtRevision',
+      revision: handle(2),
+      result: { releasedRevision: true, releasedTransferCount: 0 },
+    });
+    await assert.rejects(pending);
+  }
+  client.dispose();
+});
+
+test('worker client disposes an unbound committed create envelope', async () => {
+  for (const payload of [
+    {
+      kind: 'createBoundedRevision',
+      revision: { revisionId: 7, revisionVersion: 0 },
+      result: advance(0),
+    },
+    { kind: 'unrelated', revision: handle(0), result: advance(0) },
+  ]) {
+    const worker = new ManualWorker();
+    const client = await openClient(worker);
+    const pending = client.createBoundedRevision({ layoutConfig: {}, budget: budget() });
+
+    worker.respondLast(payload);
+
+    await assert.rejects(pending);
+    await client.whenDisposed();
+    assert.equal(worker.terminateCount, 1);
+    assert.equal(
+      worker.messages.filter(({ kind }) => kind === 'releaseRevisionAtRevision').length,
+      0,
+    );
+  }
+});
+
+test('worker client disposes its owner when exact mutation rollback is not confirmed', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+  const pending = client.continueRevision({
+    ...handle(1),
+    cursor: 'cursor-2',
+    budget: budget(),
+  });
+  const mutationMessageCount = worker.messages.length;
+
+  worker.respondLast({
+    kind: 'continueRevision',
+    revision: handle(2),
+    result: forgedAdvance(2),
+  });
+  await waitForMessageCount(worker, mutationMessageCount + 1);
+  const rollback = worker.messages.at(-1);
+  assert.equal(rollback.kind, 'releaseRevisionAtRevision');
+  worker.respond(rollback.id, {
+    kind: 'releaseRevisionAtRevision',
+    revision: handle(2),
+    result: { releasedRevision: false, releasedTransferCount: 0 },
+  });
+
+  await assert.rejects(pending);
+  await client.whenDisposed();
+  assert.equal(worker.terminateCount, 1);
 });
 
 async function waitForMessageCount(worker, count) {
@@ -130,6 +314,18 @@ function budget() {
   return { maxTopLevelNodes: 1 };
 }
 
+function sourceResolution(locator) {
+  return {
+    status: 'resolved',
+    revisionId: 'rev-1',
+    locator,
+    spineIdref: 'chapter',
+    pageIndex: 0,
+    spreadIndex: 0,
+    matchedBy: 'href',
+  };
+}
+
 async function openClient(worker) {
   const client = createRitoCoreWasmWorkerReaderClient(worker);
   const opening = client.open(new ArrayBuffer(0));
@@ -146,6 +342,7 @@ function unusedRawDocument() {
 class ManualWorker {
   listeners = new Map();
   messages = [];
+  terminateCount = 0;
 
   addEventListener(type, listener) {
     const listeners = this.listeners.get(type) ?? [];
@@ -157,7 +354,9 @@ class ManualWorker {
     this.messages.push(message);
   }
 
-  terminate() {}
+  terminate() {
+    this.terminateCount += 1;
+  }
 
   respondLast(payload) {
     this.respond(this.messages.at(-1).id, payload);

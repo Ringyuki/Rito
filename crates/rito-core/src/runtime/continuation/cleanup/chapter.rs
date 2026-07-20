@@ -11,6 +11,8 @@ use super::super::state::RuntimeChapterContinuation;
 #[derive(Debug)]
 struct ChapterContinuationShell {
     has_published_pages: bool,
+    chapter_complete: bool,
+    total_block_count: usize,
 }
 
 /// Releases unpublished pages before the active chapter layout session.
@@ -132,6 +134,8 @@ impl PendingRuntimeChapterContinuationCleanup {
             completed_chapter_idrefs,
             unpublished_pages,
             has_published_pages,
+            chapter_complete,
+            total_block_count,
         } = owner;
         debug_assert!(unpublished_pages.is_empty());
         drop(unpublished_pages);
@@ -140,6 +144,8 @@ impl PendingRuntimeChapterContinuationCleanup {
         self.idref = Some(idref);
         self.shell = Some(ChapterContinuationShell {
             has_published_pages,
+            chapter_complete,
+            total_block_count,
         });
         self.stage = ChapterContinuationCleanupStage::Session;
         true
@@ -184,8 +190,10 @@ impl PendingRuntimeChapterContinuationCleanup {
         let shell = self.shell.take().expect("active-chapter shell exists");
         let ChapterContinuationShell {
             has_published_pages,
+            chapter_complete,
+            total_block_count,
         } = shell;
-        let _ = has_published_pages;
+        let _ = (has_published_pages, chapter_complete, total_block_count);
         self.stage = ChapterContinuationCleanupStage::Complete;
         true
     }

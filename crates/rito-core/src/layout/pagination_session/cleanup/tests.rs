@@ -155,6 +155,7 @@ fn session_with_cursor(cursor: ContinuousLayoutCursor) -> ContinuousLayoutSessio
         Arc::new(ImageSizeIndex::new(&[])),
         LineBreaking::Greedy,
         cursor,
+        None,
     )
 }
 

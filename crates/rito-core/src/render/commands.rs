@@ -2,8 +2,11 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
+use crate::layout::RunPaint;
+
 mod json;
 mod packed;
+mod reader_wire_v1;
 mod refs;
 mod stable_json;
 
@@ -11,6 +14,7 @@ pub(crate) use packed::pack_display_commands;
 pub use packed::{
     PackedDisplayCommandBuffer, PackedDisplayCommandBufferMetadata, PackedDisplayCommandRecordStats,
 };
+pub(crate) use reader_wire_v1::{encode_reader_display_list_v1, ReaderEncodedDisplayListV1};
 pub use refs::DisplayListResourceRefs;
 pub(crate) use refs::{summarize_display_list_font_families, summarize_display_list_resource_refs};
 use stable_json::hash_json;
@@ -226,14 +230,15 @@ impl DisplayCommand {
         }
     }
 
-    fn paint(&self) -> Option<&Value> {
-        match self {
-            Self::PaintPage { paint, .. }
-            | Self::PaintBlock { paint, .. }
-            | Self::PaintHorizontalRule { paint, .. } => Some(paint),
-            Self::PaintText(input) | Self::PaintRuby(input) => Some(&input.paint),
-            _ => None,
-        }
+    fn has_paint(&self) -> bool {
+        matches!(
+            self,
+            Self::PaintPage { .. }
+                | Self::PaintBlock { .. }
+                | Self::PaintText(_)
+                | Self::PaintRuby(_)
+                | Self::PaintHorizontalRule { .. }
+        )
     }
 
     fn primary_href(&self) -> Option<&str> {
@@ -249,7 +254,7 @@ impl DisplayCommand {
 pub(crate) struct DisplayTextCommandInput {
     pub text: Value,
     pub rect: Value,
-    pub paint: Value,
+    pub paint: RunPaint,
     pub line_height_px: Option<Value>,
     pub href: Option<String>,
     pub source_text: Option<Value>,

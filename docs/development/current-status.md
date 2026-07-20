@@ -910,8 +910,10 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      parsing every XHTML source twice, and sanitizes note payloads only after
      their targets are known. A local five-book, five-run Node/WASM diagnostic
      reduced the cold-minus-warm upper-bound median from 22–141 ms to 5–26 ms.
-     That first scan is still outside the layout budget and remains a bounded
-     latency gap rather than a completed release measurement.
+     Reader foreground no longer drains that scan: it inspects only the target
+     chapter, marks unresolved cross-chapter targets `footnotePending`, and
+     leaves one source scan or one selected definition parse to each background
+     quantum. Publication layout/handoff waits for index completion.
 2. **Native interaction follow-through**
    - Page targets, links, footnotes, standalone images, exact selection/copy,
      source annotations, revision-safe annotation projection, visible-spread
@@ -1082,8 +1084,8 @@ Work in roadmap order:
    rescan retained chapter runs and recompute ICU boundaries today; measure that
    path and add revision-scoped indexes/caches only when the latency data calls for
    them.
-2. Move the publication-wide footnote scan inside a measured source-index
-   budget.
+2. Add production telemetry for the cooperative footnote source-index quanta
+   and preserve the target-chapter-only first-artifact regression bound.
 3. Replace eager completed-layout search with a durable publication source index
    while retaining the implemented lazy, fail-closed exact-source geometry.
 4. Continue the default-Greedy hard bound by addressing the remaining
@@ -1132,8 +1134,9 @@ leading-space, trailing-trim, ASCII-hyphen candidate and line-finalization
 geometry/vertical-shift state across public quanta, and one public request
 shares its text-work meter across chapter boundaries. Exact ordered text-work
 traces remain unchanged, while a captured font layout-profile token prevents
-restore under inconsistent logical font inputs. The footnote index performs
-one spine parse instead of two. Ruby grouping traversal now resumes per input
+restore under inconsistent logical font inputs. The footnote index performs at
+most one borrowed source-attribute scan or selected semantic definition parse
+per background call; foreground scans only its target chapter. Ruby grouping traversal now resumes per input
 run without publishing a partial line; exact tag/paint work remains indivisible.
 Logical-flow mapping preflight, four exact destination-buffer reservations,
 assembly and assignment commit now resume in the production Greedy leaf

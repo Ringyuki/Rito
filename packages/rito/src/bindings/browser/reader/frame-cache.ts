@@ -1,13 +1,23 @@
 import { decodeBrowserReaderFrame } from './frame';
-import { preloadFrameResourceBytes } from '../resources';
-import type { BrowserReaderFrame, BrowserReaderState } from './types';
-import type { BrowserReaderRevisionHandle } from './types';
+import {
+  frameImageResourcesAreLoadingOrSettled,
+  frameImageResourcesAreSettled,
+  preloadFrameResourceBytes,
+  recordMissingFrameImageResources,
+  type BrowserReaderMissingFrameResource,
+} from '../resources';
+import type { BrowserReaderFrame, BrowserReaderRevisionHandle, BrowserReaderState } from './types';
 import type {
   BrowserReaderFrameBuffer,
   BrowserReaderFrameWindowWarmResult,
 } from '../core-contracts';
 import { isCurrentRevisionHandle } from './pipeline/revision-handle';
 import { trackBrowserReaderHostTask } from './host-tasks';
+import { recordBrowserReaderSuspendedFrameMiss } from '../suspended-frame-misses';
+import {
+  queueBrowserReaderFrameWindowLoad,
+  resetBrowserReaderFrameWindowLoadLane,
+} from './frame-window-load-lane';
 
 const FRAME_CACHE_CAPACITY = 12;
 const completedFrameWindows = new WeakMap<BrowserReaderState, CompletedFrameWindows>();
@@ -16,7 +26,7 @@ interface CompletedFrameWindows {
   readonly workerSessionId: string;
   readonly revisionId: string;
   readonly revisionVersion: number;
-  readonly centers: Set<number>;
+  readonly coveredSpreads: Set<number>;
 }
 
 export function loadFrame(
@@ -39,7 +49,7 @@ export function cacheFrame(
     const oldestSpreadIndex = state.frames.keys().next().value;
     if (oldestSpreadIndex === undefined) break;
     state.frames.delete(oldestSpreadIndex);
-    completedFrameWindows.delete(state);
+    completedFrameWindows.get(state)?.coveredSpreads.delete(oldestSpreadIndex);
   }
 }
 
@@ -53,16 +63,21 @@ export async function ensureFrameLoaded(
     return undefined;
   }
   const revision = state.revisionHandle;
-  if (!revision || !isCurrentRevisionHandle(state, revision)) return undefined;
+  if (!revision || !isCurrentRevisionHandle(state, revision)) {
+    recordBrowserReaderSuspendedFrameMiss(state, spreadIndex);
+    return undefined;
+  }
   await loadFrameWindow(state, revision, spreadIndex);
   return loadFrame(state, spreadIndex);
 }
 
-export function resetFrameCache(state: BrowserReaderState): void {
-  state.frames = new Map();
+export function resetFrameCache(state: BrowserReaderState, preserveFrames = false): void {
+  if (!preserveFrames) state.frames = new Map();
   completedFrameWindows.delete(state);
-  state.pendingFrameLoads.clear();
-  state.pendingImageLoads.clear();
+  resetBrowserReaderFrameWindowLoadLane(state);
+  state.imageResourceFailures.clear();
+  state.settledImageResourceSpreads.clear();
+  if (!preserveFrames) state.pendingImageLoads.clear();
 }
 
 export function cacheFrameBuffers(
@@ -102,23 +117,45 @@ export function applyBrowserReaderFrameWindow(
   }
   cacheFrameBuffers(state, revision, frameWindow.frames, options);
   for (const spread of frameWindow.spreads) {
-    const missingImageHrefs = spread.resources
-      .filter(
-        (resource) => resource.payload.kind === 'image' && !state.images.has(resource.payload.href),
-      )
-      .map((resource) => resource.payload.href);
-    if (missingImageHrefs.length === 0) continue;
+    const missingResources = frameWindowMissingResources(spread);
+    const touchedImageHrefs = [
+      ...new Set([
+        ...spread.resources
+          .filter((resource) => resource.payload.kind === 'image')
+          .map((resource) => resource.payload.href),
+        ...missingResources
+          .filter((resource) => resource.kind === 'image')
+          .map((resource) => resource.href),
+      ]),
+    ];
+    const requiresSettlementNotification =
+      missingResources.some((resource) => resource.kind === 'image') ||
+      touchedImageHrefs.some(
+        (href) =>
+          !state.images.has(href) && !frameImageResourcesAreSettled(state, revision, [href]),
+      );
+    recordMissingFrameImageResources(state, revision, missingResources);
+    if (!requiresSettlementNotification) continue;
+    if (frameImageResourcesAreSettled(state, revision, touchedImageHrefs)) {
+      if (markSpreadImageResourcesSettled(state, revision, spread.spreadIndex)) {
+        notifySpreadContentInvalidated(state, spread.spreadIndex);
+      }
+      continue;
+    }
     void trackBrowserReaderHostTask(
       state,
-      preloadFrameResourceBytes(state, spread.resources).then(() => {
+      preloadFrameResourceBytes(state, spread.resources, revision).then(() => {
         if (!isCurrentRevisionHandle(state, revision)) return;
-        if (missingImageHrefs.some((href) => state.images.has(href))) {
+        if (
+          frameImageResourcesAreSettled(state, revision, touchedImageHrefs) &&
+          markSpreadImageResourcesSettled(state, revision, spread.spreadIndex)
+        ) {
           notifySpreadContentInvalidated(state, spread.spreadIndex);
         }
       }),
     );
   }
-  markFrameWindowCompleted(state, revision, frameWindow.plan.centerSpreadIndex);
+  markFrameWindowCompleted(state, revision, frameWindow.plan.spreadIndexes);
 }
 
 export async function warmBrowserReaderFrameWindow(
@@ -138,18 +175,18 @@ export async function warmBrowserReaderFrameWindow(
 function markFrameWindowCompleted(
   state: BrowserReaderState,
   revision: BrowserReaderRevisionHandle,
-  centerSpreadIndex: number,
+  coveredSpreads: readonly number[],
 ): void {
   const current = completedFrameWindows.get(state);
   if (current && completedWindowMatches(current, revision)) {
-    current.centers.add(centerSpreadIndex);
+    for (const spreadIndex of coveredSpreads) current.coveredSpreads.add(spreadIndex);
     return;
   }
   completedFrameWindows.set(state, {
     workerSessionId: revision.workerSessionId,
     revisionId: revision.revisionId,
     revisionVersion: revision.revisionVersion,
-    centers: new Set([centerSpreadIndex]),
+    coveredSpreads: new Set(coveredSpreads),
   });
 }
 
@@ -162,12 +199,35 @@ function frameWindowIsCompleted(
   if (!completed || !completedWindowMatches(completed, revision)) return false;
   const frame = state.frames.get(centerSpreadIndex);
   return (
-    completed.centers.has(centerSpreadIndex) &&
+    completed.coveredSpreads.has(centerSpreadIndex) &&
     frame !== undefined &&
-    frame.resourceRefs.images.every(
-      (href) => state.images.has(href) || state.pendingImageLoads.has(href),
-    )
+    frameImageResourcesAreLoadingOrSettled(state, revision, frame.resourceRefs.images)
   );
+}
+
+function frameWindowMissingResources(
+  spread: BrowserReaderFrameWindowWarmResult['spreads'][number],
+): readonly BrowserReaderMissingFrameResource[] {
+  const transport: {
+    readonly missingResources?: readonly BrowserReaderMissingFrameResource[] | undefined;
+  } = spread;
+  return transport.missingResources ?? [];
+}
+
+function markSpreadImageResourcesSettled(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  spreadIndex: number,
+): boolean {
+  const key = JSON.stringify([
+    revision.workerSessionId,
+    revision.revisionId,
+    revision.revisionVersion,
+    spreadIndex,
+  ]);
+  if (state.settledImageResourceSpreads.has(key)) return false;
+  state.settledImageResourceSpreads.add(key);
+  return true;
 }
 
 function completedWindowMatches(
@@ -187,33 +247,31 @@ function loadFrameWindow(
   centerSpreadIndex: number,
 ): Promise<void> {
   if (!isCurrentRevisionHandle(state, revision)) return Promise.resolve();
-  const pending = state.pendingFrameLoads.get(centerSpreadIndex);
-  if (pending) return pending;
-  const worker = state.worker;
-  if (worker.sessionId !== revision.workerSessionId) {
-    return Promise.reject(new Error('Reader revision owner does not match its worker session'));
-  }
-  const task = trackBrowserReaderHostTask(
+  if (frameWindowIsCompleted(state, revision, centerSpreadIndex)) return Promise.resolve();
+  return queueBrowserReaderFrameWindowLoad(
     state,
-    worker
-      .warmFrameWindowAtRevision(
-        {
-          revisionId: revision.revisionId,
-          revisionVersion: revision.revisionVersion,
-        },
-        centerSpreadIndex,
-      )
-      .then(({ value: frameWindow }) => {
-        if (state.disposed || !isCurrentRevisionHandle(state, revision)) return;
-        applyBrowserReaderFrameWindow(state, revision, frameWindow);
-      })
-      .finally(() => {
-        if (state.pendingFrameLoads.get(centerSpreadIndex) === task)
-          state.pendingFrameLoads.delete(centerSpreadIndex);
-      }),
+    revision,
+    centerSpreadIndex,
+    (scheduledRevision, scheduledCenterSpreadIndex) => {
+      const worker = state.worker;
+      if (worker.sessionId !== scheduledRevision.workerSessionId) {
+        return Promise.reject(new Error('Reader revision owner does not match its worker session'));
+      }
+      return worker
+        .warmFrameWindowAtRevision(
+          {
+            revisionId: scheduledRevision.revisionId,
+            revisionVersion: scheduledRevision.revisionVersion,
+          },
+          scheduledCenterSpreadIndex,
+        )
+        .then(({ value: frameWindow }) => {
+          if (state.disposed || !isCurrentRevisionHandle(state, scheduledRevision)) return;
+          applyBrowserReaderFrameWindow(state, scheduledRevision, frameWindow);
+        });
+    },
+    frameWindowIsCompleted,
   );
-  state.pendingFrameLoads.set(centerSpreadIndex, task);
-  return task;
 }
 
 function notifySpreadContentInvalidated(state: BrowserReaderState, spreadIndex: number): void {

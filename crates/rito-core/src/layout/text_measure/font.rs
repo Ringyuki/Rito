@@ -178,7 +178,6 @@ impl<'a> TextMeasurementFonts<'a> {
             &font_family_advances,
             &generic_serif_pair_adjustments,
             &font_family_pair_adjustments,
-            &font_vertical_metrics,
         );
         let layout_profile_id = compute_layout_profile_id(
             FallbackMeasurementMode::FontAware,
@@ -391,13 +390,11 @@ fn fallback_profile_id(
     family_advances: &BTreeMap<String, BTreeMap<char, f64>>,
     generic_pair_adjustments: &BTreeMap<(char, char), f64>,
     family_pair_adjustments: &BTreeMap<String, BTreeMap<(char, char), f64>>,
-    font_vertical_metrics: &BTreeMap<FontVerticalMetricKey, FontVerticalMetricSample>,
 ) -> u64 {
     if generic_advances.is_empty()
         && family_advances.is_empty()
         && generic_pair_adjustments.is_empty()
         && family_pair_adjustments.is_empty()
-        && font_vertical_metrics.is_empty()
     {
         return 0;
     }
@@ -429,12 +426,6 @@ fn fallback_profile_id(
             right.hash(&mut hasher);
             adjustment.to_bits().hash(&mut hasher);
         }
-    }
-    4_u8.hash(&mut hasher);
-    for (key, sample) in font_vertical_metrics {
-        key.hash(&mut hasher);
-        sample.top_baseline_ascent_px.to_bits().hash(&mut hasher);
-        sample.top_baseline_descent_px.to_bits().hash(&mut hasher);
     }
     hasher.finish()
 }

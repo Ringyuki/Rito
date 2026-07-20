@@ -17,6 +17,12 @@ export {
 
 export type {
   RitoCoreWasmChapterTextIndices as CoreChapterTextIndices,
+  RitoCoreWasmBoundedChapterLocalRevisionRequest as CoreBoundedChapterLocalRevisionRequest,
+  RitoCoreWasmChapterLocalOwner as CoreChapterLocalOwner,
+  RitoCoreWasmChapterLocalRevisionAdvance as CoreChapterLocalRevisionAdvance,
+  RitoCoreWasmChapterLocalRevisionRelease as CoreChapterLocalRevisionRelease,
+  RitoCoreWasmContinueChapterLocalRevisionRequest as CoreContinueChapterLocalRevisionRequest,
+  RitoCoreWasmContinuedChapterLocalRevisionAdvance as CoreContinuedChapterLocalRevisionAdvance,
   RitoCoreWasmExactSourceRangeRequest as CoreExactSourceRangeRequest,
   RitoCoreWasmExactSourceRangeResponse as CoreExactSourceRangeResponse,
   RitoCoreWasmFootnotes as CoreFootnotes,
@@ -33,6 +39,8 @@ export type {
   RitoCoreWasmPlannedFrameResourcePrefetchResponse as CorePlannedFrameResourcePrefetchResponse,
   RitoCoreWasmPublicationInfo as CorePublicationInfo,
   RitoCoreWasmReaderFrameBuffer as CoreReaderFrameBuffer,
+  RitoCoreWasmReaderChapterLocalFrame as CoreReaderChapterLocalFrame,
+  RitoCoreWasmReaderChapterLocalMutationResult as CoreReaderChapterLocalMutationResult,
   RitoCoreWasmReaderFrameBuffer as BrowserReaderFrameBuffer,
   RitoCoreWasmReaderFrameWindowWarmResult as CoreReaderFrameWindowWarmResult,
   RitoCoreWasmReaderFrameWindowWarmResult as BrowserReaderFrameWindowWarmResult,

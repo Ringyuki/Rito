@@ -1,0 +1,948 @@
+use std::{
+    fs,
+    path::Path,
+    sync::atomic::{AtomicU64, Ordering},
+};
+
+use rito_core::runtime::{
+    decode_reader_artifact_v1, decode_reader_background_advance_v1,
+    decode_reader_background_handoff_ack_v1, decode_reader_foreground_handoff_ack_v1,
+    decode_reader_publication_v1, decode_reader_resource_v1, encode_reader_adjacent_request_v1,
+    encode_reader_artifact_request_v1, encode_reader_background_handoff_v1,
+    encode_reader_background_request_v1, encode_reader_foreground_handoff_v1,
+    ReaderAdjacentDirectionV1, ReaderAdjacentRequestV1, ReaderArtifactRequestV1,
+    ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderBackgroundStateV1,
+    ReaderErrorKindV1, ReaderErrorV1, ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1,
+    ReaderResourceKindV1, ReaderSpreadModeV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
+    READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES_V1, READER_FOREGROUND_HANDOFF_WIRE_BYTES_V1,
+    READER_WIRE_HEADER_BYTES_V1,
+};
+
+use crate::{
+    abi::copy_owned_buffer_for_test, error::FfiError, rito_adopt_background_candidate_v1,
+    rito_adopt_foreground_candidate_v1, rito_advance_background_v1, rito_buffer_free_v1,
+    rito_dispose_v1, rito_open_v1, rito_read_publication_v1, rito_read_resource_v1,
+    rito_release_artifact_v1, rito_request_adjacent_v1, rito_request_artifact_v1,
+    RitoOwnedBufferV1, RITO_ACTOR_MAX_IN_FLIGHT_V1, RITO_PUBLICATION_WIRE_BYTES_MAX_V1,
+    RITO_RESOURCE_KIND_IMAGE_V1, RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_ALREADY_EXISTS_V1,
+    RITO_STATUS_BUSY_V1, RITO_STATUS_EXACT_SEEK_PENDING_V1, RITO_STATUS_INVALID_ARGUMENT_V1,
+    RITO_STATUS_NOT_FOUND_V1, RITO_STATUS_OK_V1, RITO_STATUS_QUEUE_FULL_V1,
+    RITO_STATUS_SESSION_TERMINATED_V1, RITO_STATUS_STALE_REQUEST_V1,
+    RITO_STATUS_TARGET_NOT_PUBLISHED_V1, RITO_STATUS_UNSUPPORTED_PROFILE_V1,
+};
+
+static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(10_000);
+
+#[test]
+fn ffi_status_mapping_keeps_actionable_reader_failures_distinct() {
+    for (kind, expected) in [
+        (
+            ReaderErrorKindV1::StaleRequest,
+            RITO_STATUS_STALE_REQUEST_V1,
+        ),
+        (
+            ReaderErrorKindV1::TargetNotPublished,
+            RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
+        ),
+        (
+            ReaderErrorKindV1::UnsupportedTextProfile,
+            RITO_STATUS_UNSUPPORTED_PROFILE_V1,
+        ),
+    ] {
+        let error = FfiError::from(ReaderErrorV1 {
+            kind,
+            message: "typed status probe".to_owned(),
+        });
+        assert_eq!(error.status, expected);
+    }
+
+    let busy = FfiError::busy("actor admission cap reached");
+    assert_eq!(busy.status, RITO_STATUS_BUSY_V1);
+    assert_eq!(RITO_STATUS_QUEUE_FULL_V1, RITO_STATUS_BUSY_V1);
+    assert_eq!(RITO_STATUS_EXACT_SEEK_PENDING_V1, 9);
+    assert_eq!(RITO_STATUS_ADJACENT_PENDING_V1, 10);
+    assert_eq!(RITO_STATUS_SESSION_TERMINATED_V1, 11);
+    assert_eq!(RITO_ACTOR_MAX_IN_FLIGHT_V1, 8);
+    assert_eq!(READER_FOREGROUND_HANDOFF_WIRE_BYTES_V1, 48);
+    assert_eq!(READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES_V1, 48);
+    assert_eq!(RITO_PUBLICATION_WIRE_BYTES_MAX_V1, 16 * 1024 * 1024);
+}
+
+#[test]
+fn invalid_and_truncated_inputs_are_rejected_without_a_session() {
+    let request = request(next_session_id());
+    let wire = encode_reader_artifact_request_v1(&request).expect("request encodes");
+    let invalid = call_open(&[], &wire);
+    assert_eq!(invalid.status, RITO_STATUS_INVALID_ARGUMENT_V1);
+    assert!(!invalid.error.is_empty());
+
+    let truncated = call_open(&publication(), &wire[..wire.len() - 1]);
+    assert_eq!(truncated.status, RITO_STATUS_INVALID_ARGUMENT_V1);
+    assert!(!truncated.error.is_empty());
+}
+
+#[test]
+fn foreground_candidate_is_invisible_until_explicit_cas_adoption() {
+    let session_id = next_session_id();
+    let open_wire =
+        encode_reader_artifact_request_v1(&request(session_id)).expect("request encodes");
+    let opened = call_open(&publication(), &open_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let candidate = decode_reader_artifact_v1(&opened.artifact).expect("candidate decodes");
+
+    let background = encode_reader_background_request_v1(&ReaderBackgroundRequestV1 {
+        session_id,
+        expected_visible_artifact_id: candidate.artifact_id,
+        max_top_level_nodes_per_quantum: 1,
+    })
+    .expect("background request encodes");
+    assert_eq!(
+        call_advance_background(session_id, &background).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1,
+        "open must not publish its candidate implicitly"
+    );
+
+    let handoff = encode_reader_foreground_handoff_v1(&ReaderForegroundHandoffV1 {
+        session_id,
+        expected_visible_artifact_id: None,
+        candidate_artifact_id: candidate.artifact_id,
+    })
+    .expect("foreground handoff encodes");
+    let mut aliased_output = RitoOwnedBufferV1::EMPTY;
+    let aliased_pointer = &mut aliased_output as *mut RitoOwnedBufferV1;
+    assert_eq!(
+        rito_adopt_foreground_candidate_v1(
+            session_id,
+            handoff.as_ptr(),
+            u64::try_from(handoff.len()).expect("handoff length is representable"),
+            aliased_pointer,
+            aliased_pointer,
+        ),
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    assert!(!copy_owned_buffer_for_test(&aliased_output).is_empty());
+    rito_buffer_free_v1(&mut aliased_output);
+    rito_buffer_free_v1(&mut aliased_output);
+    let adopted = call_adopt_foreground(session_id, &handoff);
+    assert_eq!(adopted.status, RITO_STATUS_OK_V1, "{}", adopted.error);
+    assert_eq!(adopted.wire.len(), 48);
+    let ack = decode_reader_foreground_handoff_ack_v1(&adopted.wire)
+        .expect("foreground acknowledgement decodes");
+    assert_eq!(ack.intent_request_id, candidate.request_id);
+    assert_eq!(ack.replaced_artifact_id, None);
+    assert_eq!(ack.visible_artifact_id, candidate.artifact_id);
+
+    let stale = call_adopt_foreground(session_id, &handoff);
+    assert_eq!(stale.status, RITO_STATUS_STALE_REQUEST_V1);
+    assert!(stale.wire.is_empty());
+    assert!(!stale.error.is_empty());
+    assert_eq!(
+        call_read_publication(session_id).status,
+        RITO_STATUS_OK_V1,
+        "a stale foreground CAS must not discard the actor"
+    );
+    assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
+}
+
+#[test]
+fn open_release_and_dispose_are_owned_and_idempotent() {
+    let session_id = next_session_id();
+    let publication = publication();
+    let wire = encode_reader_artifact_request_v1(&request(session_id)).expect("request encodes");
+    let opened = call_open(&publication, &wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let artifact = decode_reader_artifact_v1(&opened.artifact).expect("artifact decodes");
+    assert_eq!(artifact.session_id, session_id);
+    assert_eq!(artifact.locator.href, "OEBPS/Text/Section001.xhtml");
+    let first_publication = call_read_publication(session_id);
+    assert_eq!(
+        first_publication.status, RITO_STATUS_OK_V1,
+        "{}",
+        first_publication.error
+    );
+    let second_publication = call_read_publication(session_id);
+    assert_eq!(second_publication.status, RITO_STATUS_OK_V1);
+    assert_eq!(second_publication.wire, first_publication.wire);
+    assert!(
+        first_publication.wire.len()
+            <= usize::try_from(RITO_PUBLICATION_WIRE_BYTES_MAX_V1).unwrap()
+    );
+    let publication_snapshot = decode_reader_publication_v1(&first_publication.wire)
+        .expect("publication metadata decodes");
+    assert_eq!(publication_snapshot.session_id, session_id);
+    assert!(!publication_snapshot.metadata.title.is_empty());
+    assert!(publication_snapshot
+        .spine
+        .iter()
+        .any(|item| item.href.ends_with("/Section001.xhtml")));
+    let mut aliased_output = RitoOwnedBufferV1::EMPTY;
+    let aliased_pointer = &mut aliased_output as *mut RitoOwnedBufferV1;
+    assert_eq!(
+        rito_read_publication_v1(session_id, aliased_pointer, aliased_pointer),
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    assert!(!copy_owned_buffer_for_test(&aliased_output).is_empty());
+    rito_buffer_free_v1(&mut aliased_output);
+    let display_image_href = artifact
+        .resources
+        .iter()
+        .find(|resource| resource.href.ends_with("/0005_s.jpg"))
+        .expect("artifact declares the real image")
+        .href
+        .clone();
+
+    let mut reflow_request = request(session_id);
+    reflow_request.request_id = 2;
+    reflow_request.layout.viewport_width = 480.0;
+    let reflow_wire =
+        encode_reader_artifact_request_v1(&reflow_request).expect("reflow request encodes");
+    let reflow = call_request_artifact(session_id, &reflow_wire);
+    assert_eq!(reflow.status, RITO_STATUS_OK_V1, "{}", reflow.error);
+    let reflow = decode_reader_artifact_v1(&reflow.artifact).expect("reflow artifact decodes");
+    assert_eq!(reflow.session_id, session_id);
+    assert_eq!(reflow.request_id, 2);
+    assert_ne!(reflow.artifact_id, artifact.artifact_id);
+
+    let mut mismatched_request = request(session_id + 1);
+    mismatched_request.request_id = 3;
+    let mismatched_wire =
+        encode_reader_artifact_request_v1(&mismatched_request).expect("mismatched request encodes");
+    assert_eq!(
+        call_request_artifact(session_id, &mismatched_wire).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+
+    let image_href = "OEBPS/Images/0005_s.jpg";
+    let image = call_read_resource(
+        session_id,
+        artifact.artifact_id,
+        RITO_RESOURCE_KIND_IMAGE_V1,
+        display_image_href.as_bytes(),
+    );
+    assert_eq!(image.status, RITO_STATUS_OK_V1, "{}", image.error);
+    let image = decode_reader_resource_v1(&image.resource).expect("resource decodes");
+    assert_eq!(image.artifact_id, artifact.artifact_id);
+    assert_eq!(image.kind, ReaderResourceKindV1::Image);
+    assert_eq!(image.href, image_href);
+    assert_eq!(image.media_type, "image/jpeg");
+    assert_eq!(image.bytes.len(), 71_220);
+    assert_eq!(image.bytes.get(..3), Some(&[0xff, 0xd8, 0xff][..]));
+    assert_eq!(
+        image.bytes.get(image.bytes.len() - 2..),
+        Some(&[0xff, 0xd9][..])
+    );
+    assert_eq!(image.width, Some(1_000));
+    assert_eq!(image.height, Some(716));
+
+    assert_eq!(
+        call_read_resource(
+            session_id + 999,
+            artifact.artifact_id,
+            RITO_RESOURCE_KIND_IMAGE_V1,
+            display_image_href.as_bytes(),
+        )
+        .status,
+        RITO_STATUS_NOT_FOUND_V1
+    );
+    assert_eq!(
+        call_read_resource(
+            session_id,
+            artifact.artifact_id + 999,
+            RITO_RESOURCE_KIND_IMAGE_V1,
+            display_image_href.as_bytes(),
+        )
+        .status,
+        RITO_STATUS_NOT_FOUND_V1
+    );
+    assert_eq!(
+        call_read_resource(
+            session_id,
+            artifact.artifact_id,
+            RITO_RESOURCE_KIND_IMAGE_V1,
+            b"OEBPS/Images/missing.jpg",
+        )
+        .status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    assert_eq!(
+        call_read_resource(
+            session_id,
+            artifact.artifact_id,
+            u32::MAX,
+            image_href.as_bytes(),
+        )
+        .status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+
+    let duplicate = call_open(&publication, &wire);
+    assert_eq!(duplicate.status, RITO_STATUS_ALREADY_EXISTS_V1);
+    assert_eq!(
+        call_release(session_id + 999, artifact.artifact_id),
+        RITO_STATUS_NOT_FOUND_V1
+    );
+    assert_eq!(
+        call_release(session_id, artifact.artifact_id),
+        RITO_STATUS_OK_V1
+    );
+    assert_eq!(
+        call_read_resource(
+            session_id,
+            artifact.artifact_id,
+            RITO_RESOURCE_KIND_IMAGE_V1,
+            display_image_href.as_bytes(),
+        )
+        .status,
+        RITO_STATUS_NOT_FOUND_V1
+    );
+    assert_eq!(
+        call_release(session_id, reflow.artifact_id),
+        RITO_STATUS_OK_V1
+    );
+    assert_eq!(
+        call_release(session_id, artifact.artifact_id),
+        RITO_STATUS_OK_V1
+    );
+    assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
+    let disposed_publication = call_read_publication(session_id);
+    assert_eq!(disposed_publication.status, RITO_STATUS_NOT_FOUND_V1);
+    assert!(disposed_publication.wire.is_empty());
+    assert!(!disposed_publication.error.is_empty());
+    assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
+}
+
+#[test]
+fn pending_open_registers_a_ready_session_and_resumes_with_a_new_request_id() {
+    let session_id = next_session_id();
+    let publication = publication();
+    let initial = pending_open_request(session_id, 10);
+    let initial_wire =
+        encode_reader_artifact_request_v1(&initial).expect("pending open request encodes");
+    let opened = call_open(&publication, &initial_wire);
+
+    assert_eq!(
+        opened.status, RITO_STATUS_EXACT_SEEK_PENDING_V1,
+        "{}",
+        opened.error
+    );
+    assert!(opened.artifact.is_empty());
+    assert!(!opened.error.is_empty());
+    assert_eq!(call_read_publication(session_id).status, RITO_STATUS_OK_V1);
+    assert_eq!(
+        call_open(&publication, &initial_wire).status,
+        RITO_STATUS_ALREADY_EXISTS_V1,
+        "pending open must already own its session identity"
+    );
+
+    let mut wrong_session = initial.clone();
+    wrong_session.session_id = session_id + 1;
+    wrong_session.request_id = 11;
+    let wrong_wire =
+        encode_reader_artifact_request_v1(&wrong_session).expect("wrong-session retry encodes");
+    assert_eq!(
+        call_request_artifact(session_id, &wrong_wire).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    assert_eq!(
+        call_request_artifact(session_id, &initial_wire).status,
+        RITO_STATUS_STALE_REQUEST_V1,
+        "the open request id was already accepted"
+    );
+
+    let mut resumed = initial;
+    resumed.request_id = 11;
+    let one_quantum_wire =
+        encode_reader_artifact_request_v1(&resumed).expect("bounded resume request encodes");
+    let still_pending = call_request_artifact(session_id, &one_quantum_wire);
+    assert_eq!(
+        still_pending.status, RITO_STATUS_EXACT_SEEK_PENDING_V1,
+        "{}",
+        still_pending.error
+    );
+    assert!(still_pending.artifact.is_empty());
+    assert_eq!(call_read_publication(session_id).status, RITO_STATUS_OK_V1);
+
+    resumed.request_id = 12;
+    resumed.work.max_top_level_nodes_per_quantum = 32;
+    resumed.work.max_foreground_quanta = 512;
+    let resumed_wire =
+        encode_reader_artifact_request_v1(&resumed).expect("final resume request encodes");
+    let result = call_request_artifact(session_id, &resumed_wire);
+    assert_eq!(result.status, RITO_STATUS_OK_V1, "{}", result.error);
+    let artifact = decode_reader_artifact_v1(&result.artifact).expect("resumed artifact decodes");
+    assert_eq!(artifact.session_id, session_id);
+    assert_eq!(artifact.request_id, 12);
+    assert_eq!(artifact.revision_id, 1);
+    assert_eq!(artifact.artifact_id, 1);
+    assert_eq!(artifact.locator.progression, Some(0.95));
+
+    assert_eq!(
+        call_release(session_id, artifact.artifact_id),
+        RITO_STATUS_OK_V1
+    );
+    assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
+}
+
+#[test]
+fn disposing_a_pending_open_releases_the_session_for_reuse() {
+    let session_id = next_session_id();
+    let publication = publication();
+    let initial = pending_open_request(session_id, 1);
+    let initial_wire =
+        encode_reader_artifact_request_v1(&initial).expect("pending open request encodes");
+    assert_eq!(
+        call_open(&publication, &initial_wire).status,
+        RITO_STATUS_EXACT_SEEK_PENDING_V1
+    );
+
+    assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
+    assert_eq!(
+        call_read_publication(session_id).status,
+        RITO_STATUS_NOT_FOUND_V1
+    );
+
+    let reopened_wire =
+        encode_reader_artifact_request_v1(&request(session_id)).expect("reopen request encodes");
+    let reopened = call_open(&publication, &reopened_wire);
+    assert_eq!(reopened.status, RITO_STATUS_OK_V1, "{}", reopened.error);
+    let artifact = decode_reader_artifact_v1(&reopened.artifact).expect("reopen artifact decodes");
+    assert_eq!(artifact.artifact_id, 1);
+    assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
+}
+
+#[test]
+fn adjacent_request_is_actor_owned_strict_and_bounded() {
+    let session_id = next_session_id();
+    let publication = publication();
+    let mut initial = request(session_id);
+    initial.locator.href = "OEBPS/Text/Section011.xhtml".to_owned();
+    let open_wire = encode_reader_artifact_request_v1(&initial).expect("request encodes");
+    let opened = call_open(&publication, &open_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let first = decode_reader_artifact_v1(&opened.artifact).expect("first artifact decodes");
+
+    let next_wire = adjacent_wire(session_id, 2, first.artifact_id);
+    let next = call_request_adjacent(session_id, &next_wire);
+    assert_eq!(next.status, RITO_STATUS_OK_V1, "{}", next.error);
+    let next = decode_reader_artifact_v1(&next.artifact).expect("next artifact decodes");
+    assert_ne!(next.artifact_id, first.artifact_id);
+    assert_eq!(next.request_id, 2);
+    assert_eq!(next.revision_id, first.revision_id);
+    assert!(next.local_spread_index > first.local_spread_index);
+
+    assert_eq!(
+        call_request_adjacent(session_id, &next_wire[..next_wire.len() - 1]).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    let mut trailing = next_wire.clone();
+    trailing.push(0);
+    assert_eq!(
+        call_request_adjacent(session_id, &trailing).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    let wrong_abi_session = call_request_adjacent(session_id + 1, &next_wire);
+    assert_eq!(
+        wrong_abi_session.status, RITO_STATUS_INVALID_ARGUMENT_V1,
+        "{}",
+        wrong_abi_session.error
+    );
+    assert_eq!(
+        call_request_adjacent(session_id, &adjacent_wire(session_id, 1, next.artifact_id)).status,
+        RITO_STATUS_STALE_REQUEST_V1
+    );
+    assert_eq!(
+        call_request_adjacent(session_id, &adjacent_wire(session_id, 3, i64::MAX as u64)).status,
+        RITO_STATUS_NOT_FOUND_V1
+    );
+
+    assert_eq!(
+        call_release(session_id, first.artifact_id),
+        RITO_STATUS_OK_V1
+    );
+    assert_eq!(
+        call_release(session_id, next.artifact_id),
+        RITO_STATUS_OK_V1
+    );
+    assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
+}
+
+#[test]
+fn background_candidate_and_handoff_are_owned_actor_round_trips() {
+    let session_id = next_session_id();
+    let open_wire =
+        encode_reader_artifact_request_v1(&request(session_id)).expect("request encodes");
+    let opened = call_open(&publication(), &open_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let visible = decode_reader_artifact_v1(&opened.artifact).expect("artifact decodes");
+    let foreground_handoff = encode_reader_foreground_handoff_v1(&ReaderForegroundHandoffV1 {
+        session_id,
+        expected_visible_artifact_id: None,
+        candidate_artifact_id: visible.artifact_id,
+    })
+    .expect("initial foreground handoff encodes");
+    let foreground_adopted = call_adopt_foreground(session_id, &foreground_handoff);
+    assert_eq!(
+        foreground_adopted.status, RITO_STATUS_OK_V1,
+        "{}",
+        foreground_adopted.error
+    );
+
+    let request = encode_reader_background_request_v1(&ReaderBackgroundRequestV1 {
+        session_id,
+        expected_visible_artifact_id: visible.artifact_id,
+        max_top_level_nodes_per_quantum: 64,
+    })
+    .expect("background request encodes");
+    let mut candidate = None;
+    for _ in 0..128 {
+        let result = call_advance_background(session_id, &request);
+        assert_eq!(result.status, RITO_STATUS_OK_V1, "{}", result.error);
+        let advance = decode_reader_background_advance_v1(&result.wire).expect("advance decodes");
+        assert_eq!(advance.intent_request_id, 1);
+        assert_eq!(advance.replaces_artifact_id, visible.artifact_id);
+        if advance.artifact.is_some() {
+            candidate = advance.artifact;
+            break;
+        }
+        assert_ne!(advance.state, ReaderBackgroundStateV1::Complete);
+    }
+    let candidate = candidate.expect("publication reaches a handoff candidate");
+
+    let handoff = encode_reader_background_handoff_v1(&ReaderBackgroundHandoffV1 {
+        session_id,
+        expected_visible_artifact_id: visible.artifact_id,
+        candidate_artifact_id: candidate.artifact_id,
+    })
+    .expect("handoff encodes");
+    let adopted = call_adopt_background(session_id, &handoff);
+    assert_eq!(adopted.status, RITO_STATUS_OK_V1, "{}", adopted.error);
+    let ack = decode_reader_background_handoff_ack_v1(&adopted.wire).expect("ack decodes");
+    assert_eq!(ack.intent_request_id, 1);
+    assert_eq!(ack.replaced_artifact_id, visible.artifact_id);
+    assert_eq!(ack.visible_artifact_id, candidate.artifact_id);
+
+    assert_eq!(
+        call_release(session_id, visible.artifact_id),
+        RITO_STATUS_OK_V1
+    );
+    assert_eq!(
+        call_release(session_id, candidate.artifact_id),
+        RITO_STATUS_OK_V1
+    );
+    assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
+}
+
+#[test]
+fn malformed_fixed_handoff_and_background_messages_fail_before_registry_lookup() {
+    let session_id = next_session_id();
+    let foreground = encode_reader_foreground_handoff_v1(&ReaderForegroundHandoffV1 {
+        session_id,
+        expected_visible_artifact_id: None,
+        candidate_artifact_id: 1,
+    })
+    .expect("foreground handoff encodes");
+    assert_eq!(foreground.len(), 48);
+    assert_eq!(
+        call_adopt_foreground(session_id, &foreground[..foreground.len() - 1]).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    let mut trailing_foreground = foreground.clone();
+    trailing_foreground.push(0);
+    assert_eq!(
+        call_adopt_foreground(session_id, &trailing_foreground).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    assert_eq!(
+        call_adopt_foreground(session_id + 1, &foreground).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    let mut zero_candidate = foreground;
+    zero_candidate[40..48].fill(0);
+    assert_eq!(
+        call_adopt_foreground(session_id, &zero_candidate).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+
+    let request = encode_reader_background_request_v1(&ReaderBackgroundRequestV1 {
+        session_id,
+        expected_visible_artifact_id: 1,
+        max_top_level_nodes_per_quantum: 1,
+    })
+    .expect("background request encodes");
+    assert_eq!(
+        call_advance_background(session_id, &request[..request.len() - 1]).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    assert_eq!(
+        call_advance_background(session_id + 1, &request).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+
+    let handoff = encode_reader_background_handoff_v1(&ReaderBackgroundHandoffV1 {
+        session_id,
+        expected_visible_artifact_id: 1,
+        candidate_artifact_id: 2,
+    })
+    .expect("handoff encodes");
+    assert_eq!(
+        call_adopt_background(session_id, &handoff[..handoff.len() - 1]).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    assert_eq!(
+        call_adopt_background(session_id + 1, &handoff).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+}
+
+#[test]
+fn ffi_statuses_distinguish_terminal_and_unsupported_profile() {
+    let unsupported_session_id = next_session_id();
+    let mut unsupported = request(unsupported_session_id);
+    unsupported.text_profile = ReaderTextRenderingProfileV1::PositionedGlyphRuns;
+    let unsupported_wire =
+        encode_reader_artifact_request_v1(&unsupported).expect("unsupported request encodes");
+    assert_eq!(
+        call_open(&publication(), &unsupported_wire).status,
+        RITO_STATUS_UNSUPPORTED_PROFILE_V1
+    );
+    assert_eq!(
+        call_read_publication(unsupported_session_id).status,
+        RITO_STATUS_NOT_FOUND_V1,
+        "a non-pending open failure must not register an actor"
+    );
+    let valid_wire = encode_reader_artifact_request_v1(&request(unsupported_session_id))
+        .expect("valid replacement open encodes");
+    let valid = call_open(&publication(), &valid_wire);
+    assert_eq!(valid.status, RITO_STATUS_OK_V1, "{}", valid.error);
+    assert_eq!(call_dispose(unsupported_session_id), RITO_STATUS_OK_V1);
+
+    let terminal_session_id = next_session_id();
+    let mut terminal = request(terminal_session_id);
+    terminal.locator.href = "OEBPS/Text/backcover.xhtml".to_owned();
+    let terminal_wire =
+        encode_reader_artifact_request_v1(&terminal).expect("terminal request encodes");
+    let opened = call_open(&publication(), &terminal_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let artifact = decode_reader_artifact_v1(&opened.artifact).expect("terminal artifact decodes");
+    let beyond = call_request_adjacent(
+        terminal_session_id,
+        &adjacent_wire(terminal_session_id, 2, artifact.artifact_id),
+    );
+    assert_eq!(
+        beyond.status, RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
+        "{}",
+        beyond.error
+    );
+    assert_eq!(
+        call_release(terminal_session_id, artifact.artifact_id),
+        RITO_STATUS_OK_V1
+    );
+    assert_eq!(call_dispose(terminal_session_id), RITO_STATUS_OK_V1);
+}
+
+#[test]
+fn ffi_rejects_external_ids_above_i64_max_without_signed_conversion() {
+    let invalid_id = (i64::MAX as u64) + 1;
+    let session_id = next_session_id();
+    let mut wire =
+        encode_reader_artifact_request_v1(&request(session_id)).expect("request encodes");
+    let session_offset =
+        usize::try_from(READER_WIRE_HEADER_BYTES_V1).expect("wire header size fits usize");
+    wire[session_offset..session_offset + 8].copy_from_slice(&invalid_id.to_le_bytes());
+
+    let rejected = call_open(&publication(), &wire);
+    assert_eq!(rejected.status, RITO_STATUS_INVALID_ARGUMENT_V1);
+    assert!(!rejected.error.contains("-9223372036854775808"));
+
+    let valid_wire =
+        encode_reader_artifact_request_v1(&request(session_id)).expect("request encodes");
+    let opened = call_open(&publication(), &valid_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let artifact = decode_reader_artifact_v1(&opened.artifact).expect("artifact decodes");
+    let mut adjacent = adjacent_wire(session_id, 2, artifact.artifact_id);
+    let from_artifact_offset = session_offset + 16;
+    adjacent[from_artifact_offset..from_artifact_offset + 8]
+        .copy_from_slice(&invalid_id.to_le_bytes());
+    let rejected_adjacent = call_request_adjacent(session_id, &adjacent);
+    assert_eq!(rejected_adjacent.status, RITO_STATUS_INVALID_ARGUMENT_V1);
+    assert!(!rejected_adjacent.error.contains("-9223372036854775808"));
+    assert_eq!(
+        call_release(session_id, invalid_id),
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    assert_eq!(
+        call_read_publication(invalid_id).status,
+        RITO_STATUS_INVALID_ARGUMENT_V1
+    );
+    assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
+    assert_eq!(call_dispose(invalid_id), RITO_STATUS_INVALID_ARGUMENT_V1);
+}
+
+struct ResourceResult {
+    status: u32,
+    resource: Vec<u8>,
+    error: String,
+}
+
+struct OpenResult {
+    status: u32,
+    artifact: Vec<u8>,
+    error: String,
+}
+
+struct OwnedWireResult {
+    status: u32,
+    wire: Vec<u8>,
+    error: String,
+}
+
+fn call_open(publication: &[u8], request: &[u8]) -> OpenResult {
+    let mut artifact = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_open_v1(
+        publication.as_ptr(),
+        u64::try_from(publication.len()).expect("publication length is representable"),
+        request.as_ptr(),
+        u64::try_from(request.len()).expect("request length is representable"),
+        &mut artifact,
+        &mut error,
+    );
+    let result = OpenResult {
+        status,
+        artifact: copy_owned_buffer_for_test(&artifact),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free_v1(&mut artifact);
+    rito_buffer_free_v1(&mut artifact);
+    rito_buffer_free_v1(&mut error);
+    result
+}
+
+fn call_request_artifact(session_id: u64, request: &[u8]) -> OpenResult {
+    let mut artifact = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_request_artifact_v1(
+        session_id,
+        request.as_ptr(),
+        u64::try_from(request.len()).expect("request length is representable"),
+        &mut artifact,
+        &mut error,
+    );
+    let result = OpenResult {
+        status,
+        artifact: copy_owned_buffer_for_test(&artifact),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free_v1(&mut artifact);
+    rito_buffer_free_v1(&mut artifact);
+    rito_buffer_free_v1(&mut error);
+    result
+}
+
+fn call_request_adjacent(session_id: u64, request: &[u8]) -> OpenResult {
+    let mut artifact = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_request_adjacent_v1(
+        session_id,
+        request.as_ptr(),
+        u64::try_from(request.len()).expect("request length is representable"),
+        &mut artifact,
+        &mut error,
+    );
+    let result = OpenResult {
+        status,
+        artifact: copy_owned_buffer_for_test(&artifact),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free_v1(&mut artifact);
+    rito_buffer_free_v1(&mut artifact);
+    rito_buffer_free_v1(&mut error);
+    result
+}
+
+fn call_read_publication(session_id: u64) -> OwnedWireResult {
+    let mut publication = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_read_publication_v1(session_id, &mut publication, &mut error);
+    let result = OwnedWireResult {
+        status,
+        wire: copy_owned_buffer_for_test(&publication),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free_v1(&mut publication);
+    rito_buffer_free_v1(&mut publication);
+    rito_buffer_free_v1(&mut error);
+    result
+}
+
+fn call_advance_background(session_id: u64, request: &[u8]) -> OwnedWireResult {
+    let mut advance = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_advance_background_v1(
+        session_id,
+        request.as_ptr(),
+        u64::try_from(request.len()).expect("request length is representable"),
+        &mut advance,
+        &mut error,
+    );
+    let result = OwnedWireResult {
+        status,
+        wire: copy_owned_buffer_for_test(&advance),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free_v1(&mut advance);
+    rito_buffer_free_v1(&mut advance);
+    rito_buffer_free_v1(&mut error);
+    result
+}
+
+fn call_adopt_foreground(session_id: u64, request: &[u8]) -> OwnedWireResult {
+    let mut ack = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_adopt_foreground_candidate_v1(
+        session_id,
+        request.as_ptr(),
+        u64::try_from(request.len()).expect("request length is representable"),
+        &mut ack,
+        &mut error,
+    );
+    let result = OwnedWireResult {
+        status,
+        wire: copy_owned_buffer_for_test(&ack),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free_v1(&mut ack);
+    rito_buffer_free_v1(&mut ack);
+    rito_buffer_free_v1(&mut error);
+    result
+}
+
+fn call_adopt_background(session_id: u64, request: &[u8]) -> OwnedWireResult {
+    let mut ack = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_adopt_background_candidate_v1(
+        session_id,
+        request.as_ptr(),
+        u64::try_from(request.len()).expect("request length is representable"),
+        &mut ack,
+        &mut error,
+    );
+    let result = OwnedWireResult {
+        status,
+        wire: copy_owned_buffer_for_test(&ack),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free_v1(&mut ack);
+    rito_buffer_free_v1(&mut ack);
+    rito_buffer_free_v1(&mut error);
+    result
+}
+
+fn call_read_resource(session_id: u64, artifact_id: u64, kind: u32, href: &[u8]) -> ResourceResult {
+    let mut resource = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_read_resource_v1(
+        session_id,
+        artifact_id,
+        kind,
+        href.as_ptr(),
+        u64::try_from(href.len()).expect("href length is representable"),
+        &mut resource,
+        &mut error,
+    );
+    let result = ResourceResult {
+        status,
+        resource: copy_owned_buffer_for_test(&resource),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free_v1(&mut resource);
+    rito_buffer_free_v1(&mut resource);
+    rito_buffer_free_v1(&mut error);
+    result
+}
+
+fn call_release(session_id: u64, artifact_id: u64) -> u32 {
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_release_artifact_v1(session_id, artifact_id, &mut error);
+    rito_buffer_free_v1(&mut error);
+    status
+}
+
+fn call_dispose(session_id: u64) -> u32 {
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_dispose_v1(session_id, &mut error);
+    rito_buffer_free_v1(&mut error);
+    status
+}
+
+fn next_session_id() -> u64 {
+    NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed)
+}
+
+fn publication() -> Vec<u8> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../packages/rito/tests/fixtures/books/book-10.epub");
+    fs::read(path).expect("book-10 fixture is readable")
+}
+
+fn request(session_id: u64) -> ReaderArtifactRequestV1 {
+    ReaderArtifactRequestV1 {
+        session_id,
+        request_id: 1,
+        layout: ReaderLayoutV1 {
+            viewport_width: 420.0,
+            viewport_height: 640.0,
+            margin_top: 24.0,
+            margin_right: 24.0,
+            margin_bottom: 24.0,
+            margin_left: 24.0,
+            spread_mode: ReaderSpreadModeV1::Single,
+            first_page_alone: true,
+            spread_gap: 0.0,
+            root_font_size: 16.0,
+            line_height_override: None,
+            font_family_override: None,
+        },
+        locator: ReaderLocatorV1 {
+            href: "OEBPS/Text/Section001.xhtml".to_owned(),
+            anchor_id: None,
+            source_point: None,
+            source_range: None,
+            progression: None,
+        },
+        work: ReaderWorkBudgetV1 {
+            max_top_level_nodes_per_quantum: 32,
+            max_foreground_quanta: 64,
+            local_page_cap: 16,
+        },
+        text_profile: ReaderTextRenderingProfileV1::PlatformStringRuns,
+    }
+}
+
+fn pending_open_request(session_id: u64, request_id: u64) -> ReaderArtifactRequestV1 {
+    let mut request = request(session_id);
+    request.request_id = request_id;
+    request.locator.href = "OEBPS/Text/Section013.xhtml".to_owned();
+    request.locator.progression = Some(0.95);
+    request.work = ReaderWorkBudgetV1 {
+        max_top_level_nodes_per_quantum: 1,
+        max_foreground_quanta: 1,
+        local_page_cap: 4,
+    };
+    request
+}
+
+fn adjacent_wire(session_id: u64, request_id: u64, from_artifact_id: u64) -> Vec<u8> {
+    encode_reader_adjacent_request_v1(&ReaderAdjacentRequestV1 {
+        session_id,
+        request_id,
+        from_artifact_id,
+        direction: ReaderAdjacentDirectionV1::Next,
+        work: ReaderWorkBudgetV1 {
+            max_top_level_nodes_per_quantum: 32,
+            max_foreground_quanta: 64,
+            local_page_cap: 16,
+        },
+    })
+    .expect("adjacent request encodes")
+}

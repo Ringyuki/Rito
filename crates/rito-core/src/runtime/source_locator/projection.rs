@@ -1,6 +1,6 @@
-use crate::layout::{collect_source_run_starts, LayoutSourceRunStart};
-
-use super::{RuntimeSourceChapterIndex, RuntimeSourcePoint};
+use super::{
+    super::page_artifact::PageArtifactSourceRunStart, RuntimeSourceChapterIndex, RuntimeSourcePoint,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum SourceProjection {
@@ -10,25 +10,23 @@ pub(super) enum SourceProjection {
 }
 
 pub(super) fn project_source_offset(
-    pages: &[crate::layout::LayoutRuntimePage],
+    starts: &[PageArtifactSourceRunStart],
     source_index: &RuntimeSourceChapterIndex,
     target_offset: usize,
 ) -> SourceProjection {
-    let starts = collect_source_run_starts(pages);
-    project_source_offset_from_starts(&starts, source_index, target_offset)
+    project_source_offset_from_starts(starts, source_index, target_offset)
 }
 
 pub(super) fn project_source_point(
-    pages: &[crate::layout::LayoutRuntimePage],
+    starts: &[PageArtifactSourceRunStart],
     source_index: &RuntimeSourceChapterIndex,
     point: &RuntimeSourcePoint,
 ) -> SourceProjection {
-    let starts = collect_source_run_starts(pages);
-    project_source_point_from_starts(&starts, source_index, point)
+    project_source_point_from_starts(starts, source_index, point)
 }
 
 fn project_source_offset_from_starts(
-    starts: &[LayoutSourceRunStart],
+    starts: &[PageArtifactSourceRunStart],
     source_index: &RuntimeSourceChapterIndex,
     target_offset: usize,
 ) -> SourceProjection {
@@ -60,7 +58,7 @@ fn project_source_offset_from_starts(
 }
 
 fn project_source_point_from_starts(
-    starts: &[LayoutSourceRunStart],
+    starts: &[PageArtifactSourceRunStart],
     source_index: &RuntimeSourceChapterIndex,
     point: &RuntimeSourcePoint,
 ) -> SourceProjection {
@@ -123,7 +121,7 @@ fn update_nearest_pages(
 
 fn source_run_start_offset(
     index: &RuntimeSourceChapterIndex,
-    start: &LayoutSourceRunStart,
+    start: &PageArtifactSourceRunStart,
 ) -> Option<usize> {
     let span = index.span(&start.node_path)?;
     (start.text_offset >= span.source_start && start.text_offset <= span.source_end)
@@ -132,7 +130,7 @@ fn source_run_start_offset(
 
 fn source_run_end_offset(
     index: &RuntimeSourceChapterIndex,
-    start: &LayoutSourceRunStart,
+    start: &PageArtifactSourceRunStart,
 ) -> Option<usize> {
     let span = index.span(&start.node_path)?;
     let source_end = start
@@ -151,15 +149,15 @@ mod tests {
     use super::{
         project_source_offset_from_starts, project_source_point_from_starts, SourceProjection,
     };
-    use crate::{
-        layout::LayoutSourceRunStart,
-        runtime::{RuntimeChapterTextIndex, RuntimeChapterTextSpan, RuntimeSourcePoint},
+    use crate::runtime::{
+        page_artifact::PageArtifactSourceRunStart, RuntimeChapterTextIndex, RuntimeChapterTextSpan,
+        RuntimeSourcePoint,
     };
 
     #[test]
     fn targets_beyond_the_sealed_source_extent_remain_pending() {
         let index = source_index();
-        let starts = vec![LayoutSourceRunStart {
+        let starts = vec![PageArtifactSourceRunStart {
             page_index: 0,
             node_path: vec![0],
             text_offset: 0,
@@ -198,19 +196,19 @@ mod tests {
     fn source_point_projection_does_not_depend_on_run_traversal_order() {
         let index = source_index();
         let starts = vec![
-            LayoutSourceRunStart {
+            PageArtifactSourceRunStart {
                 page_index: 2,
                 node_path: vec![0],
                 text_offset: 4,
                 text_length: 1,
             },
-            LayoutSourceRunStart {
+            PageArtifactSourceRunStart {
                 page_index: 0,
                 node_path: vec![0],
                 text_offset: 0,
                 text_length: 2,
             },
-            LayoutSourceRunStart {
+            PageArtifactSourceRunStart {
                 page_index: 1,
                 node_path: vec![0],
                 text_offset: 2,

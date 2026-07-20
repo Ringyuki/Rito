@@ -38,6 +38,7 @@ pub(crate) struct RuntimeChapterLayoutAdvance {
 }
 
 impl RuntimeChapterLayoutSession {
+    #[cfg(test)]
     pub(crate) fn new(
         styled_nodes: Vec<StyledNode>,
         image_sizes: ImageSizeIndex,
@@ -45,18 +46,63 @@ impl RuntimeChapterLayoutSession {
         line_breaking: LineBreaking,
         page_paint: Option<Value>,
     ) -> Self {
-        Self {
-            layout: ContinuousLayoutSession::new(
+        Self::from_layout(
+            ContinuousLayoutSession::new(
                 styled_nodes,
                 layout_config.content_width(),
                 layout_config.content_height(),
                 image_sizes,
                 line_breaking,
             ),
+            layout_config,
+            page_paint,
+        )
+    }
+
+    pub(crate) fn new_with_lazy_image_frontier(
+        styled_nodes: Vec<StyledNode>,
+        layout_config: &LayoutConfig,
+        line_breaking: LineBreaking,
+        page_paint: Option<Value>,
+    ) -> Self {
+        Self::from_layout(
+            ContinuousLayoutSession::new_with_lazy_image_frontier(
+                styled_nodes,
+                layout_config.content_width(),
+                layout_config.content_height(),
+                ImageSizeIndex::new(&[]),
+                line_breaking,
+            ),
+            layout_config,
+            page_paint,
+        )
+    }
+
+    fn from_layout(
+        layout: ContinuousLayoutSession,
+        layout_config: &LayoutConfig,
+        page_paint: Option<Value>,
+    ) -> Self {
+        Self {
+            layout,
             pagination: ContinuousPaginationSession::new(layout_config, page_paint),
             total_block_count: 0,
             finished: false,
         }
+    }
+
+    pub(crate) fn reserve_next_image_frontier(
+        &mut self,
+        work: &LayoutWorkMeter,
+    ) -> Option<Vec<String>> {
+        self.layout.reserve_next_image_frontier(work)
+    }
+
+    pub(crate) fn extend_image_sizes(
+        &mut self,
+        dimensions: impl IntoIterator<Item = (String, u32, u32)>,
+    ) {
+        self.layout.extend_image_sizes(dimensions);
     }
 
     #[cfg(test)]
@@ -100,6 +146,11 @@ impl RuntimeChapterLayoutSession {
             total_block_count: self.total_block_count,
             newly_sealed_pages,
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn open_page_block_count(&self) -> usize {
+        self.pagination.open_page_block_count()
     }
 }
 

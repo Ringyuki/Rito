@@ -15,7 +15,7 @@ use crate::{
         pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget},
         runtime_session::RuntimeChapterLayoutSession,
         LayoutConfig, LayoutConfigInput, LayoutRuntimePage, LineBox, LineBreaking, LineRun,
-        MarginInput, RunShape, RunShapeUnavailableReason, RunTextMapping, RuntimeBlock,
+        MarginInput, RunPaint, RunShape, RunShapeUnavailableReason, RunTextMapping, RuntimeBlock,
         RuntimeChild, SpreadMode, TextMeasurementFonts, TextRunBox,
     },
     style::{StyledNode, StyledNodeKind},
@@ -213,6 +213,8 @@ fn current(
         completed_chapter_idrefs: BTreeSet::new(),
         unpublished_pages,
         has_published_pages,
+        chapter_complete: false,
+        total_block_count: 0,
     }
 }
 
@@ -300,7 +302,7 @@ fn line(source: Arc<str>) -> LineBox {
             height: 12.0,
             font_size: 12.0,
             interaction_geometry: None,
-            paint: json!({ "color": "#000" }),
+            paint: RunPaint::from_test_wire_value(json!({ "color": "#000" })),
             line_height_px: None,
             href: None,
             source_path: None,

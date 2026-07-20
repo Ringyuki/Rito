@@ -45,6 +45,8 @@ import {
   createEmptyBrowserReaderReflowState,
   createEmptyBrowserReaderRevisionState,
 } from './pipeline/initial-state';
+import { createBrowserReaderChapterLocalPreviewState } from '../chapter-local-preview/state';
+import { installBrowserReaderChapterLocalPresentation } from '../chapter-local-preview/presentation';
 
 export async function createReader(
   data: ArrayBuffer,
@@ -75,6 +77,7 @@ export async function createReader(
     await startInitialReflow(state, options);
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
     defineBrowserReaderAccessors(reader, state);
+    installBrowserReaderChapterLocalPresentation(reader, state);
     return reader as Reader;
   } catch (error) {
     if (state) {
@@ -148,6 +151,7 @@ function createInitialState(
     fgColor: options.foregroundColor ?? undefined,
     dpr: options.devicePixelRatio ?? fallbackDevicePixelRatio(),
     ...createEmptyBrowserReaderRevisionState(),
+    chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(options.initialLocator),
     frames: new Map(),
     ...createBrowserReaderResourceState(),
     footnotes: new Map(),

@@ -1,7 +1,10 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    resources::{detect_image_dimensions, hash_bytes, resolve_resource_href_index},
+    resources::{
+        detect_image_dimensions, detect_image_dimensions_from_reader, hash_bytes,
+        resolve_resource_href_index,
+    },
     xhtml::{parse_xhtml, DocumentNode},
 };
 
@@ -12,6 +15,7 @@ mod chapter_scan;
 mod open;
 
 use archive_source::{ArchiveResourceKind, LoadedArchiveSource};
+pub(crate) use chapter_scan::ChapterSourceScanSession;
 
 pub use open::{open_document, open_runtime_document, open_runtime_document_owned};
 
@@ -77,7 +81,14 @@ impl LoadedEpubDocument {
             return Ok(());
         }
         let Some(source) = self.archive_source.as_ref() else {
-            return Ok(());
+            let missing_href = self.chapters[start..end]
+                .iter()
+                .find(|chapter| !chapter.source_loaded)
+                .map(|chapter| chapter.href.clone())
+                .unwrap_or_default();
+            return Err(EpubError::new(format!(
+                "resource bytes are not loaded: {missing_href}"
+            )));
         };
         let mut archive = archive::EpubArchive::new(&source.bytes)?;
         for chapter in &mut self.chapters[start..end] {
@@ -133,7 +144,7 @@ impl LoadedEpubDocument {
         count: usize,
     ) -> EpubResult<()> {
         let refs = self.collect_chapter_image_refs(start, count);
-        self.ensure_image_dimensions_loaded_for_refs(&refs)?;
+        let _ = self.ensure_image_dimensions_loaded_for_refs(&refs)?;
         Ok(())
     }
 
@@ -216,13 +227,18 @@ impl LoadedEpubDocument {
         else {
             return Ok(());
         };
-        let bytes = self.read_archive_bytes(&resource_href, ArchiveResourceKind::Image)?;
-        let dimensions = detect_image_dimensions(&bytes);
+        let Some(source) = self.archive_source.as_ref() else {
+            return Ok(());
+        };
+        let mut archive = archive::EpubArchive::new(&source.bytes)?;
+        let dimensions = source.inspect_with_archive(
+            &mut archive,
+            &resource_href,
+            ArchiveResourceKind::Image,
+            stream_image_dimensions,
+        )?;
         if let Some(resource) = self.images.get_mut(index) {
             set_image_dimensions(resource, dimensions);
-            resource.byte_length = bytes.len();
-            resource.byte_hash = Some(hash_bytes(&bytes));
-            resource.bytes = bytes;
         }
         Ok(())
     }
@@ -241,7 +257,10 @@ impl LoadedEpubDocument {
         refs.into_iter().collect()
     }
 
-    fn ensure_image_dimensions_loaded_for_refs(&mut self, refs: &[String]) -> EpubResult<()> {
+    pub(crate) fn ensure_image_dimensions_loaded_for_refs(
+        &mut self,
+        refs: &[String],
+    ) -> EpubResult<Vec<(String, u32, u32)>> {
         let needs_archive = refs.iter().any(|href| {
             find_resource_index(&self.images, href).is_some_and(|index| {
                 !self.images[index].dimensions_loaded && self.images[index].bytes.is_empty()
@@ -251,13 +270,13 @@ impl LoadedEpubDocument {
             for href in refs {
                 self.ensure_image_dimensions_loaded(href)?;
             }
-            return Ok(());
+            return loaded_image_dimensions_for_refs(&self.images, refs);
         }
         let Some(source) = self.archive_source.as_ref() else {
             for href in refs {
                 self.ensure_image_dimensions_loaded(href)?;
             }
-            return Ok(());
+            return loaded_image_dimensions_for_refs(&self.images, refs);
         };
         let mut archive = archive::EpubArchive::new(&source.bytes)?;
         for href in refs {
@@ -268,7 +287,7 @@ impl LoadedEpubDocument {
                 href,
             )?;
         }
-        Ok(())
+        loaded_image_dimensions_for_refs(&self.images, refs)
     }
 
     fn read_archive_bytes(
@@ -350,20 +369,49 @@ fn ensure_image_dimensions_loaded_with_archive(
         set_image_dimensions(&mut images[index], dimensions);
         return Ok(());
     }
-    let bytes =
-        source.read_bytes_with_archive(archive, &images[index].href, ArchiveResourceKind::Image)?;
-    let dimensions = detect_image_dimensions(&bytes);
+    let dimensions = source.inspect_with_archive(
+        archive,
+        &images[index].href,
+        ArchiveResourceKind::Image,
+        stream_image_dimensions,
+    )?;
     set_image_dimensions(&mut images[index], dimensions);
-    images[index].byte_length = bytes.len();
-    images[index].byte_hash = Some(hash_bytes(&bytes));
-    images[index].bytes = bytes;
     Ok(())
+}
+
+fn stream_image_dimensions(reader: &mut dyn std::io::Read) -> EpubResult<Option<(u32, u32)>> {
+    detect_image_dimensions_from_reader(reader).map_err(|error| {
+        EpubError::new(format!("Failed to inspect EPUB image dimensions: {error}"))
+    })
 }
 
 fn set_image_dimensions(resource: &mut LoadedBinaryResource, dimensions: Option<(u32, u32)>) {
     resource.width = dimensions.map(|(width, _)| width);
     resource.height = dimensions.map(|(_, height)| height);
     resource.dimensions_loaded = true;
+}
+
+fn loaded_image_dimensions_for_refs(
+    images: &[LoadedBinaryResource],
+    refs: &[String],
+) -> EpubResult<Vec<(String, u32, u32)>> {
+    let mut dimensions = Vec::new();
+    for href in refs {
+        let Some(index) = find_resource_index(images, href) else {
+            continue;
+        };
+        let resource = &images[index];
+        if !resource.dimensions_loaded {
+            return Err(EpubError::new(format!(
+                "image dimensions are unavailable: {}",
+                resource.href
+            )));
+        }
+        if let (Some(width), Some(height)) = (resource.width, resource.height) {
+            dimensions.push((resource.href.clone(), width, height));
+        }
+    }
+    Ok(dimensions)
 }
 
 fn collect_image_refs(node: &DocumentNode, refs: &mut BTreeSet<String>) {

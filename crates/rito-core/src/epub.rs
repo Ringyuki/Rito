@@ -22,6 +22,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
+pub(crate) use document::ChapterSourceScanSession;
 pub use document::{
     open_document, open_runtime_document, open_runtime_document_owned, LoadedBinaryResource,
     LoadedChapter, LoadedEpubDocument, LoadedTextResource,
@@ -37,6 +38,11 @@ pub(crate) use fonts::{
     text_measurement_fonts_for_layout_with_sources, ResolvedFontFaceSource,
     ShapeablePublicationFontFace,
 };
+#[cfg(feature = "legacy-css-diagnostics")]
+pub use layout_bridge::{
+    analyze_loaded_document_with_layout_and_line_breaking,
+    analyze_publication_with_layout_and_line_breaking,
+};
 pub(crate) use layout_bridge::{
     build_prepared_loaded_document_runtime_layout, prepare_runtime_layout_chapter,
     PreparedRuntimeLayoutChapter, PreparedRuntimeLayoutOptions,
@@ -48,8 +54,9 @@ pub use layout_bridge::{
 pub(crate) use paths::{is_external_href, join_epub_href, join_zip_path, opf_dir};
 pub(crate) use prepared::{
     loaded_document_resources, parsed_loaded_chapter_source, prepare_loaded_document,
-    prepare_loaded_document_base, prepare_loaded_document_with_base_and_footnote_targets,
-    ParsedLoadedChapterSource, PreparedLoadedDocument, PreparedLoadedDocumentBase,
+    prepare_loaded_document_base, prepare_loaded_document_with_base,
+    prepare_loaded_document_with_base_and_footnote_targets, ParsedLoadedChapterSource,
+    PreparedLoadedDocument, PreparedLoadedDocumentBase, StylesheetSourceLedger,
 };
 
 pub const CONTAINER_PATH: &str = "META-INF/container.xml";
@@ -144,8 +151,14 @@ pub struct EpubPublication {
     pub resources: PublicationResources,
     pub chapters: Vec<ChapterSource>,
     pub xhtml: XhtmlSummary,
-    pub css: CssSummary,
-    pub style: StyleSummary,
+    /// Compatibility parser diagnostics, populated only by an explicit
+    /// `analyze_*` entry point. Normal production loading leaves this `None`.
+    #[serde(default)]
+    pub css: Option<CssSummary>,
+    /// Compatibility cascade diagnostics, populated only by an explicit
+    /// `analyze_*` entry point. Normal production loading leaves this `None`.
+    #[serde(default)]
+    pub style: Option<StyleSummary>,
     pub layout: LayoutSummary,
     pub interaction: InteractionSummary,
 }

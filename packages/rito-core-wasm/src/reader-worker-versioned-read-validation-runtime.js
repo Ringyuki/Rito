@@ -11,6 +11,17 @@ export function requireReaderRevisionBundle(value, revision, operation) {
 export function requireFootnotes(value, revision, operation) {
   const footnotes = requireRecord(value, `${operation} result`);
   requireRevisionId(footnotes, revision, operation);
+  if (typeof footnotes.complete !== 'boolean') {
+    throw new Error(`${operation} returned an invalid footnote completion state`);
+  }
+  if (!Array.isArray(footnotes.pendingKeys)) {
+    throw new Error(`${operation} returned invalid pending footnote keys`);
+  }
+  for (const key of footnotes.pendingKeys) {
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new Error(`${operation} returned an invalid pending footnote key`);
+    }
+  }
   const entries = requireRecord(footnotes.entries, `${operation} entries`);
   for (const [key, entry] of Object.entries(entries)) {
     if (key.length === 0) throw new Error(`${operation} returned an empty footnote key`);

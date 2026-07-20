@@ -17,7 +17,9 @@ mod tests;
 
 use content::footnote_content;
 use href::{decode_fragment, HrefResolver};
+#[cfg(test)]
 pub(crate) use index::FootnoteIndexBuilder;
+pub(crate) use index::{FootnoteDefinitionBuilder, FootnoteIndexPlanBuilder};
 use node::{children, element_attributes, footnote_kind, is_noteref};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,12 +44,26 @@ pub struct FootnoteEntry {
 pub(crate) struct FootnoteTargetSet(Arc<BTreeSet<String>>);
 
 impl FootnoteTargetSet {
-    fn new(targets: BTreeSet<String>) -> Self {
+    pub(crate) fn new(targets: BTreeSet<String>) -> Self {
         Self(Arc::new(targets))
     }
 
-    fn contains(&self, target: &str) -> bool {
+    pub(crate) fn contains(&self, target: &str) -> bool {
         self.0.contains(target)
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &String> {
+        self.0.iter()
+    }
+
+    pub(crate) fn union(&self, other: &Self) -> Self {
+        if self.0.is_empty() {
+            return other.clone();
+        }
+        if other.0.is_empty() {
+            return self.clone();
+        }
+        Self::new(self.0.union(&other.0).cloned().collect())
     }
 }
 

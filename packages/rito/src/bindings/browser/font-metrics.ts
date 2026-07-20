@@ -1,8 +1,10 @@
 import type { CanvasRenderingTarget } from './rendering';
 import {
+  captureHostFontVerticalMetricSamples as captureVerticalMetricSamples,
   createHostFontVerticalMetricStore,
   ensureHostFontVerticalMetrics as ensureVerticalMetrics,
   hostFontVerticalMetricConfig,
+  hostFontVerticalMetricSamplesForDemands as verticalMetricSamplesForDemands,
   type HostFontVerticalMetricDemand,
   type HostFontVerticalMetricSample,
   type HostFontVerticalMetricStore,
@@ -114,6 +116,21 @@ export function ensureHostFontVerticalMetrics(
   demands: readonly HostFontVerticalMetricDemand[],
 ): boolean {
   return ensureVerticalMetrics(metrics.verticalMetrics, context, demands);
+}
+
+export function captureHostFontVerticalMetricSamples(
+  metrics: HostFontMetrics,
+  context: CanvasRenderingTarget,
+  demands: readonly HostFontVerticalMetricDemand[],
+): readonly HostFontVerticalMetricSample[] {
+  return captureVerticalMetricSamples(metrics.verticalMetrics, context, demands);
+}
+
+export function hostFontVerticalMetricSamplesForDemands(
+  metrics: HostFontMetrics,
+  demands: readonly HostFontVerticalMetricDemand[],
+): readonly HostFontVerticalMetricSample[] {
+  return verticalMetricSamplesForDemands(metrics.verticalMetrics, demands);
 }
 
 export function ensureHostGenericSerifMetrics(

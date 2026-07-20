@@ -8,6 +8,7 @@ use crate::layout::{
     line::{AtomRunBox, LineBox, LineRun, RubyRunBox, TextRunBox},
     text_mapping::RunTextMapping,
     text_shape::fixture_run_shape,
+    RunPaint,
 };
 
 const DEEP_BLOCK_COUNT: usize = 16_384;
@@ -79,7 +80,7 @@ fn line_runs_images_and_rules_each_release_at_an_explicit_boundary() {
                 y: 0.0,
                 width: 10.0,
                 height: 5.0,
-                paint: json!({ "color": "#000" }),
+                paint: RunPaint::from_test_wire_value(json!({ "color": "#000" })),
             }),
         ],
     };
@@ -207,7 +208,7 @@ fn text_run(source: Arc<str>) -> LineRun {
         height: 12.0,
         font_size: 12.0,
         interaction_geometry: None,
-        paint: json!({ "color": "#000" }),
+        paint: RunPaint::from_test_wire_value(json!({ "color": "#000" })),
         line_height_px: None,
         href: None,
         source_path: None,

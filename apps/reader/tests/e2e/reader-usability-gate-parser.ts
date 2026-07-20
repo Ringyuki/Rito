@@ -48,7 +48,7 @@ export async function loadReaderUsabilityGate(path: string): Promise<ReaderUsabi
     'manifest',
   );
   if (root.schemaVersion !== READER_USABILITY_GATE_SCHEMA_VERSION) {
-    throw invalid('manifest.schemaVersion', 'must equal 3');
+    throw invalid('manifest.schemaVersion', 'must equal 4');
   }
   return {
     schemaVersion: READER_USABILITY_GATE_SCHEMA_VERSION,
@@ -162,7 +162,11 @@ function parseViewport(value: unknown, path: string): ReaderProfileViewport {
 
 function parseThresholds(value: unknown, path: string): ReaderUsabilityThresholds {
   const record = exactRecord(value, READER_USABILITY_METRIC_KEYS, path);
-  return mapReaderUsabilityMetrics((key) => positiveFinite(record[key], `${path}.${key}`));
+  return mapReaderUsabilityMetrics((key) =>
+    key === 'farTocWorkerRequestsToFirstFrame'
+      ? boundedInteger(record[key], `${path}.${key}`, 1)
+      : positiveFinite(record[key], `${path}.${key}`),
+  );
 }
 
 function sha256(value: unknown, path: string): string {

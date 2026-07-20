@@ -2,6 +2,7 @@ import type { SlotPosition } from '../../painter/types';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
 import type { NavigationDeps } from './index';
 import { clearPendingNavigation, type NavigationState } from './state';
+import { supersedeChapterLocalTransition } from './chapter-local-preview';
 
 export type NavigationJumpOutcome = 'committed' | 'not-ready' | 'superseded';
 export type NavigationJumpReadiness = 'ready' | 'not-ready' | 'superseded';
@@ -22,7 +23,9 @@ export function claimNavigationAttempt(
   deps: NavigationDeps,
   preservePositionIntent = false,
 ): number {
+  const supersededChapterLocal = supersedeChapterLocalTransition(state, deps);
   const attemptId = ++state.navigationAttemptId;
+  state.zeroContinuityAttemptId = supersededChapterLocal ? attemptId : undefined;
   clearPendingNavigation(state);
   deps.onContentInteractionIntent?.();
   if (!preservePositionIntent) deps.onNavigationIntent?.();
@@ -38,6 +41,9 @@ export function performReadyJump(
 ): NavigationJumpOutcome {
   if (state.disposed) return 'superseded';
   const attemptId = claimNavigationAttempt(state, deps);
+  if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) {
+    return 'not-ready';
+  }
   if (attemptId !== state.navigationAttemptId) return 'superseded';
   const endTransfer = selectionGesture
     ? deps.beginSelectionProjectionTransfer?.(index, selectionGesture)

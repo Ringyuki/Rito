@@ -5,6 +5,7 @@ use crate::{
         runtime_session::RuntimeChapterLayoutSession, LayoutConfig, LayoutRuntimePage, LineBreaking,
     },
     runtime::frame::RuntimeRevisionInteractions,
+    runtime::RuntimeSourceLocator,
 };
 
 #[derive(Debug, Default)]
@@ -137,7 +138,6 @@ impl RuntimeContinuationStore {
         self.by_cursor.contains_key(cursor)
     }
 
-    #[cfg(test)]
     pub(in crate::runtime) fn cursor_for_revision(&self, revision_id: &str) -> Option<&str> {
         self.active_cursor_by_revision
             .get(revision_id)
@@ -158,6 +158,8 @@ pub(in crate::runtime) struct RuntimeContinuationRecord {
     pub(super) chapter_count: usize,
     pub(super) current: Option<RuntimeChapterContinuation>,
     pub(super) published_page_count: usize,
+    pub(super) local_page_cap: Option<usize>,
+    pub(super) chapter_local_target: Option<RuntimeSourceLocator>,
 }
 
 impl RuntimeContinuationRecord {
@@ -178,11 +180,58 @@ impl RuntimeContinuationRecord {
             chapter_count,
             current: None,
             published_page_count: 0,
+            local_page_cap: None,
+            chapter_local_target: None,
+        }
+    }
+
+    pub(in crate::runtime) fn new_chapter_local(
+        revision_id: String,
+        layout_key: String,
+        layout_config: LayoutConfig,
+        line_breaking: LineBreaking,
+        chapter_index: usize,
+        local_page_cap: usize,
+        target_locator: RuntimeSourceLocator,
+    ) -> Self {
+        Self {
+            revision_id,
+            revision_version: 0,
+            layout_key,
+            layout_config,
+            line_breaking,
+            next_chapter_index: chapter_index,
+            chapter_count: chapter_index
+                .checked_add(1)
+                .expect("chapter-local range must remain representable"),
+            current: None,
+            published_page_count: 0,
+            local_page_cap: Some(local_page_cap),
+            chapter_local_target: Some(target_locator),
         }
     }
 
     pub(super) fn is_complete(&self) -> bool {
         self.current.is_none() && self.next_chapter_index == self.chapter_count
+    }
+
+    pub(super) fn reached_local_page_cap(&self) -> bool {
+        self.local_page_cap
+            .is_some_and(|cap| self.published_page_count >= cap)
+    }
+
+    pub(super) fn remaining_page_capacity(&self) -> usize {
+        self.local_page_cap.map_or(usize::MAX, |cap| {
+            cap.saturating_sub(self.published_page_count)
+        })
+    }
+
+    pub(super) fn rollover_chapter_local_window(&mut self, revision_id: String) {
+        debug_assert!(self.local_page_cap.is_some());
+        debug_assert!(self.reached_local_page_cap());
+        self.revision_id = revision_id;
+        self.revision_version = 0;
+        self.published_page_count = 0;
     }
 }
 
@@ -193,6 +242,8 @@ pub(in crate::runtime) struct RuntimeChapterContinuation {
     pub(super) completed_chapter_idrefs: BTreeSet<String>,
     pub(super) unpublished_pages: Vec<LayoutRuntimePage>,
     pub(super) has_published_pages: bool,
+    pub(super) chapter_complete: bool,
+    pub(super) total_block_count: usize,
 }
 
 impl RuntimeChapterContinuation {
@@ -209,6 +260,8 @@ impl RuntimeChapterContinuation {
             completed_chapter_idrefs,
             unpublished_pages,
             has_published_pages,
+            chapter_complete: false,
+            total_block_count: 0,
         }
     }
 }

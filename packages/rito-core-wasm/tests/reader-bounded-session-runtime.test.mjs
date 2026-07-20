@@ -48,6 +48,45 @@ test('bounded snapshots include exact slim presentation metadata', async () => {
   await session.dispose();
 });
 
+test('vertical calibration advances the owner and refreshes its current target snapshot', async () => {
+  const accepted = [];
+  const requests = [];
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 1, true)),
+  });
+  const calibrate = client.calibrateRevisionFontVerticalMetrics;
+  client.calibrateRevisionFontVerticalMetrics = async (request) => {
+    requests.push(request);
+    return calibrate(request);
+  };
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    onAcceptedRevision: ({ revision }) => accepted.push(revision.revisionVersion),
+  });
+  const initial = await session.start(startRequest(0));
+
+  const calibrated = await session.calibrateFontVerticalMetrics([
+    {
+      fontFamily: 'Book',
+      fontStyle: 'normal',
+      fontWeight: 400,
+      fontSizePx: 16,
+      topBaselineAscentPx: 3,
+      topBaselineDescentPx: 14,
+    },
+  ]);
+
+  assert.equal(initial.revision.revisionVersion, 0);
+  assert.equal(calibrated.revision.revisionVersion, 1);
+  assert.deepEqual(calibrated.target, initial.target);
+  assert.equal(session.currentSnapshot(), calibrated);
+  assert.deepEqual(accepted, [0, 1]);
+  assert.deepEqual(requests[0].continuation, {
+    ...handle(0),
+    cursor: 'cursor-1',
+  });
+  await session.dispose();
+});
+
 test('bounded startup keeps its small budget until the first snapshot then uses its growth budget', async () => {
   const calls = [];
   const client = fixtureClient({
@@ -78,6 +117,163 @@ test('bounded startup keeps its small budget until the first snapshot then uses 
     ['continue', 32],
   ]);
   await session.dispose();
+});
+
+test('bounded session opts atomic worker growth into a validated continuation batch', async () => {
+  const requests = [];
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 1, true)),
+    presentation: async (value) => {
+      const revision = summary(value.revisionVersion, 'ready', value.revisionVersion + 1);
+      return {
+        revision: value,
+        value: revisionPresentation(
+          revision,
+          revisionNavigation(value.revisionId, revision.knownExtent),
+        ),
+      };
+    },
+  });
+  client.continueRevisionAfterTransferRelease = async (request) => {
+    requests.push(request);
+    const advancedQuanta = request.maxQuanta;
+    const revisionVersion = request.revisionVersion + advancedQuanta;
+    const value = advance(revisionVersion, revisionVersion + 1, true);
+    value.previousKnownExtent = { pageCount: 1, spreadCount: 1 };
+    value.newlyKnownPages = { startPage: 1, endPageExclusive: revisionVersion + 1 };
+    value.processedTopLevelNodes = advancedQuanta;
+    return {
+      revision: handle(revisionVersion),
+      value: {
+        advance: value,
+        releasedRevision: handle(request.revisionVersion),
+        releasedTransferCount: advancedQuanta,
+        advancedQuanta,
+      },
+    };
+  };
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    continuationBatchQuanta: 8,
+    yieldControl: async () => {},
+  });
+
+  const snapshot = await session.start(startRequest(8));
+
+  assert.equal(snapshot.revision.revisionVersion, 8);
+  assert.equal(snapshot.presentationSpreadIndex, 8);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].maxQuanta, 8);
+  assert.equal(requests[0].targetSpreadIndex, 8);
+  await session.dispose();
+});
+
+test('a dynamic continuation batch is sampled once for each atomic dispatch', async () => {
+  const requests = [];
+  const resolvedBatchQuanta = [2, 4];
+  let resolutionCount = 0;
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 1, true)),
+    presentation: async (value) => {
+      const revision = summary(value.revisionVersion, 'ready', value.revisionVersion + 1);
+      return {
+        revision: value,
+        value: revisionPresentation(
+          revision,
+          revisionNavigation(value.revisionId, revision.knownExtent),
+        ),
+      };
+    },
+  });
+  client.continueRevisionAfterTransferRelease = async (request) => {
+    requests.push(request);
+    const revisionVersion = request.revisionVersion + request.maxQuanta;
+    const value = advance(revisionVersion, revisionVersion + 1, true);
+    value.previousKnownExtent = {
+      pageCount: request.revisionVersion + 1,
+      spreadCount: request.revisionVersion + 1,
+    };
+    value.newlyKnownPages = {
+      startPage: request.revisionVersion + 1,
+      endPageExclusive: revisionVersion + 1,
+    };
+    value.processedTopLevelNodes = request.maxQuanta;
+    return {
+      revision: handle(revisionVersion),
+      value: {
+        advance: value,
+        releasedRevision: handle(request.revisionVersion),
+        releasedTransferCount: request.maxQuanta,
+        advancedQuanta: request.maxQuanta,
+      },
+    };
+  };
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    continuationBatchQuanta: () => resolvedBatchQuanta[resolutionCount++],
+    yieldControl: async () => {},
+  });
+
+  const snapshot = await session.start(startRequest(6));
+
+  assert.equal(snapshot.revision.revisionVersion, 6);
+  assert.equal(resolutionCount, 2);
+  assert.deepEqual(
+    requests.map(({ revisionVersion, maxQuanta }) => ({ revisionVersion, maxQuanta })),
+    [
+      { revisionVersion: 0, maxQuanta: 2 },
+      { revisionVersion: 2, maxQuanta: 4 },
+    ],
+  );
+  await session.dispose();
+});
+
+test('a dynamic continuation batch is not sampled when no continuation is dispatched', async () => {
+  let resolutionCount = 0;
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 1, true)),
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    continuationBatchQuanta: () => {
+      resolutionCount += 1;
+      return 17;
+    },
+  });
+
+  const snapshot = await session.start(startRequest(0));
+
+  assert.equal(snapshot.revision.revisionVersion, 0);
+  assert.equal(resolutionCount, 0);
+  await session.dispose();
+});
+
+test('a dynamic continuation batch fails closed before dispatch when it resolves out of bounds', async () => {
+  for (const invalidBatchQuanta of [0, 17, 1.5]) {
+    let dispatchCount = 0;
+    let resolutionCount = 0;
+    const released = [];
+    const client = fixtureClient({
+      create: async () => versioned(advance(0, 1, true)),
+      release: async (value) => released.push(value),
+    });
+    client.continueRevisionAfterTransferRelease = async () => {
+      dispatchCount += 1;
+    };
+    const session = createRitoCoreWasmBoundedReaderSession(client, {
+      continuationBatchQuanta: () => {
+        resolutionCount += 1;
+        return invalidBatchQuanta;
+      },
+      yieldControl: async () => {},
+    });
+
+    await assert.rejects(
+      session.start(startRequest(2)),
+      /maxQuanta must be an integer from 1 to 16/,
+    );
+
+    assert.equal(resolutionCount, 1);
+    assert.equal(dispatchCount, 0);
+    assert.deepEqual(released, [handle(1)]);
+  }
 });
 
 test('bounded startup validates its growth budget before opening a revision', () => {
@@ -231,8 +427,8 @@ test('bounded session coalesces concurrent targets around the latest request', a
   assert.deepEqual(
     calls.filter(([kind]) => kind === 'releaseTransfers' || kind === 'continue'),
     [
-      ['releaseTransfers', 0],
       ['continue', 0],
+      ['releaseTransfers', 0],
     ],
   );
 });
@@ -284,6 +480,7 @@ test('a pending far target yields to a latest near target without another layout
   const releaseAllowed = deferred();
   let continueCount = 0;
   const client = fixtureClient({
+    atomic: false,
     create: async () => versioned(advance(0, 3, true)),
     continue: async () => {
       continueCount += 1;
@@ -378,6 +575,66 @@ test('failed continuation metadata becomes the exact handle released by the sess
   assert.deepEqual(accepted, [0, 1]);
   assert.deepEqual(cancelled, []);
   assert.deepEqual(released, [handle(1)]);
+});
+
+test('a committed failure inside a continuation batch releases its exact final revision', async () => {
+  const failed = summary(8, 'failed', 1);
+  const accepted = [];
+  const released = [];
+  const failure = Object.assign(new Error('batched layout failed'), {
+    code: 'engine-error',
+    revision: failed,
+  });
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 1, true)),
+    continue: async () => {
+      throw failure;
+    },
+    release: async (value) => released.push(value),
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    continuationBatchQuanta: 8,
+    yieldControl: async () => {},
+    onAcceptedRevision: ({ revision }) => accepted.push(revision.revisionVersion),
+  });
+
+  await assert.rejects(session.start(startRequest(2)), /batched layout failed/);
+
+  assert.deepEqual(accepted, [0, 8]);
+  assert.deepEqual(released, [handle(8)]);
+});
+
+test('a dynamic continuation batch reuses its single sample as the failure stride', async () => {
+  const failed = summary(8, 'failed', 1);
+  const accepted = [];
+  const released = [];
+  let resolutionCount = 0;
+  const failure = Object.assign(new Error('dynamic batched layout failed'), {
+    code: 'engine-error',
+    revision: failed,
+  });
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 1, true)),
+    release: async (value) => released.push(value),
+  });
+  client.continueRevisionAfterTransferRelease = async (request) => {
+    assert.equal(request.maxQuanta, 8);
+    throw failure;
+  };
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    continuationBatchQuanta: () => {
+      resolutionCount += 1;
+      return resolutionCount === 1 ? 8 : 1;
+    },
+    yieldControl: async () => {},
+    onAcceptedRevision: ({ revision }) => accepted.push(revision.revisionVersion),
+  });
+
+  await assert.rejects(session.start(startRequest(2)), /dynamic batched layout failed/);
+
+  assert.equal(resolutionCount, 1);
+  assert.deepEqual(accepted, [0, 8]);
+  assert.deepEqual(released, [handle(8)]);
 });
 
 test('failed revision cleanup survives an accepted-revision observer failure', async () => {

@@ -5,10 +5,70 @@ const HTML_VOID_ELEMENTS: &[&str] = &[
     "track", "wbr",
 ];
 
-pub(super) fn normalize_xhtml_source(source: &str) -> Cow<'_, str> {
+pub(crate) fn normalize_xhtml_source(source: &str) -> Cow<'_, str> {
     let normalized = normalize_xml_declaration(source);
+    let normalized = strip_document_type(normalized);
     let normalized = normalize_legacy_void_elements(normalized);
     replace_nbsp(normalized)
+}
+
+/// Removes XML document-type declarations before the XML parser sees them.
+///
+/// Rito does not resolve publication DTDs. Keeping the declaration while
+/// enabling internal entities would permit text expansion far beyond the
+/// bounded source size and node count. References to DTD-defined entities are
+/// intentionally left in place so the strict parser rejects them.
+fn strip_document_type(source: Cow<'_, str>) -> Cow<'_, str> {
+    let mut ranges = Vec::new();
+    let mut cursor = 0;
+    while cursor < source.len() {
+        let Some(relative_start) = source[cursor..].find('<') else {
+            break;
+        };
+        let start = cursor + relative_start;
+        let tail = &source[start..];
+        if tail.starts_with("<!--") {
+            cursor = find_delimited_end(source.as_ref(), start + 4, "-->");
+            continue;
+        }
+        if tail.starts_with("<![CDATA[") {
+            cursor = find_delimited_end(source.as_ref(), start + 9, "]]>");
+            continue;
+        }
+        if tail.starts_with("<?") {
+            cursor = find_delimited_end(source.as_ref(), start + 2, "?>");
+            continue;
+        }
+        if is_document_type_start(tail) {
+            let end = find_declaration_end(source.as_ref(), start + 2);
+            ranges.push(start..end);
+            cursor = end;
+            continue;
+        }
+        cursor = start + 1;
+    }
+    if ranges.is_empty() {
+        return source;
+    }
+    let removed_bytes = ranges.iter().map(|range| range.len()).sum::<usize>();
+    let mut output = String::with_capacity(source.len().saturating_sub(removed_bytes));
+    let mut copied = 0;
+    for range in ranges {
+        output.push_str(&source[copied..range.start]);
+        copied = range.end;
+    }
+    output.push_str(&source[copied..]);
+    Cow::Owned(output)
+}
+
+fn is_document_type_start(tail: &str) -> bool {
+    let Some(remainder) = tail.strip_prefix("<!DOCTYPE") else {
+        return false;
+    };
+    remainder
+        .as_bytes()
+        .first()
+        .is_some_and(u8::is_ascii_whitespace)
 }
 
 #[derive(Debug)]
@@ -253,60 +313,5 @@ fn replace_nbsp(source: Cow<'_, str>) -> Cow<'_, str> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::normalize_xhtml_source;
-
-    #[test]
-    fn self_closes_unpaired_legacy_void_elements() {
-        let source =
-            r#"<head><meta charset="utf-8"></head><body><p>one<br>two</p><hr><img src="x"></body>"#;
-        assert_eq!(
-            normalize_xhtml_source(source),
-            r#"<head><meta charset="utf-8"/></head><body><p>one<br/>two</p><hr/><img src="x"/></body>"#
-        );
-    }
-
-    #[test]
-    fn self_closes_void_elements_before_parent_closing_tags() {
-        let source = "<p><span><br></span></p>";
-        assert_eq!(normalize_xhtml_source(source), "<p><span><br/></span></p>");
-    }
-
-    #[test]
-    fn preserves_xml_tag_name_case_like_the_reference_normalizer() {
-        let source = r#"<BR><SCRIPT>const sample = "<br>";</SCRIPT>"#;
-        assert_eq!(
-            normalize_xhtml_source(source),
-            r#"<BR><SCRIPT>const sample = "<br/>";</SCRIPT>"#
-        );
-    }
-
-    #[test]
-    fn preserves_self_closed_and_explicitly_closed_void_elements() {
-        let source = "<p>one<br/>two<br />three<br></br></p>";
-        assert_eq!(normalize_xhtml_source(source), source);
-    }
-
-    #[test]
-    fn ignores_markup_in_protected_and_raw_text_sections() {
-        let source = concat!(
-            "<!DOCTYPE html [<!ENTITY sample \"<br>\">]>",
-            "<?sample <br>?>",
-            "<!-- <br> -->",
-            "<![CDATA[<br>]]>",
-            "<script>const sample = '<br>';</script>",
-            "<style>x::after { content: '<br>'; }</style>",
-            "<p title=\"<br>\">actual<br>break</p>"
-        );
-        assert_eq!(
-            normalize_xhtml_source(source),
-            source.replace("actual<br>break", "actual<br/>break")
-        );
-    }
-
-    #[test]
-    fn preserves_malformed_non_void_markup_for_strict_parser_errors() {
-        let source = "<html><body><p><strong>text</p></body></html>";
-        assert_eq!(normalize_xhtml_source(source), source);
-    }
-}
+#[path = "normalizer_tests.rs"]
+mod tests;

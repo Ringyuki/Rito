@@ -1,4 +1,8 @@
 node_modules/
+.pnpm-store/
+.dart_tool/
+packages/rito_flutter/build/
+packages/rito_flutter/flutter_*.log
 dist/
 .output/
 target/

@@ -1,7 +1,7 @@
 use super::{
     content::{RuntimeBlock, RuntimeChild},
     line::{LineBox, LineRun, TextRunBox},
-    style_values::{number_style, run_paint_value, string_or_default},
+    style_values::{number_style, run_paint_from_style, string_or_default},
     text_mapping::RunTextMapping,
     text_shape::{RunShape, RunShapeUnavailableReason},
 };
@@ -64,7 +64,7 @@ pub(crate) fn add_continuous_list_marker(
             height: first_line.height,
             font_size,
             interaction_geometry: None,
-            paint: run_paint_value(&node.style, false, false),
+            paint: run_paint_from_style(&node.style, false, false),
             line_height_px: None,
             href: None,
             source_path: None,

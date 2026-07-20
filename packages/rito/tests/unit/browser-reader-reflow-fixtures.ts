@@ -46,6 +46,9 @@ interface TestWorkerFixture {
   readonly open: Mock<BrowserReaderWorkerClient['open']>;
   readonly createRevision: Mock<TestCreateRevision>;
   readonly createViewRevision: Mock<BrowserReaderWorkerClient['createViewRevision']>;
+  readonly calibrateRevisionFontVerticalMetrics: Mock<
+    BrowserReaderWorkerClient['calibrateRevisionFontVerticalMetrics']
+  >;
   readonly warmFrameWindow: Mock<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>;
   readonly getPageSemanticsAtRevision: Mock<
     BrowserReaderWorkerClient['getPageSemanticsAtRevision']
@@ -139,7 +142,7 @@ export function createWorker(
             spreadIndexes: [centerSpreadIndex],
           },
           frames: [frameBuffer(revision.revisionId, centerSpreadIndex)],
-          spreads: [{ spreadIndex: centerSpreadIndex, resources: [] }],
+          spreads: [{ spreadIndex: centerSpreadIndex, resources: [], missingResources: [] }],
         },
       }),
   );
@@ -186,11 +189,14 @@ export function createWorker(
   const createViewRevision = vi.fn((request: CoreViewRevisionRequest) =>
     createViewRevisionResult(request, createRevision, activeChapterPreview),
   );
+  const calibrateRevisionFontVerticalMetrics =
+    vi.fn<BrowserReaderWorkerClient['calibrateRevisionFontVerticalMetrics']>();
   const worker: BrowserReaderWorkerClient = {
     sessionId,
     open,
     createBoundedRevision: vi.fn<BrowserReaderWorkerClient['createBoundedRevision']>(),
     continueRevision: vi.fn<BrowserReaderWorkerClient['continueRevision']>(),
+    calibrateRevisionFontVerticalMetrics,
     cancelRevision: vi.fn<BrowserReaderWorkerClient['cancelRevision']>(),
     getRevisionSummaryAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionSummaryAtRevision']>(),
@@ -231,6 +237,11 @@ export function createWorker(
     search: vi.fn(),
     releaseRevisionTransfers: vi.fn<BrowserReaderWorkerClient['releaseRevisionTransfers']>(),
     releaseRevision: vi.fn<BrowserReaderWorkerClient['releaseRevision']>(),
+    createBoundedChapterLocalRevision:
+      vi.fn<BrowserReaderWorkerClient['createBoundedChapterLocalRevision']>(),
+    continueChapterLocalRevision:
+      vi.fn<BrowserReaderWorkerClient['continueChapterLocalRevision']>(),
+    releaseChapterLocalRevision: vi.fn<BrowserReaderWorkerClient['releaseChapterLocalRevision']>(),
     dispose,
     whenDisposed,
   };
@@ -239,6 +250,7 @@ export function createWorker(
     open,
     createRevision,
     createViewRevision,
+    calibrateRevisionFontVerticalMetrics,
     warmFrameWindow,
     getPageSemanticsAtRevision,
     getPageReadingAnchorAtRevision,

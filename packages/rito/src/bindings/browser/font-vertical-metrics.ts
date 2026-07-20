@@ -26,7 +26,15 @@ export function ensureHostFontVerticalMetrics(
   context: CanvasRenderingTarget,
   demands: readonly HostFontVerticalMetricDemand[],
 ): boolean {
-  let changed = false;
+  return captureHostFontVerticalMetricSamples(store, context, demands).length > 0;
+}
+
+export function captureHostFontVerticalMetricSamples(
+  store: HostFontVerticalMetricStore,
+  context: CanvasRenderingTarget,
+  demands: readonly HostFontVerticalMetricDemand[],
+): readonly HostFontVerticalMetricSample[] {
+  const additions: HostFontVerticalMetricSample[] = [];
   for (const demand of demands) {
     const descriptor = normalizeDemand(demand);
     if (!descriptor) continue;
@@ -35,9 +43,9 @@ export function ensureHostFontVerticalMetrics(
     const sample = measureFontVerticalMetrics(context, descriptor);
     if (!sample) continue;
     store[key] = sample;
-    changed = true;
+    additions.push({ ...sample });
   }
-  return changed;
+  return additions;
 }
 
 export function hostFontVerticalMetricConfig(
@@ -47,6 +55,24 @@ export function hostFontVerticalMetricConfig(
     .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
     .map(([, sample]) => ({ ...sample }));
   return samples.length > 0 ? samples : undefined;
+}
+
+export function hostFontVerticalMetricSamplesForDemands(
+  store: HostFontVerticalMetricStore,
+  demands: readonly HostFontVerticalMetricDemand[],
+): readonly HostFontVerticalMetricSample[] {
+  const samples: HostFontVerticalMetricSample[] = [];
+  const seen = new Set<string>();
+  for (const demand of demands) {
+    const descriptor = normalizeDemand(demand);
+    if (!descriptor) continue;
+    const key = verticalMetricKey(descriptor);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const sample = store[key];
+    if (sample) samples.push({ ...sample });
+  }
+  return samples;
 }
 
 function measureFontVerticalMetrics(

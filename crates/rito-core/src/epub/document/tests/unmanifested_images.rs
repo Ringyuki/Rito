@@ -53,8 +53,8 @@ fn keeps_unreferenced_archive_images_lazy_during_runtime_layout() {
         .expect("referenced dimensions load");
 
     let nested = image(&document, "Images/Undeclared Tile.png");
-    assert_eq!(nested.bytes, minimal_png());
-    assert!(nested.byte_hash.is_some());
+    assert!(nested.bytes.is_empty());
+    assert!(nested.byte_hash.is_none());
     assert_eq!((nested.width, nested.height), (Some(2), Some(3)));
     assert!(image(&document, "Images/Decoy.png").bytes.is_empty());
     assert!(image(&document, "../Shared/Outside.PNG").bytes.is_empty());

@@ -3,8 +3,11 @@ pub const OWNS: &str = "Block layout, inline layout, line breaking, pagination, 
 
 use std::collections::{BTreeMap, BTreeSet};
 
+#[cfg(any(test, feature = "bench-internals"))]
+pub(crate) mod bounded_work_probe;
 mod cleanup;
 mod content;
+mod continuous_flex;
 mod continuous_float;
 mod continuous_image;
 mod continuous_layout;
@@ -16,6 +19,7 @@ mod continuous_table_rows;
 mod display_list;
 mod display_list_flow;
 mod font_summary;
+mod font_vertical_metrics;
 mod hit_map;
 mod hit_target;
 mod hyphenation;
@@ -41,6 +45,7 @@ mod locator;
 mod page;
 mod pagination_flow;
 pub(crate) mod pagination_session;
+mod paint;
 pub(crate) mod runtime_session;
 mod search_flow;
 mod segment_details;
@@ -72,6 +77,10 @@ pub use display_list_flow::{DisplayListFlowSpreadDigest, DisplayListFlowSummary}
 pub(crate) use font_summary::{
     summarize_layout_font_families, summarize_layout_font_vertical_metric_demands,
 };
+pub(crate) use font_vertical_metrics::{
+    calibrate_layout_font_vertical_metrics, merge_font_vertical_metric_samples,
+    normalize_font_vertical_metric_samples,
+};
 pub use hit_map::{HitMapFlowCounts, HitMapFlowPageDigest, HitMapFlowSummary};
 pub(crate) use hit_target::{build_hit_targets, LayoutHitTarget};
 #[cfg(test)]
@@ -88,6 +97,7 @@ pub use pagination_flow::{
     PaginationFlowChapterRange, PaginationFlowCounts, PaginationFlowPageDigest,
     PaginationFlowSummary,
 };
+pub(crate) use paint::{BorderEdgePaint, RunBorder, RunBorderEdge, RunPaint};
 pub(crate) use search_flow::{
     search_runtime_pages, SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
 };

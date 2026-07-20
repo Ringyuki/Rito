@@ -1,8 +1,14 @@
 import {
+  requireAdvancedRevisionHandle,
+  requireContinuationBatchCount,
+  requireContinuationBatchLimit,
+  requireContinuationTargetSpreadIndex,
   requireInitialRevisionAdvance,
   requireMatchingRevisionSummary,
+  requireMatchingHandle,
   requireRevisionAdvance,
   requireRevisionHandle,
+  requireRevisionTransferCount,
   requireRevisionWorkBudget,
 } from './core-wasm-versioned-validation-runtime.js';
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
@@ -53,8 +59,13 @@ import {
   requireSearchRequest,
   requireSearchResponse,
 } from './reader-worker-versioned-read-validation-runtime.js';
+import { requireSourceLocatorContinuationResult } from './source-locator-continuation-validation-runtime.js';
+import {
+  requireFontVerticalMetricCalibrationRequest,
+  requireFontVerticalMetricCalibrationTransferResult,
+} from './font-vertical-metric-calibration-validation-runtime.js';
 
-export function createVersionedReaderClientMethods(send) {
+export function createVersionedReaderClientMethods(send, disposeInvalid) {
   return {
     createBoundedRevision: (request) => {
       const maximum = requireRevisionWorkBudget(request?.budget, 'createBoundedRevision');
@@ -71,6 +82,7 @@ export function createVersionedReaderClientMethods(send) {
             maximum,
           ),
         true,
+        disposeInvalid,
       );
     },
     continueRevision: (request) => {
@@ -89,6 +101,126 @@ export function createVersionedReaderClientMethods(send) {
         (result, revision) =>
           requireRevisionAdvance(result, revision, 'continueRevision response', maximum),
         true,
+        disposeInvalid,
+      );
+    },
+    continueRevisionAfterTransferRelease: (request) => {
+      const operation = 'continueRevisionAfterTransferRelease';
+      const current = requireRevisionHandle(request, operation);
+      const maximum = requireRevisionWorkBudget(request?.budget, operation);
+      const batchMaximum = continuationBatchMaximum(
+        current,
+        requireContinuationBatchLimit(request?.maxQuanta, operation),
+        operation,
+      );
+      const targetSpreadIndex = requireContinuationTargetSpreadIndex(
+        request?.targetSpreadIndex,
+        operation,
+      );
+      return versionedResult(
+        send,
+        operation,
+        {
+          kind: operation,
+          revision: current,
+          cursor: request.cursor,
+          budget: request.budget,
+          maxQuanta: batchMaximum,
+          ...(targetSpreadIndex !== undefined ? { targetSpreadIndex } : {}),
+        },
+        advancedRevisionRange(current, batchMaximum),
+        (result, revision) => {
+          if (result === null || typeof result !== 'object' || Array.isArray(result)) {
+            throw new Error(`${operation} response returned an invalid result`);
+          }
+          const advancedQuanta = requireContinuationBatchCount(
+            result.advancedQuanta,
+            batchMaximum,
+            operation,
+          );
+          requireAdvancedRevisionHandle(current, revision, advancedQuanta, operation);
+          return {
+            advance: requireRevisionAdvance(
+              result.advance,
+              revision,
+              `${operation} response`,
+              processedNodeMaximum(maximum, advancedQuanta),
+            ),
+            releasedRevision: requireMatchingHandle(
+              result.releasedRevision,
+              current,
+              `${operation} response released revision`,
+            ),
+            releasedTransferCount: requireRevisionTransferCount(
+              result.releasedTransferCount,
+              `${operation} response`,
+            ),
+            advancedQuanta,
+          };
+        },
+        true,
+        disposeInvalid,
+      );
+    },
+    continueRevisionTowardSourceLocator: (request) => {
+      const operation = 'continueRevisionTowardSourceLocator';
+      const current = requireRevisionHandle(request, operation);
+      const maximum = requireRevisionWorkBudget(request?.budget, operation);
+      const batchMaximum = continuationBatchMaximum(
+        current,
+        requireContinuationBatchLimit(request?.maxQuanta, operation),
+        operation,
+      );
+      const locator = requireSourceLocatorRequest(request?.locator, operation);
+      return versionedResult(
+        send,
+        operation,
+        {
+          kind: operation,
+          revision: current,
+          cursor: request.cursor,
+          budget: request.budget,
+          locator,
+          maxQuanta: batchMaximum,
+        },
+        advancedRevisionRange(current, batchMaximum),
+        (result, revision) =>
+          requireSourceLocatorContinuationResult(
+            result,
+            current,
+            revision,
+            locator,
+            `${operation} response`,
+            maximum,
+            batchMaximum,
+          ),
+        true,
+        disposeInvalid,
+      );
+    },
+    calibrateRevisionFontVerticalMetrics: (request) => {
+      const operation = 'calibrateRevisionFontVerticalMetrics';
+      const input = requireFontVerticalMetricCalibrationRequest(request, operation);
+      const current = requireRevisionHandle(input, operation);
+      return versionedResult(
+        send,
+        operation,
+        {
+          kind: operation,
+          revision: current,
+          ...(input.continuation === undefined ? {} : { continuation: input.continuation }),
+          fontVerticalMetrics: input.fontVerticalMetrics,
+        },
+        nextRevision(current, operation),
+        (result, revision) =>
+          requireFontVerticalMetricCalibrationTransferResult(
+            result,
+            current,
+            revision,
+            `${operation} response`,
+          ),
+        true,
+        disposeInvalid,
       );
     },
     cancelRevision: (request) => {
@@ -101,6 +233,7 @@ export function createVersionedReaderClientMethods(send) {
         (result, revision) =>
           requireMatchingRevisionSummary(result, revision, 'cancelRevision response', 'cancelled'),
         true,
+        disposeInvalid,
       );
     },
     getRevisionSummaryAtRevision: (revision) =>
@@ -343,27 +476,55 @@ async function versionedResult(
   expected,
   validateResult,
   rollbackInvalidResult = false,
+  disposeInvalid,
 ) {
   const payload = await send(request);
-  if (payload?.kind !== kind) {
-    throw new Error(`Rito reader worker returned ${String(payload?.kind)} for ${kind}`);
-  }
-  const revision = requireRevisionHandle(payload.revision, `${kind} response`);
-  if (
-    (expected.revisionId !== undefined && revision.revisionId !== expected.revisionId) ||
-    revision.revisionVersion !== expected.revisionVersion
-  ) {
-    throw new Error(`Rito reader worker returned a mismatched revision handle for ${kind}`);
-  }
+  let revision;
   try {
+    if (payload?.kind !== kind) {
+      throw new Error(`Rito reader worker returned ${String(payload?.kind)} for ${kind}`);
+    }
+    const responseRevision = requireRevisionHandle(payload.revision, `${kind} response`);
+    if (!matchesExpectedRevision(responseRevision, expected)) {
+      throw new Error(`Rito reader worker returned a mismatched revision handle for ${kind}`);
+    }
+    revision = responseRevision;
     if (!Object.hasOwn(payload, 'result')) {
       throw new Error(`Rito reader worker returned no result for ${kind}`);
     }
     const value = validateResult?.(payload.result, revision, `${kind} response`) ?? payload.result;
     return { revision, value };
   } catch (error) {
-    if (rollbackInvalidResult) await rollbackCommittedRevision(send, revision);
+    if (rollbackInvalidResult) {
+      const rollback = mutationRollbackHandle(expected, revision);
+      if (rollback === undefined) bestEffortDispose(disposeInvalid);
+      else if (!(await rollbackCommittedRevision(send, rollback))) {
+        bestEffortDispose(disposeInvalid);
+      }
+    }
     throw error;
+  }
+}
+
+function mutationRollbackHandle(expected, validatedRevision) {
+  if (validatedRevision !== undefined) return validatedRevision;
+  if (expected.revisionId !== undefined) {
+    if (expected.revisionVersion === undefined) return undefined;
+    return {
+      revisionId: expected.revisionId,
+      revisionVersion: expected.revisionVersion,
+    };
+  }
+  // A created revision has no caller-known id. Only a handle already bound to
+  // the correct response kind/version can be released; otherwise dispose the owner.
+  return undefined;
+}
+
+function bestEffortDispose(disposeInvalid) {
+  try {
+    disposeInvalid?.();
+  } catch {
+    // Preserve the malformed mutation response after best-effort containment.
   }
 }
 
@@ -380,8 +541,17 @@ async function rollbackCommittedRevision(send, revision) {
     ) {
       throw new Error('Rito reader worker returned a mismatched rollback handle');
     }
+    if (payload.result?.releasedRevision !== true) {
+      throw new Error('Rito reader worker did not confirm exact revision rollback');
+    }
+    requireRevisionTransferCount(
+      payload.result.releasedTransferCount,
+      'committed revision rollback',
+    );
+    return true;
   } catch {
     // Preserve the malformed mutation response; exact rollback is best effort.
+    return false;
   }
 }
 
@@ -393,4 +563,36 @@ function nextRevision(revision, operation) {
     revisionId: revision.revisionId,
     revisionVersion: revision.revisionVersion + 1,
   };
+}
+
+function continuationBatchMaximum(revision, requested, operation) {
+  if (revision.revisionVersion === 0xffff_ffff) {
+    throw new Error(`${operation} cannot advance revisionVersion beyond u32`);
+  }
+  return Math.min(requested, 0xffff_ffff - revision.revisionVersion);
+}
+
+function advancedRevisionRange(revision, maximum) {
+  return {
+    revisionId: revision.revisionId,
+    minimumRevisionVersion: revision.revisionVersion + 1,
+    maximumRevisionVersion: revision.revisionVersion + maximum,
+  };
+}
+
+function matchesExpectedRevision(revision, expected) {
+  if (expected.revisionId !== undefined && revision.revisionId !== expected.revisionId)
+    return false;
+  if (expected.revisionVersion !== undefined) {
+    return revision.revisionVersion === expected.revisionVersion;
+  }
+  return (
+    revision.revisionVersion >= expected.minimumRevisionVersion &&
+    revision.revisionVersion <= expected.maximumRevisionVersion
+  );
+}
+
+function processedNodeMaximum(perQuantumMaximum, advancedQuanta) {
+  const product = perQuantumMaximum * advancedQuanta;
+  return Number.isSafeInteger(product) ? product : Number.MAX_SAFE_INTEGER;
 }

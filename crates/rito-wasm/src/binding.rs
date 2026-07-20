@@ -4,6 +4,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::{WasmRuntimeDocument, WasmRuntimeError};
 
+mod chapter_local;
+mod continuation;
 mod pinned_font;
 mod resource;
 mod versioned;
@@ -275,6 +277,8 @@ fn error_json_string(error: WasmRuntimeError) -> String {
         code: error.code().as_str(),
         message: error.message().to_owned(),
         revision: error.revision().cloned(),
+        chapter_local_revision: error.chapter_local_revision().cloned(),
+        released_chapter_local_revision: error.released_chapter_local_revision().cloned(),
     };
     serde_json::to_string(&payload).unwrap_or_else(|_| "{\"code\":\"internal-error\"}".to_owned())
 }
@@ -286,6 +290,10 @@ struct WasmErrorPayload {
     message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     revision: Option<rito_core::runtime::RuntimeRevisionSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chapter_local_revision: Option<rito_core::runtime::RuntimeChapterLocalRevisionSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    released_chapter_local_revision: Option<rito_core::runtime::RuntimeChapterLocalRevisionSummary>,
 }
 
 #[cfg(test)]

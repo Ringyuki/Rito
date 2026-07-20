@@ -1,11 +1,14 @@
-use crate::{epub::LoadedChapter, interaction::LayoutSourcePoint};
+use crate::epub::LoadedChapter;
 
-use super::super::{RuntimeSourceLocator, RuntimeSourcePoint, RuntimeSourceRange};
+use super::super::{
+    page_artifact::PageArtifactSourcePoint, RuntimeSourceLocator, RuntimeSourcePoint,
+    RuntimeSourceRange,
+};
 use super::{RuntimeTextSourceSpan, RuntimeTextSourceSpanEndpoint};
 
 pub(super) fn runtime_text_source_endpoint(
     chapter: &LoadedChapter,
-    source_point: LayoutSourcePoint,
+    source_point: PageArtifactSourcePoint,
 ) -> RuntimeTextSourceSpanEndpoint {
     RuntimeTextSourceSpanEndpoint {
         href: chapter.href.clone(),
@@ -28,7 +31,7 @@ pub(super) fn compatible_source_locator(
     })
 }
 
-pub(super) fn runtime_source_point(point: LayoutSourcePoint) -> RuntimeSourcePoint {
+pub(super) fn runtime_source_point(point: PageArtifactSourcePoint) -> RuntimeSourcePoint {
     RuntimeSourcePoint {
         node_path: point.node_path,
         text_offset: point.text_offset,

@@ -2,6 +2,8 @@ import type { Reader, ReaderLocator, ReaderLocatorResolution, TocEntry } from '@
 import type { NavigationDeps } from './index';
 import { claimNavigationAttempt } from './jump';
 import type { NavigationState, PendingLocatorNavigation } from './state';
+import { failChapterLocalLocator, settleChapterLocalExact } from './chapter-local-preview';
+import { continueResolvedLocatorNavigation } from './locator-continuation';
 
 const TOC_FAILURE_SOURCE = 'reader TOC locator navigation';
 const LINK_FAILURE_SOURCE = 'reader link locator navigation';
@@ -91,6 +93,10 @@ function startLocatorGrowth(
     locatorAbort,
     failureSource,
     targetLabel,
+    onResolved,
+    provisionalPhase: 'none',
+    previewReadySpread: undefined,
+    exactResolution: undefined,
   };
   state.pendingLocatorNavigation = pending;
   let task: Promise<ReaderLocatorResolution | undefined>;
@@ -101,7 +107,7 @@ function startLocatorGrowth(
   }
   void task
     .then((resolution) => {
-      settleLocatorGrowth(state, deps, reader, pending, resolution, onResolved);
+      settleLocatorGrowth(state, deps, reader, pending, resolution);
     })
     .catch((error: unknown) => {
       handleLocatorGrowthFailure(state, deps, pending, error);
@@ -118,11 +124,11 @@ function settleLocatorGrowth(
   reader: Reader,
   pending: PendingLocatorNavigation,
   resolution: ReaderLocatorResolution | undefined,
-  onResolved: (spreadIndex: number) => void,
 ): void {
   if (!ownsLocatorGrowth(state, pending)) return;
-  state.pendingLocatorNavigation = undefined;
   if (!resolution) {
+    if (failChapterLocalLocator(state, deps, pending)) return;
+    state.pendingLocatorNavigation = undefined;
     deps.onNavigationCancelled?.();
     return;
   }
@@ -154,11 +160,12 @@ function settleLocatorGrowth(
   try {
     deps.onPaginationChanged?.();
     if (state.disposed || state.navigationAttemptId !== pending.attemptId) return;
-    onResolved(resolution.spreadIndex);
+    if (settleChapterLocalExact(state, deps, pending, resolution)) return;
   } catch (error) {
-    deps.onNavigationCancelled?.();
-    reportLocatorFailure(deps, pending.failureSource, error);
+    handleLocatorGrowthFailure(state, deps, pending, error);
+    return;
   }
+  continueResolvedLocatorNavigation(state, deps, pending, resolution.spreadIndex);
 }
 
 function failLocatorGrowth(
@@ -168,6 +175,7 @@ function failLocatorGrowth(
   error: unknown,
 ): void {
   if (!ownsLocatorGrowth(state, pending)) return;
+  if (failChapterLocalLocator(state, deps, pending, error)) return;
   state.pendingLocatorNavigation = undefined;
   failOwnedLocatorGrowth(state, deps, pending, error);
 }
@@ -191,6 +199,7 @@ function failOwnedLocatorGrowth(
   pending: PendingLocatorNavigation,
   error: unknown,
 ): void {
+  if (failChapterLocalLocator(state, deps, pending, error)) return;
   if (pending.attemptId === state.navigationAttemptId) deps.onNavigationCancelled?.();
   reportLocatorFailure(deps, pending.failureSource, error);
 }

@@ -9,14 +9,20 @@ import {
   isCurrentRevisionHandle,
 } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import {
+  ensureFrameLoaded,
+  warmBrowserReaderFrameWindow,
+} from '../../src/bindings/browser/reader/frame-cache';
+import {
   recordBrowserReaderAcceptedRevision,
   restoreBrowserReaderExactReads,
   resumeBrowserReaderExactReads,
   suspendBrowserReaderExactReads,
 } from '../../src/bindings/browser/reader-session-host';
 import {
+  createDeferred,
   createState,
   createWorker,
+  frameBuffer,
   revisionSummary,
   setRevisionState,
 } from './browser-reader-reflow-fixtures';
@@ -64,6 +70,66 @@ describe('Browser reader bounded session ownership', () => {
     expect(state.revisionHandle).toBeUndefined();
   });
 
+  it('does not reuse an in-flight frame window after restoring an exact-read gate', async () => {
+    const { state } = readyOwner();
+    const worker = vi.mocked(state.worker);
+    const staleWindow =
+      createDeferred<Awaited<ReturnType<typeof state.worker.warmFrameWindowAtRevision>>>();
+    worker.warmFrameWindowAtRevision.mockImplementationOnce(() => staleWindow.promise);
+    state.frames.clear();
+
+    const staleWarm = warmBrowserReaderFrameWindow(state, 0);
+    expect(worker.warmFrameWindowAtRevision.mock.calls).toHaveLength(1);
+    expect(state.pendingFrameLoads.has(0)).toBe(true);
+
+    const gate = requireGate(suspendBrowserReaderExactReads(state));
+    expect(state.pendingFrameLoads.has(0)).toBe(false);
+    expect(restoreBrowserReaderExactReads(state, gate)).toBe(true);
+
+    const currentWarm = warmBrowserReaderFrameWindow(state, 0);
+    expect(worker.warmFrameWindowAtRevision.mock.calls).toHaveLength(1);
+
+    staleWindow.resolve({
+      revision: { revisionId: 'rev', revisionVersion: 0 },
+      value: {
+        plan: {
+          revisionId: 'rev',
+          centerSpreadIndex: 0,
+          displaySpreadIndex: 0,
+          spreadIndexes: [0],
+        },
+        frames: [frameBuffer('rev', 0)],
+        spreads: [{ spreadIndex: 0, resources: [], missingResources: [] }],
+      },
+    });
+    await staleWarm;
+
+    expect(worker.warmFrameWindowAtRevision.mock.calls).toHaveLength(2);
+    await currentWarm;
+    const currentFrame = state.frames.get(0);
+    expect(currentFrame).toBeDefined();
+
+    expect(state.frames.get(0)).toBe(currentFrame);
+  });
+
+  it('retries a frame missed while exact reads were suspended', async () => {
+    const { state } = readyOwner();
+    const worker = vi.mocked(state.worker);
+    const invalidated = vi.fn();
+    state.frames.clear();
+    state.spreadContentInvalidatedListeners.add(invalidated);
+
+    const gate = requireGate(suspendBrowserReaderExactReads(state));
+    await expect(ensureFrameLoaded(state, 0)).resolves.toBeUndefined();
+    expect(worker.warmFrameWindowAtRevision.mock.calls).toHaveLength(0);
+
+    expect(restoreBrowserReaderExactReads(state, gate)).toBe(true);
+    expect(invalidated).toHaveBeenCalledOnce();
+    expect(invalidated).toHaveBeenCalledWith(0);
+
+    await expect(ensureFrameLoaded(state, 0)).resolves.toBeDefined();
+  });
+
   it('keeps committed reads open while an independent candidate advances', () => {
     const { state } = readyOwner();
     const committedOwner = state.boundedSessions.current;
@@ -103,6 +169,7 @@ function owner(state: BrowserReaderState, _label: string): BrowserReaderBoundedS
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
+      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(
         () => ({ revision: state.revisionBundle.revision }) as BrowserReaderBoundedSnapshot,
       ),

@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use serde_json::json;
-
 use super::{
     search_page, summarize_search_flow, SearchFlowQuerySpec, SearchPageText, SearchRunOffset,
     SearchRunSource, SearchSourcePoint, SearchSourceRange, SearchTextPosition,
@@ -11,6 +9,7 @@ use crate::layout::{
     line::{LineBox, LineRun, TextRunBox},
     page::RuntimePage,
     text_mapping::fixture_logical_text_flow,
+    RunPaint,
 };
 
 #[test]
@@ -277,7 +276,7 @@ fn page_with_text(text: &str) -> RuntimePage<RuntimeBlock<LineBox>> {
                     height: 12.0,
                     font_size: 12.0,
                     interaction_geometry: None,
-                    paint: json!({}),
+                    paint: RunPaint::default(),
                     line_height_px: None,
                     href: None,
                     source_path: None,

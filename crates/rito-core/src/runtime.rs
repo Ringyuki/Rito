@@ -7,6 +7,7 @@ use std::{cell::OnceCell, collections::BTreeMap, num::NonZeroUsize};
 mod access;
 mod bundle;
 mod bundle_wire;
+mod chapter_engine_session;
 mod chapter_text;
 mod cleanup;
 mod continuation;
@@ -14,10 +15,12 @@ mod frame;
 mod metadata;
 mod navigation;
 mod page;
+mod page_artifact;
 mod page_semantics;
 mod page_target;
 mod pinned_font_policy;
 mod publication_footnotes;
+mod reader_v1;
 mod resource;
 mod revision;
 mod revision_fonts;
@@ -60,7 +63,8 @@ pub use pinned_font_policy::{
     RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput, RuntimePinnedFontPolicySummary,
     RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
 };
-use publication_footnotes::PublicationFootnoteIndex;
+use publication_footnotes::{PublicationFootnoteIndex, PublicationFootnoteProgress};
+pub use reader_v1::*;
 use resource::{
     find_binary_resource_metadata, find_text_resource, resource_not_found, runtime_binary_resource,
     runtime_text_resource,
@@ -96,6 +100,7 @@ pub struct RuntimeDocument {
     prepared: Option<crate::epub::PreparedLoadedDocument>,
     prepared_base: Option<crate::epub::PreparedLoadedDocumentBase>,
     publication_footnotes: OnceCell<PublicationFootnoteIndex>,
+    publication_footnote_progress: Option<PublicationFootnoteProgress>,
     #[cfg(test)]
     publication_footnote_scan_count: usize,
     full_chapter_text_indices: OnceCell<BTreeMap<String, RuntimeChapterTextIndex>>,
@@ -108,6 +113,7 @@ pub struct RuntimeDocument {
     next_revision_index: usize,
     next_continuation_index: usize,
     revisions: BTreeMap<String, RuntimeRevision>,
+    chapter_local_revisions: BTreeMap<String, RuntimeRevision>,
     continuations: continuation::RuntimeContinuationStore,
     cleanup_queue: RuntimeCleanupQueue,
 }
@@ -139,6 +145,7 @@ impl RuntimeDocument {
             prepared: None,
             prepared_base: None,
             publication_footnotes: OnceCell::new(),
+            publication_footnote_progress: None,
             #[cfg(test)]
             publication_footnote_scan_count: 0,
             full_chapter_text_indices: OnceCell::new(),
@@ -151,6 +158,7 @@ impl RuntimeDocument {
             next_revision_index: 1,
             next_continuation_index: 1,
             revisions: BTreeMap::new(),
+            chapter_local_revisions: BTreeMap::new(),
             continuations: continuation::RuntimeContinuationStore::default(),
             cleanup_queue: RuntimeCleanupQueue::default(),
         }
@@ -175,6 +183,19 @@ impl RuntimeDocument {
 
     pub fn release_revision(&mut self, revision_id: &str) -> bool {
         let Some(revision) = self.revisions.remove(revision_id) else {
+            self.service_cleanup_queue();
+            return false;
+        };
+        self.cleanup_queue.enqueue_revision(revision);
+        if let Some(continuation) = self.continuations.remove_revision(revision_id) {
+            self.cleanup_queue.enqueue_continuation(continuation);
+        }
+        self.service_cleanup_queue();
+        true
+    }
+
+    pub(super) fn remove_chapter_local_revision(&mut self, revision_id: &str) -> bool {
+        let Some(revision) = self.chapter_local_revisions.remove(revision_id) else {
             self.service_cleanup_queue();
             return false;
         };
@@ -220,7 +241,7 @@ impl RuntimeDocument {
     }
 
     pub fn revision_count(&self) -> usize {
-        self.revisions.len()
+        self.revisions.len() + self.chapter_local_revisions.len()
     }
 
     pub(super) fn active_chapter_preview(
@@ -246,6 +267,29 @@ impl RuntimeDocument {
         href: &str,
     ) -> EpubResult<RuntimeResource> {
         self.assert_revision_exists(revision_id)?;
+        self.get_resource_for_revision(revision_id, kind, href)
+    }
+
+    pub(super) fn get_chapter_local_resource_inner(
+        &mut self,
+        revision_id: &str,
+        kind: RuntimeResourceKind,
+        href: &str,
+    ) -> EpubResult<RuntimeResource> {
+        if !self.chapter_local_revisions.contains_key(revision_id) {
+            return Err(EpubError::new(format!(
+                "unknown chapter-local revision: {revision_id}"
+            )));
+        }
+        self.get_resource_for_revision(revision_id, kind, href)
+    }
+
+    fn get_resource_for_revision(
+        &mut self,
+        revision_id: &str,
+        kind: RuntimeResourceKind,
+        href: &str,
+    ) -> EpubResult<RuntimeResource> {
         match kind {
             RuntimeResourceKind::Image => {
                 self.document.ensure_image_dimensions_loaded(href)?;
@@ -269,6 +313,23 @@ impl RuntimeDocument {
             RuntimeResourceKind::Stylesheet => find_text_resource(&self.document.stylesheets, href)
                 .map(|resource| runtime_text_resource(revision_id, kind, resource))
                 .ok_or_else(|| resource_not_found(kind, href)),
+        }
+    }
+
+    pub(crate) fn resource_byte_length(
+        &self,
+        kind: RuntimeResourceKind,
+        href: &str,
+    ) -> Option<usize> {
+        match kind {
+            RuntimeResourceKind::Image => {
+                find_binary_resource_metadata(&self.document.images, href)
+                    .map(|metadata| metadata.byte_length())
+            }
+            RuntimeResourceKind::Font => find_binary_resource_metadata(&self.document.fonts, href)
+                .map(|metadata| metadata.byte_length()),
+            RuntimeResourceKind::Stylesheet => find_text_resource(&self.document.stylesheets, href)
+                .map(|resource| resource.text.len()),
         }
     }
 
@@ -359,8 +420,7 @@ impl RuntimeDocument {
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
         let entry = revision
             .interactions
-            .footnotes
-            .get(key)
+            .footnote(key)
             .ok_or_else(|| EpubError::new(format!("unknown footnote: {key}")))?;
         Ok(RuntimeFootnote {
             revision_id: revision_id.to_owned(),
@@ -378,7 +438,15 @@ impl RuntimeDocument {
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
         Ok(RuntimeFootnotes {
             revision_id: revision_id.to_owned(),
-            entries: revision.interactions.footnotes.clone(),
+            complete: revision.interactions.footnote_index_complete,
+            pending_keys: revision
+                .interactions
+                .pending_footnote_keys
+                .iter()
+                .filter(|key| !revision.interactions.contains_footnote(key.as_str()))
+                .cloned()
+                .collect(),
+            entries: revision.interactions.owned_footnotes(),
         })
     }
 
@@ -429,6 +497,9 @@ impl Drop for RuntimeDocument {
             continuation::PendingRuntimeContinuationRecordCleanup::new(continuation).drain();
         }
         while let Some((_revision_id, revision)) = self.revisions.pop_first() {
+            PendingRuntimeRevisionCleanup::new(revision).drain();
+        }
+        while let Some((_revision_id, revision)) = self.chapter_local_revisions.pop_first() {
             PendingRuntimeRevisionCleanup::new(revision).drain();
         }
         debug_assert!(self.cleanup_queue.is_empty());

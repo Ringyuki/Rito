@@ -3,6 +3,29 @@ import type {
   ReaderWorkerOperationObservation,
 } from './reader-worker-probe';
 import type { ReaderProfileLongTaskSummary, ReaderProfileStartup } from './reader-profile-startup';
+import {
+  buildTocSupersedeTransition,
+  copyFreshFarGeneration,
+  type ReaderProfileFarTocTransition,
+  type ReaderProfileFarTocStage,
+  type ReaderProfileFarTocStageInput,
+  type ReaderProfileFreshFarGeneration,
+  type ReaderProfileTocSupersedeTransition,
+  type ReaderProfileTocSupersedeTransitionInput,
+} from './reader-profile-toc-model';
+
+export type {
+  ReaderProfileAnimationMetrics,
+  ReaderProfileActiveHrefObservation,
+  ReaderProfileFarTocStage,
+  ReaderProfileFarTocStageInput,
+  ReaderProfileFreshFarGeneration,
+  ReaderProfileFarTocTransition,
+  ReaderProfileTocLatency,
+  ReaderProfileTocSupersedeTransition,
+  ReaderProfileTocSupersedeTransitionInput,
+  ReaderProfileTocTransition,
+} from './reader-profile-toc-model';
 
 export type {
   ReaderProfileBrowserIsolation,
@@ -11,7 +34,22 @@ export type {
   ReaderProfileStartup,
 } from './reader-profile-startup';
 
-export const READER_PROFILE_SCHEMA_VERSION = 2;
+export const READER_PROFILE_SCHEMA_VERSION = 5;
+
+export interface ReaderProfileArtifactIdentity {
+  readonly schemaVersion: 1;
+  readonly id: 'rito/reader-dist-v1';
+  readonly readerDistSha256: string;
+  readonly fileCount: number;
+  readonly byteLength: number;
+}
+
+export interface ReaderProfileExecutionIdentity {
+  readonly skippedE2eBuild: boolean;
+  readonly strictServer: boolean;
+  readonly abPairId: string | null;
+  readonly abOrder: number | null;
+}
 
 export interface ReaderProfileViewport {
   readonly width: number;
@@ -26,6 +64,9 @@ export interface ReaderProfileEnvironment {
   readonly osRelease: string;
   readonly browserName: string;
   readonly browserVersion: string;
+  readonly chapterLocalPreviewMode: 'enabled' | 'disabled';
+  readonly artifact: ReaderProfileArtifactIdentity;
+  readonly execution: ReaderProfileExecutionIdentity;
   readonly deviceScaleFactor: number;
   readonly viewport: ReaderProfileViewport;
   readonly reflowViewport: ReaderProfileViewport;
@@ -86,11 +127,17 @@ export interface ReaderLoadProfileReport {
     readonly initial: ReaderProfileStage;
     readonly cachedTurn: ReaderProfileStage;
     readonly deferredGrowth: ReaderProfileStage;
+    readonly tocSupersede: ReaderProfileStage;
+    readonly freshFarBootstrap: ReaderProfileStage;
+    readonly farToc: ReaderProfileFarTocStage;
     readonly reflow: ReaderProfileStage;
   };
   readonly transitions: {
     readonly cachedTurn: ReaderProfileTransition;
     readonly deferredGrowth: ReaderProfileTransition;
+    readonly tocSupersede: ReaderProfileTocSupersedeTransition;
+    readonly freshFarGeneration: ReaderProfileFreshFarGeneration;
+    readonly farToc: ReaderProfileFarTocTransition;
   };
   readonly operationsByKind: readonly ReaderProfileOperationSummary[];
   readonly operations: readonly ReaderWorkerOperationObservation[];
@@ -117,9 +164,15 @@ export interface ReaderLoadProfileReportInput {
   readonly initial: ReaderProfileStageInput;
   readonly cachedTurn: ReaderProfileStageInput;
   readonly deferredGrowth: ReaderProfileStageInput;
+  readonly tocSupersede: ReaderProfileStageInput;
+  readonly freshFarBootstrap: ReaderProfileStageInput;
+  readonly farToc: ReaderProfileFarTocStageInput;
   readonly reflow: ReaderProfileStageInput;
   readonly cachedTurnTransition: ReaderProfileTransition;
   readonly deferredGrowthTransition: ReaderProfileTransition;
+  readonly tocSupersedeTransition: ReaderProfileTocSupersedeTransitionInput;
+  readonly freshFarGeneration: ReaderProfileFreshFarGeneration;
+  readonly farTocTransition: ReaderProfileFarTocTransition;
   readonly operations: readonly ReaderWorkerOperationObservation[];
   readonly longTasks: readonly ReaderLongTaskObservation[];
   readonly browserErrors: readonly string[];
@@ -139,11 +192,20 @@ export function buildReaderLoadProfileReport(
       initial: profileStage(input.initial),
       cachedTurn: profileStage(input.cachedTurn),
       deferredGrowth: profileStage(input.deferredGrowth),
+      tocSupersede: profileStage(input.tocSupersede),
+      freshFarBootstrap: profileStage(input.freshFarBootstrap),
+      farToc: {
+        ...profileStage(input.farToc),
+        workerRequestsToFirstFrame: input.farToc.workerRequestsToFirstFrame,
+      },
       reflow: profileStage(input.reflow),
     },
     transitions: {
       cachedTurn: input.cachedTurnTransition,
       deferredGrowth: input.deferredGrowthTransition,
+      tocSupersede: buildTocSupersedeTransition(input.tocSupersedeTransition),
+      freshFarGeneration: copyFreshFarGeneration(input.freshFarGeneration),
+      farToc: input.farTocTransition,
     },
     operationsByKind: summarizeOperations(input.operations),
     operations: input.operations.map(roundOperation),
@@ -249,6 +311,9 @@ function roundOperation(
     durationMs: operation.durationMs === null ? null : rounded(operation.durationMs),
     requestedRevision: operation.requestedRevision ? { ...operation.requestedRevision } : null,
     revision: operation.revision ? { ...operation.revision } : null,
+    chapterLocalRevision: operation.chapterLocalRevision
+      ? { ...operation.chapterLocalRevision }
+      : null,
   };
 }
 

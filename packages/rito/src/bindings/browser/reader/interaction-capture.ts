@@ -7,6 +7,7 @@ import type {
 import type { ReaderLocator, ReaderSourcePoint } from '../../../reader';
 import { isCurrentRevisionHandle } from './pipeline/revision-handle';
 import type { BrowserReaderRevisionHandle, BrowserReaderState } from './types';
+import { browserReaderChapterLocalPreviewSuspendsInteractions } from '../chapter-local-preview/state';
 
 export interface BrowserReaderInteractionCapture {
   readonly worker: BrowserReaderWorkerClient;
@@ -68,7 +69,9 @@ export function captureInteraction(
 export function captureCommittedSourceRead(
   state: BrowserReaderState,
 ): BrowserReaderInteractionCapture | undefined {
-  if (state.disposed) return undefined;
+  if (state.disposed || browserReaderChapterLocalPreviewSuspendsInteractions(state)) {
+    return undefined;
+  }
   const revision = state.revisionHandle;
   const worker = state.worker;
   if (!revision || worker.sessionId !== revision.workerSessionId) return undefined;
@@ -93,12 +96,12 @@ export function captureIsCurrent(
 export function sameRevision(
   left: BrowserReaderRevisionHandle,
   right: BrowserReaderRevisionHandle,
+  generation: 'commitGeneration' | 'publicationGeneration' = 'commitGeneration',
 ): boolean {
   return (
+    sameCoreRevision(left, right) &&
     left.workerSessionId === right.workerSessionId &&
-    left.revisionId === right.revisionId &&
-    left.revisionVersion === right.revisionVersion &&
-    left.commitGeneration === right.commitGeneration
+    left[generation] === right[generation]
   );
 }
 
@@ -111,6 +114,7 @@ function revisionCaptureIsCurrent(
 ): boolean {
   return (
     !state.disposed &&
+    !browserReaderChapterLocalPreviewSuspendsInteractions(state) &&
     state.worker === capture.worker &&
     capture.worker.sessionId === capture.revision.workerSessionId &&
     isCurrentRevisionHandle(state, capture.revision)

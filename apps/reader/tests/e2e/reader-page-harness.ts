@@ -2,9 +2,11 @@ import { expect, type Page } from '@playwright/test';
 
 const READER_PAINT_TIMEOUT_MS = 90_000;
 
-interface ReaderCanvasSample {
+export interface ReaderCanvasSample {
   readonly checksum: string;
   readonly nonBlank: boolean;
+  readonly activeChapterHref: string;
+  readonly capturedAt: number;
 }
 
 export async function resetToFirstSpread(page: Page): Promise<void> {
@@ -34,25 +36,35 @@ export async function waitForReaderSpreadPaint(
   expectedSpread: number,
   previousChecksum?: string,
 ): Promise<string> {
+  return (await waitForReaderSpreadPaintSample(page, expectedSpread, previousChecksum)).checksum;
+}
+
+export async function waitForReaderSpreadPaintSample(
+  page: Page,
+  expectedSpread: number,
+  previousChecksum?: string,
+): Promise<ReaderCanvasSample> {
   await expect
     .poll(() => currentSpread(page), {
       timeout: READER_PAINT_TIMEOUT_MS,
       intervals: [10],
     })
     .toBe(expectedSpread);
-  let checksum = '';
+  const match: { sample?: ReaderCanvasSample } = {};
   await expect
     .poll(
       async () => {
         const sample = await readReaderCanvasSample(page);
         if (!sample?.nonBlank) return false;
-        checksum = sample.checksum;
-        return previousChecksum === undefined || sample.checksum !== previousChecksum;
+        if (previousChecksum !== undefined && sample.checksum === previousChecksum) return false;
+        match.sample = sample;
+        return true;
       },
       { timeout: READER_PAINT_TIMEOUT_MS, intervals: [10] },
     )
     .toBe(true);
-  return checksum;
+  if (match.sample === undefined) throw new Error('Reader target spread did not paint');
+  return match.sample;
 }
 
 export async function waitForReaderTransitionEnd(page: Page): Promise<void> {
@@ -118,7 +130,7 @@ export async function readerCanvasSampleChecksum(page: Page): Promise<string> {
   return sample.checksum;
 }
 
-async function readReaderCanvasSample(page: Page): Promise<ReaderCanvasSample | null> {
+export async function readReaderCanvasSample(page: Page): Promise<ReaderCanvasSample | null> {
   return page
     .getByTestId('reader-shell')
     .locator('canvas')
@@ -159,6 +171,11 @@ async function readReaderCanvasSample(page: Page): Promise<ReaderCanvasSample | 
       return {
         checksum: `${String(canvas.width)}x${String(canvas.height)}:${String(hash >>> 0)}`,
         nonBlank,
+        activeChapterHref:
+          canvas
+            .closest('[data-testid="reader-shell"]')
+            ?.getAttribute('data-active-chapter-href') ?? '',
+        capturedAt: performance.now(),
       };
     });
 }

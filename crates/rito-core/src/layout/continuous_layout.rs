@@ -4,6 +4,9 @@ use serde_json::{Map, Value};
 
 use super::{
     content::{RuntimeBlock, RuntimeChild, RuntimeHorizontalRule},
+    continuous_flex::{
+        is_supported_single_image_flex, layout_single_image_flex, SingleImageFlexInput,
+    },
     continuous_float::ContinuousFloatContext,
     continuous_image::{layout_continuous_image_block, ContinuousImageBlockInput},
     continuous_list::{
@@ -663,6 +666,17 @@ fn layout_continuous_top_level_node(
         StyledNodeKind::Image if node.src.is_some() => {
             layout_continuous_image_node(state, node, content_width, content_height, image_sizes);
         }
+        StyledNodeKind::Block if string_or_default(&node.style, "display", "block") == "flex" => {
+            if is_supported_single_image_flex(node) {
+                layout_continuous_single_image_flex(
+                    state,
+                    node,
+                    content_width,
+                    content_height,
+                    image_sizes,
+                );
+            }
+        }
         StyledNodeKind::Block
             if string_or_default(&node.style, "position", "static") != "absolute" =>
         {
@@ -685,6 +699,7 @@ fn layout_continuous_top_level_node(
 fn is_resumable_continuous_leaf(node: &StyledNode, line_breaking: LineBreaking) -> bool {
     line_breaking == LineBreaking::Greedy
         && node.node_type == StyledNodeKind::Block
+        && string_or_default(&node.style, "display", "block") != "flex"
         && string_or_default(&node.style, "position", "static") != "absolute"
         && node.tag.as_deref() != Some("hr")
         && node.tag.as_deref() != Some("table")
@@ -695,12 +710,44 @@ fn is_resumable_continuous_leaf(node: &StyledNode, line_breaking: LineBreaking) 
 fn is_resumable_continuous_container(node: &StyledNode, line_breaking: LineBreaking) -> bool {
     line_breaking == LineBreaking::Greedy
         && node.node_type == StyledNodeKind::Block
+        && string_or_default(&node.style, "display", "block") != "flex"
         && string_or_default(&node.style, "position", "static") != "absolute"
         && node.tag.as_deref() != Some("hr")
         && node.tag.as_deref() != Some("table")
         && string_or_default(&node.style, "float", "none") == "none"
         && has_continuous_block_children(node)
         && !has_visual_decorations(&node.style)
+}
+
+fn layout_continuous_single_image_flex(
+    state: &mut ContinuousLayoutState,
+    node: &StyledNode,
+    content_width: f64,
+    content_height: f64,
+    image_sizes: &ImageSizeIndex,
+) {
+    collapse_continuous_margin(state, resolve_margin_top(&node.style, content_width));
+    let metrics = resolve_horizontal_metrics(content_width, &node.style);
+    let x = resolve_horizontal_offset(
+        content_width,
+        metrics.target_width,
+        &node.style,
+        metrics.margin_left,
+        metrics.margin_right,
+        0.0,
+    );
+    let mut block = layout_single_image_flex(SingleImageFlexInput {
+        node,
+        x,
+        y: state.y,
+        width: metrics.target_width,
+        page_content_height: content_height,
+        image_sizes,
+    });
+    apply_continuous_page_breaks(&mut block, &node.style);
+    state.y += block.height;
+    state.blocks.push(block);
+    state.previous_margin_bottom = resolve_margin_bottom(&node.style, content_width);
 }
 
 fn layout_continuous_image_node(

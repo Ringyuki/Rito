@@ -9,11 +9,6 @@ import {
   findRitoCoreWasmReaderSpreadContainingPage,
   findRitoCoreWasmReaderTocTarget,
 } from '../core-contracts';
-import {
-  notifySpreadRendered,
-  renderSpreadToBoundCanvas,
-  renderSpreadToContext,
-} from '../rendering';
 import type { BrowserReaderState } from './types';
 import { fallbackBrowserTextMeasurer } from '../host-runtime';
 import { createBrowserReaderInteractions } from './interaction';
@@ -28,6 +23,8 @@ import {
 } from '../bounded-session-runtime';
 import { disposeBrowserReaderState } from './reader-dispose';
 import { trackBrowserReaderHostTask } from './host-tasks';
+import { browserReaderChapterLocalPreviewTocEntry } from '../chapter-local-preview/state';
+import { browserReaderRenderingMethods } from '../reader-rendering-methods';
 
 export type BrowserReaderAccessorKey =
   | 'metadata'
@@ -78,7 +75,7 @@ export function buildBrowserReaderMethods(
   return {
     measurer: fallbackBrowserTextMeasurer,
     interactions: createBrowserReaderInteractions(state),
-    ...renderingMethods(state),
+    ...browserReaderRenderingMethods(state),
     ...layoutMethods(state, () => layoutOptions, reflow),
     ...navigationMethods(state),
     ...resourceMethods(state),
@@ -86,24 +83,6 @@ export function buildBrowserReaderMethods(
     dispose() {
       disposeBrowserReaderState(state);
       return state.disposeTask ?? Promise.resolve();
-    },
-  };
-}
-
-function renderingMethods(
-  state: BrowserReaderState,
-): Pick<BrowserReaderMethodSurface, 'renderSpread' | 'renderSpreadTo' | 'notifyActiveSpread'> {
-  return {
-    renderSpread(index, scale = 1) {
-      renderSpreadToBoundCanvas(state, index, scale);
-      void warmBrowserReaderFrameWindow(state, index);
-    },
-    renderSpreadTo(index, ctx) {
-      return renderSpreadToContext(state, index, ctx);
-    },
-    notifyActiveSpread(index) {
-      notifySpreadRendered(state, index);
-      void warmBrowserReaderFrameWindow(state, index);
     },
   };
 }
@@ -193,7 +172,10 @@ function navigationMethods(
       return target ? { pageIndex: target.pageIndex, spreadIndex: target.spreadIndex } : undefined;
     },
     findActiveTocEntry(pageIndex) {
-      return findRitoCoreWasmReaderActiveTocEntry(state.tocTargets, pageIndex);
+      return (
+        browserReaderChapterLocalPreviewTocEntry(state) ??
+        findRitoCoreWasmReaderActiveTocEntry(state.tocTargets, pageIndex)
+      );
     },
     navigateToLocator(locator, signal) {
       return ensureBrowserReaderBoundedLocator(state, locator, signal);

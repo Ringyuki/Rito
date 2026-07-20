@@ -1,8 +1,22 @@
 import { runDisposers } from '../utils/disposable';
 import type { PageBufferSlot } from './types';
 
+export interface ProvisionalStageState {
+  readonly token: number;
+  readonly mountSpreadIndex: number;
+  readonly direction: 'forward' | 'backward';
+  readonly slot: PageBufferSlot;
+  readonly onFirstComposite: (() => void) | undefined;
+  phase: 'incoming' | 'committed' | 'rollingBack';
+  rollbackSlot: PageBufferSlot | undefined;
+  compositeNotified: boolean;
+}
+
 export interface PageBufferPoolState {
   readonly slots: [PageBufferSlot, PageBufferSlot, PageBufferSlot];
+  readonly provisionalSlot: PageBufferSlot;
+  provisional: ProvisionalStageState | undefined;
+  nextProvisionalToken: number;
   indices: [number, number, number];
   width: number;
   height: number;
@@ -15,8 +29,12 @@ export function createPageBufferPoolState(): PageBufferPoolState {
     const first = createSlot(created);
     const second = createSlot(created);
     const third = createSlot(created);
+    const provisional = createSlot(created);
     return {
       slots: [first, second, third],
+      provisionalSlot: provisional,
+      provisional: undefined,
+      nextProvisionalToken: 0,
       indices: [0, 1, 2],
       width: 1,
       height: 1,
@@ -47,6 +65,8 @@ export function disposePageBufferPoolState(state: PageBufferPoolState): void {
   if (state.disposed) return;
   state.disposed = true;
   releaseSlots(state.slots);
+  releaseSlot(state.provisionalSlot);
+  state.provisional = undefined;
   state.width = 0;
   state.height = 0;
 }

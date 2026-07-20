@@ -8,7 +8,7 @@ pub(super) fn apply_inter_character_spacing(
     gap_size: f64,
     grapheme_gaps: usize,
 ) {
-    run.add_paint_spacing_value("letterSpacingPx", gap_size);
+    run.add_letter_spacing_value(gap_size);
     let expected_advance = run.width;
     if matches!(
         &run.shape,

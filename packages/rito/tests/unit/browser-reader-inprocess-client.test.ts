@@ -239,7 +239,7 @@ function createViewRevisionPayload(): unknown {
             chapterMap: {},
           },
           tocTargets: { revisionId: 'rev-1', targets: [] },
-          footnotes: { revisionId: 'rev-1', entries: {} },
+          footnotes: { revisionId: 'rev-1', complete: true, pendingKeys: [], entries: {} },
           chapterTextIndices: { revisionId: 'rev-1', entries: {} },
           fontFamilies: [],
         },

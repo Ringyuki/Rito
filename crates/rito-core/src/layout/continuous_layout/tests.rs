@@ -5,9 +5,9 @@ use serde_json::{json, Map};
 use super::{
     has_mixed_inline_content, layout_continuous_blocks, layout_continuous_floated_leaf,
     layout_continuous_text_block, relative_visual_offset, wrap_anonymous_inline_runs,
-    ContinuousBlock, ContinuousFloatContext, ContinuousLayoutState, ContinuousLeafLayoutSession,
-    ContinuousLeafTextState, ContinuousTextLayout, ImageSizeIndex, LayoutWorkBudget,
-    LayoutWorkMeter, LineBreaking, TextMeasurementFonts,
+    ContinuousBlock, ContinuousChild, ContinuousFloatContext, ContinuousLayoutState,
+    ContinuousLeafLayoutSession, ContinuousLeafTextState, ContinuousTextLayout, ImageSizeIndex,
+    LayoutWorkBudget, LayoutWorkMeter, LineBreaking, TextMeasurementFonts,
 };
 use crate::style::{StyledNode, StyledNodeKind};
 
@@ -48,6 +48,57 @@ fn image_followed_by_line_break_is_mixed_inline_content() {
         &fonts,
     );
     assert_eq!(blocks.len(), 1);
+}
+
+#[test]
+fn bounded_single_image_flex_centers_image_on_both_axes() {
+    let mut image = image_node("centered.png");
+    image.style.extend([
+        ("width".to_owned(), json!(100)),
+        ("height".to_owned(), json!(50)),
+        ("marginTop".to_owned(), json!(0)),
+    ]);
+    let mut flex = node(StyledNodeKind::Block, vec![image]);
+    flex.tag = Some("div".to_owned());
+    flex.style.extend([
+        ("display".to_owned(), json!("flex")),
+        ("flexDirection".to_owned(), json!("row")),
+        ("flexWrap".to_owned(), json!("nowrap")),
+        ("justifyContent".to_owned(), json!("center")),
+        ("alignItems".to_owned(), json!("center")),
+        ("height".to_owned(), json!(200)),
+        ("marginTop".to_owned(), json!(0)),
+        ("backgroundColor".to_owned(), json!("#eeeeee")),
+        ("pageBreakAfter".to_owned(), json!("always")),
+    ]);
+
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let blocks =
+        layout_continuous_blocks(&[flex], 300.0, 600.0, &images, LineBreaking::Greedy, &fonts);
+
+    assert_eq!(blocks.len(), 1);
+    let block = &blocks[0];
+    assert_eq!(
+        (block.x, block.y, block.width, block.height),
+        (0.0, 0.0, 300.0, 200.0)
+    );
+    assert_eq!(block.semantic_tag.as_deref(), Some("div"));
+    assert!(
+        block.paint.is_some(),
+        "flex container paint boundary is retained"
+    );
+    assert!(
+        block.page_break_after,
+        "flex container pagination boundary is retained"
+    );
+    let ContinuousChild::Image(image) = &block.children[0] else {
+        panic!("bounded flex container must own its image item directly");
+    };
+    assert_eq!(
+        (image.x, image.y, image.width, image.height),
+        (100.0, 75.0, 100.0, 50.0)
+    );
 }
 
 #[test]

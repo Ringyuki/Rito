@@ -1,7 +1,10 @@
 pub const NAME: &str = "resources";
 pub const OWNS: &str = "Publication resource lookup, fonts, images, dimensions, and byte ownership";
 
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    io::{Cursor, Read},
+};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -135,6 +138,19 @@ pub(crate) fn detect_image_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     image_dimensions(bytes).map(|dimensions| (dimensions.width, dimensions.height))
 }
 
+pub(crate) fn detect_image_dimensions_from_reader(
+    reader: &mut dyn Read,
+) -> std::io::Result<Option<(u32, u32)>> {
+    let mut prefix = [0_u8; 24];
+    let prefix_length = read_available(reader, &mut prefix)?;
+    if let Some(dimensions) = png_dimensions(&prefix[..prefix_length]) {
+        return Ok(Some((dimensions.width, dimensions.height)));
+    }
+    let mut stream = Cursor::new(&prefix[..prefix_length]).chain(reader);
+    Ok(jpeg_dimensions_from_reader(&mut stream)?
+        .map(|dimensions| (dimensions.width, dimensions.height)))
+}
+
 #[derive(Clone, Copy)]
 struct ImageDimensions {
     width: u32,
@@ -192,6 +208,103 @@ fn jpeg_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
     }
 
     None
+}
+
+fn jpeg_dimensions_from_reader(reader: &mut dyn Read) -> std::io::Result<Option<ImageDimensions>> {
+    let mut signature = [0_u8; 2];
+    if !read_exact_or_eof(reader, &mut signature)? || signature != [0xff, 0xd8] {
+        return Ok(None);
+    }
+    loop {
+        let Some(marker) = next_jpeg_marker(reader)? else {
+            return Ok(None);
+        };
+        if marker == 0xd9 || marker == 0xda {
+            return Ok(None);
+        }
+        if marker == 0x01 || (0xd0..=0xd7).contains(&marker) {
+            continue;
+        }
+        let mut length_bytes = [0_u8; 2];
+        if !read_exact_or_eof(reader, &mut length_bytes)? {
+            return Ok(None);
+        }
+        let segment_length = usize::from(u16::from_be_bytes(length_bytes));
+        if segment_length < 2 {
+            return Ok(None);
+        }
+        let payload_length = segment_length - 2;
+        if is_jpeg_sof_marker(marker) {
+            let mut header = [0_u8; 5];
+            if payload_length < header.len() || !read_exact_or_eof(reader, &mut header)? {
+                return Ok(None);
+            }
+            return Ok(Some(ImageDimensions {
+                height: u32::from(u16::from_be_bytes([header[1], header[2]])),
+                width: u32::from(u16::from_be_bytes([header[3], header[4]])),
+            }));
+        }
+        if !discard_exact(reader, payload_length)? {
+            return Ok(None);
+        }
+    }
+}
+
+fn next_jpeg_marker(reader: &mut dyn Read) -> std::io::Result<Option<u8>> {
+    loop {
+        let Some(byte) = read_byte(reader)? else {
+            return Ok(None);
+        };
+        if byte != 0xff {
+            continue;
+        }
+        loop {
+            let Some(marker) = read_byte(reader)? else {
+                return Ok(None);
+            };
+            if marker == 0xff {
+                continue;
+            }
+            if marker != 0x00 {
+                return Ok(Some(marker));
+            }
+            break;
+        }
+    }
+}
+
+fn read_available(reader: &mut dyn Read, output: &mut [u8]) -> std::io::Result<usize> {
+    let mut filled = 0;
+    while filled < output.len() {
+        let read = reader.read(&mut output[filled..])?;
+        if read == 0 {
+            break;
+        }
+        filled += read;
+    }
+    Ok(filled)
+}
+
+fn read_exact_or_eof(reader: &mut dyn Read, output: &mut [u8]) -> std::io::Result<bool> {
+    Ok(read_available(reader, output)? == output.len())
+}
+
+fn read_byte(reader: &mut dyn Read) -> std::io::Result<Option<u8>> {
+    let mut byte = [0_u8; 1];
+    Ok(read_exact_or_eof(reader, &mut byte)?.then_some(byte[0]))
+}
+
+fn discard_exact(reader: &mut dyn Read, mut remaining: usize) -> std::io::Result<bool> {
+    let mut buffer = [0_u8; 8 * 1024];
+    while remaining > 0 {
+        let length = remaining.min(buffer.len());
+        let read = read_available(reader, &mut buffer[..length])?;
+        if read != length {
+            return Ok(false);
+        }
+        remaining -= read;
+    }
+    Ok(true)
 }
 
 fn is_jpeg_sof_marker(marker: u8) -> bool {

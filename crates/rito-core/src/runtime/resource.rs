@@ -84,6 +84,7 @@ pub(super) fn runtime_binary_resource(
 pub(super) struct RuntimeBinaryResourceMetadata {
     href: String,
     media_type: String,
+    byte_length: usize,
     width: Option<u32>,
     height: Option<u32>,
 }
@@ -92,6 +93,10 @@ impl RuntimeBinaryResourceMetadata {
     pub(super) fn href(&self) -> &str {
         &self.href
     }
+
+    pub(super) const fn byte_length(&self) -> usize {
+        self.byte_length
+    }
 }
 
 impl From<&LoadedBinaryResource> for RuntimeBinaryResourceMetadata {
@@ -99,6 +104,7 @@ impl From<&LoadedBinaryResource> for RuntimeBinaryResourceMetadata {
         Self {
             href: resource.href.clone(),
             media_type: resource.media_type.clone(),
+            byte_length: resource.byte_length,
             width: resource.width,
             height: resource.height,
         }

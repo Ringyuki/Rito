@@ -68,6 +68,8 @@ impl TextWorkMeter {
     pub(in crate::layout) fn take_utf16_units(&mut self, requested: usize) -> usize {
         let taken = requested.min(self.utf16_units_remaining);
         self.utf16_units_remaining -= taken;
+        #[cfg(any(test, feature = "bench-internals"))]
+        crate::layout::bounded_work_probe::record_resumable_utf16(taken);
         taken
     }
 
@@ -83,12 +85,16 @@ impl TextWorkMeter {
         utf16_units: usize,
     ) -> TextWorkPermitResult {
         if self.atomic_operations_remaining == 0 {
+            #[cfg(any(test, feature = "bench-internals"))]
+            crate::layout::bounded_work_probe::record_atomic_yield(kind, utf16_units);
             return TextWorkPermitResult::Yield;
         }
 
         if utf16_units <= self.utf16_units_remaining {
             self.atomic_operations_remaining -= 1;
             self.utf16_units_remaining -= utf16_units;
+            #[cfg(any(test, feature = "bench-internals"))]
+            crate::layout::bounded_work_probe::record_atomic_permit(kind, utf16_units, false);
             return TextWorkPermitResult::Permit {
                 kind,
                 utf16_units,
@@ -99,6 +105,8 @@ impl TextWorkMeter {
         if self.is_fresh() && utf16_units > self.max_utf16_units {
             self.atomic_operations_remaining -= 1;
             self.utf16_units_remaining = 0;
+            #[cfg(any(test, feature = "bench-internals"))]
+            crate::layout::bounded_work_probe::record_atomic_permit(kind, utf16_units, true);
             return TextWorkPermitResult::Permit {
                 kind,
                 utf16_units,
@@ -106,6 +114,8 @@ impl TextWorkMeter {
             };
         }
 
+        #[cfg(any(test, feature = "bench-internals"))]
+        crate::layout::bounded_work_probe::record_atomic_yield(kind, utf16_units);
         TextWorkPermitResult::Yield
     }
 
@@ -117,6 +127,10 @@ impl TextWorkMeter {
     #[cfg(test)]
     pub(in crate::layout) const fn atomic_operations_remaining(&self) -> usize {
         self.atomic_operations_remaining
+    }
+
+    pub(in crate::layout) const fn has_capacity(&self) -> bool {
+        self.utf16_units_remaining > 0 && self.atomic_operations_remaining > 0
     }
 
     const fn is_fresh(&self) -> bool {

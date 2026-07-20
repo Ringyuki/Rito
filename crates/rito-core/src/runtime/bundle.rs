@@ -408,7 +408,15 @@ impl RuntimeDocument {
             toc_targets: presentation.toc_targets,
             footnotes: RuntimeFootnotes {
                 revision_id: revision_id.to_owned(),
-                entries: revision_record.interactions.footnotes.clone(),
+                complete: revision_record.interactions.footnote_index_complete,
+                pending_keys: revision_record
+                    .interactions
+                    .pending_footnote_keys
+                    .iter()
+                    .filter(|key| !revision_record.interactions.contains_footnote(key.as_str()))
+                    .cloned()
+                    .collect(),
+                entries: revision_record.interactions.owned_footnotes(),
             },
             chapter_text_indices: RuntimeChapterTextIndices {
                 revision_id: revision_id.to_owned(),

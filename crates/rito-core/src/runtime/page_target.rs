@@ -1,16 +1,13 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    epub::{
-        is_external_href, join_epub_href, opf_dir, LoadedChapter, LoadedEpubDocument, TocEntry,
-    },
-    layout::LayoutHitTarget,
+use crate::epub::{
+    is_external_href, join_epub_href, opf_dir, LoadedChapter, LoadedEpubDocument, TocEntry,
 };
 
 use super::{
-    source_locator::RuntimeSourceLocatorCanonicalizer, RuntimePageTarget, RuntimePageTargetBounds,
-    RuntimePageTargetKind, RuntimePageTargetText, RuntimeRevision, RuntimeSourceLocator,
-    RuntimeSourcePoint,
+    page_artifact::PageArtifactTarget, source_locator::RuntimeSourceLocatorCanonicalizer,
+    RuntimePageTarget, RuntimePageTargetBounds, RuntimePageTargetKind, RuntimePageTargetText,
+    RuntimeRevision, RuntimeSourceLocator, RuntimeSourcePoint,
 };
 
 #[cfg(test)]
@@ -38,7 +35,7 @@ pub(super) fn runtime_page_targets(
     context: &RuntimePageTargetContext,
     revision: &RuntimeRevision,
     page_index: usize,
-    targets: Vec<LayoutHitTarget>,
+    targets: Vec<PageArtifactTarget>,
 ) -> Vec<RuntimePageTarget> {
     let chapter = chapter_for_page(document, revision, page_index);
     targets
@@ -52,7 +49,7 @@ fn runtime_page_target(
     context: &RuntimePageTargetContext,
     revision: &RuntimeRevision,
     chapter: Option<&LoadedChapter>,
-    target: LayoutHitTarget,
+    target: PageArtifactTarget,
 ) -> RuntimePageTarget {
     let source_locator = source_locator(chapter, &target);
     let href = target.href.clone();
@@ -68,7 +65,10 @@ fn runtime_page_target(
         canonical_href.as_deref(),
         target.image_src.as_deref(),
     );
-    let footnote_key = if kind == RuntimePageTargetKind::Footnote {
+    let footnote_key = if matches!(
+        kind,
+        RuntimePageTargetKind::Footnote | RuntimePageTargetKind::FootnotePending
+    ) {
         canonical_href
     } else {
         None
@@ -78,7 +78,6 @@ fn runtime_page_target(
         .flatten()
         .and_then(|locator| context.toc_labels.label(locator))
         .map(str::to_owned);
-    let bounds = target.rounded_bounds();
     let label = if target.text.is_empty() {
         target.image_alt.clone().unwrap_or_default()
     } else {
@@ -88,18 +87,18 @@ fn runtime_page_target(
     RuntimePageTarget {
         kind,
         bounds: RuntimePageTargetBounds {
-            x: bounds.x,
-            y: bounds.y,
-            width: bounds.width,
-            height: bounds.height,
+            x: target.bounds.x,
+            y: target.bounds.y,
+            width: target.bounds.width,
+            height: target.bounds.height,
         },
         block_index: target.block_index,
         line_index: target.line_index,
         run_index: target.run_index,
         label,
         text: RuntimePageTargetText {
-            hash: target.text_hash(),
-            length: target.text_length(),
+            hash: target.text_hash,
+            length: target.text_length,
         },
         href,
         source_locator,
@@ -178,20 +177,17 @@ pub(super) fn chapter_for_page<'a>(
     revision: &RuntimeRevision,
     page_index: usize,
 ) -> Option<&'a LoadedChapter> {
+    let session = revision.chapter_engine_session();
     document.chapters.iter().find(|chapter| {
-        revision
-            .layout
-            .summary
-            .pagination_flow
-            .chapter_map
-            .get(&chapter.idref)
+        session
+            .known_chapter(&chapter.idref)
             .is_some_and(|range| page_index >= range.start_page && page_index <= range.end_page)
     })
 }
 
 fn source_locator(
     chapter: Option<&LoadedChapter>,
-    target: &LayoutHitTarget,
+    target: &PageArtifactTarget,
 ) -> Option<RuntimeSourceLocator> {
     let chapter = chapter?;
     let node_path = target.source_path.clone()?;
@@ -215,8 +211,10 @@ fn target_kind(
     href: Option<&str>,
     image_src: Option<&str>,
 ) -> RuntimePageTargetKind {
-    if href.is_some_and(|href| revision.interactions.footnotes.contains_key(href)) {
+    if href.is_some_and(|href| revision.interactions.contains_footnote(href)) {
         RuntimePageTargetKind::Footnote
+    } else if href.is_some_and(|href| revision.interactions.pending_footnote_keys.contains(href)) {
+        RuntimePageTargetKind::FootnotePending
     } else if href.is_some() {
         RuntimePageTargetKind::Link
     } else if image_src.is_some() {

@@ -15,6 +15,8 @@ export default defineConfig([
       '**/coverage/',
       '**/playwright-report/',
       '**/test-results/',
+      '**/target/',
+      'benchmarks/**/artifact-snapshot/',
       'apps/reader/src/components/ui/',
     ],
   },
@@ -26,6 +28,7 @@ export default defineConfig([
         projectService: {
           allowDefaultProject: [
             'eslint.config.mjs',
+            'benchmarks/*/*.mjs',
             'scripts/*.mjs',
             'packages/*/scripts/*.mjs',
             'packages/rito-core-wasm/src/*.js',
@@ -48,7 +51,15 @@ export default defineConfig([
     },
   },
   {
-    files: ['scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs', 'packages/*/tests/**/*.mjs'],
+    files: [
+      'apps/reader/tests/e2e/reader-preview-ab-model.mjs',
+      'apps/reader/tests/e2e/reader-preview-ab-model.node.mjs',
+      'apps/reader/tests/e2e/run-reader-preview-ab.mjs',
+      'benchmarks/**/*.mjs',
+      'scripts/**/*.mjs',
+      'packages/*/scripts/**/*.mjs',
+      'packages/*/tests/**/*.mjs',
+    ],
     languageOptions: {
       ...tseslint.configs.disableTypeChecked.languageOptions,
       globals: {

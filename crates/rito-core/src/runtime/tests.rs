@@ -183,6 +183,27 @@ fn creates_revisions_and_caches_frames() {
 }
 
 #[test]
+fn page_break_aliases_force_the_same_runtime_pagination() {
+    let page_counts = [
+        "#intro { break-after: page; }",
+        "#intro { page-break-after: always; }",
+        "img { break-before: page; }",
+        "img { page-break-before: always; }",
+    ]
+    .map(|stylesheet| {
+        let mut document = RuntimeDocument::open(&fixture_epub_with_stylesheet(stylesheet))
+            .expect("page-break fixture opens");
+        document
+            .create_revision(&layout())
+            .expect("page-break fixture paginates")
+            .page_count
+    });
+
+    assert!(page_counts[0] > 1);
+    assert!(page_counts.iter().all(|count| *count == page_counts[0]));
+}
+
+#[test]
 fn eager_revisions_expose_a_complete_versioned_extent() {
     let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
 
@@ -1818,6 +1839,112 @@ fn resolves_source_locators_by_href_anchor_point_range_and_progression() {
     assert_eq!(
         serde_json::to_value(&href).expect("resolution serializes")["status"],
         "resolved"
+    );
+}
+
+#[test]
+fn href_only_source_locators_skip_source_chapter_materialization() {
+    let mut resolved_document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    let resolved_revision = resolved_document
+        .create_revision(&layout())
+        .expect("revision is created");
+    let parsed_chapters_before_resolve = resolved_document
+        .parsed_chapters
+        .keys()
+        .copied()
+        .collect::<Vec<_>>();
+    assert!(resolved_document.source_chapter_indices.is_empty());
+
+    let resolved = resolved_document
+        .resolve_source_locator(
+            &resolved_revision.revision_id,
+            source_locator("chapter.xhtml"),
+        )
+        .expect("published href resolves");
+
+    assert!(matches!(
+        resolved,
+        RuntimeSourceLocatorResolution::Resolved {
+            page_index: 0,
+            matched_by: RuntimeSourceLocatorMatchedBy::Href,
+            ..
+        }
+    ));
+    assert!(resolved_document.source_chapter_indices.is_empty());
+    assert_eq!(
+        resolved_document
+            .parsed_chapters
+            .keys()
+            .copied()
+            .collect::<Vec<_>>(),
+        parsed_chapters_before_resolve
+    );
+
+    let mut pending_document =
+        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let pending_revision = pending_document
+        .create_revision_window_with_line_breaking(&layout(), LineBreaking::Greedy, 1, 1)
+        .expect("chapter window revision is created");
+    let parsed_chapters_before_pending = pending_document
+        .parsed_chapters
+        .keys()
+        .copied()
+        .collect::<Vec<_>>();
+    let pending = pending_document
+        .resolve_source_locator(
+            &pending_revision.revision_id,
+            source_locator("chapter-1.xhtml"),
+        )
+        .expect("unpublished href remains valid");
+
+    assert!(matches!(
+        pending,
+        RuntimeSourceLocatorResolution::Pending {
+            reason: RuntimeSourceLocatorPendingReason::NotPaginated,
+            matched_by: RuntimeSourceLocatorMatchedBy::Href,
+            ..
+        }
+    ));
+    assert!(pending_document.source_chapter_indices.is_empty());
+    assert_eq!(
+        pending_document
+            .parsed_chapters
+            .keys()
+            .copied()
+            .collect::<Vec<_>>(),
+        parsed_chapters_before_pending
+    );
+
+    let mut empty_document =
+        RuntimeDocument::open(&empty_chapter_fixture_epub()).expect("empty document opens");
+    let empty_revision = empty_document
+        .create_revision(&layout())
+        .expect("empty revision is created");
+    let parsed_chapters_before_empty_resolve = empty_document
+        .parsed_chapters
+        .keys()
+        .copied()
+        .collect::<Vec<_>>();
+    let no_projection = empty_document
+        .resolve_source_locator(&empty_revision.revision_id, source_locator("chapter.xhtml"))
+        .expect("empty chapter href remains valid");
+
+    assert!(matches!(
+        no_projection,
+        RuntimeSourceLocatorResolution::Pending {
+            reason: RuntimeSourceLocatorPendingReason::NoPageProjection,
+            matched_by: RuntimeSourceLocatorMatchedBy::Href,
+            ..
+        }
+    ));
+    assert!(empty_document.source_chapter_indices.is_empty());
+    assert_eq!(
+        empty_document
+            .parsed_chapters
+            .keys()
+            .copied()
+            .collect::<Vec<_>>(),
+        parsed_chapters_before_empty_resolve
     );
 }
 

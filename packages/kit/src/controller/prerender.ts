@@ -17,10 +17,13 @@ interface PrerenderSchedulerState {
   generation: number;
   step: number;
   cancelPending: (() => void) | null;
+  pauseCount: number;
 }
 
 export interface PrerenderScheduler {
   schedule(job: PrerenderJob): void;
+  pause(): void;
+  resume(): void;
   dispose(): void;
 }
 
@@ -32,6 +35,7 @@ export function createPrerenderScheduler(): PrerenderScheduler {
     generation: 0,
     step: 0,
     cancelPending: null,
+    pauseCount: 0,
   };
   return {
     schedule(job): void {
@@ -41,7 +45,18 @@ export function createPrerenderScheduler(): PrerenderScheduler {
       state.step = 0;
       state.cancelPending?.();
       state.cancelPending = null;
-      scheduleNext(state);
+      if (state.pauseCount === 0) scheduleNext(state);
+    },
+    pause(): void {
+      if (state.disposed) return;
+      state.pauseCount += 1;
+      state.cancelPending?.();
+      state.cancelPending = null;
+    },
+    resume(): void {
+      if (state.disposed || state.pauseCount === 0) return;
+      state.pauseCount -= 1;
+      if (state.pauseCount === 0 && state.job) scheduleNext(state);
     },
     dispose(): void {
       if (state.disposed) return;
@@ -56,7 +71,7 @@ export function createPrerenderScheduler(): PrerenderScheduler {
 function runPrerender(state: PrerenderSchedulerState, generation: number): void {
   if (state.generation !== generation) return;
   state.cancelPending = null;
-  if (state.disposed) return;
+  if (state.disposed || state.pauseCount > 0) return;
   if (hasPendingInput()) {
     scheduleNext(state);
     return;
@@ -94,7 +109,7 @@ function warmAdjacentSpread(
 }
 
 function scheduleNext(state: PrerenderSchedulerState): void {
-  if (state.disposed || state.cancelPending) return;
+  if (state.disposed || state.pauseCount > 0 || state.cancelPending) return;
   const generation = state.generation;
   const eager = state.step === 0 && state.job?.eagerPosition !== undefined;
   state.cancelPending = scheduleCancelable(() => {

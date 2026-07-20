@@ -262,7 +262,7 @@ fn packed_command_flags(
     if has_secondary {
         flags |= 1 << 2;
     }
-    if command.paint().is_some() {
+    if command.has_paint() {
         flags |= 1 << 3;
     }
     if has_payload {

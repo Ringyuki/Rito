@@ -1,5 +1,7 @@
 import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
+import { installRitoCoreWasmChapterLocalDocumentMethods } from './chapter-local-document-runtime.js';
 import { installRitoCoreWasmVersionedDocumentMethods } from './core-wasm-versioned-runtime.js';
+import { chapterLocalReaderWorkerPayload } from './reader-worker-chapter-local-payload-runtime.js';
 import {
   versionedReaderWorkerPayload,
   warmVersionedReaderFrameWindow,
@@ -236,6 +238,7 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
   }
 
   installRitoCoreWasmVersionedDocumentMethods(RitoCoreWasmDocument);
+  installRitoCoreWasmChapterLocalDocumentMethods(RitoCoreWasmDocument);
 
   return { initRitoCoreWasmEngine, RitoCoreWasmDocument };
 }
@@ -265,6 +268,8 @@ function readerWorkerPayload(document, request) {
       document.releaseRevision(request.revisionId);
       return { kind: 'releaseRevision' };
     default: {
+      const chapterLocal = chapterLocalReaderWorkerPayload(document, request);
+      if (chapterLocal !== undefined) return chapterLocal;
       const versioned = versionedReaderWorkerPayload(document, request);
       if (versioned !== undefined) return versioned;
       throw new Error(`Unsupported reader worker request: ${String(request.kind)}`);
@@ -516,10 +521,17 @@ function frameWindowResult(document, prefetched) {
     frames: prefetched.plan.spreadIndexes.map((spreadIndex) =>
       readFrameBuffer(document, prefetched.plan.revisionId, spreadIndex),
     ),
-    spreads: prefetched.spreads.map((spread) => ({
-      spreadIndex: spread.spreadIndex,
-      resources: readResourcePayloadBytes(document, spread.payloads),
-    })),
+    spreads: prefetched.spreads.map((spread) => {
+      const transferred = readResourcePayloadBytes(document, spread.payloads);
+      return {
+        spreadIndex: spread.spreadIndex,
+        resources: transferred.resources,
+        missingResources: [
+          ...(Array.isArray(spread.missingResources) ? spread.missingResources : []),
+          ...transferred.missingResources,
+        ],
+      };
+    }),
   };
 }
 
@@ -540,14 +552,19 @@ function readReaderResource(document, revisionId, kind, href) {
 
 function readResourcePayloadBytes(document, payloads) {
   const resources = [];
+  const missingResources = [];
   for (const payload of payloads) {
     try {
       resources.push({ payload, bytes: takeResourceTransferBytes(document, payload.transferId) });
     } catch {
-      // Frame resource warmup is opportunistic. Missing bytes should not fail callers.
+      missingResources.push({
+        kind: payload.kind,
+        href: payload.href,
+        message: `Frame resource transfer is unavailable: ${payload.href}`,
+      });
     }
   }
-  return resources;
+  return { resources, missingResources };
 }
 
 function takeResourceTransferBytes(document, transferId) {

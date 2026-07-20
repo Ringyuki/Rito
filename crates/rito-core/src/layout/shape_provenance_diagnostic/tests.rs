@@ -1,5 +1,3 @@
-use serde_json::json;
-
 use super::{summarize_shape_provenance, MAX_AFFECTED_CODEPOINTS};
 use crate::layout::{
     content::{RuntimeBlock, RuntimeChild},
@@ -9,6 +7,7 @@ use crate::layout::{
         RunShape, RunShapeCluster, RunShapeDirection, RunShapeFaceSpan, RunShapeProvenance,
         RunShapeUnavailableReason,
     },
+    RunPaint,
 };
 
 #[test]
@@ -220,7 +219,7 @@ fn text_run(text: &str, shape: RunShape) -> LineRun {
         height: 20.0,
         font_size: 16.0,
         interaction_geometry: None,
-        paint: json!({}),
+        paint: RunPaint::default(),
         line_height_px: None,
         href: None,
         source_path: None,
@@ -239,6 +238,6 @@ fn ruby_run(text: &str) -> LineRun {
         y: 0.0,
         width: 1.0,
         height: 8.0,
-        paint: json!({}),
+        paint: RunPaint::default(),
     })
 }

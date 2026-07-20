@@ -1,4 +1,43 @@
 export { createLayoutConfig, createReader, preloadReaderRuntime } from './reader';
+export { openBrowserReaderV1, RitoReaderErrorV1 } from './bindings/browser/reader-v1';
+export {
+  BrowserReaderCanvasUnsupportedErrorV1,
+  createBrowserReaderV1CanvasPresenter,
+} from './bindings/browser/reader-v1-canvas';
+export {
+  BROWSER_READER_IMAGE_RESOURCE_ERROR_CODE,
+  BrowserReaderImageResourceError,
+} from './bindings/browser/image-resource-error';
+export type {
+  BrowserReaderAdjacentDirectionV1,
+  BrowserReaderArtifactRequestV1,
+  BrowserReaderArtifactV1,
+  BrowserReaderBackgroundAdvanceV1,
+  BrowserReaderBackgroundHandoffAckV1,
+  BrowserReaderErrorCodeV1,
+  BrowserReaderForegroundHandoffAckV1,
+  BrowserReaderLayoutV1,
+  BrowserReaderLocatorV1,
+  BrowserReaderPublicationV1,
+  BrowserReaderResourceKindV1,
+  BrowserReaderResourceV1,
+  BrowserReaderSeekOverridesV1,
+  BrowserReaderTextProfileV1,
+  BrowserReaderV1OpenOptions,
+  BrowserReaderV1Session,
+  BrowserReaderWorkBudgetV1,
+} from './bindings/browser/reader-v1';
+export type {
+  BrowserReaderImageLoadOutcome,
+  BrowserReaderImageResourceFailureReason,
+} from './bindings/browser/image-resource-error';
+export type {
+  BrowserReaderCanvasPaintOptionsV1,
+  BrowserReaderCanvasPrepareOptionsV1,
+  BrowserReaderCanvasPresenterV1,
+  BrowserReaderCanvasTargetV1,
+  BrowserReaderPreparedCanvasArtifactV1,
+} from './bindings/browser/reader-v1-canvas';
 export type {
   ChapterRange,
   ChapterTextIndex,

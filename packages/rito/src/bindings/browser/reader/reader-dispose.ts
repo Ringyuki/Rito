@@ -8,10 +8,14 @@ import { createEmptyBrowserReaderRevisionState } from './pipeline/initial-state'
 import type { BrowserReaderState } from './types';
 import { drainBrowserReaderHostTasks } from './host-tasks';
 import { resetBrowserReaderLayoutViewCache } from '../reader-layout';
+import { disposeBrowserReaderChapterLocalPreview } from '../chapter-local-preview/coordinator';
 
 export function disposeBrowserReaderState(state: BrowserReaderState): void {
   if (state.disposed) return;
   state.disposed = true;
+  runReaderCleanup(state, 'chapter-local preview release', () => {
+    disposeBrowserReaderChapterLocalPreview(state);
+  });
   runReaderCleanup(state, 'reflow cancellation', () => {
     cancelBrowserReaderReflow(state);
   });

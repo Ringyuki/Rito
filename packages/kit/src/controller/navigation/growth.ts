@@ -51,6 +51,7 @@ export function continuePendingNavigation(
   deps: NavigationDeps,
   spreadIndex: number,
 ): void {
+  if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) return;
   const pending = currentPending(state, spreadIndex);
   if (!pending || pending.gesture?.cancelled) return;
   if (!ensureIncomingSlot(deps, pending.target, pending.direction)) {

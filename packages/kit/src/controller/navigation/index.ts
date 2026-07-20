@@ -13,12 +13,36 @@ import {
   supersedeNavigationForSelectionIntent,
   type NavigationSelectionInputBarrier,
 } from './direct-interaction';
-import { emitNavigationStart } from './start';
+import {
+  createLocatorNavigator,
+  startGestureNavigation,
+  startNavigation,
+} from './spread-navigation';
 import { navigateReaderLocator, navigateTocEntry, retryPendingTocEntry } from './toc-growth';
+import type { ProvisionalTransitionRuntime } from '../runtime-frame';
+import type { SettledEvent } from '../../driver/types';
+import {
+  disposeChapterLocalTransition,
+  handleChapterLocalTransitionSettled,
+  notifyChapterLocalContentReady,
+  presentChapterLocalInvalidation,
+  refreshChapterLocalTransitionTheme,
+  terminateChapterLocalTransitionForLayout,
+} from './chapter-local-preview';
 
 type State = navState.NavigationState;
-type Attempt = navState.NavigationAttempt;
-type GestureRequest = navState.GestureNavigationRequest;
+type EntryActionName =
+  | 'goToSpread'
+  | 'startGestureNavigation'
+  | 'nextSpread'
+  | 'prevSpread'
+  | 'navigateToTocEntry'
+  | 'navigateToLocator'
+  | 'jumpToSpread'
+  | 'jumpToSpreadIfReady'
+  | 'prepareSpreadForJump'
+  | 'ensureSelectionSpread';
+type RuntimeActionName = Exclude<keyof NavigationActions, EntryActionName>;
 
 export interface NavigationDeps {
   getReader: () => Reader | null;
@@ -30,6 +54,7 @@ export interface NavigationDeps {
   frameDriver: FrameDriver;
   pool: PageBufferPool;
   contentRenderer: ContentRenderer;
+  readonly provisionalRuntime?: ProvisionalTransitionRuntime | undefined;
   /** Invalidates older async position work as soon as a navigation intent is accepted. */
   onNavigationIntent?: () => void;
   /** Supersedes pending content interactions for every accepted navigation/position intent. */
@@ -68,6 +93,12 @@ export interface NavigationActions {
   ensureSelectionSpread(index: number, signal: AbortSignal): Promise<boolean | undefined>;
   /** Continue a deferred navigation once its async content slot is ready. */
   notifyContentReady(spreadIndex: number): void;
+  /** Route the private Reader preview signal before ordinary spread invalidation. */
+  presentChapterLocalInvalidation(spreadIndex: number): boolean;
+  /** Sole provisional branch of the runtime TD settled listener. */
+  handleTransitionSettled(event: SettledEvent): boolean;
+  terminateChapterLocalForLayout(): (() => void) | undefined;
+  refreshChapterLocalTheme(): void;
   /** Retry a TOC target that was unavailable in a partial preview revision. */
   notifyLayoutCommitted(): void;
   /** Silently retire older navigation work before starting a direct selection gesture. */
@@ -84,6 +115,17 @@ export interface GestureNavigationToken {
 export function createNavigation(deps: NavigationDeps): NavigationActions {
   const state = navState.createNavigationState();
   const locatorNavigator = createLocatorNavigator(state, deps);
+  return {
+    ...createEntryActions(state, deps, locatorNavigator),
+    ...createRuntimeActions(state, deps, locatorNavigator),
+  };
+}
+
+function createEntryActions(
+  state: State,
+  deps: NavigationDeps,
+  locatorNavigator: (spreadIndex: number) => void,
+): Pick<NavigationActions, EntryActionName> {
   return {
     goToSpread: startNavigation.bind(undefined, state, deps),
     startGestureNavigation(index, onTransitionStart, onUnavailable) {
@@ -104,18 +146,43 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     jumpToSpread(index, preservePositionIntent) {
       if (state.disposed) return false;
       const attemptId = jump.claimNavigationAttempt(state, deps, preservePositionIntent);
+      if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) {
+        return false;
+      }
       return jump.jumpToSpread(state, deps, attemptId, index);
     },
-    jumpToSpreadIfReady: (index, selectionGesture) =>
-      jump.performReadyJump(state, deps, index, selectionGesture),
+    jumpToSpreadIfReady(index, selectionGesture) {
+      return jump.performReadyJump(state, deps, index, selectionGesture);
+    },
     prepareSpreadForJump(index) {
-      return state.disposed ? 'superseded' : jump.prepareSpreadForJump(deps, index);
+      if (state.disposed) return 'superseded';
+      if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) {
+        return 'not-ready';
+      }
+      return jump.prepareSpreadForJump(deps, index);
     },
     ensureSelectionSpread: (index, signal) =>
       growth.ensureSelectionSpread(state, deps, index, signal),
+  };
+}
+
+function createRuntimeActions(
+  state: State,
+  deps: NavigationDeps,
+  locatorNavigator: (spreadIndex: number) => void,
+): Pick<NavigationActions, RuntimeActionName> {
+  return {
     notifyContentReady(spreadIndex) {
       if (state.disposed) return;
+      if (notifyChapterLocalContentReady(state, deps, spreadIndex)) return;
       growth.continuePendingNavigation(state, deps, spreadIndex);
+    },
+    presentChapterLocalInvalidation: (spreadIndex) =>
+      presentChapterLocalInvalidation(state, deps, spreadIndex),
+    handleTransitionSettled: (event) => handleChapterLocalTransitionSettled(state, deps, event),
+    terminateChapterLocalForLayout: () => terminateChapterLocalTransitionForLayout(state, deps),
+    refreshChapterLocalTheme: () => {
+      refreshChapterLocalTransitionTheme(state, deps);
     },
     notifyLayoutCommitted() {
       if (state.disposed) return;
@@ -125,171 +192,14 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     supersedeForPositionIntent: () => {
       supersedeNavigationForPositionIntent(state, deps);
     },
-    dispose: disposeNavigation.bind(undefined, state),
+    dispose: disposeNavigation.bind(undefined, state, deps),
   };
 }
 
-function disposeNavigation(state: State): void {
+function disposeNavigation(state: State, deps: NavigationDeps): void {
   if (state.disposed) return;
+  disposeChapterLocalTransition(state, deps);
   state.disposed = true;
   state.navigationAttemptId += 1;
   navState.clearPendingNavigation(state);
-}
-
-function createLocatorNavigator(state: State, deps: NavigationDeps): (spreadIndex: number) => void {
-  return (spreadIndex): void => {
-    replaceWithNavigation(state, deps, goToSpread(state, deps, spreadIndex));
-  };
-}
-
-function startNavigation(state: State, deps: NavigationDeps, index: number): void {
-  replaceWithNavigation(state, deps, goToSpread(state, deps, index));
-}
-
-function startGestureNavigation(
-  state: State,
-  deps: NavigationDeps,
-  index: number,
-  onTransitionStart: () => void,
-  onUnavailable?: () => void,
-): GestureNavigationToken {
-  if (state.disposed) {
-    onUnavailable?.();
-    return { cancel() {} };
-  }
-  const request: GestureRequest = {
-    onTransitionStart,
-    ...(onUnavailable ? { onUnavailable } : {}),
-    started: false,
-    cancelled: false,
-  };
-  replaceWithNavigation(state, deps, goToSpread(state, deps, index, request));
-  return {
-    cancel(): void {
-      if (request.started) return;
-      request.cancelled = true;
-      if (state.pendingNavigation?.gesture === request) {
-        state.navigationAttemptId += 1;
-        navState.clearPendingNavigation(state);
-        deps.onNavigationCancelled?.();
-      }
-    },
-  };
-}
-
-function goToSpread(
-  state: State,
-  deps: NavigationDeps,
-  index: number,
-  gesture?: GestureRequest,
-): Attempt {
-  const initialReader = deps.getReader();
-  if (state.disposed || !initialReader) return { claimedIntent: false };
-  const initialTarget = growth.navigationTarget(initialReader, index);
-  const initialPrevious = deps.getCurrentSpread();
-  const attemptId = jump.claimNavigationAttempt(state, deps);
-  if (attemptId !== state.navigationAttemptId) return { claimedIntent: true, attemptId };
-  if (initialTarget.index === initialPrevious && !initialTarget.pagination) {
-    return completeNoOpNavigation(deps, attemptId, gesture);
-  }
-
-  const continuityDx = deps.td.isAnimating ? navState.settleNavigationForContinuity(deps.td) : 0;
-  const previous = deps.getCurrentSpread();
-  if (attemptId !== state.navigationAttemptId) return { claimedIntent: true, attemptId };
-  const reader = deps.getReader();
-  if (!reader) return { claimedIntent: true, attemptId };
-  const target = growth.navigationTarget(reader, index);
-  if (target.index === previous && !target.pagination) {
-    return completeNoOpNavigation(deps, attemptId, gesture);
-  }
-
-  if (target.pagination) {
-    return growth.createSpreadGrowthAttempt(
-      state,
-      deps,
-      target.pagination,
-      attemptId,
-      target.index,
-      previous,
-      continuityDx,
-      gesture,
-    );
-  }
-
-  return createKnownSpreadAttempt(
-    state,
-    deps,
-    reader,
-    attemptId,
-    target.index,
-    previous,
-    continuityDx,
-    gesture,
-  );
-}
-
-function createKnownSpreadAttempt(
-  state: State,
-  deps: NavigationDeps,
-  reader: Reader,
-  attemptId: number,
-  target: number,
-  previous: number,
-  continuityDx: number,
-  gesture?: GestureRequest,
-): Attempt {
-  const direction = target > previous ? 'forward' : 'backward';
-  if (!growth.ensureIncomingSlot(deps, target, direction)) {
-    deps.frameDriver.scheduleComposite();
-    return {
-      claimedIntent: true,
-      attemptId,
-      pendingNavigation: {
-        attemptId,
-        target,
-        direction,
-        previous,
-        continuityDx,
-        ...(gesture ? { gesture } : {}),
-      },
-    };
-  }
-  emitNavigationStart(
-    state,
-    deps,
-    reader,
-    attemptId,
-    target,
-    direction,
-    previous,
-    continuityDx,
-    gesture,
-  );
-  return { claimedIntent: true, attemptId };
-}
-
-function completeNoOpNavigation(
-  deps: NavigationDeps,
-  attemptId: number,
-  gesture?: GestureRequest,
-): Attempt {
-  if (gesture && !gesture.started) {
-    gesture.cancelled = true;
-    gesture.onUnavailable?.();
-  }
-  deps.onNavigationCancelled?.();
-  return { claimedIntent: true, attemptId };
-}
-
-function replaceWithNavigation(state: State, deps: NavigationDeps, attempt: Attempt): void {
-  if (!attempt.claimedIntent) {
-    const cancelledIntent = navState.clearPendingNavigation(state);
-    if (cancelledIntent) {
-      state.navigationAttemptId += 1;
-      deps.onNavigationCancelled?.();
-    }
-    return;
-  }
-  if (attempt.attemptId !== state.navigationAttemptId) return;
-  state.pendingNavigation = attempt.pendingNavigation;
 }

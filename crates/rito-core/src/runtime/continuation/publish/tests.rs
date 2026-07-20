@@ -194,7 +194,10 @@ fn layout(spread_mode: SpreadMode, first_page_alone: bool) -> LayoutConfig {
 
 fn wide_interactions(span_count: usize) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes: BTreeMap::new(),
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
         chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::from([(
             "chapter".to_owned(),
             RuntimeChapterTextIndex {

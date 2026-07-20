@@ -1,14 +1,19 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
+#[cfg(feature = "legacy-css-diagnostics")]
+use std::sync::OnceLock;
 
+use rito_source::SourceArena;
+
+#[cfg(feature = "legacy-css-diagnostics")]
+use crate::{css::CssSummary, style::StylesheetRuleMap};
 use crate::{
-    css::CssSummary,
     interaction::{
         discover_footnote_targets, extract_footnotes_for_targets, FootnoteFilterChapter,
         FootnoteTargetSet, InteractionSummary,
     },
     resources::PublicationResources,
-    style::StylesheetRuleMap,
-    xhtml::{parse_xhtml, ChapterSource, ParseResult, XhtmlSummary},
+    xhtml::{parse_xhtml_with_source, ChapterSource, ParseResult, XhtmlSummary},
 };
 
 use super::{LoadedChapter, LoadedEpubDocument};
@@ -16,15 +21,13 @@ use super::{LoadedChapter, LoadedEpubDocument};
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedLoadedDocumentBase {
     pub(crate) resources: PublicationResources,
-    pub(crate) css: CssSummary,
-    pub(crate) stylesheet_rules: StylesheetRuleMap,
+    pub(crate) stylesheet_ledger: StylesheetSourceLedger,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedLoadedDocument {
     pub(crate) resources: PublicationResources,
-    pub(crate) css: CssSummary,
-    pub(crate) stylesheet_rules: StylesheetRuleMap,
+    pub(crate) stylesheet_ledger: StylesheetSourceLedger,
     pub(crate) chapters: Vec<ParsedLoadedChapterSource>,
     pub(crate) filtered_footnote_nodes: BTreeMap<String, Vec<crate::xhtml::DocumentNode>>,
     pub(crate) xhtml: XhtmlSummary,
@@ -32,8 +35,113 @@ pub(crate) struct PreparedLoadedDocument {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct RawStylesheetSource {
+    href: Arc<str>,
+    text: Arc<str>,
+}
+
+impl RawStylesheetSource {
+    pub(crate) fn href(&self) -> &str {
+        &self.href
+    }
+
+    pub(crate) fn text(&self) -> &str {
+        &self.text
+    }
+}
+
+#[cfg(feature = "legacy-css-diagnostics")]
+#[derive(Debug, Clone)]
+pub(crate) struct LegacyStylesheetArtifacts {
+    css: CssSummary,
+    stylesheet_rules: StylesheetRuleMap,
+}
+
+#[cfg(feature = "legacy-css-diagnostics")]
+impl LegacyStylesheetArtifacts {
+    pub(crate) fn css(&self) -> &CssSummary {
+        &self.css
+    }
+
+    pub(crate) fn stylesheet_rules(&self) -> &StylesheetRuleMap {
+        &self.stylesheet_rules
+    }
+}
+
+/// Raw publication CSS plus a single shared compatibility cache.
+///
+/// Creating or cloning this ledger never invokes the legacy CSS parser. The
+/// compatibility artifacts are initialized only when a style backend chooses
+/// the legacy fallback explicitly.
+#[derive(Debug, Clone)]
+pub(crate) struct StylesheetSourceLedger {
+    sources: Arc<[RawStylesheetSource]>,
+    #[cfg(feature = "legacy-css-diagnostics")]
+    legacy: Arc<OnceLock<LegacyStylesheetArtifacts>>,
+}
+
+impl StylesheetSourceLedger {
+    fn from_document(document: &LoadedEpubDocument) -> Self {
+        let sources = document
+            .stylesheets
+            .iter()
+            .map(|resource| RawStylesheetSource {
+                href: Arc::from(resource.href.as_str()),
+                text: Arc::from(resource.text.as_str()),
+            })
+            .collect::<Vec<_>>();
+        Self {
+            sources: Arc::from(sources),
+            #[cfg(feature = "legacy-css-diagnostics")]
+            legacy: Arc::new(OnceLock::new()),
+        }
+    }
+
+    pub(crate) fn sources(&self) -> &[RawStylesheetSource] {
+        &self.sources
+    }
+
+    #[cfg(feature = "legacy-css-diagnostics")]
+    pub(crate) fn legacy_artifacts(&self) -> &LegacyStylesheetArtifacts {
+        self.legacy.get_or_init(|| {
+            #[cfg(feature = "bench-internals")]
+            let _probe_timer = crate::layout::bounded_work_probe::start_timing(
+                crate::layout::bounded_work_probe::ContinuationTimingStage::PreparedBase,
+            );
+            LegacyStylesheetArtifacts {
+                css: crate::css::summarize_stylesheet_texts(
+                    self.sources
+                        .iter()
+                        .map(|source| (source.href(), source.text())),
+                ),
+                stylesheet_rules: crate::style::stylesheet_rules_from_texts(
+                    self.sources
+                        .iter()
+                        .map(|source| (source.href(), source.text())),
+                ),
+            }
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn legacy_artifacts_if_initialized(&self) -> Option<()> {
+        #[cfg(feature = "legacy-css-diagnostics")]
+        {
+            self.legacy.get().map(|_| ())
+        }
+        #[cfg(not(feature = "legacy-css-diagnostics"))]
+        {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct ParsedLoadedChapterSource {
     pub(crate) source: ChapterSource,
+    /// Canonical source topology for `parsed` node identities. Invalid XHTML
+    /// retains the existing empty-parse fallback and therefore has no arena.
+    pub(crate) source_arena: Option<Arc<SourceArena>>,
     pub(crate) parsed: ParseResult,
 }
 
@@ -48,22 +156,9 @@ pub(crate) fn prepare_loaded_document_base(
     document: &LoadedEpubDocument,
 ) -> PreparedLoadedDocumentBase {
     let resources = loaded_document_resources(document);
-    let css = crate::css::summarize_stylesheet_texts(
-        document
-            .stylesheets
-            .iter()
-            .map(|resource| (resource.href.as_str(), resource.text.as_str())),
-    );
-    let stylesheet_rules = crate::style::stylesheet_rules_from_texts(
-        document
-            .stylesheets
-            .iter()
-            .map(|resource| (resource.href.as_str(), resource.text.as_str())),
-    );
     PreparedLoadedDocumentBase {
         resources,
-        css,
-        stylesheet_rules,
+        stylesheet_ledger: StylesheetSourceLedger::from_document(document),
     }
 }
 
@@ -81,6 +176,9 @@ pub(crate) fn prepare_loaded_document_with_base_and_footnote_targets(
     chapters: Vec<ParsedLoadedChapterSource>,
     targets: &FootnoteTargetSet,
 ) -> PreparedLoadedDocument {
+    debug_assert!(chapters.iter().all(|chapter| {
+        chapter.parsed.body_source_node_id.is_none() || chapter.source_arena.is_some()
+    }));
     let footnote_inputs = chapters
         .iter()
         .map(|chapter| FootnoteFilterChapter {
@@ -110,8 +208,7 @@ pub(crate) fn prepare_loaded_document_with_base_and_footnote_targets(
     );
     PreparedLoadedDocument {
         resources: base.resources.clone(),
-        css: base.css.clone(),
-        stylesheet_rules: base.stylesheet_rules.clone(),
+        stylesheet_ledger: base.stylesheet_ledger.clone(),
         chapters,
         filtered_footnote_nodes,
         xhtml,
@@ -197,14 +294,21 @@ fn parsed_loaded_chapter_sources<'a>(
 }
 
 fn parse_loaded_chapter_source(chapter: &LoadedChapter) -> ParsedLoadedChapterSource {
-    let parsed =
-        parse_xhtml(&chapter.xhtml_source).unwrap_or_else(|error| crate::xhtml::ParseResult {
-            nodes: Vec::new(),
-            warnings: vec![error],
-            body_attributes: None,
-            stylesheet_hrefs: None,
-            embedded_stylesheets: None,
-        });
+    let (source_arena, parsed) = match parse_xhtml_with_source(&chapter.xhtml_source) {
+        Ok(parsed_source) => (Some(parsed_source.source_arena), parsed_source.parsed),
+        Err(error) => (
+            None,
+            crate::xhtml::ParseResult {
+                nodes: Vec::new(),
+                warnings: vec![error],
+                body_attributes: None,
+                body_source_node_id: None,
+                stylesheet_hrefs: None,
+                embedded_stylesheets: None,
+                author_stylesheets: Vec::new(),
+            },
+        ),
+    };
     let source = ChapterSource {
         idref: chapter.idref.clone(),
         href: chapter.href.clone(),
@@ -213,7 +317,11 @@ fn parse_loaded_chapter_source(chapter: &LoadedChapter) -> ParsedLoadedChapterSo
         text_hash: short_sha256(chapter.xhtml_source.as_bytes()),
     };
 
-    ParsedLoadedChapterSource { source, parsed }
+    ParsedLoadedChapterSource {
+        source,
+        source_arena,
+        parsed,
+    }
 }
 
 fn utf16_len(text: &str) -> usize {
@@ -230,3 +338,6 @@ fn short_sha256(bytes: &[u8]) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }
+
+#[cfg(test)]
+mod tests;

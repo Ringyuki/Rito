@@ -281,6 +281,85 @@ describe('PageBufferPool', () => {
     expect(pool.next.spreadIndex).toBeNull();
   });
 
+  it('keeps an incoming provisional raster outside ordinary spread lookup', () => {
+    const pool = createPageBufferPool();
+    pool.resize(100, 100, 1);
+    pool.assignSlot('curr', 4);
+    pool.assignSlot('next', 5);
+
+    const stage = pool.beginProvisionalStage(4, 'forward');
+    expect(stage.slot).not.toBe(pool.next);
+    expect(pool.ensureProvisionalStage(stage.token, () => true)).toBe(true);
+    expect(pool.resolveDrawSlot('next')).toEqual({
+      slot: stage.slot,
+      provisional: true,
+      provisionalToken: stage.token,
+    });
+    expect(pool.getSlotFor(5)).toBe('next');
+    expect(stage.slot.spreadIndex).toBeNull();
+  });
+
+  it('pins the exact outgoing raster until a committed preview rolls back', () => {
+    const pool = createPageBufferPool();
+    pool.resize(100, 100, 1);
+    pool.assignSlot('prev', 3);
+    pool.assignSlot('curr', 4);
+    pool.assignSlot('next', 5);
+    const exactMountSlot = pool.curr;
+    const stage = pool.beginProvisionalStage(4, 'forward');
+    pool.ensureProvisionalStage(stage.token, () => true);
+
+    expect(pool.commitProvisionalStage(stage.token)).toBe(true);
+    expect(pool.curr.spreadIndex).toBe(4);
+    expect(pool.prev).toBe(exactMountSlot);
+    expect(pool.getSlotFor(4)).toBe('curr');
+    pool.assignSlot('prev', 99);
+    expect(pool.prev.spreadIndex).toBe(4);
+
+    expect(pool.beginProvisionalRollback(stage.token)).toBe(true);
+    expect(pool.completeProvisionalRollback(stage.token)).toBe(true);
+    expect(pool.curr).toBe(exactMountSlot);
+    expect(pool.curr.spreadIndex).toBe(4);
+  });
+
+  it('atomically promotes exact content and discards both preview and rollback rasters', () => {
+    const pool = createPageBufferPool();
+    pool.resize(100, 100, 1);
+    pool.assignSlot('prev', 3);
+    pool.assignSlot('curr', 4);
+    pool.assignSlot('next', 5);
+    const stage = pool.beginProvisionalStage(4, 'forward');
+    pool.ensureProvisionalStage(stage.token, () => true);
+    pool.commitProvisionalStage(stage.token);
+    pool.assignSlot('next', 8);
+    pool.ensureContent('next', () => true);
+
+    expect(pool.promoteProvisionalExact(stage.token, 'next', 8)).toBe(true);
+    expect(pool.curr.spreadIndex).toBe(8);
+    expect(pool.curr.contentDirty).toBe(false);
+    expect(pool.getSlotFor(4)).toBeNull();
+    expect(pool.resolveDrawSlot('curr')).toEqual({ slot: pool.curr, provisional: false });
+
+    const exactRenderer = vi.fn(() => true);
+    pool.assignSlot('prev', 4);
+    expect(pool.ensureContent('prev', exactRenderer)).toBe(true);
+    expect(exactRenderer).toHaveBeenCalledOnce();
+  });
+
+  it('resets to a dirty exact mount when terminal cleanup loses token ownership', () => {
+    const pool = createPageBufferPool();
+    pool.resize(100, 100, 1);
+    pool.assignSlot('curr', 4);
+    pool.beginProvisionalStage(4, 'forward');
+
+    expect(pool.containProvisionalFailure(999, 4)).toBe(false);
+    expect(pool.curr.spreadIndex).toBe(4);
+    expect(pool.curr.contentDirty).toBe(true);
+    expect(() => {
+      pool.jump(5);
+    }).not.toThrow();
+  });
+
   it('dispose releases content and overlay backing stores', () => {
     const pool = createPageBufferPool();
     pool.resize(800, 600, 2);

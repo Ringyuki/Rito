@@ -1,6 +1,6 @@
 export function requirePageTargetSemantics(target, operation) {
   requireDestinationLabelSemantics(target, operation);
-  if (target.kind === 'footnote') {
+  if (target.kind === 'footnote' || target.kind === 'footnotePending') {
     if (target.href === undefined || target.footnoteKey === undefined) {
       throw new Error(`${operation} returned an incomplete footnote target`);
     }

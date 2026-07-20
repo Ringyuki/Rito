@@ -35,5 +35,13 @@ export interface PageBufferSlot {
   overlayDirty: boolean;
 }
 
+/** Paint-only stage that is never addressable as a publication spread slot. */
+export interface ProvisionalBufferStage {
+  readonly token: number;
+  readonly mountSpreadIndex: number;
+  readonly direction: 'forward' | 'backward';
+  readonly slot: PageBufferSlot;
+}
+
 /** Named slot positions in the three-slot ring buffer. */
 export type SlotPosition = 'prev' | 'curr' | 'next';

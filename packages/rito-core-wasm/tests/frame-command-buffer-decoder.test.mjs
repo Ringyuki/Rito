@@ -20,6 +20,10 @@ const RUNTIME_BUNDLE_GOLDEN_ROOT = new URL(
   '../../../crates/rito-core/src/runtime/bundle_wire/fixtures/',
   import.meta.url,
 );
+const TYPED_RUN_PAINT_GOLDEN_URL = new URL(
+  '../../../crates/rito-core/src/render/commands/fixtures/typed-run-paint-v2.json',
+  import.meta.url,
+);
 
 test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
   const status = getRitoCoreWasmStatus();
@@ -29,6 +33,7 @@ test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
       rustFacade: {
         ...status.rustFacade,
         createViewRevisionBundleBytes: true,
+        readerSessionV1: true,
         npmWasmArtifact: true,
       },
     },
@@ -64,7 +69,9 @@ test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
         resourceTransferLeases: true,
         versionedRevisionAccess: true,
         boundedRevisionControl: true,
+        chapterLocalRevisionControl: true,
         boundedSessionController: true,
+        readerSessionV1: true,
         wasmBindgen: true,
         npmWasmArtifact: true,
       },
@@ -86,10 +93,15 @@ test('decoder entry exposes the WASM-free browser runtime surface', async () => 
     'createRitoCoreWasmBoundedReaderSession',
     'createRitoCoreWasmInProcessReaderClient',
     'createRitoCoreWasmReaderChapterMap',
+    'createRitoCoreWasmReaderV1WorkerHandler',
+    'createRitoCoreWasmReaderV1WorkerClient',
     'createRitoCoreWasmReaderPages',
     'createRitoCoreWasmReaderSpreads',
     'createRitoCoreWasmWorkerReaderClient',
     'decodeRitoFrameCommandBuffer',
+    'decodeRitoReaderArtifactV1',
+    'decodeRitoReaderDisplayListV1',
+    'decodeRitoReaderResourceV1',
     'decodeRitoRuntimeBundle',
     'normalizeRitoCoreWasmError',
   ]) {
@@ -119,6 +131,7 @@ test('generated type surface does not expose publication and layout as generic J
   );
 
   assert.match(declaration, /export interface RitoCoreWasmPublicationInfo/);
+  assert.match(declaration, /RitoReaderSessionV1/);
   assert.match(declaration, /export interface RitoCoreWasmLayoutConfig/);
   assert.match(declaration, /export interface RitoCoreWasmFootnotes/);
   assert.match(declaration, /getFootnotes\(revisionId: string\): RitoCoreWasmFootnotes;/);
@@ -155,6 +168,10 @@ test('generated type surface does not expose publication and layout as generic J
   const revisionBundleResponse = interfaceBody(declaration, 'RitoCoreWasmRevisionBundleResponse');
   const revisionFrameSelection = interfaceBody(declaration, 'RitoCoreWasmRevisionFrameSelection');
   const frameResourceWarmPlan = interfaceBody(declaration, 'RitoCoreWasmFrameResourceWarmPlan');
+  const frameWindowWarmResult = interfaceBody(
+    declaration,
+    'RitoCoreWasmReaderFrameWindowWarmResult',
+  );
   assert.match(
     revisionBundleResponse,
     /readonly frameSelection\?: RitoCoreWasmRevisionFrameSelection/,
@@ -184,6 +201,10 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(requiredFace, /readonly sourceOrder: number;/);
   assert.doesNotMatch(revisionBundleResponse, /displaySpreadIndex/);
   assert.match(frameResourceWarmPlan, /readonly displaySpreadIndex: number;/);
+  assert.match(
+    frameWindowWarmResult,
+    /readonly missingResources: readonly RitoCoreWasmMissingResource\[];/,
+  );
   assert.match(declaration, /createFullRevisionBundle\(/);
   assert.match(declaration, /createInitialPreviewRevisionBundle\(/);
   assert.match(declaration, /createActiveChapterPreviewRevisionBundle\(/);
@@ -666,6 +687,69 @@ test('decodeRitoFrameCommandBuffer decodes geometry, strings, and payloads', () 
     payload,
   });
   assert.deepEqual(decoded.commands, [command]);
+});
+
+test('decodeRitoFrameCommandBuffer decodes minimal and full typed Rust run-paint golden', async () => {
+  const fixture = JSON.parse(await readFile(TYPED_RUN_PAINT_GOLDEN_URL, 'utf8'));
+  const decoded = decodeRitoFrameCommandBuffer(fixture.metadata, Uint8Array.from(fixture.bytes));
+
+  assert.equal(decoded.protocolVersion, VERSION);
+  assert.equal(decoded.commandCount, 3);
+  assert.deepEqual(decoded.commandCounts, { paintRuby: 1, paintText: 2 });
+  assert.deepEqual(decoded.recordStats, {
+    geometryRecords: 3,
+    paintRecords: 3,
+    payloadRecords: 3,
+    primaryStringRecords: 3,
+    secondaryStringRecords: 1,
+  });
+  assert.deepEqual(
+    decoded.records.map(({ opcode, flags, x, y, width, height }) => ({
+      opcode,
+      flags,
+      x,
+      y,
+      width,
+      height,
+    })),
+    [
+      { opcode: 9, flags: 31, x: 1.25, y: 2.5, width: 120.75, height: 24.125 },
+      { opcode: 9, flags: 27, x: -3.5, y: 40.25, width: 80.5, height: 16.75 },
+      { opcode: 10, flags: 27, x: 1, y: -6, width: 30, height: 8 },
+    ],
+  );
+  assert.equal(decoded.records[0].primaryString, 'Typed paint');
+  assert.equal(decoded.records[0].secondaryString, '#typed');
+  assert.equal(decoded.records[1].primaryString, 'Minimal paint');
+  assert.equal(decoded.records[1].secondaryString, undefined);
+  assert.deepEqual(decoded.commands, fixture.expectedCommands);
+
+  const [full, minimal, ruby] = decoded.commands;
+  assert.equal(full.paint.font.sizePx, 14.123456);
+  assert.equal(full.paint.textShadow[0].offsetX, 1.235);
+  assert.deepEqual(minimal.paint, {
+    color: '#000000',
+    font: { family: 'serif', sizePx: 16, style: 'normal', weight: 400 },
+  });
+  for (const key of ['lineHeightPx', 'href', 'sourceText', 'sourceTextOffset']) {
+    assert.equal(Object.hasOwn(minimal, key), false, `minimal paintText must omit ${key}`);
+  }
+  for (const key of [
+    'wordSpacingPx',
+    'letterSpacingPx',
+    'backgroundColor',
+    'backgroundRadius',
+    'textShadow',
+    'decoration',
+    'padding',
+    'border',
+  ]) {
+    assert.equal(Object.hasOwn(minimal.paint, key), false, `minimal paint must omit ${key}`);
+  }
+  assert.deepEqual(ruby.paint, {
+    color: '#000000',
+    font: { family: 'serif', sizePx: 8, style: 'normal', weight: 400 },
+  });
 });
 
 test('decodeRitoFrameCommandBuffer decodes complex paint payload records', () => {

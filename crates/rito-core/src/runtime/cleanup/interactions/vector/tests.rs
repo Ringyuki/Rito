@@ -100,7 +100,10 @@ fn interactions(
     chapter_text_indices: BTreeMap<String, RuntimeChapterTextIndex>,
 ) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes: BTreeMap::new(),
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
         chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(chapter_text_indices),
         completed_chapter_idrefs: BTreeSet::new(),
     }

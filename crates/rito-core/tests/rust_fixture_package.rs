@@ -4,7 +4,7 @@ use flate2::read::GzDecoder;
 
 use rito_core::{
     css::CssSummary,
-    epub::{load_publication_with_layout_and_line_breaking, EpubPublication, PackageDocument},
+    epub::{analyze_publication_with_layout_and_line_breaking, EpubPublication, PackageDocument},
     layout::{LayoutConfig, LayoutSummary, LineBreaking},
     resources::PublicationResources,
     runtime::{RuntimeDocument, RuntimePageTarget, RuntimeResourceKind, RuntimeSearchRequest},
@@ -341,8 +341,19 @@ fn loads_real_epub_package_and_resources_to_match_ts_fixture() {
             "{label}: last chapter idref mismatch"
         );
         assert_eq!(publication.xhtml, fixture.xhtml, "{label}: xhtml mismatch");
-        assert_eq!(publication.css, fixture.css, "{label}: css mismatch");
-        assert_style_matches(&publication.style, &fixture.style, &label);
+        assert_eq!(
+            publication.css.as_ref(),
+            Some(&fixture.css),
+            "{label}: css mismatch"
+        );
+        assert_style_matches(
+            publication
+                .style
+                .as_ref()
+                .expect("diagnostic style summary"),
+            &fixture.style,
+            &label,
+        );
         assert_layout_matches(&publication.layout, &fixture.layout, &label);
         assert_eq!(
             publication.interaction.chapter_text_index_ids,
@@ -1967,7 +1978,7 @@ fn read_publication(fixture: &RustParityFixture) -> EpubPublication {
     let path = book_root().join(&fixture.book.path);
     let bytes = fs::read(&path)
         .unwrap_or_else(|error| panic!("failed to read EPUB {}: {error}", path.display()));
-    load_publication_with_layout_and_line_breaking(
+    analyze_publication_with_layout_and_line_breaking(
         &bytes,
         &fixture.config.layout,
         fixture.config.line_breaking,

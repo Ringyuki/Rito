@@ -9,6 +9,7 @@ import {
   createWorker,
 } from './browser-reader-reflow-fixtures';
 import type { BrowserReaderBoundedSessionOwner } from '../../src/bindings/browser/reader/types';
+import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/browser/chapter-local-preview/state';
 
 const mocks = vi.hoisted(() => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
@@ -650,6 +651,7 @@ function boundedOwner(
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
+      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(),
       cancel: vi.fn(),
       dispose: vi.fn(() => dispose),
@@ -721,7 +723,7 @@ function createState(): BrowserReaderState {
         chapterMap: {},
       },
       tocTargets: { revisionId: 'rev', targets: [] },
-      footnotes: { revisionId: 'rev', entries: {} },
+      footnotes: { revisionId: 'rev', complete: true, pendingKeys: [], entries: {} },
       chapterTextIndices: { revisionId: 'rev', entries: {} },
       fontFamilies: [],
     },
@@ -730,6 +732,7 @@ function createState(): BrowserReaderState {
     chapterTextIndices: new Map(),
     activeSpreadIndex: 0,
     boundedSessions: { current: undefined, candidate: undefined },
+    chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),
     spreadRenderedListeners: new Set(),

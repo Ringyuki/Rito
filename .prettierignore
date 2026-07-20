@@ -1,11 +1,15 @@
 dist/
 node_modules/
+.pnpm-store/
 coverage/
 pnpm-lock.yaml
 packages/rito/tests/golden/render-commands/**/*.json
 packages/rito/tests/rust-fixtures/**/*.json
+benchmarks/css-engine-spike/results/**/*.json
+benchmarks/css-engine-spike/results/**/*.jsonl
 **/.dart_tool/
 **/build/
+**/target/
 **/.idea/
 **/*.iml
 **/pubspec.lock

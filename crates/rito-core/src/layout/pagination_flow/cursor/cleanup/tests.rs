@@ -10,7 +10,7 @@ use crate::layout::{
     page::RuntimePage,
     text_mapping::RunTextMapping,
     text_shape::fixture_run_shape,
-    LayoutConfig, LayoutConfigInput, MarginInput, PaginationPolicy, SpreadMode,
+    LayoutConfig, LayoutConfigInput, MarginInput, PaginationPolicy, RunPaint, SpreadMode,
 };
 
 const DEEP_BLOCK_COUNT: usize = 16_384;
@@ -195,7 +195,7 @@ fn text_run(source: Arc<str>) -> LineRun {
         height: 12.0,
         font_size: 12.0,
         interaction_geometry: None,
-        paint: json!({ "color": "#000" }),
+        paint: RunPaint::from_test_wire_value(json!({ "color": "#000" })),
         line_height_px: None,
         href: None,
         source_path: None,

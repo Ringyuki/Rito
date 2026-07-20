@@ -7,6 +7,7 @@ use std::{
 use serde_json::Map;
 
 use super::{ContinuationRecordCleanupStage, PendingRuntimeContinuationRecordCleanup};
+use crate::runtime::RuntimeSourceLocator;
 use crate::{
     layout::{
         create_layout_config, image_size::ImageSizeIndex,
@@ -37,6 +38,23 @@ fn inactive_record_has_eleven_exact_units_for_all_scalar_values() {
         assert!(!cleanup.advance_one());
         assert_eq!(cleanup.advance(NonZeroUsize::MIN).consumed_units, 0);
     }
+}
+
+#[test]
+fn chapter_local_target_adds_one_explicit_cleanup_unit() {
+    let mut owner = record(None, LineBreaking::Greedy);
+    owner.chapter_local_target = Some(RuntimeSourceLocator {
+        href: "chapter.xhtml".to_owned(),
+        anchor_id: Some("target".to_owned()),
+        source_point: None,
+        source_range: None,
+        progression: None,
+    });
+    let mut cleanup = PendingRuntimeContinuationRecordCleanup::new(owner);
+    let progress = cleanup.advance(NonZeroUsize::new(99).expect("test budget is non-zero"));
+
+    assert_eq!(progress.consumed_units, 12);
+    assert!(progress.complete);
 }
 
 #[test]
@@ -172,6 +190,8 @@ fn current(
         completed_chapter_idrefs: BTreeSet::new(),
         unpublished_pages,
         has_published_pages: false,
+        chapter_complete: false,
+        total_block_count: 0,
     }
 }
 

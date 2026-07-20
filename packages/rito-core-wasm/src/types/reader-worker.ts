@@ -1,4 +1,10 @@
 import type { RitoCoreWasmJsonObject, RitoCoreWasmResourceKind } from './common';
+import type {
+  RitoCoreWasmChapterLocalDocumentRuntime,
+  RitoCoreWasmReaderChapterLocalClient,
+  RitoCoreWasmReaderChapterLocalWorkerRequestPayload,
+  RitoCoreWasmReaderChapterLocalWorkerResponse,
+} from './chapter-local';
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
 import type { RitoCoreWasmChapterTextIndices } from './interaction';
 import type { RitoCoreWasmPublicationInfo, RitoCoreWasmTocEntry } from './publication';
@@ -7,7 +13,11 @@ import type {
   RitoCoreWasmPinnedFontGenericRole,
   RitoCoreWasmPinnedFontPolicySummary,
 } from './pinned-font';
-import type { RitoCoreWasmFrameResourceWarmPlan, RitoCoreWasmResourcePayload } from './resource';
+import type {
+  RitoCoreWasmFrameResourceWarmPlan,
+  RitoCoreWasmMissingResource,
+  RitoCoreWasmResourcePayload,
+} from './resource';
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
 import type { RitoCoreWasmReaderRuntimeWire } from './runtime-bundle';
 import type {
@@ -26,7 +36,8 @@ import type {
   RitoCoreWasmViewRevisionResponse,
 } from './revision';
 
-export interface RitoCoreWasmReaderWorkerClient extends RitoCoreWasmReaderVersionedClient {
+export interface RitoCoreWasmReaderWorkerClient
+  extends RitoCoreWasmReaderVersionedClient, RitoCoreWasmReaderChapterLocalClient {
   /** Stable identity for this client's sole worker or in-process publication session. */
   readonly sessionId: string;
   /**
@@ -148,7 +159,8 @@ export interface RitoCoreWasmWorkerReaderClientOptions {
   readonly recycleWorker?: ((worker: RitoCoreWasmReaderWorkerLike) => boolean) | undefined;
 }
 
-export interface RitoCoreWasmReaderDocumentRuntime extends RitoCoreWasmReaderVersionedDocumentRuntime {
+export interface RitoCoreWasmReaderDocumentRuntime
+  extends RitoCoreWasmReaderVersionedDocumentRuntime, RitoCoreWasmChapterLocalDocumentRuntime {
   free(): void;
   publication(): RitoCoreWasmPublicationInfo;
   pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;
@@ -244,6 +256,8 @@ export interface RitoCoreWasmReaderFrameWindowWarmResult {
   readonly spreads: readonly {
     readonly spreadIndex: number;
     readonly resources: readonly RitoCoreWasmReaderResourceBytes[];
+    /** Terminal resource failures; callers must not retry this exact revision. */
+    readonly missingResources: readonly RitoCoreWasmMissingResource[];
   }[];
 }
 
@@ -266,6 +280,7 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
         readonly pinnedFontFaceBuffers?: readonly ArrayBuffer[] | undefined;
       }
     | RitoCoreWasmReaderVersionedWorkerRequestPayload
+    | RitoCoreWasmReaderChapterLocalWorkerRequestPayload
     | {
         readonly kind: 'createViewRevision';
         readonly request: RitoCoreWasmViewRevisionRequest;
@@ -301,6 +316,7 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
 export type RitoCoreWasmReaderWorkerResponsePayload =
   | { readonly kind: 'open'; readonly result: RitoCoreWasmReaderOpenResult }
   | RitoCoreWasmReaderVersionedWorkerResponse
+  | RitoCoreWasmReaderChapterLocalWorkerResponse
   | {
       readonly kind: 'createViewRevision';
       readonly result: RitoCoreWasmReaderViewRevisionResultTransport;

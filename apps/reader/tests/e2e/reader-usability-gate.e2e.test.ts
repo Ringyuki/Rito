@@ -2,7 +2,11 @@ import { expect, test, type Browser, type BrowserType, type TestInfo } from '@pl
 import { basename } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import type { ReaderLoadProfileReport } from './reader-profile-model';
-import { runReaderLoadProfile } from './reader-profile-runner';
+import { readReaderProfileFixtureIdentity, runReaderLoadProfile } from './reader-profile-runner';
+import {
+  readerProfileExecutionIdentity,
+  readReaderProfileArtifactIdentity,
+} from './reader-profile-artifact';
 import { requireProductionPinnedFontExpectations } from './reader-production-pinned-font-contract';
 import { READER_TEST_SERVER_BASE_URL } from './reader-test-server';
 import {
@@ -15,6 +19,10 @@ import {
   type ReaderUsabilityGateCase,
 } from './reader-usability-gate';
 import { installReaderWorkerProbe } from './reader-worker-probe';
+import {
+  installReaderChapterLocalPreviewMode,
+  readerChapterLocalPreviewModeFromEnv,
+} from './reader-chapter-local-preview-mode';
 
 const GATE_PATH = process.env['RITO_READER_USABILITY_GATE'];
 const MACHINE_ID = process.env['RITO_READER_MACHINE_ID'];
@@ -96,16 +104,23 @@ async function runBrowserSample(
     colorScheme: gate.browser.colorScheme,
   });
   try {
+    await installReaderChapterLocalPreviewMode(
+      context,
+      readerChapterLocalPreviewModeFromEnv(process.env),
+    );
     await installReaderWorkerProbe(context);
     const page = await context.newPage();
+    const fixture = readReaderProfileFixtureIdentity(caseConfig.id, caseConfig.epub);
     const report = await runReaderLoadProfile(page, browser, {
-      fixtureId: caseConfig.id,
+      fixture,
       epubPath: caseConfig.epub,
       machineId,
       viewport: gate.viewport,
       reflowViewport: gate.reflowViewport,
       browserPolicy: gate.browser,
       browserLaunchMs,
+      artifact: readReaderProfileArtifactIdentity(),
+      execution: readerProfileExecutionIdentity(process.env),
     });
     requireReaderUsabilityEnvironment(gate, report.environment, MACHINE_ID);
     requireReaderUsabilityBrowserPolicy(gate, report.startup.browser);

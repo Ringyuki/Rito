@@ -1,7 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    layout::{append_runtime_chapter_pages, LayoutConfig, SpreadMode},
+    layout::{
+        append_runtime_chapter_pages, calibrate_layout_font_vertical_metrics, LayoutConfig,
+        SpreadMode,
+    },
     runtime::{
         frame::{
             revision_summary, RuntimeChapterTextIndexSource, RuntimeRevision,
@@ -28,6 +31,10 @@ impl RuntimeDocument {
         revision_version: u32,
         layout_key: &str,
     ) -> Result<RuntimeRevisionAdvance, RuntimeContinuationError> {
+        #[cfg(any(test, feature = "bench-internals"))]
+        let _probe_timer = crate::layout::bounded_work_probe::start_timing(
+            crate::layout::bounded_work_probe::ContinuationTimingStage::PublishCleanup,
+        );
         let revision_id = continuation.revision_id.clone();
         let processed_top_level_nodes = work.processed_top_level_nodes;
         let complete = work.complete;
@@ -37,7 +44,7 @@ impl RuntimeDocument {
             self.service_cleanup_queue();
             return Err(unknown_revision(&revision_id));
         }
-        let (summary, frame_cache) = {
+        let summary = {
             let revision = self
                 .revisions
                 .get_mut(&revision_id)
@@ -48,11 +55,8 @@ impl RuntimeDocument {
                 continuation.published_page_count,
                 revision.known_extent.page_count
             );
-            let summary = revision_summary(&revision_id, layout_key, revision);
-            let frame_cache = revision.take_frame_cache();
-            (summary, frame_cache)
+            revision_summary(&revision_id, layout_key, revision)
         };
-        self.cleanup_queue.enqueue_frame_cache(frame_cache);
         let continuation = if complete {
             self.cleanup_queue.enqueue_continuation(continuation);
             None
@@ -72,7 +76,7 @@ impl RuntimeDocument {
         })
     }
 
-    fn store_continuation(
+    pub(super) fn store_continuation(
         &mut self,
         continuation: RuntimeContinuationRecord,
     ) -> RuntimeRevisionCursor {
@@ -135,7 +139,10 @@ impl RuntimeDocument {
     }
 }
 
-fn append_work_to_revision(revision: &mut RuntimeRevision, work: RuntimeContinuationWork) {
+pub(super) fn append_work_to_revision(
+    revision: &mut RuntimeRevision,
+    work: RuntimeContinuationWork,
+) {
     for batch in work.batches {
         append_page_batch(revision, batch);
     }
@@ -148,7 +155,14 @@ fn append_work_to_revision(revision: &mut RuntimeRevision, work: RuntimeContinua
         .extend(work.completed_chapter_idrefs);
 }
 
-fn append_page_batch(revision: &mut RuntimeRevision, batch: RuntimeChapterPageBatch) {
+fn append_page_batch(revision: &mut RuntimeRevision, mut batch: RuntimeChapterPageBatch) {
+    // A resumable layout session can retain runs that were built before a
+    // vertical-metric calibration. Every later page crosses this publication
+    // boundary, so apply the revision's exact samples before it becomes visible.
+    calibrate_layout_font_vertical_metrics(
+        &mut batch.pages,
+        &revision.layout_config.font_vertical_metrics,
+    );
     append_runtime_chapter_pages(
         &mut revision.layout,
         &batch.idref,
@@ -158,7 +172,7 @@ fn append_page_batch(revision: &mut RuntimeRevision, batch: RuntimeChapterPageBa
     );
 }
 
-fn update_revision_publication(
+pub(super) fn update_revision_publication(
     revision: &mut RuntimeRevision,
     revision_version: u32,
     complete: bool,
@@ -244,7 +258,10 @@ pub(super) fn initial_revision_interactions(
     footnotes: BTreeMap<String, crate::interaction::FootnoteEntry>,
 ) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes,
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
         chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::new()),
         completed_chapter_idrefs: BTreeSet::new(),
     }
@@ -254,7 +271,22 @@ fn merge_revision_interactions(
     target: &mut RuntimeRevisionInteractions,
     source: RuntimeRevisionInteractions,
 ) {
-    target.footnotes.extend(source.footnotes);
+    if source.publication_footnotes.is_some() {
+        target.publication_footnotes = source.publication_footnotes;
+    }
+    for (key, entry) in source.footnotes {
+        let exists_in_publication = target
+            .publication_footnotes
+            .as_deref()
+            .is_some_and(|footnotes| footnotes.contains_key(&key));
+        if !exists_in_publication {
+            target.footnotes.insert(key, entry);
+        }
+    }
+    target.pending_footnote_keys = target
+        .pending_footnote_keys
+        .union(&source.pending_footnote_keys);
+    target.footnote_index_complete = source.footnote_index_complete;
     target
         .completed_chapter_idrefs
         .extend(source.completed_chapter_idrefs);

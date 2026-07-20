@@ -52,6 +52,17 @@ export function runCancelMutation(document, input, handle) {
   );
 }
 
+export function runBoundedCompositeMutation(
+  document,
+  rawMethod,
+  operation,
+  input,
+  fallbackHandle,
+  validate,
+) {
+  return runCommittedMutation(document, rawMethod, operation, input, fallbackHandle, validate);
+}
+
 function runCommittedMutation(document, rawMethod, operation, input, fallbackHandle, validate) {
   const rawPayload = document._inner[rawMethod](encodeJson(input, operation));
   return validateCommittedMutation(

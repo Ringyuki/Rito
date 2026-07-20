@@ -1,7 +1,7 @@
 import type { RitoCoreWasmSourceLocator } from './interaction';
 import type { RitoCoreWasmSearchTextPosition } from './search';
 
-export type RitoCoreWasmPageTargetKind = 'text' | 'link' | 'image' | 'footnote';
+export type RitoCoreWasmPageTargetKind = 'text' | 'link' | 'image' | 'footnote' | 'footnotePending';
 
 export interface RitoCoreWasmPageTargetBounds {
   readonly x: number;
@@ -35,7 +35,7 @@ export interface RitoCoreWasmPageTarget {
   readonly destinationLabel?: string | undefined;
   readonly imageSrc?: string | undefined;
   readonly imageAlt?: string | undefined;
-  /** Exact canonical key in this revision's footnote table. */
+  /** Exact canonical key for resolved and pending footnotes. */
   readonly footnoteKey?: string | undefined;
 }
 

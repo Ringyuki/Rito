@@ -1,8 +1,6 @@
-use crate::{
-    epub::{EpubError, EpubResult},
-    layout::{collect_anchor_pages, collect_source_run_starts, LayoutSourceRunStart},
-};
+use crate::epub::{EpubError, EpubResult};
 
+use super::page_artifact::PageArtifactSourceRunStart;
 use super::{
     navigation::spread_index_for_page, RuntimeChapterTextIndex, RuntimeDocument,
     RuntimeExactSourceRangeRequest, RuntimeRevision,
@@ -34,7 +32,7 @@ pub(super) enum ExactSourceRangePageWindow {
 
 struct PageReadingAnchorCapture {
     spread_index: usize,
-    source_starts: Vec<LayoutSourceRunStart>,
+    source_starts: Vec<PageArtifactSourceRunStart>,
     chapter_index: Option<usize>,
 }
 
@@ -103,10 +101,12 @@ impl RuntimeDocument {
         if page_index >= revision.known_extent.page_count {
             return Err(EpubError::new(format!("unknown page index: {page_index}")));
         }
-        let page = revision
-            .layout
-            .pages
-            .get(page_index)
+        let page_end = page_index
+            .checked_add(1)
+            .ok_or_else(|| EpubError::new(format!("unknown page index: {page_index}")))?;
+        let source_starts = revision
+            .chapter_engine_session()
+            .source_run_starts(page_index..page_end)
             .ok_or_else(|| EpubError::new(format!("unknown page index: {page_index}")))?;
         let chapter_index =
             super::page_target::chapter_for_page(&self.document, revision, page_index).and_then(
@@ -119,7 +119,7 @@ impl RuntimeDocument {
             );
         Ok(PageReadingAnchorCapture {
             spread_index: spread_index_for_page(revision, page_index),
-            source_starts: collect_source_run_starts(std::slice::from_ref(page)),
+            source_starts,
             chapter_index,
         })
     }
@@ -127,7 +127,7 @@ impl RuntimeDocument {
     fn page_reading_locator(
         &mut self,
         chapter_index: usize,
-        source_starts: Vec<LayoutSourceRunStart>,
+        source_starts: Vec<PageArtifactSourceRunStart>,
     ) -> Option<RuntimeSourceLocator> {
         self.ensure_source_chapter_index(chapter_index).ok()?;
         let chapter = &self.document.chapters[chapter_index];
@@ -162,6 +162,18 @@ impl RuntimeDocument {
             return Err(RuntimeSourceLocatorError::unknown_revision(revision_id));
         }
         let canonical = canonicalize_source_locator(&self.document, locator)?;
+        if matched_by(&canonical.locator) == RuntimeSourceLocatorMatchedBy::Href {
+            let revision = self
+                .revisions
+                .get(revision_id)
+                .expect("revision existence was checked before canonicalizing the href");
+            return Ok(resolve_canonical_source_locator(
+                revision_id,
+                revision,
+                canonical,
+                None,
+            ));
+        }
         self.ensure_source_chapter_index(canonical.chapter_index)?;
         let source_index = self
             .source_chapter_indices
@@ -172,6 +184,57 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .expect("revision existence was checked before loading source");
+        Ok(resolve_canonical_source_locator(
+            revision_id,
+            revision,
+            canonical,
+            Some(source_index),
+        ))
+    }
+
+    pub(super) fn validate_source_locator_for_chapter_local(
+        &mut self,
+        locator: RuntimeSourceLocator,
+    ) -> Result<(usize, RuntimeSourceLocator), RuntimeSourceLocatorError> {
+        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        if matched_by(&canonical.locator) != RuntimeSourceLocatorMatchedBy::Href {
+            self.ensure_source_chapter_index(canonical.chapter_index)?;
+            let source_index = self
+                .source_chapter_indices
+                .get(&canonical.spine_idref)
+                .expect("chapter-local source index was ensured");
+            validate_source_selectors(&canonical.locator, source_index)?;
+        }
+        Ok((canonical.chapter_index, canonical.locator))
+    }
+
+    pub(super) fn resolve_chapter_local_source_locator_inner(
+        &mut self,
+        revision_id: &str,
+        locator: RuntimeSourceLocator,
+    ) -> Result<RuntimeSourceLocatorResolution, RuntimeSourceLocatorError> {
+        if !self.chapter_local_revisions.contains_key(revision_id) {
+            return Err(RuntimeSourceLocatorError::unknown_revision(revision_id));
+        }
+        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        let source_index = if matched_by(&canonical.locator) == RuntimeSourceLocatorMatchedBy::Href
+        {
+            None
+        } else {
+            self.ensure_source_chapter_index(canonical.chapter_index)?;
+            Some(
+                self.source_chapter_indices
+                    .get(&canonical.spine_idref)
+                    .expect("chapter-local source index was ensured"),
+            )
+        };
+        if let Some(source_index) = source_index {
+            validate_source_selectors(&canonical.locator, source_index)?;
+        }
+        let revision = self
+            .chapter_local_revisions
+            .get(revision_id)
+            .expect("chapter-local revision existence was checked");
         Ok(resolve_canonical_source_locator(
             revision_id,
             revision,
@@ -231,36 +294,26 @@ impl RuntimeDocument {
             .source_chapter_indices
             .get(&prepared.spine_idref)
             .expect("source chapter index was prepared");
-        let Some(chapter_range) = revision
-            .layout
-            .summary
-            .pagination_flow
-            .chapter_map
-            .get(&prepared.spine_idref)
-        else {
+        let session = revision.chapter_engine_session();
+        let Some(chapter_range) = session.known_chapter(&prepared.spine_idref) else {
             return Ok(ExactSourceRangePageWindow::Pending(
                 unavailable_projection_reason(revision, &prepared.spine_idref),
             ));
         };
-        if chapter_range.start_page >= revision.known_extent.page_count {
+        let Some(end_page_exclusive) = chapter_range.end_page.checked_add(1) else {
             return Ok(ExactSourceRangePageWindow::Pending(
-                RuntimeSourceLocatorPendingReason::NotPaginated,
+                unavailable_projection_reason(revision, &prepared.spine_idref),
             ));
-        }
-        let last_page = chapter_range
-            .end_page
-            .min(revision.known_extent.page_count - 1);
-        let Some(pages) = revision
-            .layout
-            .pages
-            .get(chapter_range.start_page..=last_page)
+        };
+        let Some(source_starts) =
+            session.source_run_starts(chapter_range.start_page..end_page_exclusive)
         else {
             return Ok(ExactSourceRangePageWindow::Pending(
                 unavailable_projection_reason(revision, &prepared.spine_idref),
             ));
         };
         for point in [&prepared.source_range.start, &prepared.source_range.end] {
-            match project_source_point(pages, source_index, point) {
+            match project_source_point(&source_starts, source_index, point) {
                 SourceProjection::Page(_) => {}
                 SourceProjection::BeyondSealedExtent => {
                     return Ok(ExactSourceRangePageWindow::Pending(
@@ -276,7 +329,7 @@ impl RuntimeDocument {
         }
         Ok(ExactSourceRangePageWindow::Ready {
             first_page: chapter_range.start_page,
-            last_page,
+            last_page: chapter_range.end_page,
         })
     }
 }
@@ -311,57 +364,47 @@ fn resolve_canonical_source_locator(
     revision_id: &str,
     revision: &RuntimeRevision,
     canonical: CanonicalSourceLocator,
-    source_index: &RuntimeSourceChapterIndex,
+    source_index: Option<&RuntimeSourceChapterIndex>,
 ) -> RuntimeSourceLocatorResolution {
     let matched_by = matched_by(&canonical.locator);
-    let Some(chapter_range) = revision
-        .layout
-        .summary
-        .pagination_flow
-        .chapter_map
-        .get(&canonical.spine_idref)
-    else {
+    let session = revision.chapter_engine_session();
+    let Some(chapter_range) = session.known_chapter(&canonical.spine_idref) else {
         let reason = unavailable_projection_reason(revision, &canonical.spine_idref);
         return pending_resolution(revision_id, canonical, matched_by, reason);
     };
-    if chapter_range.start_page >= revision.known_extent.page_count {
-        return pending_resolution(
-            revision_id,
-            canonical,
-            matched_by,
-            RuntimeSourceLocatorPendingReason::NotPaginated,
-        );
-    }
-    let known_end_page = chapter_range
-        .end_page
-        .min(revision.known_extent.page_count - 1);
-    let Some(pages) = revision
-        .layout
-        .pages
-        .get(chapter_range.start_page..=known_end_page)
-    else {
+    let Some(end_page_exclusive) = chapter_range.end_page.checked_add(1) else {
         let reason = unavailable_projection_reason(revision, &canonical.spine_idref);
         return pending_resolution(revision_id, canonical, matched_by, reason);
     };
-    let projection = match matched_by {
-        RuntimeSourceLocatorMatchedBy::SourceRange => canonical
+    let page_range = chapter_range.start_page..end_page_exclusive;
+    let Some(source_starts) = session.source_run_starts(page_range.clone()) else {
+        let reason = unavailable_projection_reason(revision, &canonical.spine_idref);
+        return pending_resolution(revision_id, canonical, matched_by, reason);
+    };
+    let projection = match (matched_by, source_index) {
+        (RuntimeSourceLocatorMatchedBy::SourceRange, Some(source_index)) => canonical
             .locator
             .source_range
             .as_ref()
             .map_or(SourceProjection::NoPageProjection, |range| {
-                project_source_point(pages, source_index, &range.start)
+                project_source_point(&source_starts, source_index, &range.start)
             }),
-        RuntimeSourceLocatorMatchedBy::SourcePoint => canonical
+        (RuntimeSourceLocatorMatchedBy::SourcePoint, Some(source_index)) => canonical
             .locator
             .source_point
             .as_ref()
             .map_or(SourceProjection::NoPageProjection, |point| {
-                project_source_point(pages, source_index, point)
+                project_source_point(&source_starts, source_index, point)
             }),
-        RuntimeSourceLocatorMatchedBy::Anchor => {
+        (RuntimeSourceLocatorMatchedBy::Anchor, Some(source_index)) => {
             let anchor = canonical.locator.anchor_id.as_ref();
             anchor
-                .and_then(|anchor| collect_anchor_pages(pages).get(anchor).copied())
+                .and_then(|anchor| {
+                    session
+                        .anchor_pages(page_range.clone())?
+                        .get(anchor)
+                        .copied()
+                })
                 .map(SourceProjection::Page)
                 .or_else(|| {
                     anchor
@@ -371,7 +414,7 @@ fn resolve_canonical_source_locator(
                                 SourceProjection::Page(chapter_range.start_page)
                             }
                             RuntimeSourceAnchor::Point(point) => {
-                                project_source_point(pages, source_index, point)
+                                project_source_point(&source_starts, source_index, point)
                             }
                             RuntimeSourceAnchor::NoPageProjection => {
                                 SourceProjection::NoPageProjection
@@ -380,17 +423,20 @@ fn resolve_canonical_source_locator(
                 })
                 .unwrap_or(SourceProjection::NoPageProjection)
         }
-        RuntimeSourceLocatorMatchedBy::Progression => {
+        (RuntimeSourceLocatorMatchedBy::Progression, Some(source_index)) => {
             let progression = canonical.locator.progression.unwrap_or(0.0);
             let text_length = normalized_text_length(&source_index.text);
             if text_length == 0 {
                 SourceProjection::Page(chapter_range.start_page)
             } else {
                 let offset = (progression * text_length as f64).round() as usize;
-                project_source_offset(pages, source_index, offset.min(text_length))
+                project_source_offset(&source_starts, source_index, offset.min(text_length))
             }
         }
-        RuntimeSourceLocatorMatchedBy::Href => SourceProjection::Page(chapter_range.start_page),
+        (RuntimeSourceLocatorMatchedBy::Href, _) => {
+            SourceProjection::Page(chapter_range.start_page)
+        }
+        (_, None) => unreachable!("non-href source locator requires a source chapter index"),
     };
     let SourceProjection::Page(page_index) = projection else {
         let reason = unavailable_projection_reason(revision, &canonical.spine_idref);

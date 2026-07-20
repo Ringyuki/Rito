@@ -1,8 +1,6 @@
-use serde_json::{Map, Number, Value};
-
 use super::{
     line::{LineRun, RubyRunBox},
-    style_values::paint_number_value,
+    paint::RunPaint,
     text_work::{TextWorkMeter, TextWorkYield},
 };
 
@@ -167,7 +165,7 @@ struct RubyGroup {
     end_right: f64,
     y: f64,
     font_size: f64,
-    paint: Value,
+    paint: RunPaint,
 }
 
 impl RubyGroup {
@@ -183,7 +181,7 @@ impl RubyGroup {
             end_right: run.x + run.width,
             y: line_y + run.y - font_size - 1.0,
             font_size,
-            paint: ruby_paint_value(&run.paint, font_size),
+            paint: run.paint.for_ruby(font_size),
         })
     }
 
@@ -211,44 +209,6 @@ impl RubyGroup {
             paint: self.paint,
         }
     }
-}
-
-fn ruby_paint_value(base_paint: &Value, ruby_font_size: f64) -> Value {
-    let mut paint = Map::new();
-    paint.insert(
-        "color".to_owned(),
-        base_paint
-            .get("color")
-            .cloned()
-            .unwrap_or_else(|| Value::String("#000000".to_owned())),
-    );
-
-    let base_font = base_paint.get("font").and_then(Value::as_object);
-    let mut font = Map::new();
-    font.insert(
-        "family".to_owned(),
-        base_font
-            .and_then(|font| font.get("family"))
-            .cloned()
-            .unwrap_or_else(|| Value::String("serif".to_owned())),
-    );
-    font.insert("sizePx".to_owned(), paint_number_value(ruby_font_size));
-    font.insert(
-        "style".to_owned(),
-        base_font
-            .and_then(|font| font.get("style"))
-            .cloned()
-            .unwrap_or_else(|| Value::String("normal".to_owned())),
-    );
-    font.insert(
-        "weight".to_owned(),
-        base_font
-            .and_then(|font| font.get("weight"))
-            .cloned()
-            .unwrap_or_else(|| Value::Number(Number::from(400))),
-    );
-    paint.insert("font".to_owned(), Value::Object(font));
-    Value::Object(paint)
 }
 
 fn require_run_work(work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {

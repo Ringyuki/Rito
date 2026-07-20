@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Reader } from '@ritojs/core';
+import type { Reader, ReaderLocatorResolution } from '@ritojs/core';
 import { createController } from '../src/controller';
 
 beforeEach(() => {
@@ -68,7 +68,74 @@ describe('controller initial spread', () => {
     expect(fixture.notifyActiveSpread).toHaveBeenCalledWith(2);
     controller.dispose();
   });
+
+  it('keeps the fallback offscreen and paints the restored target before persistence settles', async () => {
+    const frame = stubCancellableFrameScheduling();
+    const resolution = deferred<ReaderLocatorResolution | undefined>();
+    const persisted = deferred<undefined>();
+    const save = vi.fn(() => persisted.promise);
+    const displayDraw = vi.fn();
+    const fixture = createReaderFixture(0);
+    Object.assign(fixture.reader, {
+      manifestHrefMap: new Map([['chapter', 'Text/chapter.xhtml']]),
+      navigateToLocator: vi.fn(() => resolution.promise),
+    });
+    const controller = createController(fixture.reader, createCanvas(displayDraw), {
+      positionStorage: {
+        load: vi.fn(() => Promise.resolve(null)),
+        save,
+        clear: vi.fn(() => Promise.resolve()),
+      },
+    });
+
+    const restoring = controller.restorePosition(
+      JSON.stringify({
+        locator: { spineIdref: 'chapter', chapterProgress: 1 },
+        projection: { spreadIndex: 2, pageIndex: 2 },
+        progress: 1,
+        timestamp: 1,
+      }),
+    );
+    frame.run();
+
+    expect(fixture.renderSpreadTo).not.toHaveBeenCalled();
+
+    resolution.resolve({
+      status: 'resolved',
+      locator: { href: 'Text/chapter.xhtml', progression: 1 },
+      spineIdref: 'chapter',
+      pageIndex: 2,
+      spreadIndex: 2,
+      matchedBy: 'progression',
+    });
+    await vi.waitFor(() => {
+      expect(save).toHaveBeenCalledOnce();
+    });
+    frame.run();
+
+    expect(controller.currentSpread).toBe(2);
+    expect(displayDraw).toHaveBeenCalledOnce();
+    expect(fixture.renderSpreadTo).toHaveBeenCalledOnce();
+    expect(fixture.renderSpreadTo).toHaveBeenCalledWith(2, expect.anything());
+
+    persisted.resolve(undefined);
+    await expect(restoring).resolves.toBe(2);
+    controller.dispose();
+  });
 });
+
+interface Deferred<T> {
+  readonly promise: Promise<T>;
+  resolve(value: T): void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 function stubFrameScheduling(): { readonly run: () => void } {
   let pendingFrame: FrameRequestCallback | undefined;
@@ -91,11 +158,39 @@ function stubFrameScheduling(): { readonly run: () => void } {
   };
 }
 
-function createCanvas(): HTMLCanvasElement {
+function stubCancellableFrameScheduling(): { readonly run: () => void } {
+  let nextId = 0;
+  const pendingFrames = new Map<number, FrameRequestCallback>();
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    const id = ++nextId;
+    pendingFrames.set(id, callback);
+    return id;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+    pendingFrames.delete(id);
+  });
+  vi.stubGlobal(
+    'requestIdleCallback',
+    vi.fn(() => 1000),
+  );
+  vi.stubGlobal('cancelIdleCallback', vi.fn());
+  return {
+    run: () => {
+      const next = pendingFrames.entries().next().value as
+        | readonly [number, FrameRequestCallback]
+        | undefined;
+      if (!next) return;
+      pendingFrames.delete(next[0]);
+      next[1](16);
+    },
+  };
+}
+
+function createCanvas(drawImage = vi.fn()): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.getContext = vi.fn(() => ({
     clearRect: vi.fn(),
-    drawImage: vi.fn(),
+    drawImage,
   })) as unknown as typeof canvas.getContext;
   return canvas;
 }

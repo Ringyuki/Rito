@@ -308,7 +308,10 @@ fn block(children: Vec<RuntimeChild<LineBox>>) -> RuntimeBlock<LineBox> {
 
 fn interactions() -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes: BTreeMap::new(),
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
         chapter_text_indices: RuntimeChapterTextIndexSource::FullDocument,
         completed_chapter_idrefs: BTreeSet::new(),
     }
@@ -316,6 +319,7 @@ fn interactions() -> RuntimeRevisionInteractions {
 
 fn materialized_interactions(span_count: usize) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes: BTreeMap::from([(
             "note".to_owned(),
             FootnoteEntry {
@@ -324,6 +328,8 @@ fn materialized_interactions(span_count: usize) -> RuntimeRevisionInteractions {
                 html: "<p>note text</p>".to_owned(),
             },
         )]),
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
         chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::from([(
             "chapter".to_owned(),
             RuntimeChapterTextIndex {

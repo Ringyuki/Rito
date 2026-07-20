@@ -117,6 +117,8 @@ pub(crate) struct LayoutWorkMeter {
 
 impl LayoutWorkMeter {
     pub(crate) fn new(budget: LayoutWorkBudget) -> Self {
+        #[cfg(any(test, feature = "bench-internals"))]
+        crate::layout::bounded_work_probe::record_quantum();
         Self {
             root_accepts_remaining: budget.max_top_level_nodes.get(),
             root_starts_remaining: budget.max_top_level_nodes.get(),
@@ -139,7 +141,14 @@ impl LayoutWorkMeter {
             LayoutSessionScope::Root => &mut self.root_accepts_remaining,
             LayoutSessionScope::Descendant => &mut self.descendant_accepts_remaining,
         };
+        #[cfg(any(test, feature = "bench-internals"))]
+        let before = *remaining;
         *remaining = remaining.saturating_sub(count);
+        #[cfg(any(test, feature = "bench-internals"))]
+        crate::layout::bounded_work_probe::record_accepts(
+            matches!(scope, LayoutSessionScope::Descendant),
+            before - *remaining,
+        );
     }
 
     pub(in crate::layout) fn try_start_node(&mut self, scope: LayoutSessionScope) -> bool {
@@ -148,9 +157,19 @@ impl LayoutWorkMeter {
             LayoutSessionScope::Descendant => &mut self.descendant_starts_remaining,
         };
         if *remaining == 0 {
+            #[cfg(any(test, feature = "bench-internals"))]
+            crate::layout::bounded_work_probe::record_start(
+                matches!(scope, LayoutSessionScope::Descendant),
+                false,
+            );
             return false;
         }
         *remaining -= 1;
+        #[cfg(any(test, feature = "bench-internals"))]
+        crate::layout::bounded_work_probe::record_start(
+            matches!(scope, LayoutSessionScope::Descendant),
+            true,
+        );
         true
     }
 
@@ -158,8 +177,19 @@ impl LayoutWorkMeter {
         self.line_boxes_remaining
     }
 
+    pub(in crate::layout) const fn can_prepare_root_frontier(&self) -> bool {
+        self.root_accepts_remaining > 0
+            && self.root_starts_remaining > 0
+            && self.line_boxes_remaining > 0
+            && self.text_work.has_capacity()
+    }
+
     pub(in crate::layout) fn consume_line_boxes(&mut self, count: usize) {
+        #[cfg(any(test, feature = "bench-internals"))]
+        let consumed = count.min(self.line_boxes_remaining);
         self.line_boxes_remaining = self.line_boxes_remaining.saturating_sub(count);
+        #[cfg(any(test, feature = "bench-internals"))]
+        crate::layout::bounded_work_probe::record_line_boxes(consumed);
     }
 
     /// Keeps private root work within the runtime request's remaining public

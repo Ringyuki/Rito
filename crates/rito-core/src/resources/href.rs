@@ -22,24 +22,26 @@ pub(super) struct HrefMaps<T> {
 
 impl<T: Copy> ResourceHrefIndex<T> {
     pub(crate) fn new<'a>(entries: impl IntoIterator<Item = (&'a str, T)>) -> Self {
-        let mut raw_exact = BTreeMap::new();
-        let mut paths = HrefMaps::new();
-        let mut aliases = HrefMaps::new();
-
+        let mut index = Self {
+            raw_exact: BTreeMap::new(),
+            paths: HrefMaps::new(),
+            aliases: HrefMaps::new(),
+        };
         for (href, value) in entries {
-            if raw_exact.contains_key(href) {
-                continue;
-            }
-            raw_exact.insert(href.to_owned(), value);
-            paths.insert_canonical(resource_path(href).as_ref(), value);
-            aliases.insert_canonical(resource_alias(href).as_ref(), value);
+            index.insert(href, value);
         }
+        index
+    }
 
-        Self {
-            raw_exact,
-            paths,
-            aliases,
+    pub(crate) fn insert(&mut self, href: &str, value: T) {
+        if self.raw_exact.contains_key(href) {
+            return;
         }
+        self.raw_exact.insert(href.to_owned(), value);
+        self.paths
+            .insert_canonical(resource_path(href).as_ref(), value);
+        self.aliases
+            .insert_canonical(resource_alias(href).as_ref(), value);
     }
 
     pub(crate) fn resolve(&self, src: &str) -> Option<T> {

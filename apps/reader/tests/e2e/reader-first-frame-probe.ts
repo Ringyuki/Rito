@@ -61,13 +61,16 @@ export async function installFirstVisibleReaderFrameProbe(page: Page): Promise<v
 
     const observeFrame = (): void => {
       const shell = document.querySelector<HTMLElement>('[data-testid="reader-shell"]');
-      if (state.firstLoadedSpread === null && shell?.dataset['loaded'] === 'true') {
-        const spread = Number(shell.dataset['currentSpread']);
-        if (Number.isSafeInteger(spread) && spread >= 0) state.firstLoadedSpread = spread;
-      }
       const sample = state.checksum === null ? sampleReaderCanvas() : null;
-      if (sample?.nonBlank) state.checksum = sample.checksum;
-      if (state.checksum === null || state.firstLoadedSpread === null) {
+      if (sample?.nonBlank) {
+        const spread = Number(shell?.dataset['currentSpread']);
+        // Commit the checksum and spread from the same observed frame. An
+        // invalid/missing spread becomes -1 so a visible pre-initialization
+        // frame fails the caller's assertion instead of being silently skipped.
+        state.checksum = sample.checksum;
+        state.firstLoadedSpread = Number.isSafeInteger(spread) && spread >= 0 ? spread : -1;
+      }
+      if (state.checksum === null) {
         requestAnimationFrame(observeFrame);
       }
     };

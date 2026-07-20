@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   browserFontFaceRegistry: vi.fn(),
   createBrowserReaderResourceState: vi.fn(() => ({
     pendingImageLoads: new Map(),
+    imageResourceFailures: new Map(),
+    settledImageResourceSpreads: new Set(),
     images: new Map(),
     registeredFontFaces: new Map(),
   })),

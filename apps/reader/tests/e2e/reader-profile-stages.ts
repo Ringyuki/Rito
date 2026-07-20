@@ -8,8 +8,14 @@ import {
   resetToFirstSpread,
   stableReaderCanvasSampleChecksum,
   waitForReaderSpreadPaint,
+  waitForReaderSpreadPaintSample,
   waitForReaderTransitionEnd,
 } from './reader-page-harness';
+import {
+  requireAnimatedReaderTurn,
+  startReaderTransitionObserver,
+  stopReaderTransitionObserver,
+} from './reader-transition-harness';
 import type {
   ReaderProfileStageInput,
   ReaderProfileTransition,
@@ -87,23 +93,29 @@ export async function runCachedTurnProfile(
   await waitForReaderSpreadPaint(page, 0, warmChecksum);
   const checksumBefore = await stableReaderCanvasSampleChecksum(page);
   await waitForReaderProbeIdle(page);
+  await waitForReaderTransitionEnd(page);
   const knownSpreadCount = await readerNumberAttribute(page, 'data-total-spreads');
   const cursor = await captureReaderProbeCursor(page);
-  await page.keyboard.press('ArrowRight');
-  await waitForReaderSpreadPaint(page, 1, checksumBefore);
-  const paintedAt = await pageNow(page);
-  await waitForReaderTransitionEnd(page);
-  const checksumAfter = await readerCanvasSampleChecksum(page);
-  const observedUntil = await pageNow(page);
-  const slice = await finishProbeSlice(page, cursor);
-  return transitionResult(checksumAfter, slice, paintedAt, observedUntil, {
-    fromSpread: 0,
-    toSpread: 1,
-    knownSpreadCountBefore: knownSpreadCount,
-    knownSpreadCountAfter: await readerNumberAttribute(page, 'data-total-spreads'),
-    checksumBefore,
-    checksumAfter,
-  });
+  await startReaderTransitionObserver(page);
+  try {
+    await page.keyboard.press('ArrowRight');
+    const targetFrame = await waitForReaderSpreadPaintSample(page, 1, checksumBefore);
+    const paintedAt = await pageNow(page);
+    await requireAnimatedReaderTurn(page, targetFrame.capturedAt);
+    const checksumAfter = await readerCanvasSampleChecksum(page);
+    const observedUntil = await pageNow(page);
+    const slice = await finishProbeSlice(page, cursor);
+    return transitionResult(checksumAfter, slice, paintedAt, observedUntil, {
+      fromSpread: 0,
+      toSpread: 1,
+      knownSpreadCountBefore: knownSpreadCount,
+      knownSpreadCountAfter: await readerNumberAttribute(page, 'data-total-spreads'),
+      checksumBefore,
+      checksumAfter,
+    });
+  } finally {
+    await stopReaderTransitionObserver(page);
+  }
 }
 
 export async function runDeferredGrowthProfile(
@@ -114,23 +126,30 @@ export async function runDeferredGrowthProfile(
   const knownLastSpread = knownSpreadCount - 1;
   const checksumBefore = await moveToKnownRevisionEnd(page, knownLastSpread, previousChecksum);
   requireIncompleteRevision(await readReaderWorkerOperations(page));
+  await waitForReaderTransitionEnd(page);
   const cursor = await captureReaderProbeCursor(page);
-  await page.keyboard.press('ArrowRight');
-  await waitForExtentGrowth(page, knownSpreadCount, knownLastSpread);
-  const targetSpread = await currentSpread(page);
-  await waitForReaderSpreadPaint(page, targetSpread, checksumBefore);
-  const paintedAt = await pageNow(page);
-  const checksumAfter = await stableReaderCanvasSampleChecksum(page);
-  const observedUntil = await pageNow(page);
-  const slice = await finishProbeSlice(page, cursor);
-  return transitionResult(checksumAfter, slice, paintedAt, observedUntil, {
-    fromSpread: knownLastSpread,
-    toSpread: targetSpread,
-    knownSpreadCountBefore: knownSpreadCount,
-    knownSpreadCountAfter: await readerNumberAttribute(page, 'data-total-spreads'),
-    checksumBefore,
-    checksumAfter,
-  });
+  await startReaderTransitionObserver(page);
+  try {
+    await page.keyboard.press('ArrowRight');
+    await waitForExtentGrowth(page, knownSpreadCount, knownLastSpread);
+    const targetSpread = await currentSpread(page);
+    const targetFrame = await waitForReaderSpreadPaintSample(page, targetSpread, checksumBefore);
+    const paintedAt = await pageNow(page);
+    await requireAnimatedReaderTurn(page, targetFrame.capturedAt);
+    const checksumAfter = await stableReaderCanvasSampleChecksum(page);
+    const observedUntil = await pageNow(page);
+    const slice = await finishProbeSlice(page, cursor);
+    return transitionResult(checksumAfter, slice, paintedAt, observedUntil, {
+      fromSpread: knownLastSpread,
+      toSpread: targetSpread,
+      knownSpreadCountBefore: knownSpreadCount,
+      knownSpreadCountAfter: await readerNumberAttribute(page, 'data-total-spreads'),
+      checksumBefore,
+      checksumAfter,
+    });
+  } finally {
+    await stopReaderTransitionObserver(page);
+  }
 }
 
 export async function runReflowProfile(

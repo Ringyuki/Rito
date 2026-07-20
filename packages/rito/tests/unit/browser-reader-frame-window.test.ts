@@ -5,13 +5,26 @@ import {
   warmBrowserReaderFrameWindow,
 } from '../../src/bindings/browser/reader/frame-cache';
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
-import { preloadFrameResourceBytes } from '../../src/bindings/browser/resources';
+import { applyBrowserReaderRevisionState } from '../../src/bindings/browser/reader/revision';
+import { prepareBrowserReaderBoundedFrameCache } from '../../src/bindings/browser/bounded-frame-cache';
+import {
+  preloadFrameResourceBytes,
+  throwIfBrowserReaderImageResourceFailed,
+} from '../../src/bindings/browser/resources';
+import { BrowserReaderImageResourceError } from '../../src/bindings/browser/image-resource-error';
+import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/browser/chapter-local-preview/state';
 import type {
   BrowserReaderFrame,
   BrowserReaderState,
 } from '../../src/bindings/browser/reader/types';
-import { frameBuffer } from './browser-reader-reflow-state-fixtures';
-import { createDeferred } from './browser-reader-reflow-fixtures';
+import {
+  createDeferred,
+  createState,
+  createWorker,
+  frameBuffer,
+  revisionResult,
+  setRevisionState,
+} from './browser-reader-reflow-fixtures';
 
 describe('Browser reader frame window adapter', () => {
   afterEach(() => {
@@ -78,6 +91,68 @@ describe('Browser reader frame window adapter', () => {
     expect(state.pendingFrameLoads.size).toBe(0);
   });
 
+  it('skips a queued center when the active response already covered it', async () => {
+    const firstWindow = createDeferred<ReturnType<typeof versionedFrameWindowResult>>();
+    const warmFrameWindow = vi.fn(
+      (
+        _revision: { readonly revisionId: string; readonly revisionVersion: number },
+        centerSpreadIndex: number,
+      ) =>
+        centerSpreadIndex === 2
+          ? firstWindow.promise
+          : Promise.resolve(versionedFrameWindowResult([3], centerSpreadIndex)),
+    );
+    const state = frameWindowState([0, 1, 2, 3, 4, 5, 6, 7], () => undefined, {
+      worker: { warmFrameWindowAtRevision: warmFrameWindow },
+    });
+    state.frames.clear();
+
+    const first = warmBrowserReaderFrameWindow(state, 2);
+    const covered = warmBrowserReaderFrameWindow(state, 3);
+    expect(warmFrameWindow.mock.calls.map((call) => call[1])).toEqual([2]);
+
+    firstWindow.resolve(versionedFrameWindowResult([2, 3, 1, 4, 0], 2));
+    await Promise.all([first, covered]);
+
+    expect(warmFrameWindow.mock.calls.map((call) => call[1])).toEqual([2]);
+    expect(state.pendingFrameLoads.size).toBe(0);
+  });
+
+  it('runs only the latest queued center and settles every replaced request', async () => {
+    const activeWindow = createDeferred<ReturnType<typeof versionedFrameWindowResult>>();
+    const latestWindow = createDeferred<ReturnType<typeof versionedFrameWindowResult>>();
+    const warmFrameWindow = vi.fn(
+      (
+        _revision: { readonly revisionId: string; readonly revisionVersion: number },
+        centerSpreadIndex: number,
+      ) => (centerSpreadIndex === 1 ? activeWindow.promise : latestWindow.promise),
+    );
+    const state = frameWindowState([0, 1, 2, 3, 4, 5], () => undefined, {
+      worker: { warmFrameWindowAtRevision: warmFrameWindow },
+    });
+    state.frames.clear();
+
+    const active = warmBrowserReaderFrameWindow(state, 1);
+    const replacedTwo = warmBrowserReaderFrameWindow(state, 2);
+    const replacedThree = warmBrowserReaderFrameWindow(state, 3);
+    const latestFirst = warmBrowserReaderFrameWindow(state, 5);
+    const latestSecond = warmBrowserReaderFrameWindow(state, 5);
+
+    expect(warmFrameWindow.mock.calls.map((call) => call[1])).toEqual([1]);
+    expect(state.pendingFrameLoads.size).toBe(2);
+    await Promise.all([replacedTwo, replacedThree]);
+
+    activeWindow.resolve(versionedFrameWindowResult([1], 1));
+    await active;
+    await flushPromises();
+
+    expect(warmFrameWindow.mock.calls.map((call) => call[1])).toEqual([1, 5]);
+    expect(state.pendingFrameLoads.size).toBe(1);
+    latestWindow.resolve(versionedFrameWindowResult([5], 5));
+    await Promise.all([latestFirst, latestSecond]);
+    expect(state.pendingFrameLoads.size).toBe(0);
+  });
+
   it('reuses a completed warm window for the same revision and center', async () => {
     const warmFrameWindow = vi.fn(
       (revision: { readonly revisionId: string; readonly revisionVersion: number }) =>
@@ -91,6 +166,96 @@ describe('Browser reader frame window adapter', () => {
     await warmBrowserReaderFrameWindow(state, 0);
 
     expect(warmFrameWindow).toHaveBeenCalledOnce();
+  });
+
+  it('keeps stable-prefix frame identities across a same-session revision advance', async () => {
+    const fixture = createWorker(() => undefined, 'stable-prefix-session');
+    const state = createState(fixture.worker);
+    const initial = withRevisionVersion(revisionResult('rev', 3, 3), 0);
+    setRevisionState(state, initial.bundle.revision, initial.bundle.navigation);
+    const selectedFrame = frame([], []);
+    cacheFrame(state, 0, selectedFrame);
+    await warmBrowserReaderFrameWindow(state, 1);
+    const adjacentFrame = state.frames.get(1);
+    expect(adjacentFrame).toBeDefined();
+    fixture.warmFrameWindow.mockClear();
+
+    const oldPending = new Promise<void>(() => undefined);
+    state.pendingFrameLoads.set(2, oldPending);
+    const advanced = withRevisionVersion(revisionResult('rev', 4, 4), 4);
+    const frameCache = prepareBrowserReaderBoundedFrameCache(state, fixture.worker, advanced, {
+      ...selectedFrame,
+      commandHash: 'replacement',
+    });
+    applyBrowserReaderRevisionState(state, {
+      config: state.config,
+      spreadMode: state.spreadMode,
+      lineBreaking: state.lineBreaking,
+      result: advanced,
+      worker: fixture.worker,
+      ...frameCache,
+    });
+
+    expect(state.frames.get(0)).toBe(selectedFrame);
+    expect(state.frames.get(1)).toBe(adjacentFrame);
+    expect(state.pendingFrameLoads.has(2)).toBe(false);
+
+    const completedWarm = warmBrowserReaderFrameWindow(state, 1);
+    expect(fixture.warmFrameWindow).toHaveBeenNthCalledWith(
+      1,
+      { revisionId: 'rev', revisionVersion: 4 },
+      1,
+    );
+    await completedWarm;
+
+    const pendingWarm = warmBrowserReaderFrameWindow(state, 2);
+    expect(fixture.warmFrameWindow).toHaveBeenNthCalledWith(
+      2,
+      { revisionId: 'rev', revisionVersion: 4 },
+      2,
+    );
+    await pendingWarm;
+  });
+
+  it('clears cached frames when a new worker session publishes the same revision id', () => {
+    const previous = createWorker(() => undefined, 'previous-session');
+    const candidate = createWorker(() => undefined, 'candidate-session');
+    const state = createState(previous.worker);
+    const initial = withRevisionVersion(revisionResult('rev', 1, 1), 0);
+    setRevisionState(state, initial.bundle.revision, initial.bundle.navigation);
+    const previousFrame = frame([], []);
+    cacheFrame(state, 0, previousFrame);
+
+    applyBrowserReaderRevisionState(state, {
+      config: state.config,
+      spreadMode: state.spreadMode,
+      lineBreaking: state.lineBreaking,
+      result: withRevisionVersion(revisionResult('rev', 1, 1), 1),
+      worker: candidate.worker,
+    });
+
+    expect(state.frames.get(0)).not.toBe(previousFrame);
+    expect(state.frames.get(0)?.revisionId).toBe('rev');
+  });
+
+  it('clears cached frames when the same worker publishes a different revision id', () => {
+    const fixture = createWorker(() => undefined, 'same-session');
+    const state = createState(fixture.worker);
+    const initial = withRevisionVersion(revisionResult('old', 1, 1), 0);
+    setRevisionState(state, initial.bundle.revision, initial.bundle.navigation);
+    const previousFrame = { ...frame([], []), revisionId: 'old' };
+    cacheFrame(state, 0, previousFrame);
+
+    applyBrowserReaderRevisionState(state, {
+      config: state.config,
+      spreadMode: state.spreadMode,
+      lineBreaking: state.lineBreaking,
+      result: withRevisionVersion(revisionResult('next', 1, 1), 1),
+      worker: fixture.worker,
+    });
+
+    expect(state.frames.get(0)).not.toBe(previousFrame);
+    expect(state.frames.get(0)?.revisionId).toBe('next');
   });
 
   it('rejects a stale frame window when two worker sessions use the same revision id', async () => {
@@ -238,6 +403,32 @@ describe('Browser reader frame window adapter', () => {
     expect(state.frames.has(1)).toBe(false);
   });
 
+  it('invalidates completed coverage only for the spread evicted by the frame LRU', async () => {
+    const warmFrameWindow = vi.fn(
+      (
+        revision: { readonly revisionId: string; readonly revisionVersion: number },
+        center: number,
+      ) => Promise.resolve({ revision, value: frameWindowResult([0, 1], center) }),
+    );
+    const state = frameWindowState([0, 1], () => undefined, {
+      worker: { warmFrameWindowAtRevision: warmFrameWindow },
+    });
+    state.frames.clear();
+
+    await warmBrowserReaderFrameWindow(state, 0);
+    for (let spreadIndex = 2; spreadIndex <= 12; spreadIndex += 1) {
+      cacheFrame(state, spreadIndex, { ...frame([], []), spreadIndex });
+    }
+    expect(state.frames.has(0)).toBe(false);
+    expect(state.frames.has(1)).toBe(true);
+
+    await warmBrowserReaderFrameWindow(state, 1);
+    expect(warmFrameWindow).toHaveBeenCalledOnce();
+
+    await warmBrowserReaderFrameWindow(state, 0);
+    expect(warmFrameWindow).toHaveBeenCalledTimes(2);
+  });
+
   it('decodes worker-provided warm resource bytes without per-spread resource requests', async () => {
     const image = { close: vi.fn() } as unknown as ImageBitmap;
     const createImageBitmap = vi.fn(() => Promise.resolve(image));
@@ -295,6 +486,197 @@ describe('Browser reader frame window adapter', () => {
     expect(invalidated).toEqual([1]);
   });
 
+  it('publishes a decode failure once and never warms that exact revision again', async () => {
+    const createImageBitmap = vi.fn(() => Promise.reject(new Error('bad image')));
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    const invalidated: number[] = [];
+    const warmFrameWindow = vi.fn(
+      (revision: { readonly revisionId: string; readonly revisionVersion: number }) =>
+        Promise.resolve({
+          revision,
+          value: imageFrameWindowResult(1, {
+            resources: [imageResource('rev', 'transfer-decode', 'cover.png')],
+            missingResources: [],
+          }),
+        }),
+    );
+    const state = frameWindowState([1], (index) => invalidated.push(index), {
+      worker: { warmFrameWindowAtRevision: warmFrameWindow },
+    });
+    state.frames.set(1, { ...frame([], ['cover.png']), spreadIndex: 1 });
+
+    await warmBrowserReaderFrameWindow(state, 1);
+    await flushPromises();
+    await warmBrowserReaderFrameWindow(state, 1);
+
+    expect(createImageBitmap).toHaveBeenCalledOnce();
+    expect(warmFrameWindow).toHaveBeenCalledOnce();
+    expect(invalidated).toEqual([1]);
+    expect(() => {
+      throwIfBrowserReaderImageResourceFailed(state, 'cover.png');
+    }).toThrow(
+      expect.objectContaining<Partial<BrowserReaderImageResourceError>>({
+        name: 'BrowserReaderImageResourceError',
+        code: 'image-resource-unavailable',
+        reason: 'decode-failed',
+        href: 'cover.png',
+        revisionId: 'rev',
+        revisionVersion: 0,
+      }),
+    );
+  });
+
+  it('turns Core missing resources into an exact-revision terminal error', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn());
+    const invalidated: number[] = [];
+    const warmFrameWindow = vi.fn(
+      (revision: { readonly revisionId: string; readonly revisionVersion: number }) =>
+        Promise.resolve({
+          revision,
+          value: imageFrameWindowResult(1, {
+            resources: [],
+            missingResources: [
+              { kind: 'image' as const, href: 'cover.png', message: 'resource is absent' },
+            ],
+          }),
+        }),
+    );
+    const state = frameWindowState([1], (index) => invalidated.push(index), {
+      worker: { warmFrameWindowAtRevision: warmFrameWindow },
+    });
+    state.frames.set(1, { ...frame([], ['cover.png']), spreadIndex: 1 });
+
+    await warmBrowserReaderFrameWindow(state, 1);
+    await flushPromises();
+    await warmBrowserReaderFrameWindow(state, 1);
+
+    expect(globalThis.createImageBitmap).not.toHaveBeenCalled();
+    expect(warmFrameWindow).toHaveBeenCalledOnce();
+    expect(invalidated).toEqual([1]);
+    expect(() => {
+      throwIfBrowserReaderImageResourceFailed(state, 'cover.png');
+    }).toThrow(
+      expect.objectContaining<Partial<BrowserReaderImageResourceError>>({
+        reason: 'resource-unavailable',
+        detail: 'resource is absent',
+      }),
+    );
+  });
+
+  it('fails terminally when createImageBitmap is unavailable', async () => {
+    vi.stubGlobal('createImageBitmap', undefined);
+    const invalidated: number[] = [];
+    const warmFrameWindow = vi.fn(
+      (revision: { readonly revisionId: string; readonly revisionVersion: number }) =>
+        Promise.resolve({
+          revision,
+          value: imageFrameWindowResult(1, {
+            resources: [imageResource('rev', 'transfer-unsupported', 'cover.png')],
+            missingResources: [],
+          }),
+        }),
+    );
+    const state = frameWindowState([1], (index) => invalidated.push(index), {
+      worker: { warmFrameWindowAtRevision: warmFrameWindow },
+    });
+    state.frames.set(1, { ...frame([], ['cover.png']), spreadIndex: 1 });
+
+    await warmBrowserReaderFrameWindow(state, 1);
+    await flushPromises();
+
+    expect(invalidated).toEqual([1]);
+    expect(() => {
+      throwIfBrowserReaderImageResourceFailed(state, 'cover.png');
+    }).toThrow(
+      expect.objectContaining<Partial<BrowserReaderImageResourceError>>({
+        reason: 'unsupported-runtime',
+      }),
+    );
+  });
+
+  it('decodes a shared href once and invalidates every related spread once', async () => {
+    const decoded = createDeferred<ImageBitmap>();
+    const createImageBitmap = vi.fn(() => decoded.promise);
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    const invalidated: number[] = [];
+    const state = frameWindowState([1, 2], (index) => invalidated.push(index), {
+      worker: {
+        warmFrameWindowAtRevision: (revision: {
+          readonly revisionId: string;
+          readonly revisionVersion: number;
+        }) =>
+          Promise.resolve({
+            revision,
+            value: {
+              plan: {
+                revisionId: 'rev',
+                centerSpreadIndex: 1,
+                displaySpreadIndex: 1,
+                spreadIndexes: [1, 2],
+              },
+              frames: [frameBuffer('rev', 1), frameBuffer('rev', 2)],
+              spreads: [1, 2].map((spreadIndex) => ({
+                spreadIndex,
+                resources: [imageResource('rev', `transfer-${String(spreadIndex)}`, 'shared.png')],
+                missingResources: [],
+              })),
+            },
+          }),
+      },
+    });
+    state.frames.set(1, { ...frame([], ['shared.png']), spreadIndex: 1 });
+    state.frames.set(2, { ...frame([], ['shared.png']), spreadIndex: 2 });
+
+    const warm = warmBrowserReaderFrameWindow(state, 1);
+    await flushPromises();
+    expect(createImageBitmap).toHaveBeenCalledOnce();
+    decoded.resolve({ close: vi.fn() } as unknown as ImageBitmap);
+    await warm;
+    await flushPromises();
+
+    expect(createImageBitmap).toHaveBeenCalledOnce();
+    expect(invalidated.sort()).toEqual([1, 2]);
+  });
+
+  it('invalidates every related spread when a shared href fails terminally', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn());
+    const invalidated: number[] = [];
+    const state = frameWindowState([1, 2], (index) => invalidated.push(index), {
+      worker: {
+        warmFrameWindowAtRevision: (revision: {
+          readonly revisionId: string;
+          readonly revisionVersion: number;
+        }) =>
+          Promise.resolve({
+            revision,
+            value: {
+              plan: {
+                revisionId: 'rev',
+                centerSpreadIndex: 1,
+                displaySpreadIndex: 1,
+                spreadIndexes: [1, 2],
+              },
+              frames: [frameBuffer('rev', 1), frameBuffer('rev', 2)],
+              spreads: [1, 2].map((spreadIndex) => ({
+                spreadIndex,
+                resources: [],
+                missingResources: [
+                  { kind: 'image' as const, href: 'shared.png', message: 'resource is absent' },
+                ],
+              })),
+            },
+          }),
+      },
+    });
+    state.frames.set(1, { ...frame([], ['shared.png']), spreadIndex: 1 });
+    state.frames.set(2, { ...frame([], ['shared.png']), spreadIndex: 2 });
+
+    await warmBrowserReaderFrameWindow(state, 1);
+
+    expect(globalThis.createImageBitmap).not.toHaveBeenCalled();
+    expect(invalidated.sort()).toEqual([1, 2]);
+  });
+
   it('uses worker-provided initial frame resource bytes without requesting them again', async () => {
     const image = { close: vi.fn() } as unknown as ImageBitmap;
     const createImageBitmap = vi.fn(() => Promise.resolve(image));
@@ -303,6 +685,8 @@ describe('Browser reader frame window adapter', () => {
     const state = {
       images: new Map(),
       pendingImageLoads: new Map(),
+      imageResourceFailures: new Map(),
+      settledImageResourceSpreads: new Set(),
       pendingHostTasks: new Set(),
       disposed: false,
     } as unknown as BrowserReaderState;
@@ -331,6 +715,8 @@ describe('Browser reader frame window adapter', () => {
     const state = {
       images: new Map(),
       pendingImageLoads: new Map(),
+      imageResourceFailures: new Map(),
+      settledImageResourceSpreads: new Set(),
       pendingHostTasks: new Set(),
       disposed: false,
     } as unknown as BrowserReaderState;
@@ -395,7 +781,7 @@ function frameWindowState(
         chapterMap: {},
       },
       tocTargets: { revisionId: 'rev', targets: [] },
-      footnotes: { revisionId: 'rev', entries: {} },
+      footnotes: { revisionId: 'rev', complete: true, pendingKeys: [], entries: {} },
       chapterTextIndices: { revisionId: 'rev', entries: {} },
       fontFamilies: [],
     },
@@ -407,6 +793,7 @@ function frameWindowState(
     },
     commitGeneration: 1,
     boundedSessions: { current: undefined, candidate: undefined },
+    chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),
     decodeFrameCommandBuffer: vi.fn(() => ({ commands: [] })),
@@ -424,6 +811,8 @@ function frameWindowState(
     disposed: false,
     images: new Map(),
     pendingImageLoads: new Map(),
+    imageResourceFailures: new Map(),
+    settledImageResourceSpreads: new Set(),
     ...overrides,
     worker,
   } as unknown as BrowserReaderState;
@@ -460,6 +849,56 @@ function versionedFrameWindowResult(
   return {
     revision: { revisionId, revisionVersion },
     value: frameWindowResult(spreadIndexes, centerSpreadIndex, commandHash, revisionId),
+  };
+}
+
+function imageFrameWindowResult(
+  spreadIndex: number,
+  resourceResult: {
+    readonly resources: readonly ReturnType<typeof imageResource>[];
+    readonly missingResources: readonly {
+      readonly kind: 'image';
+      readonly href: string;
+      readonly message: string;
+    }[];
+  },
+) {
+  return {
+    plan: {
+      revisionId: 'rev',
+      centerSpreadIndex: spreadIndex,
+      displaySpreadIndex: spreadIndex,
+      spreadIndexes: [spreadIndex],
+    },
+    frames: [frameBuffer('rev', spreadIndex)],
+    spreads: [{ spreadIndex, ...resourceResult }],
+  };
+}
+
+function imageResource(revisionId: string, transferId: string, href: string) {
+  return {
+    payload: {
+      revisionId,
+      transferId,
+      kind: 'image' as const,
+      href,
+      mediaType: 'image/png',
+      byteLength: 4,
+    },
+    bytes: new Uint8Array([1, 2, 3, 4]),
+  };
+}
+
+function withRevisionVersion(
+  result: ReturnType<typeof revisionResult>,
+  revisionVersion: number,
+): ReturnType<typeof revisionResult> {
+  return {
+    ...result,
+    bundle: {
+      ...result.bundle,
+      revision: { ...result.bundle.revision, revisionVersion },
+    },
   };
 }
 

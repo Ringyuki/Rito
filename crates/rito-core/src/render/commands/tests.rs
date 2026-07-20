@@ -1,5 +1,7 @@
 use serde_json::json;
 
+use crate::layout::RunPaint;
+
 use super::{
     count_display_commands, display_command_values, pack_display_commands,
     summarize_display_list_font_families, summarize_display_list_resource_refs, DisplayCommand,
@@ -13,7 +15,7 @@ fn counts_display_commands_by_kind() {
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!({ "hash": "a", "length": 1 }),
             rect: json!({ "x": 0, "y": 0, "width": 1, "height": 1 }),
-            paint: json!({}),
+            paint: RunPaint::default(),
             line_height_px: None,
             href: None,
             source_text: None,
@@ -22,7 +24,7 @@ fn counts_display_commands_by_kind() {
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!({ "hash": "b", "length": 1 }),
             rect: json!({ "x": 0, "y": 0, "width": 1, "height": 1 }),
-            paint: json!({}),
+            paint: RunPaint::default(),
             line_height_px: None,
             href: None,
             source_text: None,
@@ -52,7 +54,7 @@ fn summarizes_image_refs_from_images_and_block_backgrounds() {
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!("ignored"),
             rect: json!({}),
-            paint: json!({}),
+            paint: RunPaint::default(),
             line_height_px: None,
             href: None,
             source_text: None,
@@ -74,7 +76,7 @@ fn summarizes_font_families_from_text_commands() {
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!("Hello"),
             rect: json!({}),
-            paint: json!({ "font": { "family": "Rito Serif" } }),
+            paint: RunPaint::from_test_wire_value(json!({ "font": { "family": "Rito Serif" } })),
             line_height_px: None,
             href: None,
             source_text: None,
@@ -83,7 +85,7 @@ fn summarizes_font_families_from_text_commands() {
         DisplayCommand::paint_ruby(super::DisplayTextCommandInput {
             text: json!("Ruby"),
             rect: json!({}),
-            paint: json!({ "font": { "family": "Rito Sans" } }),
+            paint: RunPaint::from_test_wire_value(json!({ "font": { "family": "Rito Sans" } })),
             line_height_px: None,
             href: None,
             source_text: None,
@@ -92,7 +94,7 @@ fn summarizes_font_families_from_text_commands() {
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!("Duplicate"),
             rect: json!({}),
-            paint: json!({ "font": { "family": "Rito Serif" } }),
+            paint: RunPaint::from_test_wire_value(json!({ "font": { "family": "Rito Serif" } })),
             line_height_px: None,
             href: None,
             source_text: None,
@@ -137,7 +139,7 @@ fn packs_command_opcodes_geometry_and_string_table() {
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!("Hello"),
             rect: json!({ "x": 0, "y": 0, "width": 10, "height": 12 }),
-            paint: json!({}),
+            paint: RunPaint::default(),
             line_height_px: None,
             href: None,
             source_text: None,
@@ -247,4 +249,112 @@ fn packs_payload_table_for_complex_commands() {
         assert_eq!(flags & (1 << 4), 1 << 4);
         assert_eq!(payload_index, index as u32);
     }
+}
+
+#[test]
+fn typed_run_paint_min_and_full_match_the_shared_v2_decoder_golden() {
+    let commands = typed_run_paint_golden_commands();
+    let packed = pack_display_commands(&commands);
+    assert_eq!(packed.metadata.command_count, 3);
+    assert_eq!(packed.metadata.command_counts.get("paintText"), Some(&2));
+    assert_eq!(packed.metadata.command_counts.get("paintRuby"), Some(&1));
+    assert_eq!(packed.metadata.record_stats.geometry_records, 3);
+    assert_eq!(packed.metadata.record_stats.paint_records, 3);
+    assert_eq!(packed.metadata.record_stats.payload_records, 3);
+    assert_eq!(packed.metadata.record_stats.primary_string_records, 3);
+    assert_eq!(packed.metadata.record_stats.secondary_string_records, 1);
+    assert_eq!(packed_record_opcode(&packed.bytes, 0), 9);
+    assert_eq!(packed_record_opcode(&packed.bytes, 1), 9);
+    assert_eq!(packed_record_opcode(&packed.bytes, 2), 10);
+    assert_eq!(packed_record_flags(&packed.bytes, 0), 31);
+    assert_eq!(packed_record_flags(&packed.bytes, 1), 27);
+    assert_eq!(packed_record_flags(&packed.bytes, 2), 27);
+    let actual = json!({
+        "metadata": packed.metadata,
+        "bytes": packed.bytes,
+        "expectedCommands": display_command_values(&commands),
+    });
+    if std::env::var_os("RITO_PRINT_TYPED_RUN_PAINT_GOLDEN").is_some() {
+        println!(
+            "RITO_TYPED_RUN_PAINT_GOLDEN_BEGIN\n{}\nRITO_TYPED_RUN_PAINT_GOLDEN_END",
+            serde_json::to_string_pretty(&actual).expect("serialize golden")
+        );
+        return;
+    }
+    let expected: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/typed-run-paint-v2.json"))
+            .expect("shared typed run paint golden is valid JSON");
+
+    assert_eq!(actual, expected);
+}
+
+fn typed_run_paint_golden_commands() -> Vec<DisplayCommand> {
+    vec![
+        DisplayCommand::paint_text(super::DisplayTextCommandInput {
+            text: json!("Typed paint"),
+            rect: json!({ "x": 1.25, "y": 2.5, "width": 120.75, "height": 24.125 }),
+            paint: RunPaint::from_test_wire_value(json!({
+                "color": "color(display-p3 1 0.2 0.1)",
+                "font": {
+                    "family": "Rito Serif",
+                    "sizePx": 14.123456,
+                    "style": "italic",
+                    "weight": 650,
+                },
+                "wordSpacingPx": 1.25,
+                "letterSpacingPx": -0.5,
+                "backgroundColor": "#112233",
+                "backgroundRadius": 3.5,
+                "textShadow": [
+                    { "offsetX": 1.23456, "offsetY": 2, "blur": 3, "color": "#445566" },
+                    { "offsetX": -1, "offsetY": 0.5, "blur": 0, "color": "#556677" },
+                ],
+                "decoration": {
+                    "kind": "underline",
+                    "y": 14.125,
+                    "thickness": 1,
+                    "color": "#778899",
+                },
+                "padding": { "top": 1, "right": 2, "bottom": 3, "left": 4 },
+                "border": {
+                    "top": { "widthPx": 1, "paint": { "color": "#111111", "style": "solid" } },
+                    "bottom": { "widthPx": 2, "paint": { "color": "#222222", "style": "dotted" } },
+                    "start": { "widthPx": 3, "paint": { "color": "#333333", "style": "dashed" } },
+                    "end": { "widthPx": 4, "paint": { "color": "#444444", "style": "solid" } },
+                },
+            })),
+            line_height_px: Some(json!(20)),
+            href: Some("#typed".to_owned()),
+            source_text: Some(json!("Typed paint source")),
+            source_text_offset: Some(3),
+        }),
+        DisplayCommand::paint_text(super::DisplayTextCommandInput {
+            text: json!("Minimal paint"),
+            rect: json!({ "x": -3.5, "y": 40.25, "width": 80.5, "height": 16.75 }),
+            paint: RunPaint::default(),
+            line_height_px: None,
+            href: None,
+            source_text: None,
+            source_text_offset: None,
+        }),
+        DisplayCommand::paint_ruby(super::DisplayTextCommandInput {
+            text: json!("ruby"),
+            rect: json!({ "x": 1, "y": -6, "width": 30, "height": 8 }),
+            paint: RunPaint::default().for_ruby(8.0),
+            line_height_px: None,
+            href: None,
+            source_text: None,
+            source_text_offset: None,
+        }),
+    ]
+}
+
+fn packed_record_opcode(bytes: &[u8], index: usize) -> u16 {
+    let offset = 16 + index * super::PACKED_DISPLAY_COMMAND_RECORD_BYTES;
+    u16::from_le_bytes([bytes[offset], bytes[offset + 1]])
+}
+
+fn packed_record_flags(bytes: &[u8], index: usize) -> u16 {
+    let offset = 16 + index * super::PACKED_DISPLAY_COMMAND_RECORD_BYTES + 2;
+    u16::from_le_bytes([bytes[offset], bytes[offset + 1]])
 }

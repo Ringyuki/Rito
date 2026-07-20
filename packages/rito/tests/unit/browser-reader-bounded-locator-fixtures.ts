@@ -60,6 +60,7 @@ export function boundedOwner(
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
+      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(),
       cancel: vi.fn(),
       dispose: vi.fn(() => Promise.resolve()),
@@ -123,7 +124,7 @@ export function locatorSnapshot(
         spreadIndexes: [spreadIndex],
       },
       frames: [frameBuffer(revisionId, spreadIndex)],
-      spreads: [{ spreadIndex, resources: [] }],
+      spreads: [{ spreadIndex, resources: [], missingResources: [] }],
     },
   };
 }
@@ -148,7 +149,12 @@ export function mockLocatorAggregates(worker: BrowserReaderWorkerClient): {
   const footnotes = vi.fn<BrowserReaderWorkerClient['getFootnotesAtRevision']>((revision) =>
     Promise.resolve({
       revision,
-      value: { revisionId: revision.revisionId, entries: {} },
+      value: {
+        revisionId: revision.revisionId,
+        complete: true,
+        pendingKeys: [],
+        entries: {},
+      },
     }),
   );
   Object.assign(worker, {
@@ -206,7 +212,7 @@ export function spreadSnapshot(
         spreadIndexes: [spreadIndex],
       },
       frames: [frameBuffer(revisionId, spreadIndex)],
-      spreads: [{ spreadIndex, resources: [] }],
+      spreads: [{ spreadIndex, resources: [], missingResources: [] }],
     },
   };
 }

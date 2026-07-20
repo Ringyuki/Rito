@@ -5,8 +5,10 @@ use crate::{
     style::FontFallbackPolicy,
 };
 
-use super::{layout_inputs, text_measurement_font_assembly_for_layout};
-use crate::epub::{LoadedEpubDocument, PreparedLoadedDocument, ShapeablePublicationFontFace};
+use super::{layout_inputs, text_measurement_font_assembly_for_layout, StyleResolutionMode};
+use crate::epub::{
+    EpubResult, LoadedEpubDocument, PreparedLoadedDocument, ShapeablePublicationFontFace,
+};
 
 pub(crate) struct PreparedRuntimeLayoutOptions<'a> {
     pub(crate) chapter_start: usize,
@@ -27,7 +29,7 @@ pub(crate) fn build_prepared_loaded_document_runtime_layout<'a>(
     prepared: &PreparedLoadedDocument,
     layout_config: &LayoutConfig,
     options: PreparedRuntimeLayoutOptions<'a>,
-) -> BuiltPreparedRuntimeLayout {
+) -> EpubResult<BuiltPreparedRuntimeLayout> {
     let PreparedRuntimeLayoutOptions {
         chapter_start,
         chapter_count,
@@ -48,21 +50,23 @@ pub(crate) fn build_prepared_loaded_document_runtime_layout<'a>(
     let end = chapter_start
         .saturating_add(chapter_count)
         .min(prepared.chapters.len());
+    let inputs = layout_inputs(
+        &prepared.stylesheet_ledger,
+        &prepared.chapters[chapter_start.min(end)..end],
+        &prepared.filtered_footnote_nodes,
+        layout_config,
+        font_fallbacks.as_ref(),
+        StyleResolutionMode::Strict,
+    )?;
     let layout = crate::layout::build_inline_segments_runtime(
-        layout_inputs(
-            &prepared.stylesheet_rules,
-            &prepared.chapters[chapter_start.min(end)..end],
-            &prepared.filtered_footnote_nodes,
-            layout_config,
-            font_fallbacks.as_ref(),
-        ),
+        inputs,
         &prepared.resources,
         layout_config,
         line_breaking,
         &assembly.fonts,
     );
-    BuiltPreparedRuntimeLayout {
+    Ok(BuiltPreparedRuntimeLayout {
         layout,
         shapeable_publication_faces: assembly.shapeable_publication_faces,
-    }
+    })
 }

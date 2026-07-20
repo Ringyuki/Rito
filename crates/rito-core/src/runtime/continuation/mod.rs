@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, num::NonZeroUsize};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    num::NonZeroUsize,
+    sync::Arc,
+};
 
 use crate::{
     interaction::FootnoteEntry,
@@ -13,8 +17,10 @@ use super::{
     RuntimeRevisionStatus, RuntimeRevisionSummary, RuntimeRevisionWorkBudget,
 };
 
+mod chapter_local;
 mod cleanup;
 mod error;
+mod font_vertical_metrics;
 mod publish;
 mod state;
 mod work;
@@ -36,16 +42,18 @@ struct BoundedRevisionPreflight {
     budget: NonZeroUsize,
     revision_id: String,
     layout_key: String,
-    footnotes: BTreeMap<String, FootnoteEntry>,
+    publication_footnotes: Option<Arc<BTreeMap<String, FootnoteEntry>>>,
+    pending_footnote_keys: BTreeSet<String>,
+    footnote_index_complete: bool,
     required_font_face_catalog: Option<Vec<RuntimeRequiredFontFace>>,
 }
 
 impl RuntimeDocument {
     /// Starts the experimental core-only bounded revision path.
     ///
-    /// The first bounded revision for a document pays for a publication-wide,
-    /// single-pass XHTML footnote scan. The resulting target/definition index
-    /// is cached without materializing lazy chapter or binary-resource state.
+    /// Foreground admission indexes only each chapter as it is started. The
+    /// publication-wide cross-chapter index is a separate cooperative stream;
+    /// Reader-v1 completes that stream before publishing a background layout.
     pub fn create_bounded_revision(
         &mut self,
         request: RuntimeBoundedRevisionRequest,
@@ -72,14 +80,21 @@ impl RuntimeDocument {
             budget,
             revision_id,
             layout_key,
-            footnotes,
+            publication_footnotes,
+            pending_footnote_keys,
+            footnote_index_complete,
             required_font_face_catalog,
         } = preflight;
+        let mut interactions = initial_revision_interactions(BTreeMap::new());
+        interactions.publication_footnotes = publication_footnotes;
+        interactions.pending_footnote_keys =
+            crate::interaction::FootnoteTargetSet::new(pending_footnote_keys);
+        interactions.footnote_index_complete = footnote_index_complete;
         let revision = RuntimeRevision::warming(
             layout,
             layout_config.clone(),
             required_font_face_catalog,
-            initial_revision_interactions(footnotes),
+            interactions,
         );
         self.insert_new_revision(revision_id.clone(), revision);
         let continuation = RuntimeContinuationRecord::new(
@@ -101,21 +116,18 @@ impl RuntimeDocument {
         let revision_id = self.create_revision_id();
         let layout_key =
             layout_key(layout_config, &self.pinned_font_policy).map_err(engine_error)?;
-        self.publication_footnote_index().map_err(engine_error)?;
         self.ensure_layout_font_resources(layout_config)
             .map_err(engine_error)?;
         let required_font_face_catalog = self.required_font_face_catalog_for_layout(layout_config);
-        let footnotes = self
-            .publication_footnotes
-            .get()
-            .expect("publication footnote index was initialized")
-            .footnotes
-            .clone();
+        let (publication_footnotes, pending_footnote_keys, footnote_index_complete) =
+            self.publication_footnote_snapshot();
         Ok(BoundedRevisionPreflight {
             budget,
             revision_id,
             layout_key,
-            footnotes,
+            publication_footnotes,
+            pending_footnote_keys,
+            footnote_index_complete,
             required_font_face_catalog,
         })
     }
@@ -275,5 +287,13 @@ impl RuntimeDocument {
             .get(cursor)
             .and_then(|continuation| continuation.current.as_ref())
             .map(|chapter| chapter.unpublished_pages.len())
+    }
+
+    #[cfg(test)]
+    pub(super) fn continuation_open_page_block_count(&self, cursor: &str) -> Option<usize> {
+        self.continuations
+            .get(cursor)
+            .and_then(|continuation| continuation.current.as_ref())
+            .map(|chapter| chapter.session.open_page_block_count())
     }
 }

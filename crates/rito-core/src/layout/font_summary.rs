@@ -1,10 +1,9 @@
 use std::collections::BTreeSet;
 
-use serde_json::Value;
-
 use super::{
     content::{RuntimeBlock, RuntimeChild},
     line::{LineBox, LineRun, TextRunBox},
+    paint::RunPaint,
     FontVerticalMetricDemand, LayoutRuntimePage,
 };
 
@@ -75,18 +74,11 @@ fn collect_line_font_vertical_metric_demands(
 }
 
 fn font_vertical_metric_demand(run: &TextRunBox) -> Option<FontVerticalMetricDemand> {
-    let font = run
-        .paint
-        .as_object()
-        .and_then(|paint| paint.get("font"))
-        .and_then(Value::as_object);
+    let font = &run.paint.measure().font;
     FontVerticalMetricDemand::normalized(
-        font.and_then(|font| font.get("family"))
-            .and_then(Value::as_str),
-        font.and_then(|font| font.get("style"))
-            .and_then(Value::as_str),
-        font.and_then(|font| font.get("weight"))
-            .and_then(Value::as_f64),
+        Some(&font.family),
+        Some(font.style.as_str()),
+        Some(font.weight),
         run.font_size,
     )
 }
@@ -111,16 +103,10 @@ fn collect_line_font_families(line: &LineBox, families: &mut BTreeSet<String>) {
     }
 }
 
-fn collect_paint_font_family(paint: &Value, families: &mut BTreeSet<String>) {
-    if let Some(family) = paint
-        .as_object()
-        .and_then(|paint| paint.get("font"))
-        .and_then(Value::as_object)
-        .and_then(|font| font.get("family"))
-        .and_then(Value::as_str)
-        .filter(|family| !family.is_empty())
-    {
-        families.insert(family.to_owned());
+fn collect_paint_font_family(paint: &RunPaint, families: &mut BTreeSet<String>) {
+    let family = &paint.measure().font.family;
+    if !family.is_empty() {
+        families.insert(family.clone());
     }
 }
 
@@ -133,6 +119,7 @@ mod tests {
         content::{RuntimeBlock, RuntimeChild},
         line::{LineBox, LineRun, RubyRunBox, TextRunBox},
         page::RuntimePage,
+        paint::RunPaint,
         FontVerticalMetricSample, TextRunInteractionGeometry,
     };
 
@@ -170,7 +157,9 @@ mod tests {
                             y: 0.0,
                             width: 20.0,
                             height: 10.0,
-                            paint: json!({ "font": { "family": "Ruby" } }),
+                            paint: RunPaint::from_test_wire_value(
+                                json!({ "font": { "family": "Ruby" } }),
+                            ),
                         }),
                     ],
                 })],
@@ -273,14 +262,14 @@ mod tests {
     fn metric_demand_run(family: &str, style: &str, weight: f64, size: f64) -> TextRunBox {
         let mut run = text_run(family);
         run.font_size = size;
-        run.paint = json!({
+        run.paint = RunPaint::from_test_wire_value(json!({
             "font": {
                 "family": family,
                 "style": style,
                 "weight": weight,
                 "sizePx": size,
             }
-        });
+        }));
         run
     }
 
@@ -294,14 +283,14 @@ mod tests {
             height: 12.0,
             font_size: 12.0,
             interaction_geometry: None,
-            paint: json!({
+            paint: RunPaint::from_test_wire_value(json!({
                 "font": {
                     "family": family,
                     "style": "normal",
                     "weight": 400,
                     "sizePx": 12,
                 }
-            }),
+            })),
             line_height_px: None,
             href: None,
             source_path: None,

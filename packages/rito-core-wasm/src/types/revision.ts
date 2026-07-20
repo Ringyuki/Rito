@@ -1,6 +1,14 @@
-import type { RitoCoreWasmLayoutConfig, RitoCoreWasmLineBreaking } from './common';
-import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './interaction';
-import type { RitoCoreWasmSourceLocator } from './interaction';
+import type {
+  RitoCoreWasmFontVerticalMetricSample,
+  RitoCoreWasmLayoutConfig,
+  RitoCoreWasmLineBreaking,
+} from './common';
+import type {
+  RitoCoreWasmChapterTextIndices,
+  RitoCoreWasmFootnotes,
+  RitoCoreWasmSourceLocator,
+  RitoCoreWasmSourceLocatorResolution,
+} from './interaction';
 import type { RitoCoreWasmTocEntry } from './publication';
 import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resource';
 
@@ -59,6 +67,24 @@ export interface RitoCoreWasmContinueRevisionRequest extends RitoCoreWasmRevisio
   readonly budget: RitoCoreWasmRevisionWorkBudget;
 }
 
+/** Exact-version vertical font-box calibration without repaginating horizontal geometry. */
+export interface RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest extends RitoCoreWasmRevisionHandle {
+  readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
+  readonly fontVerticalMetrics: readonly RitoCoreWasmFontVerticalMetricSample[];
+}
+
+export interface RitoCoreWasmRevisionFontVerticalMetricCalibration {
+  readonly revision: RitoCoreWasmRevisionSummary;
+  readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
+  readonly calibratedPublishedRunCount: number;
+  readonly calibratedUnpublishedRunCount: number;
+}
+
+export interface RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease extends RitoCoreWasmRevisionFontVerticalMetricCalibration {
+  readonly releasedRevision: RitoCoreWasmRevisionHandle;
+  readonly releasedTransferCount: number;
+}
+
 export type RitoCoreWasmCancelRevisionRequest = RitoCoreWasmRevisionHandle;
 
 export interface RitoCoreWasmRevisionPageRange {
@@ -71,11 +97,51 @@ export interface RitoCoreWasmRevisionAdvance {
   readonly previousKnownExtent: RitoCoreWasmRevisionExtent;
   readonly newlyKnownPages: RitoCoreWasmRevisionPageRange;
   /**
-   * Top-level source nodes accepted in this quantum. Line-only paragraph
-   * continuation can report zero while still making deterministic progress.
+   * Top-level source nodes accepted in this advance. Batched worker responses
+   * sum the committed quanta. Line-only paragraph continuation can report zero
+   * while still making deterministic progress.
    */
   readonly processedTopLevelNodes: number;
   readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
+}
+
+/** One or more continuation commits with predecessor transfers released in the same dispatch. */
+export interface RitoCoreWasmRevisionAdvanceWithTransferRelease {
+  readonly advance: RitoCoreWasmRevisionAdvance;
+  readonly releasedRevision: RitoCoreWasmRevisionHandle;
+  readonly releasedTransferCount: number;
+  /** Native quanta committed by this dispatch; absent responses are one quantum. */
+  readonly advancedQuanta?: number | undefined;
+}
+
+export interface RitoCoreWasmContinueRevisionTowardSourceLocatorRequest extends RitoCoreWasmContinueRevisionRequest {
+  readonly locator: RitoCoreWasmSourceLocator;
+}
+
+export type RitoCoreWasmSourceLocatorAdvanceOutcome =
+  | {
+      readonly kind: 'resolved';
+      readonly resolution: RitoCoreWasmSourceLocatorResolution;
+    }
+  | {
+      /** An invariant failure after the next revision was already committed. */
+      readonly kind: 'failed';
+      readonly code:
+        | 'bad-request'
+        | 'engine-error'
+        | 'internal-error'
+        | 'unknown-revision'
+        | 'stale-revision-version';
+      readonly message: string;
+      readonly revision?: RitoCoreWasmRevisionSummary | undefined;
+    };
+
+export interface RitoCoreWasmRevisionAdvanceTowardSourceLocator extends RitoCoreWasmRevisionAdvanceWithTransferRelease {
+  /** Original validated locator supplied by the caller. */
+  readonly request: RitoCoreWasmSourceLocator;
+  /** Canonical target used for the exact post-advance projection. */
+  readonly canonicalRequest: RitoCoreWasmSourceLocator;
+  readonly locatorOutcome: RitoCoreWasmSourceLocatorAdvanceOutcome;
 }
 
 export interface RitoCoreWasmRevisionReleaseResult {

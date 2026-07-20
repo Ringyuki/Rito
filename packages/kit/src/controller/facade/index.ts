@@ -42,7 +42,7 @@ export function buildController(
     buildSearchActions(internals, emitter, nav, runtime),
     buildSelectionAccessors(internals, canvas, nav),
     buildAnnotationActions(internals, emitter),
-    buildPositionActions(internals, nav),
+    buildPositionActions(internals, nav, runtime.frameDriver),
     buildMisc(emitter, modeManager, keyboard, (update) => {
       runtime.td.configure(update);
     }),

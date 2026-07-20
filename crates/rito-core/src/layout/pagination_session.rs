@@ -2,6 +2,7 @@ use std::{collections::VecDeque, sync::Arc};
 
 #[allow(dead_code)] // Chapter-session retirement consumes this next.
 mod cleanup;
+mod image_frontier;
 mod work_meter;
 
 #[allow(unused_imports)] // Chapter-session retirement consumes this next.
@@ -96,6 +97,10 @@ pub(crate) struct ContinuousLayoutSession {
     image_sizes: Arc<ImageSizeIndex>,
     line_breaking: LineBreaking,
     total_top_level_nodes: usize,
+    /// `None` keeps eager callers unchanged. Runtime continuation uses
+    /// `Some(0)` as an admission gate: a root node cannot leave `pending_nodes`
+    /// until its complete subtree's image dimensions have been supplied.
+    prepared_root_image_frontier: Option<usize>,
 }
 
 impl ContinuousLayoutSession {
@@ -113,6 +118,7 @@ impl ContinuousLayoutSession {
             Arc::new(image_sizes),
             line_breaking,
             ContinuousLayoutCursor::default(),
+            None,
         )
     }
 
@@ -132,6 +138,7 @@ impl ContinuousLayoutSession {
             image_sizes,
             line_breaking,
             ContinuousLayoutCursor::at(start_y, list_ctx),
+            None,
         )
     }
 
@@ -142,6 +149,7 @@ impl ContinuousLayoutSession {
         image_sizes: Arc<ImageSizeIndex>,
         line_breaking: LineBreaking,
         cursor: ContinuousLayoutCursor,
+        prepared_root_image_frontier: Option<usize>,
     ) -> Self {
         let pending_nodes = VecDeque::from(nodes);
         Self {
@@ -154,6 +162,7 @@ impl ContinuousLayoutSession {
             content_height,
             image_sizes,
             line_breaking,
+            prepared_root_image_frontier,
         }
     }
 
@@ -245,6 +254,12 @@ impl ContinuousLayoutSession {
     }
 
     fn take_ready_nodes(&mut self, max_top_level_nodes: usize) -> Vec<StyledNode> {
+        let max_top_level_nodes = self
+            .prepared_root_image_frontier
+            .map_or(max_top_level_nodes, |prepared| {
+                max_top_level_nodes.min(prepared)
+            });
+        let before = self.pending_nodes.len();
         let mut ready_nodes = Vec::new();
         for _ in 0..max_top_level_nodes {
             let Some(node) = self.pending_nodes.pop_front() else {
@@ -264,6 +279,9 @@ impl ContinuousLayoutSession {
                 .is_some_and(|node| node.node_type == StyledNodeKind::Block)
         {
             flush_anonymous_inline_run(&mut ready_nodes, &mut self.anonymous_inline_run);
+        }
+        if let Some(prepared) = self.prepared_root_image_frontier.as_mut() {
+            *prepared = prepared.saturating_sub(before - self.pending_nodes.len());
         }
         ready_nodes
     }

@@ -1,7 +1,5 @@
 use std::num::NonZeroUsize;
 
-use serde_json::json;
-
 use super::{JustifyMode, PendingJustifyAnalysis};
 use crate::layout::{
     line::{AtomRunBox, LineRun, RubyRunBox, TextRunBox},
@@ -9,6 +7,7 @@ use crate::layout::{
     text_mapping::RunTextMapping,
     text_shape::fixture_run_shape,
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
+    RunPaint,
 };
 
 #[test]
@@ -121,7 +120,7 @@ fn text_run(text: &str) -> LineRun {
         height: 10.0,
         font_size: 10.0,
         interaction_geometry: None,
-        paint: json!({}),
+        paint: RunPaint::default(),
         line_height_px: None,
         href: None,
         source_path: None,
@@ -152,7 +151,7 @@ fn ruby_run() -> LineRun {
         y: 0.0,
         width: 1.0,
         height: 1.0,
-        paint: json!({}),
+        paint: RunPaint::default(),
     })
 }
 

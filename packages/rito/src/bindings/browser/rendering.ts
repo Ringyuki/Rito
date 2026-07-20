@@ -1,5 +1,6 @@
 import { renderFrameCommandsToCanvas, type CanvasRenderingTarget } from './frame-command-renderer';
 import { createCanvasImageResolver } from './image-href-resolver';
+import { throwIfBrowserReaderImageResourceFailed } from './resources';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader-layout';
@@ -13,12 +14,19 @@ export function renderSpreadToBoundCanvas(
   index: number,
   scale: number,
 ): boolean {
+  const prepared = prepareSpreadRender(state, index);
+  if (!prepared) return false;
   const effectiveRatio = scale * state.dpr;
   const config = state.config;
   state.canvas.width = Math.round(config.viewportWidth * effectiveRatio);
   state.canvas.height = Math.round(config.viewportHeight * effectiveRatio);
-  const painted = renderSpreadToContext(state, index, state.ctx);
-  notifySpreadRendered(state, index);
+  const painted = renderBrowserReaderPreparedFrameToContext(
+    state,
+    prepared.frame,
+    state.ctx,
+    prepared.resolveImage,
+  );
+  if (painted) notifySpreadRendered(state, index);
   return painted;
 }
 
@@ -27,16 +35,54 @@ export function renderSpreadToContext(
   index: number,
   ctx: CanvasRenderingTarget,
 ): boolean {
+  const prepared = prepareSpreadRender(state, index);
+  if (!prepared) return false;
+  return renderBrowserReaderPreparedFrameToContext(
+    state,
+    prepared.frame,
+    ctx,
+    prepared.resolveImage,
+  );
+}
+
+function prepareSpreadRender(
+  state: BrowserReaderState,
+  index: number,
+): { readonly frame: BrowserReaderFrame; readonly resolveImage: CanvasImageResolver } | undefined {
   const frame = loadFrame(state, index);
   if (!frame) {
     void ensureFrameLoaded(state, index);
-    return false;
+    return undefined;
   }
   const resolveImage = createCanvasImageResolver(state.images);
-  preloadMissingFrameImages(state, index, frame, resolveImage);
+  if (!requiredFrameImagesAreReady(state, index, frame, resolveImage)) return undefined;
+  return { frame, resolveImage };
+}
+
+/** Paint a lease-owned frame without routing it through publication spread lookup. */
+export function renderBrowserReaderChapterLocalFrameToContext(
+  state: BrowserReaderState,
+  frame: BrowserReaderFrame,
+  images: ReadonlyMap<string, ImageBitmap>,
+  ctx: CanvasRenderingTarget,
+): boolean {
+  const localImage = createCanvasImageResolver(images);
+  const globalImage = createCanvasImageResolver(state.images);
+  const resolveImage: CanvasImageResolver = (href) => localImage(href) ?? globalImage(href);
+  return renderBrowserReaderPreparedFrameToContext(state, frame, ctx, resolveImage);
+}
+
+function renderBrowserReaderPreparedFrameToContext(
+  state: BrowserReaderState,
+  frame: BrowserReaderFrame,
+  ctx: CanvasRenderingTarget,
+  resolveImage: CanvasImageResolver,
+): boolean {
+  const pixelRatio = framePixelRatio(ctx, frame.width, frame.height);
+  if (pixelRatio === undefined) return false;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   paintBackground(ctx, state.bgColor);
-  renderFrameToCanvas(ctx, frame, state, resolveImage);
+  renderFrameToCanvas(ctx, frame, state, resolveImage, pixelRatio);
   return true;
 }
 
@@ -56,19 +102,21 @@ function paintBackground(ctx: CanvasRenderingTarget, color: string): void {
   canvasCtx.restore();
 }
 
-function preloadMissingFrameImages(
+function requiredFrameImagesAreReady(
   state: BrowserReaderState,
   index: number,
   frame: BrowserReaderFrame,
   resolveImage: CanvasImageResolver,
-): void {
-  if (typeof createImageBitmap === 'undefined') return;
+): boolean {
+  let ready = true;
   for (const href of frame.resourceRefs.images) {
     if (resolveImage(href) === undefined) {
+      throwIfBrowserReaderImageResourceFailed(state, href);
+      ready = false;
       void warmBrowserReaderFrameWindow(state, index);
-      return;
     }
   }
+  return ready;
 }
 
 function renderFrameToCanvas(
@@ -76,9 +124,8 @@ function renderFrameToCanvas(
   frame: BrowserReaderFrame,
   state: BrowserReaderState,
   resolveImage: CanvasImageResolver,
+  pixelRatio: number,
 ): void {
-  const pixelRatio = framePixelRatio(ctx, frame.width, frame.height);
-  if (pixelRatio === undefined) return;
   renderFrameCommandsToCanvas(frame.commands, ctx, {
     pixelRatio,
     resolveImage,

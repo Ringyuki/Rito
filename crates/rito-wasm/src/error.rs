@@ -3,6 +3,7 @@ use std::{error::Error, fmt};
 use rito_core::{
     epub::EpubError,
     runtime::{
+        RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionSummary,
         RuntimeContinuationError, RuntimeContinuationErrorKind, RuntimeRevisionAccessError,
         RuntimeRevisionAccessErrorKind, RuntimeRevisionSummary,
     },
@@ -14,6 +15,8 @@ pub struct WasmRuntimeError {
     code: WasmRuntimeErrorCode,
     message: String,
     revision: Option<Box<RuntimeRevisionSummary>>,
+    chapter_local_revision: Option<Box<RuntimeChapterLocalRevisionSummary>>,
+    released_chapter_local_revision: Option<Box<RuntimeChapterLocalRevisionSummary>>,
 }
 
 impl WasmRuntimeError {
@@ -22,6 +25,8 @@ impl WasmRuntimeError {
             code: WasmRuntimeErrorCode::BadRequest,
             message: message.into(),
             revision: None,
+            chapter_local_revision: None,
+            released_chapter_local_revision: None,
         }
     }
 
@@ -30,6 +35,8 @@ impl WasmRuntimeError {
             code: WasmRuntimeErrorCode::InternalError,
             message: message.into(),
             revision: None,
+            chapter_local_revision: None,
+            released_chapter_local_revision: None,
         }
     }
 
@@ -38,6 +45,8 @@ impl WasmRuntimeError {
             code: WasmRuntimeErrorCode::EngineError,
             message: error.message().to_owned(),
             revision: None,
+            chapter_local_revision: None,
+            released_chapter_local_revision: None,
         }
     }
 
@@ -54,7 +63,42 @@ impl WasmRuntimeError {
             code,
             message: error.message,
             revision: error.revision,
+            chapter_local_revision: None,
+            released_chapter_local_revision: None,
         }
+    }
+
+    pub(crate) fn from_chapter_local(error: RuntimeChapterLocalRevisionError) -> Self {
+        let code = match error.kind {
+            RuntimeContinuationErrorKind::InvalidBudget
+            | RuntimeContinuationErrorKind::InvalidChapterLocalTarget
+            | RuntimeContinuationErrorKind::InvalidPageCap
+            | RuntimeContinuationErrorKind::UnknownCursor
+            | RuntimeContinuationErrorKind::CursorOwnerMismatch
+            | RuntimeContinuationErrorKind::ChapterLocalOwnerMismatch
+            | RuntimeContinuationErrorKind::ChapterLocalTargetMismatch => {
+                WasmRuntimeErrorCode::BadRequest
+            }
+            RuntimeContinuationErrorKind::UnknownRevision => WasmRuntimeErrorCode::UnknownRevision,
+            RuntimeContinuationErrorKind::StaleRevisionVersion => {
+                WasmRuntimeErrorCode::StaleRevisionVersion
+            }
+            RuntimeContinuationErrorKind::RevisionNotContinuable
+            | RuntimeContinuationErrorKind::EngineFailure => WasmRuntimeErrorCode::EngineError,
+        };
+        Self {
+            code,
+            message: error.message,
+            revision: None,
+            chapter_local_revision: error.revision,
+            released_chapter_local_revision: None,
+        }
+    }
+
+    pub(crate) fn from_released_chapter_local(error: RuntimeChapterLocalRevisionError) -> Self {
+        let mut mapped = Self::from_chapter_local(error);
+        mapped.released_chapter_local_revision = mapped.chapter_local_revision.take();
+        mapped
     }
 
     pub(crate) fn from_revision_access(error: RuntimeRevisionAccessError) -> Self {
@@ -71,6 +115,8 @@ impl WasmRuntimeError {
             code,
             message: error.message,
             revision: None,
+            chapter_local_revision: None,
+            released_chapter_local_revision: None,
         }
     }
 
@@ -84,6 +130,14 @@ impl WasmRuntimeError {
 
     pub fn revision(&self) -> Option<&RuntimeRevisionSummary> {
         self.revision.as_deref()
+    }
+
+    pub fn chapter_local_revision(&self) -> Option<&RuntimeChapterLocalRevisionSummary> {
+        self.chapter_local_revision.as_deref()
+    }
+
+    pub fn released_chapter_local_revision(&self) -> Option<&RuntimeChapterLocalRevisionSummary> {
+        self.released_chapter_local_revision.as_deref()
     }
 }
 

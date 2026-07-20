@@ -1,19 +1,18 @@
 use crate::{
     epub::{EpubError, EpubResult},
-    interaction::{
-        LayoutTextPageRange, LayoutTextPageTarget, LayoutTextSelectionMovementTarget,
-        TextSelectionBoundary, TextSelectionMovement,
-    },
-    layout::build_spread_slots,
+    interaction::{TextSelectionBoundary, TextSelectionMovement},
 };
 
+use super::super::super::page_artifact::{
+    PageArtifactTextPageRange, PageArtifactTextPageTarget, PageArtifactTextSelectionMovementTarget,
+};
 use super::super::super::RuntimeRevisionStatus;
 use super::super::{RuntimeDocument, RuntimeRevision, RuntimeTextSelectionMovementRequest};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct MovementScope {
-    pub(super) retained_range: LayoutTextPageRange,
-    pub(super) target: LayoutTextSelectionMovementTarget,
+    pub(super) retained_range: PageArtifactTextPageRange,
+    pub(super) target: PageArtifactTextSelectionMovementTarget,
     pub(super) end_complete: bool,
 }
 
@@ -22,8 +21,12 @@ pub(super) fn movement_scope(
     revision: &RuntimeRevision,
     request: RuntimeTextSelectionMovementRequest,
 ) -> EpubResult<MovementScope> {
-    let last_page = revision.known_extent.page_count.saturating_sub(1);
-    let retained = LayoutTextPageRange {
+    let last_page = revision
+        .chapter_engine_session()
+        .metadata()
+        .page_count
+        .saturating_sub(1);
+    let retained = PageArtifactTextPageRange {
         first_page: 0,
         last_page,
     };
@@ -41,7 +44,7 @@ pub(super) fn movement_scope(
             publication_complete(revision),
         ),
         _ => (
-            LayoutTextSelectionMovementTarget::Scope(retained),
+            PageArtifactTextSelectionMovementTarget::Scope(retained),
             publication_complete(revision),
         ),
     };
@@ -57,17 +60,14 @@ fn chapter_target(
     revision: &RuntimeRevision,
     focus_page_index: usize,
     last_page: usize,
-) -> EpubResult<(LayoutTextSelectionMovementTarget, bool)> {
+) -> EpubResult<(PageArtifactTextSelectionMovementTarget, bool)> {
     let chapter = super::super::chapter_for_page(&document.document, revision, focus_page_index)
         .ok_or_else(|| EpubError::new("text selection focus chapter is unavailable"))?;
     let range = revision
-        .layout
-        .summary
-        .pagination_flow
-        .chapter_map
-        .get(&chapter.idref)
+        .chapter_engine_session()
+        .known_chapter(&chapter.idref)
         .ok_or_else(|| EpubError::new("text selection chapter page range is unavailable"))?;
-    let target = LayoutTextSelectionMovementTarget::Scope(LayoutTextPageRange {
+    let target = PageArtifactTextSelectionMovementTarget::Scope(PageArtifactTextPageRange {
         first_page: range.start_page,
         last_page: range.end_page.min(last_page),
     });
@@ -82,21 +82,16 @@ fn page_target(
     revision: &RuntimeRevision,
     focus_page_index: usize,
     movement: TextSelectionMovement,
-    retained: LayoutTextPageRange,
-) -> EpubResult<LayoutTextSelectionMovementTarget> {
-    let slots = build_spread_slots(
-        revision.known_extent.page_count,
-        &revision.layout.chapter_start_pages,
-        &revision.layout_config,
-    );
-    let slots = &slots[..slots.len().min(revision.known_extent.spread_count)];
+    retained: PageArtifactTextPageRange,
+) -> EpubResult<PageArtifactTextSelectionMovementTarget> {
+    let slots = revision.chapter_engine_session().spreads();
     let current = current_slot(slots.len(), |index| {
         slots[index].left_page_index == focus_page_index
             || slots[index].right_page_index == Some(focus_page_index)
     })?;
     let forward = movement == TextSelectionMovement::PageDown;
     let Some(adjacent) = adjacent_index(current, slots.len(), forward) else {
-        return Ok(LayoutTextSelectionMovementTarget::Boundary {
+        return Ok(PageArtifactTextSelectionMovementTarget::Boundary {
             boundary: boundary(forward),
             scope: retained,
         });
@@ -109,8 +104,8 @@ fn page_target(
     } else {
         slots[adjacent].left_page_index
     };
-    Ok(LayoutTextSelectionMovementTarget::Page(
-        LayoutTextPageTarget { page_index },
+    Ok(PageArtifactTextSelectionMovementTarget::Page(
+        PageArtifactTextPageTarget { page_index },
     ))
 }
 

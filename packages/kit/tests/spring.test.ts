@@ -56,4 +56,19 @@ describe('stepSpring', () => {
     const settled = stepSpring(state, 0, DEFAULT_SPRING, 16);
     expect(settled).toBe(true);
   });
+
+  it.each([300, 800, 1120, 1600])(
+    'settles a %ipx programmatic turn within a perceptible duration',
+    (viewportWidth) => {
+      const state: SpringState = { x: 0, vx: 0 };
+      let elapsedMs = 0;
+      while (!stepSpring(state, -viewportWidth, DEFAULT_SPRING, 16) && elapsedMs < 1_000) {
+        elapsedMs += 16;
+      }
+
+      expect(elapsedMs).toBeGreaterThanOrEqual(300);
+      expect(elapsedMs).toBeLessThanOrEqual(400);
+      expect(state).toEqual({ x: -viewportWidth, vx: 0 });
+    },
+  );
 });

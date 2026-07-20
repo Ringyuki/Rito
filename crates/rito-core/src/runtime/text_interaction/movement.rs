@@ -1,12 +1,12 @@
 use crate::{
     epub::{EpubError, EpubResult},
-    interaction::{
-        resolve_text_selection_movement, LayoutTextSelectionMovementInput,
-        LayoutTextSelectionMovementResolution, TextInteractionUnavailableReason,
-        TextSelectionBoundary, TextSelectionMovement,
-    },
+    interaction::{TextInteractionUnavailableReason, TextSelectionBoundary, TextSelectionMovement},
 };
 
+use super::super::page_artifact::{
+    PageArtifactTextSelectionMovement, PageArtifactTextSelectionMovementQuery,
+    PageArtifactTextSelectionMovementResolution,
+};
 use super::{
     runtime_text_caret, runtime_text_range, RuntimeDocument, RuntimeRevision,
     RuntimeTextRangeResolution, RuntimeTextSelectionMovementRequest,
@@ -26,9 +26,9 @@ impl RuntimeDocument {
         let revision = self.require_text_interaction_revision(revision_id)?;
         require_valid_request(revision, request)?;
         let scope = movement_scope(self, revision, request)?;
-        let resolution = resolve_text_selection_movement(
-            &revision.layout.pages,
-            LayoutTextSelectionMovementInput {
+        let resolution = revision
+            .chapter_engine_session()
+            .resolve_text_selection_movement(PageArtifactTextSelectionMovementQuery {
                 scope: scope.retained_range,
                 anchor_address: request.anchor,
                 focus_address: request.focus,
@@ -37,15 +37,14 @@ impl RuntimeDocument {
                 preferred_inline_position: request.preferred_inline_position,
                 preferred_block_position: request.preferred_block_position,
                 target: scope.target,
-            },
-        );
+            });
         if movement_requires_final_end(request.movement) && !scope.end_complete {
             return Ok(match resolution {
-                LayoutTextSelectionMovementResolution::Unavailable(reason) => {
+                PageArtifactTextSelectionMovementResolution::Unavailable(reason) => {
                     unavailable_response(revision_id, reason)
                 }
-                LayoutTextSelectionMovementResolution::Resolved(_)
-                | LayoutTextSelectionMovementResolution::Boundary(_) => {
+                PageArtifactTextSelectionMovementResolution::Resolved(_)
+                | PageArtifactTextSelectionMovementResolution::Boundary(_) => {
                     pending_response(revision_id, TextSelectionBoundary::End)
                 }
             });
@@ -74,21 +73,21 @@ fn runtime_movement_response(
     revision: &RuntimeRevision,
     scope: MovementScope,
     movement: TextSelectionMovement,
-    resolution: LayoutTextSelectionMovementResolution,
+    resolution: PageArtifactTextSelectionMovementResolution,
 ) -> EpubResult<RuntimeTextSelectionMovementResponse> {
     let resolution = match resolution {
-        LayoutTextSelectionMovementResolution::Resolved(selection) => {
+        PageArtifactTextSelectionMovementResolution::Resolved(selection) => {
             runtime_resolved_movement(document, revision, *selection)?
         }
-        LayoutTextSelectionMovementResolution::Boundary(boundary)
+        PageArtifactTextSelectionMovementResolution::Boundary(boundary)
             if !scope.end_complete && boundary_reaches_retained_tail(movement, boundary) =>
         {
             RuntimeTextSelectionMovementResolution::Pending { boundary }
         }
-        LayoutTextSelectionMovementResolution::Boundary(boundary) => {
+        PageArtifactTextSelectionMovementResolution::Boundary(boundary) => {
             RuntimeTextSelectionMovementResolution::Boundary { boundary }
         }
-        LayoutTextSelectionMovementResolution::Unavailable(reason) => {
+        PageArtifactTextSelectionMovementResolution::Unavailable(reason) => {
             RuntimeTextSelectionMovementResolution::Unavailable { reason }
         }
     };
@@ -131,7 +130,7 @@ fn boundary_reaches_retained_tail(
 fn runtime_resolved_movement(
     document: &RuntimeDocument,
     revision: &RuntimeRevision,
-    selection: crate::interaction::LayoutTextSelectionMovement,
+    selection: PageArtifactTextSelectionMovement,
 ) -> EpubResult<RuntimeTextSelectionMovementResolution> {
     let range = match runtime_text_range(&document.document, revision, *selection.range)? {
         RuntimeTextRangeResolution::Resolved { range } => range,
@@ -173,7 +172,7 @@ fn require_valid_request(
         ));
     }
     for page_index in [request.anchor.page_index, request.focus.page_index] {
-        if page_index >= revision.known_extent.page_count {
+        if page_index >= revision.chapter_engine_session().metadata().page_count {
             return Err(EpubError::new(format!("unknown page index: {page_index}")));
         }
     }

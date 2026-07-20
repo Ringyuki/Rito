@@ -13,6 +13,8 @@ import {
 } from './reader-worker-cache-runtime.js';
 import { isRitoCoreWasmRevisionSummary, RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import { createVersionedReaderClientMethods } from './reader-worker-versioned-client-runtime.js';
+import { createChapterLocalReaderClientMethods } from './reader-worker-chapter-local-client-runtime.js';
+import { chapterLocalResponseTransfers } from './reader-worker-chapter-local-payload-runtime.js';
 import {
   decodeReaderWorkerOpenRequest,
   prepareReaderWorkerOpen,
@@ -245,7 +247,8 @@ function createRitoCoreWasmReaderClient(
     activeCache = normalizeReaderSessionCache();
     dispose();
   };
-  const versionedMethods = createVersionedReaderClientMethods(request);
+  const versionedMethods = createVersionedReaderClientMethods(request, disposeInvalid);
+  const chapterLocalMethods = createChapterLocalReaderClientMethods(request, disposeInvalid);
   return {
     sessionId,
     open,
@@ -272,6 +275,7 @@ function createRitoCoreWasmReaderClient(
       }
     },
     ...versionedMethods,
+    ...chapterLocalMethods,
     dispose: disposeClient,
     whenDisposed,
   };
@@ -491,6 +495,8 @@ function attachWorkerListeners(worker, listeners) {
 }
 
 function responseTransfer(payload) {
+  const chapterLocal = chapterLocalResponseTransfers(payload);
+  if (chapterLocal.length > 0) return chapterLocal;
   switch (payload.kind) {
     case 'createViewRevision':
       return payload.result.result.frameWindow

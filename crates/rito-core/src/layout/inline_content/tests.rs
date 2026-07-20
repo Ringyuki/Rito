@@ -224,6 +224,7 @@ fn text_node(
         style(white_space),
         SourceRef {
             node_path: vec![path],
+            source_node_id: None,
         },
     )
 }
@@ -260,7 +261,10 @@ fn image_node() -> StyledNode {
         rowspan: None,
         style: style("normal"),
         children: Vec::new(),
-        source_ref: Some(SourceRef { node_path: vec![1] }),
+        source_ref: Some(SourceRef {
+            node_path: vec![1],
+            source_node_id: None,
+        }),
     }
 }
 

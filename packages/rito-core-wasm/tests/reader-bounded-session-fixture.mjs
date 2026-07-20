@@ -10,9 +10,90 @@ export function fixtureClient(overrides) {
     }
     return response;
   };
+  const releasedHandle = (request) => ({
+    revisionId: request.revisionId,
+    revisionVersion: request.revisionVersion,
+  });
+  const atomicMethods =
+    overrides.atomic === false
+      ? {}
+      : {
+          continueRevisionAfterTransferRelease: async (request) => {
+            const releasedRevision = releasedHandle(request);
+            const continued = await track(overrides.continue, request);
+            await overrides.releaseTransfers?.(releasedRevision);
+            return {
+              revision: continued.revision,
+              value: {
+                advance: continued.value,
+                releasedRevision,
+                releasedTransferCount: 0,
+              },
+            };
+          },
+          continueRevisionTowardSourceLocator: async (request) => {
+            const releasedRevision = releasedHandle(request);
+            const continued = await track(overrides.continue, request);
+            await overrides.releaseTransfers?.(releasedRevision);
+            let locatorOutcome;
+            try {
+              const extent = extents.get(continued.revision.revisionVersion);
+              const resolution =
+                (await overrides.locator?.(continued.revision, request.locator, extent)) ??
+                sourceResolution(continued.revision, request.locator, extent);
+              locatorOutcome = { kind: 'resolved', resolution };
+            } catch (error) {
+              locatorOutcome = {
+                kind: 'failed',
+                code: error?.code ?? 'internal-error',
+                message: error instanceof Error ? error.message : String(error),
+                ...(error?.revision !== undefined ? { revision: error.revision } : {}),
+              };
+            }
+            return {
+              revision: continued.revision,
+              value: {
+                advance: continued.value,
+                releasedRevision,
+                releasedTransferCount: 0,
+                request: request.locator,
+                canonicalRequest: request.locator,
+                locatorOutcome,
+              },
+            };
+          },
+        };
+  const calibrate = async (request) => {
+    if (overrides.calibrate !== undefined) return overrides.calibrate(request);
+    const previous = revisions.get(request.revisionVersion);
+    const revision = {
+      ...previous,
+      revisionVersion: request.revisionVersion + 1,
+    };
+    return {
+      revision: handle(revision.revisionVersion),
+      value: {
+        revision,
+        ...(revision.status === 'complete'
+          ? {}
+          : {
+              continuation: {
+                ...handle(revision.revisionVersion),
+                cursor: `cursor-${String(revision.revisionVersion + 1)}`,
+              },
+            }),
+        calibratedPublishedRunCount: 1,
+        calibratedUnpublishedRunCount: 0,
+        releasedRevision: releasedHandle(request),
+        releasedTransferCount: 0,
+      },
+    };
+  };
   return {
     createBoundedRevision: (...args) => track(overrides.create, ...args),
     continueRevision: (...args) => track(overrides.continue, ...args),
+    ...atomicMethods,
+    calibrateRevisionFontVerticalMetrics: (...args) => track(calibrate, ...args),
     cancelRevision:
       overrides.cancel === undefined
         ? (value) =>

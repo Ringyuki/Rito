@@ -4,11 +4,37 @@ export function documentClassDeclarations(options = {}) {
     `${declaration} RitoCoreWasmDocument {`,
     ...revisionCreationDeclarations(),
     ...boundedRevisionDeclarations(),
+    ...chapterLocalRevisionDeclarations(),
     ...versionedRevisionDeclarations(),
     ...legacyReadDeclarations(),
     ...resourceLifecycleDeclarations(),
     '}',
   ].join('\n');
+}
+
+function chapterLocalRevisionDeclarations() {
+  return [
+    '  createBoundedChapterLocalRevision(',
+    '    request: RitoCoreWasmBoundedChapterLocalRevisionRequest,',
+    '  ): RitoCoreWasmChapterLocalRevisionAdvance;',
+    '  continueChapterLocalRevision(',
+    '    request: RitoCoreWasmContinueChapterLocalRevisionRequest,',
+    '  ): RitoCoreWasmContinuedChapterLocalRevisionAdvance;',
+    '  readChapterLocalFrame(',
+    '    owner: RitoCoreWasmChapterLocalOwner,',
+    '    localSpreadIndex: number,',
+    "  ): Omit<RitoCoreWasmReaderChapterLocalFrame, 'resources' | 'missingResources'>;",
+    '  prefetchChapterLocalFrameResources(',
+    '    owner: RitoCoreWasmChapterLocalOwner,',
+    '    localSpreadIndex: number,',
+    '  ): Pick<',
+    '    RitoCoreWasmReaderChapterLocalFrame,',
+    "    'owner' | 'localSpreadIndex' | 'resources' | 'missingResources'",
+    '  >;',
+    '  releaseChapterLocalRevision(',
+    '    owner: RitoCoreWasmChapterLocalOwner,',
+    '  ): RitoCoreWasmChapterLocalRevisionRelease;',
+  ];
 }
 
 function revisionCreationDeclarations() {
@@ -45,6 +71,12 @@ function boundedRevisionDeclarations() {
     '  continueRevision(',
     '    request: RitoCoreWasmContinueRevisionRequest,',
     '  ): RitoCoreWasmRevisionAdvance;',
+    '  continueRevisionTowardSourceLocator(',
+    '    request: RitoCoreWasmContinueRevisionTowardSourceLocatorRequest,',
+    '  ): RitoCoreWasmRevisionAdvanceTowardSourceLocator;',
+    '  calibrateRevisionFontVerticalMetrics(',
+    '    request: RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest,',
+    '  ): RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease;',
     '  cancelRevision(',
     '    request: RitoCoreWasmCancelRevisionRequest,',
     '  ): RitoCoreWasmRevisionSummary;',

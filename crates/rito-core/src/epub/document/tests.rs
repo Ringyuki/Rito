@@ -63,7 +63,7 @@ fn caches_lazy_font_resources_after_batch_load() {
 }
 
 #[test]
-fn caches_image_bytes_loaded_for_dimension_detection() {
+fn streams_image_dimensions_without_caching_the_full_resource() {
     let bytes = fixture_epub();
     let mut document = open_runtime_document_owned(bytes).expect("document opens");
 
@@ -74,7 +74,8 @@ fn caches_image_bytes_loaded_for_dimension_detection() {
 
     assert_eq!(document.images[0].width, Some(2));
     assert_eq!(document.images[0].height, Some(3));
-    assert_eq!(document.images[0].bytes, minimal_png());
+    assert!(document.images[0].bytes.is_empty());
+    assert!(document.images[0].byte_hash.is_none());
 }
 
 #[test]
@@ -112,8 +113,7 @@ fn batch_detects_cached_image_dimensions_without_reopening_archive() {
         .archive_source
         .as_mut()
         .expect("archive source exists")
-        .bytes
-        .clear();
+        .bytes = std::sync::Arc::from(Vec::<u8>::new());
 
     document
         .ensure_chapter_image_dimensions_loaded(0, 1)

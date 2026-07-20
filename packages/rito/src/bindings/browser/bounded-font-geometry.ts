@@ -5,11 +5,13 @@ import type { BrowserReaderBoundedLayoutRequest } from './bounded-session-runtim
 import type { BrowserReaderBoundedSnapshot } from './core-contracts';
 import type { BrowserReaderState } from './reader/types';
 import {
+  captureHostFontVerticalMetricSamples,
   ensureHostFontFamilyMetrics,
-  ensureHostFontVerticalMetrics,
   ensureHostGenericSerifMetrics,
   hostFontMetricSampleCount,
+  hostFontVerticalMetricSamplesForDemands,
   type HostFontVerticalMetricDemand,
+  type HostFontVerticalMetricSample,
 } from './font-metrics';
 
 export type BrowserReaderBoundedReplacementTarget = Pick<
@@ -23,27 +25,60 @@ type StartCandidate = (
   request: BrowserReaderBoundedLayoutRequest,
 ) => Promise<BrowserReaderBoundedSnapshot | undefined>;
 
+export interface BrowserReaderHostFontMetricCapture {
+  readonly horizontalMetricsChanged: boolean;
+  readonly addedVerticalMetricSamples: readonly HostFontVerticalMetricSample[];
+  readonly demandedVerticalMetricSamples: readonly HostFontVerticalMetricSample[];
+}
+
+/** Allow one fresh Worker for an unchanged metric set, never an unbounded rebuild loop. */
+export function createBrowserReaderFontGeometryRetryGuard(
+  state: BrowserReaderState,
+): () => boolean {
+  let sampleCount = hostFontMetricSampleCount(state.fontMetrics);
+  let sameMetricSetRetryUsed = false;
+  return () => {
+    const nextSampleCount = hostFontMetricSampleCount(state.fontMetrics);
+    if (nextSampleCount > sampleCount) {
+      sampleCount = nextSampleCount;
+      sameMetricSetRetryUsed = false;
+      return true;
+    }
+    if (sameMetricSetRetryUsed) return false;
+    sameMetricSetRetryUsed = true;
+    return true;
+  };
+}
+
 export function captureBrowserReaderCandidateHostFontMetrics(
   state: BrowserReaderState,
   demands: readonly HostFontVerticalMetricDemand[],
   pinned: boolean,
   fontsReady: boolean,
-): boolean {
-  let changed = false;
+): BrowserReaderHostFontMetricCapture {
+  let horizontalMetricsChanged = false;
   if (!pinned) {
-    changed = ensureHostGenericSerifMetrics(state.fontMetrics, state.ctx);
+    horizontalMetricsChanged = ensureHostGenericSerifMetrics(state.fontMetrics, state.ctx);
   }
   if (fontsReady && !pinned) {
-    changed =
+    horizontalMetricsChanged =
       ensureHostFontFamilyMetrics(
         state.fontMetrics,
         state.ctx,
         [...state.registeredFontFaces.values()].map((face) => face.family),
-      ) || changed;
+      ) || horizontalMetricsChanged;
   }
-  return (
-    (fontsReady && ensureHostFontVerticalMetrics(state.fontMetrics, state.ctx, demands)) || changed
-  );
+  const addedVerticalMetricSamples = fontsReady
+    ? captureHostFontVerticalMetricSamples(state.fontMetrics, state.ctx, demands)
+    : [];
+  const demandedVerticalMetricSamples = fontsReady
+    ? hostFontVerticalMetricSamplesForDemands(state.fontMetrics, demands)
+    : [];
+  return {
+    horizontalMetricsChanged,
+    addedVerticalMetricSamples,
+    demandedVerticalMetricSamples,
+  };
 }
 
 /** Rebuild an uncommitted growth snapshot with newly captured host font geometry. */

@@ -255,6 +255,7 @@ fn text_node(
     node.source_text = source_text.map(ToOwned::to_owned);
     node.source_ref = path.map(|path| SourceRef {
         node_path: vec![path],
+        source_node_id: None,
     });
     node.style
         .insert("whiteSpace".to_owned(), json!(white_space));

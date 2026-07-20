@@ -29,11 +29,16 @@ export function requireSourceLocatorRequest(value, operation) {
 export function requireSourceLocatorTransport(value, revision, request, operation) {
   const transport = requireRecord(value, `${operation} result`);
   requireExactFields(transport, new Set(['request', 'resolution']), `${operation} result`);
-  const echoed = requireSourceLocatorRequest(transport.request, operation);
-  if (!sameSourceLocator(echoed, request)) {
+  requireMatchingSourceLocatorRequest(transport.request, request, operation);
+  return requireSourceLocatorResolution(transport.resolution, revision, operation);
+}
+
+export function requireMatchingSourceLocatorRequest(value, expected, operation) {
+  const request = requireSourceLocatorRequest(value, operation);
+  if (!sameSourceLocator(request, expected)) {
     throw new Error(`${operation} returned a mismatched source locator request`);
   }
-  return requireSourceLocatorResolution(transport.resolution, revision, operation);
+  return request;
 }
 
 export function requirePageTargets(value, revision, pageIndex, operation) {
@@ -59,7 +64,7 @@ export function requirePageTargets(value, revision, pageIndex, operation) {
 
 function requirePageTarget(value, operation) {
   const target = requireRecord(value, `${operation} page target`);
-  if (!['text', 'link', 'image', 'footnote'].includes(target.kind)) {
+  if (!['text', 'link', 'image', 'footnote', 'footnotePending'].includes(target.kind)) {
     throw new Error(`${operation} returned an invalid page target kind`);
   }
   requireBounds(target.bounds, `${operation} page target bounds`);

@@ -8,6 +8,10 @@ import {
 } from './reader-session-host';
 import { disposeAndWaitBrowserReaderWorkerClient } from './reader/worker-client';
 import type { BrowserReaderState } from './reader/types';
+import {
+  createBrowserReaderContinuationBatchRegistration,
+  retireBrowserReaderContinuationBatchOwner,
+} from './adaptive-continuation-batch';
 
 const candidateGenerations = new WeakMap<BrowserReaderState, number>();
 
@@ -15,7 +19,9 @@ export function createBrowserReaderBoundedSessionOwner(
   worker: BrowserReaderWorkerClient,
 ): BrowserReaderBoundedSessionOwner {
   const holder: { owner?: BrowserReaderBoundedSessionOwner } = {};
+  const continuationBatch = createBrowserReaderContinuationBatchRegistration();
   const controller = createRitoCoreWasmBoundedReaderSession(worker, {
+    continuationBatchQuanta: continuationBatch.resolve,
     onAcceptedRevision({ revision }) {
       if (!holder.owner) {
         throw new Error('Bounded reader accepted a revision before owner creation');
@@ -31,6 +37,7 @@ export function createBrowserReaderBoundedSessionOwner(
     readsSuspended: false,
   };
   holder.owner = owner;
+  continuationBatch.attach(owner);
   return owner;
 }
 
@@ -104,6 +111,7 @@ export async function retireBrowserReaderBoundedOwner(
   state: BrowserReaderState,
   owner: BrowserReaderBoundedSessionOwner,
 ): Promise<void> {
+  retireBrowserReaderContinuationBatchOwner(owner);
   await scheduleBrowserReaderBoundedOwnerRetirement(state, owner, async () => {
     await disposeController(state, owner);
     try {

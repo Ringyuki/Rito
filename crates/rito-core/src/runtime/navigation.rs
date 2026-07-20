@@ -2,13 +2,13 @@ use std::collections::BTreeMap;
 
 use crate::{
     epub::{EpubError, EpubResult, LoadedChapter, LoadedEpubDocument, PackageDocument, TocEntry},
-    layout::{build_spread_slots, collect_anchor_pages, PaginationFlowChapterRange},
+    layout::PaginationFlowChapterRange,
 };
 
 use super::{
-    ResolvedRuntimeLocator, RuntimeActiveChapterPreview, RuntimeChapterNavigation,
-    RuntimeLocatorRequest, RuntimeRevision, RuntimeRevisionNavigation, RuntimeSpreadNavigation,
-    RuntimeTocTarget, RuntimeTocTargets,
+    page_artifact::PageArtifactChapterRange, ResolvedRuntimeLocator, RuntimeActiveChapterPreview,
+    RuntimeChapterNavigation, RuntimeLocatorRequest, RuntimeRevision, RuntimeRevisionNavigation,
+    RuntimeSpreadNavigation, RuntimeTocTarget, RuntimeTocTargets,
 };
 
 pub(super) fn runtime_revision_navigation(
@@ -16,11 +16,12 @@ pub(super) fn runtime_revision_navigation(
     document: &LoadedEpubDocument,
     revision: &RuntimeRevision,
 ) -> RuntimeRevisionNavigation {
+    let metadata = revision.chapter_engine_session().metadata();
     let chapter_map = known_chapter_map(revision);
     RuntimeRevisionNavigation {
         revision_id: revision_id.to_owned(),
-        page_count: revision.known_extent.page_count,
-        spread_count: revision.known_extent.spread_count,
+        page_count: metadata.page_count,
+        spread_count: metadata.spread_count,
         spreads: runtime_spread_navigation(revision),
         chapters: document
             .chapters
@@ -32,26 +33,23 @@ pub(super) fn runtime_revision_navigation(
 }
 
 fn runtime_spread_navigation(revision: &RuntimeRevision) -> Vec<RuntimeSpreadNavigation> {
-    build_spread_slots(
-        revision.known_extent.page_count,
-        &revision.layout.chapter_start_pages,
-        &revision.layout_config,
-    )
-    .into_iter()
-    .take(revision.known_extent.spread_count)
-    .map(|spread| {
-        let mut page_indexes = vec![spread.left_page_index];
-        if let Some(right) = spread.right_page_index {
-            page_indexes.push(right);
-        }
-        RuntimeSpreadNavigation {
-            spread_index: spread.index,
-            page_indexes,
-            left_page_index: spread.left_page_index,
-            right_page_index: spread.right_page_index,
-        }
-    })
-    .collect()
+    revision
+        .chapter_engine_session()
+        .spreads()
+        .into_iter()
+        .map(|spread| {
+            let mut page_indexes = vec![spread.left_page_index];
+            if let Some(right) = spread.right_page_index {
+                page_indexes.push(right);
+            }
+            RuntimeSpreadNavigation {
+                spread_index: spread.spread_index,
+                page_indexes,
+                left_page_index: spread.left_page_index,
+                right_page_index: spread.right_page_index,
+            }
+        })
+        .collect()
 }
 
 pub(super) fn active_chapter_preview(
@@ -131,17 +129,15 @@ fn collect_toc_targets(
 }
 
 pub(super) fn spread_index_for_page(revision: &RuntimeRevision, page_index: usize) -> usize {
-    build_spread_slots(
-        revision.known_extent.page_count,
-        &revision.layout.chapter_start_pages,
-        &revision.layout_config,
-    )
-    .into_iter()
-    .find(|spread| {
-        spread.left_page_index == page_index || spread.right_page_index == Some(page_index)
-    })
-    .map(|spread| spread.index)
-    .unwrap_or(0)
+    revision
+        .chapter_engine_session()
+        .spreads()
+        .into_iter()
+        .find(|spread| {
+            spread.left_page_index == page_index || spread.right_page_index == Some(page_index)
+        })
+        .map(|spread| spread.spread_index)
+        .unwrap_or(0)
 }
 
 pub(super) fn resolve_href_locator(
@@ -163,8 +159,11 @@ pub(super) fn resolve_href_locator(
         .ok_or_else(|| locator_not_found(&href))?;
     let page_index = match fragment {
         Some(fragment) => {
-            let anchors =
-                collect_anchor_pages(&revision.layout.pages[..revision.known_extent.page_count]);
+            let session = revision.chapter_engine_session();
+            let page_count = session.metadata().page_count;
+            let anchors = session
+                .anchor_pages(0..page_count)
+                .ok_or_else(|| locator_not_found(&href))?;
             let page_index = anchors
                 .get(fragment)
                 .copied()
@@ -189,29 +188,21 @@ pub(super) fn resolve_href_locator(
 }
 
 fn known_chapter_map(revision: &RuntimeRevision) -> BTreeMap<String, PaginationFlowChapterRange> {
-    let known_page_count = revision.known_extent.page_count;
     revision
-        .layout
-        .summary
-        .pagination_flow
-        .chapter_map
-        .iter()
-        .filter_map(|(idref, range)| {
-            if range.start_page >= known_page_count {
-                return None;
-            }
-            let end_page = range.end_page.min(known_page_count - 1);
-            Some((
-                idref.clone(),
-                PaginationFlowChapterRange {
-                    start_page: range.start_page,
-                    end_page,
-                    page_count: end_page - range.start_page + 1,
-                    block_count: range.block_count,
-                },
-            ))
-        })
+        .chapter_engine_session()
+        .known_chapters()
+        .into_iter()
+        .map(|(idref, range)| (idref, pagination_chapter_range(range)))
         .collect()
+}
+
+fn pagination_chapter_range(range: PageArtifactChapterRange) -> PaginationFlowChapterRange {
+    PaginationFlowChapterRange {
+        start_page: range.start_page,
+        end_page: range.end_page,
+        page_count: range.page_count,
+        block_count: range.block_count,
+    }
 }
 
 fn runtime_chapter_navigation(

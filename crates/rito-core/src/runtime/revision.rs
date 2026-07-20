@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
     epub::{EpubError, EpubResult},
@@ -102,11 +102,11 @@ impl RuntimeDocument {
                         (index.targets.clone(), index.footnotes.clone())
                     };
                     let prepared = document.prepare_cached_document_window(0, limit, &targets)?;
-                    Some((prepared, footnotes))
+                    Some((prepared, footnotes, targets))
                 } else {
                     None
                 };
-                let partial_prepared = partial_data.as_ref().map(|(prepared, _)| prepared);
+                let partial_prepared = partial_data.as_ref().map(|(prepared, _, _)| prepared);
                 if partial_prepared.is_none() {
                     document.ensure_prepared_all();
                 }
@@ -132,13 +132,13 @@ impl RuntimeDocument {
                         pinned_faces,
                         font_fallbacks,
                     },
-                );
+                )?;
                 let required_font_face_catalog = document
                     .required_font_face_catalog_from_faces(built.shapeable_publication_faces);
                 let layout_key = layout_key(layout_config, &document.pinned_font_policy)?;
                 let interactions = match &partial_data {
-                    Some((_, footnotes)) => {
-                        partial_revision_interactions(prepared, footnotes.clone())
+                    Some((_, footnotes, targets)) => {
+                        partial_revision_interactions(prepared, footnotes.clone(), targets)
                     }
                     None => runtime_revision_interactions(prepared, full_document),
                 };
@@ -232,7 +232,7 @@ impl RuntimeDocument {
                     pinned_faces,
                     font_fallbacks,
                 },
-            );
+            )?;
             let required_font_face_catalog =
                 document.required_font_face_catalog_from_faces(built.shapeable_publication_faces);
             let layout_key = layout_key(layout_config, &document.pinned_font_policy)?;
@@ -240,7 +240,7 @@ impl RuntimeDocument {
                 revision_id,
                 built.layout,
                 required_font_face_catalog,
-                partial_revision_interactions(&prepared, footnotes),
+                partial_revision_interactions(&prepared, footnotes, &targets),
                 layout_key,
             ))
         })?;
@@ -265,11 +265,30 @@ impl RuntimeDocument {
     }
 
     pub(super) fn insert_new_revision(&mut self, revision_id: String, revision: RuntimeRevision) {
-        if self.revisions.contains_key(&revision_id) {
+        if self.revisions.contains_key(&revision_id)
+            || self.chapter_local_revisions.contains_key(&revision_id)
+        {
             PendingRuntimeRevisionCleanup::new(revision).drain();
             panic!("runtime revision id must be unique");
         }
         assert!(self.revisions.insert(revision_id, revision).is_none());
+    }
+
+    pub(super) fn insert_new_chapter_local_revision(
+        &mut self,
+        revision_id: String,
+        revision: RuntimeRevision,
+    ) {
+        if self.revisions.contains_key(&revision_id)
+            || self.chapter_local_revisions.contains_key(&revision_id)
+        {
+            PendingRuntimeRevisionCleanup::new(revision).drain();
+            panic!("runtime revision id must be unique");
+        }
+        assert!(self
+            .chapter_local_revisions
+            .insert(revision_id, revision)
+            .is_none());
     }
 
     pub(super) fn ensure_layout_font_resources(
@@ -328,10 +347,13 @@ impl RuntimeDocument {
             .chapters
             .get(index)
             .ok_or_else(|| EpubError::new(format!("chapter index out of range: {index}")))?;
-        Ok(self
-            .parsed_chapters
-            .entry(index)
-            .or_insert_with(|| crate::epub::parsed_loaded_chapter_source(chapter)))
+        Ok(self.parsed_chapters.entry(index).or_insert_with(|| {
+            #[cfg(any(test, feature = "bench-internals"))]
+            let _probe_timer = crate::layout::bounded_work_probe::start_timing(
+                crate::layout::bounded_work_probe::ContinuationTimingStage::ChapterParse,
+            );
+            crate::epub::parsed_loaded_chapter_source(chapter)
+        }))
     }
 
     fn prepared_base(&mut self) -> &mut crate::epub::PreparedLoadedDocumentBase {
@@ -341,17 +363,36 @@ impl RuntimeDocument {
 
     pub(super) fn ensure_prepared_all(&mut self) {
         if self.prepared.is_none() {
-            self.prepared = Some(crate::epub::prepare_loaded_document(&self.document));
+            let chapters = (0..self.document.chapters.len())
+                .map(|index| {
+                    self.parsed_chapter(index)
+                        .expect("loaded chapter index must remain valid")
+                        .clone()
+                })
+                .collect::<Vec<_>>();
+            let base = self.prepared_base().clone();
+            self.prepared = Some(crate::epub::prepare_loaded_document_with_base(
+                &base, chapters,
+            ));
         }
     }
 }
 
 fn partial_revision_interactions(
     prepared: &crate::epub::PreparedLoadedDocument,
-    footnotes: std::collections::BTreeMap<String, crate::interaction::FootnoteEntry>,
+    footnotes: Arc<BTreeMap<String, crate::interaction::FootnoteEntry>>,
+    targets: &crate::interaction::FootnoteTargetSet,
 ) -> RuntimeRevisionInteractions {
     let mut interactions = runtime_revision_interactions(prepared, false);
-    interactions.footnotes = footnotes;
+    interactions.pending_footnote_keys = crate::interaction::FootnoteTargetSet::new(
+        targets
+            .iter()
+            .filter(|key| !footnotes.contains_key(key.as_str()))
+            .cloned()
+            .collect(),
+    );
+    interactions.footnote_index_complete = true;
+    interactions.publication_footnotes = Some(footnotes);
     interactions
 }
 
@@ -378,7 +419,10 @@ fn runtime_revision_interactions_with_footnotes(
     footnotes: BTreeMap<String, crate::interaction::FootnoteEntry>,
 ) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes,
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: full_document,
         completed_chapter_idrefs: prepared
             .chapters
             .iter()

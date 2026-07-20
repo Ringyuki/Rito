@@ -1,11 +1,10 @@
 use std::num::NonZeroUsize;
 
-use serde_json::{json, Value};
-
 use super::PendingJustifyDistribution;
 use crate::layout::{
     line::{AtomRunBox, LineRun, TextRunBox},
     line_align::{apply_justify_plan, JustifyPlan},
+    paint::RunPaint,
     text_mapping::RunTextMapping,
     text_shape::{
         fixture_run_shape, RunShape, RunShapeCluster, RunShapeDirection, RunShapeProvenance,
@@ -33,12 +32,12 @@ fn word_distribution_updates_zero_space_text_and_matches_eager_oracle() {
     let LineRun::Text(first) = &actual[0] else {
         unreachable!()
     };
-    assert_eq!(first.paint["wordSpacingPx"], json!(7.25));
+    assert_eq!(first.paint.measure().word_spacing_px, Some(7.25));
     assert_eq!(first.shape.advance().to_bits(), first.width.to_bits());
     let LineRun::Text(empty) = &actual[2] else {
         unreachable!()
     };
-    assert_eq!(empty.paint["wordSpacingPx"], json!(7.25));
+    assert_eq!(empty.paint.measure().word_spacing_px, Some(7.25));
     assert_eq!(empty.shape.advance().to_bits(), empty.width.to_bits());
 }
 
@@ -65,7 +64,7 @@ fn inter_character_boundary_precedes_run_shift_and_shape_spacing() {
     };
     assert_eq!((first.x, first.width), (0.0, 16.0));
     assert_eq!(second.x, 22.0);
-    assert!(second.paint.get("letterSpacingPx").is_none());
+    assert_eq!(second.paint.measure().letter_spacing_px, None);
 }
 
 #[test]
@@ -267,7 +266,7 @@ fn text_run_with_shape(text: &str, x: f64, shape: RunShape) -> LineRun {
         height: 10.0,
         font_size: 10.0,
         interaction_geometry: None,
-        paint: Value::Object(Default::default()),
+        paint: RunPaint::default(),
         line_height_px: None,
         href: None,
         source_path: None,

@@ -1,10 +1,6 @@
 use crate::{
     epub::{EpubError, EpubResult, LoadedEpubDocument},
-    interaction::{
-        resolve_exact_source_range, resolve_text_caret, resolve_text_range, ExactTextRangeRect,
-        LayoutExactTextRange, LayoutExactTextRangeResolution, LayoutSourcePoint, LayoutTextCaret,
-        LayoutTextCaretResolution, TextInteractionUnavailableReason,
-    },
+    interaction::TextInteractionUnavailableReason,
 };
 
 mod granularity;
@@ -19,6 +15,11 @@ pub use types::*;
 use source_match::source_segments_match;
 use source_span::{compatible_source_locator, runtime_source_point, runtime_text_source_endpoint};
 
+use super::page_artifact::{
+    PageArtifactExactSourceRangeQuery, PageArtifactExactTextRange, PageArtifactExactTextRangeRect,
+    PageArtifactExactTextRangeResolution, PageArtifactSourcePoint, PageArtifactTextCaret,
+    PageArtifactTextCaretQuery, PageArtifactTextCaretResolution, PageArtifactTextRangeQuery,
+};
 use super::source_locator::{ExactSourceRangePageWindow, PreparedExactSourceRange};
 use super::{
     navigation::spread_index_for_page, page_target::chapter_for_page, RuntimeDocument,
@@ -64,12 +65,18 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .expect("exact source range page window validated the revision");
-        let start = layout_source_point(&prepared.source_range.start);
-        let end = layout_source_point(&prepared.source_range.end);
-        let resolution =
-            resolve_exact_source_range(&revision.layout.pages, first_page, last_page, &start, &end);
+        let start = artifact_source_point(&prepared.source_range.start);
+        let end = artifact_source_point(&prepared.source_range.end);
+        let resolution = revision
+            .chapter_engine_session()
+            .resolve_exact_source_range(PageArtifactExactSourceRangeQuery {
+                first_page,
+                last_page,
+                start,
+                end,
+            });
         match resolution {
-            LayoutExactTextRangeResolution::Resolved(range)
+            PageArtifactExactTextRangeResolution::Resolved(range)
                 if source_segments_match(
                     &prepared.normalized_source_text,
                     &range.exact_source_segments,
@@ -87,12 +94,12 @@ impl RuntimeDocument {
                     }),
                 }
             }
-            LayoutExactTextRangeResolution::Resolved(_) => {
+            PageArtifactExactTextRangeResolution::Resolved(_) => {
                 RuntimeExactSourceRangeResolution::Unavailable {
                     reason: TextInteractionUnavailableReason::SourceUnavailable,
                 }
             }
-            LayoutExactTextRangeResolution::Unavailable(reason) => {
+            PageArtifactExactTextRangeResolution::Unavailable(reason) => {
                 RuntimeExactSourceRangeResolution::Unavailable { reason }
             }
         }
@@ -105,19 +112,24 @@ impl RuntimeDocument {
     ) -> EpubResult<RuntimeTextCaretResponse> {
         require_finite_point(request)?;
         let revision = self.require_text_interaction_revision(revision_id)?;
-        let page = revision
-            .layout
-            .pages
-            .get(request.page_index)
+        let resolution = revision
+            .chapter_engine_session()
+            .resolve_text_caret(PageArtifactTextCaretQuery {
+                page_index: request.page_index,
+                x: request.x,
+                y: request.y,
+            })
             .ok_or_else(|| EpubError::new(format!("unknown page index: {}", request.page_index)))?;
-        let resolution = match resolve_text_caret(request.page_index, page, request.x, request.y) {
-            LayoutTextCaretResolution::Resolved(caret) => RuntimeTextCaretResolution::Resolved {
-                caret: Box::new(runtime_text_caret(&self.document, revision, caret)?),
-            },
-            LayoutTextCaretResolution::Unavailable(reason) => {
+        let resolution = match resolution {
+            PageArtifactTextCaretResolution::Resolved(caret) => {
+                RuntimeTextCaretResolution::Resolved {
+                    caret: Box::new(runtime_text_caret(&self.document, revision, caret)?),
+                }
+            }
+            PageArtifactTextCaretResolution::Unavailable(reason) => {
                 RuntimeTextCaretResolution::Unavailable { reason }
             }
-            LayoutTextCaretResolution::Miss => RuntimeTextCaretResolution::Miss,
+            PageArtifactTextCaretResolution::Miss => RuntimeTextCaretResolution::Miss,
         };
         Ok(RuntimeTextCaretResponse {
             revision_id: revision_id.to_owned(),
@@ -135,11 +147,16 @@ impl RuntimeDocument {
         let revision = self.require_text_interaction_revision(revision_id)?;
         require_endpoint_pages(revision, request)?;
         let resolution =
-            match resolve_text_range(&revision.layout.pages, request.anchor, request.focus) {
-                LayoutExactTextRangeResolution::Resolved(range) => {
+            match revision
+                .chapter_engine_session()
+                .resolve_text_range(PageArtifactTextRangeQuery {
+                    anchor: request.anchor,
+                    focus: request.focus,
+                }) {
+                PageArtifactExactTextRangeResolution::Resolved(range) => {
                     runtime_text_range(&self.document, revision, *range)?
                 }
-                LayoutExactTextRangeResolution::Unavailable(reason) => {
+                PageArtifactExactTextRangeResolution::Unavailable(reason) => {
                     RuntimeTextRangeResolution::Unavailable { reason }
                 }
             };
@@ -156,8 +173,8 @@ impl RuntimeDocument {
     }
 }
 
-fn layout_source_point(point: &RuntimeSourcePoint) -> LayoutSourcePoint {
-    LayoutSourcePoint {
+fn artifact_source_point(point: &RuntimeSourcePoint) -> PageArtifactSourcePoint {
+    PageArtifactSourcePoint {
         node_path: point.node_path.clone(),
         text_offset: point.text_offset,
     }
@@ -166,7 +183,7 @@ fn layout_source_point(point: &RuntimeSourcePoint) -> LayoutSourcePoint {
 fn runtime_text_caret(
     document: &LoadedEpubDocument,
     revision: &RuntimeRevision,
-    caret: LayoutTextCaret,
+    caret: PageArtifactTextCaret,
 ) -> EpubResult<RuntimeTextCaret> {
     let source_locator = point_locator(
         document,
@@ -184,7 +201,7 @@ fn runtime_text_caret(
 fn runtime_text_range(
     document: &LoadedEpubDocument,
     revision: &RuntimeRevision,
-    range: LayoutExactTextRange,
+    range: PageArtifactExactTextRange,
 ) -> EpubResult<RuntimeTextRangeResolution> {
     let start_chapter = require_chapter(document, revision, range.start.page_index)?;
     let end_chapter = require_chapter(document, revision, range.end.page_index)?;
@@ -215,7 +232,7 @@ fn point_locator(
     document: &LoadedEpubDocument,
     revision: &RuntimeRevision,
     page_index: usize,
-    source_point: LayoutSourcePoint,
+    source_point: PageArtifactSourcePoint,
 ) -> EpubResult<RuntimeSourceLocator> {
     let chapter = require_chapter(document, revision, page_index)?;
     Ok(RuntimeSourceLocator {
@@ -238,7 +255,7 @@ fn require_chapter<'a>(
 
 fn runtime_range_rect(
     revision: &RuntimeRevision,
-    rect: ExactTextRangeRect,
+    rect: PageArtifactExactTextRangeRect,
 ) -> RuntimeExactTextRangeRect {
     RuntimeExactTextRangeRect {
         page_index: rect.page_index,
@@ -266,7 +283,7 @@ fn require_endpoint_pages(
     request: RuntimeTextRangeRequest,
 ) -> EpubResult<()> {
     for page_index in [request.anchor.page_index, request.focus.page_index] {
-        if page_index >= revision.layout.pages.len() {
+        if page_index >= revision.chapter_engine_session().metadata().page_count {
             return Err(EpubError::new(format!("unknown page index: {page_index}")));
         }
     }

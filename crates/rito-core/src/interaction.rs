@@ -8,8 +8,8 @@ pub(crate) use text::{
     resolve_text_range_from_points, resolve_text_range_to_point, resolve_text_selection_movement,
     ExactTextRangeRect, LayoutExactTextRange, LayoutExactTextRangeResolution, LayoutSourcePoint,
     LayoutTextCaret, LayoutTextCaretResolution, LayoutTextPageRange, LayoutTextPageTarget,
-    LayoutTextPoint, LayoutTextRangeFromPointsResolution, LayoutTextSelectionGranularity,
-    LayoutTextSelectionMovement, LayoutTextSelectionMovementInput,
+    LayoutTextPoint, LayoutTextRangeFromPoints, LayoutTextRangeFromPointsResolution,
+    LayoutTextSelectionGranularity, LayoutTextSelectionMovement, LayoutTextSelectionMovementInput,
     LayoutTextSelectionMovementResolution, LayoutTextSelectionMovementTarget,
 };
 pub use text::{
@@ -25,8 +25,8 @@ use crate::xhtml::{parse_xhtml, DocumentNode};
 mod footnote;
 
 pub(crate) use footnote::{
-    discover_footnote_targets, extract_footnotes_for_targets, FootnoteFilterChapter,
-    FootnoteIndexBuilder, FootnoteTargetSet,
+    discover_footnote_targets, extract_footnotes_for_targets, FootnoteDefinitionBuilder,
+    FootnoteFilterChapter, FootnoteIndexPlanBuilder, FootnoteTargetSet,
 };
 pub use footnote::{FootnoteEntry, FootnoteKind};
 

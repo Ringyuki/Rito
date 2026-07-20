@@ -9,6 +9,7 @@ import type {
   BrowserReaderRevisionResult,
 } from '../../src/bindings/browser/core-contracts';
 import type { BrowserReaderWorkerClient } from '../../src/bindings/browser/core-contracts';
+import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/browser/chapter-local-preview/state';
 
 export function createState(
   worker: BrowserReaderWorkerClient,
@@ -98,7 +99,7 @@ export function createState(
         chapters: [],
         chapterMap: {},
       },
-      footnotes: { revisionId: '', entries: {} },
+      footnotes: { revisionId: '', complete: false, pendingKeys: [], entries: {} },
       chapterTextIndices: { revisionId: '', entries: {} },
       tocTargets: { revisionId: '', targets: [] },
       fontFamilies: [],
@@ -106,11 +107,14 @@ export function createState(
     revisionHandle: undefined,
     commitGeneration: 0,
     boundedSessions: { current: undefined, candidate: undefined },
+    chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),
     interaction: { pageTargets: new Map(), pendingPageTargets: new Map() },
     frames: new Map(),
     pendingImageLoads: new Map(),
+    imageResourceFailures: new Map(),
+    settledImageResourceSpreads: new Set(),
     footnotes: new Map(),
     chapterTextIndices: new Map(),
     tocTargets: [],
@@ -281,7 +285,7 @@ export function revisionResult(
         chapters: [],
         chapterMap: {},
       },
-      footnotes: { revisionId, entries: {} },
+      footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
       chapterTextIndices: { revisionId, entries: {} },
       tocTargets: { revisionId, targets: [] },
       fontFamilies: [],
@@ -292,7 +296,7 @@ export function revisionResult(
   const frameWindow = {
     plan: { revisionId, centerSpreadIndex: 0, displaySpreadIndex, spreadIndexes: [0] },
     frames: [initialFrameBuffer],
-    spreads: [{ spreadIndex: 0, resources: [] }],
+    spreads: [{ spreadIndex: 0, resources: [], missingResources: [] }],
   };
   return {
     ...result,

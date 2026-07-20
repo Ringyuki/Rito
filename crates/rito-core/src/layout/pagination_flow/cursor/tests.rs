@@ -7,7 +7,7 @@ use crate::layout::{
     line::{LineBox, LineRun, TextRunBox},
     page::{RuntimePage, RuntimePageAccumulator},
     pagination_flow::{paginate_continuous_blocks, place_pagination_block},
-    LayoutConfig, LayoutConfigInput, MarginInput, PaginationPolicy, SpreadMode,
+    LayoutConfig, LayoutConfigInput, MarginInput, PaginationPolicy, RunPaint, SpreadMode,
 };
 
 type TestBlock = RuntimeBlock<LineBox>;
@@ -328,7 +328,7 @@ fn line_box(text: &str, y: f64) -> LineBox {
             height: 12.0,
             font_size: 12.0,
             interaction_geometry: None,
-            paint: json!({}),
+            paint: RunPaint::default(),
             line_height_px: None,
             href: None,
             source_path: None,

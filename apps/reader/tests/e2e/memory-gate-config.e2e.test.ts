@@ -374,6 +374,9 @@ function workerOperation(
     startedAt: 2,
     requestBytes: null,
     maxTopLevelNodes: null,
+    maxQuanta: null,
+    processedTopLevelNodes: null,
+    advancedQuanta: null,
     spreadIndex: null,
     completedAt: 3,
     durationMs: 1,
@@ -382,6 +385,7 @@ function workerOperation(
     releasedDocument: null,
     requestedRevision: null,
     revision: null,
+    chapterLocalRevision: null,
     error: null,
     ...overrides,
   };

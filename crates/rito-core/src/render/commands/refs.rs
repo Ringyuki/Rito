@@ -60,29 +60,21 @@ fn collect_command_image_refs(command: &DisplayCommand, image_refs: &mut Vec<Str
 fn collect_command_font_family(command: &DisplayCommand, families: &mut BTreeSet<String>) {
     match command {
         DisplayCommand::PaintText(input) | DisplayCommand::PaintRuby(input) => {
-            collect_paint_font_family(&input.paint, families)
+            let family = &input.paint.measure().font.family;
+            if !family.is_empty() {
+                families.insert(family.clone());
+            }
         }
         _ => {}
     }
 }
 
-fn collect_paint_font_family(paint: &Value, families: &mut BTreeSet<String>) {
-    if let Some(family) = paint
-        .as_object()
-        .and_then(|paint| paint.get("font"))
-        .and_then(Value::as_object)
-        .and_then(|font| font.get("family"))
-        .and_then(Value::as_str)
-        .filter(|family| !family.is_empty())
-    {
-        families.insert(family.to_owned());
-    }
-}
-
 fn collect_block_background_image_ref(command: &DisplayCommand, image_refs: &mut Vec<String>) {
-    if let Some(src) = command
-        .paint()
-        .and_then(Value::as_object)
+    let DisplayCommand::PaintBlock { paint, .. } = command else {
+        return;
+    };
+    if let Some(src) = paint
+        .as_object()
         .and_then(|paint| paint.get("background"))
         .and_then(Value::as_object)
         .and_then(|background| background.get("image"))

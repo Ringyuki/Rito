@@ -14,6 +14,9 @@ pub mod runtime;
 pub mod style;
 pub mod xhtml;
 
+#[cfg(feature = "bench-internals")]
+pub mod bench;
+
 pub const ENGINE_NAME: &str = "rito-core";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

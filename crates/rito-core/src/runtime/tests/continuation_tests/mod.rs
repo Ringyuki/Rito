@@ -1,4 +1,6 @@
+mod chapter_local;
 mod cursor_index;
+mod font_vertical_metrics;
 mod footnotes;
 mod lifecycle;
 mod pagination;

@@ -168,7 +168,12 @@ export type ReaderLocatorResolution =
       readonly matchedBy: ReaderLocatorMatchedBy;
     };
 
-export type ReaderInteractionTargetKind = 'text' | 'link' | 'image' | 'footnote';
+export type ReaderInteractionTargetKind =
+  | 'text'
+  | 'link'
+  | 'image'
+  | 'footnote'
+  | 'footnotePending';
 /** Paint-order semantic target with bounds in page-content coordinates. */
 export interface ReaderInteractionTarget {
   readonly kind: ReaderInteractionTargetKind;

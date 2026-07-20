@@ -157,7 +157,9 @@ function activateNativeLink(node: SemanticNode, deps: WiringDeps, state: A11yLoa
       if (!page) return;
       const target = page.targets.find(
         (candidate) =>
-          (candidate.kind === 'link' || candidate.kind === 'footnote') &&
+          (candidate.kind === 'link' ||
+            candidate.kind === 'footnote' ||
+            candidate.kind === 'footnotePending') &&
           candidate.href === node.href &&
           boundsIntersect(candidate.bounds, node.bounds),
       );

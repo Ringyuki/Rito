@@ -1,6 +1,8 @@
 use rito_core::runtime::{
-    RuntimeContinuationError, RuntimeContinuationErrorKind, RuntimeRevisionExtent,
-    RuntimeRevisionStatus, RuntimeRevisionSummary,
+    RuntimeChapterLocalCoordinate, RuntimeChapterLocalCoordinateKind,
+    RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionExtent,
+    RuntimeChapterLocalRevisionSummary, RuntimeContinuationError, RuntimeContinuationErrorKind,
+    RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeRevisionSummary,
 };
 
 use super::{error_json_string, parse_resource_kind};
@@ -66,4 +68,68 @@ fn serializes_failed_revision_state_with_continuation_errors() {
     assert_eq!(value["revision"]["revisionId"], "rev-7");
     assert_eq!(value["revision"]["revisionVersion"], 4);
     assert_eq!(value["revision"]["status"], "failed");
+}
+
+#[test]
+fn serializes_auto_released_chapter_local_failure_without_a_live_recovery_owner() {
+    let error = WasmRuntimeError::from_released_chapter_local(RuntimeChapterLocalRevisionError {
+        kind: RuntimeContinuationErrorKind::EngineFailure,
+        message: "local layout failed".to_owned(),
+        revision: Some(Box::new(RuntimeChapterLocalRevisionSummary {
+            revision_id: "rev-8".to_owned(),
+            revision_version: 3,
+            layout_key: "layout".to_owned(),
+            status: RuntimeRevisionStatus::Failed,
+            coordinate: RuntimeChapterLocalCoordinate {
+                kind: RuntimeChapterLocalCoordinateKind::ChapterLocal,
+                chapter_index: 7,
+                href: "chapter-7.xhtml".to_owned(),
+            },
+            local_page_cap: 8,
+            known_extent: RuntimeChapterLocalRevisionExtent {
+                local_page_count: 2,
+                local_spread_count: 2,
+            },
+            final_extent: None,
+            page_cap_reached: false,
+        })),
+    });
+    let value: serde_json::Value =
+        serde_json::from_str(&error_json_string(error)).expect("error JSON parses");
+
+    assert!(value.get("chapterLocalRevision").is_none());
+    assert_eq!(value["releasedChapterLocalRevision"]["revisionId"], "rev-8");
+    assert_eq!(
+        value["releasedChapterLocalRevision"]["coordinate"]["kind"],
+        "chapterLocal"
+    );
+    assert_eq!(
+        value["releasedChapterLocalRevision"]["coordinate"]["chapterIndex"],
+        7
+    );
+}
+
+#[test]
+fn chapter_local_wasm_bindings_keep_the_raw_api_contract() {
+    let source = include_str!("chapter_local.rs");
+    for method in [
+        "createBoundedChapterLocalRevisionJson",
+        "continueChapterLocalRevisionJson",
+        "getChapterLocalRevisionSummaryJson",
+        "resolveChapterLocalSourceLocatorJson",
+        "getChapterLocalFrameJson",
+        "getChapterLocalFrameCommandBufferMetadataJson",
+        "readChapterLocalFrameCommandBuffer",
+        "getChapterLocalResourcePayloadJson",
+        "prefetchChapterLocalFrameResourcesJson",
+        "readChapterLocalResourceTransfer",
+        "takeChapterLocalResourceTransfer",
+        "releaseChapterLocalResourceTransfer",
+        "releaseChapterLocalRevisionJson",
+    ] {
+        assert!(
+            source.contains(&format!("js_name = {method}")),
+            "missing {method}"
+        );
+    }
 }

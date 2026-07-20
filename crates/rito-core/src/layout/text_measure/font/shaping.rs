@@ -237,6 +237,8 @@ pub(super) fn shape_run_checked(
         rustybuzz::Direction::RightToLeft => RunShapeDirection::RightToLeft,
         _ => return Err(ShapeRunFailure::RustybuzzUnavailable),
     };
+    #[cfg(any(test, feature = "bench-internals"))]
+    crate::layout::bounded_work_probe::record_rustybuzz_shape_run(text);
     #[cfg(test)]
     crate::layout::text_work_trace::record_rustybuzz_shape_run(text);
     let glyphs = rustybuzz::shape(face, &[], buffer);

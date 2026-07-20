@@ -5,6 +5,12 @@ import type {
   ReaderWorkerTerminationObservation,
 } from './reader-worker-probe';
 
+const CONTINUATION_KINDS = [
+  'continueRevision',
+  'continueRevisionAfterTransferRelease',
+  'continueRevisionTowardSourceLocator',
+] as const;
+
 export function assertReleaseProtocol(
   operations: readonly ReaderWorkerOperationObservation[],
   oldOpen: ReaderWorkerOperationObservation,
@@ -18,10 +24,12 @@ export function assertReleaseProtocol(
     (entry) => entry.requestId === continuationRequestId,
     'held continuation',
   );
-  expect(continuation.responseKind).toBe('continueRevision');
+  expect(CONTINUATION_KINDS).toContain(continuation.responseKind);
   expect(['warming', 'ready']).toContain(continuation.revision?.status);
   const expectedRevision = revisionHandle(continuation);
-  expect(continuation.requestedRevision).toEqual(previousRevisionHandle(expectedRevision));
+  expect(continuation.requestedRevision).toEqual(
+    previousRevisionHandle(expectedRevision, continuation.advancedQuanta ?? 1),
+  );
   const transfers = requireFollowingExactRevisionOperation(
     oldWorkerOperations,
     continuation,
@@ -196,14 +204,21 @@ function revisionHandle(operation: ReaderWorkerOperationObservation): {
   };
 }
 
-function previousRevisionHandle(revision: ReturnType<typeof revisionHandle>): {
+function previousRevisionHandle(
+  revision: ReturnType<typeof revisionHandle>,
+  advancedQuanta: number,
+): {
   readonly revisionId: string;
   readonly revisionVersion: number;
 } {
-  if (revision.revisionVersion === 0) {
-    throw new Error('Reader worker continuation cannot return revision version zero');
+  if (
+    !Number.isSafeInteger(advancedQuanta) ||
+    advancedQuanta <= 0 ||
+    revision.revisionVersion < advancedQuanta
+  ) {
+    throw new Error('Reader worker continuation returned an invalid advanced quantum count');
   }
-  return { ...revision, revisionVersion: revision.revisionVersion - 1 };
+  return { ...revision, revisionVersion: revision.revisionVersion - advancedQuanta };
 }
 
 function nextRevisionHandle(revision: ReturnType<typeof revisionHandle>): {

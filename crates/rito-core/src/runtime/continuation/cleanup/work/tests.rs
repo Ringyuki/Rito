@@ -212,7 +212,10 @@ fn batch(pages: Vec<LayoutRuntimePage>) -> RuntimeChapterPageBatch {
 
 fn empty_materialized_interactions() -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes: BTreeMap::new(),
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
         chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::new()),
         completed_chapter_idrefs: BTreeSet::new(),
     }
@@ -220,7 +223,10 @@ fn empty_materialized_interactions() -> RuntimeRevisionInteractions {
 
 fn materialized_interactions(span_count: usize) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes: BTreeMap::new(),
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
         chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::from([(
             "chapter".to_owned(),
             RuntimeChapterTextIndex {

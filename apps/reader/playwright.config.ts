@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import {
   READER_TEST_SERVER_BASE_URL as BASE_URL,
   READER_TEST_SERVER_PORT as PORT,
+  readerTestServerCommand,
 } from './tests/e2e/reader-test-server';
 
 const READER_APP_DIR = dirname(fileURLToPath(import.meta.url));
@@ -42,7 +43,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `RITO_READER_BASE=/ pnpm run build:e2e && RITO_READER_BASE=/ pnpm exec vite preview --host 127.0.0.1 --port ${String(PORT)}`,
+    command: readerTestServerCommand(process.env, PORT),
     cwd: READER_APP_DIR,
     url: BASE_URL,
     reuseExistingServer: STRICT_SERVER ? false : !process.env['CI'],

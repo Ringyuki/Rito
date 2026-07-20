@@ -2,29 +2,38 @@ import type { ReaderLocator, ReaderLocatorResolution } from '../../reader';
 import type { BrowserReaderBoundedReplacementTarget } from './bounded-font-geometry';
 import type { BrowserReaderBoundedSnapshot } from './core-contracts';
 import { enqueueBrowserReaderCurrentMutation } from './current-mutation-queue';
+import {
+  fallbackReaderLocatorForOutcome,
+  type ReaderLocatorTargetOutcome,
+} from './locator-precision';
+import {
+  rejectLocatorRequest,
+  resolveLocatorRequest,
+  resolveLocatorSnapshot,
+  type LocatorRequestSettlement,
+} from './bounded-locator-settlement';
 import type { BrowserReaderBoundedSessionOwner } from './reader-session-host';
-import { toReaderLocatorResolution } from './reader/interaction';
 import type { BrowserReaderState } from './reader/types';
 
 type LocatorMutation = (
   target: (owner: BrowserReaderBoundedSessionOwner) => Promise<BrowserReaderBoundedSnapshot>,
   replacementTarget: () => BrowserReaderBoundedReplacementTarget,
   isCurrent: () => boolean,
+  whenSuperseded: () => Promise<void>,
 ) => Promise<BrowserReaderBoundedSnapshot | undefined>;
 
-interface LocatorRequest {
+interface LocatorRequest extends LocatorRequestSettlement {
   readonly locator: ReaderLocator;
   readonly mutate: LocatorMutation;
+  readonly onTargetStarted: (() => void) | undefined;
+  readonly onCancelled: (() => void) | undefined;
   readonly promise: Promise<ReaderLocatorResolution | undefined>;
-  readonly resolve: (value: ReaderLocatorResolution | undefined) => void;
-  readonly reject: (error: unknown) => void;
-  settled: boolean;
-  stopWatchingAbort: (() => void) | undefined;
 }
 
-type LocatorTargetOutcome =
-  | { readonly kind: 'snapshot'; readonly snapshot: BrowserReaderBoundedSnapshot }
-  | { readonly kind: 'error'; readonly error: unknown };
+export interface BrowserReaderBoundedLocatorLifecycle {
+  readonly onTargetStarted?: (() => void) | undefined;
+  readonly onCancelled?: (() => void) | undefined;
+}
 
 interface LocatorCoordinator {
   phase: 'idle' | 'queued' | 'targeting' | 'settling';
@@ -33,7 +42,8 @@ interface LocatorCoordinator {
   pending: LocatorRequest | undefined;
   owner: BrowserReaderBoundedSessionOwner | undefined;
   targetSequence: number;
-  targetTask: Promise<LocatorTargetOutcome> | undefined;
+  targetTask: Promise<ReaderLocatorTargetOutcome> | undefined;
+  targetLocator: ReaderLocator | undefined;
   targetChanged: Promise<void> | undefined;
   wakeTarget: (() => void) | undefined;
 }
@@ -45,10 +55,11 @@ export function ensureCoalescedBrowserReaderBoundedLocator(
   locator: ReaderLocator,
   signal: AbortSignal | undefined,
   mutate: LocatorMutation,
+  lifecycle: BrowserReaderBoundedLocatorLifecycle = {},
 ): Promise<ReaderLocatorResolution | undefined> {
   if (state.disposed || signal?.aborted) return Promise.resolve(undefined);
   const coordinator = locatorCoordinator(state);
-  const request = createLocatorRequest(state, coordinator, locator, signal, mutate);
+  const request = createLocatorRequest(state, coordinator, locator, signal, mutate, lifecycle);
   submitLocatorRequest(state, coordinator, request);
   return request.promise;
 }
@@ -64,6 +75,7 @@ function locatorCoordinator(state: BrowserReaderState): LocatorCoordinator {
     owner: undefined,
     targetSequence: 0,
     targetTask: undefined,
+    targetLocator: undefined,
     targetChanged: undefined,
     wakeTarget: undefined,
   };
@@ -77,6 +89,7 @@ function createLocatorRequest(
   locator: ReaderLocator,
   signal: AbortSignal | undefined,
   mutate: LocatorMutation,
+  lifecycle: BrowserReaderBoundedLocatorLifecycle,
 ): LocatorRequest {
   let resolvePromise!: (value: ReaderLocatorResolution | undefined) => void;
   let rejectPromise!: (error: unknown) => void;
@@ -87,6 +100,8 @@ function createLocatorRequest(
   const request: LocatorRequest = {
     locator,
     mutate,
+    onTargetStarted: lifecycle.onTargetStarted,
+    onCancelled: lifecycle.onCancelled,
     promise,
     resolve: resolvePromise,
     reject: rejectPromise,
@@ -165,6 +180,7 @@ async function runLocatorPump(
         (owner) => targetLatestLocator(coordinator, owner),
         () => replacementTarget(state, coordinator),
         () => coordinator.current !== undefined && !coordinator.current.settled,
+        () => whenCurrentLocatorSettles(coordinator),
       );
       resolveLocatorSnapshot(coordinator.current, snapshot);
     } catch (error) {
@@ -173,11 +189,21 @@ async function runLocatorPump(
       coordinator.current = undefined;
       coordinator.owner = undefined;
       coordinator.targetTask = undefined;
+      coordinator.targetLocator = undefined;
       coordinator.targetChanged = undefined;
       coordinator.wakeTarget = undefined;
       coordinator.phase = 'idle';
     }
   }
+}
+
+function whenCurrentLocatorSettles(coordinator: LocatorCoordinator): Promise<void> {
+  const request = coordinator.current;
+  if (!request || request.settled) return Promise.resolve();
+  return request.promise.then(
+    () => undefined,
+    () => undefined,
+  );
 }
 
 async function targetLatestLocator(
@@ -198,6 +224,11 @@ async function targetLatestLocator(
     }
     const outcome = await Promise.race([task, targetChanged.then(() => undefined)]);
     if (sequence !== coordinator.targetSequence || !outcome) continue;
+    const fallback = fallbackReaderLocatorForOutcome(coordinator.targetLocator, outcome);
+    if (fallback) {
+      startLocatorValueTarget(coordinator, owner, fallback);
+      continue;
+    }
     coordinator.phase = 'settling';
     if (outcome.kind === 'error') throw outcome.error;
     return outcome.snapshot;
@@ -209,7 +240,17 @@ function startLocatorTarget(
   owner: BrowserReaderBoundedSessionOwner,
   request: LocatorRequest,
 ): void {
-  startTarget(coordinator, () => owner.controller.ensureLocator(request.locator));
+  request.onTargetStarted?.();
+  startLocatorValueTarget(coordinator, owner, request.locator);
+}
+
+function startLocatorValueTarget(
+  coordinator: LocatorCoordinator,
+  owner: BrowserReaderBoundedSessionOwner,
+  locator: ReaderLocator,
+): void {
+  coordinator.targetLocator = locator;
+  startTarget(coordinator, () => owner.controller.ensureLocator(locator));
 }
 
 function startSpreadRecoveryTarget(
@@ -217,6 +258,7 @@ function startSpreadRecoveryTarget(
   owner: BrowserReaderBoundedSessionOwner,
   spreadIndex: number,
 ): void {
+  coordinator.targetLocator = undefined;
   startTarget(coordinator, () => owner.controller.ensureSpread(spreadIndex));
 }
 
@@ -251,49 +293,15 @@ function replacementTarget(
   };
 }
 
-function resolveLocatorSnapshot(
-  request: LocatorRequest | undefined,
-  snapshot: BrowserReaderBoundedSnapshot | undefined,
-): void {
-  if (!snapshot) {
-    resolveLocatorRequest(request, undefined);
-    return;
-  }
-  if (snapshot.target.kind !== 'locator') {
-    rejectLocatorRequest(
-      request,
-      new Error('Bounded reader locator mutation returned a different target'),
-    );
-    return;
-  }
-  resolveLocatorRequest(request, toReaderLocatorResolution(snapshot.target.resolution));
-}
-
 function cancelLocatorRequest(
   state: BrowserReaderState,
   coordinator: LocatorCoordinator,
   request: LocatorRequest,
 ): void {
   if (coordinator.pending === request) coordinator.pending = undefined;
+  request.onCancelled?.();
   resolveLocatorRequest(request, undefined);
   if (coordinator.current === request && coordinator.phase === 'targeting' && coordinator.owner) {
     startSpreadRecoveryTarget(coordinator, coordinator.owner, state.activeSpreadIndex);
   }
-}
-
-function resolveLocatorRequest(
-  request: LocatorRequest | undefined,
-  value: ReaderLocatorResolution | undefined,
-): void {
-  if (!request || request.settled) return;
-  request.settled = true;
-  request.stopWatchingAbort?.();
-  request.resolve(value);
-}
-
-function rejectLocatorRequest(request: LocatorRequest | undefined, error: unknown): void {
-  if (!request || request.settled) return;
-  request.settled = true;
-  request.stopWatchingAbort?.();
-  request.reject(error);
 }

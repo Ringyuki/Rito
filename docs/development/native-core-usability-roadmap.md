@@ -123,8 +123,10 @@ The remaining usability work is narrower but still release-blocking:
    ordered, text-hashed trace covers prefix probes,
    line-break scans, cache outcomes and actual Rustybuzz subruns; exact
    trace-on/off and eager/bounded equivalence make it the regression oracle for
-   this resumable sequence. The first publication-wide footnote scan is now
-   single-pass, but still remains outside the layout budget.
+   this resumable sequence. Footnote discovery no longer sits on the first
+   artifact path: foreground work scans only the target chapter and the
+   publication index advances as one source/definition quantum per
+   host-scheduled background call.
 2. Search still drains pagination eagerly and searches laid-out page text. It
    now returns a proven durable source range and resolves visible geometry
    lazily, but still needs a publication source/chapter index.
@@ -863,8 +865,11 @@ architecture rather than make an eager whole-book pipeline faster.
    containers, tables and Optimal layout retain unmetered or atomic regions;
    individual font calls are still indivisible and may use the oversized-work
    escape.
-   The cross-chapter footnote index is lazy-state-safe and single-pass, but its
-   first full-spine scan is still outside the layout budget.**
+   The cross-chapter footnote index is lazy-state-safe and cooperative:
+   foreground scans only the target chapter, unresolved cross-chapter noterefs
+   remain typed pending, and background performs one borrowed source scan or
+   selected semantic definition parse per call. Publication layout starts only
+   after that index is complete.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,
    worker and public Reader. **Implemented through the public Reader and Kit
    click path, including bounded-growth gating and exact locator re-resolution.**

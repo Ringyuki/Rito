@@ -18,6 +18,7 @@ use crate::{
         line_layout::GreedyLineLayoutSession,
         text_mapping::RunTextMapping,
         text_shape::fixture_run_shape,
+        RunPaint,
     },
     style::{StyledNode, StyledNodeKind},
 };
@@ -183,7 +184,7 @@ fn text_run(source: Arc<str>) -> LineRun {
         height: 12.0,
         font_size: 12.0,
         interaction_geometry: None,
-        paint: json!({ "color": "#000" }),
+        paint: RunPaint::from_test_wire_value(json!({ "color": "#000" })),
         line_height_px: None,
         href: None,
         source_path: None,

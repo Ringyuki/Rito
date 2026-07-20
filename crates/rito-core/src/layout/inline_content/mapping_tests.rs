@@ -345,6 +345,7 @@ fn text_node(content: &str, path: usize) -> StyledNode {
         style(),
         SourceRef {
             node_path: vec![path],
+            source_node_id: None,
         },
     )
 }
@@ -392,7 +393,10 @@ fn image_node() -> StyledNode {
         rowspan: None,
         style: style(),
         children: Vec::new(),
-        source_ref: Some(SourceRef { node_path: vec![1] }),
+        source_ref: Some(SourceRef {
+            node_path: vec![1],
+            source_node_id: None,
+        }),
     }
 }
 

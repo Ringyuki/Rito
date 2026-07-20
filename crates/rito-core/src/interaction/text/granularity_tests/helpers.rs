@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
-use serde_json::json;
-
 use super::super::{
     resolve_text_range_from_points, LayoutTextPageRange, LayoutTextPoint,
     LayoutTextRangeFromPoints, LayoutTextRangeFromPointsResolution, LayoutTextSelectionGranularity,
 };
 use crate::layout::{
-    fixture_logical_text_flow, LayoutRuntimePage, LineBox, LineRun, LogicalTextFlow, RunShape,
-    RunShapeCluster, RunShapeDirection, RunShapeProvenance, RunTextMapping, RuntimeBlock,
+    fixture_logical_text_flow, LayoutRuntimePage, LineBox, LineRun, LogicalTextFlow, RunPaint,
+    RunShape, RunShapeCluster, RunShapeDirection, RunShapeProvenance, RunTextMapping, RuntimeBlock,
     RuntimeChild, TextFlowSlice, TextRunBox,
 };
 
@@ -230,7 +228,7 @@ pub(super) fn text_run(
         height: 20.0,
         font_size: 16.0,
         interaction_geometry: None,
-        paint: json!({}),
+        paint: RunPaint::default(),
         line_height_px: None,
         href: None,
         source_path: None,

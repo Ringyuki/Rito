@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { READER_USABILITY_METRIC_KEYS as METRIC_KEYS } from './reader-usability-metrics';
 import {
   evaluateReaderUsabilityCase,
@@ -20,6 +21,10 @@ import {
 } from './reader-usability-gate-test-data';
 
 let directory = '';
+const PRODUCTION_M3_GATE = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  'reader-usability-gates/ringyuki-macbook-air-m3.json',
+);
 
 test.beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'rito-usability-gate-'));
@@ -34,13 +39,44 @@ test('strictly parses a manifest and resolves EPUB paths from its directory', as
   const path = await writeManifest(validManifest());
   const gate = await loadReaderUsabilityGate(path);
 
-  expect(gate.schemaVersion).toBe(3);
+  expect(gate.schemaVersion).toBe(4);
   expect(gate.runs).toBe(3);
   expect(gate.browser.isolation).toBe('process-per-run');
   expect(gate.pinnedFonts).toHaveLength(2);
   expect(gate.cases).toHaveLength(1);
   expect(gate.cases[0]?.epub).toBe(resolve(directory, 'fixture.epub'));
   expect(gate.cases[0]?.sha256).toBe(SHA256);
+});
+
+test('locks the production M3 TOC latency and request thresholds', async () => {
+  const gate = await loadReaderUsabilityGate(PRODUCTION_M3_GATE);
+  expect(
+    gate.cases.map((entry) => ({
+      id: entry.id,
+      tocSupersedeFirstFrameMs: entry.thresholds.tocSupersedeFirstFrameMs,
+      farTocFirstFrameMs: entry.thresholds.farTocFirstFrameMs,
+      farTocWorkerRequestsToFirstFrame: entry.thresholds.farTocWorkerRequestsToFirstFrame,
+    })),
+  ).toEqual([
+    {
+      id: 'book-01',
+      tocSupersedeFirstFrameMs: 75,
+      farTocFirstFrameMs: 150,
+      farTocWorkerRequestsToFirstFrame: 16,
+    },
+    {
+      id: 'book-04',
+      tocSupersedeFirstFrameMs: 75,
+      farTocFirstFrameMs: 150,
+      farTocWorkerRequestsToFirstFrame: 16,
+    },
+    {
+      id: 'book-10',
+      tocSupersedeFirstFrameMs: 75,
+      farTocFirstFrameMs: 150,
+      farTocWorkerRequestsToFirstFrame: 16,
+    },
+  ]);
 });
 
 test('rejects unknown and missing fields at every schema layer', async () => {
@@ -59,6 +95,8 @@ test('rejects unknown and missing fields at every schema layer', async () => {
     (manifest) => delete firstCase(manifest)['sha256'],
     (manifest) => (firstCase(manifest)['extra'] = true),
     (manifest) => delete record(firstCase(manifest)['thresholds'])['reflowFirstFrameMs'],
+    (manifest) =>
+      delete record(firstCase(manifest)['thresholds'])['farTocWorkerRequestsToFirstFrame'],
     (manifest) => (record(firstCase(manifest)['thresholds'])['extra'] = true),
   ];
 
@@ -71,11 +109,11 @@ test('rejects unknown and missing fields at every schema layer', async () => {
   }
 });
 
-test('rejects v2 manifests and a missing cached-turn stability threshold', async () => {
+test('rejects v3 manifests and a missing cached-turn stability threshold', async () => {
   const oldSchema = validManifest();
-  oldSchema['schemaVersion'] = 2;
+  oldSchema['schemaVersion'] = 3;
   await expect(loadReaderUsabilityGate(await writeManifest(oldSchema, 1))).rejects.toThrow(
-    /manifest\.schemaVersion: must equal 3/,
+    /manifest\.schemaVersion: must equal 4/,
   );
 
   const missingStableThreshold = validManifest();
@@ -119,6 +157,11 @@ test('rejects invalid runs, threshold values, duplicate ids, and SHA-256 shape',
   const badStableThreshold = validManifest();
   record(firstCase(badStableThreshold)['thresholds'])['cachedTurnStableMs'] = 0;
   invalidManifests.push(badStableThreshold);
+
+  const fractionalRequestThreshold = validManifest();
+  record(firstCase(fractionalRequestThreshold)['thresholds'])['farTocWorkerRequestsToFirstFrame'] =
+    1.5;
+  invalidManifests.push(fractionalRequestThreshold);
 
   const uppercaseHash = validManifest();
   firstCase(uppercaseHash)['sha256'] = 'A'.repeat(64);

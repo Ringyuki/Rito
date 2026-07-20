@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use crate::epub::{
     archive::{ArchiveEntryMetadata, EpubArchive},
@@ -7,7 +7,7 @@ use crate::epub::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadedArchiveSource {
-    pub(super) bytes: Vec<u8>,
+    pub(super) bytes: Arc<[u8]>,
     pub(super) opf_dir: String,
     pub(super) archive_image_entries: BTreeMap<String, ArchiveEntryMetadata>,
 }
@@ -40,5 +40,20 @@ impl LoadedArchiveSource {
             }
         }
         archive.read_bytes(&join_epub_href(&self.opf_dir, href))
+    }
+
+    pub(super) fn inspect_with_archive<T>(
+        &self,
+        archive: &mut EpubArchive<'_>,
+        href: &str,
+        resource_kind: ArchiveResourceKind,
+        inspect: impl FnOnce(&mut dyn std::io::Read) -> EpubResult<T>,
+    ) -> EpubResult<T> {
+        if matches!(resource_kind, ArchiveResourceKind::Image) {
+            if let Some(entry) = self.archive_image_entries.get(href) {
+                return archive.inspect_entry(entry, inspect);
+            }
+        }
+        archive.inspect_bytes(&join_epub_href(&self.opf_dir, href), inspect)
     }
 }

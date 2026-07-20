@@ -216,6 +216,7 @@ describe('native target spread lifecycle', () => {
       getCurrentSpread: () => 0,
       getRenderScale: () => 1,
       notifyNavigationContentReady: vi.fn(),
+      presentChapterLocalInvalidation: vi.fn(() => false),
       syncViewport: vi.fn(),
     } as unknown as WiringDeps;
     const disposables = createDisposableCollection();
@@ -242,5 +243,51 @@ describe('native target spread lifecycle', () => {
 
     disposables.disposeAll();
     expect(state.nativeInteractionsAlive).toBe(false);
+  });
+
+  it('claims a provisional invalidation before every ordinary current-spread side effect', () => {
+    let invalidated: ((index: number) => void) | undefined;
+    const reader = {
+      spreads: [spread],
+      onSpreadRendered: vi.fn(() => vi.fn()),
+      onSpreadContentInvalidated(callback: (index: number) => void) {
+        invalidated = callback;
+        return () => {
+          invalidated = undefined;
+        };
+      },
+    } as unknown as Reader;
+    const state = createCoordinatorState();
+    state.nativeTargetsByPage.set(0, []);
+    const markContentDirty = vi.fn();
+    const notifyNavigationContentReady = vi.fn();
+    const syncViewport = vi.fn();
+    const presentChapterLocalInvalidation = vi.fn(() => true);
+    const canvas = { style: { cursor: 'pointer' } };
+    const deps = {
+      reader,
+      coordState: state,
+      canvas,
+      engines: { selection: {}, search: {}, position: null },
+      emitter: createEmitter<ReaderControllerEvents>(),
+      frameDriver: { markContentDirty },
+      getCurrentSpread: () => 0,
+      getRenderScale: () => 1,
+      notifyNavigationContentReady,
+      presentChapterLocalInvalidation,
+      syncViewport,
+    } as unknown as WiringDeps;
+    const disposables = createDisposableCollection();
+    wireSpreadRendered(deps, disposables);
+
+    invalidated?.(0);
+
+    expect(presentChapterLocalInvalidation).toHaveBeenCalledWith(0);
+    expect(markContentDirty).not.toHaveBeenCalled();
+    expect(notifyNavigationContentReady).not.toHaveBeenCalled();
+    expect(syncViewport).not.toHaveBeenCalled();
+    expect(state.nativeTargetsByPage.has(0)).toBe(true);
+    expect(canvas.style.cursor).toBe('pointer');
+    disposables.disposeAll();
   });
 });

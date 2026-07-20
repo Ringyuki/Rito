@@ -217,6 +217,7 @@ mod tests {
         hit_map::HitMapFlowCounts,
         line::{LineBox, LineRun, TextRunBox},
         page::RuntimePage,
+        RunPaint,
     };
 
     #[test]
@@ -261,7 +262,7 @@ mod tests {
                             height: 12.0,
                             font_size: 12.0,
                             interaction_geometry: None,
-                            paint: json!({}),
+                            paint: RunPaint::default(),
                             line_height_px: None,
                             href: Some("#target".to_owned()),
                             source_path: Some(vec![0, 1]),

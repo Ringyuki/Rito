@@ -1,6 +1,7 @@
 use crate::resources::{
     detect_image_dimensions, hash_bytes, is_font_media_type, is_image_media_type,
 };
+use std::sync::Arc;
 
 use super::super::{
     archive, join_epub_href, opf_dir, parser, toc, EpubError, EpubResult, PackageDocument,
@@ -86,6 +87,7 @@ fn open_document_with_chapter_loading_owned(
         &mut images,
     );
     let chapters = load_chapters(&mut archive, &package, opf_dir, chapter_loading)?;
+    drop(archive);
 
     Ok(LoadedEpubDocument {
         package,
@@ -94,7 +96,7 @@ fn open_document_with_chapter_loading_owned(
         images,
         chapters,
         archive_source: Some(LoadedArchiveSource {
-            bytes,
+            bytes: Arc::from(bytes),
             opf_dir: opf_dir.to_owned(),
             archive_image_entries,
         }),

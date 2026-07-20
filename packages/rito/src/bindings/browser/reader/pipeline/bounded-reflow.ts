@@ -7,7 +7,7 @@ import { openBrowserReaderWorker } from '../../pinned-fonts';
 import { applyLayoutOverrides, makeBrowserReaderLayoutConfig } from '../../reader-layout';
 import type { BrowserReaderQueuedReflow, BrowserReaderState } from '../types';
 import { trackBrowserReaderHostTask } from '../host-tasks';
-import { hostFontMetricSampleCount } from '../../font-metrics';
+import { createBrowserReaderFontGeometryRetryGuard } from '../../bounded-font-geometry';
 import { captureBrowserReaderReflowAnchor } from './reflow-anchor';
 import { copyReaderLocator } from '../interaction-capture';
 import {
@@ -16,6 +16,8 @@ import {
   reportReflowError,
   scheduleReaderMicrotask,
 } from './reflow-state';
+import { supersedeBrowserReaderChapterLocalPreview } from '../../chapter-local-preview/coordinator';
+import { yieldBrowserHostTask } from '../../host-yield';
 
 type State = BrowserReaderState;
 type Request = BrowserReaderQueuedReflow;
@@ -32,6 +34,7 @@ export function scheduleBrowserReaderReflow(
   if (state.disposed) return false;
   const config = applyLayoutOverrides(state, makeBrowserReaderLayoutConfig(options, spreadMode));
   if (isNoOpReflow(state, config, spreadMode, lineBreaking, force)) return false;
+  supersedeBrowserReaderChapterLocalPreview(state);
   const request: Request = {
     config,
     spreadMode,
@@ -96,7 +99,7 @@ async function runInitialCandidateLoop(
   signal: AbortSignal,
 ): Promise<void> {
   let owner = initialOwner;
-  let sampleCount = hostFontMetricSampleCount(state.fontMetrics);
+  const canRetryFontGeometry = createBrowserReaderFontGeometryRetryGuard(state);
   for (;;) {
     const snapshot = await startBrowserReaderBoundedCandidate(
       state,
@@ -114,11 +117,9 @@ async function runInitialCandidateLoop(
       signal,
     );
     if (snapshot) return;
-    const nextSampleCount = hostFontMetricSampleCount(state.fontMetrics);
-    if (state.disposed || signal.aborted || nextSampleCount <= sampleCount) {
+    if (state.disposed || signal.aborted || !canRetryFontGeometry()) {
       throw new Error('Initial bounded reader candidate was cancelled');
     }
-    sampleCount = nextSampleCount;
     const worker = state.workerFactory();
     try {
       await openBrowserReaderWorker(
@@ -252,15 +253,11 @@ async function waitForExactReads(
     !isStaleReflow(state, request) &&
     !signal.aborted
   ) {
-    await nextTask();
+    await yieldBrowserHostTask();
   }
   if (!isStaleReflow(state, request) && !signal.aborted && !state.boundedSessions.current) {
     throw new Error('Browser reader lost its current bounded session during reflow');
   }
-}
-
-function nextTask(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 function requestIsLive(state: State, request: Request, signal: AbortSignal): boolean {

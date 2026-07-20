@@ -1,12 +1,22 @@
 pub const NAME: &str = "xhtml";
 pub const OWNS: &str = "XHTML parsing, source tree, source spans, and document semantics";
 
+mod footnote_scan;
 mod parser;
-mod source_normalizer;
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
+use rito_source::{NodeId, SourceArena};
+
+pub(crate) use footnote_scan::{scan_epub_type_attribute_hints, EpubTypeAttributeHint};
 pub use parser::parse_xhtml;
+#[cfg(any(
+    feature = "bench-internals",
+    all(test, feature = "legacy-css-diagnostics")
+))]
+pub(crate) use parser::parse_xhtml_from_source;
+pub(crate) use parser::parse_xhtml_with_source;
 pub(crate) use parser::summarize_parsed_chapters;
 use serde::{Deserialize, Serialize};
 
@@ -77,8 +87,43 @@ pub struct ParseResult {
     pub nodes: Vec<DocumentNode>,
     pub warnings: Vec<String>,
     pub body_attributes: Option<ElementAttributes>,
+    pub(crate) body_source_node_id: Option<NodeId>,
     pub stylesheet_hrefs: Option<Vec<String>>,
     pub embedded_stylesheets: Option<Vec<String>>,
+    pub(crate) author_stylesheets: Vec<AuthorStylesheetSource>,
+}
+
+/// One XHTML parse together with the canonical source arena that owns every
+/// `NodeId` carried by its semantic projection.
+///
+/// Production chapter preparation retains this pair so later style engines
+/// can consume the exact source topology without reparsing XHTML.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ParsedXhtmlSource {
+    pub(crate) source_arena: Arc<SourceArena>,
+    pub(crate) parsed: ParseResult,
+}
+
+/// Author stylesheet occurrences in canonical `SourceArena` document order.
+///
+/// The legacy resolver historically kept linked and embedded sheets in two
+/// separate vectors, which loses cascade order when the two source kinds are
+/// interleaved. Keep those compatibility vectors on `ParseResult`, but use
+/// this ordered ledger for style resolution and differential evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AuthorStylesheetSource {
+    External {
+        source_node_id: NodeId,
+        href: String,
+        selection_issues: Vec<String>,
+        media_environment_issues: Vec<String>,
+    },
+    Embedded {
+        source_node_id: NodeId,
+        css: String,
+        selection_issues: Vec<String>,
+        media_environment_issues: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -115,4 +160,10 @@ pub struct ImageNode {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceRef {
     pub node_path: Vec<usize>,
+    /// Stable identity in a caller-owned canonical source arena.
+    ///
+    /// This is process-local engine state, not part of the serialized runtime
+    /// contract. Synthetic nodes and legacy test fixtures leave it unset.
+    #[serde(skip)]
+    pub(crate) source_node_id: Option<NodeId>,
 }

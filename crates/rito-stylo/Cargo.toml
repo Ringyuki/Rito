@@ -1,0 +1,31 @@
+[package]
+name = "rito-stylo"
+description = "Private direct Stylo adapter for the Rito EPUB rendering core"
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+cssparser = "=0.37.0"
+euclid = "=0.22.14"
+rito-source = { path = "../rito-source" }
+rito-style-contract = { path = "../rito-style-contract" }
+selectors = { version = "=0.39.0", default-features = false }
+style = { package = "stylo", version = "=0.19.0", default-features = false, features = ["servo"] }
+style_config = { package = "stylo_static_prefs", version = "=0.19.0" }
+style_dom = { package = "stylo_dom", version = "=0.19.0" }
+style_traits = { package = "stylo_traits", version = "=0.19.0", features = ["servo"] }
+url = "=2.5.8"
+
+[dev-dependencies]
+static_assertions = "=1.1.0"
+
+[lints.rust]
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"

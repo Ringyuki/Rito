@@ -26,6 +26,11 @@ import type {
   BrowserReaderBoundedSessionOwner,
   BrowserReaderBoundedSessionSlots,
 } from '../reader-session-host';
+import type { BrowserReaderChapterLocalPreviewState } from '../chapter-local-preview/types';
+import type {
+  BrowserReaderImageLoadOutcome,
+  BrowserReaderImageResourceError,
+} from '../image-resource-error';
 
 export type { BrowserReaderBoundedSessionOwner, BrowserReaderBoundedSessionSlots };
 
@@ -56,6 +61,15 @@ export interface BrowserReaderRevisionHandle extends BrowserReaderWorkerRevision
   readonly publicationGeneration: number;
   /** Identifies the current exact-read lease and changes whenever its gate closes or reopens. */
   readonly commitGeneration: number;
+}
+
+export interface BrowserReaderPendingImageLoad {
+  readonly task: Promise<BrowserReaderImageLoadOutcome>;
+}
+
+export interface BrowserReaderImageResourceFailure {
+  readonly revision: BrowserReaderWorkerRevisionHandle;
+  readonly error: BrowserReaderImageResourceError;
 }
 
 export interface BrowserReaderCachedPageTargets {
@@ -128,11 +142,15 @@ export interface BrowserReaderState {
   revisionHandle: BrowserReaderRevisionHandle | undefined;
   commitGeneration: number;
   readonly boundedSessions: BrowserReaderBoundedSessionSlots;
+  readonly chapterLocalPreview: BrowserReaderChapterLocalPreviewState;
   disposeTask: Promise<void> | undefined;
   readonly interaction: BrowserReaderInteractionState;
   readonly pendingHostTasks: Set<Promise<unknown>>;
   frames: Map<number, BrowserReaderFrame>;
-  pendingImageLoads: Map<string, Promise<void>>;
+  pendingImageLoads: Map<string, BrowserReaderPendingImageLoad>;
+  imageResourceFailures: Map<string, BrowserReaderImageResourceFailure>;
+  /** Exact-revision spread settlements already published to render listeners. */
+  settledImageResourceSpreads: Set<string>;
   footnotes: BrowserReaderFootnoteMap;
   chapterTextIndices: BrowserReaderChapterTextIndexMap;
   tocTargets: readonly TocTarget[];

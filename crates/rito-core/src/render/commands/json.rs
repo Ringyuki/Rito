@@ -65,7 +65,7 @@ fn command_fields(command: &DisplayCommand) -> Map<String, Value> {
 }
 
 fn insert_text_fields(fields: &mut Map<String, Value>, input: &DisplayTextCommandInput) {
-    insert_field(fields, "paint", input.paint.clone());
+    insert_field(fields, "paint", input.paint.to_wire_value());
     insert_field(fields, "rect", input.rect.clone());
     insert_field(fields, "text", input.text.clone());
     insert_optional_field(fields, "lineHeightPx", input.line_height_px.clone());

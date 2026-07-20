@@ -1,23 +1,53 @@
+import type { RitoCoreWasmFontVerticalMetricSample } from './common';
 import type { RitoCoreWasmReaderFrameWindowWarmResult } from './reader-worker';
 import type { RitoCoreWasmSourceLocator, RitoCoreWasmSourceLocatorResolution } from './interaction';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
+  RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest,
+  RitoCoreWasmContinueRevisionRequest,
+  RitoCoreWasmContinueRevisionTowardSourceLocatorRequest,
+  RitoCoreWasmRevisionAdvance,
   RitoCoreWasmRevisionHandle,
+  RitoCoreWasmRevisionAdvanceWithTransferRelease,
+  RitoCoreWasmRevisionAdvanceTowardSourceLocator,
   RitoCoreWasmRevisionNavigation,
+  RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease,
   RitoCoreWasmRevisionPresentation,
   RitoCoreWasmRevisionRelease,
   RitoCoreWasmRevisionSummary,
   RitoCoreWasmRevisionTransferRelease,
+  RitoCoreWasmRevisionWorkBudget,
   RitoCoreWasmVersioned,
 } from './revision';
+
+type RitoCoreWasmBatchedContinueRevisionRequest = RitoCoreWasmContinueRevisionRequest & {
+  readonly maxQuanta?: number | undefined;
+  readonly targetSpreadIndex?: number | undefined;
+};
+
+type RitoCoreWasmBatchedLocatorContinuationRequest =
+  RitoCoreWasmContinueRevisionTowardSourceLocatorRequest & {
+    readonly maxQuanta?: number | undefined;
+  };
 
 export interface RitoCoreWasmBoundedReaderSessionClient {
   createBoundedRevision(
     request: RitoCoreWasmBoundedRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<import('./revision').RitoCoreWasmRevisionAdvance>>;
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
   continueRevision(
-    request: import('./revision').RitoCoreWasmContinueRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<import('./revision').RitoCoreWasmRevisionAdvance>>;
+    request: RitoCoreWasmContinueRevisionRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
+  continueRevisionAfterTransferRelease?(
+    request: RitoCoreWasmBatchedContinueRevisionRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvanceWithTransferRelease>>;
+  continueRevisionTowardSourceLocator?(
+    request: RitoCoreWasmBatchedLocatorContinuationRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvanceTowardSourceLocator>>;
+  calibrateRevisionFontVerticalMetrics(
+    request: RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest,
+  ): Promise<
+    RitoCoreWasmVersioned<RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease>
+  >;
   cancelRevision(
     request: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
@@ -42,7 +72,7 @@ export interface RitoCoreWasmBoundedReaderSessionClient {
 
 interface RitoCoreWasmBoundedReaderStartBase extends RitoCoreWasmBoundedRevisionRequest {
   /** Work quantum used only after the first snapshot; defaults to `budget`. */
-  readonly growthBudget?: import('./revision').RitoCoreWasmRevisionWorkBudget | undefined;
+  readonly growthBudget?: RitoCoreWasmRevisionWorkBudget | undefined;
 }
 
 export type RitoCoreWasmBoundedReaderStartRequest = RitoCoreWasmBoundedReaderStartBase &
@@ -90,6 +120,12 @@ export interface RitoCoreWasmBoundedReaderAcceptedRevision {
 }
 
 export interface RitoCoreWasmBoundedReaderSessionOptions {
+  /**
+   * Native continuation quanta grouped into one atomic worker dispatch.
+   * A resolver is sampled once immediately before each atomic continuation dispatch.
+   * Defaults to `1`; implementations reject resolved values outside their bounded limit.
+   */
+  readonly continuationBatchQuanta?: number | (() => number) | undefined;
   readonly yieldControl?: (() => void | Promise<void>) | undefined;
   readonly onAcceptedRevision?:
     | ((accepted: RitoCoreWasmBoundedReaderAcceptedRevision) => void)
@@ -108,6 +144,10 @@ export interface RitoCoreWasmBoundedReaderSession {
   ensureLocator(locator: RitoCoreWasmSourceLocator): Promise<RitoCoreWasmBoundedReaderSnapshot>;
   /** Callers must close exact-read gates before requesting completion. */
   complete(): Promise<RitoCoreWasmBoundedReaderSnapshot>;
+  /** Rebuild vertical interaction geometry without replacing this worker or its layout key. */
+  calibrateFontVerticalMetrics(
+    samples: readonly RitoCoreWasmFontVerticalMetricSample[],
+  ): Promise<RitoCoreWasmBoundedReaderSnapshot>;
   currentSnapshot(): RitoCoreWasmBoundedReaderSnapshot | undefined;
   cancel(): Promise<void>;
   dispose(): Promise<void>;

@@ -1,8 +1,13 @@
 import type { PositionIntent, ReadingPosition } from '../../interaction/index';
 import { getPositionIntentSupersessionSignal } from '../../interaction/position/intent';
+import type { FrameDriver } from '../../driver/frame-driver';
 import type { Internals, Nav, PositionActionsSlice } from './types';
 
-export function buildPositionActions(internals: Internals, nav: Nav): PositionActionsSlice {
+export function buildPositionActions(
+  internals: Internals,
+  nav: Nav,
+  frameDriver?: Pick<FrameDriver, 'holdFirstComposite'>,
+): PositionActionsSlice {
   let latestRestoreId = 0;
   let latestActionId = 0;
   let constructionDepth = 0;
@@ -22,13 +27,16 @@ export function buildPositionActions(internals: Internals, nav: Nav): PositionAc
   return {
     restorePosition: (serialized) => {
       const restoreId = ++latestRestoreId;
-      return startAction(() =>
-        restorePosition(
-          internals,
-          nav,
-          activeRestoreLoads,
-          serialized,
-          () => restoreId === latestRestoreId,
+      return holdFirstCompositeDuring(frameDriver, (releaseFirstComposite) =>
+        startAction(() =>
+          restorePosition(
+            internals,
+            nav,
+            activeRestoreLoads,
+            serialized,
+            () => restoreId === latestRestoreId,
+            releaseFirstComposite,
+          ),
         ),
       );
     },
@@ -40,6 +48,31 @@ export function buildPositionActions(internals: Internals, nav: Nav): PositionAc
     },
     goToPosition: (position) => startAction(() => goToPosition(position, internals, nav)),
   };
+}
+
+function holdFirstCompositeDuring<T>(
+  frameDriver: Pick<FrameDriver, 'holdFirstComposite'> | undefined,
+  start: (releaseFirstComposite: () => void) => Promise<T>,
+): Promise<T> {
+  const release = frameDriver?.holdFirstComposite();
+  let action: Promise<T>;
+  try {
+    action = start(release ?? ignoreResult);
+  } catch (error) {
+    release?.();
+    throw error;
+  }
+  if (!release) return action;
+  return action.then(
+    (value) => {
+      release();
+      return value;
+    },
+    (error: unknown) => {
+      release();
+      throw error;
+    },
+  );
 }
 
 function rejectReentrantPositionSave(): Promise<void> {
@@ -54,6 +87,7 @@ async function restorePosition(
   activeRestoreLoads: Set<PositionIntent>,
   preloaded: string | null | undefined,
   isLatestRestore: () => boolean,
+  releaseFirstComposite: () => void,
 ): Promise<number | undefined> {
   const tracker = internals.engines.position;
   const intent = tracker?.claimPortableIntent();
@@ -88,6 +122,7 @@ async function restorePosition(
     recoverPortableIntent(internals, intent);
     throw error;
   } finally {
+    releaseFirstComposite();
     if (isLatestRestore()) {
       internals.restoreCompleted = true;
       if (failed) await persistCurrentPosition(internals).catch(ignoreResult);

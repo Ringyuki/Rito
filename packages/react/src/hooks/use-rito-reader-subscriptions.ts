@@ -30,6 +30,17 @@ export function subscribeReaderControllerEvents(
         setState((state) => ({ ...state, error: message }));
       }),
     );
+    const reader = (controller as Partial<Pick<ReaderController, 'reader'>>).reader;
+    if (reader) {
+      unsubscribers.push(
+        reader.onSpreadContentInvalidated((spreadIndex) => {
+          if (spreadIndex !== controller.currentSpread) return;
+          // Content-only updates (including a provisional chapter frame) need a
+          // React render without inventing a spreadChange or layoutChange event.
+          setState((state) => ({ ...state }));
+        }),
+      );
+    }
   } catch (error) {
     disposeSubscriptions(unsubscribers);
     throw error;

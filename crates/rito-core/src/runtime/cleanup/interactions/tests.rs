@@ -154,7 +154,10 @@ fn interactions(
     completed_chapter_idrefs: BTreeSet<String>,
 ) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes,
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
         chapter_text_indices,
         completed_chapter_idrefs,
     }
@@ -199,7 +202,10 @@ fn text_span(index: usize) -> RuntimeChapterTextSpan {
 
 fn deep_span_interactions() -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
+        publication_footnotes: None,
         footnotes: BTreeMap::new(),
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
         chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::from([(
             "deep".to_owned(),
             chapter_index(0, WIDE_OWNER_COUNT),

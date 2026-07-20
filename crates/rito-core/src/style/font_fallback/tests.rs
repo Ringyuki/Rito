@@ -162,13 +162,19 @@ fn recursively_rewrites_the_resolved_style_map() {
         "text".to_owned(),
         None,
         child_style,
-        SourceRef { node_path: vec![0] },
+        SourceRef {
+            node_path: vec![0],
+            source_node_id: None,
+        },
     );
     let mut root = StyledNode::text(
         "root".to_owned(),
         None,
         root_style,
-        SourceRef { node_path: vec![1] },
+        SourceRef {
+            node_path: vec![1],
+            source_node_id: None,
+        },
     );
     root.children.push(child);
     rewrite_font_families(std::slice::from_mut(&mut root), &fallback);

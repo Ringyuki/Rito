@@ -1,6 +1,7 @@
 import type { Reader } from '@ritojs/core';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { ReadingPosition } from '../../interaction/index';
+import type { LayoutPositionPlan } from '../../interaction/position/tracker';
 import { asLegacyPages } from '../compat/legacy-page';
 import { syncCanvasSize } from './lifecycle';
 import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from './types';
@@ -39,6 +40,7 @@ export function buildLayoutActions(
     setTheme(options: ReaderThemeOptions): void {
       internals.reader.setTheme(options);
       runtime.pool.invalidateAllContent();
+      runtime.refreshChapterLocalTheme?.();
       runtime.frameDriver.scheduleComposite();
     },
     setTypography(options): boolean {
@@ -58,17 +60,27 @@ export function buildLayoutActions(
 function applyRenderScale(scale: number, internals: Internals, runtime: RuntimeComponents): void {
   requireRenderScale(scale);
   if (scale === internals.renderScale) return;
-  invalidateSelectionForLayout(internals);
-  internals.renderScale = scale;
-  syncCanvasSize(internals, runtime);
-  runtime.pool.invalidateAllContent();
-  runtime.pool.assignSlot('curr', internals.currentSpread);
-  runtime.frameDriver.scheduleComposite();
-  internals.coordState.positionUpdateMode = {
-    kind: 'skip',
-    spreadIndex: internals.currentSpread,
-  };
-  internals.reader.notifyActiveSpread(internals.currentSpread);
+  const finishChapterLocalTransition = runtime.terminateChapterLocalForLayout?.();
+  try {
+    invalidateSelectionForLayout(internals);
+    internals.renderScale = scale;
+    syncCanvasSize(internals, runtime);
+    runtime.pool.invalidateAllContent();
+    runtime.pool.assignSlot('curr', internals.currentSpread);
+    internals.coordState.positionUpdateMode = {
+      kind: 'skip',
+      spreadIndex: internals.currentSpread,
+    };
+    if (finishChapterLocalTransition) {
+      runtime.frameDriver.compositeNow();
+      internals.reader.notifyActiveSpread(internals.currentSpread);
+    } else {
+      runtime.frameDriver.scheduleComposite();
+      internals.reader.notifyActiveSpread(internals.currentSpread);
+    }
+  } finally {
+    finishChapterLocalTransition?.();
+  }
 }
 
 function refreshLayoutWhenChanged(
@@ -95,6 +107,33 @@ export function commitLayoutChange(
   anchor?: ReadingPosition | null,
   committedSpreadIndex?: number,
 ): void {
+  const finishChapterLocalTransition = runtime.terminateChapterLocalForLayout?.();
+  const previousSpread = internals.currentSpread;
+  let mutation: LayoutCommitMutation;
+  try {
+    mutation = applyLayoutCommitMutation(internals, runtime, anchor, committedSpreadIndex);
+  } finally {
+    finishChapterLocalTransition?.();
+  }
+
+  if (mutation.clearedNativeAnnotationHover) {
+    emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
+  }
+  emitLayoutChange(internals, emitter);
+  emitCommittedSpreadChangeIfCurrent(internals, emitter, previousSpread, mutation.committedSpread);
+}
+
+interface LayoutCommitMutation {
+  readonly committedSpread: number;
+  readonly clearedNativeAnnotationHover: boolean;
+}
+
+function applyLayoutCommitMutation(
+  internals: Internals,
+  runtime: RuntimeComponents,
+  anchor: ReadingPosition | null | undefined,
+  committedSpreadIndex: number | undefined,
+): LayoutCommitMutation {
   const tracker = internals.engines.position;
   const positionPlan = tracker?.prepareLayoutCommit(
     anchor,
@@ -102,7 +141,6 @@ export function commitLayoutChange(
   );
   const preserved = positionPlan?.kind === 'legacy' ? positionPlan.position : null;
   const clearedNativeAnnotationHover = invalidateNativeLayoutGeometry(internals);
-  const previousSpread = internals.currentSpread;
   internals.currentSpread =
     committedSpreadIndex === undefined
       ? resolveCommittedSpread(internals, preserved)
@@ -112,6 +150,22 @@ export function commitLayoutChange(
   runtime.pool.assignSlot('curr', internals.currentSpread);
   runtime.td.reset();
   const committedSpread = internals.currentSpread;
+  installLayoutPositionMode(internals, positionPlan, preserved, committedSpread);
+  invalidateSelectionForLayout(internals);
+  if (internals.currentSpread === committedSpread) {
+    internals.reader.notifyActiveSpread(committedSpread);
+  }
+  internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
+  runtime.frameDriver.compositeNow();
+  return { committedSpread, clearedNativeAnnotationHover };
+}
+
+function installLayoutPositionMode(
+  internals: Internals,
+  positionPlan: LayoutPositionPlan | undefined,
+  preserved: ReadingPosition | null,
+  committedSpread: number,
+): void {
   if (positionPlan?.kind === 'portable') {
     internals.coordState.positionUpdateMode = { kind: 'skip', spreadIndex: committedSpread };
   } else if (preserved && positionPlan) {
@@ -123,18 +177,6 @@ export function commitLayoutChange(
   } else {
     internals.coordState.positionUpdateMode = { kind: 'capture' };
   }
-  invalidateSelectionForLayout(internals);
-  if (internals.currentSpread === committedSpread) {
-    internals.reader.notifyActiveSpread(committedSpread);
-  }
-  internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
-  runtime.frameDriver.compositeNow();
-
-  if (clearedNativeAnnotationHover) {
-    emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
-  }
-  emitLayoutChange(internals, emitter);
-  emitCommittedSpreadChangeIfCurrent(internals, emitter, previousSpread, committedSpread);
 }
 
 /** Publishes a larger known extent without resetting stable layout or transition state. */

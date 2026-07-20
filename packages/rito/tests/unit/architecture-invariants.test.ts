@@ -23,7 +23,10 @@ const PACKAGE_ROOT = join(SRC, '..');
 const WORKSPACE_ROOT = join(PACKAGE_ROOT, '../..');
 const PACKAGE_JSON = join(SRC, '../package.json');
 const TSDOWN_CONFIG = join(PACKAGE_ROOT, 'tsdown.config.ts');
-const PRIVATE_BUILD_ENTRIES = new Set(['src/bindings/browser/reader/worker-main.ts']);
+const PRIVATE_BUILD_ENTRIES = new Set([
+  'src/bindings/browser/reader/worker-main.ts',
+  'src/bindings/browser/reader-v1-worker.ts',
+]);
 const MAIN_ENTRY = join(SRC, 'index.ts');
 const PACKAGE_JSON_RECORD = readJsonRecord(PACKAGE_JSON);
 const PUBLIC_ENTRY_FILES = packageSourceEntryFiles(PACKAGE_JSON_RECORD, read(TSDOWN_CONFIG));

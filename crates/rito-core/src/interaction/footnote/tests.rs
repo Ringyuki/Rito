@@ -1,4 +1,4 @@
-use crate::xhtml::{parse_xhtml, DocumentNode};
+use crate::xhtml::{parse_xhtml, scan_epub_type_attribute_hints, DocumentNode};
 
 use super::*;
 
@@ -385,6 +385,89 @@ fn single_pass_index_matches_two_pass_cross_chapter_and_nested_semantics() {
         two_pass.filtered_chapters.get("body").unwrap(),
         "visible-inner"
     ));
+}
+
+#[test]
+fn lightweight_plan_preserves_relative_percent_and_nested_definition_semantics() {
+    let sources = [
+        (
+            "Text/body.xhtml",
+            r##"<html xmlns:epub="http://www.idpf.org/2007/ops"><body>
+            <a epub:type="noteref" href="../Text/notes.xhtml#%E6%B3%A8">outer</a>
+            <a epub:type="noteref" href="notes.xhtml#inner">inner</a>
+            </body></html>"##,
+        ),
+        (
+            "Text/notes.xhtml",
+            r##"<html xmlns:epub="http://www.idpf.org/2007/ops"><body>
+            <aside epub:type="footnote" id="注"><p>Outer</p>
+              <aside epub:type="endnote" id="inner"><p>Nested</p></aside>
+            </aside>
+            </body></html>"##,
+        ),
+        (
+            "Text/unused.xhtml",
+            r##"<html xmlns:epub="http://www.idpf.org/2007/ops"><body>
+            <aside epub:type="footnote" id="unused"><p>Unused</p></aside>
+            </body></html>"##,
+        ),
+    ];
+    let hrefs = sources
+        .iter()
+        .map(|(href, _)| (*href).to_owned())
+        .collect::<Vec<_>>();
+    let mut planning = FootnoteIndexPlanBuilder::new(hrefs.iter().cloned());
+    for (chapter_index, (href, source)) in sources.iter().enumerate() {
+        let hints = scan_epub_type_attribute_hints(source).expect("lightweight scan");
+        planning.discover(chapter_index, href, &hints);
+    }
+    let plan = planning.finish();
+
+    assert_eq!(plan.definition_chapter_indices, vec![1]);
+    assert!(plan.targets.contains("Text/notes.xhtml#注"));
+    assert!(plan.targets.contains("Text/notes.xhtml#inner"));
+
+    let parsed = parse_xhtml(sources[1].1).expect("selected definition chapter");
+    let mut definitions = FootnoteDefinitionBuilder::new(&plan.targets);
+    definitions.discover(sources[1].0, &parsed.nodes);
+    let footnotes = definitions.finish();
+
+    let mut compatibility = FootnoteIndexBuilder::new(hrefs.iter().cloned());
+    for (href, source) in &sources {
+        let parsed = parse_xhtml(source).expect("compatibility semantic chapter");
+        compatibility.discover(href, &parsed.nodes);
+    }
+    let (compatibility_targets, compatibility_footnotes) = compatibility.finish();
+
+    assert_eq!(footnotes.len(), 1);
+    assert_eq!(footnotes["Text/notes.xhtml#注"].text, "Outer Nested");
+    assert!(!footnotes.contains_key("Text/notes.xhtml#inner"));
+    assert_eq!(plan.targets, compatibility_targets);
+    assert_eq!(footnotes, compatibility_footnotes);
+}
+
+#[test]
+fn lightweight_definition_stage_keeps_last_duplicate_like_compatibility_path() {
+    let source = r##"<html xmlns:epub="http://www.idpf.org/2007/ops"><body>
+        <a epub:type="noteref" href="#same">note</a>
+        <aside epub:type="footnote" id="same"><p>First</p></aside>
+        <aside epub:type="endnote" id="same"><p>Second</p></aside>
+        </body></html>"##;
+    let hints = scan_epub_type_attribute_hints(source).expect("lightweight scan");
+    let mut planning = FootnoteIndexPlanBuilder::new(["Text/chapter.xhtml".to_owned()]);
+    planning.discover(0, "Text/chapter.xhtml", &hints);
+    let plan = planning.finish();
+    let parsed = parse_xhtml(source).expect("selected definition chapter");
+    let mut definitions = FootnoteDefinitionBuilder::new(&plan.targets);
+    definitions.discover("Text/chapter.xhtml", &parsed.nodes);
+    let footnotes = definitions.finish();
+
+    assert_eq!(plan.definition_chapter_indices, vec![0]);
+    assert_eq!(footnotes["Text/chapter.xhtml#same"].text, "Second");
+    assert_eq!(
+        footnotes["Text/chapter.xhtml#same"].kind,
+        FootnoteKind::Endnote
+    );
 }
 
 fn contains_element_id(nodes: &[DocumentNode], id: &str) -> bool {

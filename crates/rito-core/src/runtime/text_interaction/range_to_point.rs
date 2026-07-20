@@ -1,10 +1,9 @@
-use crate::{
-    epub::{EpubError, EpubResult},
-    interaction::{
-        resolve_text_range_to_point, LayoutTextPoint, LayoutTextRangeFromPointsResolution,
-    },
-};
+use crate::epub::{EpubError, EpubResult};
 
+use super::super::page_artifact::{
+    PageArtifactTextPoint, PageArtifactTextRangeFromPointsResolution,
+    PageArtifactTextRangeToPointQuery,
+};
 use super::{
     runtime_text_caret, runtime_text_range, RuntimeDocument, RuntimeTextRangeFromPointsResolution,
     RuntimeTextRangeToPointRequest, RuntimeTextRangeToPointResponse,
@@ -18,17 +17,18 @@ impl RuntimeDocument {
     ) -> EpubResult<RuntimeTextRangeToPointResponse> {
         require_valid_request(self, revision_id, request)?;
         let revision = self.require_text_interaction_revision(revision_id)?;
-        let resolution = resolve_text_range_to_point(
-            &revision.layout.pages,
-            request.anchor,
-            LayoutTextPoint {
-                page_index: request.focus.page_index,
-                x: request.focus.x,
-                y: request.focus.y,
-            },
-        );
+        let resolution = revision
+            .chapter_engine_session()
+            .resolve_text_range_to_point(PageArtifactTextRangeToPointQuery {
+                anchor: request.anchor,
+                focus: PageArtifactTextPoint {
+                    page_index: request.focus.page_index,
+                    x: request.focus.x,
+                    y: request.focus.y,
+                },
+            });
         let resolution = match resolution {
-            LayoutTextRangeFromPointsResolution::Resolved(selection) => {
+            PageArtifactTextRangeFromPointsResolution::Resolved(selection) => {
                 let range = match runtime_text_range(&self.document, revision, *selection.range)? {
                     super::RuntimeTextRangeResolution::Resolved { range } => range,
                     super::RuntimeTextRangeResolution::Unavailable { reason } => {
@@ -54,10 +54,12 @@ impl RuntimeDocument {
                     range,
                 }
             }
-            LayoutTextRangeFromPointsResolution::Unavailable(reason) => {
+            PageArtifactTextRangeFromPointsResolution::Unavailable(reason) => {
                 RuntimeTextRangeFromPointsResolution::Unavailable { reason }
             }
-            LayoutTextRangeFromPointsResolution::Miss => RuntimeTextRangeFromPointsResolution::Miss,
+            PageArtifactTextRangeFromPointsResolution::Miss => {
+                RuntimeTextRangeFromPointsResolution::Miss
+            }
         };
         Ok(RuntimeTextRangeToPointResponse {
             revision_id: revision_id.to_owned(),
@@ -76,7 +78,7 @@ fn require_valid_request(
     }
     let revision = document.require_text_interaction_revision(revision_id)?;
     for page_index in [request.anchor.page_index, request.focus.page_index] {
-        if page_index >= revision.layout.pages.len() {
+        if page_index >= revision.chapter_engine_session().metadata().page_count {
             return Err(EpubError::new(format!("unknown page index: {page_index}")));
         }
     }

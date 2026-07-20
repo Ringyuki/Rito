@@ -1,10 +1,21 @@
-import type { TransitionDriver } from '../../driver/transition-driver';
 import { supersedeNavigationForDirectInteraction, type NavigationState } from './state';
+import type { NavigationDeps } from './index';
+import { supersedeChapterLocalTransition } from './chapter-local-preview';
 
-interface DirectInteractionDeps {
-  readonly td: TransitionDriver;
-  readonly onContentInteractionIntent?: (() => void) | undefined;
-}
+type DirectInteractionDeps = Pick<
+  NavigationDeps,
+  | 'td'
+  | 'pool'
+  | 'frameDriver'
+  | 'provisionalRuntime'
+  | 'getCurrentSpread'
+  | 'getReader'
+  | 'contentRenderer'
+  | 'setCurrentSpread'
+  | 'emitter'
+  | 'onNavigationCancelled'
+  | 'onContentInteractionIntent'
+>;
 
 export interface NavigationSelectionInputBarrier {
   owns(): boolean;
@@ -32,6 +43,8 @@ function supersedeDirectInteraction(
 ): number | null {
   if (state.disposed) return null;
   deps.onContentInteractionIntent?.();
+  supersedeChapterLocalTransition(state, deps as NavigationDeps);
   const result = supersedeNavigationForDirectInteraction(state, deps.td);
+  if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) return null;
   return result.attemptId;
 }

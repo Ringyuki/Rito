@@ -19,7 +19,7 @@ export function dispatchNativeClickTarget(
     dispatchFootnote(target, deps);
     return;
   }
-  if (target.kind === 'link') {
+  if (target.kind === 'link' || target.kind === 'footnotePending') {
     dispatchLink(target, deps);
     return;
   }

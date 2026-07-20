@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SelectorTarget {
@@ -6,7 +6,7 @@ pub(crate) struct SelectorTarget {
     pub class_name: Option<String>,
     pub id: Option<String>,
     pub attributes: BTreeMap<String, String>,
-    pub previous_sibling: Option<Box<SelectorTarget>>,
+    pub previous_sibling: Option<Arc<SelectorTarget>>,
     pub sibling_index: Option<usize>,
     pub sibling_count: Option<usize>,
 }
@@ -478,13 +478,13 @@ fn matches_chain(
 #[cfg(test)]
 mod tests {
     use super::{matches_selector, SelectorTarget};
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, sync::Arc};
 
     #[test]
     fn matches_compound_child_descendant_and_adjacent_selectors() {
         let previous = target("h1", None, None);
         let mut paragraph = target("p", Some("intro lead"), Some("p1"));
-        paragraph.previous_sibling = Some(Box::new(previous));
+        paragraph.previous_sibling = Some(Arc::new(previous));
         paragraph.sibling_index = Some(1);
         paragraph.sibling_count = Some(3);
         let ancestor = target("section", Some("chapter"), None);

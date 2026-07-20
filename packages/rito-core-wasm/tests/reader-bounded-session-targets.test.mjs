@@ -48,6 +48,18 @@ test('bounded startup targets a locator before publishing or warming any spread'
   const session = createRitoCoreWasmBoundedReaderSession(client, {
     yieldControl: async () => {},
   });
+  let standaloneLocatorRequests = 0;
+  let atomicLocatorContinues = 0;
+  const resolveSourceLocator = client.resolveSourceLocatorAtRevision;
+  const continueTowardLocator = client.continueRevisionTowardSourceLocator;
+  client.resolveSourceLocatorAtRevision = async (...args) => {
+    standaloneLocatorRequests += 1;
+    return resolveSourceLocator(...args);
+  };
+  client.continueRevisionTowardSourceLocator = async (...args) => {
+    atomicLocatorContinues += 1;
+    return continueTowardLocator(...args);
+  };
 
   const snapshot = await session.start(locatorStartRequest(locator));
 
@@ -58,6 +70,8 @@ test('bounded startup targets a locator before publishing or warming any spread'
   assert.deepEqual(budgets, [32, 32, 32]);
   assert.deepEqual(warmed, [3]);
   assert.equal(presentationCount, 1);
+  assert.equal(standaloneLocatorRequests, 1);
+  assert.equal(atomicLocatorContinues, 2);
   await session.dispose();
 });
 
@@ -110,6 +124,27 @@ test('ensureLocator advances exact revisions until its source target resolves', 
   assert.equal(presentationCount, 2);
   assert.deepEqual(warmed, [0, 3]);
   await session.dispose();
+});
+
+test('313-quantum far locator protocol drops worker requests from 940 to 314', async () => {
+  const growthQuanta = 313;
+  const legacy = await farLocatorProtocolCounts(growthQuanta, false);
+  const atomic = await farLocatorProtocolCounts(growthQuanta, true);
+
+  assert.deepEqual(legacy, {
+    standaloneLocator: growthQuanta + 1,
+    directRelease: growthQuanta,
+    directContinue: growthQuanta,
+    atomicLocatorContinue: 0,
+    total: growthQuanta * 3 + 1,
+  });
+  assert.deepEqual(atomic, {
+    standaloneLocator: 1,
+    directRelease: 0,
+    directContinue: 0,
+    atomicLocatorContinue: growthQuanta,
+    total: growthQuanta + 1,
+  });
 });
 
 test('ensureLocator settles a typed no-page projection without continuing', async () => {
@@ -314,14 +349,15 @@ test('a locator failure after growth can recover the latest accepted revision', 
   await session.dispose();
 });
 
-test('a pending far spread retargeted to no-page locator keeps the committed presentation', async () => {
+test('a retarget during atomic growth accepts at most one quantum and publishes the latest target', async () => {
   const releaseStarted = deferred();
   const releaseAllowed = deferred();
   let continueCount = 0;
   const client = fixtureClient({
     create: async () => versioned(advance(0, 1, true)),
-    continue: async () => {
+    continue: async (request) => {
       continueCount += 1;
+      return versioned(advance(request.revisionVersion + 1, 2, true));
     },
     releaseTransfers: async () => {
       releaseStarted.resolve();
@@ -341,9 +377,10 @@ test('a pending far spread retargeted to no-page locator keeps the committed pre
   const [farSnapshot, locatorSnapshot] = await Promise.all([far, locating]);
 
   assert.equal(farSnapshot.target.kind, 'locator');
+  assert.equal(farSnapshot.revision.revisionVersion, 1);
   assert.equal(locatorSnapshot.presentationSpreadIndex, 0);
   assert.equal(locatorSnapshot.frameWindow.spreadIndex, 0);
-  assert.equal(continueCount, 0);
+  assert.equal(continueCount, 1);
   await session.dispose();
 });
 
@@ -377,6 +414,49 @@ test('locator invariants fail instead of looping a complete or out-of-range revi
     assert.equal(session.currentSnapshot(), undefined);
   }
 });
+
+async function farLocatorProtocolCounts(growthQuanta, atomic) {
+  const target = { href: 'far.xhtml' };
+  const client = fixtureClient({
+    atomic,
+    create: async () => versioned(advance(0, 1, true)),
+    continue: async (request) => {
+      const version = request.revisionVersion + 1;
+      return versioned(advance(version, version + 1, true));
+    },
+    locator: (revision, locator, extent) =>
+      revision.revisionVersion < growthQuanta
+        ? pending(revision, locator, 'notPaginated')
+        : sourceResolution(revision, locator, extent, 0),
+  });
+  const counts = {
+    standaloneLocator: 0,
+    directRelease: 0,
+    directContinue: 0,
+    atomicLocatorContinue: 0,
+  };
+  wrapCount(client, 'resolveSourceLocatorAtRevision', counts, 'standaloneLocator');
+  wrapCount(client, 'releaseRevisionTransfersAtRevision', counts, 'directRelease');
+  wrapCount(client, 'continueRevision', counts, 'directContinue');
+  wrapCount(client, 'continueRevisionTowardSourceLocator', counts, 'atomicLocatorContinue');
+  const session = createRitoCoreWasmBoundedReaderSession(client, { yieldControl: async () => {} });
+
+  const snapshot = await session.start(locatorStartRequest(target));
+  assert.equal(snapshot.revision.revisionVersion, growthQuanta);
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  const result = { ...counts, total };
+  await session.dispose();
+  return result;
+}
+
+function wrapCount(client, method, counts, field) {
+  const operation = client[method];
+  if (operation === undefined) return;
+  client[method] = async (...args) => {
+    counts[field] += 1;
+    return operation(...args);
+  };
+}
 
 function pending(revision, locator, reason) {
   return {

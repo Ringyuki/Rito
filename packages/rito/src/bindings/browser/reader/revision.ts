@@ -16,6 +16,7 @@ export interface BrowserReaderRevisionStateInput {
   readonly lineBreaking: 'greedy' | 'optimal';
   readonly result: BrowserReaderRevisionResult;
   readonly worker: BrowserReaderWorkerClient;
+  readonly frameCachePrepared?: boolean | undefined;
   readonly initialFrame?: BrowserReaderFrame | undefined;
 }
 
@@ -33,6 +34,7 @@ export function applyBrowserReaderRevisionState(
   state.config = input.config;
   state.spreadMode = input.spreadMode;
   state.lineBreaking = input.lineBreaking;
+  if (!input.frameCachePrepared) resetFrameCache(state);
   applyRevisionData(state, input.result);
   if (input.initialFrame) cacheFrame(state, input.initialFrame.spreadIndex, input.initialFrame);
   applyBrowserReaderFrameWindow(state, state.revisionHandle, input.result.frameWindow, {
@@ -43,7 +45,6 @@ export function applyBrowserReaderRevisionState(
 function applyRevisionData(state: BrowserReaderState, result: BrowserReaderRevisionResult): void {
   const { bundle } = result;
   state.revisionBundle = bundle;
-  resetFrameCache(state);
   resetBrowserReaderInteractionCache(state);
   state.footnotes = createRitoCoreWasmReaderFootnoteMap(bundle.footnotes);
   state.chapterTextIndices = createRitoCoreWasmReaderChapterTextIndexMap(bundle.chapterTextIndices);

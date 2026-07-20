@@ -95,6 +95,13 @@ test('frame resource delivery consumes successful transfers and releases only fa
   assert.deepEqual(response.result.spreads[0].resources, [
     { payload: first, bytes: Uint8Array.of(6, 7, 8) },
   ]);
+  assert.deepEqual(response.result.spreads[0].missingResources, [
+    {
+      kind: 'image',
+      href: missing.href,
+      message: `Frame resource transfer is unavailable: ${missing.href}`,
+    },
+  ]);
   assert.deepEqual(taken, [first.transferId, missing.transferId]);
   assert.deepEqual(released, [missing.transferId]);
 });

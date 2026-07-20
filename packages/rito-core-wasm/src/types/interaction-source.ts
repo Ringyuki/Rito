@@ -16,6 +16,8 @@ export interface RitoCoreWasmFootnoteEntry {
 
 export interface RitoCoreWasmFootnotes {
   readonly revisionId: string;
+  readonly complete: boolean;
+  readonly pendingKeys: readonly string[];
   readonly entries: Readonly<Record<string, RitoCoreWasmFootnoteEntry>>;
 }
 

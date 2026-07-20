@@ -1,6 +1,7 @@
 export type * from './types/common';
 export type * from './types/publication';
 export type * from './types/revision';
+export type * from './types/chapter-local';
 export type * from './types/frame';
 export type * from './types/frame-command';
 export type * from './types/resource';
@@ -16,3 +17,6 @@ export type * from './types/reading-anchor';
 export type * from './types/status';
 export type * from './types/shape-provenance';
 export type * from './types/pinned-font';
+export type * from './types/reader-v1-display';
+export type * from './types/reader-v1';
+export type * from './types/reader-v1-worker';

@@ -40,7 +40,7 @@ fn has_epub_type(node: &DocumentNode, predicate: impl Fn(&str) -> bool) -> bool 
         .is_some_and(|value| value.split_whitespace().any(predicate))
 }
 
-fn parse_footnote_kind(token: &str) -> Option<FootnoteKind> {
+pub(super) fn parse_footnote_kind(token: &str) -> Option<FootnoteKind> {
     match token {
         "footnote" => Some(FootnoteKind::Footnote),
         "endnote" => Some(FootnoteKind::Endnote),

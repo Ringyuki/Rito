@@ -145,6 +145,11 @@ impl ContinuousPaginationSession {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn open_page_block_count(&self) -> usize {
+        self.state.page_blocks.len()
+    }
+
     /// Moves all currently buffered sealed pages out of the session.
     /// Chapter-local page indexes remain monotonic across subsequent takes.
     pub(crate) fn take_sealed_pages(&mut self) -> Vec<LayoutRuntimePage> {

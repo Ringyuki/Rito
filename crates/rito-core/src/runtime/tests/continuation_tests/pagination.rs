@@ -210,6 +210,9 @@ fn bounded_multichapter_completion_exactly_matches_eager_layout_and_frames() {
         } else {
             None
         };
+        let stable_cache_count = bounded
+            .cached_frame_count(&advance.revision.revision_id)
+            .expect("active revision owns a frame cache");
         let Some(cursor) = advance.continuation.clone() else {
             break;
         };
@@ -219,8 +222,8 @@ fn bounded_multichapter_completion_exactly_matches_eager_layout_and_frames() {
             .expect("continuation advances");
         assert_eq!(
             bounded.cached_frame_count(&advance.revision.revision_id),
-            Some(0),
-            "accepted advances invalidate the revision frame cache"
+            Some(stable_cache_count),
+            "accepted advances preserve cached frames from the immutable published prefix"
         );
         if let Some((spread_index, hash)) = stable_frame {
             assert_eq!(

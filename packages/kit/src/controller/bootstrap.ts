@@ -1,28 +1,19 @@
 import type { Reader } from '@ritojs/core';
 import type { FrameDriver } from '../driver/frame-driver';
-import { createTransitionDriver } from '../driver/transition-driver';
-import type { ContentRenderer } from '../painter/buffer-pool';
-import { createPageBufferPool } from '../painter/buffer-pool';
-import { createDisplaySurface } from '../painter/display-surface';
+import type { TransitionDriver } from '../driver/transition-driver';
+import type { ContentRenderer, PageBufferPool } from '../painter/buffer-pool';
 import type { createDisposableCollection } from '../utils/disposable';
-import { runDisposers } from '../utils/disposable';
 import type { createEmitter } from '../utils/event-emitter';
 import type { ConstructionOwner } from './construction-owner';
-import { createCoordinatorState } from './core/index';
 import { buildWiringDeps } from './core/wiring-deps';
-import { createEngines } from './engines/index';
 import { syncCanvasSize, type Internals } from './facade';
 import { commitLayoutChange, publishPaginationChange } from './facade/layout-actions';
 import { createPrimarySelectionDragNavigation } from './facade/selection-primary-drag';
 import type { RuntimeComponents } from './facade/types';
 import { createNavigation } from './navigation/index';
-import { createPositionPersistence } from './position-persistence';
-import { createPrerenderScheduler } from './prerender';
-import {
-  createRuntimeFrameParts,
-  scheduleControllerPrerender,
-  wireSettledEvents,
-} from './runtime-frame';
+import { createRuntimeComponents } from './runtime-construction';
+import { scheduleControllerPrerender } from './runtime-frame';
+import type { ProvisionalTransitionRuntime } from './runtime-frame';
 import type { ControllerOptions, ReaderControllerEvents } from './types';
 import {
   wireDomHelpers,
@@ -33,8 +24,6 @@ import {
 
 type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
 type Disposables = ReturnType<typeof createDisposableCollection>;
-type TransitionDriverInstance = ReturnType<typeof createTransitionDriver>;
-type PageBufferPoolInstance = ReturnType<typeof createPageBufferPool>;
 
 export interface ControllerBootstrap {
   readonly internals: Internals;
@@ -54,7 +43,7 @@ export function bootstrapRuntime(
   construction.own(() => {
     disposables.disposeAll();
   });
-  const { internals, runtime, contentRenderer } = createRuntimeComponents(
+  const constructionParts = createRuntimeComponents(
     reader,
     canvas,
     options,
@@ -62,6 +51,7 @@ export function bootstrapRuntime(
     disposables,
     construction,
   );
+  const { internals, runtime, contentRenderer, provisionalRuntime } = constructionParts;
   const nav = createRuntimeNavigation(
     internals,
     emitter,
@@ -69,7 +59,9 @@ export function bootstrapRuntime(
     runtime.frameDriver,
     runtime.pool,
     contentRenderer,
+    provisionalRuntime,
   );
+  constructionParts.bindChapterLocalNavigation(nav);
   const disposeNavigation = construction.own(() => {
     nav.dispose();
   });
@@ -78,147 +70,14 @@ export function bootstrapRuntime(
   return { internals, runtime, nav, contentRenderer };
 }
 
-function createRuntimeComponents(
-  reader: Reader,
-  canvas: HTMLCanvasElement,
-  options: ControllerOptions,
-  emitter: Emitter,
-  disposables: Disposables,
-  construction: ConstructionOwner,
-): Omit<ControllerBootstrap, 'nav'> {
-  const surface = createDisplaySurface(canvas);
-  const pool = createOwnedPool(construction);
-  const prerenderScheduler = createOwnedPrerenderScheduler(construction);
-  const transitionDriver = createTransitionDriver(options.transition);
-  const internals = createControllerInternals(reader, options);
-  const disposeControllerEngines = construction.own(() => {
-    disposeEngines(internals);
-  });
-  disposables.add(disposeControllerEngines);
-
-  const { contentRenderer, frameDriver } = createRuntimeFrameParts(
-    reader,
-    internals,
-    surface,
-    pool,
-    transitionDriver,
-  );
-  construction.own(() => {
-    frameDriver.dispose();
-  });
-  const disposeSettledEvents = wireSettledEvents(
-    internals,
-    transitionDriver,
-    pool,
-    emitter,
-    frameDriver,
-    reader,
-    contentRenderer,
-    prerenderScheduler,
-  );
-  construction.own(disposeSettledEvents);
-  const runtime: RuntimeComponents = {
-    td: transitionDriver,
-    frameDriver,
-    pool,
-    prerenderScheduler,
-    disposeSettledEvents,
-    surface,
-  };
-  return { internals, runtime, contentRenderer };
-}
-
-function createOwnedPool(construction: ConstructionOwner): PageBufferPoolInstance {
-  const pool = createPageBufferPool();
-  construction.own(() => {
-    pool.dispose();
-  });
-  return pool;
-}
-
-function createOwnedPrerenderScheduler(construction: ConstructionOwner) {
-  const scheduler = createPrerenderScheduler();
-  construction.own(() => {
-    scheduler.dispose();
-  });
-  return scheduler;
-}
-
-function createControllerInternals(reader: Reader, options: ControllerOptions): Internals {
-  const coordState = createCoordinatorState();
-  const engines = createEngines(reader, options, coordState);
-  try {
-    return {
-      reader,
-      currentSpread: initialActiveSpread(reader),
-      renderScale: options.renderScale ?? 1,
-      options,
-      engines,
-      coordState,
-      positionPersistence: createPositionPersistence(options.positionStorage),
-      pendingPositionAction: undefined,
-      restoreCompleted: false,
-    };
-  } catch (error: unknown) {
-    const annotationStore = coordState.annotationStore;
-    coordState.annotationStore = null;
-    tryDisposeEngines(engines, annotationStore);
-    throw error;
-  }
-}
-
-function initialActiveSpread(reader: Reader): number {
-  const active: unknown = (reader as { readonly activeSpreadIndex?: unknown }).activeSpreadIndex;
-  if (typeof active !== 'number' || !Number.isSafeInteger(active)) return 0;
-  const lastSpread =
-    Number.isSafeInteger(reader.totalSpreads) && reader.totalSpreads > 0
-      ? reader.totalSpreads - 1
-      : 0;
-  return Math.max(0, Math.min(active, lastSpread));
-}
-
-function disposeEngines(internals: Internals): void {
-  const { engines, coordState } = internals;
-  const annotationStore = coordState.annotationStore;
-  coordState.annotationStore = null;
-  disposeEngineResources(engines, annotationStore);
-}
-
-function disposeEngineResources(
-  engines: Internals['engines'],
-  annotationStore: Internals['coordState']['annotationStore'],
-): void {
-  runDisposers([
-    () => {
-      engines.selection.dispose();
-    },
-    () => {
-      engines.position?.dispose();
-    },
-    () => {
-      annotationStore?.dispose();
-    },
-  ]);
-}
-
-function tryDisposeEngines(
-  engines: Internals['engines'],
-  annotationStore: Internals['coordState']['annotationStore'],
-): void {
-  try {
-    disposeEngineResources(engines, annotationStore);
-  } catch {
-    // Preserve the construction error after best-effort cleanup.
-  }
-}
-
 function createRuntimeNavigation(
   internals: Internals,
   emitter: Emitter,
-  transitionDriver: TransitionDriverInstance,
+  transitionDriver: TransitionDriver,
   frameDriver: FrameDriver,
-  pool: PageBufferPoolInstance,
+  pool: PageBufferPool,
   contentRenderer: ContentRenderer,
+  provisionalRuntime: ProvisionalTransitionRuntime,
 ) {
   return createNavigation({
     getReader: () => internals.reader,
@@ -232,6 +91,7 @@ function createRuntimeNavigation(
     frameDriver,
     pool,
     contentRenderer,
+    provisionalRuntime,
     onNavigationIntent: () => {
       internals.engines.position?.claimIntent();
     },

@@ -1,5 +1,9 @@
 import type { BrowserReaderRevisionHandle, BrowserReaderState } from './reader/types';
-import type { BrowserReaderResourceBytes, CoreRevisionHandle } from './core-contracts';
+import type {
+  BrowserReaderResourceBytes,
+  CoreRevisionHandle,
+  CoreResourceKind,
+} from './core-contracts';
 import {
   ensureHostFontFamilyMetrics,
   ensureHostFontVerticalMetrics,
@@ -7,6 +11,12 @@ import {
 } from './font-metrics';
 import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
 import { prepareBrowserReaderRevisionFonts } from './publication-fonts';
+import {
+  BrowserReaderImageResourceError,
+  type BrowserReaderImageLoadOutcome,
+  type BrowserReaderImageResourceFailureReason,
+} from './image-resource-error';
+import type { BrowserReaderWorkerRevisionHandle } from './reader/types';
 
 export {
   browserFontFaceRegistry,
@@ -17,13 +27,25 @@ export {
 
 export function createBrowserReaderResourceState(): Pick<
   BrowserReaderState,
-  'pendingImageLoads' | 'images' | 'registeredFontFaces'
+  | 'pendingImageLoads'
+  | 'imageResourceFailures'
+  | 'settledImageResourceSpreads'
+  | 'images'
+  | 'registeredFontFaces'
 > {
   return {
     pendingImageLoads: new Map(),
+    imageResourceFailures: new Map(),
+    settledImageResourceSpreads: new Set(),
     images: new Map(),
     registeredFontFaces: new Map(),
   };
+}
+
+export interface BrowserReaderMissingFrameResource {
+  readonly kind: CoreResourceKind;
+  readonly href: string;
+  readonly message: string;
 }
 
 export async function preloadReaderFonts(state: BrowserReaderState): Promise<boolean> {
@@ -76,8 +98,8 @@ export async function preloadCurrentReaderFonts(state: BrowserReaderState): Prom
 export async function preloadFrameResourceBytes(
   state: BrowserReaderState,
   resources: readonly BrowserReaderResourceBytes[],
+  revision?: BrowserReaderRevisionHandle,
 ): Promise<void> {
-  if (typeof createImageBitmap === 'undefined') return;
   await Promise.all(
     resources
       .filter((resource) => resource.payload.kind === 'image')
@@ -87,9 +109,59 @@ export async function preloadFrameResourceBytes(
           resource.payload.href,
           resource.payload.mediaType,
           resource.bytes,
-        ).catch(() => undefined),
+          revision,
+        ),
       ),
   );
+}
+
+export function recordMissingFrameImageResources(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  resources: readonly BrowserReaderMissingFrameResource[],
+): void {
+  for (const resource of resources) {
+    if (resource.kind !== 'image' || state.images.has(resource.href)) continue;
+    recordImageFailure(state, revision, resource.href, {
+      status: 'failed',
+      reason: 'resource-unavailable',
+      detail: resource.message,
+    });
+  }
+}
+
+export function frameImageResourcesAreLoadingOrSettled(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  hrefs: readonly string[],
+): boolean {
+  return hrefs.every(
+    (href) =>
+      state.images.has(href) ||
+      state.pendingImageLoads.has(href) ||
+      imageFailureAtRevision(state, revision, href) !== undefined,
+  );
+}
+
+export function frameImageResourcesAreSettled(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  hrefs: readonly string[],
+): boolean {
+  return hrefs.every(
+    (href) => state.images.has(href) || imageFailureAtRevision(state, revision, href) !== undefined,
+  );
+}
+
+/** Called before painting so a terminal resource never becomes an endless false/warm loop. */
+export function throwIfBrowserReaderImageResourceFailed(
+  state: BrowserReaderState,
+  href: string,
+): void {
+  const revision = state.revisionHandle;
+  if (!revision) return;
+  const failure = imageFailureAtRevision(state, revision, href);
+  if (failure) throw failure.error;
 }
 
 export async function getImageObjectUrl(
@@ -136,18 +208,25 @@ async function preloadImageBytes(
   href: string,
   mediaType: string,
   bytes: Uint8Array,
+  revision: BrowserReaderRevisionHandle | undefined,
 ): Promise<void> {
   if (state.images.has(href)) return;
   const pending = state.pendingImageLoads.get(href);
   if (pending) {
-    await pending;
-    if (state.images.has(href)) return;
+    const outcome = await pending.task;
+    if (revision && outcome.status === 'failed') recordImageFailure(state, revision, href, outcome);
+    return;
   }
-  const task = loadImageBytes(state, href, mediaType, bytes).finally(() => {
-    state.pendingImageLoads.delete(href);
+  const load = { task: loadImageBytes(state, href, mediaType, bytes) };
+  const task = load.task.then((outcome) => {
+    if (revision && outcome.status === 'failed') recordImageFailure(state, revision, href, outcome);
+    return outcome;
   });
-  state.pendingImageLoads.set(href, task);
-  return task;
+  const tracked = { task };
+  state.pendingImageLoads.set(href, tracked);
+  await task.finally(() => {
+    if (state.pendingImageLoads.get(href) === tracked) state.pendingImageLoads.delete(href);
+  });
 }
 
 async function loadImageBytes(
@@ -155,15 +234,82 @@ async function loadImageBytes(
   href: string,
   mediaType: string,
   bytes: Uint8Array,
-): Promise<void> {
-  const image = await createImageBitmap(new Blob([ownedArrayBuffer(bytes)], { type: mediaType }));
-  if (state.disposed) {
-    image.close();
-    return;
+): Promise<BrowserReaderImageLoadOutcome> {
+  if (typeof createImageBitmap === 'undefined') {
+    return { status: 'failed', reason: 'unsupported-runtime' };
   }
-  const previous = state.images.get(href);
-  previous?.close();
-  state.images.set(href, image);
+  try {
+    const image = await createImageBitmap(new Blob([ownedArrayBuffer(bytes)], { type: mediaType }));
+    if (state.disposed) {
+      image.close();
+      return { status: 'failed', reason: 'decode-failed' };
+    }
+    const previous = state.images.get(href);
+    previous?.close();
+    state.images.set(href, image);
+    return { status: 'ready' };
+  } catch {
+    return { status: 'failed', reason: 'decode-failed' };
+  }
+}
+
+function recordImageFailure(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  href: string,
+  outcome: Extract<BrowserReaderImageLoadOutcome, { readonly status: 'failed' }>,
+): void {
+  if (state.disposed || !sameWorkerRevision(state.revisionHandle, revision)) return;
+  const previous = imageFailureAtRevision(state, revision, href);
+  if (previous) return;
+  state.imageResourceFailures.set(href, {
+    revision: workerRevision(revision),
+    error: imageResourceError(outcome.reason, href, revision, outcome.detail),
+  });
+}
+
+function imageFailureAtRevision(
+  state: BrowserReaderState,
+  revision: BrowserReaderWorkerRevisionHandle,
+  href: string,
+) {
+  const failure = state.imageResourceFailures.get(href);
+  return failure && sameWorkerRevision(failure.revision, revision) ? failure : undefined;
+}
+
+function sameWorkerRevision(
+  left: BrowserReaderWorkerRevisionHandle | undefined,
+  right: BrowserReaderWorkerRevisionHandle,
+): boolean {
+  return (
+    left !== undefined &&
+    left.workerSessionId === right.workerSessionId &&
+    left.revisionId === right.revisionId &&
+    left.revisionVersion === right.revisionVersion
+  );
+}
+
+function workerRevision(revision: BrowserReaderRevisionHandle): BrowserReaderWorkerRevisionHandle {
+  return {
+    workerSessionId: revision.workerSessionId,
+    revisionId: revision.revisionId,
+    revisionVersion: revision.revisionVersion,
+  };
+}
+
+function imageResourceError(
+  reason: BrowserReaderImageResourceFailureReason,
+  href: string,
+  revision: BrowserReaderRevisionHandle,
+  detail: string | undefined,
+): BrowserReaderImageResourceError {
+  return new BrowserReaderImageResourceError(
+    reason,
+    href,
+    revision.revisionId,
+    revision.revisionVersion,
+    detail,
+  );
 }
 
 function coreRevisionHandle(revision: CoreRevisionHandle): CoreRevisionHandle {

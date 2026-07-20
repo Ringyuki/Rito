@@ -5,7 +5,10 @@ import {
   preloadReaderFonts,
   unregisterReaderFonts,
 } from '../../src/bindings/browser/resources';
-import { renderSpreadToContext } from '../../src/bindings/browser/rendering';
+import {
+  renderSpreadToBoundCanvas,
+  renderSpreadToContext,
+} from '../../src/bindings/browser/rendering';
 import { loadFrame } from '../../src/bindings/browser/reader/frame-cache';
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import type { CanvasRenderingTarget } from '../../src/bindings/browser/frame-command-renderer';
@@ -14,7 +17,9 @@ import type {
   BrowserReaderState,
 } from '../../src/bindings/browser/reader/types';
 import type { BrowserReaderWorkerClient } from '../../src/bindings/browser/core-contracts';
-import { frameBuffer } from './browser-reader-reflow-state-fixtures';
+import { frameBuffer, spreadNavigationSlot } from './browser-reader-reflow-state-fixtures';
+import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/browser/chapter-local-preview/state';
+import { BrowserReaderImageResourceError } from '../../src/bindings/browser/image-resource-error';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -63,7 +68,7 @@ describe('Browser reader resource-backed rendering', () => {
     expect(readResourceAtRevision).not.toHaveBeenCalled();
   });
 
-  it('paints available frame content while image resources decode asynchronously', async () => {
+  it('keeps an image-backed frame unready until its resources decode', async () => {
     vi.stubGlobal(
       'createImageBitmap',
       vi.fn(() => Promise.resolve(fakeImageBitmap())),
@@ -75,12 +80,96 @@ describe('Browser reader resource-backed rendering', () => {
     });
     const ctx = fakeCanvasContext();
 
-    expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
-    expect(ctx.clearRect).toHaveBeenCalledTimes(1);
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(false);
+    expect(ctx.clearRect).not.toHaveBeenCalled();
 
     await flushPromises();
     expect(state.images.has('cover.png')).toBe(true);
     expect(invalidated).toEqual([0]);
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
+    expect(ctx.clearRect).toHaveBeenCalledOnce();
+    expect(ctx.drawImage).toHaveBeenCalledOnce();
+  });
+
+  it('throws the exact terminal image failure before clearing or warming again', () => {
+    const warmFrameWindow = vi.fn();
+    const failure = new BrowserReaderImageResourceError('decode-failed', 'cover.png', 'rev-1', 0);
+    const state = createState({
+      worker: createWorker(warmFrameWindow),
+      frames: new Map([[0, frameWithImages('cover.png')]]),
+      imageResourceFailures: new Map([
+        [
+          'cover.png',
+          {
+            revision: {
+              workerSessionId: 'rendering-resource-session',
+              revisionId: 'rev-1',
+              revisionVersion: 0,
+            },
+            error: failure,
+          },
+        ],
+      ]),
+    });
+    const ctx = fakeCanvasContext();
+
+    expect(() => renderSpreadToContext(state, 0, ctx)).toThrow(failure);
+
+    expect(ctx.clearRect).not.toHaveBeenCalled();
+    expect(warmFrameWindow).not.toHaveBeenCalled();
+  });
+
+  it('preserves the bound canvas and active spread until an image-backed frame is ready', () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(() => new Promise<ImageBitmap>(() => undefined)),
+    );
+    const canvas = { width: 640, height: 960 } as HTMLCanvasElement;
+    const rendered: number[] = [];
+    const clearRect = vi.fn();
+    const ctx = {
+      canvas,
+      clearRect,
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      scale: vi.fn(),
+      restore: vi.fn(),
+    } as unknown as BrowserReaderState['ctx'];
+    const state = createState({
+      canvas,
+      ctx,
+      config: { viewportWidth: 320, viewportHeight: 480 },
+      dpr: 2,
+      frames: new Map([[1, { ...frameWithImages('cover.png'), spreadIndex: 1 }]]),
+      spreadRenderedListeners: new Set([(index: number) => rendered.push(index)]),
+      activeSpreadIndex: 0,
+    });
+    state.revisionBundle = {
+      ...state.revisionBundle,
+      navigation: {
+        ...state.revisionBundle.navigation,
+        spreads: [spreadNavigationSlot(0, 0), spreadNavigationSlot(1, 1)],
+      },
+    };
+
+    expect(renderSpreadToBoundCanvas(state, 1, 0.5)).toBe(false);
+
+    expect(canvas.width).toBe(640);
+    expect(canvas.height).toBe(960);
+    expect(clearRect).not.toHaveBeenCalled();
+    expect(rendered).toEqual([]);
+    expect(state.activeSpreadIndex).toBe(0);
+  });
+
+  it('does not clear or report success when the target canvas aspect ratio is incompatible', () => {
+    const state = createState({ frames: new Map([[0, frameWithImages()]]) });
+    const ctx = fakeCanvasContext();
+    ctx.canvas.width = 300;
+
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(false);
+
+    expect(ctx.clearRect).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
   it('draws a cached manifest bitmap referenced through an encoded EPUB-relative path', () => {
@@ -606,7 +695,7 @@ function createState(overrides: object = {}): BrowserReaderState {
         chapterMap: {},
       },
       tocTargets: { revisionId: 'rev-1', targets: [] },
-      footnotes: { revisionId: 'rev-1', entries: {} },
+      footnotes: { revisionId: 'rev-1', complete: true, pendingKeys: [], entries: {} },
       chapterTextIndices: { revisionId: 'rev-1', entries: {} },
       fontFamilies: [],
     },
@@ -618,12 +707,15 @@ function createState(overrides: object = {}): BrowserReaderState {
     },
     commitGeneration: 1,
     boundedSessions: { current: undefined, candidate: undefined },
+    chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),
     frames: new Map(),
     pendingFrameLoads: new Map(),
     images: new Map(),
     pendingImageLoads: new Map(),
+    imageResourceFailures: new Map(),
+    settledImageResourceSpreads: new Set(),
     registeredFontFaces: new Map(),
     pinnedFonts: {
       policy: undefined,
@@ -685,6 +777,7 @@ function createWorker(
           spreads: [
             {
               spreadIndex: centerSpreadIndex,
+              missingResources: [],
               resources: [
                 {
                   payload: {

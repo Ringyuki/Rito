@@ -20,6 +20,11 @@ pub(in super::super) fn font_aware_measurement(
     }
     let cache_key = TextMeasurementCacheKey::new(input);
     let cached_width = input.fonts.cached_width(&cache_key);
+    #[cfg(any(test, feature = "bench-internals"))]
+    crate::layout::bounded_work_probe::record_measure_width_cache(
+        cached_width.is_some(),
+        input.text,
+    );
     #[cfg(test)]
     crate::layout::text_work_trace::record_measurement_cache(
         input.text,
@@ -204,6 +209,11 @@ type ExactFontRun = (usize, usize, [u8; 8], super::shaping::ShapedFontRun);
 fn exact_shape_advance(input: &TextMeasurementInput<'_>, runs: &[ExactFontRun]) -> f64 {
     let cache_key = TextMeasurementCacheKey::new(input);
     let cached_width = input.fonts.cached_width(&cache_key);
+    #[cfg(any(test, feature = "bench-internals"))]
+    crate::layout::bounded_work_probe::record_exact_shape_advance_cache(
+        cached_width.is_some(),
+        input.text,
+    );
     #[cfg(test)]
     crate::layout::text_work_trace::record_measurement_cache(
         input.text,

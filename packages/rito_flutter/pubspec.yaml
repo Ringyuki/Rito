@@ -1,0 +1,21 @@
+name: rito_flutter
+description: Platform-neutral Flutter painting and native bindings for Rito reader artifacts.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.11.5
+  flutter: '>=3.41.7'
+
+dependencies:
+  code_assets: ^1.2.1
+  ffi: ^2.1.4
+  flutter:
+    sdk: flutter
+  hooks: ^2.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter: {}

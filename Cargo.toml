@@ -1,5 +1,12 @@
 [workspace]
-members = ["crates/rito-core", "crates/rito-wasm"]
+members = [
+  "crates/rito-core",
+  "crates/rito-ffi",
+  "crates/rito-source",
+  "crates/rito-style-contract",
+  "crates/rito-stylo",
+  "crates/rito-wasm",
+]
 resolver = "2"
 
 [workspace.package]

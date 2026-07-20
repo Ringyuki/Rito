@@ -1,37 +1,161 @@
-use std::{borrow::Cow, collections::BTreeMap};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
-use roxmltree::{Document, Node};
+use rito_source::{
+    NodeId, SourceArena, SourceAttribute, SourceElement, SourceNode, SourceNodeKind,
+};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
 use super::{
-    source_normalizer::normalize_xhtml_source, DocumentNode, ElementAttributes, ElementNode,
-    ImageNode, ParseResult, SourceRef, TextNode, XhtmlChapterSummary, XhtmlNodeCounts,
-    XhtmlSummary,
+    DocumentNode, ElementAttributes, ElementNode, ImageNode, ParseResult, ParsedXhtmlSource,
+    SourceRef, TextNode, XhtmlChapterSummary, XhtmlNodeCounts, XhtmlSummary,
 };
 
 pub fn parse_xhtml(source: &str) -> Result<ParseResult, String> {
-    let normalized = normalize_xhtml_source(source);
-    let cleaned = strip_doctype(normalized.as_ref());
-    let document =
-        Document::parse(cleaned.as_ref()).map_err(|error| format!("Invalid XHTML: {error}"))?;
+    let ParsedXhtmlSource {
+        source_arena: _,
+        mut parsed,
+    } = parse_xhtml_with_source(source)?;
+    // The compatibility API returns no arena, so do not expose orphaned IDs.
+    clear_source_node_ids(&mut parsed.nodes);
+    parsed.body_source_node_id = None;
+    Ok(parsed)
+}
+
+/// Parses XHTML once and retains the exact arena used to derive the semantic
+/// tree. This is the production boundary for consumers that require stable
+/// source-node identity, including the replacement CSS engine.
+pub(crate) fn parse_xhtml_with_source(source: &str) -> Result<ParsedXhtmlSource, String> {
+    let source_arena = Arc::new(
+        SourceArena::from_xhtml(source).map_err(|error| format!("Invalid XHTML: {error}"))?,
+    );
+    let parsed = parse_xhtml_from_source(&source_arena);
+    Ok(ParsedXhtmlSource {
+        source_arena,
+        parsed,
+    })
+}
+
+/// Derives Rito's layout-oriented semantic tree from an existing canonical
+/// source arena without parsing XHTML again.
+pub(crate) fn parse_xhtml_from_source(source: &SourceArena) -> ParseResult {
+    let document = Node::new(source, source.document());
     let body = document
         .descendants()
         .find(|node| has_tag(node, "body"))
-        .unwrap_or_else(|| document.root_element());
+        .unwrap_or_else(|| Node::new(source, source.root_element()));
 
     let mut warnings = Vec::new();
     let nodes = convert_children(body, &mut warnings, false, &[]);
 
-    let stylesheet_hrefs = extract_stylesheet_hrefs(&document);
-    let embedded_stylesheets = extract_embedded_stylesheets(&document);
-    Ok(ParseResult {
+    let author_stylesheets = extract_author_stylesheets(document);
+    let stylesheet_hrefs = author_stylesheets
+        .iter()
+        .filter_map(|source| match source {
+            super::AuthorStylesheetSource::External { href, .. } => Some(href.clone()),
+            super::AuthorStylesheetSource::Embedded { .. } => None,
+        })
+        .collect::<Vec<_>>();
+    let embedded_stylesheets = author_stylesheets
+        .iter()
+        .filter_map(|source| match source {
+            super::AuthorStylesheetSource::External { .. } => None,
+            super::AuthorStylesheetSource::Embedded { css, .. } => Some(css.clone()),
+        })
+        .collect::<Vec<_>>();
+    let body_attributes = extract_attributes(body);
+    ParseResult {
         nodes,
         warnings,
-        body_attributes: extract_attributes(body),
+        body_attributes,
+        body_source_node_id: Some(body.id),
         stylesheet_hrefs: (!stylesheet_hrefs.is_empty()).then_some(stylesheet_hrefs),
         embedded_stylesheets: (!embedded_stylesheets.is_empty()).then_some(embedded_stylesheets),
-    })
+        author_stylesheets,
+    }
+}
+
+fn clear_source_node_ids(nodes: &mut [DocumentNode]) {
+    for node in nodes {
+        match node {
+            DocumentNode::Block(element) | DocumentNode::Inline(element) => {
+                element.source_ref.source_node_id = None;
+                clear_source_node_ids(&mut element.children);
+            }
+            DocumentNode::Text(text) => text.source_ref.source_node_id = None,
+            DocumentNode::Image(image) => image.source_ref.source_node_id = None,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Node<'a> {
+    source: &'a SourceArena,
+    id: NodeId,
+}
+
+impl<'a> Node<'a> {
+    fn new(source: &'a SourceArena, id: NodeId) -> Self {
+        Self { source, id }
+    }
+
+    fn record(self) -> &'a SourceNode {
+        self.source
+            .node(self.id)
+            .expect("source node id must belong to its arena")
+    }
+
+    fn element(self) -> Option<&'a SourceElement> {
+        self.record().as_element()
+    }
+
+    fn is_element(self) -> bool {
+        self.element().is_some()
+    }
+
+    fn is_text(self) -> bool {
+        matches!(self.record().kind, SourceNodeKind::Text(_))
+    }
+
+    fn text(self) -> Option<&'a str> {
+        self.record().as_text()
+    }
+
+    fn tag_name(self) -> &'a str {
+        &self
+            .element()
+            .expect("element node required")
+            .name
+            .local_name
+    }
+
+    fn attribute(self, local_name: &str) -> Option<&'a str> {
+        self.element()?.attribute(local_name)
+    }
+
+    fn attribute_ns(self, namespace: &str, local_name: &str) -> Option<&'a str> {
+        self.element()?.attribute_ns(Some(namespace), local_name)
+    }
+
+    fn attributes(self) -> std::slice::Iter<'a, SourceAttribute> {
+        let attributes: &'a [SourceAttribute] = self
+            .element()
+            .map_or(&[], |element| element.attributes.as_ref());
+        attributes.iter()
+    }
+
+    fn children(self) -> impl Iterator<Item = Self> + 'a {
+        self.source
+            .children(self.id)
+            .map(|(id, _)| Self::new(self.source, id))
+    }
+
+    fn descendants(self) -> impl Iterator<Item = Self> + 'a {
+        self.source
+            .descendants(self.id)
+            .map(|(id, _)| Self::new(self.source, id))
+    }
 }
 
 pub(crate) fn summarize_parsed_chapters(
@@ -156,7 +280,7 @@ fn count_attributes(attributes: &Option<ElementAttributes>, state: &mut SummaryS
 }
 
 fn convert_children(
-    parent: Node<'_, '_>,
+    parent: Node<'_>,
     warnings: &mut Vec<String>,
     preserve_whitespace: bool,
     parent_path: &[usize],
@@ -193,7 +317,7 @@ fn convert_children(
 }
 
 fn convert_node(
-    node: Node<'_, '_>,
+    node: Node<'_>,
     warnings: &mut Vec<String>,
     preserve_whitespace: bool,
     node_path: Vec<usize>,
@@ -203,6 +327,7 @@ fn convert_node(
             node.text().unwrap_or_default(),
             preserve_whitespace,
             node_path,
+            node.id,
         );
     }
 
@@ -217,6 +342,7 @@ fn convert_text_node(
     raw: &str,
     preserve_whitespace: bool,
     node_path: Vec<usize>,
+    source_node_id: NodeId,
 ) -> Option<DocumentNode> {
     if !preserve_whitespace {
         if is_whitespace_only(raw) {
@@ -225,26 +351,33 @@ fn convert_text_node(
                     " ".to_owned(),
                     (raw != " ").then(|| raw.to_owned()),
                     node_path,
+                    source_node_id,
                 )
             });
         }
         let content = collapse_whitespace(raw);
         let source_text = (content != raw).then(|| raw.to_owned());
-        return Some(text_node_with_source(content, source_text, node_path));
+        return Some(text_node_with_source(
+            content,
+            source_text,
+            node_path,
+            source_node_id,
+        ));
     }
 
-    (!raw.is_empty()).then(|| text_node(raw.to_owned(), node_path))
+    (!raw.is_empty()).then(|| text_node(raw.to_owned(), node_path, source_node_id))
 }
 
 fn convert_element(
-    element: Node<'_, '_>,
+    element: Node<'_>,
     warnings: &mut Vec<String>,
     preserve_whitespace: bool,
     node_path: Vec<usize>,
 ) -> Option<DocumentNode> {
-    let tag = element.tag_name().name();
+    let tag = element.tag_name();
     let source_ref = SourceRef {
         node_path: node_path.clone(),
+        source_node_id: Some(element.id),
     };
 
     if tag == "svg" {
@@ -270,7 +403,9 @@ fn convert_element(
             ),
             source_ref,
         })),
-        TagClassification::Inline if tag == "br" => Some(text_node("\n".to_owned(), node_path)),
+        TagClassification::Inline if tag == "br" => {
+            Some(text_node("\n".to_owned(), node_path, element.id))
+        }
         TagClassification::Inline if tag == "img" => {
             image_node_from_element(element, source_ref, image_src(element, "src")?)
         }
@@ -289,7 +424,7 @@ fn convert_element(
 }
 
 fn convert_svg_image(
-    element: Node<'_, '_>,
+    element: Node<'_>,
     warnings: &mut Vec<String>,
     source_ref: SourceRef,
 ) -> Option<DocumentNode> {
@@ -312,7 +447,7 @@ fn convert_svg_image(
 }
 
 fn image_node_from_element(
-    element: Node<'_, '_>,
+    element: Node<'_>,
     source_ref: SourceRef,
     src: String,
 ) -> Option<DocumentNode> {
@@ -326,7 +461,7 @@ fn image_node_from_element(
     })
 }
 
-fn image_src(element: Node<'_, '_>, name: &str) -> Option<String> {
+fn image_src(element: Node<'_>, name: &str) -> Option<String> {
     element
         .attribute(name)
         .map(str::trim)
@@ -334,9 +469,9 @@ fn image_src(element: Node<'_, '_>, name: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn svg_image_href(element: Node<'_, '_>) -> Option<String> {
+fn svg_image_href(element: Node<'_>) -> Option<String> {
     element
-        .attribute((XLINK_NAMESPACE, "href"))
+        .attribute_ns(XLINK_NAMESPACE, "href")
         .or_else(|| element.attribute("href"))
         .or_else(|| element.attribute("xlink:href"))
         .map(str::trim)
@@ -344,7 +479,7 @@ fn svg_image_href(element: Node<'_, '_>) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn image_alt(element: Node<'_, '_>) -> String {
+fn image_alt(element: Node<'_>) -> String {
     element
         .attribute("alt")
         .or_else(|| element.attribute("aria-label"))
@@ -397,13 +532,13 @@ fn merge_anchor_attrs(
     Some(result)
 }
 
-fn extract_attributes(element: Node<'_, '_>) -> Option<ElementAttributes> {
+fn extract_attributes(element: Node<'_>) -> Option<ElementAttributes> {
     let all_attributes = collect_all_attributes(element);
     let attributes = ElementAttributes {
         all_attributes,
         class: attr(element, "class"),
         colspan: table_span(element, "colspan"),
-        href: (element.tag_name().name() == "a")
+        href: (element.tag_name() == "a")
             .then(|| attr(element, "href"))
             .flatten(),
         id: attr(element, "id"),
@@ -415,12 +550,15 @@ fn extract_attributes(element: Node<'_, '_>) -> Option<ElementAttributes> {
     has_any_attribute(&attributes).then_some(attributes)
 }
 
-fn collect_all_attributes(element: Node<'_, '_>) -> Option<BTreeMap<String, String>> {
+fn collect_all_attributes(element: Node<'_>) -> Option<BTreeMap<String, String>> {
     let mut map = BTreeMap::new();
     for attribute in element.attributes() {
         map.insert(
-            attribute_name(attribute.name(), attribute.namespace()),
-            attribute.value().to_owned(),
+            attribute_name(
+                &attribute.name.local_name,
+                attribute.name.namespace.as_deref(),
+            ),
+            attribute.value.clone(),
         );
     }
     (!map.is_empty()).then_some(map)
@@ -440,23 +578,23 @@ fn attribute_name(name: &str, namespace: Option<&str>) -> String {
     }
 }
 
-fn attr(element: Node<'_, '_>, name: &str) -> Option<String> {
+fn attr(element: Node<'_>, name: &str) -> Option<String> {
     element.attribute(name).map(ToOwned::to_owned)
 }
 
-fn language_attr(element: Node<'_, '_>) -> Option<String> {
+fn language_attr(element: Node<'_>) -> Option<String> {
     element
         .attributes()
         .find(|attribute| {
-            attribute.name() == "lang"
-                || attribute.name() == "xml:lang"
-                || (attribute.name() == "lang" && attribute.namespace() == Some(XML_NAMESPACE))
+            attribute.name.local_name == "lang"
+                && (attribute.name.namespace.is_none()
+                    || attribute.name.namespace.as_deref() == Some(XML_NAMESPACE))
         })
-        .map(|attribute| attribute.value().to_owned())
+        .map(|attribute| attribute.value.clone())
 }
 
-fn table_span(element: Node<'_, '_>, name: &str) -> Option<u32> {
-    let tag = element.tag_name().name();
+fn table_span(element: Node<'_>, name: &str) -> Option<u32> {
+    let tag = element.tag_name();
     if tag != "td" && tag != "th" {
         return None;
     }
@@ -478,60 +616,110 @@ fn has_any_attribute(attributes: &ElementAttributes) -> bool {
         || attributes.style.is_some()
 }
 
-fn extract_stylesheet_hrefs(document: &Document<'_>) -> Vec<String> {
+fn extract_author_stylesheets(document: Node<'_>) -> Vec<super::AuthorStylesheetSource> {
     document
         .descendants()
-        .filter(|node| {
-            has_tag(node, "link")
+        .filter_map(|node| {
+            if has_tag(&node, "link")
                 && node.attribute("rel").is_some_and(|rel| {
                     rel.split_whitespace()
                         .any(|token| token.eq_ignore_ascii_case("stylesheet"))
                 })
-        })
-        .filter_map(|node| node.attribute("href").map(ToOwned::to_owned))
-        .collect()
-}
-
-fn extract_embedded_stylesheets(document: &Document<'_>) -> Vec<String> {
-    document
-        .descendants()
-        .filter(|node| has_tag(node, "style"))
-        .filter_map(|node| {
+            {
+                return node.attribute("href").map(|href| {
+                    super::AuthorStylesheetSource::External {
+                        source_node_id: node.id,
+                        href: href.to_owned(),
+                        selection_issues: stylesheet_selection_issues(node, true),
+                        media_environment_issues: stylesheet_media_environment_issues(node, true),
+                    }
+                });
+            }
+            if !has_tag(&node, "style") {
+                return None;
+            }
             let css = node
                 .descendants()
                 .filter(|descendant| descendant.is_text())
                 .filter_map(|descendant| descendant.text())
                 .collect::<String>();
             let css = css.trim();
-            (!css.is_empty()).then(|| css.to_owned())
+            (!css.is_empty()).then(|| super::AuthorStylesheetSource::Embedded {
+                source_node_id: node.id,
+                css: css.to_owned(),
+                selection_issues: stylesheet_selection_issues(node, false),
+                media_environment_issues: stylesheet_media_environment_issues(node, false),
+            })
         })
         .collect()
 }
 
-fn text_node(content: String, node_path: Vec<usize>) -> DocumentNode {
-    text_node_with_source(content, None, node_path)
+fn stylesheet_selection_issues(node: Node<'_>, is_link: bool) -> Vec<String> {
+    let mut issues = Vec::new();
+    let kind = if is_link { "link" } else { "style" };
+    if is_link
+        && node.attribute("rel").is_some_and(|rel| {
+            rel.split_whitespace()
+                .any(|token| token.eq_ignore_ascii_case("alternate"))
+        })
+    {
+        issues.push("alternate stylesheet activation is not modeled".to_owned());
+    }
+    if node.attribute("disabled").is_some() {
+        issues.push(format!("{kind} disabled state is not modeled"));
+    }
+    if let Some(content_type) = node.attribute("type").map(str::trim) {
+        if !content_type.is_empty() && !content_type.eq_ignore_ascii_case("text/css") {
+            issues.push(format!("{kind} stylesheet type is not CSS: {content_type}"));
+        }
+    }
+    if !is_link && node.attribute("scoped").is_some() {
+        issues.push("scoped style applicability is not modeled".to_owned());
+    }
+    issues
+}
+
+fn stylesheet_media_environment_issues(node: Node<'_>, is_link: bool) -> Vec<String> {
+    let kind = if is_link { "link" } else { "style" };
+    node.attribute("media")
+        .map(str::trim)
+        .filter(|media| !media.is_empty() && !media.eq_ignore_ascii_case("all"))
+        .map(|media| {
+            vec![format!(
+                "{kind} media applicability is not modeled: {media}"
+            )]
+        })
+        .unwrap_or_default()
+}
+
+fn text_node(content: String, node_path: Vec<usize>, source_node_id: NodeId) -> DocumentNode {
+    text_node_with_source(content, None, node_path, source_node_id)
 }
 
 fn text_node_with_source(
     content: String,
     source_text: Option<String>,
     node_path: Vec<usize>,
+    source_node_id: NodeId,
 ) -> DocumentNode {
     DocumentNode::Text(TextNode {
         content,
         source_text,
-        source_ref: SourceRef { node_path },
+        source_ref: SourceRef {
+            node_path,
+            source_node_id: Some(source_node_id),
+        },
     })
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TagClassification {
+pub(super) enum TagClassification {
     Block,
     Inline,
     Ignored,
 }
 
-fn classify_tag(tag: &str) -> TagClassification {
+pub(super) fn classify_tag(tag: &str) -> TagClassification {
     if BLOCK_TAGS.contains(&tag) {
         TagClassification::Block
     } else if IGNORED_TAGS.contains(&tag) {
@@ -599,28 +787,6 @@ const EPUB_OPS_NAMESPACE: &str = "http://www.idpf.org/2007/ops";
 const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
 const XLINK_NAMESPACE: &str = "http://www.w3.org/1999/xlink";
 
-fn strip_doctype(source: &str) -> Cow<'_, str> {
-    let Some(start) = source.find("<!DOCTYPE") else {
-        return Cow::Borrowed(source);
-    };
-    let tail = &source[start..];
-    let Some(end) = doctype_end(tail) else {
-        return Cow::Borrowed(source);
-    };
-
-    let mut output = String::with_capacity(source.len().saturating_sub(end));
-    output.push_str(&source[..start]);
-    output.push_str(&source[start + end..]);
-    Cow::Owned(output)
-}
-
-fn doctype_end(value: &str) -> Option<usize> {
-    value
-        .find("]>")
-        .map(|index| index + 2)
-        .or_else(|| value.find('>').map(|index| index + 1))
-}
-
 fn collapse_whitespace(value: &str) -> String {
     let mut output = String::with_capacity(value.len());
     let mut in_whitespace = false;
@@ -646,8 +812,8 @@ fn is_html_whitespace(ch: char) -> bool {
     matches!(ch, '\t' | '\n' | '\u{000C}' | '\r' | ' ')
 }
 
-fn has_tag(node: &Node<'_, '_>, local_name: &str) -> bool {
-    node.is_element() && node.tag_name().name() == local_name
+fn has_tag(node: &Node<'_>, local_name: &str) -> bool {
+    node.is_element() && node.tag_name() == local_name
 }
 
 fn empty_attributes() -> ElementAttributes {
@@ -810,7 +976,53 @@ fn crop_text(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_xhtml;
+    use std::sync::Arc;
+
+    use rito_source::SourceArena;
+
+    use super::{parse_xhtml, parse_xhtml_from_source, parse_xhtml_with_source, DocumentNode};
+    use crate::xhtml::AuthorStylesheetSource;
+
+    #[test]
+    fn derives_semantic_nodes_from_the_callers_exact_source_arena() {
+        let source = Arc::new(
+            SourceArena::from_xhtml("<html><body><p id='target'>shared</p></body></html>")
+                .expect("source arena"),
+        );
+        let paragraph_id = source.find_element_by_id("target").expect("paragraph id");
+        let text_id = source.children(paragraph_id).next().expect("text child").0;
+        let parsed = parse_xhtml_from_source(&source);
+        let DocumentNode::Block(paragraph) = &parsed.nodes[0] else {
+            panic!("expected paragraph");
+        };
+        assert_eq!(paragraph.source_ref.source_node_id, Some(paragraph_id));
+        let DocumentNode::Text(text) = &paragraph.children[0] else {
+            panic!("expected text");
+        };
+        assert_eq!(text.source_ref.source_node_id, Some(text_id));
+    }
+
+    #[test]
+    fn owned_parse_keeps_the_arena_that_owns_projected_node_ids() {
+        let parsed_source =
+            parse_xhtml_with_source("<html><body><p id='target'>shared</p></body></html>")
+                .expect("owned XHTML parse");
+        let paragraph_id = parsed_source
+            .source_arena
+            .find_element_by_id("target")
+            .expect("paragraph id");
+        let DocumentNode::Block(paragraph) = &parsed_source.parsed.nodes[0] else {
+            panic!("expected paragraph");
+        };
+        assert_eq!(paragraph.source_ref.source_node_id, Some(paragraph_id));
+
+        let compatibility =
+            parse_xhtml("<html><body><p id='target'>shared</p></body></html>").expect("XHTML");
+        let DocumentNode::Block(paragraph) = &compatibility.nodes[0] else {
+            panic!("expected paragraph");
+        };
+        assert_eq!(paragraph.source_ref.source_node_id, None);
+    }
 
     #[test]
     fn parses_body_nodes_and_stylesheet_links() {
@@ -854,6 +1066,46 @@ mod tests {
                 "p { color: red; }".to_owned(),
             ])
         );
+    }
+
+    #[test]
+    fn preserves_link_and_style_occurrences_in_one_document_order_ledger() {
+        let parsed = parse_xhtml(
+            r#"<html><head>
+            <link rel="stylesheet" href="a.css"/>
+            <style>.b { color: blue; }</style>
+            <link rel="stylesheet" href="c.css"/>
+            <style>.d { color: black; }</style>
+            </head><body/></html>"#,
+        )
+        .expect("xhtml");
+
+        let kinds = parsed
+            .author_stylesheets
+            .iter()
+            .map(|source| match source {
+                AuthorStylesheetSource::External { href, .. } => format!("link:{href}"),
+                AuthorStylesheetSource::Embedded { css, .. } => format!("style:{css}"),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            kinds,
+            [
+                "link:a.css",
+                "style:.b { color: blue; }",
+                "link:c.css",
+                "style:.d { color: black; }",
+            ]
+        );
+        let node_ids = parsed
+            .author_stylesheets
+            .iter()
+            .map(|source| match source {
+                AuthorStylesheetSource::External { source_node_id, .. }
+                | AuthorStylesheetSource::Embedded { source_node_id, .. } => source_node_id.index(),
+            })
+            .collect::<Vec<_>>();
+        assert!(node_ids.windows(2).all(|pair| pair[0] < pair[1]));
     }
 
     #[test]

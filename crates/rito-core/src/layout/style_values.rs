@@ -1,9 +1,18 @@
-use serde_json::{json, Map, Number, Value};
+use std::sync::Arc;
+
+use serde_json::{json, Map, Value};
 
 use super::{
     inline_segment::{InlineBorders, InlinePadding},
+    paint::{
+        BorderEdgePaint, BorderLineStyle, FontPaint, FontPaintStyle, MeasurePaint, RunBorder,
+        RunBorderEdge, RunDecoration, RunDecorationKind, RunPaint, RunPaintData, RunSpacing,
+        TextShadowPaint,
+    },
     summary_json::number_value as summary_number_value,
 };
+
+pub(crate) use super::paint::paint_number_value;
 
 pub(crate) fn summarize_segment_style(style: &Map<String, Value>) -> Map<String, Value> {
     let mut output = Map::new();
@@ -30,17 +39,6 @@ pub(crate) fn round_json_value(value: &Value) -> Value {
         ),
         _ => value.clone(),
     }
-}
-
-pub(crate) fn paint_number_value(value: f64) -> Value {
-    if value.is_finite()
-        && value.fract() == 0.0
-        && value >= i64::MIN as f64
-        && value < i64::MAX as f64
-    {
-        return Value::Number(Number::from(value as i64));
-    }
-    Value::Number(Number::from_f64(value).unwrap_or_else(|| Number::from(0)))
 }
 
 pub(crate) fn border_box_from_style(style: &Map<String, Value>) -> Option<Value> {
@@ -150,76 +148,53 @@ pub(crate) fn block_radius_paint(style: &Map<String, Value>) -> Option<Value> {
     }
 }
 
-pub(crate) fn run_paint_value(style: &Map<String, Value>, is_start: bool, is_end: bool) -> Value {
-    let mut paint = Map::new();
-    paint.insert(
-        "color".to_owned(),
-        Value::String(string_or_default(style, "color", "#000000")),
-    );
-    paint.insert("font".to_owned(), font_shorthand_value(style));
-    insert_non_zero_number(
-        &mut paint,
-        "wordSpacingPx",
-        number_style(style, "wordSpacing"),
-    );
-    insert_non_zero_number(
-        &mut paint,
-        "letterSpacingPx",
-        number_style(style, "letterSpacing"),
-    );
-    insert_optional_string(
-        &mut paint,
-        "backgroundColor",
-        non_empty_string_style(style, "backgroundColor").as_deref(),
-    );
-    if let Some(radius) = positive_style(style, "borderRadius") {
-        paint.insert("backgroundRadius".to_owned(), paint_number_value(radius));
-    }
-    if let Some(text_shadow) = non_empty_style_array(style, "textShadow") {
-        paint.insert("textShadow".to_owned(), text_shadow);
-    }
-    if let Some(decoration) = run_decoration_value(style) {
-        paint.insert("decoration".to_owned(), decoration);
-    }
-    if let Some(padding) = run_padding_value(style) {
-        paint.insert("padding".to_owned(), padding);
-    }
-    if let Some(border) = run_border_value(style, is_start, is_end) {
-        paint.insert("border".to_owned(), border);
-    }
-    Value::Object(paint)
-}
-
-pub(crate) fn font_shorthand_value(style: &Map<String, Value>) -> Value {
-    json!({
-        "style": string_or_default(style, "fontStyle", "normal"),
-        "weight": paint_number_value(number_style(style, "fontWeight").unwrap_or(400.0)),
-        "sizePx": paint_number_value(number_style(style, "fontSize").unwrap_or(16.0)),
-        "family": string_or_default(style, "fontFamily", "serif"),
+pub(crate) fn run_paint_from_style(
+    style: &Map<String, Value>,
+    is_start: bool,
+    is_end: bool,
+) -> RunPaint {
+    RunPaint::new(RunPaintData {
+        measure: MeasurePaint {
+            font: font_paint(style),
+            word_spacing_px: non_zero_style(style, "wordSpacing"),
+            letter_spacing_px: non_zero_style(style, "letterSpacing"),
+        },
+        color: string_or_default(style, "color", "#000000"),
+        background_color: non_empty_string_style(style, "backgroundColor"),
+        background_radius: positive_style(style, "borderRadius"),
+        text_shadows: text_shadows_from_style(style),
+        decoration: run_decoration_from_style(style),
+        padding: run_padding_from_style(style),
+        border: run_border_from_style(style, is_start, is_end),
     })
 }
 
-pub(crate) fn run_decoration_value(style: &Map<String, Value>) -> Option<Value> {
-    let color = string_or_default(style, "color", "#000000");
-    let font_size = number_style(style, "fontSize").unwrap_or(16.0);
-    match string_style(style, "textDecoration").as_deref() {
-        Some("underline") => Some(json!({
-            "kind": "underline",
-            "y": paint_number_value(font_size),
-            "thickness": paint_number_value(1.0),
-            "color": color,
-        })),
-        Some("line-through") => Some(json!({
-            "kind": "line-through",
-            "y": paint_number_value(font_size * 0.5),
-            "thickness": paint_number_value(1.0),
-            "color": color,
-        })),
-        _ => None,
+fn font_paint(style: &Map<String, Value>) -> FontPaint {
+    FontPaint {
+        style: FontPaintStyle::from_legacy(&string_or_default(style, "fontStyle", "normal")),
+        weight: number_style(style, "fontWeight").unwrap_or(400.0),
+        size_px: number_style(style, "fontSize").unwrap_or(16.0),
+        family: string_or_default(style, "fontFamily", "serif"),
     }
 }
 
-pub(crate) fn run_padding_value(style: &Map<String, Value>) -> Option<Value> {
+fn run_decoration_from_style(style: &Map<String, Value>) -> Option<RunDecoration> {
+    let color = string_or_default(style, "color", "#000000");
+    let font_size = number_style(style, "fontSize").unwrap_or(16.0);
+    let (kind, y) = match string_style(style, "textDecoration").as_deref() {
+        Some("underline") => Some((RunDecorationKind::UNDERLINE, font_size)),
+        Some("line-through") => Some((RunDecorationKind::LINE_THROUGH, font_size * 0.5)),
+        _ => None,
+    }?;
+    Some(RunDecoration {
+        kind,
+        y,
+        thickness: 1.0,
+        color,
+    })
+}
+
+fn run_padding_from_style(style: &Map<String, Value>) -> Option<RunSpacing> {
     let top = number_style(style, "paddingTop").unwrap_or(0.0);
     let right = number_style(style, "paddingRight").unwrap_or(0.0);
     let bottom = number_style(style, "paddingBottom").unwrap_or(0.0);
@@ -227,52 +202,40 @@ pub(crate) fn run_padding_value(style: &Map<String, Value>) -> Option<Value> {
     if top == 0.0 && right == 0.0 && bottom == 0.0 && left == 0.0 {
         return None;
     }
-    Some(json!({
-        "top": paint_number_value(top),
-        "right": paint_number_value(right),
-        "bottom": paint_number_value(bottom),
-        "left": paint_number_value(left),
-    }))
+    Some(RunSpacing {
+        top,
+        right,
+        bottom,
+        left,
+    })
 }
 
-pub(crate) fn run_border_value(
+fn run_border_from_style(
     style: &Map<String, Value>,
     is_start: bool,
     is_end: bool,
-) -> Option<Value> {
-    let mut border = Map::new();
-    insert_optional_value(
-        &mut border,
-        "top",
-        run_border_edge_value(style, "borderTop"),
-    );
-    insert_optional_value(
-        &mut border,
-        "bottom",
-        run_border_edge_value(style, "borderBottom"),
-    );
-    if is_start {
-        insert_optional_value(
-            &mut border,
-            "start",
-            run_border_edge_value(style, "borderLeft"),
-        );
-    }
-    if is_end {
-        insert_optional_value(
-            &mut border,
-            "end",
-            run_border_edge_value(style, "borderRight"),
-        );
-    }
-    if border.is_empty() {
+) -> Option<RunBorder> {
+    let border = RunBorder {
+        top: run_border_edge_from_style(style, "borderTop"),
+        bottom: run_border_edge_from_style(style, "borderBottom"),
+        start: is_start
+            .then(|| run_border_edge_from_style(style, "borderLeft"))
+            .flatten(),
+        end: is_end
+            .then(|| run_border_edge_from_style(style, "borderRight"))
+            .flatten(),
+    };
+    if border == RunBorder::default() {
         None
     } else {
-        Some(Value::Object(border))
+        Some(border)
     }
 }
 
-pub(crate) fn run_border_edge_value(style: &Map<String, Value>, key: &str) -> Option<Value> {
+pub(crate) fn run_border_edge_from_style(
+    style: &Map<String, Value>,
+    key: &str,
+) -> Option<RunBorderEdge> {
     let edge = style.get(key)?;
     if border_value_width(edge) <= 0.0 {
         return None;
@@ -280,10 +243,54 @@ pub(crate) fn run_border_edge_value(style: &Map<String, Value>, key: &str) -> Op
     if border_value_string(edge, "style").as_deref() == Some("none") {
         return None;
     }
-    Some(json!({
-        "widthPx": paint_number_value(border_value_width(edge)),
-        "paint": border_edge_value(edge)?,
-    }))
+    let paint = border_edge_paint_from_value(edge)?;
+    Some(RunBorderEdge {
+        width_px: border_value_width(edge),
+        paint,
+    })
+}
+
+fn border_edge_paint_from_value(edge: &Value) -> Option<BorderEdgePaint> {
+    let style = border_value_string(edge, "style").unwrap_or_else(|| "none".to_owned());
+    if border_value_width(edge) <= 0.0 {
+        return None;
+    }
+    Some(BorderEdgePaint {
+        color: border_value_string(edge, "color").unwrap_or_else(|| "#000000".to_owned()),
+        style: BorderLineStyle::from_legacy(&style)?,
+    })
+}
+
+fn text_shadows_from_style(style: &Map<String, Value>) -> Arc<[TextShadowPaint]> {
+    style
+        .get("textShadow")
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(text_shadow_from_value)
+                .collect::<Vec<_>>()
+        })
+        .map(Arc::from)
+        .unwrap_or_else(|| Arc::from([]))
+}
+
+fn text_shadow_from_value(value: &Value) -> Option<TextShadowPaint> {
+    let value = value.as_object()?;
+    Some(TextShadowPaint {
+        offset_x: value.get("offsetX").and_then(Value::as_f64).unwrap_or(0.0),
+        offset_y: value.get("offsetY").and_then(Value::as_f64).unwrap_or(0.0),
+        blur: value.get("blur").and_then(Value::as_f64).unwrap_or(0.0),
+        color: value
+            .get("color")
+            .and_then(Value::as_str)
+            .unwrap_or("#000000")
+            .to_owned(),
+    })
+}
+
+fn non_zero_style(style: &Map<String, Value>, key: &str) -> Option<f64> {
+    number_style(style, key).filter(|value| *value != 0.0)
 }
 
 pub(crate) fn border_edge_paint(style: &Map<String, Value>, key: &str) -> Option<Value> {
@@ -565,14 +572,6 @@ fn insert_optional_value(output: &mut Map<String, Value>, key: &str, value: Opti
     }
 }
 
-fn insert_non_zero_number(output: &mut Map<String, Value>, key: &str, value: Option<f64>) {
-    if let Some(value) = value {
-        if value != 0.0 {
-            output.insert(key.to_owned(), paint_number_value(value));
-        }
-    }
-}
-
 fn default_border() -> Value {
     json!({
         "color": "#000000",
@@ -610,7 +609,7 @@ const SEGMENT_STYLE_KEYS: &[&str] = &[
 mod tests {
     use serde_json::json;
 
-    use super::{block_paint_from_style, run_paint_value};
+    use super::{block_paint_from_style, run_paint_from_style};
 
     #[test]
     fn preserves_semantic_opacity_precision_in_block_paint() {
@@ -624,9 +623,74 @@ mod tests {
     #[test]
     fn preserves_runtime_run_paint_precision() {
         let style = json!({ "fontSize": 14.12345, "letterSpacing": 0.27586206896551724 });
-        let paint = run_paint_value(style.as_object().expect("style object"), false, false);
+        let paint = run_paint_from_style(style.as_object().expect("style object"), false, false);
 
-        assert_eq!(paint["font"]["sizePx"], json!(14.12345));
-        assert_eq!(paint["letterSpacingPx"], json!(0.27586206896551724));
+        assert_eq!(paint.measure().font.size_px, 14.12345);
+        assert_eq!(paint.measure().letter_spacing_px, Some(0.27586206896551724));
+    }
+
+    #[test]
+    fn typed_run_paint_preserves_the_legacy_valid_wire_shape() {
+        let style = json!({
+            "color": "color(display-p3 1 0.2 0.1)",
+            "fontStyle": "italic",
+            "fontWeight": 650,
+            "fontSize": 14.123456,
+            "fontFamily": " Rito Serif ",
+            "wordSpacing": 1.25,
+            "letterSpacing": -0.5,
+            "backgroundColor": "#112233",
+            "borderRadius": 3.5,
+            "textShadow": [
+                { "offsetX": 1.23456, "offsetY": 2, "blur": 3, "color": "#445566" },
+                { "offsetX": -1, "offsetY": 0.5, "blur": 0, "color": "#556677" },
+            ],
+            "textDecoration": "underline",
+            "paddingTop": 1,
+            "paddingRight": 2,
+            "paddingBottom": 3,
+            "paddingLeft": 4,
+            "borderTop": { "width": 1, "style": "solid", "color": "#111111" },
+            "borderBottom": { "width": 2, "style": "dotted", "color": "#222222" },
+            "borderLeft": { "width": 3, "style": "dashed", "color": "#333333" },
+            "borderRight": { "width": 4, "style": "solid", "color": "#444444" },
+        });
+
+        let paint = run_paint_from_style(style.as_object().expect("style object"), true, true);
+
+        assert_eq!(paint.to_wire_value(), full_legacy_wire_paint());
+    }
+
+    fn full_legacy_wire_paint() -> serde_json::Value {
+        json!({
+            "color": "color(display-p3 1 0.2 0.1)",
+            "font": {
+                "family": " Rito Serif ",
+                "sizePx": 14.123456,
+                "style": "italic",
+                "weight": 650,
+            },
+            "wordSpacingPx": 1.25,
+            "letterSpacingPx": -0.5,
+            "backgroundColor": "#112233",
+            "backgroundRadius": 3.5,
+            "textShadow": [
+                { "offsetX": 1.235, "offsetY": 2, "blur": 3, "color": "#445566" },
+                { "offsetX": -1, "offsetY": 0.5, "blur": 0, "color": "#556677" },
+            ],
+            "decoration": {
+                "kind": "underline",
+                "y": 14.123456,
+                "thickness": 1,
+                "color": "color(display-p3 1 0.2 0.1)",
+            },
+            "padding": { "top": 1, "right": 2, "bottom": 3, "left": 4 },
+            "border": {
+                "top": { "widthPx": 1, "paint": { "color": "#111111", "style": "solid" } },
+                "bottom": { "widthPx": 2, "paint": { "color": "#222222", "style": "dotted" } },
+                "start": { "widthPx": 3, "paint": { "color": "#333333", "style": "dashed" } },
+                "end": { "widthPx": 4, "paint": { "color": "#444444", "style": "solid" } },
+            },
+        })
     }
 }

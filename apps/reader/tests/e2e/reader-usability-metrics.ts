@@ -12,6 +12,9 @@ export interface ReaderUsabilityMetrics {
   readonly cachedTurnFirstFrameMs: number;
   readonly cachedTurnStableMs: number;
   readonly deferredGrowthFirstFrameMs: number;
+  readonly tocSupersedeFirstFrameMs: number;
+  readonly farTocFirstFrameMs: number;
+  readonly farTocWorkerRequestsToFirstFrame: number;
   readonly reflowFirstFrameMs: number;
   readonly maxLongTaskMs: number;
 }
@@ -28,6 +31,9 @@ export const READER_USABILITY_METRIC_KEYS = [
   'cachedTurnFirstFrameMs',
   'cachedTurnStableMs',
   'deferredGrowthFirstFrameMs',
+  'tocSupersedeFirstFrameMs',
+  'farTocFirstFrameMs',
+  'farTocWorkerRequestsToFirstFrame',
   'reflowFirstFrameMs',
   'maxLongTaskMs',
 ] as const satisfies readonly (keyof ReaderUsabilityMetrics)[];
@@ -49,11 +55,17 @@ export function readerUsabilityMetrics(report: ReaderLoadProfileReport): ReaderU
     cachedTurnFirstFrameMs: report.stages.cachedTurn.durationMs,
     cachedTurnStableMs: report.stages.cachedTurn.observedDurationMs,
     deferredGrowthFirstFrameMs: report.stages.deferredGrowth.durationMs,
+    tocSupersedeFirstFrameMs: report.stages.tocSupersede.durationMs,
+    farTocFirstFrameMs: report.stages.farToc.durationMs,
+    farTocWorkerRequestsToFirstFrame: report.stages.farToc.workerRequestsToFirstFrame,
     reflowFirstFrameMs: report.stages.reflow.durationMs,
     maxLongTaskMs: Math.max(
       report.stages.initial.longTasks.maxMs,
       report.stages.cachedTurn.longTasks.maxMs,
       report.stages.deferredGrowth.longTasks.maxMs,
+      report.stages.tocSupersede.longTasks.maxMs,
+      report.stages.freshFarBootstrap.longTasks.maxMs,
+      report.stages.farToc.longTasks.maxMs,
       report.stages.reflow.longTasks.maxMs,
     ),
   };
@@ -74,6 +86,9 @@ export function mapReaderUsabilityMetrics(
     cachedTurnFirstFrameMs: value('cachedTurnFirstFrameMs'),
     cachedTurnStableMs: value('cachedTurnStableMs'),
     deferredGrowthFirstFrameMs: value('deferredGrowthFirstFrameMs'),
+    tocSupersedeFirstFrameMs: value('tocSupersedeFirstFrameMs'),
+    farTocFirstFrameMs: value('farTocFirstFrameMs'),
+    farTocWorkerRequestsToFirstFrame: value('farTocWorkerRequestsToFirstFrame'),
     reflowFirstFrameMs: value('reflowFirstFrameMs'),
     maxLongTaskMs: value('maxLongTaskMs'),
   };

@@ -17,6 +17,9 @@ export interface SpringConfig {
   readonly damping: number;
 }
 
+const SETTLE_DISTANCE_PX = 4;
+const SETTLE_SPEED_PX_PER_SECOND = 300;
+
 /**
  * Advance the spring by `dt` milliseconds toward `target`.
  * Mutates `state` in place and returns whether the spring has settled.
@@ -33,8 +36,12 @@ export function stepSpring(
   state.vx += (force - config.damping * state.vx) * dtSec;
   state.x += state.vx * dtSec;
 
-  // Snap when close enough
-  const settled = Math.abs(state.x - target) < 0.5 && Math.abs(state.vx) < 0.05;
+  // The integrator stores velocity in px/s. Stop once the remaining motion is
+  // below a perceptible frame instead of spending hundreds of milliseconds on
+  // a sub-pixel tail.
+  const settled =
+    Math.abs(state.x - target) < SETTLE_DISTANCE_PX &&
+    Math.abs(state.vx) < SETTLE_SPEED_PX_PER_SECOND;
   if (settled) {
     state.x = target;
     state.vx = 0;

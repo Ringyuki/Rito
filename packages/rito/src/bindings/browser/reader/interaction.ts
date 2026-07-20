@@ -95,7 +95,7 @@ async function getPageTargets(
   if (!capture) return undefined;
 
   const cached = state.interaction.pageTargets.get(pageIndex);
-  if (cached && sameRevision(cached.revision, capture.revision)) {
+  if (cached && sameRevision(cached.revision, capture.revision, 'publicationGeneration')) {
     cachePageTargets(state, pageIndex, cached);
     return cached.value;
   }

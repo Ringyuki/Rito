@@ -13,6 +13,7 @@ use crate::layout::{
     },
     text_shape::fixture_run_shape,
     visual_geometry::VisualRect,
+    RunPaint,
 };
 
 pub(super) fn block(
@@ -70,7 +71,7 @@ pub(super) fn text_at(value: &str, x: f64, y: f64, width: f64) -> LineRun {
         height: 12.0,
         font_size: 12.0,
         interaction_geometry: None,
-        paint: json!({}),
+        paint: RunPaint::default(),
         line_height_px: None,
         href: None,
         source_path: None,

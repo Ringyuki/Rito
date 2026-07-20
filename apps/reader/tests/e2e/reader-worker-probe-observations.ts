@@ -11,6 +11,14 @@ export interface ReaderWorkerRevisionObservation extends ReaderWorkerRevisionHan
   readonly knownSpreadCount: number | null;
 }
 
+export interface ReaderWorkerChapterLocalRevisionObservation extends ReaderWorkerRevisionHandleObservation {
+  readonly chapterIndex: number;
+  readonly href: string;
+  readonly status: string | null;
+  readonly knownLocalPageCount: number | null;
+  readonly knownLocalSpreadCount: number | null;
+}
+
 export interface ReaderWorkerOperationObservation {
   readonly workerId: number;
   readonly requestId: number;
@@ -18,6 +26,9 @@ export interface ReaderWorkerOperationObservation {
   readonly startedAt: number;
   readonly requestBytes: number | null;
   readonly maxTopLevelNodes: number | null;
+  readonly maxQuanta: number | null;
+  processedTopLevelNodes: number | null;
+  advancedQuanta: number | null;
   readonly spreadIndex: number | null;
   completedAt: number | null;
   durationMs: number | null;
@@ -26,6 +37,7 @@ export interface ReaderWorkerOperationObservation {
   releasedDocument: boolean | null;
   readonly requestedRevision: ReaderWorkerRevisionHandleObservation | null;
   revision: ReaderWorkerRevisionObservation | null;
+  chapterLocalRevision: ReaderWorkerChapterLocalRevisionObservation | null;
   error: string | null;
 }
 
@@ -38,8 +50,49 @@ export interface ReaderLongTaskObservation {
 export interface ReaderWorkerHeldContinuationObservation {
   readonly workerId: number;
   readonly requestId: number;
+  readonly kind: string;
+  readonly category: ReaderWorkerResponseHoldCategory;
   readonly heldAt: number;
   releasedAt: number | null;
+}
+
+export type ReaderWorkerResponseHoldCategory = 'mainContinuation' | 'chapterLocalMutation';
+
+export const READER_WORKER_MAIN_CONTINUATION_KINDS = [
+  'continueRevision',
+  'continueRevisionAfterTransferRelease',
+  'continueRevisionTowardSourceLocator',
+] as const;
+
+export const READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS = [
+  'createBoundedChapterLocalRevision',
+  'continueChapterLocalRevision',
+] as const;
+
+export interface ReaderWorkerResponseHoldPlan {
+  readonly mainContinuation: boolean;
+  readonly chapterLocalMutation: boolean;
+}
+
+export function readerWorkerResponseHoldCategory(
+  kind: string,
+): ReaderWorkerResponseHoldCategory | undefined {
+  if (READER_WORKER_MAIN_CONTINUATION_KINDS.some((candidate) => candidate === kind)) {
+    return 'mainContinuation';
+  }
+  if (READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS.some((candidate) => candidate === kind)) {
+    return 'chapterLocalMutation';
+  }
+  return undefined;
+}
+
+export function readerWorkerTocResponseHoldPlan(
+  chapterLocalPreviewEnabled: boolean,
+): ReaderWorkerResponseHoldPlan {
+  return {
+    mainContinuation: true,
+    chapterLocalMutation: chapterLocalPreviewEnabled,
+  };
 }
 
 export interface ReaderWorkerCreationObservation {
@@ -75,7 +128,7 @@ interface ReaderWorkerProbeGlobal {
   __RITO_READER_WORKER_CREATIONS__?: ReaderWorkerCreationObservation[];
   __RITO_READER_WORKER_HELD_CONTINUATIONS__?: ReaderWorkerHeldContinuationObservation[];
   __RITO_READER_WORKER_TERMINATIONS__?: ReaderWorkerTerminationObservation[];
-  __RITO_READER_WORKER_HOLD_NEXT_CONTINUATION__?: boolean;
+  __RITO_READER_WORKER_RESPONSE_HOLD_PLAN__?: ReaderWorkerResponseHoldPlan;
   __RITO_READER_WORKER_RELEASE_CONTINUATIONS__?: () => void;
   __RITO_READER_LONG_TASKS__?: ReaderLongTaskObservation[];
   __RITO_READER_LONG_TASK_OBSERVER__?: PerformanceObserver;
@@ -92,29 +145,65 @@ export async function readReaderWorkerCreations(
 }
 
 export async function holdNextReaderWorkerContinuation(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const runtime = globalThis as typeof globalThis & ReaderWorkerProbeGlobal;
-    runtime.__RITO_READER_WORKER_HOLD_NEXT_CONTINUATION__ = true;
+  await armReaderWorkerResponseHolds(page, {
+    mainContinuation: true,
+    chapterLocalMutation: false,
   });
+}
+
+export async function armReaderWorkerResponseHolds(
+  page: Page,
+  plan: ReaderWorkerResponseHoldPlan,
+): Promise<void> {
+  await page.evaluate((nextPlan) => {
+    const runtime = globalThis as typeof globalThis & ReaderWorkerProbeGlobal;
+    runtime.__RITO_READER_WORKER_RESPONSE_HOLD_PLAN__ = { ...nextPlan };
+  }, plan);
 }
 
 export async function waitForHeldReaderWorkerContinuation(
   page: Page,
   timeoutMs = 15_000,
 ): Promise<ReaderWorkerHeldContinuationObservation> {
-  await expect
-    .poll(async () => (await readHeldReaderWorkerContinuations(page)).length, {
-      timeout: timeoutMs,
-    })
-    .toBeGreaterThan(0);
-  const held = (await readHeldReaderWorkerContinuations(page)).at(-1);
+  const held = (await waitForHeldReaderWorkerResponses(page, ['mainContinuation'], timeoutMs))[0];
   if (!held) throw new Error('Reader worker continuation was not held');
   return held;
+}
+
+export async function waitForHeldReaderWorkerResponses(
+  page: Page,
+  categories: readonly ReaderWorkerResponseHoldCategory[],
+  timeoutMs = 15_000,
+): Promise<ReaderWorkerHeldContinuationObservation[]> {
+  const expected = new Set(categories);
+  await expect
+    .poll(
+      async () => {
+        const held = await readHeldReaderWorkerContinuations(page);
+        return [...expected].every((category) =>
+          held.some((entry) => entry.category === category && entry.releasedAt === null),
+        );
+      },
+      { timeout: timeoutMs },
+    )
+    .toBe(true);
+  const held = await readHeldReaderWorkerContinuations(page);
+  return categories.map((category) => {
+    const entry = held.find(
+      (candidate) => candidate.category === category && candidate.releasedAt === null,
+    );
+    if (!entry) throw new Error(`Reader worker response was not held for ${category}`);
+    return entry;
+  });
 }
 
 export async function releaseHeldReaderWorkerContinuations(page: Page): Promise<void> {
   await page.evaluate(() => {
     const runtime = globalThis as typeof globalThis & ReaderWorkerProbeGlobal;
+    runtime.__RITO_READER_WORKER_RESPONSE_HOLD_PLAN__ = {
+      mainContinuation: false,
+      chapterLocalMutation: false,
+    };
     runtime.__RITO_READER_WORKER_RELEASE_CONTINUATIONS__?.();
   });
 }
@@ -147,6 +236,7 @@ export async function readReaderWorkerOperations(
         ...entry,
         requestedRevision: entry.requestedRevision ? { ...entry.requestedRevision } : null,
         revision: entry.revision ? { ...entry.revision } : null,
+        chapterLocalRevision: entry.chapterLocalRevision ? { ...entry.chapterLocalRevision } : null,
       })) ?? []
     );
   });
@@ -189,6 +279,7 @@ export async function readReaderProbeSlice(
         ...entry,
         requestedRevision: entry.requestedRevision ? { ...entry.requestedRevision } : null,
         revision: entry.revision ? { ...entry.revision } : null,
+        chapterLocalRevision: entry.chapterLocalRevision ? { ...entry.chapterLocalRevision } : null,
       })),
       longTasks: longTasks
         .slice(probeCursor.longTaskIndex)

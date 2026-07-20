@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    epub::{EpubError, EpubResult},
-    layout::{build_page_semantic_tree, LayoutSemanticNode, LayoutSemanticRole},
-};
+use crate::epub::{EpubError, EpubResult};
 
-use super::{navigation::spread_index_for_page, RuntimeRevision};
+use super::{
+    navigation::spread_index_for_page,
+    page_artifact::{PageArtifactSemanticNode, PageArtifactSemanticRole},
+    RuntimeRevision,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -71,23 +72,26 @@ pub(super) fn page_semantics(
     if page_index >= revision.known_extent.page_count {
         return Err(EpubError::new(format!("unknown page index: {page_index}")));
     }
-    let page = revision
-        .layout
-        .pages
-        .get(page_index)
+    let session = revision.chapter_engine_session();
+    let artifact = session
+        .page(page_index)
         .ok_or_else(|| EpubError::new(format!("unknown page index: {page_index}")))?;
+    let metadata = artifact.metadata();
+    debug_assert_eq!(metadata.page_index, page_index);
+    debug_assert!(metadata.width.is_finite() && metadata.height.is_finite());
     Ok(RuntimePageSemantics {
         revision_id: revision_id.to_owned(),
-        page_index,
-        spread_index: spread_index_for_page(revision, page_index),
-        nodes: build_page_semantic_tree(page)
+        page_index: metadata.page_index,
+        spread_index: spread_index_for_page(revision, metadata.page_index),
+        nodes: artifact
+            .semantic_nodes()
             .into_iter()
             .map(runtime_node)
             .collect(),
     })
 }
 
-fn runtime_node(node: LayoutSemanticNode) -> RuntimeSemanticNode {
+fn runtime_node(node: PageArtifactSemanticNode) -> RuntimeSemanticNode {
     RuntimeSemanticNode {
         role: runtime_role(node.role),
         level: node.level,
@@ -104,17 +108,17 @@ fn runtime_node(node: LayoutSemanticNode) -> RuntimeSemanticNode {
     }
 }
 
-fn runtime_role(role: LayoutSemanticRole) -> RuntimeSemanticRole {
+fn runtime_role(role: PageArtifactSemanticRole) -> RuntimeSemanticRole {
     match role {
-        LayoutSemanticRole::Heading => RuntimeSemanticRole::Heading,
-        LayoutSemanticRole::Paragraph => RuntimeSemanticRole::Paragraph,
-        LayoutSemanticRole::List => RuntimeSemanticRole::List,
-        LayoutSemanticRole::ListItem => RuntimeSemanticRole::ListItem,
-        LayoutSemanticRole::Image => RuntimeSemanticRole::Image,
-        LayoutSemanticRole::Link => RuntimeSemanticRole::Link,
-        LayoutSemanticRole::Blockquote => RuntimeSemanticRole::Blockquote,
-        LayoutSemanticRole::Table => RuntimeSemanticRole::Table,
-        LayoutSemanticRole::Generic => RuntimeSemanticRole::Generic,
+        PageArtifactSemanticRole::Heading => RuntimeSemanticRole::Heading,
+        PageArtifactSemanticRole::Paragraph => RuntimeSemanticRole::Paragraph,
+        PageArtifactSemanticRole::List => RuntimeSemanticRole::List,
+        PageArtifactSemanticRole::ListItem => RuntimeSemanticRole::ListItem,
+        PageArtifactSemanticRole::Image => RuntimeSemanticRole::Image,
+        PageArtifactSemanticRole::Link => RuntimeSemanticRole::Link,
+        PageArtifactSemanticRole::Blockquote => RuntimeSemanticRole::Blockquote,
+        PageArtifactSemanticRole::Table => RuntimeSemanticRole::Table,
+        PageArtifactSemanticRole::Generic => RuntimeSemanticRole::Generic,
     }
 }
 

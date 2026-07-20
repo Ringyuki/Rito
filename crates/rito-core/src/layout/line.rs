@@ -4,7 +4,7 @@ use serde_json::{json, Map, Number, Value};
 
 use super::{
     line_break::utf16_len,
-    style_values::paint_number_value,
+    paint::RunPaint,
     summary_json::{hash_text, number_value, rect_value},
     text_mapping::RunTextMapping,
     text_shape::RunShape,
@@ -174,7 +174,7 @@ pub(crate) struct TextRunBox {
     pub(crate) height: f64,
     pub(crate) font_size: f64,
     pub(crate) interaction_geometry: Option<TextRunInteractionGeometry>,
-    pub(crate) paint: Value,
+    pub(crate) paint: RunPaint,
     pub(crate) line_height_px: Option<f64>,
     pub(crate) href: Option<String>,
     pub(crate) source_path: Option<Vec<usize>>,
@@ -198,7 +198,7 @@ impl TextRunInteractionGeometry {
         line_height: f64,
     ) -> Option<Self> {
         if !line_height.is_finite()
-            || line_height <= 0.0
+            || line_height < 0.0
             || !metrics.top_baseline_ascent_px.is_finite()
             || metrics.top_baseline_ascent_px < 0.0
             || !metrics.top_baseline_descent_px.is_finite()
@@ -278,11 +278,14 @@ impl TextRunBox {
     }
 
     fn trailing_inline_extension(&self) -> f64 {
-        if paint_object(&self.paint, &["border", "end"]).is_none() {
+        let Some(end) = self.paint.border().and_then(|border| border.end.as_ref()) else {
             return 0.0;
-        }
-        paint_number(&self.paint, &["padding", "right"])
-            + paint_number(&self.paint, &["border", "end", "widthPx"])
+        };
+        self.paint
+            .padding()
+            .map(|padding| padding.right)
+            .unwrap_or(0.0)
+            + end.width_px
     }
 
     fn normalized(&self) -> Value {
@@ -316,10 +319,15 @@ impl TextRunBox {
         if delta == 0.0 {
             return;
         }
-        self.add_paint_spacing_value(key, delta);
         let (word_spacing_delta, letter_spacing_delta) = match key {
-            "wordSpacingPx" => (delta, 0.0),
-            "letterSpacingPx" => (0.0, delta),
+            "wordSpacingPx" => {
+                self.add_word_spacing_value(delta);
+                (delta, 0.0)
+            }
+            "letterSpacingPx" => {
+                self.add_letter_spacing_value(delta);
+                (0.0, delta)
+            }
             _ => return,
         };
         self.shape.apply_spacing_delta_in_place(
@@ -330,39 +338,13 @@ impl TextRunBox {
         );
     }
 
-    pub(crate) fn add_paint_spacing_value(&mut self, key: &str, delta: f64) {
-        if delta == 0.0 {
-            return;
-        }
-        let current = self
-            .paint
-            .as_object()
-            .and_then(|paint| paint.get(key))
-            .and_then(Value::as_f64)
-            .unwrap_or(0.0);
-        if let Some(paint) = self.paint.as_object_mut() {
-            paint.insert(key.to_owned(), paint_number_value(current + delta));
-        }
+    pub(crate) fn add_word_spacing_value(&mut self, delta: f64) {
+        self.paint.add_word_spacing(delta);
     }
-}
 
-fn paint_number(value: &Value, path: &[&str]) -> f64 {
-    let mut current = value;
-    for key in path {
-        let Some(next) = current.as_object().and_then(|object| object.get(*key)) else {
-            return 0.0;
-        };
-        current = next;
+    pub(crate) fn add_letter_spacing_value(&mut self, delta: f64) {
+        self.paint.add_letter_spacing(delta);
     }
-    current.as_f64().unwrap_or(0.0)
-}
-
-fn paint_object<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Map<String, Value>> {
-    let mut current = value;
-    for key in path {
-        current = current.as_object()?.get(*key)?;
-    }
-    current.as_object()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -398,7 +380,7 @@ pub(crate) struct RubyRunBox {
     pub(crate) y: f64,
     pub(crate) width: f64,
     pub(crate) height: f64,
-    pub(crate) paint: Value,
+    pub(crate) paint: RunPaint,
 }
 
 impl RubyRunBox {
@@ -444,7 +426,43 @@ fn insert_optional_number(output: &mut Map<String, Value>, key: &str, value: Opt
 mod tests {
     use serde_json::json;
 
-    use super::{AtomRunBox, LineBox, LineRun, RubyRunBox, TextRunBox};
+    use super::{AtomRunBox, LineBox, LineRun, RubyRunBox, TextRunBox, TextRunInteractionGeometry};
+    use crate::layout::{paint::RunPaint, FontVerticalMetricSample};
+
+    #[test]
+    fn zero_line_height_accepts_finite_font_vertical_metrics() {
+        let geometry = TextRunInteractionGeometry::from_font_metrics(
+            &FontVerticalMetricSample {
+                font_family: "serif".to_owned(),
+                font_style: "normal".to_owned(),
+                font_weight: 400,
+                font_size_px: 16.0,
+                top_baseline_ascent_px: 9.0,
+                top_baseline_descent_px: 3.0,
+            },
+            0.0,
+        )
+        .expect("zero CSS line-height retains measurable glyph geometry");
+
+        assert_eq!(geometry.top_offset, -6.0);
+        assert_eq!(geometry.top_baseline_ascent_px, 9.0);
+        assert_eq!(geometry.top_baseline_descent_px, 3.0);
+    }
+
+    #[test]
+    fn invalid_line_height_still_rejects_font_vertical_metrics() {
+        let sample = FontVerticalMetricSample {
+            font_family: "serif".to_owned(),
+            font_style: "normal".to_owned(),
+            font_weight: 400,
+            font_size_px: 16.0,
+            top_baseline_ascent_px: 9.0,
+            top_baseline_descent_px: 3.0,
+        };
+
+        assert!(TextRunInteractionGeometry::from_font_metrics(&sample, -1.0).is_none());
+        assert!(TextRunInteractionGeometry::from_font_metrics(&sample, f64::NAN).is_none());
+    }
 
     #[test]
     fn line_box_reports_text_counts_and_used_width() {
@@ -463,7 +481,7 @@ mod tests {
                     height: 12.0,
                     font_size: 12.0,
                     interaction_geometry: None,
-                    paint: json!({ "color": "#000000" }),
+                    paint: RunPaint::from_test_wire_value(json!({ "color": "#000000" })),
                     line_height_px: None,
                     href: None,
                     source_path: Some(vec![0, 1]),
@@ -488,7 +506,7 @@ mod tests {
                     y: -8.0,
                     width: 30.0,
                     height: 6.0,
-                    paint: json!({ "color": "#000000" }),
+                    paint: RunPaint::from_test_wire_value(json!({ "color": "#000000" })),
                 }),
             ],
         };
@@ -509,7 +527,9 @@ mod tests {
         }));
         let padding_with_border = text_run_with_paint(json!({
             "padding": { "right": 10 },
-            "border": { "end": { "widthPx": 2 } }
+            "border": {
+                "end": { "widthPx": 2, "paint": { "color": "#000", "style": "solid" } }
+            }
         }));
 
         assert_eq!(LineRun::Text(padding_without_border).advance_right(), 31.0);
@@ -532,7 +552,7 @@ mod tests {
                 height: 12.0,
                 font_size: 12.0,
                 interaction_geometry: None,
-                paint: json!({}),
+                paint: RunPaint::default(),
                 line_height_px: None,
                 href: None,
                 source_path: None,
@@ -562,7 +582,7 @@ mod tests {
             height: 12.0,
             font_size: 12.0,
             interaction_geometry: None,
-            paint: json!({ "wordSpacingPx": 1 }),
+            paint: RunPaint::from_test_wire_value(json!({ "wordSpacingPx": 1 })),
             line_height_px: None,
             href: None,
             source_path: None,
@@ -576,8 +596,8 @@ mod tests {
         run.add_paint_spacing("wordSpacingPx", 2.5);
         run.add_paint_spacing("letterSpacingPx", 8.0 / 29.0);
 
-        assert_eq!(run.paint["wordSpacingPx"], json!(3.5));
-        assert_eq!(run.paint["letterSpacingPx"], json!(8.0 / 29.0));
+        assert_eq!(run.paint.measure().word_spacing_px, Some(3.5));
+        assert_eq!(run.paint.measure().letter_spacing_px, Some(8.0 / 29.0));
     }
 
     #[test]
@@ -602,7 +622,7 @@ mod tests {
             height: 12.0,
             font_size: 12.0,
             interaction_geometry: None,
-            paint,
+            paint: RunPaint::from_test_wire_value(paint),
             line_height_px: None,
             href: None,
             source_path: None,

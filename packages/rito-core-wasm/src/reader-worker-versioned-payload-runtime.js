@@ -1,4 +1,9 @@
-import { requireRevisionHandle } from './core-wasm-versioned-validation-runtime.js';
+import {
+  requireContinuationBatchLimit,
+  requireContinuationTargetSpreadIndex,
+  requireRevisionHandle,
+  requireRevisionTransferCount,
+} from './core-wasm-versioned-validation-runtime.js';
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
 import {
   requireTextCaretResponse,
@@ -46,6 +51,10 @@ import {
   requireSearchRequest,
   requireSearchResponse,
 } from './reader-worker-versioned-read-validation-runtime.js';
+import {
+  requireFontVerticalMetricCalibrationRequest,
+  requireFontVerticalMetricCalibrationTransferResult,
+} from './font-vertical-metric-calibration-validation-runtime.js';
 
 export function versionedReaderWorkerPayload(document, request) {
   switch (request.kind) {
@@ -60,6 +69,12 @@ export function versionedReaderWorkerPayload(document, request) {
           budget: request.budget,
         }),
       );
+    case 'continueRevisionAfterTransferRelease':
+      return continueRevisionAfterTransferReleaseResponse(document, request);
+    case 'continueRevisionTowardSourceLocator':
+      return continueRevisionTowardSourceLocatorResponse(document, request);
+    case 'calibrateRevisionFontVerticalMetrics':
+      return calibrateRevisionFontVerticalMetricsResponse(document, request);
     case 'cancelRevision':
       return summaryResponse(
         request.kind,
@@ -150,10 +165,18 @@ export function warmVersionedReaderFrameWindow(document, requestedRevision, spre
         frames: prefetched.value.plan.spreadIndexes.map((index) =>
           readVersionedFrameBuffer(document, revision, index),
         ),
-        spreads: prefetched.value.spreads.map((spread) => ({
-          spreadIndex: spread.spreadIndex,
-          resources: readVersionedResourcePayloadBytes(document, revision, spread.payloads),
-        })),
+        spreads: prefetched.value.spreads.map((spread) => {
+          const transferred = readVersionedResourcePayloadBytes(
+            document,
+            revision,
+            spread.payloads,
+          );
+          return {
+            spreadIndex: spread.spreadIndex,
+            resources: transferred.resources,
+            missingResources: [...spread.missingResources, ...transferred.missingResources],
+          };
+        }),
       },
     };
   } catch (error) {
@@ -165,6 +188,229 @@ export function warmVersionedReaderFrameWindow(document, requestedRevision, spre
 function advanceResponse(kind, advance) {
   const revision = requireRevisionHandle(advance.revision, `${kind} result`);
   return { kind, revision, result: advance };
+}
+
+function calibrateRevisionFontVerticalMetricsResponse(document, request) {
+  const operation = request.kind;
+  const previous = requireRevisionHandle(request.revision, operation);
+  const input = requireFontVerticalMetricCalibrationRequest(
+    {
+      ...previous,
+      ...(request.continuation === undefined ? {} : { continuation: request.continuation }),
+      fontVerticalMetrics: request.fontVerticalMetrics,
+    },
+    operation,
+  );
+  const calibrated = document.calibrateRevisionFontVerticalMetrics(input);
+  const revision = requireRevisionHandle(calibrated.revision, `${operation} result`);
+  const result = requireFontVerticalMetricCalibrationTransferResult(
+    calibrated,
+    previous,
+    revision,
+    operation,
+  );
+  return {
+    kind: operation,
+    revision,
+    result,
+  };
+}
+
+function continueRevisionAfterTransferReleaseResponse(document, request) {
+  const operation = request.kind;
+  const previous = requireRevisionHandle(request.revision, operation);
+  const maximum = requireContinuationBatchLimit(request.maxQuanta, operation);
+  const targetSpreadIndex = requireContinuationTargetSpreadIndex(
+    request.targetSpreadIndex,
+    operation,
+  );
+  let current = previous;
+  let cursor = request.cursor;
+  let advance;
+  let revision;
+  let previousKnownExtent;
+  let processedTopLevelNodes = 0;
+  let releasedTransferCount = 0;
+  let advancedQuanta = 0;
+  while (advancedQuanta < maximum) {
+    try {
+      advance = document.continueRevision({
+        ...current,
+        cursor,
+        budget: request.budget,
+      });
+    } catch (error) {
+      if (isCommittedNextFailure(error, current)) {
+        bestEffortReleaseRevisionTransfers(document, current);
+      } else if (advancedQuanta > 0) {
+        bestEffortReleaseRevision(document, current);
+      }
+      throw error;
+    }
+    revision = requireRevisionHandle(advance.revision, `${operation} result`);
+    previousKnownExtent ??= advance.previousKnownExtent;
+    processedTopLevelNodes = addSafeCount(
+      processedTopLevelNodes,
+      advance.processedTopLevelNodes,
+      `${operation} processed top-level node count`,
+    );
+    try {
+      releasedTransferCount = addSafeCount(
+        releasedTransferCount,
+        releaseRevisionTransfers(document, current, operation),
+        `${operation} released transfer count`,
+      );
+    } catch (error) {
+      bestEffortReleaseRevision(document, revision);
+      throw error;
+    }
+    advancedQuanta += 1;
+    if (advance.continuation === undefined || spreadTargetIsAvailable(advance, targetSpreadIndex)) {
+      break;
+    }
+    current = revision;
+    cursor = advance.continuation.cursor;
+  }
+  const aggregateAdvance = aggregateRevisionAdvance(
+    advance,
+    previousKnownExtent,
+    processedTopLevelNodes,
+  );
+  return {
+    kind: operation,
+    revision,
+    result: {
+      advance: aggregateAdvance,
+      releasedRevision: previous,
+      releasedTransferCount,
+      advancedQuanta,
+    },
+  };
+}
+
+function releaseRevisionTransfers(document, revision, operation) {
+  const released = document.releaseRevisionTransfersAtRevision(revision);
+  requireSameHandle(revision, released.revision, `${operation} release`);
+  return requireRevisionTransferCount(released.value, operation);
+}
+
+function addSafeCount(total, addition, operation) {
+  const result = total + addition;
+  if (!Number.isSafeInteger(addition) || addition < 0 || !Number.isSafeInteger(result)) {
+    throw new Error(`${operation} overflowed`);
+  }
+  return result;
+}
+
+function spreadTargetIsAvailable(advance, targetSpreadIndex) {
+  return (
+    targetSpreadIndex !== undefined && advance.revision.knownExtent.spreadCount > targetSpreadIndex
+  );
+}
+
+function aggregateRevisionAdvance(finalAdvance, previousKnownExtent, processedTopLevelNodes) {
+  return {
+    ...finalAdvance,
+    previousKnownExtent,
+    newlyKnownPages: {
+      startPage: previousKnownExtent.pageCount,
+      endPageExclusive: finalAdvance.revision.knownExtent.pageCount,
+    },
+    processedTopLevelNodes,
+  };
+}
+
+function isCommittedNextFailure(error, previous) {
+  return (
+    error?.code === 'engine-error' &&
+    error.revision?.status === 'failed' &&
+    error.revision.revisionId === previous.revisionId &&
+    error.revision.revisionVersion === previous.revisionVersion + 1
+  );
+}
+
+function bestEffortReleaseRevisionTransfers(document, revision) {
+  try {
+    document.releaseRevisionTransfersAtRevision(revision);
+  } catch {
+    // Preserve the committed continuation failure and its exact recovery revision.
+  }
+}
+
+function bestEffortReleaseRevision(document, revision) {
+  try {
+    document.releaseRevisionAtRevision(revision);
+  } catch {
+    // Preserve the post-commit release failure after exact rollback is attempted.
+  }
+}
+
+function continueRevisionTowardSourceLocatorResponse(document, request) {
+  const operation = request.kind;
+  const previous = requireRevisionHandle(request.revision, operation);
+  const locator = requireSourceLocatorRequest(request.locator, operation);
+  const maximum = requireContinuationBatchLimit(request.maxQuanta, operation);
+  let current = previous;
+  let cursor = request.cursor;
+  let result;
+  let revision;
+  let previousKnownExtent;
+  let processedTopLevelNodes = 0;
+  let releasedTransferCount = 0;
+  let advancedQuanta = 0;
+  while (advancedQuanta < maximum) {
+    try {
+      result = document.continueRevisionTowardSourceLocator({
+        ...current,
+        cursor,
+        budget: request.budget,
+        locator,
+      });
+    } catch (error) {
+      if (advancedQuanta > 0 && !isCommittedNextFailure(error, current)) {
+        bestEffortReleaseRevision(document, current);
+      }
+      throw error;
+    }
+    revision = requireRevisionHandle(result.advance?.revision, `${operation} result`);
+    previousKnownExtent ??= result.advance.previousKnownExtent;
+    processedTopLevelNodes = addSafeCount(
+      processedTopLevelNodes,
+      result.advance.processedTopLevelNodes,
+      `${operation} processed top-level node count`,
+    );
+    releasedTransferCount = addSafeCount(
+      releasedTransferCount,
+      requireRevisionTransferCount(result.releasedTransferCount, operation),
+      `${operation} released transfer count`,
+    );
+    advancedQuanta += 1;
+    if (locatorBatchIsComplete(result) || result.advance.continuation === undefined) break;
+    current = revision;
+    cursor = result.advance.continuation.cursor;
+  }
+  const aggregateAdvance = aggregateRevisionAdvance(
+    result.advance,
+    previousKnownExtent,
+    processedTopLevelNodes,
+  );
+  return {
+    kind: operation,
+    revision,
+    result: {
+      ...result,
+      advance: aggregateAdvance,
+      releasedRevision: previous,
+      releasedTransferCount,
+      advancedQuanta,
+    },
+  };
+}
+
+function locatorBatchIsComplete(result) {
+  if (result.locatorOutcome?.kind === 'failed') return true;
+  const resolution = result.locatorOutcome?.resolution;
+  return resolution?.status === 'resolved' || resolution?.reason === 'noPageProjection';
 }
 
 function summaryResponse(kind, summary) {
@@ -329,11 +575,17 @@ function sourceLocatorResponse(document, request) {
   const operation = request.kind;
   const revision = requireRevisionHandle(request.revision, operation);
   const locator = requireSourceLocatorRequest(request.locator, operation);
+  const result = sourceLocatorValue(document, operation, revision, locator);
+  return { kind: operation, revision, result };
+}
+
+function sourceLocatorValue(document, operation, revision, locator) {
   const envelope = document.resolveSourceLocatorAtRevision(revision, locator);
-  return validatedValueResponse(operation, revision, envelope, (value) => ({
+  requireSameHandle(revision, envelope.revision, operation);
+  return {
     request: locator,
-    resolution: requireSourceLocatorResolution(value, revision, operation),
-  }));
+    resolution: requireSourceLocatorResolution(envelope.value, revision, operation),
+  };
 }
 
 function validatedValueResponse(kind, expected, envelope, validate) {
@@ -421,11 +673,24 @@ function requireFrameWindowRevision(prefetched, revision, requestedSpreadIndex, 
     if (spread.spreadIndex !== plan.spreadIndexes[index]) {
       throw new Error(`${operation} received resources for a mismatched spreadIndex`);
     }
-    if (!Array.isArray(spread.payloads)) {
+    if (!Array.isArray(spread.payloads) || !Array.isArray(spread.missingResources)) {
       throw new Error(`${operation} received malformed frame window resources`);
     }
+    const hrefs = new Set();
     for (const payload of spread.payloads) {
       requireRevisionId(payload, revision, `${operation} resource`);
+      const href = requireFrameResourceIdentity(payload, `${operation} resource`);
+      if (hrefs.has(href)) {
+        throw new Error(`${operation} received duplicate frame window resources`);
+      }
+      hrefs.add(href);
+    }
+    for (const missing of spread.missingResources) {
+      const href = requireMissingFrameResource(missing, operation);
+      if (hrefs.has(href)) {
+        throw new Error(`${operation} received conflicting frame window resource results`);
+      }
+      hrefs.add(href);
     }
   }
 }
@@ -438,15 +703,48 @@ function requireRevisionId(value, revision, operation) {
 
 function readVersionedResourcePayloadBytes(document, revision, payloads) {
   const resources = [];
+  const missingResources = [];
   for (const payload of payloads) {
     requireRevisionId(payload, revision, 'warmFrameWindowAtRevision resource');
     try {
       resources.push({ payload, bytes: takeResourceTransferBytes(document, payload.transferId) });
     } catch {
-      // Frame resource warmup is opportunistic. Missing bytes should not fail callers.
+      missingResources.push({
+        kind: payload.kind,
+        href: payload.href,
+        message: `Frame resource transfer is unavailable: ${payload.href}`,
+      });
     }
   }
-  return resources;
+  return { resources, missingResources };
+}
+
+function requireFrameResourceIdentity(value, operation) {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    value.kind !== 'image' ||
+    typeof value.href !== 'string' ||
+    value.href.length === 0
+  ) {
+    throw new Error(`${operation} received a malformed frame image resource`);
+  }
+  return value.href;
+}
+
+function requireMissingFrameResource(value, operation) {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    value.kind !== 'image' ||
+    typeof value.href !== 'string' ||
+    value.href.length === 0 ||
+    typeof value.message !== 'string' ||
+    value.message.length === 0
+  ) {
+    throw new Error(`${operation} received a malformed missing frame image resource`);
+  }
+  return value.href;
 }
 
 function releasePlannedResourceTransfers(document, prefetched) {

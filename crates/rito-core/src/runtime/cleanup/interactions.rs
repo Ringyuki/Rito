@@ -100,7 +100,10 @@ impl PendingRuntimeRevisionInteractionsCleanup {
             .take()
             .expect("cleanup owns its revision interactions");
         let RuntimeRevisionInteractions {
+            publication_footnotes: _,
             footnotes,
+            pending_footnote_keys: _,
+            footnote_index_complete: _,
             chapter_text_indices,
             completed_chapter_idrefs,
         } = owner;

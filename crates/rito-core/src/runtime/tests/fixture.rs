@@ -58,10 +58,19 @@ pub fn interaction_target_fixture_epub() -> Vec<u8> {
 }
 
 pub fn source_locator_fixture_epub() -> Vec<u8> {
+    source_locator_fixture_epub_with_prefix("")
+}
+
+pub fn source_locator_image_fixture_epub() -> Vec<u8> {
+    source_locator_fixture_epub_with_prefix(r#"<img src="Images/cover.png" alt="fixture cover"/>"#)
+}
+
+fn source_locator_fixture_epub_with_prefix(prefix: &str) -> Vec<u8> {
     let paragraphs = (0..48)
         .map(|index| {
+            let content_prefix = if index == 0 { prefix } else { "" };
             format!(
-                r#"<p id="point-{index}">Source locator paragraph {index} has enough text to wrap across several lines in a narrow reader viewport.</p>"#
+                r#"<p id="point-{index}">{content_prefix}Source locator paragraph {index} has enough text to wrap across several lines in a narrow reader viewport.</p>"#
             )
         })
         .collect::<String>();
@@ -75,6 +84,20 @@ pub fn long_source_text_fixture_epub() -> Vec<u8> {
     let text = "Portable reading anchor text with stable source ownership. ".repeat(160);
     let chapter = format!(
         r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p>{text}</p></body></html>"#
+    );
+    fixture_epub_with_chapter(chapter.as_bytes())
+}
+
+pub fn long_chapter_window_fixture_epub() -> Vec<u8> {
+    let paragraphs = (0..520)
+        .map(|index| {
+            format!(
+                r#"<p id="window-point-{index}">Window paragraph {index:03} carries stable source text across bounded reader revision rollovers and adjacent navigation.</p>"#
+            )
+        })
+        .collect::<String>();
+    let chapter = format!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>{paragraphs}</body></html>"#
     );
     fixture_epub_with_chapter(chapter.as_bytes())
 }
@@ -292,6 +315,25 @@ pub fn many_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
 pub fn many_empty_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
     many_chapter_fixture_epub_with(chapter_count, |_| {
         r#"<html xmlns="http://www.w3.org/1999/xhtml"><body></body></html>"#.to_owned()
+    })
+}
+
+pub fn retained_adjacent_fixture_epub() -> Vec<u8> {
+    many_chapter_fixture_epub_with(2, |index| {
+        if index == 0 {
+            let paragraphs = (0..96)
+                .map(|paragraph| {
+                    format!(
+                        "<p>Retained adjacent paragraph {paragraph} must be laid out before the previous-chapter tail is published.</p>"
+                    )
+                })
+                .collect::<String>();
+            format!(
+                r#"<html xmlns="http://www.w3.org/1999/xhtml"><body>{paragraphs}</body></html>"#
+            )
+        } else {
+            chapter_fixture_xhtml("adjacent source chapter")
+        }
     })
 }
 

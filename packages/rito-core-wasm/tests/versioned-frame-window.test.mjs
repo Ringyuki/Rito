@@ -14,8 +14,11 @@ const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   unusedRawDocument,
 );
 
-test('versioned frame-window client preserves its handle and cleans failed resource takes', async () => {
-  const fixture = frameWindowFixture({ missingTransferId: 'transfer-2' });
+test('versioned frame-window preserves terminal missing and failed-transfer resources', async () => {
+  const fixture = frameWindowFixture({
+    missingTransferId: 'transfer-2',
+    missingResources: [missingResource('image-3.png', 'resource is absent')],
+  });
   const client = createRitoCoreWasmInProcessReaderClient(moduleFor(fixture.document));
   await client.open(new ArrayBuffer(0));
 
@@ -32,6 +35,11 @@ test('versioned frame-window client preserves its handle and cleans failed resou
     ),
     ['image-1.png'],
   );
+  assert.deepEqual(warmed.value.spreads[0].missingResources, [
+    missingResource('image-3.png', 'resource is absent'),
+    missingResource('image-2.png', 'Frame resource transfer is unavailable: image-2.png'),
+  ]);
+  assert.deepEqual(warmed.value.spreads[1].missingResources, []);
   assert.deepEqual(fixture.released, ['transfer-2']);
   client.dispose();
 });
@@ -75,6 +83,18 @@ test('versioned frame-window rejects forged plan indexes and releases planned le
     );
     assert.deepEqual(fixture.released.sort(), ['transfer-1', 'transfer-2']);
   }
+});
+
+test('versioned frame-window rejects conflicting terminal resource results', () => {
+  const fixture = frameWindowFixture({
+    missingResources: [missingResource('image-1.png', 'conflicts with payload')],
+  });
+
+  assert.throws(
+    () => fixture.document.warmFrameWindowAtRevision(handle(), 0),
+    /conflicting frame window resource results/,
+  );
+  assert.deepEqual(fixture.released.sort(), ['transfer-1', 'transfer-2']);
 });
 
 test('real worker transfers every versioned frame-window buffer', async () => {
@@ -135,7 +155,7 @@ function frameWindowFixture(options = {}) {
                 revisionId: 'rev-1',
                 spreadIndex: options.resourceSpreadIndex ?? spreadIndex,
                 payloads: resources,
-                missingResources: [],
+                missingResources: options.missingResources ?? [],
                 pendingTransferCount: resources.length,
               }
             : {
@@ -182,6 +202,10 @@ function resource(transferId, href) {
     mediaType: 'image/png',
     byteLength: 1,
   };
+}
+
+function missingResource(href, message) {
+  return { kind: 'image', href, message };
 }
 
 function envelope(revisionVersion, value) {

@@ -124,7 +124,7 @@ describe('Browser bounded reflow coordinator', () => {
     expect(request?.preserveLocator?.sourcePoint?.nodePath).not.toBe(locator.sourcePoint?.nodePath);
   });
 
-  it('retries an initial candidate only after exact font geometry grows', async () => {
+  it('retries an initial candidate after exact font geometry grows', async () => {
     const initial = createWorker(() => undefined, 'initial-font-fallback');
     const calibrated = createWorker(() => undefined, 'initial-font-calibrated');
     const state = createState(initial.worker);
@@ -157,6 +157,65 @@ describe('Browser bounded reflow coordinator', () => {
       initial.worker.sessionId,
       calibrated.worker.sessionId,
     ]);
+  });
+
+  it('keeps a successfully published initial candidate without a geometry replacement', async () => {
+    const initial = createWorker(() => undefined, 'initial-optional-vertical-fallback');
+    const state = createState(initial.worker);
+    const workerFactory = vi.fn(() => {
+      throw new Error('an unmeasurable optional vertical demand must not replace the worker');
+    });
+    Object.assign(state, { workerFactory });
+    mocks.startCandidate.mockResolvedValueOnce(snapshot());
+
+    await startBrowserReaderInitialReflow(state, BASE_READER_OPTIONS, 'single', 'greedy');
+
+    expect(mocks.startCandidate).toHaveBeenCalledOnce();
+    expect(workerFactory).not.toHaveBeenCalled();
+    expect(mocks.openWorker).not.toHaveBeenCalled();
+  });
+
+  it('allows one fresh worker retry for the same metric set and preserves the locator', async () => {
+    const initial = createWorker(() => undefined, 'initial-same-metrics');
+    const retry = createWorker(() => undefined, 'retry-same-metrics');
+    const state = createState(initial.worker);
+    const locator = sourceLocator('late.xhtml', 18);
+    Object.assign(state, { workerFactory: vi.fn(() => retry.worker) });
+    mocks.startCandidate.mockResolvedValueOnce(undefined).mockResolvedValueOnce(snapshot());
+
+    await startBrowserReaderInitialReflow(
+      state,
+      { ...BASE_READER_OPTIONS, initialLocator: locator },
+      'single',
+      'greedy',
+    );
+
+    expect(mocks.startCandidate).toHaveBeenCalledTimes(2);
+    expect(mocks.openWorker).toHaveBeenCalledOnce();
+    expect(mocks.startCandidate.mock.calls.map((call) => call[2].preserveLocator)).toEqual([
+      locator,
+      locator,
+    ]);
+    expect(mocks.startCandidate.mock.calls.map((call) => call[2].targetSpreadIndex)).toEqual([
+      0, 0,
+    ]);
+  });
+
+  it('stops after one fresh worker retry makes no metric progress', async () => {
+    const initial = createWorker(() => undefined, 'initial-no-progress');
+    const retry = createWorker(() => undefined, 'retry-no-progress');
+    const state = createState(initial.worker);
+    const workerFactory = vi.fn(() => retry.worker);
+    Object.assign(state, { workerFactory });
+    mocks.startCandidate.mockResolvedValue(undefined);
+
+    await expect(
+      startBrowserReaderInitialReflow(state, BASE_READER_OPTIONS, 'single', 'greedy'),
+    ).rejects.toThrow('Initial bounded reader candidate was cancelled');
+
+    expect(mocks.startCandidate).toHaveBeenCalledTimes(2);
+    expect(mocks.openWorker).toHaveBeenCalledOnce();
+    expect(workerFactory).toHaveBeenCalledOnce();
   });
 
   it('opens an independent candidate and carries the exact reading anchor into it', async () => {
@@ -396,6 +455,7 @@ function owner(worker: BrowserReaderWorkerClient): BrowserReaderBoundedSessionOw
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
+      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(),
       cancel: vi.fn(),
       dispose: vi.fn(() => Promise.resolve()),

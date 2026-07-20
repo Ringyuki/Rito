@@ -1,5 +1,7 @@
 use std::cell::OnceCell;
 
+use rito_stylo::{parse_font_faces_v1, FontFaceStylesheetInputV1};
+
 use crate::{layout::TextMeasurementFontFace, resources::hash_bytes};
 
 use super::super::{paths::normalize_href_path, LoadedBinaryResource, LoadedEpubDocument};
@@ -58,32 +60,41 @@ pub(crate) fn resolve_font_face_sources(
     document: &LoadedEpubDocument,
 ) -> Vec<ResolvedFontFaceSource> {
     let mut sources = Vec::new();
-    let mut source_order = 0;
-    for stylesheet in &document.stylesheets {
-        record_stylesheet_parse();
-        for rule in crate::css::parse_font_face_rules(&stylesheet.text) {
-            let rule_source_order = source_order;
-            source_order += 1;
-            let Some(href) = resolve_font_face_href(&stylesheet.href, &rule.src) else {
-                continue;
-            };
-            record_resource_resolve();
-            let Some(resource_index) = document
-                .fonts
-                .iter()
-                .position(|font| font.href == href || font.href.ends_with(&format!("/{href}")))
-            else {
-                continue;
-            };
-            sources.push(ResolvedFontFaceSource {
-                family: rule.family,
-                style: rule.style,
-                weight: rule.weight.as_deref().and_then(parse_font_face_weight),
-                resource_index,
-                source_order: rule_source_order,
-                shape_fingerprint: OnceCell::new(),
-            });
-        }
+    let stylesheet_inputs = document
+        .stylesheets
+        .iter()
+        .map(|stylesheet| {
+            record_stylesheet_parse();
+            FontFaceStylesheetInputV1::author(
+                &stylesheet.text,
+                "https://rito.invalid/publication.css",
+            )
+        })
+        .collect::<Vec<_>>();
+    let Ok(rules) = parse_font_faces_v1(&stylesheet_inputs) else {
+        return sources;
+    };
+    for (source_order, rule) in rules.into_iter().enumerate() {
+        let stylesheet = &document.stylesheets[rule.stylesheet_index];
+        let Some(href) = resolve_font_face_href(&stylesheet.href, &rule.src) else {
+            continue;
+        };
+        record_resource_resolve();
+        let Some(resource_index) = document
+            .fonts
+            .iter()
+            .position(|font| font.href == href || font.href.ends_with(&format!("/{href}")))
+        else {
+            continue;
+        };
+        sources.push(ResolvedFontFaceSource {
+            family: rule.family,
+            style: rule.style,
+            weight: rule.weight.as_deref().and_then(parse_font_face_weight),
+            resource_index,
+            source_order,
+            shape_fingerprint: OnceCell::new(),
+        });
     }
     sources
 }

@@ -3,6 +3,7 @@ use crate::{
     resources::ResourceHrefIndex,
 };
 
+#[derive(Debug)]
 pub(super) struct HrefResolver {
     hrefs: Vec<String>,
     index: ResourceHrefIndex<usize>,

@@ -105,6 +105,22 @@ export async function evaluateBoundedReaderTarget(
     handle,
     'source locator resolution',
   );
+  return evaluateBoundedReaderLocatorResolution(
+    target,
+    revision,
+    presentationSpreadIndex,
+    resolution,
+  );
+}
+
+export function evaluateBoundedReaderLocatorResolution(
+  target,
+  revision,
+  presentationSpreadIndex,
+  value,
+) {
+  const handle = revisionHandle(revision);
+  const resolution = requireSourceLocatorResolution(value, handle, 'source locator resolution');
   if (resolution.status === 'resolved') {
     requireResolvedLocatorExtent(resolution, revision);
   } else if (revision.status === 'complete' && resolution.reason === 'notPaginated') {
@@ -124,9 +140,12 @@ export async function evaluateBoundedReaderTarget(
   };
 }
 
-export function requireAcceptedHandle(envelope, previous, operation) {
+export function requireAcceptedHandle(envelope, previous, operation, advancedQuanta = 1) {
   if (envelope?.revision === undefined || envelope?.value === undefined) {
     throw new Error(`${operation} returned no versioned value`);
+  }
+  if (!Number.isSafeInteger(advancedQuanta) || advancedQuanta <= 0) {
+    throw new Error(`${operation} returned an invalid advanced quantum count`);
   }
   if (previous === undefined) {
     if (envelope.revision.revisionVersion !== 0) {
@@ -134,12 +153,13 @@ export function requireAcceptedHandle(envelope, previous, operation) {
     }
     return;
   }
+  const revisionVersion = previous.revisionVersion + advancedQuanta;
+  if (!Number.isSafeInteger(revisionVersion) || revisionVersion > 0xffff_ffff) {
+    throw new Error(`${operation} advanced revision version beyond u32`);
+  }
   requireSameHandle(
     envelope.revision,
-    {
-      revisionId: previous.revisionId,
-      revisionVersion: previous.revisionVersion + 1,
-    },
+    { revisionId: previous.revisionId, revisionVersion },
     operation,
   );
 }
@@ -175,12 +195,17 @@ export function isActiveRevision(revision) {
   return revision?.status === 'warming' || revision?.status === 'ready';
 }
 
-export function isNextFailedRevision(candidate, previous) {
+export function isNextFailedRevision(candidate, previous, maximumStride = 1) {
+  const stride = candidate?.revisionVersion - previous?.revisionVersion;
   return (
     candidate?.status === 'failed' &&
     previous !== undefined &&
     candidate.revisionId === previous.revisionId &&
-    candidate.revisionVersion === previous.revisionVersion + 1
+    Number.isSafeInteger(maximumStride) &&
+    maximumStride > 0 &&
+    Number.isSafeInteger(stride) &&
+    stride >= 1 &&
+    stride <= maximumStride
   );
 }
 
@@ -189,6 +214,21 @@ export function isRecoverableTargetReadError(error) {
 }
 
 export function defaultYieldControl() {
+  const scheduler = globalThis.scheduler;
+  if (typeof scheduler?.yield === 'function') {
+    return scheduler.yield();
+  }
+  if (typeof globalThis.MessageChannel === 'function') {
+    return new Promise((resolve) => {
+      const channel = new globalThis.MessageChannel();
+      channel.port1.onmessage = () => {
+        channel.port1.close();
+        channel.port2.close();
+        resolve();
+      };
+      channel.port2.postMessage(undefined);
+    });
+  }
   return new Promise((resolve) => globalThis.setTimeout(resolve, 0));
 }
 

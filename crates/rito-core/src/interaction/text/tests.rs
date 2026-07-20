@@ -10,7 +10,7 @@ use super::{
 };
 use crate::layout::{
     fixture_logical_text_flow, FontVerticalMetricSample, LayoutRuntimePage, LineBox, LineRun,
-    LogicalTextFlow, RunShape, RunShapeCluster, RunShapeDirection, RunShapeProvenance,
+    LogicalTextFlow, RunPaint, RunShape, RunShapeCluster, RunShapeDirection, RunShapeProvenance,
     RunShapeUnavailableReason, RunTextMapping, RuntimeBlock, RuntimeChild, TextFlowSlice,
     TextRunBox, TextRunInteractionGeometry,
 };
@@ -829,7 +829,7 @@ pub(super) fn run(
         height: 20.0,
         font_size: 16.0,
         interaction_geometry: None,
-        paint: json!({}),
+        paint: RunPaint::default(),
         line_height_px: None,
         href: None,
         source_path: None,

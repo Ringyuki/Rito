@@ -26,6 +26,16 @@ import {
 } from './bounded-font-geometry';
 import { enqueueBrowserReaderCurrentMutation } from './current-mutation-queue';
 import { startBrowserReaderCandidateTarget } from './bounded-candidate-target';
+import {
+  beginBrowserReaderChapterLocalPreview,
+  settleBrowserReaderChapterLocalPreview,
+} from './chapter-local-preview/coordinator';
+import {
+  activateBrowserReaderContinuationBatchCandidate,
+  activateBrowserReaderContinuationBatchTargetWithoutPreview,
+  beginBrowserReaderContinuationBatchIntent,
+  createBrowserReaderContinuationBatchLocatorLifecycle,
+} from './adaptive-continuation-batch';
 
 const INITIAL_SPREAD_LAYOUT_NODE_BUDGET = 1;
 const BOUNDED_GROWTH_LAYOUT_NODE_BUDGET = 32;
@@ -38,7 +48,7 @@ export interface BrowserReaderBoundedLayoutRequest {
   readonly lineBreaking: 'greedy' | 'optimal';
   readonly targetSpreadIndex: number;
   readonly preserveLocator?: ReaderLocator | undefined;
-  /** Initial open may recover an invalid/no-page locator to its fallback spread. */
+  /** Initial open may recover an invalid locator to its fallback spread. */
   readonly fallbackOnLocatorFailure?: boolean | undefined;
   readonly complete?: boolean | undefined;
   readonly expectedActiveSpreadIndex?: number | undefined;
@@ -110,6 +120,7 @@ async function runCandidate(
     },
     growthBudget: { maxTopLevelNodes: BOUNDED_GROWTH_LAYOUT_NODE_BUDGET },
   } as const;
+  activateBrowserReaderContinuationBatchCandidate(owner);
   let snapshot = await startBrowserReaderCandidateTarget(owner, request, startRequest);
   if (request.complete) snapshot = await owner.controller.complete();
   if (!ownsBrowserReaderBoundedCandidate(state, owner, generation) || signal?.aborted) {
@@ -133,7 +144,7 @@ async function runCandidate(
     return undefined;
   }
   if (result.retiredOwner) await retireBrowserReaderBoundedOwner(state, result.retiredOwner);
-  return signal?.aborted ? undefined : snapshot;
+  return signal?.aborted ? undefined : (result.committedSnapshot ?? snapshot);
 }
 
 function candidateStartBudget(request: BrowserReaderBoundedLayoutRequest): number {
@@ -152,10 +163,12 @@ export function ensureBrowserReaderBoundedSpread(
       new RangeError('Bounded reader spread index must be a non-negative integer'),
     );
   }
+  const continuationBatchIntent = beginBrowserReaderContinuationBatchIntent(state);
   return enqueueBrowserReaderCurrentMutation(state, async () => {
     if (signal?.aborted || state.disposed) return undefined;
     if (spreadIndex < state.revisionBundle.revision.spreadCount) return true;
     if (state.revisionBundle.revision.status === 'complete') return false;
+    activateBrowserReaderContinuationBatchTargetWithoutPreview(state, continuationBatchIntent);
     const snapshot = await mutateCurrent(
       state,
       (owner) => owner.controller.ensureSpread(spreadIndex),
@@ -173,12 +186,39 @@ export function ensureBrowserReaderBoundedLocator(
   signal?: AbortSignal,
 ): Promise<ReaderLocatorResolution | undefined> {
   const copied = copyReaderLocator(locator);
-  return ensureCoalescedBrowserReaderBoundedLocator(
+  const continuationBatchIntent = signal?.aborted
+    ? undefined
+    : beginBrowserReaderContinuationBatchIntent(state);
+  const preview = beginBrowserReaderChapterLocalPreview(state, copied, continuationBatchIntent);
+  // Without a provisional owner, the exact revision publication is the visual
+  // handoff. Notify Kit before resolving the locator so its subsequent
+  // onResolved continuation observes the target as current and stays atomic.
+  // A live preview owns that handoff and must retain its animated lifecycle.
+  const notifyExactLayoutCommitted = preview === undefined;
+  const main = ensureCoalescedBrowserReaderBoundedLocator(
     state,
     copied,
     signal,
-    (target, replacementTarget, isCurrent) =>
-      mutateCurrent(state, target, false, replacementTarget, isCurrent),
+    (target, replacementTarget, isCurrent, whenSuperseded) =>
+      mutateCurrent(
+        state,
+        target,
+        notifyExactLayoutCommitted,
+        replacementTarget,
+        isCurrent,
+        whenSuperseded,
+      ),
+    createBrowserReaderContinuationBatchLocatorLifecycle(state, preview, continuationBatchIntent),
+  );
+  return main.then(
+    (resolution) => {
+      settleBrowserReaderChapterLocalPreview(state, preview, resolution);
+      return resolution;
+    },
+    (error: unknown) => {
+      settleBrowserReaderChapterLocalPreview(state, preview, undefined);
+      throw error;
+    },
   );
 }
 
@@ -209,6 +249,7 @@ async function mutateCurrent(
   notifyLayoutCommitted: boolean,
   replacementTarget: () => BrowserReaderBoundedReplacementTarget,
   isCurrent: () => boolean = () => true,
+  whenSuperseded?: () => Promise<void>,
 ): Promise<BrowserReaderBoundedSnapshot | undefined> {
   const owner = state.boundedSessions.current;
   if (!owner) throw new Error('Browser reader has no current bounded session');
@@ -226,17 +267,17 @@ async function mutateCurrent(
       baseCommitGeneration,
       exactReadGate: gate,
       notifyLayoutCommitted,
+      isCurrent,
+      superseded: whenSuperseded?.(),
       preserveActiveSpread: () => !isCurrent(),
     });
-    if (result.committed) return snapshot;
+    if (result.committed) return result.committedSnapshot ?? snapshot;
     if (result.requiresFontGeometryReflow) {
       const replacement = await replaceBrowserReaderFontGeometryMutation(
         state,
         owner,
         replacementTarget,
-        // A font-geometry candidate is a full replacement, even when the
-        // mutation started as a stable-prefix pagination append.
-        true,
+        true, // Font-geometry fallback always replaces the stable-prefix session.
         startBrowserReaderBoundedCandidate,
         () => !isCurrent(),
       );

@@ -496,7 +496,7 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
     );
     assert!(document.revisions[&current.revision_id].frame_cache[&0]
         .frame
-        .is_none());
+        .is_some());
 
     macro_rules! assert_stale {
         ($result:expr) => {{
@@ -527,7 +527,7 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
     ));
     assert!(document.revisions[&current.revision_id].frame_cache[&0]
         .frame
-        .is_none());
+        .is_some());
     assert_stale!(document.initial_frame_decision_at(&stale, RuntimeInitialFrameRequest::default()));
     assert_stale!(document.cached_frame_count_at(&stale));
     assert_stale!(document.frame_resource_warm_plan_at(&stale, 0));

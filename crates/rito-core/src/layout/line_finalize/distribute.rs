@@ -94,14 +94,11 @@ impl PendingJustifyDistribution {
                     let known_spacing_gaps = self.plan.known_spacing_gaps(intra_gaps);
                     run.x += self.x_offset;
                     run.width += added_width;
-                    let spacing_key = self.plan.spacing_key(intra_gaps);
-                    if let Some(key) = spacing_key {
-                        run.add_paint_spacing_value(key, self.plan.gap_size());
-                        let (word_spacing_delta, letter_spacing_delta) = match key {
-                            "wordSpacingPx" => (self.plan.gap_size(), 0.0),
-                            "letterSpacingPx" => (0.0, self.plan.gap_size()),
-                            _ => unreachable!("distribution uses a known spacing property"),
-                        };
+                    let (word_spacing_delta, letter_spacing_delta) =
+                        self.plan.spacing_deltas(intra_gaps);
+                    if word_spacing_delta != 0.0 || letter_spacing_delta != 0.0 {
+                        run.add_word_spacing_value(word_spacing_delta);
+                        run.add_letter_spacing_value(letter_spacing_delta);
                         self.shape_spacing = Some(PendingShapeSpacing::new(
                             word_spacing_delta,
                             letter_spacing_delta,
@@ -158,11 +155,11 @@ impl DistributionPlan {
         }
     }
 
-    fn spacing_key(&self, intra_gaps: usize) -> Option<&'static str> {
+    fn spacing_deltas(&self, intra_gaps: usize) -> (f64, f64) {
         match self {
-            Self::Word { .. } => Some("wordSpacingPx"),
-            Self::InterCharacter { .. } if intra_gaps > 0 => Some("letterSpacingPx"),
-            Self::InterCharacter { .. } => None,
+            Self::Word { gap_size, .. } => (*gap_size, 0.0),
+            Self::InterCharacter { gap_size, .. } if intra_gaps > 0 => (0.0, *gap_size),
+            Self::InterCharacter { .. } => (0.0, 0.0),
         }
     }
 

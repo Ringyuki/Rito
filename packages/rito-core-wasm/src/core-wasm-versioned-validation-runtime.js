@@ -2,6 +2,8 @@ import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
 import { requireFontVerticalMetricDemands } from './font-vertical-metric-validation-runtime.js';
 
+export const MAX_READER_CONTINUATION_BATCH_QUANTA = 16;
+
 export function requireObjectInput(value, operation) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new RitoCoreWasmError('bad-request', `${operation} input must be an object`);
@@ -98,6 +100,55 @@ export function requireRevisionWorkBudget(value, operation) {
     );
   }
   return budget.maxTopLevelNodes;
+}
+
+export function requireContinuationBatchLimit(value, operation) {
+  const count = value ?? 1;
+  if (!Number.isSafeInteger(count) || count <= 0 || count > MAX_READER_CONTINUATION_BATCH_QUANTA) {
+    throw new RitoCoreWasmError(
+      'bad-request',
+      `${operation} maxQuanta must be an integer from 1 to ${String(MAX_READER_CONTINUATION_BATCH_QUANTA)}`,
+    );
+  }
+  return count;
+}
+
+export function requireContinuationTargetSpreadIndex(value, operation) {
+  if (value === undefined) return undefined;
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RitoCoreWasmError(
+      'bad-request',
+      `${operation} targetSpreadIndex must be a non-negative safe integer`,
+    );
+  }
+  return value;
+}
+
+export function requireContinuationBatchCount(value, maximum, operation) {
+  const count = value ?? 1;
+  if (!Number.isSafeInteger(count) || count <= 0 || count > maximum) {
+    throw new Error(`${operation} returned an invalid advancedQuanta count`);
+  }
+  return count;
+}
+
+export function requireAdvancedRevisionHandle(previous, revision, advancedQuanta, operation) {
+  const expectedVersion = previous.revisionVersion + advancedQuanta;
+  if (
+    expectedVersion > 0xffff_ffff ||
+    revision.revisionId !== previous.revisionId ||
+    revision.revisionVersion !== expectedVersion
+  ) {
+    throw new Error(`${operation} returned a revision inconsistent with advancedQuanta`);
+  }
+  return revision;
+}
+
+export function requireRevisionTransferCount(value, operation) {
+  if (!isSafeCount(value)) {
+    throw new Error(`${operation} returned an invalid released transfer count`);
+  }
+  return value;
 }
 
 export function requireVersionedValueIdentity(value, revision, operation) {

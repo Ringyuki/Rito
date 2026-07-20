@@ -1,8 +1,8 @@
 use rito_core::runtime::{
     RuntimeActiveChapterPreviewRevisionRequest, RuntimeBoundedRevisionRequest,
-    RuntimeCancelRevisionRequest, RuntimeContinueRevisionRequest, RuntimeExactSourceRangeRequest,
-    RuntimeFrameResourceWarmPlan, RuntimeFullRevisionBundleRequest,
-    RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest,
+    RuntimeCalibrateRevisionFontVerticalMetricsRequest, RuntimeCancelRevisionRequest,
+    RuntimeContinueRevisionRequest, RuntimeExactSourceRangeRequest, RuntimeFrameResourceWarmPlan,
+    RuntimeFullRevisionBundleRequest, RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest,
     RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeResourceTransferPayload,
     RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextPointRequest,
     RuntimeTextRangeFromPointsRequest, RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest,
@@ -26,6 +26,14 @@ pub struct WasmFullRevisionBundleRequest {
     pub runtime: RuntimeFullRevisionBundleRequest,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_revision_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WasmContinueRevisionTowardSourceLocatorRequest {
+    #[serde(flatten)]
+    pub continuation: RuntimeContinueRevisionRequest,
+    pub locator: RuntimeSourceLocator,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -129,6 +137,26 @@ pub fn parse_continue_revision_request(
 ) -> Result<RuntimeContinueRevisionRequest, WasmRuntimeError> {
     serde_json::from_str(json).map_err(|error| {
         WasmRuntimeError::bad_request(format!("invalid continue revision request JSON: {error}"))
+    })
+}
+
+pub fn parse_calibrate_revision_font_vertical_metrics_request(
+    json: &str,
+) -> Result<RuntimeCalibrateRevisionFontVerticalMetricsRequest, WasmRuntimeError> {
+    serde_json::from_str(json).map_err(|error| {
+        WasmRuntimeError::bad_request(format!(
+            "invalid revision font vertical metric calibration request JSON: {error}"
+        ))
+    })
+}
+
+pub fn parse_continue_revision_toward_source_locator_request(
+    json: &str,
+) -> Result<WasmContinueRevisionTowardSourceLocatorRequest, WasmRuntimeError> {
+    serde_json::from_str(json).map_err(|error| {
+        WasmRuntimeError::bad_request(format!(
+            "invalid source locator continuation request JSON: {error}"
+        ))
     })
 }
 

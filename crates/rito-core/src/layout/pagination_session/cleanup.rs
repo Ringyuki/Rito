@@ -116,6 +116,7 @@ struct SessionShell {
     content_height: f64,
     line_breaking: LineBreaking,
     total_top_level_nodes: usize,
+    prepared_root_image_frontier: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,6 +145,7 @@ impl PendingSessionLayerCleanup {
             image_sizes,
             line_breaking,
             total_top_level_nodes,
+            prepared_root_image_frontier,
         } = owner;
         Self {
             pending: Some(PendingStyledNodeIterDrop::new(pending_nodes.into_iter())),
@@ -160,6 +162,7 @@ impl PendingSessionLayerCleanup {
                 content_height,
                 line_breaking,
                 total_top_level_nodes,
+                prepared_root_image_frontier,
             }),
             stage: SessionLayerCleanupStage::Pending,
         }
@@ -274,12 +277,14 @@ impl PendingSessionLayerCleanup {
             content_height,
             line_breaking,
             total_top_level_nodes,
+            prepared_root_image_frontier,
         } = shell;
         let _ = (
             content_width,
             content_height,
             line_breaking,
             total_top_level_nodes,
+            prepared_root_image_frontier,
         );
         self.stage = SessionLayerCleanupStage::Complete;
         true

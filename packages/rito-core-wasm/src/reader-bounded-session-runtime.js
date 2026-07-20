@@ -1,6 +1,10 @@
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
+import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
+import { requireContinuationBatchLimit } from './core-wasm-versioned-validation-runtime.js';
+import { requireFontVerticalMetricCalibrationTransferResult } from './font-vertical-metric-calibration-validation-runtime.js';
 import {
   defaultYieldControl,
+  evaluateBoundedReaderLocatorResolution,
   evaluateBoundedReaderTarget,
   isActiveRevision,
   isNextFailedRevision,
@@ -19,6 +23,9 @@ import {
 
 export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   const yieldControl = options.yieldControl ?? defaultYieldControl;
+  const resolveContinuationBatchQuanta = continuationBatchQuantaResolver(
+    options.continuationBatchQuanta,
+  );
   let phase = 'idle';
   let generation = 0;
   let targetSequence = 0;
@@ -37,6 +44,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   let drainPromise;
   let stopRequested;
   let terminalError;
+  let pendingFailureMaximumStride = 1;
 
   const start = (request) => {
     if (phase !== 'idle') throw new Error(`bounded reader session cannot start while ${phase}`);
@@ -70,6 +78,18 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     requestedTarget = { kind: 'complete', token: ++targetSequence };
     targetEvaluation = undefined;
     targetFailure = undefined;
+    return waitForSnapshot();
+  };
+
+  const calibrateFontVerticalMetrics = async (fontVerticalMetrics) => {
+    requireRunning('calibrate vertical font metrics');
+    const previous = revision;
+    const calibrated = await client.calibrateRevisionFontVerticalMetrics({
+      ...revisionHandle(previous),
+      ...(continuation === undefined ? {} : { continuation }),
+      fontVerticalMetrics,
+    });
+    acceptCalibration(calibrated, previous);
     return waitForSnapshot();
   };
 
@@ -151,21 +171,91 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
         if (evaluation.available) return;
         await yieldControl();
         if (stopRequested !== undefined) return cleanupLatest();
-        const previous = revision;
-        await releaseRevisionTransfers(previous);
-        if (stopRequested !== undefined) return cleanupLatest();
-        const latestEvaluation = await evaluateRequestedTarget();
-        if (latestEvaluation === undefined || latestEvaluation.available) continue;
-        acceptAdvance(
-          await client.continueRevision({
-            ...continuation,
-            budget: hasPublishedSnapshot ? startRequest.growthBudget : startRequest.budget,
-          }),
-          previous,
-        );
+        await advanceIfTargetStillUnavailable(revision);
+        if (targetFailure?.token === requestedTarget?.token) return;
       }
     } catch (error) {
       await handlePumpFailure(error);
+    }
+  }
+
+  async function advanceIfTargetStillUnavailable(previous) {
+    const initialAtomicMode = atomicContinuationMode(client, requestedTarget);
+    if (initialAtomicMode === 'none') {
+      await releaseRevisionTransfers(previous);
+      if (stopRequested !== undefined) return;
+    }
+    const latestEvaluation = await evaluateRequestedTarget();
+    if (latestEvaluation === undefined || latestEvaluation.available) return;
+    const target = requestedTarget;
+    if (target === undefined || latestEvaluation.token !== target.token) return;
+    const atomicMode = atomicContinuationMode(client, target);
+    const continuationBatchQuanta =
+      atomicMode === 'none' ? undefined : resolveContinuationBatchQuanta();
+    const request = {
+      ...continuation,
+      budget: hasPublishedSnapshot ? startRequest.growthBudget : startRequest.budget,
+      ...(atomicMode === 'none' ? {} : { maxQuanta: continuationBatchQuanta }),
+      ...(atomicMode === 'generic' && target.kind === 'spread'
+        ? { targetSpreadIndex: target.spreadIndex }
+        : {}),
+    };
+    if (atomicMode === 'none') {
+      pendingFailureMaximumStride = 1;
+      acceptAdvance(await client.continueRevision(request), previous);
+      return;
+    }
+    pendingFailureMaximumStride = continuationBatchQuanta;
+    if (atomicMode === 'locator') {
+      await continueTowardSourceLocator(target, request, previous);
+      return;
+    }
+    const continued = await client.continueRevisionAfterTransferRelease(request);
+    acceptTransferReleasedAdvance(continued, previous);
+  }
+
+  async function continueTowardSourceLocator(target, request, previous) {
+    const continued = await client.continueRevisionTowardSourceLocator({
+      ...request,
+      locator: target.locator,
+    });
+    acceptTransferReleasedAdvance(continued, previous);
+    if (!isCurrentTarget(target, continued.revision)) return;
+    const outcome = continued.value.locatorOutcome;
+    if (outcome.kind === 'failed') {
+      const error = new RitoCoreWasmError(outcome.code, outcome.message, {
+        revision: outcome.revision,
+      });
+      if (isRecoverableTargetReadError(error)) {
+        targetFailure = { token: target.token, error };
+        return;
+      }
+      throw error;
+    }
+    targetEvaluation = evaluateBoundedReaderLocatorResolution(
+      target,
+      revision,
+      presentationSpreadIndex,
+      outcome.resolution,
+    );
+  }
+
+  function acceptTransferReleasedAdvance(continued, previous) {
+    acceptAdvance(
+      { revision: continued.revision, value: continued.value.advance },
+      previous,
+      continued.value.advancedQuanta ?? 1,
+    );
+    requireSameHandle(
+      continued.value.releasedRevision,
+      revisionHandle(previous),
+      'continued transfer release',
+    );
+    if (
+      !Number.isSafeInteger(continued.value.releasedTransferCount) ||
+      continued.value.releasedTransferCount < 0
+    ) {
+      throw new Error('continued transfer release returned an invalid transfer count');
     }
   }
 
@@ -259,8 +349,8 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     return presentation;
   }
 
-  function acceptAdvance(envelope, previous) {
-    requireAcceptedHandle(envelope, previous, 'revision advance');
+  function acceptAdvance(envelope, previous, advancedQuanta = 1) {
+    requireAcceptedHandle(envelope, previous, 'revision advance', advancedQuanta);
     requireSameHandle(envelope.value.revision, envelope.revision, 'revision advance summary');
     revision = envelope.value.revision;
     continuation = envelope.value.continuation;
@@ -278,6 +368,20 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     acceptRevision();
   }
 
+  function acceptCalibration(envelope, previous) {
+    requireAcceptedHandle(envelope, previous, 'vertical font metric calibration');
+    const value = requireFontVerticalMetricCalibrationTransferResult(
+      envelope.value,
+      revisionHandle(previous),
+      envelope.revision,
+      'vertical font metric calibration',
+    );
+    requirePreservedCalibrationRevision(previous, value.revision);
+    revision = value.revision;
+    continuation = value.continuation;
+    acceptRevision();
+  }
+
   function acceptRevision() {
     generation += 1;
     snapshot = undefined;
@@ -286,12 +390,16 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     targetFailure = undefined;
     revisionPresentation = undefined;
     releasedTransferRevision = undefined;
+    pendingFailureMaximumStride = 1;
     options.onAcceptedRevision?.({ generation, revision });
   }
 
   async function handlePumpFailure(error) {
     terminalError = error;
-    if (error?.code === 'engine-error' && isNextFailedRevision(error.revision, revision)) {
+    if (
+      error?.code === 'engine-error' &&
+      isNextFailedRevision(error.revision, revision, pendingFailureMaximumStride)
+    ) {
       revision = error.revision;
       continuation = undefined;
       try {
@@ -374,7 +482,55 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     return snapshot !== undefined && snapshotTargetToken === requestedTarget?.token;
   }
 
-  return { start, ensureSpread, ensureLocator, complete, currentSnapshot, cancel, dispose };
+  return {
+    start,
+    ensureSpread,
+    ensureLocator,
+    complete,
+    calibrateFontVerticalMetrics,
+    currentSnapshot,
+    cancel,
+    dispose,
+  };
+}
+
+function requirePreservedCalibrationRevision(previous, calibrated) {
+  if (
+    previous.layoutKey !== calibrated.layoutKey ||
+    previous.status !== calibrated.status ||
+    previous.pageCount !== calibrated.pageCount ||
+    previous.spreadCount !== calibrated.spreadCount ||
+    previous.knownExtent.pageCount !== calibrated.knownExtent.pageCount ||
+    previous.knownExtent.spreadCount !== calibrated.knownExtent.spreadCount ||
+    !sameExtent(previous.finalExtent, calibrated.finalExtent)
+  ) {
+    throw new Error('vertical font metric calibration changed pagination identity');
+  }
+}
+
+function sameExtent(left, right) {
+  return (
+    left === right ||
+    (left !== undefined &&
+      right !== undefined &&
+      left.pageCount === right.pageCount &&
+      left.spreadCount === right.spreadCount)
+  );
+}
+
+function atomicContinuationMode(client, target) {
+  if (target?.kind === 'locator' && client.continueRevisionTowardSourceLocator !== undefined) {
+    return 'locator';
+  }
+  return client.continueRevisionAfterTransferRelease === undefined ? 'none' : 'generic';
+}
+
+function continuationBatchQuantaResolver(value) {
+  if (typeof value === 'function') {
+    return () => requireContinuationBatchLimit(value(), 'bounded reader session');
+  }
+  const continuationBatchQuanta = requireContinuationBatchLimit(value, 'bounded reader session');
+  return () => continuationBatchQuanta;
 }
 
 function initialTarget(request, token) {

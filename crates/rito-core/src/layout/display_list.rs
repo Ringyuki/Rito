@@ -6,7 +6,9 @@ use super::{
     content::{RuntimeBlock, RuntimeChild},
     line::{LineBox, LineRun},
     page::RuntimePage,
+    paint::RunPaint,
     spread::{build_spread_slots, SpreadSlot},
+    style_values::block_background_paint,
     summary_json::hash_text,
 };
 use crate::{
@@ -159,6 +161,7 @@ fn append_page(
             page_background_color(page).unwrap_or("#ffffff"),
         ));
     }
+    append_page_background_image(commands, page);
     commands.push(DisplayCommand::push_state());
     commands.push(DisplayCommand::clip_rect(
         rect_value(0.0, 0.0, page.width, page.height),
@@ -175,6 +178,31 @@ fn append_page(
     }
     commands.push(DisplayCommand::pop_state());
     commands.push(DisplayCommand::pop_state());
+}
+
+fn append_page_background_image(commands: &mut Vec<DisplayCommand>, page: &DisplayListPage) {
+    let Some(paint) = page_background_image_paint(page) else {
+        return;
+    };
+    commands.push(DisplayCommand::paint_block(
+        rect_value(0.0, 0.0, page.width, page.height),
+        paint,
+        None,
+    ));
+}
+
+fn page_background_image_paint(page: &DisplayListPage) -> Option<Value> {
+    let page_paint = page.paint.as_ref()?.as_object()?;
+    page_paint
+        .get("backgroundImage")
+        .and_then(Value::as_str)
+        .filter(|href| !href.is_empty())?;
+    let mut background = block_background_paint(page_paint)?.as_object()?.clone();
+    // The page base color is emitted once through PaintPage, including the
+    // existing spread-wide optimization. PaintBlock is reused only for the
+    // resource-bearing image and must not apply a translucent color twice.
+    background.remove("color");
+    Some(json!({ "background": background }))
 }
 
 fn append_block(
@@ -398,7 +426,7 @@ struct TextCommandInput<'a> {
     rect: (f64, f64, f64, f64),
     offset_x: f64,
     offset_y: f64,
-    paint: &'a Value,
+    paint: &'a RunPaint,
     line_height_px: Option<f64>,
     href: Option<&'a str>,
     source_text: Option<&'a str>,
@@ -581,10 +609,14 @@ mod tests {
             content::{RuntimeBlock, RuntimeChild, RuntimeImage},
             line::{LineBox, LineRun, RubyRunBox, TextRunBox},
             page::RuntimePage,
+            paint::RunPaint,
             spread::SpreadSlot,
+            style_values::block_paint_from_style,
             LayoutConfig, PaginationPolicy, SpreadMode, TextMeasurementMode,
         },
-        render::{count_display_commands, display_command_values},
+        render::{
+            count_display_commands, display_command_values, summarize_display_list_resource_refs,
+        },
     };
 
     #[test]
@@ -622,7 +654,7 @@ mod tests {
                             height: 20.0,
                             font_size: 16.0,
                             interaction_geometry: None,
-                            paint: json!({ "color": "#000000" }),
+                            paint: RunPaint::from_test_wire_value(json!({ "color": "#000000" })),
                             line_height_px: Some(20.0),
                             href: None,
                             source_path: None,
@@ -668,6 +700,115 @@ mod tests {
         assert!(values
             .iter()
             .any(|value| value["src"] == json!("Images/a.png")));
+    }
+
+    #[test]
+    fn emits_page_background_image_as_full_page_block_paint_and_resource_ref() {
+        let page = RuntimePage {
+            index: 0,
+            width: 400.0,
+            height: 600.0,
+            paint: Some(json!({
+                "backgroundColor": "#123456",
+                "backgroundImage": "Images/page.png",
+                "backgroundRepeat": "no-repeat",
+                "backgroundSize": "cover",
+                "backgroundPosition": {
+                    "x": { "unit": "percent", "value": 50.0 },
+                    "y": { "unit": "percent", "value": 0.0 },
+                },
+            })),
+            content: Vec::new(),
+        };
+        let commands = build_display_list_commands(
+            &SpreadSlot {
+                index: 0,
+                left_page_index: 0,
+                right_page_index: None,
+            },
+            &[page],
+            &layout_config(),
+            DisplayListTextMode::Summary,
+        );
+
+        let counts = count_display_commands(&commands);
+        assert_eq!(counts.get("paintPage"), Some(&2));
+        assert_eq!(counts.get("paintBlock"), Some(&1));
+        let values = display_command_values(&commands);
+        let base_color_index = values
+            .iter()
+            .rposition(|value| value["kind"] == json!("paintPage"))
+            .expect("page base color command");
+        let image_index = values
+            .iter()
+            .position(|value| value["kind"] == json!("paintBlock"))
+            .expect("page background image command");
+        assert!(base_color_index < image_index);
+        assert_eq!(
+            values[image_index],
+            json!({
+                "kind": "paintBlock",
+                "rect": { "x": 0, "y": 0, "width": 400, "height": 600 },
+                "paint": {
+                    "background": {
+                        "image": "Images/page.png",
+                        "repeat": "no-repeat",
+                        "size": "cover",
+                        "position": {
+                            "x": { "unit": "percent", "value": 50 },
+                            "y": { "unit": "percent", "value": 0 },
+                        },
+                    },
+                },
+            })
+        );
+        let refs = summarize_display_list_resource_refs(&commands);
+        assert_eq!(refs.image_refs, 1);
+        assert_eq!(refs.unique_images, 1);
+        assert_eq!(refs.images, vec!["Images/page.png".to_owned()]);
+    }
+
+    #[test]
+    fn pure_body_color_keeps_one_spread_wide_paint_without_block_paint() {
+        let page = |index| RuntimePage {
+            index,
+            width: 400.0,
+            height: 600.0,
+            paint: Some(json!({ "backgroundColor": "#123456" })),
+            content: Vec::new(),
+        };
+        let mut layout = layout_config();
+        layout.spread_mode = SpreadMode::Double;
+        layout.viewport_width = 820.0;
+        layout.spread_gap = 20.0;
+        let commands = build_display_list_commands(
+            &SpreadSlot {
+                index: 0,
+                left_page_index: 0,
+                right_page_index: Some(1),
+            },
+            &[page(0), page(1)],
+            &layout,
+            DisplayListTextMode::Summary,
+        );
+
+        let counts = count_display_commands(&commands);
+        assert_eq!(counts.get("paintPage"), Some(&2));
+        assert_eq!(counts.get("paintBlock"), None);
+        let paints = display_command_values(&commands)
+            .into_iter()
+            .filter(|value| value["kind"] == json!("paintPage"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            paints[1]["rect"],
+            json!({
+                "x": 0,
+                "y": 0,
+                "width": 820,
+                "height": 600,
+            })
+        );
+        assert_eq!(paints[1]["paint"]["backgroundColor"], json!("#123456"));
     }
 
     #[test]
@@ -761,7 +902,7 @@ mod tests {
                             height: 16.0,
                             font_size: 16.0,
                             interaction_geometry: None,
-                            paint: json!({ "color": "#111111" }),
+                            paint: RunPaint::from_test_wire_value(json!({ "color": "#111111" })),
                             line_height_px: Some(20.0),
                             href: Some("chapter.xhtml#target".to_owned()),
                             source_path: None,
@@ -777,7 +918,7 @@ mod tests {
                             y: -6.0,
                             width: 24.0,
                             height: 8.0,
-                            paint: json!({ "color": "#222222" }),
+                            paint: RunPaint::from_test_wire_value(json!({ "color": "#222222" })),
                         }),
                     ],
                 })],
@@ -824,6 +965,33 @@ mod tests {
 
     #[test]
     fn emits_block_effects_decoration_and_clip_commands() {
+        let opacity_style = json!({ "opacity": 0.25 });
+        let mut paint = block_paint_from_style(
+            opacity_style
+                .as_object()
+                .expect("materialized style is an object"),
+        )
+        .expect("quarter opacity creates block paint");
+        paint
+            .as_object_mut()
+            .expect("block paint is an object")
+            .extend(
+                json!({
+                    "background": {
+                        "color": "#eeeeee",
+                        "image": "Images/bg.png",
+                        "size": "cover",
+                        "repeat": "no-repeat",
+                    },
+                    "radius": { "px": 8 },
+                    "visualOffset": { "dx": 5, "dy": -2 },
+                    "transform": [{ "kind": "scale", "sx": 1.2, "sy": 1.2 }],
+                    "clipToBounds": true,
+                })
+                .as_object()
+                .expect("additional paint is an object")
+                .clone(),
+            );
         let page = RuntimePage {
             index: 0,
             width: 400.0,
@@ -836,19 +1004,7 @@ mod tests {
                 height: 50.0,
                 semantic_tag: Some("div".to_owned()),
                 anchor_id: None,
-                paint: Some(json!({
-                    "background": {
-                        "color": "#eeeeee",
-                        "image": "Images/bg.png",
-                        "size": "cover",
-                        "repeat": "no-repeat",
-                    },
-                    "radius": { "px": 8 },
-                    "visualOffset": { "dx": 5, "dy": -2 },
-                    "transform": [{ "kind": "scale", "sx": 1.2, "sy": 1.2 }],
-                    "opacity": 0.2525,
-                    "clipToBounds": true,
-                })),
+                paint: Some(paint),
                 border_box: None,
                 page_break_before: false,
                 page_break_after: false,
@@ -882,7 +1038,7 @@ mod tests {
             .iter()
             .find(|value| value["kind"] == json!("opacity"))
             .expect("block opacity command is emitted");
-        assert_eq!(opacity["value"], json!(0.2525));
+        assert_eq!(opacity["value"], json!(0.25));
         let transform = values
             .iter()
             .find(|value| value["kind"] == json!("transform"))

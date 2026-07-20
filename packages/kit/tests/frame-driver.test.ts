@@ -55,15 +55,17 @@ function flushRaf(time = 16): void {
 }
 
 function createMockSurface() {
+  const drawImage = vi.fn();
   const ctx = {
     clearRect: vi.fn(),
-    drawImage: vi.fn(),
+    drawImage,
   };
   return {
     canvas: {} as HTMLCanvasElement,
     ctx: ctx as unknown as CanvasRenderingContext2D,
     width: 800,
     height: 600,
+    drawImage,
     setSize: vi.fn(),
     clear() {
       ctx.clearRect(0, 0, 800, 600);
@@ -241,6 +243,46 @@ describe('FrameDriver', () => {
     // Animation in progress → should schedule another rAF
     expect(rafCallbacks.length).toBe(1);
 
+    driver.dispose();
+  });
+
+  it('notifies a provisional owner only after its raster reaches the display surface', () => {
+    const surface = createMockSurface();
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 1);
+    pool.assignSlot('curr', 0);
+    pool.ensureContent('curr', () => true);
+    const composited = vi.fn();
+    const stage = pool.beginProvisionalStage(0, 'forward', composited);
+    expect(pool.ensureProvisionalStage(stage.token, () => true)).toBe(true);
+    const td = createTransitionDriver();
+    td.viewportWidth = 800;
+    const driver = createFrameDriver({
+      surface,
+      pool,
+      transitionDriver: td,
+      contentRenderer: vi.fn(() => true),
+      overlayProvider: () => [],
+      getBackingRatio: () => 1,
+    });
+
+    expect(composited).not.toHaveBeenCalled();
+    td.goToTarget('forward', 0, 0);
+    driver.scheduleComposite();
+    expect(composited).not.toHaveBeenCalled();
+
+    flushRaf(16);
+
+    expect(surface.drawImage).toHaveBeenCalledWith(
+      stage.slot.content,
+      expect.any(Number),
+      0,
+      800,
+      600,
+    );
+    expect(composited).toHaveBeenCalledOnce();
+    flushRaf(32);
+    expect(composited).toHaveBeenCalledOnce();
     driver.dispose();
   });
 

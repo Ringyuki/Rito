@@ -4,7 +4,7 @@ use crate::layout::{CleanupProgress, PendingBuiltLayoutCleanup, PendingLayoutCon
 
 use super::{
     super::{
-        frame::{RuntimeFrameCacheOwner, RuntimeRevision},
+        frame::{RuntimeFrameCacheOwner, RuntimeRevision, RuntimeRevisionCoordinateSpace},
         RuntimeRequiredFontFace, RuntimeRevisionExtent, RuntimeRevisionStatus,
     },
     PendingRuntimeFrameCacheCleanup, PendingRuntimeRevisionInteractionsCleanup,
@@ -13,6 +13,7 @@ use super::{
 /// Copy-only remainder of a decomposed runtime revision.
 #[derive(Debug)]
 struct RuntimeRevisionShell {
+    coordinate_space: RuntimeRevisionCoordinateSpace,
     revision_version: u32,
     status: RuntimeRevisionStatus,
     known_extent: RuntimeRevisionExtent,
@@ -126,6 +127,7 @@ impl PendingRuntimeRevisionCleanup {
             .take()
             .expect("cleanup owns its runtime revision");
         let RuntimeRevision {
+            coordinate_space,
             revision_version,
             status,
             known_extent,
@@ -148,6 +150,7 @@ impl PendingRuntimeRevisionCleanup {
         self.required_font_face_catalog = required_font_face_catalog.map(Vec::into_iter);
         self.interactions = Some(PendingRuntimeRevisionInteractionsCleanup::new(interactions));
         self.shell = Some(RuntimeRevisionShell {
+            coordinate_space,
             revision_version,
             status,
             known_extent,
@@ -234,12 +237,19 @@ impl PendingRuntimeRevisionCleanup {
     fn release_owner(&mut self) -> bool {
         let shell = self.shell.take().expect("runtime-revision shell exists");
         let RuntimeRevisionShell {
+            coordinate_space,
             revision_version,
             status,
             known_extent,
             final_extent,
         } = shell;
-        let _ = (revision_version, status, known_extent, final_extent);
+        let _ = (
+            coordinate_space,
+            revision_version,
+            status,
+            known_extent,
+            final_extent,
+        );
         self.stage = RuntimeRevisionCleanupStage::Complete;
         true
     }

@@ -1,8 +1,12 @@
+use std::collections::BTreeMap;
+
+use rito_stylo::{parse_font_faces_v1, FontFaceStylesheetInputV1};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::{
     epub::{EpubError, EpubResult, LoadedEpubDocument},
-    layout::LayoutConfig,
+    layout::{LayoutConfig, PaginationPolicy, SpreadMode, TextMeasurementMode},
     resources::{
         binary_summary_from_metadata, sort_publication_resources,
         summarize_loaded_publication_resources, PublicationResources,
@@ -52,29 +56,41 @@ pub(super) fn runtime_publication_resources(document: &LoadedEpubDocument) -> Pu
 
 pub(super) fn runtime_font_faces(document: &LoadedEpubDocument) -> Vec<RuntimeFontFaceSummary> {
     let mut faces = Vec::new();
-    for stylesheet in &document.stylesheets {
-        for rule in crate::css::parse_font_face_rules(&stylesheet.text) {
-            let Some(href) = resolve_font_face_href(&stylesheet.href, &rule.src) else {
-                continue;
-            };
-            let Some(resource) = document
-                .fonts
-                .iter()
-                .find(|font| font.href == href || font.href.ends_with(&format!("/{href}")))
-            else {
-                continue;
-            };
-            let face = RuntimeFontFaceSummary {
-                family: rule.family,
-                href: resource.href.clone(),
-                style: rule.style,
-                weight: rule.weight,
-            };
-            if let Some(index) = faces.iter().position(|existing| existing == &face) {
-                faces.remove(index);
-            }
-            faces.push(face);
+    let stylesheet_inputs = document
+        .stylesheets
+        .iter()
+        .map(|stylesheet| {
+            FontFaceStylesheetInputV1::author(
+                &stylesheet.text,
+                "https://rito.invalid/publication.css",
+            )
+        })
+        .collect::<Vec<_>>();
+    let Ok(rules) = parse_font_faces_v1(&stylesheet_inputs) else {
+        return faces;
+    };
+    for rule in rules {
+        let stylesheet = &document.stylesheets[rule.stylesheet_index];
+        let Some(href) = resolve_font_face_href(&stylesheet.href, &rule.src) else {
+            continue;
+        };
+        let Some(resource) = document
+            .fonts
+            .iter()
+            .find(|font| font.href == href || font.href.ends_with(&format!("/{href}")))
+        else {
+            continue;
+        };
+        let face = RuntimeFontFaceSummary {
+            family: rule.family,
+            href: resource.href.clone(),
+            style: rule.style,
+            weight: rule.weight,
+        };
+        if let Some(index) = faces.iter().position(|existing| existing == &face) {
+            faces.remove(index);
         }
+        faces.push(face);
     }
     faces
 }
@@ -105,18 +121,95 @@ fn layout_key_from_policy_identity(
     layout_config: &LayoutConfig,
     policy_identity: Option<&[u8]>,
 ) -> EpubResult<String> {
+    let identity = LayoutKeyConfig::from(layout_config);
     let Some(policy_identity) = policy_identity else {
         let mut hasher = Sha256::new();
-        serde_json::to_writer(&mut hasher, layout_config).map_err(layout_serialization_error)?;
+        serde_json::to_writer(&mut hasher, &identity).map_err(layout_serialization_error)?;
         return Ok(short_sha256_digest(&hasher.finalize()));
     };
-    let json = serde_json::to_vec(layout_config).map_err(layout_serialization_error)?;
+    let json = serde_json::to_vec(&identity).map_err(layout_serialization_error)?;
     let mut hasher = Sha256::new();
     hasher.update(b"RITO-RUNTIME-LAYOUT-IDENTITY\0");
     hasher.update((json.len() as u64).to_be_bytes());
     hasher.update(&json);
     hasher.update(policy_identity);
     Ok(short_sha256_digest(&hasher.finalize()))
+}
+
+/// Pagination identity excludes browser-calibrated vertical interaction boxes.
+/// They affect caret/range geometry, never line breaking, page geometry, or paint.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LayoutKeyConfig<'a> {
+    viewport_width: f64,
+    viewport_height: f64,
+    page_width: f64,
+    page_height: f64,
+    margin_top: f64,
+    margin_right: f64,
+    margin_bottom: f64,
+    margin_left: f64,
+    spread_mode: SpreadMode,
+    first_page_alone: bool,
+    spread_gap: f64,
+    root_font_size: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line_height_override: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line_height_force: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    font_family_override: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    font_family_force: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pagination_policy: Option<&'a PaginationPolicy>,
+    #[serde(skip_serializing_if = "text_measurement_is_default")]
+    text_measurement: TextMeasurementMode,
+    #[serde(skip_serializing_if = "borrowed_map_is_empty")]
+    generic_serif_advances: &'a BTreeMap<String, f64>,
+    #[serde(skip_serializing_if = "borrowed_map_is_empty")]
+    font_family_advances: &'a BTreeMap<String, BTreeMap<String, f64>>,
+    #[serde(skip_serializing_if = "borrowed_map_is_empty")]
+    generic_serif_pair_adjustments: &'a BTreeMap<String, f64>,
+    #[serde(skip_serializing_if = "borrowed_map_is_empty")]
+    font_family_pair_adjustments: &'a BTreeMap<String, BTreeMap<String, f64>>,
+}
+
+impl<'a> From<&'a LayoutConfig> for LayoutKeyConfig<'a> {
+    fn from(config: &'a LayoutConfig) -> Self {
+        Self {
+            viewport_width: config.viewport_width,
+            viewport_height: config.viewport_height,
+            page_width: config.page_width,
+            page_height: config.page_height,
+            margin_top: config.margin_top,
+            margin_right: config.margin_right,
+            margin_bottom: config.margin_bottom,
+            margin_left: config.margin_left,
+            spread_mode: config.spread_mode,
+            first_page_alone: config.first_page_alone,
+            spread_gap: config.spread_gap,
+            root_font_size: config.root_font_size,
+            line_height_override: config.line_height_override,
+            line_height_force: config.line_height_force,
+            font_family_override: config.font_family_override.as_deref(),
+            font_family_force: config.font_family_force,
+            pagination_policy: config.pagination_policy.as_ref(),
+            text_measurement: config.text_measurement,
+            generic_serif_advances: &config.generic_serif_advances,
+            font_family_advances: &config.font_family_advances,
+            generic_serif_pair_adjustments: &config.generic_serif_pair_adjustments,
+            font_family_pair_adjustments: &config.font_family_pair_adjustments,
+        }
+    }
+}
+
+fn text_measurement_is_default(value: &TextMeasurementMode) -> bool {
+    *value == TextMeasurementMode::default()
+}
+
+fn borrowed_map_is_empty<K, V>(value: &&BTreeMap<K, V>) -> bool {
+    value.is_empty()
 }
 
 fn layout_serialization_error(error: serde_json::Error) -> EpubError {
@@ -176,8 +269,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use crate::layout::{
-        create_layout_config, LayoutConfigInput, MarginInput, PaginationPolicy, SpreadMode,
-        TextMeasurementMode,
+        create_layout_config, FontVerticalMetricSample, LayoutConfigInput, MarginInput,
+        PaginationPolicy, SpreadMode, TextMeasurementMode,
     };
 
     use super::*;
@@ -239,11 +332,37 @@ mod tests {
         );
     }
 
+    #[test]
+    fn vertical_interaction_metrics_do_not_change_layout_identity() {
+        let baseline = test_layout();
+        let mut calibrated = baseline.clone();
+        calibrated
+            .font_vertical_metrics
+            .push(FontVerticalMetricSample {
+                font_family: "Book".to_owned(),
+                font_style: "normal".to_owned(),
+                font_weight: 400,
+                font_size_px: 16.0,
+                top_baseline_ascent_px: 3.0,
+                top_baseline_descent_px: 13.0,
+            });
+
+        for policy_identity in [None, Some(&b"pinned-policy"[..])] {
+            assert_eq!(
+                layout_key_from_policy_identity(&baseline, policy_identity)
+                    .expect("baseline key succeeds"),
+                layout_key_from_policy_identity(&calibrated, policy_identity)
+                    .expect("calibrated key succeeds"),
+            );
+        }
+    }
+
     fn legacy_vec_layout_key(
         layout_config: &LayoutConfig,
         policy_identity: Option<&[u8]>,
     ) -> EpubResult<String> {
-        let json = serde_json::to_vec(layout_config).map_err(layout_serialization_error)?;
+        let json = serde_json::to_vec(&LayoutKeyConfig::from(layout_config))
+            .map_err(layout_serialization_error)?;
         let Some(policy_identity) = policy_identity else {
             return Ok(short_sha256(&json));
         };

@@ -119,11 +119,16 @@ function requireThresholds(caseConfig: ReaderUsabilityGateCase, p95: ReaderUsabi
   );
   if (exceeded.length === 0) return;
   const details = exceeded.map(
-    (key) => `- ${key}: p95 ${String(p95[key])} ms > ${String(caseConfig.thresholds[key])} ms`,
+    (key) =>
+      `- ${key}: p95 ${String(p95[key])} ${metricUnit(key)} > ${String(caseConfig.thresholds[key])} ${metricUnit(key)}`,
   );
   throw new Error(
     `Reader usability thresholds exceeded for "${caseConfig.id}":\n${details.join('\n')}`,
   );
+}
+
+function metricUnit(key: keyof ReaderUsabilityMetrics): 'ms' | 'requests' {
+  return key === 'farTocWorkerRequestsToFirstFrame' ? 'requests' : 'ms';
 }
 
 function nearestRank95(values: readonly number[]): number {
@@ -137,11 +142,25 @@ function nearestRank95(values: readonly number[]): number {
 function sameEnvironment(left: ReaderProfileEnvironment, right: ReaderProfileEnvironment): boolean {
   return (
     left.machineId === right.machineId &&
+    left.chapterLocalPreviewMode === right.chapterLocalPreviewMode &&
+    sameRuntimeValue(left.artifact.schemaVersion, right.artifact.schemaVersion) &&
+    sameRuntimeValue(left.artifact.id, right.artifact.id) &&
+    left.artifact.readerDistSha256 === right.artifact.readerDistSha256 &&
+    left.artifact.fileCount === right.artifact.fileCount &&
+    left.artifact.byteLength === right.artifact.byteLength &&
+    left.execution.skippedE2eBuild === right.execution.skippedE2eBuild &&
+    left.execution.strictServer === right.execution.strictServer &&
+    left.execution.abPairId === right.execution.abPairId &&
+    left.execution.abOrder === right.execution.abOrder &&
     READER_USABILITY_MACHINE_ENVIRONMENT_KEYS.every((key) => left[key] === right[key]) &&
     left.deviceScaleFactor === right.deviceScaleFactor &&
     sameViewport(left.viewport, right.viewport) &&
     sameViewport(left.reflowViewport, right.reflowViewport)
   );
+}
+
+function sameRuntimeValue(left: unknown, right: unknown): boolean {
+  return left === right;
 }
 
 function sameBrowserPolicy(

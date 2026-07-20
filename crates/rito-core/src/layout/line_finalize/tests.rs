@@ -6,6 +6,7 @@ use super::{finalize_line_eager, LineWidthMetric, PendingLineFinalizer};
 use crate::layout::{
     line::{LineRun, TextRunBox},
     line_align::apply_line_align,
+    paint::RunPaint,
     text_mapping::RunTextMapping,
     text_shape::fixture_run_shape,
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
@@ -133,7 +134,9 @@ fn width_metric_preserves_greedy_extensions_and_optimal_paint_bounds() {
         0.0,
         json!({
             "padding": { "right": 10 },
-            "border": { "end": { "widthPx": 2 } }
+            "border": {
+                "end": { "widthPx": 2, "paint": { "color": "#000", "style": "solid" } }
+            }
         }),
         None,
         Some(5.0),
@@ -315,7 +318,7 @@ fn text_run(
         height: 12.0,
         font_size: 10.0,
         interaction_geometry: None,
-        paint,
+        paint: RunPaint::from_test_wire_value(paint),
         line_height_px: None,
         href: None,
         source_path: None,

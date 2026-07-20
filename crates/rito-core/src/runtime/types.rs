@@ -3,14 +3,17 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::source_locator::RuntimeSourceLocator;
+use super::source_locator::{
+    RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
+};
 
 use crate::{
     epub::{PackageDocument, TocEntry},
     interaction::{FootnoteEntry, FootnoteKind},
     layout::{
-        FontVerticalMetricDemand, LayoutConfig, LineBreaking, PaginationFlowChapterRange,
-        SearchRuntimeResult, SearchTextPosition, TextRangeRect, TextRunOffset,
+        FontVerticalMetricDemand, FontVerticalMetricSample, LayoutConfig, LineBreaking,
+        PaginationFlowChapterRange, SearchRuntimeResult, SearchTextPosition, TextRangeRect,
+        TextRunOffset,
     },
     render::{DisplayListResourceRefs, PackedDisplayCommandRecordStats},
     resources::PublicationResources,
@@ -99,6 +102,149 @@ pub struct RuntimeRevisionWorkBudget {
     pub max_top_level_nodes: usize,
 }
 
+/// Hard memory bound for a provisional chapter-local revision.
+///
+/// A caller may choose a smaller cap, but cannot request a larger window.
+pub const RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX: usize = 16;
+
+/// Explicit identity for the only chapter represented by a chapter-local
+/// revision. Page and spread coordinates in that revision are local to this
+/// chapter and must never be interpreted as publication-absolute indexes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeChapterLocalCoordinate {
+    pub kind: RuntimeChapterLocalCoordinateKind,
+    pub chapter_index: usize,
+    pub href: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimeChapterLocalCoordinateKind {
+    ChapterLocal,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeBoundedChapterLocalRevisionRequest {
+    pub layout_config: LayoutConfig,
+    #[serde(default = "default_revision_line_breaking")]
+    pub line_breaking: LineBreaking,
+    pub target_chapter_index: usize,
+    pub target_locator: RuntimeSourceLocator,
+    pub local_page_cap: usize,
+    pub budget: RuntimeRevisionWorkBudget,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeChapterLocalRevisionHandle {
+    pub revision_id: String,
+    pub revision_version: u32,
+    pub coordinate: RuntimeChapterLocalCoordinate,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeChapterLocalRevisionCursor {
+    pub owner: RuntimeChapterLocalRevisionHandle,
+    pub cursor: String,
+    pub target_locator: RuntimeSourceLocator,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeContinueChapterLocalRevisionRequest {
+    pub continuation: RuntimeChapterLocalRevisionCursor,
+    pub budget: RuntimeRevisionWorkBudget,
+}
+
+/// Transfers a chapter-local break token into a fresh bounded revision.
+///
+/// The source revision remains immutable and independently releasable. The
+/// layout session itself is moved, so the destination window resumes at the
+/// exact page boundary without replaying the chapter prefix.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeRolloverChapterLocalRevisionRequest {
+    pub continuation: RuntimeChapterLocalRevisionCursor,
+    pub budget: RuntimeRevisionWorkBudget,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeChapterLocalRevisionExtent {
+    pub local_page_count: usize,
+    pub local_spread_count: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeChapterLocalPageRange {
+    pub start_local_page: usize,
+    pub end_local_page_exclusive: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeChapterLocalRevisionSummary {
+    pub revision_id: String,
+    pub revision_version: u32,
+    pub layout_key: String,
+    pub status: RuntimeRevisionStatus,
+    pub coordinate: RuntimeChapterLocalCoordinate,
+    pub local_page_cap: usize,
+    pub known_extent: RuntimeChapterLocalRevisionExtent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub final_extent: Option<RuntimeChapterLocalRevisionExtent>,
+    pub page_cap_reached: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeChapterLocalRevisionAdvance {
+    pub revision: RuntimeChapterLocalRevisionSummary,
+    pub previous_known_extent: RuntimeChapterLocalRevisionExtent,
+    pub newly_known_local_pages: RuntimeChapterLocalPageRange,
+    pub processed_top_level_nodes: usize,
+    pub target: RuntimeChapterLocalSourceLocatorResolution,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<RuntimeChapterLocalRevisionCursor>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum RuntimeChapterLocalSourceLocatorResolution {
+    Resolved {
+        owner: RuntimeChapterLocalRevisionHandle,
+        locator: RuntimeSourceLocator,
+        spine_idref: String,
+        local_page_index: usize,
+        local_spread_index: usize,
+        matched_by: RuntimeSourceLocatorMatchedBy,
+    },
+    Pending {
+        owner: RuntimeChapterLocalRevisionHandle,
+        locator: RuntimeSourceLocator,
+        spine_idref: String,
+        reason: RuntimeSourceLocatorPendingReason,
+        matched_by: RuntimeSourceLocatorMatchedBy,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeChapterLocalRevisionError {
+    pub kind: RuntimeContinuationErrorKind,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision: Option<Box<RuntimeChapterLocalRevisionSummary>>,
+}
+
 /// Request for the experimental core-only bounded revision path.
 ///
 /// The first bounded request scans every spine XHTML source once to establish
@@ -134,6 +280,26 @@ pub struct RuntimeContinueRevisionRequest {
     pub budget: RuntimeRevisionWorkBudget,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeCalibrateRevisionFontVerticalMetricsRequest {
+    pub revision_id: String,
+    pub revision_version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<RuntimeRevisionCursor>,
+    pub font_vertical_metrics: Vec<FontVerticalMetricSample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeRevisionFontVerticalMetricCalibration {
+    pub revision: RuntimeRevisionSummary,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<RuntimeRevisionCursor>,
+    pub calibrated_published_run_count: usize,
+    pub calibrated_unpublished_run_count: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeCancelRevisionRequest {
@@ -167,10 +333,14 @@ pub struct RuntimeRevisionAdvance {
 #[serde(rename_all = "camelCase")]
 pub enum RuntimeContinuationErrorKind {
     InvalidBudget,
+    InvalidChapterLocalTarget,
+    InvalidPageCap,
     UnknownRevision,
     StaleRevisionVersion,
     UnknownCursor,
     CursorOwnerMismatch,
+    ChapterLocalOwnerMismatch,
+    ChapterLocalTargetMismatch,
     RevisionNotContinuable,
     EngineFailure,
 }
@@ -450,6 +620,24 @@ pub struct RuntimeFrame {
     pub image_dominated: bool,
 }
 
+/// Paint-ready frame whose indexes are explicitly chapter-local.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeChapterLocalFrame {
+    pub owner: RuntimeChapterLocalRevisionHandle,
+    pub local_spread_index: usize,
+    pub local_page_indexes: Vec<usize>,
+    pub width: Value,
+    pub height: Value,
+    pub commands: Vec<Value>,
+    pub command_count: usize,
+    pub command_counts: BTreeMap<String, usize>,
+    pub command_hash: String,
+    pub resource_refs: DisplayListResourceRefs,
+    pub font_families: Vec<String>,
+    pub image_dominated: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeFrameCommandBufferMetadata {
@@ -586,6 +774,10 @@ pub enum RuntimePageTargetKind {
     Link,
     Image,
     Footnote,
+    /// The href is a semantic noteref, but its definition has not been
+    /// indexed yet. Hosts can defer the popup without misclassifying it as a
+    /// normal link.
+    FootnotePending,
 }
 
 /// Visual bounds in page-content coordinates, after layout transforms and
@@ -608,8 +800,8 @@ pub struct RuntimePageTargetText {
 }
 
 /// One paint-order page target. `kind` follows the semantic priority
-/// footnote > link > standalone image > text. Linked images remain links and
-/// retain their image metadata.
+/// resolved/pending footnote > link > standalone image > text. Linked images
+/// remain links and retain their image metadata.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimePageTarget {
@@ -640,7 +832,7 @@ pub struct RuntimePageTarget {
     pub image_src: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image_alt: Option<String>,
-    /// Exact key in this revision's footnote table when `kind` is `Footnote`.
+    /// Exact canonical key for resolved and pending footnote targets.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub footnote_key: Option<String>,
 }
@@ -700,6 +892,11 @@ pub struct RuntimeFootnote {
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeFootnotes {
     pub revision_id: String,
+    /// True when publication-wide discovery and selected definition parsing
+    /// are complete for this revision.
+    pub complete: bool,
+    /// Canonical noteref keys whose definitions are not available yet.
+    pub pending_keys: Vec<String>,
     pub entries: BTreeMap<String, FootnoteEntry>,
 }
 

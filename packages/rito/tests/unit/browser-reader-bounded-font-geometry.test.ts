@@ -45,10 +45,18 @@ describe('Browser bounded font geometry replacement', () => {
       { fontFamily: 'missing', fontStyle: 'normal' as const, fontWeight: 400, fontSizePx: 16 },
     ];
 
-    expect(captureBrowserReaderCandidateHostFontMetrics(state, demands, false, false)).toBe(true);
+    expect(captureBrowserReaderCandidateHostFontMetrics(state, demands, false, false)).toEqual({
+      horizontalMetricsChanged: true,
+      addedVerticalMetricSamples: [],
+      demandedVerticalMetricSamples: [],
+    });
     expect(state.fontMetrics.genericSerif).toBeDefined();
     expect(state.fontMetrics.verticalMetrics).toEqual({});
-    expect(captureBrowserReaderCandidateHostFontMetrics(state, demands, false, false)).toBe(false);
+    expect(captureBrowserReaderCandidateHostFontMetrics(state, demands, false, false)).toEqual({
+      horizontalMetricsChanged: false,
+      addedVerticalMetricSamples: [],
+      demandedVerticalMetricSamples: [],
+    });
   });
 
   for (const { name, target, notifyLayoutCommitted } of TARGETS) {
@@ -204,6 +212,7 @@ function owner(
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
+      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(),
       cancel: vi.fn(),
       dispose: vi.fn(),

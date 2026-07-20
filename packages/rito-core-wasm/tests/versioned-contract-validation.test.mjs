@@ -126,7 +126,7 @@ test('direct exact aggregate reads reject forged identities and request echoes',
     getFootnotesAtRevisionJson: () =>
       JSON.stringify({
         revision: handle(1),
-        value: { revisionId: 'rev-other', entries: {} },
+        value: { revisionId: 'rev-other', complete: true, pendingKeys: [], entries: {} },
       }),
   });
   assert.throws(() => footnotes.getFootnotesAtRevision(handle(1)), /mismatched revisionId/);
@@ -320,7 +320,7 @@ function bundle(version) {
     revision: summary(version, 'ready'),
     navigation: { revisionId },
     tocTargets: { revisionId, targets: [] },
-    footnotes: { revisionId, entries: {} },
+    footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
     chapterTextIndices: { revisionId, entries: {} },
     fontFamilies: [],
   };

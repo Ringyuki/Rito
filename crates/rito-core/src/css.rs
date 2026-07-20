@@ -1,21 +1,53 @@
 pub const NAME: &str = "css";
 pub const OWNS: &str = "CSS tokenization, parsing, declarations, selectors, and supported syntax";
 
+#[cfg(feature = "legacy-css-diagnostics")]
 mod parser;
+#[cfg(feature = "legacy-css-diagnostics")]
 mod tokens;
+#[cfg(feature = "legacy-css-diagnostics")]
 mod values;
 
 use std::collections::BTreeMap;
 
+#[cfg(feature = "legacy-css-diagnostics")]
+pub(crate) use parser::summarize_stylesheet_texts;
+#[cfg(feature = "legacy-css-diagnostics")]
 pub(crate) use parser::{parse_css_rules_with_root_font_size, CssRuleSummary};
-pub(crate) use parser::{parse_font_face_rules, summarize_stylesheet_texts};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "legacy-css-diagnostics")]
 use serde_json::{Map, Value};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct CssViewport {
     pub width: f64,
     pub height: f64,
+    pub device_pixel_ratio: f64,
+    pub color_scheme: CssColorScheme,
+}
+
+impl CssViewport {
+    pub(crate) fn new(width: f64, height: f64) -> Self {
+        Self {
+            width,
+            height,
+            device_pixel_ratio: 1.0,
+            color_scheme: CssColorScheme::Light,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CssColorScheme {
+    Light,
+    #[cfg_attr(
+        not(feature = "bench-internals"),
+        expect(
+            dead_code,
+            reason = "production viewport construction is light-only; benchmark parity can supply dark"
+        )
+    )]
+    Dark,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,10 +72,12 @@ pub struct CssStylesheetSummary {
     pub detail_hash: String,
 }
 
+#[cfg(feature = "legacy-css-diagnostics")]
 pub(crate) fn parse_css_rules(css: &str) -> Vec<CssRuleSummary> {
     parser::parse_css_rules(css)
 }
 
+#[cfg(feature = "legacy-css-diagnostics")]
 pub(crate) fn parse_css_declarations_with_viewport(
     css: &str,
     parent_font_size: f64,

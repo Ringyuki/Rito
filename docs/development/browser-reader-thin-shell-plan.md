@@ -398,8 +398,12 @@ remains:
 Production now selects bounded revisions. Candidate growth suspends exact reads
 until the next presentation commits, partial extents remain distinct from final
 extents, and Browser/Kit race tests cover session replacement and stale work.
-The cross-chapter footnote index is lazy-state-safe and now parses each available
-spine source once, but its first full-spine scan remains outside the work budget.
+The cross-chapter footnote index is lazy-state-safe and cooperative. Foreground
+admission scans only the requested chapter, resolves same-chapter notes during
+that chapter's semantic preparation, and exposes unresolved cross-chapter
+noterefs as `footnotePending`. Host-scheduled background calls consume at most
+one additional source scan or selected definition parse; publication layout is
+gated on index completion so a handoff candidate is never provisional.
 Greedy leaf paragraphs yield between line boxes at the root and through
 ordinary transparent container trees. Recursive descendants share one private
 node/line work meter, and completed flat children can publish stable pages

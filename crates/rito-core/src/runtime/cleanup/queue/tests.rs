@@ -427,7 +427,10 @@ fn empty_revision() -> RuntimeRevision {
         layout_config,
         None,
         RuntimeRevisionInteractions {
+            publication_footnotes: None,
             footnotes: BTreeMap::new(),
+            pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+            footnote_index_complete: false,
             chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::new()),
             completed_chapter_idrefs: BTreeSet::new(),
         },

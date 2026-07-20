@@ -160,7 +160,7 @@ fn rounded_number_value(value: f64) -> Value {
     }
 }
 
-pub(crate) fn parse_font_face_rules(css: &str) -> Vec<FontFaceRule> {
+fn parse_font_face_rules(css: &str) -> Vec<FontFaceRule> {
     let cleaned = strip_comments(css);
     let mut rules = Vec::new();
     let mut index = 0;

@@ -11,6 +11,7 @@ use crate::layout::{
     content::{RuntimeChild, RuntimeImage},
     line::{LineRun, RubyRunBox},
     page::RuntimePage,
+    RunPaint,
 };
 
 #[test]
@@ -212,7 +213,7 @@ fn skips_ruby_paint_annotations_without_losing_base_text() {
                     y: -8.0,
                     width: 24.0,
                     height: 8.0,
-                    paint: json!({}),
+                    paint: RunPaint::default(),
                 }),
             ])],
         )],
