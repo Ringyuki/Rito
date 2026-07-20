@@ -3,6 +3,10 @@ node_modules/
 .dart_tool/
 packages/rito_flutter/build/
 packages/rito_flutter/flutter_*.log
+
+# Local benchmark workspaces and evidence stay out of git; the development
+# docs record the measured numbers.
+benchmarks/
 dist/
 .output/
 target/
