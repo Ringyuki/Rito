@@ -68,10 +68,10 @@ pub(super) fn materialize_style(
     inline: &InlineFormattingStyleV1,
     layout: &LayoutFormattingStyleV1,
     layout_mode: LayoutMaterializationMode,
-    inherited_line_height: f64,
+    parent_style: &Map<String, Value>,
 ) -> Result<Map<String, Value>> {
     let mut output = Map::new();
-    materialize_font(&mut output, inline, inherited_line_height)?;
+    materialize_font(&mut output, inline, parent_style)?;
     materialize_text_flow(&mut output, inline)?;
     materialize_fragment(&mut output, inline)?;
     materialize_paint(&mut output, inline)?;
@@ -90,8 +90,12 @@ pub(super) fn is_transparent(color: AbsoluteColor) -> bool {
 fn materialize_font(
     output: &mut Map<String, Value>,
     style: &InlineFormattingStyleV1,
-    inherited_line_height: f64,
+    parent_style: &Map<String, Value>,
 ) -> Result<()> {
+    let inherited_line_height = parent_style
+        .get("lineHeight")
+        .and_then(Value::as_f64)
+        .unwrap_or(1.2);
     let font = &style.font;
     insert_string(output, "fontFamily", serialize_font_families(font)?);
     insert_number(output, "fontSize", font.size.get());
@@ -110,8 +114,15 @@ fn materialize_font(
         LineHeight::Normal => insert_number(output, "lineHeight", inherited_line_height),
         LineHeight::Number(value) => insert_number(output, "lineHeight", value.get()),
         LineHeight::Length(value) => {
-            // The legacy map stored every line-height length as both the
+            // The legacy map stored a declared line-height length as both the
             // ratio of the element's own font size and the resolved pixels.
+            //
+            // KNOWN GAP: a purely *inherited* length kept the ancestor's ratio
+            // key unchanged, which this cannot reproduce — computed values
+            // alone cannot distinguish "declared Xem" from "inherited length".
+            // Deciding it needs a specified-value flag from the Stylo
+            // projection; a numeric heuristic on the parent's pixels misfires
+            // whenever the two coincide and corrupts line-box geometry.
             insert_number(output, "lineHeight", value.get() / font.size.get());
             insert_number(output, "lineHeightPx", value.get());
         }

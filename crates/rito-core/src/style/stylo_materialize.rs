@@ -98,7 +98,7 @@ pub(crate) fn materialize_stylo_chapter(
         body.0,
         body.1,
         LayoutMaterializationMode::FlowOnly,
-        DEFAULT_LINE_HEIGHT_RATIO,
+        &Map::new(),
     )?;
     let computed_override_line_height = input
         .options
@@ -249,12 +249,7 @@ fn materialize_element(
             node_id.index()
         );
     }
-    let mut style = materialize_style(
-        inline_style,
-        layout_style,
-        layout_mode,
-        inherited_line_height(parent_style),
-    )?;
+    let mut style = materialize_style(inline_style, layout_style, layout_mode, parent_style)?;
     propagate_text_decoration(&mut style, parent_style);
     let children = materialize_nodes(source, inline, layout, &element.children, &style, options)?;
     Ok(Some(StyledNode {
@@ -300,7 +295,7 @@ fn materialize_image(
         inline_style,
         layout_style,
         LayoutMaterializationMode::FlowOnly,
-        inherited_line_height(parent_style),
+        parent_style,
     )?;
     // Replaced-element defaults are Rito layout policy, not author CSS.
     style.insert("objectFit".to_owned(), Value::String("contain".to_owned()));
@@ -506,16 +501,6 @@ fn page_paint(inline: &InlineFormattingStyleV1, style: &Map<String, Value>) -> O
     }
     copy_materialized_background_image(&mut paint, style);
     (!paint.is_empty()).then_some(Value::Object(paint))
-}
-
-/// The legacy default map carried a 1.2 `lineHeight` ratio at the root.
-const DEFAULT_LINE_HEIGHT_RATIO: f64 = 1.2;
-
-fn inherited_line_height(parent_style: &Map<String, Value>) -> f64 {
-    parent_style
-        .get("lineHeight")
-        .and_then(Value::as_f64)
-        .unwrap_or(DEFAULT_LINE_HEIGHT_RATIO)
 }
 
 fn propagate_text_decoration(style: &mut Map<String, Value>, parent_style: &Map<String, Value>) {

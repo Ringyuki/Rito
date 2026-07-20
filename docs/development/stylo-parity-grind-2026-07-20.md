@@ -59,30 +59,50 @@ materialize_layout`); images still override with `contain`.
 - `epub/prepared` unit tests updated where they codified pre-parity
   materializer behavior (percentage height keeps `height: 0`).
 
+## Round 2 additions
+
+- Shared color canonicalization moved into `layout/summary_json.rs`
+  (`canonical_color` + `canonicalize_color_keys` deep walker) and applied at
+  the two summary boundaries that embed raw author color strings: pagination
+  page details (`pagination_flow.rs`) and display-list flow command values
+  (`display_list_flow.rs`). Both now also fold CSS **named** colors to hex —
+  legacy stored `red`, Stylo materializes `#ff0000`. The TS exporter carries
+  the identical table and walker (`NAMED_COLOR_HEX`, `canonicalizeColorKeys`)
+  applied to `summarizePaginationFlowPage` and
+  `normalizeDisplayListFlowCommand`. Note the JS table must stay at module
+  top level — declaring it beside its helper hits a TDZ error at export time.
+
+With this, `book-01/smoke.greedy` clears the pagination page digests and the
+display-list spread digests.
+
 ## Current wall (next session starts here)
 
-`pagination flow page digest mismatch at 1` (cover page, book-01): the page
-detail embeds BlockPaint border colors as raw author strings. Legacy carries
-`#000` (from `.coverborder { border-color: #000 }`); Stylo materializes
-`#000000`. `border_edge_value` / `block_border_paint`
-(`layout/style_values.rs`) copy the raw string into paint JSON.
+**Inherited `line-height` lengths.** `title.xhtml` block 2/4/5: legacy stores
+ratio `1`, the Stylo path stores `0.833` / `1.667`. Legacy's inheritance
+copied both `lineHeight` (ratio) and `lineHeightPx` verbatim, so a child that
+does _not_ declare line-height keeps the **ancestor's ratio** even when its
+own font-size differs. The materializer only sees computed values, where an
+inherited length and a declared `Xem` that resolves to the same pixels are
+indistinguishable.
 
-This raw-color-string class also reaches the display-list flow summaries and
-the 30-group runtime render-command goldens, so a decision is needed rather
-than another spot fix. Options, in order of preference:
+A numeric heuristic (`parent lineHeightPx == own computed px` → treat as
+inherited) was implemented and **reverted**: it clears the whole inline-segment
+layer for all 13 chapters but misfires whenever parent and child pixels
+coincide with different ratios, which corrupts line-box geometry — it
+regressed continuous blocks from chapter 13 back to chapter 2 (uniform 2px
+child offsets, 4px container height). Do not reintroduce it without the flag
+below.
 
-1. Canonicalize color strings at every paint-construction boundary the
-   goldens consume (`border_edge_value`, backgrounds, shadows, run paint) and
-   apply the identical canonicalization in the TS exporter's corresponding
-   dump paths, then regenerate all fixture families (`fixtures:rust:export`
-   plus the render-command golden generator). Keeps the oracle strong except
-   for color-string spelling, which is paint-equivalent.
-2. Typed colors at the boundary (the deletion ledger's eventual plan) — too
-   large for this gate now.
+The robust fix is a **specified-value flag** from the Stylo projection:
+`InlineStyleProjectionV1` currently exposes only a success/failure
+`InlineStyleDispositionV1`, not whether `line-height` was declared on the
+element. Add that bit in `crates/rito-stylo/src/projection/inline_v1/` and
+branch on it in `materialize_font` (`stylo_materialize/value.rs`, which now
+already receives the full `parent_style` map). Then the inline layer should
+clear all chapters _and_ continuous blocks stay green.
 
-After book-01/smoke passes, the remaining 3 configs and 9 books repeat the
-same loop; expect more small legacy-semantics gaps (list markers, ruby,
-tables) with decreasing frequency.
+After that, continuous blocks resume at `Section001.xhtml` and the remaining
+3 configs / 9 books repeat the loop.
 
 ## Also unverified still
 

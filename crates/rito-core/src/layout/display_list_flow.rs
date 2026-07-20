@@ -85,11 +85,19 @@ fn display_list_flow_spread_digest(
     let resource_refs = summarize_display_list_resource_refs(&commands);
     let command_values = display_command_values(&commands)
         .iter()
-        .map(round_json_value)
+        .map(|command| {
+            let mut value = round_json_value(command);
+            crate::layout::summary_json::canonicalize_color_keys(&mut value);
+            value
+        })
         .collect::<Vec<_>>();
     let render_command_values = display_command_values(&render_commands)
         .iter()
-        .map(round_json_value)
+        .map(|command| {
+            let mut value = round_json_value(command);
+            crate::layout::summary_json::canonicalize_color_keys(&mut value);
+            value
+        })
         .collect::<Vec<_>>();
     DisplayListFlowSpreadDigest {
         spread_index: spread.index,

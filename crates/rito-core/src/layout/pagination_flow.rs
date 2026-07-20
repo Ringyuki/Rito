@@ -111,7 +111,8 @@ pub(crate) fn build_pagination_flow(
             let global_index = page_details.len();
             let mut page = page.clone();
             page.set_index(global_index);
-            let detail = summarize_pagination_flow_page(&page);
+            let mut detail = summarize_pagination_flow_page(&page);
+            crate::layout::summary_json::canonicalize_color_keys(&mut detail);
             let counts = count_value_field(&detail, "counts");
             totals = totals.add(&counts);
             page_digests.push(PaginationFlowPageDigest {

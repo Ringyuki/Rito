@@ -32,7 +32,9 @@ pub(crate) fn summarize_segment_style(style: &Map<String, Value>) -> Map<String,
 /// computed-value pipeline. Painted output parses these strings identically.
 fn canonicalize_summary_colors(key: &str, value: Value) -> Value {
     match (key, value) {
-        ("backgroundColor", Value::String(color)) => Value::String(canonical_summary_color(color)),
+        ("backgroundColor", Value::String(color)) => {
+            Value::String(super::summary_json::canonical_color(color))
+        }
         (
             "borderTop" | "borderRight" | "borderBottom" | "borderLeft",
             Value::Object(mut border),
@@ -55,39 +57,12 @@ fn canonicalize_summary_colors(key: &str, value: Value) -> Value {
             if let Some(Value::String(color)) = border.remove("color") {
                 border.insert(
                     "color".to_owned(),
-                    Value::String(canonical_summary_color(color)),
+                    Value::String(super::summary_json::canonical_color(color)),
                 );
             }
             Value::Object(border)
         }
         (_, value) => value,
-    }
-}
-
-fn canonical_summary_color(value: String) -> String {
-    let trimmed = value.trim();
-    let Some(digits) = trimmed.strip_prefix('#') else {
-        return value;
-    };
-    if !digits
-        .chars()
-        .all(|character| character.is_ascii_hexdigit())
-    {
-        return value;
-    }
-    match digits.len() {
-        3 => {
-            let mut expanded = String::with_capacity(7);
-            expanded.push('#');
-            for character in digits.chars() {
-                let lower = character.to_ascii_lowercase();
-                expanded.push(lower);
-                expanded.push(lower);
-            }
-            expanded
-        }
-        6 => format!("#{}", digits.to_ascii_lowercase()),
-        _ => value,
     }
 }
 
