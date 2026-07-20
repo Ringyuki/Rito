@@ -114,17 +114,20 @@ fn materialize_font(
         LineHeight::Normal => insert_number(output, "lineHeight", inherited_line_height),
         LineHeight::Number(value) => insert_number(output, "lineHeight", value.get()),
         LineHeight::Length(value) => {
-            // The legacy map stored a declared line-height length as both the
-            // ratio of the element's own font size and the resolved pixels.
-            //
-            // KNOWN GAP: a purely *inherited* length kept the ancestor's ratio
-            // key unchanged, which this cannot reproduce — computed values
-            // alone cannot distinguish "declared Xem" from "inherited length".
-            // Deciding it needs a specified-value flag from the Stylo
-            // projection; a numeric heuristic on the parent's pixels misfires
-            // whenever the two coincide and corrupts line-box geometry.
-            insert_number(output, "lineHeight", value.get() / font.size.get());
-            insert_number(output, "lineHeightPx", value.get());
+            // Compatibility policy: the retired resolver inherited
+            // line-height as a *ratio* and re-resolved the pixels against
+            // each element's own font size, where CSS inherits the computed
+            // length unchanged. Reproducing the consumer contract therefore
+            // needs both halves of that rule, and telling a declaration from
+            // an inherited value is impossible from computed values alone —
+            // the projection reports whether the cascade declared it here.
+            let ratio = if font.line_height_is_declared {
+                f64::from(value.get() / font.size.get())
+            } else {
+                inherited_line_height
+            };
+            insert_number(output, "lineHeight", ratio);
+            insert_number(output, "lineHeightPx", ratio * f64::from(font.size.get()));
         }
     }
     Ok(())

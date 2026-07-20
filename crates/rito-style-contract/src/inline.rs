@@ -20,6 +20,11 @@ pub struct FontStyleV1 {
     pub slant: FontSlant,
     /// Computed line-height without guessing `normal` font metrics.
     pub line_height: LineHeight,
+    /// Whether `line-height` is declared for this element rather than
+    /// inherited. Computed values cannot express this, and a consumer that
+    /// stores line-height as an inheritable ratio needs it to reproduce the
+    /// ancestor's ratio for a purely inherited length.
+    pub line_height_is_declared: bool,
 }
 
 /// Directionality and writing-mode inputs kept separate from physical layout.

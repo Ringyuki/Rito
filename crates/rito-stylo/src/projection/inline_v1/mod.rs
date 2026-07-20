@@ -14,6 +14,7 @@ mod font;
 mod fragment;
 mod numeric;
 mod paint;
+mod specified;
 mod text;
 mod transform;
 
@@ -223,7 +224,13 @@ pub(crate) fn project_inline_v1(
     let mut payload_caches = cache::ProjectionPayloadCaches::default();
 
     for element in dom.element_handles() {
-        let disposition = project_element(element, &mut table, &mut cache, &mut payload_caches)?;
+        let disposition = project_element(
+            element,
+            dom.shared_lock(),
+            &mut table,
+            &mut cache,
+            &mut payload_caches,
+        )?;
         dispositions.push(disposition);
     }
     let metrics = projection_metrics(dom, &cache, &payload_caches);
@@ -260,6 +267,7 @@ fn projection_metrics(
 
 fn project_element(
     element: DomNode<'_>,
+    lock: &style::shared_lock::SharedRwLock,
     table: &mut InlineStyleTableV1,
     cache: &mut BaseProjectionCache,
     payload_caches: &mut cache::ProjectionPayloadCaches,
@@ -278,6 +286,7 @@ fn project_element(
     };
     let mut style = base;
     style.text_flow.language = text::inherited_language(element);
+    style.font.line_height_is_declared = specified::declares_line_height(&styles, lock);
     let style_id = table.intern_for_node(node_id.index(), style)?;
     Ok(InlineStyleDispositionV1::ContractProjected { node_id, style_id })
 }

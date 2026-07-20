@@ -30,6 +30,9 @@ pub(super) fn project(
         weight: font_weight(font.font_weight.value())?,
         slant: font_slant(font.font_style)?,
         line_height: line_height(&font.line_height)?,
+        // Cascade provenance is source-semantic state that the shared
+        // computed-value cache cannot carry; it is overlaid per element.
+        line_height_is_declared: false,
     })
 }
 

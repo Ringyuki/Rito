@@ -75,34 +75,59 @@ materialize_layout`); images still override with `contain`.
 With this, `book-01/smoke.greedy` clears the pagination page digests and the
 display-list spread digests.
 
+## Round 3: the specified-value flag
+
+The projection now reports cascade provenance for the one property whose
+consumer contract needs it. `crates/rito-stylo/src/projection/inline_v1/specified.rs`
+walks the element's rule node (`ComputedValues::rules`, all cascade levels
+under the adapter's single shared lock) and reports whether `line-height` is
+declared for this element; `FontStyleV1.line_height_is_declared` carries it,
+overlaid per element in `project_element` exactly like `text_flow.language`
+(the base style cache is keyed by `ComputedValues` pointer, and shared styles
+share a rule node, so the overlay is the correct place).
+
+`materialize_font` consumes it: a declared length yields
+`ratio = px / own font-size`; an inherited one keeps the ancestor's ratio.
+**All `lineHeight` ratios now match the oracle across every chapter** — the
+remaining inline-layer diff is `lineHeightPx` only.
+
 ## Current wall (next session starts here)
 
-**Inherited `line-height` lengths.** `title.xhtml` block 2/4/5: legacy stores
-ratio `1`, the Stylo path stores `0.833` / `1.667`. Legacy's inheritance
-copied both `lineHeight` (ratio) and `lineHeightPx` verbatim, so a child that
-does _not_ declare line-height keeps the **ancestor's ratio** even when its
-own font-size differs. The materializer only sees computed values, where an
-inherited length and a declared `Xem` that resolves to the same pixels are
-indistinguishable.
+`lineHeightPx` for _inherited_ line-height lengths. Two chapters demand
+contradictory formulas, which is the proof that one more legacy rule is still
+missing:
 
-A numeric heuristic (`parent lineHeightPx == own computed px` → treat as
-inherited) was implemented and **reverted**: it clears the whole inline-segment
-layer for all 13 chapters but misfires whenever parent and child pixels
-coincide with different ratios, which corrupts line-box geometry — it
-regressed continuous blocks from chapter 13 back to chapter 2 (uniform 2px
-child offsets, 4px container height). Do not reintroduce it without the flag
-below.
+| case                               | own font | our px (ratio x own) | oracle px | oracle rule implied       |
+| ---------------------------------- | -------- | -------------------- | --------- | ------------------------- |
+| `title.xhtml` sample 4/5 seg 0     | 9.6      | 9.6                  | 16        | inherited length verbatim |
+| `title.xhtml` sample 2 seg 1/3     | 14.4     | 17.28                | 14.4      | inherited length verbatim |
+| `message.xhtml` continuous block 1 | —        | passes               | passes    | ratio x own font          |
 
-The robust fix is a **specified-value flag** from the Stylo projection:
-`InlineStyleProjectionV1` currently exposes only a success/failure
-`InlineStyleDispositionV1`, not whether `line-height` was declared on the
-element. Add that bit in `crates/rito-stylo/src/projection/inline_v1/` and
-branch on it in `materialize_font` (`stylo_materialize/value.rs`, which now
-already receives the full `parent_style` map). Then the inline layer should
-clear all chapters _and_ continuous blocks stay green.
+Both formulas were implemented and measured end to end:
 
-After that, continuous blocks resume at `Section001.xhtml` and the remaining
-3 configs / 9 books repeat the loop.
+- **px = inherited computed length** (CSS length inheritance, Stylo's value):
+  clears `title.xhtml`, but breaks `message.xhtml` continuous blocks —
+  children shift uniformly 2px, container +4px.
+- **px = ratio x own font size** (current): `message.xhtml` continuous blocks
+  pass and the run reaches `book-02`, but `title.xhtml` keeps the px diff
+  above.
+
+To measure the two layers independently, temporarily guard the inline-segment
+assertions in `crates/rito-core/tests/rust_fixture_package.rs` behind an env
+var — the harness aborts at the first failing layer, so an inline failure
+hides everything downstream. That trick is what proved the two cases are
+genuinely contradictory rather than one masking the other.
+
+The missing rule is most likely in the retired parser's
+`clears_line_height_px` interaction (`style.rs`): a **unitless** declaration
+clears `lineHeightPx` while an em/percent one keeps it, so the pixel value a
+descendant inherits depends on _how_ the ancestor declared it. Extending the
+projection flag to report the declared line-height _kind_ (unitless number vs
+length/percentage) would let the materializer pick the right formula per
+inheritance chain instead of guessing one globally.
+
+After that, continuous blocks resume at `book-02 / smoke.greedy: line break
+input summary mismatch`, then the remaining configs and books repeat the loop.
 
 ## Also unverified still
 

@@ -122,6 +122,7 @@ fn font_style(seed: f32) -> FontStyleV1 {
         line_height: LineHeight::Number(
             NonNegativeNumber::new(1.2).expect("fixture line height is non-negative"),
         ),
+        line_height_is_declared: false,
     }
 }
 
