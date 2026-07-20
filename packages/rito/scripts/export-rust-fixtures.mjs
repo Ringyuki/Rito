@@ -1647,14 +1647,36 @@ function normalizeInlineSegment(segment) {
   });
 }
 
+// Hex color strings are canonicalized (lowercase, 3-digit expanded) so the
+// summary tolerates author-case differences that cannot survive a computed-
+// value pipeline. Painted output parses these strings identically.
+function canonicalSummaryColor(value) {
+  if (typeof value !== 'string') return value;
+  const match = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(value.trim());
+  if (!match) return value;
+  const digits = match[1].toLowerCase();
+  return digits.length === 3
+    ? `#${digits[0]}${digits[0]}${digits[1]}${digits[1]}${digits[2]}${digits[2]}`
+    : `#${digits}`;
+}
+
+function canonicalSummaryBorder(border) {
+  if (border === null || typeof border !== 'object') return border;
+  // A zero-width border paints nothing; its style/color are unobservable and
+  // engines legitimately disagree on them (`border: 0` computes style `none`
+  // per CSS but `solid` in the retired parsers).
+  if (border.width === 0) return { color: '#000000', style: 'none', width: 0 };
+  return { ...border, color: canonicalSummaryColor(border.color) };
+}
+
 function summarizeSegmentStyle(style) {
   return toJsonValue({
-    backgroundColor: style.backgroundColor,
-    borderBottom: style.borderBottom,
-    borderLeft: style.borderLeft,
+    backgroundColor: canonicalSummaryColor(style.backgroundColor),
+    borderBottom: canonicalSummaryBorder(style.borderBottom),
+    borderLeft: canonicalSummaryBorder(style.borderLeft),
     borderRadius: style.borderRadius,
-    borderRight: style.borderRight,
-    borderTop: style.borderTop,
+    borderRight: canonicalSummaryBorder(style.borderRight),
+    borderTop: canonicalSummaryBorder(style.borderTop),
     display: style.display,
     fontFamily: style.fontFamily,
     fontSize: style.fontSize,

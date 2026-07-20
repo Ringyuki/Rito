@@ -68,9 +68,10 @@ pub(super) fn materialize_style(
     inline: &InlineFormattingStyleV1,
     layout: &LayoutFormattingStyleV1,
     layout_mode: LayoutMaterializationMode,
+    inherited_line_height: f64,
 ) -> Result<Map<String, Value>> {
     let mut output = Map::new();
-    materialize_font(&mut output, inline)?;
+    materialize_font(&mut output, inline, inherited_line_height)?;
     materialize_text_flow(&mut output, inline)?;
     materialize_fragment(&mut output, inline)?;
     materialize_paint(&mut output, inline)?;
@@ -89,6 +90,7 @@ pub(super) fn is_transparent(color: AbsoluteColor) -> bool {
 fn materialize_font(
     output: &mut Map<String, Value>,
     style: &InlineFormattingStyleV1,
+    inherited_line_height: f64,
 ) -> Result<()> {
     let font = &style.font;
     insert_string(output, "fontFamily", serialize_font_families(font)?);
@@ -103,11 +105,16 @@ fn materialize_font(
         },
     );
     match font.line_height {
-        // The current consumer's explicit `normal` policy is 1.2, so this is
-        // a contract translation rather than a guessed font metric.
-        LineHeight::Normal => insert_number(output, "lineHeight", 1.2),
+        // The legacy resolver could not parse `normal`, so an explicit or
+        // default `normal` keeps the inherited ratio (1.2 at the root).
+        LineHeight::Normal => insert_number(output, "lineHeight", inherited_line_height),
         LineHeight::Number(value) => insert_number(output, "lineHeight", value.get()),
-        LineHeight::Length(value) => insert_number(output, "lineHeightPx", value.get()),
+        LineHeight::Length(value) => {
+            // The legacy map stored every line-height length as both the
+            // ratio of the element's own font size and the resolved pixels.
+            insert_number(output, "lineHeight", value.get() / font.size.get());
+            insert_number(output, "lineHeightPx", value.get());
+        }
     }
     Ok(())
 }
@@ -372,7 +379,7 @@ fn border_edge(edge: BorderEdge, foreground: AbsoluteColor) -> Result<Value> {
         | BorderStyle::Outset => "solid",
     };
     Ok(json!({
-        "width": edge.resolved_width.get(),
+        "width": snap_f32_decimal(f64::from(edge.resolved_width.get())),
         "style": style,
         "color": color(edge.color, foreground)?,
     }))
@@ -460,9 +467,9 @@ fn materialize_paint(
                 .iter()
                 .map(|shadow| {
                     Ok(json!({
-                        "offsetX": shadow.offset_x.get(),
-                        "offsetY": shadow.offset_y.get(),
-                        "blur": shadow.blur_radius.get(),
+                        "offsetX": snap_f32_decimal(f64::from(shadow.offset_x.get())),
+                        "offsetY": snap_f32_decimal(f64::from(shadow.offset_y.get())),
+                        "blur": snap_f32_decimal(f64::from(shadow.blur_radius.get())),
                         "color": color(shadow.color, foreground)?,
                     }))
                 })
@@ -478,10 +485,10 @@ fn materialize_paint(
                 .iter()
                 .map(|shadow| {
                     Ok(json!({
-                        "offsetX": shadow.offset_x.get(),
-                        "offsetY": shadow.offset_y.get(),
-                        "blur": shadow.blur_radius.get(),
-                        "spread": shadow.spread_radius.get(),
+                        "offsetX": snap_f32_decimal(f64::from(shadow.offset_x.get())),
+                        "offsetY": snap_f32_decimal(f64::from(shadow.offset_y.get())),
+                        "blur": snap_f32_decimal(f64::from(shadow.blur_radius.get())),
+                        "spread": snap_f32_decimal(f64::from(shadow.spread_radius.get())),
                         "color": color(shadow.color, foreground)?,
                         "inset": shadow.inset,
                     }))
@@ -537,6 +544,9 @@ fn materialize_layout(
     materialize_max_height(output, style.max_height);
     insert_string(output, "clear", clear(style.clear));
     insert_string(output, "float", float(style.float));
+    // The legacy resolver materialized an `objectFit` default on every
+    // element; images override it with their replaced-element policy.
+    insert_string(output, "objectFit", "fill");
     insert_string(output, "overflow", overflow(style.overflow));
     insert_string(output, "pageBreakBefore", page_break(style.break_before));
     insert_string(output, "pageBreakAfter", page_break(style.break_after));
@@ -674,9 +684,11 @@ fn materialize_size(
         PreferredSizeV1::Value(value) => match value.value() {
             // Compatibility policy: the current consumer has no containing-
             // block height basis, and the retired parser ignored percentage
-            // heights. Preserve the computed value in the typed contract but
-            // omit the legacy consumer field until layout can resolve it.
-            LengthPercentage::Percentage(_) if !percentage_supported => {}
+            // heights. The legacy map kept its zero default for the consumer
+            // field until layout can resolve it.
+            LengthPercentage::Percentage(_) if !percentage_supported => {
+                insert_number(output, key, 0.0);
+            }
             value if percentage_supported => {
                 materialize_length_percentage(output, key, pct_key, value, field)?
             }
@@ -721,7 +733,12 @@ fn materialize_length_percentage(
 ) -> Result<()> {
     match value {
         LengthPercentage::Length(value) => insert_number(output, key, value.get()),
-        LengthPercentage::Percentage(value) => insert_number(output, pct_key, value.percent()),
+        LengthPercentage::Percentage(value) => {
+            insert_number(output, pct_key, value.percent());
+            // The legacy map kept its zero pixel default alongside the
+            // percentage helper key.
+            insert_number(output, key, 0.0);
+        }
         LengthPercentage::Linear { .. } => {
             return Err(MaterializeValueError::LinearLengthNotSupported { field });
         }
@@ -785,7 +802,18 @@ fn insert_string(output: &mut Map<String, Value>, key: &str, value: impl Into<St
 }
 
 fn insert_number(output: &mut Map<String, Value>, key: &str, value: impl Into<f64>) {
-    output.insert(key.to_owned(), json!(value.into()));
+    output.insert(key.to_owned(), json!(snap_f32_decimal(value.into())));
+}
+
+/// Widens an f32-derived scalar through its shortest decimal form.
+///
+/// Contract scalars are `f32`; a plain widening cast carries binary noise
+/// (`19.2f32 as f64 == 19.200000762939453`) that accumulates visibly over a
+/// chapter of layout. The retired parser produced `f64` values parsed from
+/// the author's decimal text, so snapping through the shortest round-trip
+/// representation reproduces its arithmetic exactly.
+fn snap_f32_decimal(value: f64) -> f64 {
+    (value as f32).to_string().parse().unwrap_or(value)
 }
 
 fn unsupported(field: MaterializeField) -> MaterializeValueError {

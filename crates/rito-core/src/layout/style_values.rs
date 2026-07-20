@@ -18,10 +18,77 @@ pub(crate) fn summarize_segment_style(style: &Map<String, Value>) -> Map<String,
     let mut output = Map::new();
     for key in SEGMENT_STYLE_KEYS {
         if let Some(value) = style.get(*key) {
-            output.insert((*key).to_owned(), round_json_value(value));
+            output.insert(
+                (*key).to_owned(),
+                canonicalize_summary_colors(key, round_json_value(value)),
+            );
         }
     }
     output
+}
+
+/// Canonicalizes hex color strings (lowercase, 3-digit expanded) so the
+/// summary tolerates author-case differences that cannot survive a
+/// computed-value pipeline. Painted output parses these strings identically.
+fn canonicalize_summary_colors(key: &str, value: Value) -> Value {
+    match (key, value) {
+        ("backgroundColor", Value::String(color)) => Value::String(canonical_summary_color(color)),
+        (
+            "borderTop" | "borderRight" | "borderBottom" | "borderLeft",
+            Value::Object(mut border),
+        ) => {
+            // A zero-width border paints nothing; its style/color are
+            // unobservable and engines legitimately disagree on them
+            // (`border: 0` computes style `none` per CSS but `solid` in the
+            // retired parsers).
+            let zero_width = border
+                .get("width")
+                .and_then(Value::as_f64)
+                .is_some_and(|width| width == 0.0);
+            if zero_width {
+                return serde_json::json!({
+                    "color": "#000000",
+                    "style": "none",
+                    "width": 0,
+                });
+            }
+            if let Some(Value::String(color)) = border.remove("color") {
+                border.insert(
+                    "color".to_owned(),
+                    Value::String(canonical_summary_color(color)),
+                );
+            }
+            Value::Object(border)
+        }
+        (_, value) => value,
+    }
+}
+
+fn canonical_summary_color(value: String) -> String {
+    let trimmed = value.trim();
+    let Some(digits) = trimmed.strip_prefix('#') else {
+        return value;
+    };
+    if !digits
+        .chars()
+        .all(|character| character.is_ascii_hexdigit())
+    {
+        return value;
+    }
+    match digits.len() {
+        3 => {
+            let mut expanded = String::with_capacity(7);
+            expanded.push('#');
+            for character in digits.chars() {
+                let lower = character.to_ascii_lowercase();
+                expanded.push(lower);
+                expanded.push(lower);
+            }
+            expanded
+        }
+        6 => format!("#{}", digits.to_ascii_lowercase()),
+        _ => value,
+    }
 }
 
 pub(crate) fn round_json_value(value: &Value) -> Value {

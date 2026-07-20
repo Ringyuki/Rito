@@ -34,6 +34,15 @@ use super::{
     ChapterStyleOptions, DEFAULT_UA_STYLESHEET,
 };
 
+/// Display defaults for the migration UA profile.
+///
+/// The legacy resolver's computed-style map defaulted `display` to `block`
+/// for every element and let only author CSS override it; box classification
+/// for layout comes from the parser, not this value. The Stylo cascade needs
+/// the same default as user-agent CSS to keep the materialized maps
+/// identical.
+const MIGRATION_DISPLAY_UA_STYLESHEET: &str = "* { display: block; }";
+
 #[derive(Clone, Copy)]
 pub(crate) struct PreparedStyleChapterInput<'a> {
     pub(crate) stylesheet_ledger: &'a StylesheetSourceLedger,
@@ -262,9 +271,14 @@ fn try_resolve_with_stylo(
     // During migration this preserves Rito's established UA policy while
     // replacing the parser and cascade. The richer EPUB UA profile can be
     // enabled once its bidi fields have an exact downstream representation.
-    let mut stylesheets = Vec::with_capacity(selection.stylesheets.len() + 2);
+    let mut stylesheets = Vec::with_capacity(selection.stylesheets.len() + 3);
     stylesheets.push(StylesheetInput::new(
         DEFAULT_UA_STYLESHEET,
+        selection.document_url.clone(),
+        StyleOrigin::UserAgent,
+    ));
+    stylesheets.push(StylesheetInput::new(
+        MIGRATION_DISPLAY_UA_STYLESHEET,
         selection.document_url.clone(),
         StyleOrigin::UserAgent,
     ));

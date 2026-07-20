@@ -282,7 +282,10 @@ fn percentage_height_uses_the_explicit_consumer_compatibility_policy() {
 
     let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
     let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
-    assert!(!paragraph.style.contains_key("height"));
+    // The retired parser ignored percentage heights, so the consumer field
+    // keeps its zero default rather than being omitted.
+    assert_eq!(paragraph.style.get("height"), Some(&serde_json::json!(0.0)));
+    assert!(!paragraph.style.contains_key("heightPct"));
     assert!(base
         .stylesheet_ledger
         .legacy_artifacts_if_initialized()

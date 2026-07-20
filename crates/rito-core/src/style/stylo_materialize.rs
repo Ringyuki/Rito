@@ -94,7 +94,12 @@ pub(crate) fn materialize_stylo_chapter(
 ) -> Result<StyloMaterializedChapter, StyloMaterializeRejection> {
     validate_body(input.source_arena, input.body_node_id)?;
     let body = projected_style(input.inline, input.layout, input.body_node_id)?;
-    let body_style = materialize_style(body.0, body.1, LayoutMaterializationMode::FlowOnly)?;
+    let body_style = materialize_style(
+        body.0,
+        body.1,
+        LayoutMaterializationMode::FlowOnly,
+        DEFAULT_LINE_HEIGHT_RATIO,
+    )?;
     let computed_override_line_height = input
         .options
         .line_height_override
@@ -201,13 +206,18 @@ fn materialize_node(
         DocumentNode::Block(element) | DocumentNode::Inline(element) => {
             materialize_element(source, inline, layout, node, element, parent_style, options)
         }
-        DocumentNode::Image(image) => materialize_image(source, inline, layout, image),
+        DocumentNode::Image(image) => {
+            materialize_image(source, inline, layout, image, parent_style)
+        }
         DocumentNode::Text(text) => {
             validate_text_source(source, text)?;
+            // Text nodes inherit only the legacy-inheritable subset; box
+            // properties reset to their defaults exactly like the retired
+            // resolver.
             Ok(Some(StyledNode::text(
                 text.content.clone(),
                 text.source_text.clone(),
-                parent_style.clone(),
+                super::inheritance::inheritable_style(parent_style),
                 text.source_ref.clone(),
             )))
         }
@@ -239,7 +249,12 @@ fn materialize_element(
             node_id.index()
         );
     }
-    let mut style = materialize_style(inline_style, layout_style, layout_mode)?;
+    let mut style = materialize_style(
+        inline_style,
+        layout_style,
+        layout_mode,
+        inherited_line_height(parent_style),
+    )?;
     propagate_text_decoration(&mut style, parent_style);
     let children = materialize_nodes(source, inline, layout, &element.children, &style, options)?;
     Ok(Some(StyledNode {
@@ -274,6 +289,7 @@ fn materialize_image(
     inline: &InlineStyleProjectionV1,
     layout: &LayoutStyleProjectionV1,
     image: &ImageNode,
+    parent_style: &Map<String, Value>,
 ) -> Result<Option<StyledNode>, StyloMaterializeRejection> {
     let node_id = source_element_id(source, &image.source_ref, SemanticNodeKind::Image)?;
     let (inline_style, layout_style) = projected_style(inline, layout, node_id)?;
@@ -284,6 +300,7 @@ fn materialize_image(
         inline_style,
         layout_style,
         LayoutMaterializationMode::FlowOnly,
+        inherited_line_height(parent_style),
     )?;
     // Replaced-element defaults are Rito layout policy, not author CSS.
     style.insert("objectFit".to_owned(), Value::String("contain".to_owned()));
@@ -489,6 +506,16 @@ fn page_paint(inline: &InlineFormattingStyleV1, style: &Map<String, Value>) -> O
     }
     copy_materialized_background_image(&mut paint, style);
     (!paint.is_empty()).then_some(Value::Object(paint))
+}
+
+/// The legacy default map carried a 1.2 `lineHeight` ratio at the root.
+const DEFAULT_LINE_HEIGHT_RATIO: f64 = 1.2;
+
+fn inherited_line_height(parent_style: &Map<String, Value>) -> f64 {
+    parent_style
+        .get("lineHeight")
+        .and_then(Value::as_f64)
+        .unwrap_or(DEFAULT_LINE_HEIGHT_RATIO)
 }
 
 fn propagate_text_decoration(style: &mut Map<String, Value>, parent_style: &Map<String, Value>) {
