@@ -881,6 +881,15 @@ Fragment creation, caching, invalidation, cancellation, serialization, and
 release pass deterministic and memory-bounded tests; a minimal block/inline
 fixture can shadow-run without changing production authority.
 
+Reader-semantic capabilities are engine-independent and must survive every
+provider swap unchanged: footnote asides (and equivalent out-of-flow reader
+content) stay excluded from the formatting-tree input, noteref/anchor/TOC
+targets, footnote content extraction, hits/semantics, and selection/source
+mapping keep their existing typed outputs. The browser oracle's pinned
+capture procedure already encodes these semantics (the baseline is the
+browser rendering what a reader renders); any fragment provider must pass
+the same oracle without weakening that procedure.
+
 **Not in this round:** another continuous-coordinate tree or page slicing after
 unbounded full-document layout.
 
