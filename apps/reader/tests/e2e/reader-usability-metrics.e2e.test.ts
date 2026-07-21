@@ -233,6 +233,7 @@ function chapterLocalOperation(): ReaderWorkerOperationObservation {
     ok: true,
     responseKind: 'createBoundedChapterLocalRevision',
     releasedDocument: null,
+    wasmMemoryByteLength: null,
     requestedRevision: null,
     revision: null,
     chapterLocalRevision: {

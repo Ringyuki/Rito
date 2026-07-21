@@ -143,6 +143,8 @@ export interface ReaderMemoryWorkerSessionRelease {
   readonly disposeRequestId: number;
   readonly disposeStartedAt: number;
   readonly releasedDocument: boolean;
+  /** WASM linear-memory high-water mark at disposal; null before the ack carried it. */
+  readonly wasmMemoryByteLength: number | null;
   readonly disposedAt: number;
 }
 

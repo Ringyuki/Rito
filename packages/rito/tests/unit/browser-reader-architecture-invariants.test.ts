@@ -58,7 +58,7 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
 // Raised for the exact-read reclaim path: a suspended session that never
 // reopens its gate must be retired, not waited on forever.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3063;
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3065;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 const READER_PUBLIC_CONTRACT_LINE_BUDGET = 705;

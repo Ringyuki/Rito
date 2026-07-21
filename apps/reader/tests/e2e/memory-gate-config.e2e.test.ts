@@ -383,6 +383,7 @@ function workerOperation(
     ok: true,
     responseKind: 'open',
     releasedDocument: null,
+    wasmMemoryByteLength: null,
     requestedRevision: null,
     revision: null,
     chapterLocalRevision: null,

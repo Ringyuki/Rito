@@ -35,6 +35,8 @@ export interface ReaderWorkerOperationObservation {
   ok: boolean | null;
   responseKind: string | null;
   releasedDocument: boolean | null;
+  /** WASM linear-memory high-water mark reported by the dispose acknowledgement. */
+  wasmMemoryByteLength: number | null;
   readonly requestedRevision: ReaderWorkerRevisionHandleObservation | null;
   revision: ReaderWorkerRevisionObservation | null;
   chapterLocalRevision: ReaderWorkerChapterLocalRevisionObservation | null;

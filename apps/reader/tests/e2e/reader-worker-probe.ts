@@ -207,6 +207,7 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
           ok: null,
           responseKind: null,
           releasedDocument: null,
+          wasmMemoryByteLength: null,
           requestedRevision: revisionHandleObservation(message['revision']),
           revision: null,
           chapterLocalRevision: null,
@@ -244,6 +245,10 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
         record.responseKind = typeof payload?.['kind'] === 'string' ? payload['kind'] : null;
         record.releasedDocument =
           typeof payload?.['releasedDocument'] === 'boolean' ? payload['releasedDocument'] : null;
+        record.wasmMemoryByteLength =
+          typeof payload?.['wasmMemoryByteLength'] === 'number'
+            ? payload['wasmMemoryByteLength']
+            : null;
         record.processedTopLevelNodes = processedTopLevelNodes(payload);
         record.advancedQuanta = advancedQuanta(payload);
         record.revision = revisionObservation(payload);

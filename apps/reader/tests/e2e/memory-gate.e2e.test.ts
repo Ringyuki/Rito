@@ -104,6 +104,11 @@ function runSummary(report: ReaderMemoryGateReport) {
     stableRangeMiB: toMiB(checkpoint.stableRangeBytes),
     stableGrowthMiB: toMiB(checkpoint.stableGrowthBytes),
     rendererDiagnostics: checkpoint.selected.diagnostics,
+    processes: checkpoint.selected.processes.map((process) => ({
+      pid: process.pid,
+      type: process.type,
+      physFootprintMiB: toMiB(process.physFootprintBytes),
+    })),
   });
   return {
     checkpoints: {

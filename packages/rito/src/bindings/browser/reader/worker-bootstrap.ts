@@ -2,6 +2,7 @@ import {
   createRitoCoreWasmReaderWorkerHandler,
   initRitoCoreWasmEngine,
   normalizeRitoCoreWasmError,
+  ritoCoreWasmMemoryByteLength,
   type RitoCoreWasmReaderWorkerScope,
 } from '@ritojs/core-wasm';
 
@@ -11,5 +12,6 @@ export function startBrowserReaderWorker(
   createRitoCoreWasmReaderWorkerHandler(scope, {
     initRitoCoreWasmEngine,
     normalizeRitoCoreWasmError,
+    ritoCoreWasmMemoryByteLength,
   });
 }

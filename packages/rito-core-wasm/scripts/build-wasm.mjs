@@ -194,6 +194,7 @@ function indexEntry() {
     "export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error-runtime.js';",
     'export const initRitoCoreWasmEngine = runtime.initRitoCoreWasmEngine;',
     'export const RitoCoreWasmDocument = runtime.RitoCoreWasmDocument;',
+    'export const ritoCoreWasmMemoryByteLength = runtime.ritoCoreWasmMemoryByteLength;',
     '',
     'export function getRitoCoreWasmStatus() {',
     '  return createRitoCoreWasmStatus(true);',
@@ -233,6 +234,12 @@ function documentDeclarations() {
     '    | Promise<InitInput>',
     '    | { readonly module_or_path: InitInput | Promise<InitInput> },',
     '): Promise<RitoCoreWasmEngine>;',
+    '/**',
+    ' * Current WASM linear-memory size in bytes, or 0 before initialization.',
+    ' * Linear memory never shrinks, so this is the high-water mark a recycling',
+    ' * policy uses to bound how large a reused instance may grow.',
+    ' */',
+    'export declare function ritoCoreWasmMemoryByteLength(): number;',
     classDeclarations,
   ].join('\n');
 }

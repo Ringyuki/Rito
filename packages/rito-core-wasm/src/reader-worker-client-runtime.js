@@ -374,7 +374,15 @@ async function handleWorkerRequest(deps, state, request) {
   }
   if (request.kind === 'dispose') {
     beginReaderSessionRelease(state);
-    return { kind: 'dispose', ...releaseReaderSessionDocument(state) };
+    const released = releaseReaderSessionDocument(state);
+    // The WASM high-water mark rides on the acknowledgement so the client's
+    // recycle policy can bound how large a reused instance may grow.
+    const wasmMemoryByteLength = deps.ritoCoreWasmMemoryByteLength?.();
+    return {
+      kind: 'dispose',
+      ...released,
+      ...(typeof wasmMemoryByteLength === 'number' ? { wasmMemoryByteLength } : {}),
+    };
   }
   if (state.phase === 'disposed') throw new Error('Rito reader worker is disposed');
   if (!state.document) throw new Error('Rito reader worker document is not open');

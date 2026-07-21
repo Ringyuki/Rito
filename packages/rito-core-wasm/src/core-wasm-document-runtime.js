@@ -12,9 +12,10 @@ import { requireRequiredFontFaces } from './required-font-faces-validation-runti
 import { requireSourceLocatorRequest } from './reader-worker-interaction-validation-runtime.js';
 
 export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument) {
+  let wasmExports;
   async function initRitoCoreWasmEngine(initInput) {
     try {
-      await initRitoCoreWasm(initInput);
+      wasmExports = await initRitoCoreWasm(initInput);
     } catch (error) {
       throw callRitoCoreWasm('initRitoCoreWasmEngine', () => {
         throw error;
@@ -28,6 +29,16 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
         });
       },
     };
+  }
+
+  /**
+   * Current WASM linear-memory size in bytes, or 0 before initialization.
+   * Linear memory never shrinks, so this is the instance's high-water mark;
+   * recycling policies use it to bound how large a reused instance may grow.
+   */
+  function ritoCoreWasmMemoryByteLength() {
+    const byteLength = wasmExports?.memory?.buffer?.byteLength;
+    return typeof byteLength === 'number' ? byteLength : 0;
   }
 
   class RitoCoreWasmDocument {
@@ -240,7 +251,7 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
   installRitoCoreWasmVersionedDocumentMethods(RitoCoreWasmDocument);
   installRitoCoreWasmChapterLocalDocumentMethods(RitoCoreWasmDocument);
 
-  return { initRitoCoreWasmEngine, RitoCoreWasmDocument };
+  return { initRitoCoreWasmEngine, RitoCoreWasmDocument, ritoCoreWasmMemoryByteLength };
 }
 
 function readerWorkerPayload(document, request) {

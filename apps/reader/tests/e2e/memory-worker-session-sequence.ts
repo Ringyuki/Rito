@@ -153,6 +153,7 @@ function finishSession(
     disposeRequestId: dispose.requestId,
     disposeStartedAt: dispose.startedAt,
     releasedDocument: dispose.releasedDocument,
+    wasmMemoryByteLength: dispose.wasmMemoryByteLength,
     disposedAt: dispose.completedAt,
   };
 }

@@ -135,6 +135,12 @@ export interface RitoCoreWasmReaderWorkerScope {
 
 export interface RitoCoreWasmReaderWorkerHandlerDeps extends RitoCoreWasmReaderVersionedWorkerHandlerDeps {
   readonly initRitoCoreWasmEngine: () => Promise<RitoCoreWasmReaderEngineRuntime>;
+  /**
+   * Optional WASM linear-memory high-water accessor; when present, dispose
+   * acknowledgements carry the current byteLength so the client's recycle
+   * policy can bound how large a reused instance may grow.
+   */
+  readonly ritoCoreWasmMemoryByteLength?: (() => number) | undefined;
 }
 
 export interface RitoCoreWasmReaderWorkerLike {

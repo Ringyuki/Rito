@@ -121,6 +121,7 @@ function memoryGateTestSessions(count: number) {
       disposeRequestId: index * 2 + 2,
       disposeStartedAt: openStartedAt + 2,
       releasedDocument: true,
+      wasmMemoryByteLength: null,
       disposedAt: openStartedAt + 3,
     };
   });
