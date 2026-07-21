@@ -31,7 +31,9 @@ use rito_fragment::{
     FormattingNodeContent, FormattingNodeId, FormattingTree, Fragment, FragmentCache, FragmentRect,
     FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
 };
-use rito_style_contract::{LengthPercentage, LengthPercentageOrAuto};
+use rito_style_contract::{
+    BoxSizingV1, LayoutFormattingStyleV1, LengthPercentage, LengthPercentageOrAuto, PreferredSizeV1,
+};
 
 /// Byte budget for the internal inline-outcome cache. Sized for one
 /// chapter's worth of paragraphs; least-recently-used outcomes re-lay out
@@ -77,7 +79,26 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         let resumed = token.is_some();
         let fragmentainer_is_fresh = space.fragmentainer_remaining == space.fragmentainer_size;
         let mut remaining = space.fragmentainer_remaining.unwrap_or(f64::INFINITY);
-        let mut y = 0.0_f64;
+        // The container's own padding: children flow inside the content
+        // area. `space.inline_size` is the container's border-box width;
+        // the container's own width and margins are its parent's business.
+        let container_style = container_layout_style(tree, container)?;
+        let pad = |side: rito_style_contract::NonNegativeLengthPercentage| {
+            resolve_length_percentage(side.value(), space.inline_size).max(0.0)
+        };
+        let content_left = pad(container_style.padding.left);
+        let padding_right = pad(container_style.padding.right);
+        let container_padding_top = pad(container_style.padding.top);
+        let container_padding_bottom = pad(container_style.padding.bottom);
+        let content_width = (space.inline_size - content_left - padding_right).max(0.0);
+        // Resumed fragmentainers start flush: top padding belongs to the
+        // container's first fragment only, like a truncated margin.
+        let padding_top = if resumed { 0.0 } else { container_padding_top };
+        let mut y = padding_top;
+        remaining -= padding_top;
+        // Padding blocks parent-child margin collapse per CSS, so a padded
+        // root keeps its first child's top margin inside.
+        let collapse_root_edges = collapse_root_edges && container_padding_top == 0.0;
         let mut fragments = Vec::new();
         // The margin below the previous in-flow child, awaiting collapse
         // with the next child's top margin.
@@ -89,7 +110,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let consumed = resumed_consumed;
             resumed_consumed = 0.0;
             let child_resumed = resumed && index == start_child;
-            let (top_margin, bottom_margin) = vertical_margins(tree, *child_id, space.inline_size)?;
+            let (top_margin, bottom_margin) = vertical_margins(tree, *child_id, content_width)?;
             // A margin that meets an unforced break is truncated to zero,
             // so a resumed child starts flush at the fragmentainer top.
             // At a collapsing root edge the first child's top margin
@@ -117,7 +138,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     if outstanding <= available {
                         y += gap;
                         remaining -= gap;
-                        fragments.push(leaf_fragment(*child_id, y, space.inline_size, outstanding));
+                        fragments.push(leaf_fragment(
+                            *child_id,
+                            content_left,
+                            y,
+                            content_width,
+                            outstanding,
+                        ));
                         y += outstanding;
                         remaining -= outstanding;
                         pending_margin = bottom_margin;
@@ -125,7 +152,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     }
                     if *breakable && available > 0.0 {
                         y += gap;
-                        fragments.push(leaf_fragment(*child_id, y, space.inline_size, available));
+                        fragments.push(leaf_fragment(
+                            *child_id,
+                            content_left,
+                            y,
+                            content_width,
+                            available,
+                        ));
                         let already = block_size - (outstanding - available);
                         return Ok(sealed_with_break(
                             container,
@@ -157,7 +190,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // Monolithic child taller than a fresh fragmentainer:
                     // place it whole so pagination always progresses.
                     y += gap;
-                    fragments.push(leaf_fragment(*child_id, y, space.inline_size, outstanding));
+                    fragments.push(leaf_fragment(
+                        *child_id,
+                        content_left,
+                        y,
+                        content_width,
+                        outstanding,
+                    ));
                     y += outstanding;
                     return Ok(LayoutOutcome {
                         fragments: sealed(container, space.inline_size, y, fragments),
@@ -168,8 +207,19 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     });
                 }
                 FormattingNodeContent::InlineFlow { .. } => {
-                    let lines = self.inline_lines(tree, *child_id, space.inline_size, cancel)?;
-                    let placement = place_lines(&lines, consumed, available, page_is_empty);
+                    let child_style = container_layout_style(tree, *child_id)?;
+                    let hbox = resolve_horizontal_box(child_style, content_width)?;
+                    let lines = self.inline_lines(tree, *child_id, hbox.content_width, cancel)?;
+                    // The paragraph's own top padding rides its first
+                    // fragment; bottom padding rides the last.
+                    let leading_padding = if consumed == 0.0 {
+                        hbox.padding_top
+                    } else {
+                        0.0
+                    };
+                    let available_for_lines = (available - leading_padding).max(0.0);
+                    let placement =
+                        place_lines(&lines, consumed, available_for_lines, page_is_empty);
                     if placement.lines.is_empty() && !placement.exhausted {
                         // Nothing fits: break before (or inside, when
                         // resuming) with the meeting margin truncated.
@@ -193,16 +243,36 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     if !placement.lines.is_empty() {
                         y += gap;
                         remaining -= gap;
-                        let paragraph_height = placement.consumed_end - consumed;
+                        let trailing_padding = if placement.exhausted {
+                            hbox.padding_bottom
+                        } else {
+                            0.0
+                        };
+                        let paragraph_height = leading_padding
+                            + (placement.consumed_end - consumed)
+                            + trailing_padding;
+                        let children: Vec<Fragment> = placement
+                            .lines
+                            .into_iter()
+                            .map(|mut line| {
+                                let rect = line.rect();
+                                set_fragment_position(
+                                    &mut line,
+                                    rect.x + hbox.padding_left,
+                                    rect.y + leading_padding,
+                                );
+                                line
+                            })
+                            .collect();
                         fragments.push(Fragment::Box(BoxFragment {
                             source: *child_id,
                             rect: FragmentRect {
-                                x: 0.0,
+                                x: content_left + hbox.x,
                                 y,
-                                width: space.inline_size,
+                                width: hbox.border_width,
                                 height: paragraph_height,
                             },
-                            children: placement.lines,
+                            children,
                         }));
                         y += paragraph_height;
                         remaining -= paragraph_height;
@@ -225,13 +295,15 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     ));
                 }
                 FormattingNodeContent::BlockContainer => {
+                    let child_style = container_layout_style(tree, *child_id)?;
+                    let hbox = resolve_horizontal_box(child_style, content_width)?;
                     let child_token = if child_resumed {
                         descend_token(token, consumed)?
                     } else {
                         None
                     };
                     let child_space = ConstraintSpace {
-                        inline_size: space.inline_size,
+                        inline_size: hbox.border_width,
                         fragmentainer_remaining: space.fragmentainer_remaining.map(|_| available),
                         fragmentainer_size: space.fragmentainer_size,
                     };
@@ -255,9 +327,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         fragments.push(Fragment::Box(BoxFragment {
                             source: *child_id,
                             rect: FragmentRect {
-                                x: 0.0,
+                                x: content_left + hbox.x,
                                 y,
-                                width: space.inline_size,
+                                width: hbox.border_width,
                                 height: child_height,
                             },
                             children: child_root.children,
@@ -296,7 +368,11 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // it truncates rather than forcing another page.
         if !collapse_root_edges {
             y += pending_margin.min(remaining.max(0.0));
+            remaining -= pending_margin;
         }
+        // The container's bottom padding closes its final fragment,
+        // truncated at a fragmentainer edge like a meeting margin.
+        y += container_padding_bottom.min(remaining.max(0.0));
         Ok(LayoutOutcome {
             fragments: sealed(container, space.inline_size, y, fragments),
             continuation: None,
@@ -503,6 +579,107 @@ fn resume_point(
     }
 }
 
+/// The container's resolved layout style from the tree's typed table.
+fn container_layout_style(
+    tree: &FormattingTree,
+    node: FormattingNodeId,
+) -> Result<&LayoutFormattingStyleV1, LayoutError> {
+    let styles = tree.styles().ok_or_else(|| {
+        LayoutError::Invalid("block layout requires the tree to carry style tables".to_owned())
+    })?;
+    styles
+        .layout
+        .style(tree.node(node).style)
+        .map_err(|error| LayoutError::Invalid(error.to_string()))
+}
+
+/// One in-flow child's resolved horizontal geometry within its containing
+/// block: border-box offset and width, plus the padding that separates the
+/// border box from the content area.
+struct HorizontalBox {
+    /// Border-box x relative to the containing block's content area.
+    x: f64,
+    /// Border-box width (no borders yet, so padding plus content).
+    border_width: f64,
+    /// Left padding: content-area offset inside the border box.
+    padding_left: f64,
+    /// Content-area width available to the child's own layout.
+    content_width: f64,
+    /// Vertical padding, part of the child's own block size.
+    padding_top: f64,
+    padding_bottom: f64,
+}
+
+/// CSS block-level horizontal resolution: `margin + padding + width =
+/// containing width`. An `auto` width fills what the margins leave; a
+/// specified width distributes leftover space to `auto` margins (centering
+/// with both auto), clamped at zero so over-wide content overflows to the
+/// end side like a browser.
+fn resolve_horizontal_box(
+    style: &LayoutFormattingStyleV1,
+    containing_width: f64,
+) -> Result<HorizontalBox, LayoutError> {
+    let resolve = |value: LengthPercentage| resolve_length_percentage(value, containing_width);
+    let padding_left = resolve(style.padding.left.value()).max(0.0);
+    let padding_right = resolve(style.padding.right.value()).max(0.0);
+    let padding_top = resolve(style.padding.top.value()).max(0.0);
+    let padding_bottom = resolve(style.padding.bottom.value()).max(0.0);
+    let margin = |side: LengthPercentageOrAuto| -> Option<f64> {
+        match side {
+            LengthPercentageOrAuto::Auto => None,
+            LengthPercentageOrAuto::Value(value) => Some(resolve(value)),
+        }
+    };
+    let margin_left = margin(style.margin.left);
+    let margin_right = margin(style.margin.right);
+    let width = match style.width {
+        PreferredSizeV1::Auto => None,
+        PreferredSizeV1::Value(value) => Some(resolve(value.value()).max(0.0)),
+        other => {
+            return Err(LayoutError::Invalid(format!(
+                "block width {other:?} is not representable yet"
+            )));
+        }
+    };
+    match width {
+        None => {
+            let margin_left = margin_left.unwrap_or(0.0);
+            let margin_right = margin_right.unwrap_or(0.0);
+            let border_width =
+                (containing_width - margin_left - margin_right).max(padding_left + padding_right);
+            Ok(HorizontalBox {
+                x: margin_left,
+                border_width,
+                padding_left,
+                content_width: (border_width - padding_left - padding_right).max(0.0),
+                padding_top,
+                padding_bottom,
+            })
+        }
+        Some(width) => {
+            let content_width = match style.box_sizing {
+                BoxSizingV1::ContentBox => width,
+                BoxSizingV1::BorderBox => (width - padding_left - padding_right).max(0.0),
+            };
+            let border_width = padding_left + content_width + padding_right;
+            let free = containing_width - border_width;
+            let x = match (margin_left, margin_right) {
+                (None, None) => (free / 2.0).max(0.0),
+                (None, Some(right)) => (free - right).max(0.0),
+                (Some(left), _) => left,
+            };
+            Ok(HorizontalBox {
+                x,
+                border_width,
+                padding_left,
+                content_width,
+                padding_top,
+                padding_bottom,
+            })
+        }
+    }
+}
+
 /// Resolved vertical margins of one in-flow child, in CSS px.
 ///
 /// Percentages resolve against the containing block's inline size (CSS
@@ -549,17 +726,38 @@ fn collapse_margins(first: f64, second: f64) -> f64 {
     first.max(second).max(0.0) + first.min(second).min(0.0)
 }
 
-fn leaf_fragment(source: FormattingNodeId, y: f64, inline_size: f64, height: f64) -> Fragment {
+fn leaf_fragment(source: FormattingNodeId, x: f64, y: f64, width: f64, height: f64) -> Fragment {
     Fragment::Box(BoxFragment {
         source,
         rect: FragmentRect {
-            x: 0.0,
+            x,
             y,
-            width: inline_size,
+            width,
             height,
         },
         children: Vec::new(),
     })
+}
+
+fn set_fragment_position(fragment: &mut Fragment, x: f64, y: f64) {
+    match fragment {
+        Fragment::Box(inner) => {
+            inner.rect.x = x;
+            inner.rect.y = y;
+        }
+        Fragment::Line(inner) => {
+            inner.rect.x = x;
+            inner.rect.y = y;
+        }
+        Fragment::Text(inner) => {
+            inner.rect.x = x;
+            inner.rect.y = y;
+        }
+        Fragment::Image(inner) => {
+            inner.rect.x = x;
+            inner.rect.y = y;
+        }
+    }
 }
 
 fn sealed_with_break(
@@ -643,6 +841,7 @@ mod tests {
                 bottom: zero_padding(),
                 left: zero_padding(),
             },
+            box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
             justify_content: JustifyContentV1::Normal,
             align_items: AlignItemsV1::Normal,
             break_before: PageBreakV1::Auto,

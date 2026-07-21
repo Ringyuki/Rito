@@ -535,6 +535,28 @@ distribution is convergent, not an open tail — the whitelist is now the
 authoritative coverage dashboard, and the oracle records blocked
 chapters instead of failing (report-first, rejection visible).
 
+## Horizontal box model and vertical-align land; whitelist dashboard drives the queue
+
+Under the capability whitelist the queue is data-ranked, and two heads
+fell in one pass. `vertical-align: super/sub`: inline items carry an
+accumulated `baseline_shift_px` resolved at tree construction (ancestor
+chain walked once), the inline provider raises shifted runs and grows the
+line box by the risen overflow (browser risen-line-box semantics), and
+book-01's noteref chapters unlocked — 8/8 oracle chapters measured, 6 at
+100% line parity. Horizontal box model: CSS block-level width resolution
+(`margin + padding + width = containing width`) with auto-margin
+centering, container padding framing the content area (blocking
+parent-child collapse per CSS), per-child border-box placement, nested
+containers sized by their border box, `box-sizing` added to the typed
+contract and projected from Stylo.
+
+Corpus representability: 79.0% → 80.6% (sup) → **88.4%** (horizontal
+box). Remaining queue by chapter count: floats 39, block height 24,
+letter-spacing 23, word-break 20, nowrap 12, single-item flex 10, inline
+padding/border 9, block max-width 4, tail 4. Oracle unchanged at 99.83%
+parity, x p95 = 0, y p50 13.6 (heading strut metrics and shift-constant
+calibration are the remaining y residue).
+
 ## OPEN — after the third pass
 
 1. **Memory gate: 3 items over budget — attribution now complete.** Every

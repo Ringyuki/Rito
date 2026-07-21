@@ -456,10 +456,12 @@ fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String>
         } => {}
         other => return Some(format!("display {other:?}")),
     }
-    // Sizing fields are only consumed for replaced boxes so far; a sized
-    // plain block would silently lay out at the full inline size.
-    if style.width != c::PreferredSizeV1::Auto {
-        return Some(format!("block width {:?}", style.width));
+    // Block width, horizontal margins (including auto centering), padding,
+    // and box-sizing resolve through the block context's horizontal box
+    // model; the remaining sizing constraints are still unimplemented.
+    match style.width {
+        c::PreferredSizeV1::Auto | c::PreferredSizeV1::Value(_) => {}
+        other => return Some(format!("block width {other:?}")),
     }
     if style.height != c::PreferredSizeV1::Auto {
         return Some(format!("block height {:?}", style.height));
@@ -476,9 +478,6 @@ fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String>
     // list-style-type inherits everywhere but only paints on
     // display: list-item boxes, which the display gate above rejects; the
     // inherited value on plain blocks is inert per CSS.
-    if let Some(reason) = horizontal_spacing_violation(&style.margin, &style.padding) {
-        return Some(reason);
-    }
     None
 }
 
@@ -861,6 +860,7 @@ fn anonymous_block_style() -> LayoutFormattingStyleV1 {
             bottom: zero_padding,
             left: zero_padding,
         },
+        box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
         justify_content: JustifyContentV1::Normal,
         align_items: AlignItemsV1::Normal,
         break_before: PageBreakV1::Auto,

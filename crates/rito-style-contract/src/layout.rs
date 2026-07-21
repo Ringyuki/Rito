@@ -176,6 +176,8 @@ pub struct LayoutFormattingStyleV1 {
     pub margin: PhysicalSides<LengthPercentageOrAuto>,
     /// Physical box padding.
     pub padding: PhysicalSides<NonNegativeLengthPercentage>,
+    /// How `width`/`height` map onto the box model.
+    pub box_sizing: BoxSizingV1,
     pub justify_content: JustifyContentV1,
     pub align_items: AlignItemsV1,
     pub break_before: PageBreakV1,
@@ -194,6 +196,13 @@ pub struct LayoutFormattingStyleV1 {
     pub position: PositionV1,
     /// Physical box offsets, meaningful only for a positioned box.
     pub inset: PhysicalSides<LengthPercentageOrAuto>,
+}
+
+/// Computed `box-sizing`: how `width`/`height` map onto the box model.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BoxSizingV1 {
+    ContentBox,
+    BorderBox,
 }
 
 /// Positioning schemes implemented by Rito's current flow consumer.

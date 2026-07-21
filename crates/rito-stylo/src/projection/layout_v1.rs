@@ -202,6 +202,7 @@ fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingSty
         inset: inset(styles)?,
         margin: margin(styles)?,
         padding: padding(styles)?,
+        box_sizing: box_sizing(styles),
     })
 }
 
@@ -392,6 +393,15 @@ fn inset(styles: &ComputedValues) -> ProjectionResult<PhysicalSides<LengthPercen
         bottom: inset_side(&position.bottom)?,
         left: inset_side(&position.left)?,
     })
+}
+
+fn box_sizing(styles: &ComputedValues) -> rito_style_contract::BoxSizingV1 {
+    use style::properties::longhands::box_sizing::computed_value::T;
+
+    match styles.clone_box_sizing() {
+        T::ContentBox => rito_style_contract::BoxSizingV1::ContentBox,
+        T::BorderBox => rito_style_contract::BoxSizingV1::BorderBox,
+    }
 }
 
 fn margin(styles: &ComputedValues) -> ProjectionResult<PhysicalSides<LengthPercentageOrAuto>> {

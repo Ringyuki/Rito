@@ -1222,6 +1222,7 @@ running through the quiet forest until the morning light returns.";
                         bottom: zero_padding,
                         left: zero_padding,
                     },
+                    box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
                     justify_content: JustifyContentV1::Normal,
                     align_items: AlignItemsV1::Normal,
                     break_before: PageBreakV1::Auto,
