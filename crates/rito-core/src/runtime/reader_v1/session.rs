@@ -1675,6 +1675,7 @@ impl ReaderSessionV1 {
                     RuntimeContinueChapterLocalRevisionRequest {
                         continuation,
                         budget,
+                        max_quanta: None,
                     },
                 ) {
                     Ok(advance) => advance,
@@ -1895,6 +1896,7 @@ impl ReaderSessionV1 {
                 target_locator: canonical_locator,
                 local_page_cap: usize_from_u32(work.local_page_cap, "local page cap")?,
                 budget,
+                max_quanta: None,
             })
             .map_err(engine_error)
     }
@@ -2058,6 +2060,7 @@ impl ReaderSessionV1 {
                     RuntimeContinueChapterLocalRevisionRequest {
                         continuation,
                         budget,
+                        max_quanta: None,
                     },
                 ) {
                     Ok(next) => next,

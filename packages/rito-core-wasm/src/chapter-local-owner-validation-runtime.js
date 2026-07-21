@@ -9,6 +9,7 @@ import {
 } from './reader-worker-interaction-validation-runtime.js';
 
 const MAX_LOCAL_PAGE_CAP = 16;
+const MAX_LOCAL_QUANTA = 16;
 
 export function requireChapterLocalOwner(value, operation) {
   const owner = requireRecord(value, `${operation} owner`);
@@ -56,7 +57,8 @@ export function requireBoundedChapterLocalRequest(value, operation) {
     operation,
   );
   const localPageCap = requireLocalPageCap(request.localPageCap, request.layoutConfig, operation);
-  const maximum = requireRevisionWorkBudget(request.budget, operation);
+  const nodesPerQuantum = requireRevisionWorkBudget(request.budget, operation);
+  const maxQuanta = requireLocalQuanta(request.maxQuanta, operation);
   const lineBreaking = requireLineBreaking(request.lineBreaking, operation);
   return {
     request: {
@@ -65,19 +67,25 @@ export function requireBoundedChapterLocalRequest(value, operation) {
       targetChapterIndex,
       targetLocator,
       localPageCap,
-      budget: { maxTopLevelNodes: maximum },
+      budget: { maxTopLevelNodes: nodesPerQuantum },
+      ...(maxQuanta === undefined ? {} : { maxQuanta }),
     },
-    maximum,
+    maximum: nodesPerQuantum * (maxQuanta ?? 1),
   };
 }
 
 export function requireContinueChapterLocalRequest(value, operation) {
   const request = requireObjectInput(value, operation);
   const continuation = requireChapterLocalCursor(request.continuation, operation);
-  const maximum = requireRevisionWorkBudget(request.budget, operation);
+  const nodesPerQuantum = requireRevisionWorkBudget(request.budget, operation);
+  const maxQuanta = requireLocalQuanta(request.maxQuanta, operation);
   return {
-    request: { continuation, budget: { maxTopLevelNodes: maximum } },
-    maximum,
+    request: {
+      continuation,
+      budget: { maxTopLevelNodes: nodesPerQuantum },
+      ...(maxQuanta === undefined ? {} : { maxQuanta }),
+    },
+    maximum: nodesPerQuantum * (maxQuanta ?? 1),
   };
 }
 
@@ -191,4 +199,12 @@ function requireLocalPageCap(value, layoutConfig, operation) {
 function requireLineBreaking(value, operation) {
   if (value === undefined || value === 'greedy' || value === 'optimal') return value;
   throw new Error(`${operation} lineBreaking must be greedy or optimal`);
+}
+
+function requireLocalQuanta(value, operation) {
+  if (value === undefined) return undefined;
+  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_LOCAL_QUANTA) {
+    throw new Error(`${operation} maxQuanta must be within 1..=${MAX_LOCAL_QUANTA}`);
+  }
+  return value;
 }

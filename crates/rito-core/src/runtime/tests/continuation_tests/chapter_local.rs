@@ -407,6 +407,7 @@ fn continuation_rejects_a_forged_same_chapter_target_without_side_effects() {
             crate::runtime::RuntimeContinueChapterLocalRevisionRequest {
                 continuation: forged,
                 budget: budget(1),
+                max_quanta: None,
             },
         )
         .expect_err("same-chapter retarget is not implicit");
@@ -420,6 +421,7 @@ fn continuation_rejects_a_forged_same_chapter_target_without_side_effects() {
             crate::runtime::RuntimeContinueChapterLocalRevisionRequest {
                 continuation,
                 budget: budget(1),
+                max_quanta: None,
             },
         )
         .expect("original cursor and target remain valid");
@@ -457,6 +459,7 @@ fn local_request(
         target_locator,
         local_page_cap,
         budget: budget(max_top_level_nodes),
+        max_quanta: None,
     }
 }
 
@@ -478,6 +481,83 @@ fn owner(advance: &RuntimeChapterLocalRevisionAdvance) -> RuntimeChapterLocalRev
     }
 }
 
+#[test]
+fn packed_quanta_resolve_a_deep_fragment_in_far_fewer_mutations() {
+    let unpacked = count_mutations_until_settled(None);
+    let packed = count_mutations_until_settled(std::num::NonZeroUsize::new(16));
+    assert!(
+        packed.mutations * 4 <= unpacked.mutations,
+        "packed quanta must cut round trips: packed {} vs unpacked {}",
+        packed.mutations,
+        unpacked.mutations
+    );
+    // Early exit: the resolving request stops at the target instead of
+    // filling the whole 16-page window.
+    assert!(!packed.advance.revision.page_cap_reached);
+    assert!(packed.advance.revision.known_extent.local_page_count < 16);
+    let (unpacked_page, packed_page) = match (&unpacked.advance.target, &packed.advance.target) {
+        (
+            RuntimeChapterLocalSourceLocatorResolution::Resolved {
+                local_page_index: unpacked_page,
+                ..
+            },
+            RuntimeChapterLocalSourceLocatorResolution::Resolved {
+                local_page_index: packed_page,
+                ..
+            },
+        ) => (*unpacked_page, *packed_page),
+        other => panic!("both runs must resolve the same fragment, got {other:?}"),
+    };
+    assert_eq!(packed_page, unpacked_page, "resolution must be identical");
+}
+
+struct SettledLocalRun {
+    advance: RuntimeChapterLocalRevisionAdvance,
+    mutations: usize,
+}
+
+fn count_mutations_until_settled(max_quanta: Option<std::num::NonZeroUsize>) -> SettledLocalRun {
+    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
+    let mut request = local_request(layout(), 0, locator("chapter.xhtml#point-47"), 16, 32);
+    request.max_quanta = max_quanta;
+    let mut advance = document
+        .create_bounded_chapter_local_revision(request)
+        .expect("local create");
+    let mut mutations = 1_usize;
+    while matches!(
+        advance.target,
+        RuntimeChapterLocalSourceLocatorResolution::Pending { .. }
+    ) {
+        let continuation = advance
+            .continuation
+            .take()
+            .expect("unsettled local revision remains continuable");
+        advance = document
+            .continue_chapter_local_revision(
+                crate::runtime::RuntimeContinueChapterLocalRevisionRequest {
+                    continuation,
+                    budget: budget(32),
+                    max_quanta,
+                },
+            )
+            .expect("local continuation advances");
+        mutations += 1;
+        assert!(mutations < 256, "local locator did not settle");
+    }
+    SettledLocalRun { advance, mutations }
+}
+
+#[test]
+fn quanta_beyond_the_page_cap_are_rejected() {
+    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
+    let mut request = local_request(layout(), 0, locator("chapter.xhtml#point-1"), 16, 32);
+    request.max_quanta = std::num::NonZeroUsize::new(17);
+    let error = document
+        .create_bounded_chapter_local_revision(request)
+        .expect_err("oversized quantum cap fails closed");
+    assert_eq!(error.kind, RuntimeContinuationErrorKind::InvalidBudget);
+}
+
 fn advance_until_settled(
     document: &mut RuntimeDocument,
     mut advance: RuntimeChapterLocalRevisionAdvance,
@@ -497,6 +577,7 @@ fn advance_until_settled(
                 crate::runtime::RuntimeContinueChapterLocalRevisionRequest {
                     continuation,
                     budget: budget(32),
+                    max_quanta: None,
                 },
             )
             .expect("local continuation advances");
@@ -521,6 +602,7 @@ fn advance_until_page_cap(
                 crate::runtime::RuntimeContinueChapterLocalRevisionRequest {
                     continuation,
                     budget: budget(32),
+                    max_quanta: None,
                 },
             )
             .expect("local continuation advances to its page cap");

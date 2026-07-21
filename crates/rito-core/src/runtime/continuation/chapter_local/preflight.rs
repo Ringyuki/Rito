@@ -17,14 +17,16 @@ use crate::{
 use super::{
     super::{publish::initial_revision_interactions, RuntimeContinuationRecord},
     model::{
-        chapter_local_coordinate, checked_local_budget, local_engine_error, local_error,
-        local_error_from_continuation, local_error_from_source, validate_local_page_cap,
+        chapter_local_coordinate, checked_local_budget, checked_local_quanta, local_engine_error,
+        local_error, local_error_from_continuation, local_error_from_source,
+        validate_local_page_cap,
     },
 };
 
 pub(super) struct InitializedChapterLocalRevision {
     pub(super) record: RuntimeContinuationRecord,
     pub(super) budget: NonZeroUsize,
+    pub(super) max_quanta: NonZeroUsize,
     pub(super) coordinate: RuntimeChapterLocalCoordinate,
     pub(super) target_locator: RuntimeSourceLocator,
 }
@@ -32,6 +34,7 @@ pub(super) struct InitializedChapterLocalRevision {
 pub(super) struct PreparedChapterLocalContinuation {
     pub(super) record: RuntimeContinuationRecord,
     pub(super) budget: NonZeroUsize,
+    pub(super) max_quanta: NonZeroUsize,
     pub(super) previous_extent: RuntimeChapterLocalRevisionExtent,
     pub(super) revision_id: String,
     pub(super) target_locator: RuntimeSourceLocator,
@@ -49,6 +52,7 @@ pub(super) fn prepare_chapter_local_continuation(
     request: RuntimeContinueChapterLocalRevisionRequest,
 ) -> Result<PreparedChapterLocalContinuation, RuntimeChapterLocalRevisionError> {
     let budget = checked_local_budget(request.budget)?;
+    let max_quanta = checked_local_quanta(request.max_quanta)?;
     let continuation = request.continuation;
     let previous_extent = document.require_chapter_local_appendable(&continuation.owner)?;
     document.require_chapter_local_cursor(&continuation)?;
@@ -69,6 +73,7 @@ pub(super) fn prepare_chapter_local_continuation(
     Ok(PreparedChapterLocalContinuation {
         record,
         budget,
+        max_quanta,
         previous_extent,
         revision_id,
         target_locator,
@@ -161,8 +166,10 @@ pub(super) fn initialize_chapter_local_revision(
         target_locator,
         local_page_cap,
         budget,
+        max_quanta,
     } = request;
     let budget = checked_local_budget(budget)?;
+    let max_quanta = checked_local_quanta(max_quanta)?;
     validate_local_page_cap(&layout_config, local_page_cap)?;
     let (coordinate, target_locator) =
         document.validate_chapter_local_target(target_chapter_index, target_locator)?;
@@ -198,6 +205,7 @@ pub(super) fn initialize_chapter_local_revision(
     Ok(InitializedChapterLocalRevision {
         record,
         budget,
+        max_quanta,
         coordinate,
         target_locator,
     })

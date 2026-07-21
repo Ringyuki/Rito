@@ -25,6 +25,7 @@ impl RuntimeDocument {
         self.advance_initial_chapter_local(
             initialized.record,
             initialized.budget,
+            initialized.max_quanta,
             initialized.coordinate,
             initialized.target_locator,
         )
@@ -37,8 +38,13 @@ impl RuntimeDocument {
         let mut prepared = prepare_chapter_local_continuation(self, request)?;
         let next_version = prepared.record.revision_version;
         let layout_key = prepared.record.layout_key.clone();
-        let work = match self.advance_record(&mut prepared.record, prepared.budget) {
-            Ok(work) => work,
+        let appended = match self.advance_local_quanta(
+            &mut prepared.record,
+            prepared.budget,
+            prepared.max_quanta,
+            &prepared.target_locator,
+        ) {
+            Ok(appended) => appended,
             Err(error) => {
                 self.cleanup_queue.enqueue_continuation(prepared.record);
                 return Err(self.fail_chapter_local_revision(
@@ -53,7 +59,7 @@ impl RuntimeDocument {
             prepared.record.reached_local_page_cap() && !prepared.record.is_complete();
         self.apply_chapter_local_work(
             prepared.record,
-            work,
+            appended,
             prepared.previous_extent,
             next_version,
             page_cap_reached,
@@ -71,6 +77,7 @@ impl RuntimeDocument {
         self.advance_initial_chapter_local(
             initialized.record,
             initialized.budget,
+            std::num::NonZeroUsize::MIN,
             initialized.coordinate,
             initialized.target_locator,
         )

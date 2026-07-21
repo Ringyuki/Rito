@@ -23,6 +23,21 @@ pub(super) fn checked_local_budget(
     checked_budget(budget).map_err(local_error_from_continuation)
 }
 
+/// One meter seals roughly one dense page, so the page cap is the natural
+/// upper bound for how many meters a single request may run.
+pub(super) fn checked_local_quanta(
+    max_quanta: Option<NonZeroUsize>,
+) -> Result<NonZeroUsize, RuntimeChapterLocalRevisionError> {
+    let quanta = max_quanta.unwrap_or(NonZeroUsize::MIN);
+    if quanta.get() > RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX {
+        return Err(local_error(
+            RuntimeContinuationErrorKind::InvalidBudget,
+            format!("maxQuanta must be within 1..={RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX}"),
+        ));
+    }
+    Ok(quanta)
+}
+
 pub(super) fn validate_local_page_cap(
     layout: &crate::layout::LayoutConfig,
     cap: usize,

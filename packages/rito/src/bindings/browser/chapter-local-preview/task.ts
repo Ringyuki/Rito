@@ -24,6 +24,10 @@ import type {
 
 const LOCAL_PAGE_CAP = 16;
 const LOCAL_WORK_BUDGET = 32;
+// Core runs up to this many bounded meters per request and stops the moment
+// the target resolves, so each Worker round trip delivers several dense
+// pages of target-seeking work instead of one line quantum.
+const LOCAL_QUANTA_PER_REQUEST = 4;
 
 export async function buildBrowserReaderChapterLocalPreview(
   state: BrowserReaderState,
@@ -36,6 +40,7 @@ export async function buildBrowserReaderChapterLocalPreview(
     targetLocator: request.locator,
     localPageCap: LOCAL_PAGE_CAP,
     budget: { maxTopLevelNodes: LOCAL_WORK_BUDGET },
+    maxQuanta: LOCAL_QUANTA_PER_REQUEST,
   });
   let accepted = await acceptMutation(state, request, created, undefined);
   let previousOwner: BrowserReaderChapterLocalOwner | undefined;
@@ -64,6 +69,7 @@ export async function buildBrowserReaderChapterLocalPreview(
     const continued: unknown = await request.transport.continueChapterLocalRevision({
       continuation,
       budget: { maxTopLevelNodes: LOCAL_WORK_BUDGET },
+      maxQuanta: LOCAL_QUANTA_PER_REQUEST,
     });
     accepted = await acceptMutation(state, request, continued, previousOwner);
   }

@@ -227,6 +227,7 @@ mod tests {
                 budget: RuntimeRevisionWorkBudget {
                     max_top_level_nodes: 64,
                 },
+                max_quanta: None,
             })
             .expect("local continuation");
         let candidate_owner = super::owner_from_advance(&advance);

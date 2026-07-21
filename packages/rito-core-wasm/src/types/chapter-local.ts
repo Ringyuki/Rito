@@ -27,6 +27,12 @@ export interface RitoCoreWasmBoundedChapterLocalRevisionRequest {
   /** Hard retained-page bound. Rust currently accepts at most 16 local pages. */
   readonly localPageCap: number;
   readonly budget: RitoCoreWasmRevisionWorkBudget;
+  /**
+   * Optional number of internal work meters one request may run before it
+   * publishes; advancing stops early the moment the target resolves. At most
+   * 16. Absent means one meter.
+   */
+  readonly maxQuanta?: number | undefined;
 }
 
 export interface RitoCoreWasmChapterLocalRevisionCursor {
@@ -38,6 +44,8 @@ export interface RitoCoreWasmChapterLocalRevisionCursor {
 export interface RitoCoreWasmContinueChapterLocalRevisionRequest {
   readonly continuation: RitoCoreWasmChapterLocalRevisionCursor;
   readonly budget: RitoCoreWasmRevisionWorkBudget;
+  /** See {@link RitoCoreWasmBoundedChapterLocalRevisionRequest.maxQuanta}. */
+  readonly maxQuanta?: number | undefined;
 }
 
 export interface RitoCoreWasmChapterLocalRevisionExtent {

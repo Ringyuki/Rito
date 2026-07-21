@@ -225,7 +225,10 @@ fn accepts_a_trailing_upload_boundary_after_the_footer_comment() {
     bytes.extend_from_slice(b"\r\n------WebKitFormBoundaryMIR0kn1Fdy9b4SAa--\r\n");
 
     let mut archive = EpubArchive::new(&bytes).expect("trailing transport bytes are tolerated");
-    assert_eq!(archive.read_bytes("real.txt").expect("entry reads"), b"real");
+    assert_eq!(
+        archive.read_bytes("real.txt").expect("entry reads"),
+        b"real"
+    );
 }
 
 #[test]
@@ -239,7 +242,10 @@ fn accepts_a_multipart_wrapped_archive_with_prefix_and_trailer() {
     bytes.extend_from_slice(b"\r\n------WebKitFormBoundaryMIR0kn1Fdy9b4SAa--\r\n");
 
     let mut archive = EpubArchive::new(&bytes).expect("multipart-wrapped archive opens");
-    assert_eq!(archive.read_bytes("real.txt").expect("entry reads"), b"real");
+    assert_eq!(
+        archive.read_bytes("real.txt").expect("entry reads"),
+        b"real"
+    );
 }
 
 #[test]

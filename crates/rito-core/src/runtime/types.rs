@@ -134,6 +134,12 @@ pub struct RuntimeBoundedChapterLocalRevisionRequest {
     pub target_locator: RuntimeSourceLocator,
     pub local_page_cap: usize,
     pub budget: RuntimeRevisionWorkBudget,
+    /// Optional number of internal work meters one request may run before it
+    /// publishes. Advancing stops early the moment the target resolves, so a
+    /// larger cap front-loads target-seeking work without overshoot. Absent
+    /// means one meter: the original single-quantum behavior.
+    #[serde(default)]
+    pub max_quanta: Option<std::num::NonZeroUsize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,6 +163,9 @@ pub struct RuntimeChapterLocalRevisionCursor {
 pub struct RuntimeContinueChapterLocalRevisionRequest {
     pub continuation: RuntimeChapterLocalRevisionCursor,
     pub budget: RuntimeRevisionWorkBudget,
+    /// See [`RuntimeBoundedChapterLocalRevisionRequest::max_quanta`].
+    #[serde(default)]
+    pub max_quanta: Option<std::num::NonZeroUsize>,
 }
 
 /// Transfers a chapter-local break token into a fresh bounded revision.

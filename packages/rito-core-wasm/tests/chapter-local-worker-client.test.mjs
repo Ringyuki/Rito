@@ -182,6 +182,38 @@ test('typed continue failure does not double-release the worker-contained owner'
   client.dispose();
 });
 
+test('chapter-local requests forward a validated maxQuanta and reject bad ones', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+
+  assert.throws(() =>
+    client.createBoundedChapterLocalRevision({
+      ...createRequest({ href: 'chapter.xhtml' }),
+      maxQuanta: 17,
+    }),
+  );
+  assert.throws(() =>
+    client.createBoundedChapterLocalRevision({
+      ...createRequest({ href: 'chapter.xhtml' }),
+      maxQuanta: 0,
+    }),
+  );
+
+  const creating = client.createBoundedChapterLocalRevision({
+    ...createRequest({ href: 'chapter.xhtml' }),
+    maxQuanta: 4,
+  });
+  const message = worker.messages.at(-1);
+  assert.equal(message.kind, 'createBoundedChapterLocalRevision');
+  assert.equal(message.request.maxQuanta, 4);
+  worker.respondLast({
+    kind: 'createBoundedChapterLocalRevision',
+    result: { advance: pendingAdvance(owner(0), { href: 'chapter.xhtml' }) },
+  });
+  await creating;
+  client.dispose();
+});
+
 test('channel-level create failure still disposes the Worker session', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
