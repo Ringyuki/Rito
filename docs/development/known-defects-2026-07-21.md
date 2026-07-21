@@ -58,56 +58,124 @@ pinned no-resource-fails contract, and two architecture assertions were
 malformed (`allMatches(...)` compared to a number; a source string that never
 existed). Suite now 141/141 with `dart analyze` clean of errors.
 
-## OPEN — after the second pass
+## RESOLVED in the third pass — book-10 far-TOC request budget
 
-1. **book-10 far-TOC worker requests: p95 18 > 16.** Only remaining usability
-   gate failure; book-01/book-04 pass every threshold. The threshold is not to
-   be raised. Attribution is complete:
-   - The window (click → first preview frame) holds 18 ops: chapter-local
-     create + 8 continues (the preview) interleaved 1:1 with resolve + 8
-     `continueRevisionTowardSourceLocator` (the parallel exact path at its
-     pre-composite `quanta=1` batch level).
-   - The preview's continues each seal ≈1 page because one Worker request runs
-     one `LayoutWorkMeter` whose line/text quanta (32 line boxes / 16K UTF-16
-     units) drain after roughly a dense page. `processedTopLevelNodes` is 0 for
-     most of them; the 32-node public budget is never the binding constraint.
-   - Preview OFF is far worse (measured A/B): 146 requests, 2087 ms first
-     frame. The preview is a large net win; only its request granularity and
-     the parallel exact path's window ops exceed the budget.
-   - **Bigger quanta for everyone is refuted by measurement.** A bounded
-     meter-refill in `advance_record` (4 meters/request) was implemented and
-     reverted: it doubled preview CPU through overshoot (the target-resolution
-     check only runs between requests) and head-of-line-blocked the preview
-     behind packed exact-path ops on the single worker thread — first frame
-     went 100 → 180 ms and window ops 18 → 21-23.
-   - **Designed fix (not yet implemented):** pack quanta for the chapter-local
-     mutation _inside Core_ with an early exit — the continue mutation accepts
-     an optional per-request quantum cap, loops advance/append plus a
-     locator-resolution check per meter, publishes once, and stops the moment
-     the target resolves. No overshoot (the check is per-meter), front-loads
-     exactly the work that produces the first visible frame, and cuts the
-     window to roughly create, resolve, one or two continues, and a few
-     exact-path ops. Alternatively (or additionally) the
-     adaptive-continuation-batch could hold the exact path's continuation at
-     `quanta=0` until the preview composites or is invalidated, with a
-     defensive timeout.
-2. **Memory gate: now 3 items over budget** (was 4; `disposedRetainedMiB`
-   passes at 162.4 < 200 after this pass's fixes). Current p95 over 3 runs:
-   `loadedDeltaMiB` 203.8 > 200 (marginal), `checkpointPeakPhysFootprintMiB`
-   527.0 > 480, `replacementGrowthMiB` 148.4 > 96 (the real miss). Run
-   variance is high — one run measured 199.6/466.6/78.7, all under budget —
-   so the replacement-growth overrun is the only comfortably reproducible
-   signal. The replacement scenario also records one failed open (ordinal 11,
-   `openSucceeded: false`, `releasedDocument: false` on dispose); whether that
-   dispose is benign (no document was created) or retains WASM memory is the
-   first question for the attribution pass. Needs WASM-heap vs JS-heap vs
-   browser-cache attribution, not another threshold guess.
-3. **Release-path fail-granularity**: `releaseChapterLocalRevision` still
+**Was: p95 18 > 16 window ops. Now: 9 ops, first frame 92.7 ms — every
+usability gate threshold passes on all three corpus books.** The fix is the
+designed one below: chapter-local create/continue accept an optional
+`maxQuanta` (1..=16, absent = 1 = old behavior). Core loops advance + append
+plus a locator-resolution check per meter and publishes once, stopping the
+moment the target resolves — no overshoot, and the work that produces the
+first visible frame is front-loaded. The browser preview passes `maxQuanta: 4`
+(`LOCAL_QUANTA_PER_REQUEST` in `chapter-local-preview/task.ts`); Reader v1's
+own quanta loop and rollover stay at one meter. The JS request validators
+forward the field and scale the advance work bound to `nodes × quanta`.
+
+Attribution history (kept because the refuted path is easy to re-propose):
+
+- The 18-op window held chapter-local create + 8 continues (the preview)
+  interleaved 1:1 with resolve + 8 `continueRevisionTowardSourceLocator`
+  (the parallel exact path at its pre-composite `quanta=1` batch level).
+  Each continue sealed ≈1 page because one Worker request ran one
+  `LayoutWorkMeter` whose line/text quanta drain after roughly a dense page.
+- Preview OFF is far worse (measured A/B): 146 requests, 2087 ms first
+  frame. The preview is a large net win.
+- **Bigger quanta for everyone is refuted by measurement.** A bounded
+  meter-refill in `advance_record` (4 meters/request) was implemented and
+  reverted: it doubled preview CPU through overshoot (the target-resolution
+  check only ran between requests) and head-of-line-blocked the preview
+  behind packed exact-path ops on the single worker thread — first frame
+  went 100 → 180 ms and window ops 18 → 21-23. The shipped fix differs
+  exactly in checking resolution per meter inside the mutation.
+
+## Round 5 started — the browser is now the only baseline
+
+Decision (2026-07-21): the TypeScript core is demoted from visual authority to
+regression fixture, exactly as the deletion ledger prescribes. The pinned
+browser is the only layout baseline from now on.
+
+First working increment, `apps/reader/tests/e2e/browser-line-baseline.e2e.test.ts`
+(report-first; thresholds gate only after their independent baseline review):
+
+- Pinned bundled Chromium renders one dense fixture chapter (book-01
+  Section001) at the native content width with the same pinned font bytes,
+  registered under the same `__RitoPinned_<sha256>` family names the native
+  paint commands carry, so font resolution is identical by construction.
+- Per-character Range geometry merges into browser lines; the native side
+  decodes the same chapter's paintText commands per page. The comparator
+  reports line-break parity, first divergence, and x/width deltas to
+  `test-results/browser-baseline/section001-line-baseline.json`.
+- First run: **the first 401 lines match the browser exactly, line by line,
+  with x/width deltas p50 = p95 = 0 px** (max 3.8/7.7 px inside matched
+  lines). Font measurement and greedy line breaking agree with Chromium on
+  plain paragraphs.
+- The first divergence is not a line-breaking bug: the oracle page rendered
+  an `epub:type="footnote"` aside ("注：纸张飘落的声音") into the flow, which
+  a reader excludes, and the noteref inline difference shifted the break of
+  its paragraph. Next increment: pin the reader-UA semantics into the oracle
+  page (hide footnote asides, match noteref rendering), then re-measure —
+  the plan's "Pin … UA/reader styles" step, made concrete by data.
+
+## OPEN — after the third pass
+
+1. **Memory gate: 3 items over budget — attribution now complete.** Every
+   dispose acknowledgement now reports the WASM linear-memory high-water mark
+   (`wasmMemoryByteLength`), recorded per session in the gate's
+   worker-lifecycle report. What the measurements establish:
+   - **Core is exonerated.** Across every run the recycled Worker's WASM
+     instance is 28.5 MiB after the first session and a flat 39.6 MiB from
+     the third onward — no growth over eight replacement cycles. A recycle
+     byte-budget is unnecessary; the earlier "wasm ratchet" hypothesis is
+     refuted.
+   - The `replacementGrowthMiB` overrun (measured 95.6 / 171.4 / 198.1 across
+     runs against 96; one run passes) lives in renderer-internal, non-JS-heap
+     memory: page JS heap (~6-9 MB), page backing store (~33 MB), GPU,
+     browser, and network processes are all flat while the single renderer
+     process saw-tooths upward. The `disposed` checkpoint falls **below** the
+     `reflow` level, so nothing is retained unboundedly; product-side
+     `ImageBitmap.close()` discipline is in place on every release path. The
+     residue is decoded-image/Blink cache memory with lazy reclaim.
+   - The checkpoint stability window (3 × 250 ms samples, ≤8 MiB range) is
+     shorter than that reclaim cycle, which is exactly where the run-to-run
+     variance comes from. Making the replacement checkpoints wait out the
+     reclaim (or measuring retention at a settled point) is a
+     **gate-methodology change that needs its independent baseline review**
+     before it can be used to pass the gate.
+   - The one failed open at ordinal 11 is `disposeThroughInvalidFile` — the
+     scenario's deliberate invalid-file teardown; `releasedDocument: false`
+     with no document created is benign.
+   - Decoded bitmaps are now byte-bounded: book-01's 36 images decode to
+     141.1 MiB total (front matter alone 82 MiB), previously resident for the
+     whole session. `decoded-image-cache.ts` evicts least-recently painted
+     bitmaps above a 96 MiB budget, protecting pending loads and the active
+     spread; an evicted image re-warms on demand through the existing
+     missing-image path. This bounds real full-book reading residency (the
+     plan's Round-2 byte-budget requirement) but does **not** move this gate:
+     the scenario never decodes past the budget, and a verification run
+     measured the same metrics within run-to-run variance (loadedDelta
+     196.9-205.0, peak 509.9-582.6, replacementGrowth 124.7-184.5, disposed
+     208.8-224.0 — `disposedRetainedMiB` crossed its threshold in this batch
+     purely on that variance). All four metrics stay open pending the
+     sampling-methodology review above; iterating product changes against a
+     noise-dominated measurement is explicitly not the next step.
+2. **Release-path fail-granularity**: `releaseChapterLocalRevision` still
    fail-closes the session on any typed release error; distinguishing
    unknown-revision (benign, already gone) from a live-owner release failure
    would narrow the blast radius further.
-4. Cross-language guarded matrix and device-level Flutter suites have not
-   rerun this pass; local `flutter test` and Rust/JS suites are green.
+3. Evidence coverage after the third pass: local `flutter test` (141/141)
+   and every Rust/JS suite are green; the release-protocol E2E passes; the
+   usability gate passed twice consecutively and real-book smoke is 81/81.
+   **iOS simulator adapter build smoke passes**: a minimal
+   `packages/rito_flutter/example` host app builds `Runner.app` with the
+   Rust Native Asset compiled and embedded as `rito_ffi.framework`
+   (a fat x86_64 + arm64 simulator binary; the missing rustup targets were
+   the only obstacle and are named by the hook's own error). **Android build
+   smoke passes**: `flutter build apk --debug --target-platform
+android-arm64` cross-compiles rito-ffi through the hook and embeds
+   `lib/arm64-v8a/librito_ffi.so` in app-debug.apk (SDK, NDK 28.2, and
+   licenses were already present; the `cmdline-tools` gap `flutter doctor`
+   flags is not required by Gradle). On-device/runtime Flutter integration
+   remains unrun.
 
 ## Fixed this pass
 
