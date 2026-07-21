@@ -26,6 +26,18 @@ use rito_style_contract::{
     LengthPercentage, LineHeight, MaximumSizeV1, PreferredSizeV1, TextAlign,
 };
 
+/// One paragraph's built Parley layout plus the metadata the fragment
+/// assembly needs.
+struct ParagraphLayout {
+    layout: parley::Layout<[u8; 4]>,
+    #[allow(dead_code)]
+    text: String,
+    alignment: parley::Alignment,
+    /// Byte ranges of the flow text whose runs carry a baseline shift
+    /// (positive raises), in content order.
+    shifted_ranges: Vec<(std::ops::Range<usize>, f64)>,
+}
+
 /// Marker id for the inline box that reserves first-line indent space.
 const INDENT_INLINE_BOX_ID: u64 = u64::MAX;
 
@@ -110,7 +122,7 @@ impl ParleyInlineContext {
         node: FormattingNodeId,
         available_inline_size: Option<f64>,
         cancel: &CancelFlag,
-    ) -> Result<(parley::Layout<[u8; 4]>, String, parley::Alignment), LayoutError> {
+    ) -> Result<ParagraphLayout, LayoutError> {
         let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
             return Err(LayoutError::Invalid(format!(
                 "parley inline context requires an inline flow, got {:?}",
@@ -126,15 +138,20 @@ impl ParleyInlineContext {
 
         let mut text = String::new();
         let mut runs = Vec::with_capacity(items.len());
+        let mut shifted_ranges: Vec<(std::ops::Range<usize>, f64)> = Vec::new();
         let mut image_boxes = Vec::new();
         for (item_index, item) in items.iter().enumerate() {
             match item {
                 InlineItem::Text {
                     text: item_text,
                     style,
+                    baseline_shift_px,
                 } => {
                     let start = text.len();
                     text.push_str(item_text);
+                    if *baseline_shift_px != 0.0 {
+                        shifted_ranges.push((start..text.len(), *baseline_shift_px));
+                    }
                     let style = styles
                         .inline
                         .style(*style)
@@ -214,7 +231,12 @@ impl ParleyInlineContext {
             })
             .transpose()?
             .unwrap_or(parley::Alignment::Start);
-        Ok((builder.build(&text), text, alignment))
+        Ok(ParagraphLayout {
+            layout: builder.build(&text),
+            text,
+            alignment,
+            shifted_ranges,
+        })
     }
 }
 
@@ -239,13 +261,38 @@ impl FormattingContext for ParleyInlineContext {
             ));
         }
         let root = node;
-        let (mut layout, _text, alignment) =
-            self.build_layout(tree, root, Some(space.inline_size), cancel)?;
+        let ParagraphLayout {
+            mut layout,
+            alignment,
+            shifted_ranges,
+            ..
+        } = self.build_layout(tree, root, Some(space.inline_size), cancel)?;
         layout.break_all_lines(Some(space.inline_size as f32));
         if !matches!(alignment, parley::Alignment::Start) {
             layout.align(alignment, parley::AlignmentOptions::default());
         }
         let strut_height = paragraph_strut_height(tree, root)?;
+        let item_shifts: Vec<f64> = match &tree.node(root).content {
+            FormattingNodeContent::InlineFlow { items } => items
+                .iter()
+                .map(|item| match item {
+                    InlineItem::Text {
+                        baseline_shift_px, ..
+                    }
+                    | InlineItem::Image {
+                        baseline_shift_px, ..
+                    } => *baseline_shift_px,
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        let shift_for_range = |range: &std::ops::Range<usize>| -> f64 {
+            shifted_ranges
+                .iter()
+                .find(|(shifted, _)| shifted.start < range.end && range.start < shifted.end)
+                .map(|(_, shift)| *shift)
+                .unwrap_or(0.0)
+        };
         if cancel.is_cancelled() {
             return Err(LayoutError::Cancelled);
         }
@@ -264,38 +311,34 @@ impl FormattingContext for ParleyInlineContext {
                 matches!(&item, PositionedLayoutItem::InlineBox(inline_box)
                     if inline_box.id != INDENT_INLINE_BOX_ID)
             });
-            // Text-only lines take Parley's line height (the CSS strut).
-            // A line holding an atomic inline is sized by the CSS envelope
-            // instead: baseline-aligned content ascent plus descent, never
-            // smaller than the strut — Parley's own line height inflates
-            // beyond what a browser gives such lines.
-            let line_height = if has_inline_box {
-                let envelope = f64::from(metrics.ascent) + f64::from(metrics.descent);
-                envelope.max(strut_height.unwrap_or(0.0))
-            } else {
-                f64::from(metrics.line_height)
-            };
-            running_top += line_height;
-            let half_leading =
-                (line_height - f64::from(metrics.ascent) - f64::from(metrics.descent)) / 2.0;
             let ink_top = f64::from(metrics.block_min_coord);
             let line_x = f64::from(metrics.offset);
-            let mut children = Vec::new();
+            // Collect the line's content first, remembering each child's
+            // baseline shift, so the line box can grow by however far
+            // shifted content rises above the strut before positions are
+            // finalized (a browser's line box contains its risen content).
+            let mut children: Vec<(Fragment, f64)> = Vec::new();
+            let mut max_rise = 0.0_f64;
             for item in line.items() {
                 match item {
                     PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let run_range = glyph_run.run().text_range();
-                        children.push(Fragment::Text(TextFragment {
-                            source: root,
-                            rect: FragmentRect {
-                                x: f64::from(glyph_run.offset()) - line_x,
-                                y: 0.0,
-                                width: f64::from(glyph_run.advance()),
-                                height: line_height,
-                            },
-                            text_start: run_range.start as u32,
-                            text_end: run_range.end as u32,
-                        }));
+                        let shift = shift_for_range(&run_range);
+                        max_rise = max_rise.max(shift);
+                        children.push((
+                            Fragment::Text(TextFragment {
+                                source: root,
+                                rect: FragmentRect {
+                                    x: f64::from(glyph_run.offset()) - line_x,
+                                    y: 0.0,
+                                    width: f64::from(glyph_run.advance()),
+                                    height: 0.0,
+                                },
+                                text_start: run_range.start as u32,
+                                text_end: run_range.end as u32,
+                            }),
+                            shift,
+                        ));
                     }
                     PositionedLayoutItem::InlineBox(inline_box) => {
                         // The first-line indent box reserves space but
@@ -306,19 +349,59 @@ impl FormattingContext for ParleyInlineContext {
                         if inline_box.id == INDENT_INLINE_BOX_ID {
                             continue;
                         }
-                        children.push(Fragment::Image(rito_fragment::ImageFragment {
-                            source: root,
-                            rect: FragmentRect {
-                                x: f64::from(inline_box.x) - line_x,
-                                y: f64::from(inline_box.y) - ink_top,
-                                width: f64::from(inline_box.width),
-                                height: f64::from(inline_box.height),
-                            },
-                            item_index: inline_box.id as u32,
-                        }));
+                        let shift = item_shifts
+                            .get(inline_box.id as usize)
+                            .copied()
+                            .unwrap_or(0.0);
+                        max_rise = max_rise.max(shift);
+                        children.push((
+                            Fragment::Image(rito_fragment::ImageFragment {
+                                source: root,
+                                rect: FragmentRect {
+                                    x: f64::from(inline_box.x) - line_x,
+                                    y: f64::from(inline_box.y) - ink_top,
+                                    width: f64::from(inline_box.width),
+                                    height: f64::from(inline_box.height),
+                                },
+                                item_index: inline_box.id as u32,
+                            }),
+                            shift,
+                        ));
                     }
                 }
             }
+            // Text-only lines take Parley's line height (the CSS strut).
+            // A line holding an atomic inline is sized by the CSS envelope
+            // instead: baseline-aligned content ascent plus descent, never
+            // smaller than the strut — Parley's own line height inflates
+            // beyond what a browser gives such lines. Risen content grows
+            // the box above the strut by its overflow.
+            let base_height = if has_inline_box {
+                let envelope = f64::from(metrics.ascent) + f64::from(metrics.descent);
+                envelope.max(strut_height.unwrap_or(0.0))
+            } else {
+                f64::from(metrics.line_height)
+            };
+            let line_height = base_height + max_rise;
+            running_top += line_height;
+            let half_leading =
+                (base_height - f64::from(metrics.ascent) - f64::from(metrics.descent)) / 2.0;
+            let baseline = max_rise + half_leading + f64::from(metrics.ascent);
+            let children: Vec<Fragment> = children
+                .into_iter()
+                .map(|(mut fragment, shift)| {
+                    let adjust = max_rise - shift;
+                    match &mut fragment {
+                        Fragment::Text(text) => {
+                            text.rect.y = adjust;
+                            text.rect.height = base_height;
+                        }
+                        Fragment::Image(image) => image.rect.y += adjust,
+                        _ => {}
+                    }
+                    fragment
+                })
+                .collect();
             lines.push(Fragment::Line(LineFragment {
                 source: root,
                 rect: FragmentRect {
@@ -327,7 +410,7 @@ impl FormattingContext for ParleyInlineContext {
                     width: f64::from(metrics.advance),
                     height: line_height,
                 },
-                baseline: half_leading + f64::from(metrics.ascent),
+                baseline,
                 trailing_whitespace: f64::from(metrics.trailing_whitespace),
                 children,
             }));
@@ -371,9 +454,8 @@ impl FormattingContext for ParleyInlineContext {
                 node.0
             )));
         }
-        let (layout, _text, _alignment) =
-            self.build_layout(tree, node, None, &CancelFlag::new())?;
-        let widths = layout.calculate_content_widths();
+        let built = self.build_layout(tree, node, None, &CancelFlag::new())?;
+        let widths = built.layout.calculate_content_widths();
         Ok(IntrinsicInlineSizes {
             min_content: f64::from(widths.min),
             max_content: f64::from(widths.max),
@@ -851,6 +933,7 @@ mod tests {
                 items: vec![InlineItem::Text {
                     text: text.to_owned(),
                     style,
+                    baseline_shift_px: 0.0,
                 }],
             },
             children: Vec::new(),
@@ -1169,16 +1252,19 @@ running through the quiet forest until the morning light returns.";
                     InlineItem::Text {
                         text: "Before ".to_owned(),
                         style: text_style,
+                        baseline_shift_px: 0.0,
                     },
                     InlineItem::Image {
                         intrinsic_width: 40.0,
                         intrinsic_height: 30.0,
                         style: text_style,
                         layout_style: image_layout,
+                        baseline_shift_px: 0.0,
                     },
                     InlineItem::Text {
                         text: " after the picture.".to_owned(),
                         style: text_style,
+                        baseline_shift_px: 0.0,
                     },
                 ],
             },

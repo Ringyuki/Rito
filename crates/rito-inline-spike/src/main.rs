@@ -102,6 +102,7 @@ fn main() {
                     items: vec![InlineItem::Text {
                         text: paragraph.text.clone(),
                         style,
+                        baseline_shift_px: 0.0,
                     }],
                 },
                 children: Vec::new(),

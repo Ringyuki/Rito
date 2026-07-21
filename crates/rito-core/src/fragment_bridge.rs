@@ -174,7 +174,7 @@ impl TreeBuilder<'_> {
         let run = std::mem::take(pending);
         let mut collector = InlineCollector::default();
         for node in run {
-            self.collect_inline(node, container_inline_style, &mut collector)?;
+            self.collect_inline(node, container_inline_style, 0.0, &mut collector)?;
         }
         let items = collector.finish();
         if items.is_empty() {
@@ -220,7 +220,7 @@ impl TreeBuilder<'_> {
         let inline_style = self.inline_style_id(source_index, &element.tag)?;
         let mut collector = InlineCollector::default();
         for child in &element.children {
-            self.collect_inline(child, inline_style, &mut collector)?;
+            self.collect_inline(child, inline_style, 0.0, &mut collector)?;
         }
         let items = collector.finish();
         if items.is_empty() {
@@ -253,6 +253,7 @@ impl TreeBuilder<'_> {
         &mut self,
         node: &DocumentNode,
         inherited: StyleId,
+        ancestor_shift_px: f64,
         collector: &mut InlineCollector,
     ) -> EpubResult<()> {
         match node {
@@ -261,7 +262,7 @@ impl TreeBuilder<'_> {
                 // one newline (the frozen engine shares this convention):
                 // a forced line break, not collapsible white space.
                 if text.content == "\n" {
-                    collector.push_hard_break(inherited);
+                    collector.push_hard_break(inherited, ancestor_shift_px);
                     return Ok(());
                 }
                 // White-space-only runs collapse away without needing a
@@ -276,7 +277,7 @@ impl TreeBuilder<'_> {
                 }
                 self.require_inline_capabilities(inherited, false, "text run")?;
                 let collapse = self.white_space_collapse(inherited)?;
-                collector.push_text(&text.content, inherited, collapse);
+                collector.push_text(&text.content, inherited, ancestor_shift_px, collapse);
                 Ok(())
             }
             DocumentNode::Inline(element) => {
@@ -286,12 +287,17 @@ impl TreeBuilder<'_> {
                 }
                 let style = self.inline_style_id(source_index, &element.tag)?;
                 self.require_inline_capabilities(style, true, &element.tag)?;
+                let resolved = self
+                    .inline
+                    .style(style)
+                    .map_err(|error| EpubError::new(format!("{} style: {error}", element.tag)))?;
+                let shift = ancestor_shift_px + resolved_baseline_shift(resolved);
                 for child in &element.children {
-                    self.collect_inline(child, style, collector)?;
+                    self.collect_inline(child, style, shift, collector)?;
                 }
                 Ok(())
             }
-            DocumentNode::Image(image) => self.collect_image(image, collector),
+            DocumentNode::Image(image) => self.collect_image(image, ancestor_shift_px, collector),
             DocumentNode::Block(element) => Err(EpubError::new(format!(
                 "block-level <{}> inside an inline run; anonymous box grouping missed it",
                 element.tag
@@ -304,6 +310,7 @@ impl TreeBuilder<'_> {
     fn collect_image(
         &mut self,
         image: &ImageNode,
+        ancestor_shift_px: f64,
         collector: &mut InlineCollector,
     ) -> EpubResult<()> {
         let source_index = image
@@ -326,11 +333,16 @@ impl TreeBuilder<'_> {
         let layout_style = self.layout_style_id(source_index, "image")?;
         self.require_image_capabilities(layout_style)?;
         self.require_inline_capabilities(style, true, "image")?;
+        let resolved = self
+            .inline
+            .style(style)
+            .map_err(|error| EpubError::new(format!("image style: {error}")))?;
         collector.push_image(InlineItem::Image {
             intrinsic_width: f64::from(*width),
             intrinsic_height: f64::from(*height),
             style,
             layout_style,
+            baseline_shift_px: ancestor_shift_px + resolved_baseline_shift(resolved),
         });
         Ok(())
     }
@@ -641,6 +653,7 @@ fn inline_box_capability_violation(
     }
     match style.fragment.baseline_shift {
         c::BaselineShift::Offset(offset) if length_percentage_is_zero(&offset) => {}
+        c::BaselineShift::Super | c::BaselineShift::Sub => {}
         other => return Some(format!("vertical-align {other:?}")),
     }
     match style.fragment.alignment_baseline {
@@ -648,6 +661,23 @@ fn inline_box_capability_violation(
         other => return Some(format!("alignment-baseline {other:?}")),
     }
     None
+}
+
+/// The baseline shift one inline box asks for, CSS px; positive raises
+/// content above the baseline. `super`/`sub` use the box's own computed
+/// font size with the conventional browser ratios; the exact values are
+/// calibrated against the pinned-browser oracle.
+fn resolved_baseline_shift(style: &rito_style_contract::InlineFormattingStyleV1) -> f64 {
+    const SUPER_RATIO: f64 = 0.34;
+    const SUB_RATIO: f64 = 0.20;
+    let font_size = f64::from(style.font.size.get());
+    match style.fragment.baseline_shift {
+        rito_style_contract::BaselineShift::Super => SUPER_RATIO * font_size,
+        rito_style_contract::BaselineShift::Sub => -(SUB_RATIO * font_size),
+        // Zero offsets pass the whitelist; every other value is rejected
+        // there before reaching this resolver.
+        _ => 0.0,
+    }
 }
 
 fn element_source_index(element: &ElementNode) -> EpubResult<usize> {
@@ -685,7 +715,7 @@ impl InlineCollector {
     /// run that produced it (the CSS "first space of the sequence wins"
     /// rule), so a space pending from earlier nodes lands at the end of the
     /// previous item, while this node's own interior spaces stay here.
-    fn push_text(&mut self, text: &str, style: StyleId, collapse: bool) {
+    fn push_text(&mut self, text: &str, style: StyleId, baseline_shift_px: f64, collapse: bool) {
         debug_assert!(collapse, "preserved white space fails closed upstream");
         let is_space = |ch: char| matches!(ch, ' ' | '\t' | '\n' | '\r');
         let mut rest = text;
@@ -734,25 +764,29 @@ impl InlineCollector {
             self.has_content = true;
         }
         if !collapsed.is_empty() {
-            // Merge into the previous item when the style is unchanged, so
-            // a paragraph of plain text stays a single shaping run.
+            // Merge into the previous item when the style and shift are
+            // unchanged, so a paragraph of plain text stays a single
+            // shaping run.
             if let Some(InlineItem::Text {
                 text: last,
                 style: last_style,
+                baseline_shift_px: last_shift,
             }) = self.items.last_mut()
             {
-                if *last_style == style {
+                if *last_style == style && *last_shift == baseline_shift_px {
                     last.push_str(&collapsed);
                 } else {
                     self.items.push(InlineItem::Text {
                         text: collapsed,
                         style,
+                        baseline_shift_px,
                     });
                 }
             } else {
                 self.items.push(InlineItem::Text {
                     text: collapsed,
                     style,
+                    baseline_shift_px,
                 });
             }
         }
@@ -764,7 +798,7 @@ impl InlineCollector {
     }
 
     /// Appends a forced line break as a preserved newline in the flow text.
-    fn push_hard_break(&mut self, style: StyleId) {
+    fn push_hard_break(&mut self, style: StyleId, baseline_shift_px: f64) {
         self.pending_space = false;
         if let Some(InlineItem::Text { text: last, .. }) = self.items.last_mut() {
             last.push('\n');
@@ -772,6 +806,7 @@ impl InlineCollector {
             self.items.push(InlineItem::Text {
                 text: "\n".to_owned(),
                 style,
+                baseline_shift_px,
             });
         }
         self.has_content = true;

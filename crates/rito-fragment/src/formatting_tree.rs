@@ -18,6 +18,10 @@ pub enum InlineItem {
         text: String,
         /// Typed reference into the tree's inline style table.
         style: StyleId,
+        /// Accumulated baseline shift from `vertical-align` on ancestor
+        /// inline boxes, CSS px; positive raises the run. Resolved at tree
+        /// construction so the provider needs no ancestor walk.
+        baseline_shift_px: f64,
     },
     /// An atomic inline replaced box (an image): it occupies inline space
     /// like a single glyph and never splits. Display size resolves at
@@ -33,6 +37,9 @@ pub enum InlineItem {
         /// Typed reference into the tree's layout style table, carrying
         /// the CSS sizing fields (width/height/max-width).
         layout_style: LayoutStyleId,
+        /// Accumulated baseline shift from `vertical-align` on this box
+        /// and its ancestor inline boxes, CSS px; positive raises it.
+        baseline_shift_px: f64,
     },
 }
 
@@ -249,23 +256,30 @@ fn fingerprint(
                 mixer.mix(&(items.len() as u32).to_le_bytes());
                 for item in items {
                     match item {
-                        InlineItem::Text { text, style } => {
+                        InlineItem::Text {
+                            text,
+                            style,
+                            baseline_shift_px,
+                        } => {
                             mixer.mix(&[0]);
                             mixer.mix(&(text.len() as u32).to_le_bytes());
                             mixer.mix(text.as_bytes());
                             mixer.mix(&style.raw().to_le_bytes());
+                            mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
                         }
                         InlineItem::Image {
                             intrinsic_width,
                             intrinsic_height,
                             style,
                             layout_style,
+                            baseline_shift_px,
                         } => {
                             mixer.mix(&[1]);
                             mixer.mix(&intrinsic_width.to_bits().to_le_bytes());
                             mixer.mix(&intrinsic_height.to_bits().to_le_bytes());
                             mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&layout_style.raw().to_le_bytes());
+                            mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
                         }
                     }
                 }
@@ -456,6 +470,7 @@ mod tests {
                 items: vec![InlineItem::Text {
                     text: "orphan".to_owned(),
                     style: StyleId::from_raw(7),
+                    baseline_shift_px: 0.0,
                 }],
             },
             children: Vec::new(),

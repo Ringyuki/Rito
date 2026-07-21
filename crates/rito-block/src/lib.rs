@@ -775,6 +775,7 @@ mod tests {
                         .map(|line| InlineItem::Text {
                             text: format!("line {line}"),
                             style,
+                            baseline_shift_px: 0.0,
                         })
                         .collect(),
                 },
@@ -907,6 +908,7 @@ mod tests {
                         .map(|index| InlineItem::Text {
                             text: format!("line {index}"),
                             style,
+                            baseline_shift_px: 0.0,
                         })
                         .collect(),
                 },
@@ -1043,6 +1045,7 @@ mod tests {
                     .map(|line| InlineItem::Text {
                         text: format!("line {line}"),
                         style,
+                        baseline_shift_px: 0.0,
                     })
                     .collect(),
             },
@@ -1161,6 +1164,7 @@ mod tests {
                         .map(|line| InlineItem::Text {
                             text: format!("line {line}"),
                             style,
+                            baseline_shift_px: 0.0,
                         })
                         .collect(),
                 },
@@ -1264,6 +1268,7 @@ mod tests {
                         .map(|line| InlineItem::Text {
                             text: format!("line {line}"),
                             style,
+                            baseline_shift_px: 0.0,
                         })
                         .collect(),
                 },
@@ -1432,6 +1437,7 @@ single line across page boundaries.";
                     items: vec![InlineItem::Text {
                         text: first_text.to_owned(),
                         style: first_style,
+                        baseline_shift_px: 0.0,
                     }],
                 },
                 children: Vec::new(),
@@ -1442,6 +1448,7 @@ single line across page boundaries.";
                     items: vec![InlineItem::Text {
                         text: second_text.to_owned(),
                         style: second_style,
+                        baseline_shift_px: 0.0,
                     }],
                 },
                 children: Vec::new(),
