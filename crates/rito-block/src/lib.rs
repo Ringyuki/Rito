@@ -32,8 +32,8 @@ use rito_fragment::{
     FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
 };
 use rito_style_contract::{
-    BoxSizingV1, LayoutFormattingStyleV1, LengthPercentage, LengthPercentageOrAuto, MaximumSizeV1,
-    PreferredSizeV1,
+    BoxSizingV1, ClearV1, FloatV1, LayoutFormattingStyleV1, LengthPercentage,
+    LengthPercentageOrAuto, MaximumSizeV1, PreferredSizeV1,
 };
 
 /// Byte budget for the internal inline-outcome cache. Sized for one
@@ -104,6 +104,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // The margin below the previous in-flow child, awaiting collapse
         // with the next child's top margin.
         let mut pending_margin = 0.0_f64;
+        // Active floats: horizontal occupancy of the current float band and
+        // the deepest bottom on each side, in flow coordinates. Floats
+        // never cross a fragmentainer edge in this profile.
+        let mut floats = FloatBands::new();
         for (index, child_id) in children.iter().enumerate().skip(start_child) {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
@@ -111,7 +115,115 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let consumed = resumed_consumed;
             resumed_consumed = 0.0;
             let child_resumed = resumed && index == start_child;
+            let child_style = container_layout_style(tree, *child_id)?;
             let (top_margin, bottom_margin) = vertical_margins(tree, *child_id, content_width)?;
+
+            // Floated children leave the flow: they are placed against the
+            // content edges, never advance `y`, and never split. In-flow
+            // margins collapse straight through them.
+            if child_style.float != FloatV1::None {
+                let hbox = resolve_horizontal_box(child_style, content_width)?;
+                if matches!(child_style.width, PreferredSizeV1::Auto)
+                    && child_style.max_width == MaximumSizeV1::None
+                {
+                    return Err(LayoutError::Invalid(
+                        "a floated box without a width needs shrink-to-fit sizing, which is \
+                         not representable yet"
+                            .to_owned(),
+                    ));
+                }
+                let margin_side = |side: LengthPercentageOrAuto| match side {
+                    LengthPercentageOrAuto::Auto => 0.0,
+                    LengthPercentageOrAuto::Value(value) => {
+                        resolve_length_percentage(value, content_width)
+                    }
+                };
+                let margin_right = margin_side(child_style.margin.right);
+                let child_space = ConstraintSpace::continuous(hbox.border_width);
+                let outcome = self.layout(tree, *child_id, &child_space, None, cancel)?;
+                let Fragment::Box(child_root) = outcome.fragments.root else {
+                    return Err(LayoutError::Invalid(
+                        "float layout must produce a box fragment root".to_owned(),
+                    ));
+                };
+                let mut inner_children = child_root.children;
+                let mut content_height = child_root.rect.height;
+                if matches!(
+                    tree.node(*child_id).content,
+                    FormattingNodeContent::InlineFlow { .. }
+                ) {
+                    // A floated paragraph's own padding is applied here;
+                    // nested containers already applied theirs.
+                    for fragment in &mut inner_children {
+                        let rect = fragment.rect();
+                        set_fragment_position(
+                            fragment,
+                            rect.x + hbox.padding_left,
+                            rect.y + hbox.padding_top,
+                        );
+                    }
+                    content_height += hbox.padding_top + hbox.padding_bottom;
+                }
+                let occupy_width = hbox.x + hbox.border_width + margin_right;
+                let occupy_height = top_margin.max(0.0) + content_height + bottom_margin.max(0.0);
+                let (fx, fy) = floats.place(
+                    child_style.float,
+                    occupy_width,
+                    occupy_height,
+                    y,
+                    content_width,
+                );
+                // Pagination: a float never splits; when it does not fit
+                // the current fragmentainer it moves whole to the next one.
+                let page_bottom = y + remaining.max(0.0);
+                if space.fragmentainer_remaining.is_some()
+                    && fy + occupy_height > page_bottom + 1e-6
+                    && !(fragments.is_empty() && fragmentainer_is_fresh)
+                {
+                    return Ok(sealed_with_break(
+                        container,
+                        space.inline_size,
+                        seal_height(y, &floats),
+                        fragments,
+                        BreakToken {
+                            resume_path: vec![*child_id],
+                            stage: BreakTokenStage::Before,
+                        },
+                    ));
+                }
+                fragments.push(Fragment::Box(BoxFragment {
+                    source: *child_id,
+                    rect: FragmentRect {
+                        x: content_left + fx + hbox.x,
+                        y: fy + top_margin.max(0.0),
+                        width: hbox.border_width,
+                        height: content_height,
+                    },
+                    children: inner_children,
+                }));
+                continue;
+            }
+
+            // Clearance: an in-flow child clears past the floats its
+            // `clear` names; clearance suppresses the margin collapse that
+            // would otherwise apply.
+            let clear_to = floats.bottom_for(child_style.clear);
+            if clear_to > y {
+                let page_bottom = y + remaining.max(0.0);
+                y = clear_to;
+                remaining = (page_bottom - y).max(0.0);
+                pending_margin = 0.0;
+            }
+            // In-flow content beside an active float needs line boxes that
+            // shorten around it — not representable yet, so it fails
+            // closed instead of overlapping the float.
+            if floats.has_active(y) {
+                return Err(LayoutError::Invalid(
+                    "in-flow content beside a float needs float wrapping, which is not \
+                     representable yet"
+                        .to_owned(),
+                ));
+            }
             // A margin that meets an unforced break is truncated to zero,
             // so a resumed child starts flush at the fragmentainer top.
             // At a collapsing root edge the first child's top margin
@@ -362,6 +474,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 }
             }
         }
+        // The container is a flow root here: it contains its floats, so
+        // its final height reaches the deepest float bottom.
+        y = seal_height(y, &floats);
         // At a collapsing root edge the last child's bottom margin escapes
         // the container, like a browser chapter body. Nested containers keep
         // it inside their height (formatting-context-root semantics until
@@ -592,6 +707,102 @@ fn resume_point(
         BreakTokenStage::Inside {
             consumed_block_size,
         } => Ok((index, consumed_block_size)),
+    }
+}
+
+/// A container's sealed height: the flow position or the deepest float
+/// bottom, whichever is lower (the container is a flow root and contains
+/// its floats).
+fn seal_height(y: f64, floats: &FloatBands) -> f64 {
+    y.max(floats.left_bottom).max(floats.right_bottom)
+}
+
+/// Active float occupancy inside one container, in flow coordinates.
+///
+/// The supported profile is placed float boxes (paired columns, decorative
+/// side boxes): floats stack horizontally in a band while they fit, start
+/// a new band below both sides when they do not, and in-flow content after
+/// them must clear — line boxes never shorten around a float here, they
+/// fail closed instead.
+struct FloatBands {
+    /// Occupied width on the left side of the current band.
+    left_occupied: f64,
+    /// Occupied width on the right side of the current band.
+    right_occupied: f64,
+    /// Top of the current band, flow coordinates.
+    band_top: f64,
+    /// Deepest bottom edge of any left float.
+    left_bottom: f64,
+    /// Deepest bottom edge of any right float.
+    right_bottom: f64,
+}
+
+impl FloatBands {
+    fn new() -> Self {
+        Self {
+            left_occupied: 0.0,
+            right_occupied: 0.0,
+            band_top: 0.0,
+            left_bottom: f64::NEG_INFINITY,
+            right_bottom: f64::NEG_INFINITY,
+        }
+    }
+
+    fn has_active(&self, flow_y: f64) -> bool {
+        self.left_bottom > flow_y || self.right_bottom > flow_y
+    }
+
+    fn bottom_for(&self, clear: ClearV1) -> f64 {
+        match clear {
+            ClearV1::None => f64::NEG_INFINITY,
+            ClearV1::Left => self.left_bottom,
+            ClearV1::Right => self.right_bottom,
+            ClearV1::Both => self.left_bottom.max(self.right_bottom),
+        }
+    }
+
+    /// Places one float of `width`, starting no higher than `flow_y`.
+    /// Returns the border-box x (content-area relative) and y.
+    fn place(
+        &mut self,
+        side: FloatV1,
+        width: f64,
+        height: f64,
+        flow_y: f64,
+        content_width: f64,
+    ) -> (f64, f64) {
+        if flow_y > self.band_top {
+            // Flow advanced past this band: floats placed from here start
+            // a fresh band at the flow position.
+            if self.left_bottom <= flow_y && self.right_bottom <= flow_y {
+                self.left_occupied = 0.0;
+                self.right_occupied = 0.0;
+            }
+            self.band_top = self.band_top.max(flow_y);
+        }
+        let fits = self.left_occupied + self.right_occupied + width <= content_width + 1e-6;
+        if !fits {
+            // New band below everything currently floated.
+            self.band_top = self.left_bottom.max(self.right_bottom).max(self.band_top);
+            self.left_occupied = 0.0;
+            self.right_occupied = 0.0;
+        }
+        let y = self.band_top;
+        let x = match side {
+            FloatV1::Left => {
+                let x = self.left_occupied;
+                self.left_occupied += width;
+                self.left_bottom = self.left_bottom.max(y + height);
+                x
+            }
+            FloatV1::Right | FloatV1::None => {
+                let x = content_width - self.right_occupied - width;
+                self.right_occupied += width;
+                self.right_bottom = self.right_bottom.max(y + height);
+                x
+            }
+        };
+        (x, y)
     }
 }
 
@@ -1662,6 +1873,184 @@ mod tests {
                 &tree,
                 tree.root(),
                 &ConstraintSpace::continuous(100.0),
+                None,
+                &CancelFlag::new()
+            ),
+            Err(LayoutError::Invalid(_))
+        ));
+    }
+
+    /// Paired float columns like a character-introduction page: 49% left
+    /// and 49% right, different heights, followed by nothing.
+    #[test]
+    fn paired_float_columns_sit_side_by_side() {
+        use rito_style_contract::{FloatV1, NonNegativeLengthPercentage, Percentage};
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let half_width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+            LengthPercentage::Percentage(Percentage::from_percent(49.0).expect("finite")),
+        ));
+        let mut column = block_style(margin_px(0.0), margin_px(0.0));
+        column.width = half_width;
+        let mut left_column = column;
+        left_column.float = FloatV1::Left;
+        let mut right_column = column;
+        right_column.float = FloatV1::Right;
+        let layout = layout_table_with(3, |index| match index {
+            0 => left_column,
+            1 => right_column,
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let paragraph = |node_index: usize, line_count: usize| FormattingNode {
+            style: node_style_id(&layout, node_index),
+            content: FormattingNodeContent::InlineFlow {
+                items: (0..line_count)
+                    .map(|line| InlineItem::Text {
+                        text: format!("line {line}"),
+                        style,
+                        baseline_shift_px: 0.0,
+                    })
+                    .collect(),
+            },
+            children: Vec::new(),
+        };
+        let nodes = vec![
+            paragraph(0, 3), // left column: 30px
+            paragraph(1, 5), // right column: 50px
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let pages = paginate(&context, &tree, ConstraintSpace::continuous(200.0));
+        assert_eq!(pages.len(), 1);
+        let children = box_children(&pages[0]);
+        assert_eq!(children.len(), 2);
+        let left = children[0].rect();
+        let right = children[1].rect();
+        assert!((left.x - 0.0).abs() < 1e-6, "left column at the left edge");
+        assert!((left.width - 98.0).abs() < 1e-3);
+        assert!(
+            (right.x - (200.0 - 98.0)).abs() < 1e-3,
+            "right column against the right edge, got {}",
+            right.x
+        );
+        assert!((left.y - 0.0).abs() < 1e-6);
+        assert!((right.y - 0.0).abs() < 1e-6, "columns share the band top");
+        // The container contains its floats: height = the taller column.
+        assert!((pages[0].fragments.root.rect().height - 50.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn cleared_content_starts_below_floats_and_uncleaned_content_fails_closed() {
+        use rito_style_contract::{ClearV1, FloatV1, NonNegativeLengthPercentage, Percentage};
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let half_width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+            LengthPercentage::Percentage(Percentage::from_percent(40.0).expect("finite")),
+        ));
+        let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
+        float_style.width = half_width;
+        float_style.float = FloatV1::Left;
+        let mut cleared = block_style(margin_px(0.0), margin_px(0.0));
+        cleared.clear = ClearV1::Both;
+        let build = |following: LayoutFormattingStyleV1| {
+            let layout = layout_table_with(3, move |index| match index {
+                0 => float_style,
+                1 => following,
+                _ => block_style(margin_px(0.0), margin_px(0.0)),
+            });
+            let mut inline_table = InlineStyleTableV1::new(1);
+            let style_id = inline_table
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                            .expect("family list"),
+                        16.0,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let paragraph = |node_index: usize, line_count: usize| FormattingNode {
+                style: node_style_id(&layout, node_index),
+                content: FormattingNodeContent::InlineFlow {
+                    items: (0..line_count)
+                        .map(|line| InlineItem::Text {
+                            text: format!("line {line}"),
+                            style: style_id,
+                            baseline_shift_px: 0.0,
+                        })
+                        .collect(),
+                },
+                children: Vec::new(),
+            };
+            let nodes = vec![
+                paragraph(0, 4),
+                paragraph(1, 2),
+                FormattingNode {
+                    style: node_style_id(&layout, 2),
+                    content: FormattingNodeContent::BlockContainer,
+                    children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+                },
+            ];
+            FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(2),
+                FormattingTreeStyles {
+                    layout,
+                    inline: inline_table,
+                },
+            )
+            .expect("tree builds")
+        };
+        let _ = style;
+
+        let cleared_tree = build(cleared);
+        let pages = paginate(&context, &cleared_tree, ConstraintSpace::continuous(200.0));
+        let children = box_children(&pages[0]);
+        assert_eq!(children.len(), 2);
+        assert!(
+            (children[1].rect().y - 40.0).abs() < 1e-6,
+            "cleared content starts below the 40px float, got {}",
+            children[1].rect().y
+        );
+
+        let beside_tree = build(block_style(margin_px(0.0), margin_px(0.0)));
+        assert!(matches!(
+            context.layout(
+                &beside_tree,
+                beside_tree.root(),
+                &ConstraintSpace::continuous(200.0),
                 None,
                 &CancelFlag::new()
             ),

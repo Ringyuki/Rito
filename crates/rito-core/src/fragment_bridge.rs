@@ -382,6 +382,12 @@ impl TreeBuilder<'_> {
             .layout
             .style(style)
             .map_err(|error| EpubError::new(format!("image style resolves: {error}")))?;
+        if resolved.float != rito_style_contract::FloatV1::None {
+            return Err(EpubError::new(
+                "a floated image needs line-box wrapping, which is not representable yet"
+                    .to_owned(),
+            ));
+        }
         if let Some(reason) = shared_box_capability_violation(resolved) {
             return Err(EpubError::new(format!(
                 "image is not representable yet: {reason}"
@@ -485,11 +491,16 @@ fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String>
 /// Constraints shared by every box the engine lays out, replaced or not.
 fn shared_box_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String> {
     use rito_style_contract as c;
-    if style.float != c::FloatV1::None {
-        return Some(format!("float {:?}", style.float));
+    // Floated blocks with a resolvable width lay out as placed float
+    // boxes (paired columns, decorative side boxes); shrink-to-fit floats
+    // and floated images (line-box wrapping) stay rejected.
+    if style.float != c::FloatV1::None
+        && matches!(style.width, c::PreferredSizeV1::Auto)
+        && style.max_width == c::MaximumSizeV1::None
+    {
+        return Some(format!("float {:?} without a width", style.float));
     }
-    // `clear` without floats has no effect per CSS, so any value passes
-    // while floats themselves are rejected above.
+    // `clear` is implemented as clearance past active floats.
     match style.position {
         c::PositionV1::Static => {}
         c::PositionV1::Relative => {

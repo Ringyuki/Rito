@@ -551,14 +551,22 @@ containers sized by their border box, `box-sizing` added to the typed
 contract and projected from Stylo.
 
 Corpus representability: 79.0% → 80.6% (sup) → 88.4% (horizontal box) →
-92.9% (Parley wiring: letter/word spacing, word-break, overflow-wrap,
-nowrap straight into ranged styles) → **94.7%** (fixed heights — content
-overflowing a fixed box still fails closed at layout time — and
-max-width capping the horizontal model, including the
-max-width+margin:auto centering pattern). Remaining queue: floats 43,
-single-item flex 10, inline padding/border 9, tail 4. Oracle unchanged
-at 99.83% parity, x p95 = 0, y p50 13.6 (heading strut metrics and
-shift-constant calibration are the remaining y residue).
+92.9% (Parley wiring) → 94.7% (fixed heights, max-width) → **97.2%
+(placed floats)**. The float profile: width-bearing floated blocks leave
+the flow, stack in horizontal bands against the content edges (paired
+columns side by side, new band when a band overflows), never split
+across fragmentainers (they move whole), in-flow margins collapse
+through them, `clear` implements clearance (suppressing the collapse),
+and the container as flow root contains its floats. In-flow content
+beside an active float (line-box wrapping) and shrink-to-fit floats
+(width:auto) still fail closed by name. **86 vol.1's character page
+(the user-reported production mis-layout) now lays out with the
+browser's exact two-column structure in the fragment engine** — the
+frozen engine's lost right column is the strongest before/after
+evidence for the cutover. 86 is at 29/30 (title.xhtml waits on
+shrink-to-fit). Remaining queue: single-item flex 10, widthless floats
+12, inline padding/border 9, tail 5. Oracle unchanged at 99.83% parity,
+x p95 = 0.
 
 ## OPEN — after the third pass
 
