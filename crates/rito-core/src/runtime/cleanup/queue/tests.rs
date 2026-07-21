@@ -407,6 +407,7 @@ fn empty_completed_chapter() -> RuntimeChapterContinuation {
         BTreeSet::new(),
         Vec::new(),
         true,
+        None,
     )
 }
 

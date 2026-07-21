@@ -134,6 +134,8 @@ impl PendingRuntimeRevisionCleanup {
             final_extent,
             layout,
             layout_config,
+            // Small interned records; dropped in place, no staged cleanup.
+            chapter_style_tables: _,
             required_font_face_catalog,
             interactions,
             frame_cache,

@@ -1,7 +1,8 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
-    RuntimeDocument, RuntimeRevisionBundle, RuntimeRevisionNavigation, RuntimeRevisionPresentation,
-    RuntimeRevisionSummary, RuntimeShapeProvenanceDiagnostic,
+    RuntimeChapterTreeReport, RuntimeDocument, RuntimeFragmentShadowReport, RuntimeRevisionBundle,
+    RuntimeRevisionNavigation, RuntimeRevisionPresentation, RuntimeRevisionSummary,
+    RuntimeShapeProvenanceDiagnostic, RuntimeStyleTableSummary,
 };
 
 impl RuntimeDocument {
@@ -47,6 +48,34 @@ impl RuntimeDocument {
     {
         self.versioned_read(handle, |document, revision_id| {
             document.shape_provenance_diagnostic(revision_id)
+        })
+    }
+
+    pub fn fragment_shadow_report_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+        engine_provider: &str,
+    ) -> Result<RuntimeVersioned<RuntimeFragmentShadowReport>, RuntimeRevisionAccessError> {
+        self.versioned_read(handle, |document, revision_id| {
+            document.fragment_shadow_report(revision_id, engine_provider)
+        })
+    }
+
+    pub fn style_table_summary_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+    ) -> Result<RuntimeVersioned<RuntimeStyleTableSummary>, RuntimeRevisionAccessError> {
+        self.versioned_read(handle, |document, revision_id| {
+            document.style_table_summary(revision_id)
+        })
+    }
+
+    pub fn chapter_tree_report_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+    ) -> Result<RuntimeVersioned<RuntimeChapterTreeReport>, RuntimeRevisionAccessError> {
+        self.versioned_read(handle, |document, revision_id| {
+            document.chapter_tree_report(revision_id)
         })
     }
 }

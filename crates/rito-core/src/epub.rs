@@ -45,7 +45,7 @@ pub use layout_bridge::{
 };
 pub(crate) use layout_bridge::{
     build_prepared_loaded_document_runtime_layout, prepare_runtime_layout_chapter,
-    PreparedRuntimeLayoutChapter, PreparedRuntimeLayoutOptions,
+    ChapterStyleTable, PreparedRuntimeLayoutChapter, PreparedRuntimeLayoutOptions,
 };
 pub use layout_bridge::{
     load_publication, load_publication_with_layout, load_publication_with_layout_and_line_breaking,

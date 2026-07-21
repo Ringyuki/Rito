@@ -766,3 +766,101 @@ fn continue_once(document: &mut WasmRuntimeDocument, advance: &Value) -> Value {
             .expect("revision advances"),
     )
 }
+
+#[test]
+fn fragment_shadow_report_is_versioned_and_fails_closed() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let revision_id = revision_id(&mut document);
+
+    let report = parse(
+        document
+            .get_fragment_shadow_report_at_revision_json(&revision_id, 0, "stub-block")
+            .expect("fragment shadow report"),
+    );
+    assert_revision(&report, &revision_id, 0);
+    assert_eq!(report["value"]["schemaVersion"], 1);
+    assert_eq!(report["value"]["engineProvider"], "stub-block");
+    assert_eq!(report["value"]["isComplete"], true);
+    assert_eq!(
+        report["value"]["fittingPageCount"],
+        report["value"]["shadowedPageCount"]
+    );
+    assert_eq!(report["value"]["replayVerified"], true);
+    let digest = report["value"]["artifactDigest"]
+        .as_str()
+        .expect("digest string");
+    assert_eq!(digest.len(), 16);
+    let replayed = parse(
+        document
+            .get_fragment_shadow_report_at_revision_json(&revision_id, 0, "stub-block")
+            .expect("second fragment shadow report"),
+    );
+    assert_eq!(report, replayed);
+
+    let unknown = document
+        .get_fragment_shadow_report_at_revision_json(&revision_id, 0, "servo-block")
+        .expect_err("unknown provider is rejected");
+    assert_eq!(unknown.code(), WasmRuntimeErrorCode::EngineError);
+}
+
+#[test]
+fn style_table_summary_is_versioned_and_deterministic() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let revision_id = revision_id(&mut document);
+
+    let summary = parse(
+        document
+            .get_style_table_summary_at_revision_json(&revision_id, 0)
+            .expect("style table summary"),
+    );
+    assert_revision(&summary, &revision_id, 0);
+    assert_eq!(summary["value"]["schemaVersion"], 1);
+    assert_eq!(summary["value"]["isComplete"], true);
+    assert!(summary["value"]["chapterCount"].as_u64().unwrap() > 0);
+    let chapters = summary["value"]["chapters"].as_array().expect("chapters");
+    for chapter in chapters {
+        assert!(chapter["internedStyleCount"].as_u64().unwrap() > 0);
+        assert!(chapter["inlineInternedStyleCount"].as_u64().unwrap() > 0);
+        assert!(chapter["assignedNodeCount"].as_u64().unwrap() > 0);
+        assert!(chapter["inlineAssignedNodeCount"].as_u64().unwrap() > 0);
+    }
+    let digest = summary["value"]["tableDigest"].as_str().expect("digest");
+    assert_eq!(digest.len(), 16);
+    let replayed = parse(
+        document
+            .get_style_table_summary_at_revision_json(&revision_id, 0)
+            .expect("second style table summary"),
+    );
+    assert_eq!(summary, replayed);
+}
+
+#[test]
+fn chapter_tree_report_is_versioned_and_deterministic() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let revision_id = revision_id(&mut document);
+
+    let report = parse(
+        document
+            .get_chapter_tree_report_at_revision_json(&revision_id, 0)
+            .expect("chapter tree report"),
+    );
+    assert_revision(&report, &revision_id, 0);
+    assert_eq!(report["value"]["schemaVersion"], 1);
+    assert_eq!(report["value"]["isComplete"], true);
+    let chapters = report["value"]["chapters"].as_array().expect("chapters");
+    assert!(!chapters.is_empty());
+    for chapter in chapters {
+        if chapter["representable"] == true {
+            assert!(chapter["formattingNodeCount"].as_u64().unwrap() > 0);
+            assert_eq!(chapter["treeFingerprint"].as_str().unwrap().len(), 16);
+        } else {
+            assert!(!chapter["reason"].as_str().unwrap().is_empty());
+        }
+    }
+    let replayed = parse(
+        document
+            .get_chapter_tree_report_at_revision_json(&revision_id, 0)
+            .expect("second chapter tree report"),
+    );
+    assert_eq!(report, replayed);
+}

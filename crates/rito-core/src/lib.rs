@@ -6,6 +6,7 @@
 
 pub mod css;
 pub mod epub;
+pub mod fragment_bridge;
 pub mod interaction;
 pub mod layout;
 pub mod render;

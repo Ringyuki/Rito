@@ -207,6 +207,17 @@ impl LoadedEpubDocument {
         Ok(())
     }
 
+    /// Already-loaded dimensions for an image referenced as `src` (chapter
+    /// relative or normalized), without touching the archive.
+    pub(crate) fn loaded_image_dimensions(&self, src: &str) -> Option<(u32, u32)> {
+        let index = find_resource_index(&self.images, src)?;
+        let image = &self.images[index];
+        if !image.dimensions_loaded {
+            return None;
+        }
+        Some((image.width?, image.height?))
+    }
+
     pub(crate) fn ensure_image_dimensions_loaded(&mut self, href: &str) -> EpubResult<()> {
         let Some(index) = find_resource_index(&self.images, href) else {
             return Ok(());

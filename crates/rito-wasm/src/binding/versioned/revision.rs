@@ -64,6 +64,44 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    #[wasm_bindgen(js_name = getFragmentShadowReportAtRevisionJson)]
+    pub fn get_fragment_shadow_report_at_revision_json(
+        &self,
+        revision_id: &str,
+        revision_version: u32,
+        engine_provider: &str,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .get_fragment_shadow_report_at_revision_json(
+                revision_id,
+                revision_version,
+                engine_provider,
+            )
+            .map_err(error_to_js_value)
+    }
+
+    #[wasm_bindgen(js_name = getStyleTableSummaryAtRevisionJson)]
+    pub fn get_style_table_summary_at_revision_json(
+        &self,
+        revision_id: &str,
+        revision_version: u32,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .get_style_table_summary_at_revision_json(revision_id, revision_version)
+            .map_err(error_to_js_value)
+    }
+
+    #[wasm_bindgen(js_name = getChapterTreeReportAtRevisionJson)]
+    pub fn get_chapter_tree_report_at_revision_json(
+        &self,
+        revision_id: &str,
+        revision_version: u32,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .get_chapter_tree_report_at_revision_json(revision_id, revision_version)
+            .map_err(error_to_js_value)
+    }
+
     #[wasm_bindgen(js_name = releaseRevisionTransfersAtRevision)]
     pub fn release_revision_transfers_at_revision(
         &mut self,

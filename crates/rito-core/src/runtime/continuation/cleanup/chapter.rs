@@ -136,6 +136,9 @@ impl PendingRuntimeChapterContinuationCleanup {
             has_published_pages,
             chapter_complete,
             total_block_count,
+            // A table still pending here belongs to work that never
+            // published; drop it with the chapter.
+            pending_style_table: _,
         } = owner;
         debug_assert!(unpublished_pages.is_empty());
         drop(unpublished_pages);

@@ -146,6 +146,9 @@ pub(super) fn append_work_to_revision(
     for batch in work.batches {
         append_page_batch(revision, batch);
     }
+    for (idref, table) in work.chapter_style_tables {
+        revision.chapter_style_tables.insert(idref, table);
+    }
     for interactions in work.available_interactions {
         merge_revision_interactions(&mut revision.interactions, interactions);
     }

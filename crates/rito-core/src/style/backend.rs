@@ -63,6 +63,12 @@ pub(crate) struct ResolvedPreparedChapterStyle {
     pub(crate) styled_nodes: Vec<super::StyledNode>,
     pub(crate) pagination_styled_nodes: Option<Vec<super::StyledNode>>,
     pub(crate) page_paint: Option<serde_json::Value>,
+    /// The typed layout styles this chapter's nodes resolved to, retained
+    /// past materialization so typed consumers never re-derive styles from
+    /// the JSON style maps.
+    pub(crate) layout_style_table: rito_style_contract::LayoutStyleTableV1,
+    /// The typed inline styles, retained for the same consumers.
+    pub(crate) inline_style_table: rito_style_contract::InlineStyleTableV1,
     /// What this chapter's CSS asked for that the engine could not represent.
     /// Consumers use it to describe reduced fidelity instead of discovering it
     /// as a missing feature.
@@ -323,6 +329,8 @@ fn try_resolve_with_stylo(
         styled_nodes: resolved.styled_nodes,
         pagination_styled_nodes: resolved.pagination_styled_nodes,
         page_paint: resolved.page_paint,
+        layout_style_table: layout.into_table(),
+        inline_style_table: inline.into_table(),
         capabilities,
     })
 }
@@ -457,5 +465,10 @@ fn resolve_with_legacy_compatibility(
         styled_nodes: resolved.styled_nodes,
         pagination_styled_nodes,
         page_paint: resolved.page_paint,
+        // The legacy resolver has no typed projection and no source-gate
+        // capability report; diagnostics-only.
+        layout_style_table: rito_style_contract::LayoutStyleTableV1::new(0),
+        inline_style_table: rito_style_contract::InlineStyleTableV1::new(0),
+        capabilities: StyleCapabilityReport::default(),
     }
 }

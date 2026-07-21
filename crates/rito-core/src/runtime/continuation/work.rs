@@ -48,6 +48,7 @@ impl RuntimeDocument {
                 let batch = capture_buffered_page_batch(record, chapter_complete);
                 if !batch.pages.is_empty() {
                     work.batches.push(batch);
+                    publish_pending_style_table(record, &mut work);
                 }
                 if cap_truncates_current_chapter(record, chapter_complete) {
                     break;
@@ -79,6 +80,7 @@ impl RuntimeDocument {
                 capture_buffered_page_batch(record, chapter_complete)
             };
             work.batches.push(batch);
+            publish_pending_style_table(record, &mut work);
             if cap_truncates_current_chapter(record, chapter_complete) {
                 break;
             }
@@ -175,6 +177,8 @@ impl RuntimeDocument {
             idref,
             styled_nodes,
             page_paint,
+            layout_style_table,
+            inline_style_table,
         } = prepare_runtime_layout_chapter(
             &prepared,
             &record.layout_config,
@@ -212,6 +216,10 @@ impl RuntimeDocument {
                 completed_chapter_idrefs,
                 Vec::new(),
                 false,
+                Some(crate::runtime::frame::RuntimeChapterStyleTables {
+                    layout: layout_style_table,
+                    inline: inline_style_table,
+                }),
             )
         };
         Ok((current, interactions))
@@ -294,10 +302,32 @@ fn finish_current_chapter(
 ) -> RuntimeChapterContinuation {
     let mut current = record.current.take().expect("completed chapter exists");
     debug_assert!(current.unpublished_pages.is_empty());
+    // A chapter can complete without ever publishing a page (empty content);
+    // its style table still describes the resolved chapter.
+    if let Some(table) = current.pending_style_table.take() {
+        work.chapter_style_tables
+            .push((current.idref.clone(), table));
+    }
     work.completed_chapter_idrefs
         .append(&mut current.completed_chapter_idrefs);
     record.next_chapter_index += 1;
     current
+}
+
+/// Moves the active chapter's style table into work that already carries a
+/// published batch for it, so the table lands in the revision atomically
+/// with the chapter's first visible pages.
+fn publish_pending_style_table(
+    record: &mut RuntimeContinuationRecord,
+    work: &mut RuntimeContinuationWork,
+) {
+    let Some(current) = record.current.as_mut() else {
+        return;
+    };
+    if let Some(table) = current.pending_style_table.take() {
+        work.chapter_style_tables
+            .push((current.idref.clone(), table));
+    }
 }
 
 #[cfg(test)]

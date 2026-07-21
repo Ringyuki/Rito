@@ -5,7 +5,10 @@ use crate::{
     style::FontFallbackPolicy,
 };
 
-use super::{layout_inputs, text_measurement_font_assembly_for_layout, StyleResolutionMode};
+use super::{
+    layout_inputs, text_measurement_font_assembly_for_layout, ChapterStyleTable,
+    StyleResolutionMode,
+};
 use crate::epub::{
     EpubResult, LoadedEpubDocument, PreparedLoadedDocument, ShapeablePublicationFontFace,
 };
@@ -21,6 +24,7 @@ pub(crate) struct PreparedRuntimeLayoutOptions<'a> {
 
 pub(crate) struct BuiltPreparedRuntimeLayout {
     pub(crate) layout: BuiltLayout,
+    pub(crate) chapter_style_tables: Vec<ChapterStyleTable>,
     pub(crate) shapeable_publication_faces: Vec<ShapeablePublicationFontFace>,
 }
 
@@ -58,6 +62,7 @@ pub(crate) fn build_prepared_loaded_document_runtime_layout<'a>(
         font_fallbacks.as_ref(),
         StyleResolutionMode::Strict,
     )?;
+    let chapter_style_tables = inputs.chapter_style_tables;
     let layout = crate::layout::build_inline_segments_runtime(
         inputs.chapters,
         &prepared.resources,
@@ -67,6 +72,7 @@ pub(crate) fn build_prepared_loaded_document_runtime_layout<'a>(
     );
     Ok(BuiltPreparedRuntimeLayout {
         layout,
+        chapter_style_tables,
         shapeable_publication_faces: assembly.shapeable_publication_faces,
     })
 }

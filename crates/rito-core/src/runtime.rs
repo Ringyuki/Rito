@@ -9,8 +9,10 @@ mod bundle;
 mod bundle_wire;
 mod chapter_engine_session;
 mod chapter_text;
+mod chapter_tree_report;
 mod cleanup;
 mod continuation;
+mod fragment_shadow;
 mod frame;
 mod metadata;
 mod navigation;
@@ -27,6 +29,7 @@ mod revision_fonts;
 mod search;
 mod shape_provenance_diagnostic;
 mod source_locator;
+mod style_table_summary;
 mod text_interaction;
 mod transfer_store;
 mod types;
@@ -49,7 +52,14 @@ pub use bundle_wire::{
     RUNTIME_BUNDLE_VERSION,
 };
 use chapter_text::runtime_chapter_text_index_entries;
+pub use chapter_tree_report::{
+    RuntimeChapterTreeChapter, RuntimeChapterTreeReport, RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
+};
 use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
+pub use fragment_shadow::{
+    RuntimeFragmentShadowReport, RUNTIME_FRAGMENT_SHADOW_PROVIDER_STUB_BLOCK,
+    RUNTIME_FRAGMENT_SHADOW_SCHEMA_VERSION,
+};
 use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
 use navigation::{active_chapter_preview, resolve_href_locator};
@@ -74,6 +84,11 @@ pub use shape_provenance_diagnostic::{
     RuntimeShapeAffectedCodepointFrequency, RuntimeShapeProvenanceDiagnostic,
     RUNTIME_SHAPE_PROVENANCE_DIAGNOSTIC_SCHEMA_VERSION,
 };
+pub use style_table_summary::{
+    RuntimeChapterStyleTableSummary, RuntimeStyleTableSummary,
+    RUNTIME_STYLE_TABLE_SUMMARY_SCHEMA_VERSION,
+};
+
 pub use source_locator::{
     RuntimePageReadingAnchor, RuntimePageReadingAnchorUnavailableReason, RuntimeSourceLocator,
     RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,

@@ -195,6 +195,7 @@ fn work(
 ) -> RuntimeContinuationWork {
     RuntimeContinuationWork {
         batches,
+        chapter_style_tables: Vec::new(),
         available_interactions,
         completed_chapter_idrefs,
         processed_top_level_nodes: 7,

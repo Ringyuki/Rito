@@ -156,6 +156,8 @@ pub(crate) struct PreparedRuntimeLayoutChapter {
     pub(crate) idref: String,
     pub(crate) styled_nodes: Vec<StyledNode>,
     pub(crate) page_paint: Option<serde_json::Value>,
+    pub(crate) layout_style_table: rito_style_contract::LayoutStyleTableV1,
+    pub(crate) inline_style_table: rito_style_contract::InlineStyleTableV1,
 }
 
 pub(crate) fn prepare_runtime_layout_chapter(
@@ -163,24 +165,29 @@ pub(crate) fn prepare_runtime_layout_chapter(
     layout_config: &LayoutConfig,
     font_fallbacks: Option<&FontFallbackPolicy<'_>>,
 ) -> EpubResult<Option<PreparedRuntimeLayoutChapter>> {
-    let input = layout_inputs(
+    let inputs = layout_inputs(
         &prepared.stylesheet_ledger,
         &prepared.chapters,
         &prepared.filtered_footnote_nodes,
         layout_config,
         font_fallbacks,
         StyleResolutionMode::Strict,
-    )?
-    .chapters
-    .into_iter()
-    .next();
-    let Some(input) = input else {
+    )?;
+    let tables = inputs
+        .chapter_style_tables
+        .into_iter()
+        .next()
+        .map(|chapter| (chapter.layout, chapter.inline));
+    let input = inputs.chapters.into_iter().next();
+    let (Some(input), Some((layout_style_table, inline_style_table))) = (input, tables) else {
         return Ok(None);
     };
     Ok(Some(PreparedRuntimeLayoutChapter {
         idref: input.idref.to_owned(),
         styled_nodes: input.pagination_styled_nodes.unwrap_or(input.styled_nodes),
         page_paint: input.page_paint,
+        layout_style_table,
+        inline_style_table,
     }))
 }
 
@@ -305,6 +312,7 @@ fn layout_inputs<'a>(
     ));
 
     let mut capabilities = StyleCapabilityReport::default();
+    let mut chapter_style_tables = Vec::with_capacity(chapters.len());
     let chapters = chapters
         .iter()
         .map(|chapter| -> EpubResult<InlineSegmentChapterInput<'a>> {
@@ -314,6 +322,11 @@ fn layout_inputs<'a>(
             if matches!(style_resolution_mode, StyleResolutionMode::Strict)
                 && is_recovered_empty_chapter(chapter)
             {
+                chapter_style_tables.push(ChapterStyleTable {
+                    idref: chapter.source.idref.clone(),
+                    layout: rito_style_contract::LayoutStyleTableV1::new(0),
+                    inline: rito_style_contract::InlineStyleTableV1::new(0),
+                });
                 return Ok(InlineSegmentChapterInput {
                     idref: &chapter.source.idref,
                     href: &chapter.source.href,
@@ -371,6 +384,11 @@ fn layout_inputs<'a>(
                 }
             }
             capabilities.absorb(resolved.capabilities);
+            chapter_style_tables.push(ChapterStyleTable {
+                idref: chapter.source.idref.clone(),
+                layout: resolved.layout_style_table,
+                inline: resolved.inline_style_table,
+            });
             Ok(InlineSegmentChapterInput {
                 idref: &chapter.source.idref,
                 href: &chapter.source.href,
@@ -382,6 +400,7 @@ fn layout_inputs<'a>(
         .collect::<EpubResult<Vec<_>>>()?;
     Ok(LayoutInputs {
         chapters,
+        chapter_style_tables,
         capabilities,
     })
 }
@@ -390,7 +409,17 @@ fn layout_inputs<'a>(
 /// engine could not represent.
 struct LayoutInputs<'a> {
     chapters: Vec<InlineSegmentChapterInput<'a>>,
+    chapter_style_tables: Vec<ChapterStyleTable>,
     capabilities: StyleCapabilityReport,
+}
+
+/// One chapter's typed style tables, retained alongside the JSON styled
+/// nodes so typed consumers (the fragment pipeline, diagnostics) read
+/// interned styles instead of re-deriving them from string maps.
+pub(crate) struct ChapterStyleTable {
+    pub(crate) idref: String,
+    pub(crate) layout: rito_style_contract::LayoutStyleTableV1,
+    pub(crate) inline: rito_style_contract::InlineStyleTableV1,
 }
 
 /// Formal XHTML parse failures are retained as warning-only empty chapters.

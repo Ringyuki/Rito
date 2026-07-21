@@ -78,80 +78,83 @@ impl RuntimeDocument {
         chapter_limit: Option<usize>,
     ) -> EpubResult<RuntimeRevisionSummary> {
         let revision_id = self.create_revision_id();
-        let (layout_config, (layout, required_font_face_catalog, interactions, layout_key)) = self
-            .run_with_owned_layout_config(layout_config, |document, layout_config| {
-                let partial_chapter_limit =
-                    chapter_limit.filter(|limit| *limit < document.document.chapters.len());
-                let full_document = partial_chapter_limit.is_none();
-                if let Some(limit) = partial_chapter_limit {
-                    document.document.ensure_chapter_range_loaded(0, limit)?;
-                    document
-                        .document
-                        .ensure_chapter_image_dimensions_loaded(0, limit)?;
-                } else {
-                    document.document.ensure_all_chapters_loaded()?;
-                    document.document.ensure_chapter_image_dimensions_loaded(
-                        0,
-                        document.document.chapters.len(),
-                    )?;
-                }
-                document.ensure_layout_font_resources(layout_config)?;
-                let partial_data = if let Some(limit) = partial_chapter_limit {
-                    let (targets, footnotes) = {
-                        let index = document.publication_footnote_index()?;
-                        (index.targets.clone(), index.footnotes.clone())
-                    };
-                    let prepared = document.prepare_cached_document_window(0, limit, &targets)?;
-                    Some((prepared, footnotes, targets))
-                } else {
-                    None
+        let (
+            layout_config,
+            (layout, chapter_style_tables, required_font_face_catalog, interactions, layout_key),
+        ) = self.run_with_owned_layout_config(layout_config, |document, layout_config| {
+            let partial_chapter_limit =
+                chapter_limit.filter(|limit| *limit < document.document.chapters.len());
+            let full_document = partial_chapter_limit.is_none();
+            if let Some(limit) = partial_chapter_limit {
+                document.document.ensure_chapter_range_loaded(0, limit)?;
+                document
+                    .document
+                    .ensure_chapter_image_dimensions_loaded(0, limit)?;
+            } else {
+                document.document.ensure_all_chapters_loaded()?;
+                document
+                    .document
+                    .ensure_chapter_image_dimensions_loaded(0, document.document.chapters.len())?;
+            }
+            document.ensure_layout_font_resources(layout_config)?;
+            let partial_data = if let Some(limit) = partial_chapter_limit {
+                let (targets, footnotes) = {
+                    let index = document.publication_footnote_index()?;
+                    (index.targets.clone(), index.footnotes.clone())
                 };
-                let partial_prepared = partial_data.as_ref().map(|(prepared, _, _)| prepared);
-                if partial_prepared.is_none() {
-                    document.ensure_prepared_all();
+                let prepared = document.prepare_cached_document_window(0, limit, &targets)?;
+                Some((prepared, footnotes, targets))
+            } else {
+                None
+            };
+            let partial_prepared = partial_data.as_ref().map(|(prepared, _, _)| prepared);
+            if partial_prepared.is_none() {
+                document.ensure_prepared_all();
+            }
+            let prepared = partial_prepared
+                .or(document.prepared.as_ref())
+                .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
+            let pinned_faces = document
+                .pinned_font_policy
+                .measurement_faces_for_layout(layout_config);
+            let font_fallbacks = document.pinned_font_policy.family_fallbacks_for_layout(
+                layout_config,
+                &document.document.package.metadata.language,
+            );
+            let built = crate::epub::build_prepared_loaded_document_runtime_layout(
+                &document.document,
+                prepared,
+                layout_config,
+                crate::epub::PreparedRuntimeLayoutOptions {
+                    chapter_start: 0,
+                    chapter_count: prepared.chapters.len(),
+                    line_breaking,
+                    text_measurement_cache: Some(document.text_measurement_cache.clone()),
+                    pinned_faces,
+                    font_fallbacks,
+                },
+            )?;
+            let required_font_face_catalog =
+                document.required_font_face_catalog_from_faces(built.shapeable_publication_faces);
+            let layout_key = layout_key(layout_config, &document.pinned_font_policy)?;
+            let interactions = match &partial_data {
+                Some((_, footnotes, targets)) => {
+                    partial_revision_interactions(prepared, footnotes.clone(), targets)
                 }
-                let prepared = partial_prepared
-                    .or(document.prepared.as_ref())
-                    .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
-                let pinned_faces = document
-                    .pinned_font_policy
-                    .measurement_faces_for_layout(layout_config);
-                let font_fallbacks = document.pinned_font_policy.family_fallbacks_for_layout(
-                    layout_config,
-                    &document.document.package.metadata.language,
-                );
-                let built = crate::epub::build_prepared_loaded_document_runtime_layout(
-                    &document.document,
-                    prepared,
-                    layout_config,
-                    crate::epub::PreparedRuntimeLayoutOptions {
-                        chapter_start: 0,
-                        chapter_count: prepared.chapters.len(),
-                        line_breaking,
-                        text_measurement_cache: Some(document.text_measurement_cache.clone()),
-                        pinned_faces,
-                        font_fallbacks,
-                    },
-                )?;
-                let required_font_face_catalog = document
-                    .required_font_face_catalog_from_faces(built.shapeable_publication_faces);
-                let layout_key = layout_key(layout_config, &document.pinned_font_policy)?;
-                let interactions = match &partial_data {
-                    Some((_, footnotes, targets)) => {
-                        partial_revision_interactions(prepared, footnotes.clone(), targets)
-                    }
-                    None => runtime_revision_interactions(prepared, full_document),
-                };
-                Ok((
-                    built.layout,
-                    required_font_face_catalog,
-                    interactions,
-                    layout_key,
-                ))
-            })?;
+                None => runtime_revision_interactions(prepared, full_document),
+            };
+            Ok((
+                built.layout,
+                chapter_style_table_map(built.chapter_style_tables),
+                required_font_face_catalog,
+                interactions,
+                layout_key,
+            ))
+        })?;
         let revision = RuntimeRevision::completed(
             layout,
             layout_config,
+            chapter_style_tables,
             required_font_face_catalog,
             interactions,
         );
@@ -186,7 +189,14 @@ impl RuntimeDocument {
         let layout_config = into_chapter_window_layout_config(layout_config);
         let (
             layout_config,
-            (revision_id, layout, required_font_face_catalog, interactions, layout_key),
+            (
+                revision_id,
+                layout,
+                chapter_style_tables,
+                required_font_face_catalog,
+                interactions,
+                layout_key,
+            ),
         ) = self.run_with_owned_layout_config(layout_config, |document, layout_config| {
             if chapter_start >= document.document.chapters.len() {
                 return Err(EpubError::new(format!(
@@ -239,6 +249,7 @@ impl RuntimeDocument {
             Ok((
                 revision_id,
                 built.layout,
+                chapter_style_table_map(built.chapter_style_tables),
                 required_font_face_catalog,
                 partial_revision_interactions(&prepared, footnotes, &targets),
                 layout_key,
@@ -247,6 +258,7 @@ impl RuntimeDocument {
         let revision = RuntimeRevision::completed(
             layout,
             layout_config,
+            chapter_style_tables,
             required_font_face_catalog,
             interactions,
         );
@@ -436,4 +448,21 @@ fn runtime_revision_interactions_with_footnotes(
             ))
         },
     }
+}
+
+fn chapter_style_table_map(
+    tables: Vec<crate::epub::ChapterStyleTable>,
+) -> std::collections::BTreeMap<String, super::frame::RuntimeChapterStyleTables> {
+    tables
+        .into_iter()
+        .map(|chapter| {
+            (
+                chapter.idref,
+                super::frame::RuntimeChapterStyleTables {
+                    layout: chapter.layout,
+                    inline: chapter.inline,
+                },
+            )
+        })
+        .collect()
 }

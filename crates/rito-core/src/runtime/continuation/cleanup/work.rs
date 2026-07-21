@@ -99,6 +99,9 @@ impl PendingRuntimeContinuationWorkCleanup {
         let owner = self.owner.take().expect("cleanup owns continuation work");
         let RuntimeContinuationWork {
             batches,
+            // Style tables are small interned records; drop them in place
+            // instead of scheduling incremental cleanup.
+            chapter_style_tables: _,
             available_interactions,
             completed_chapter_idrefs,
             processed_top_level_nodes,

@@ -192,6 +192,7 @@ fn current(
         has_published_pages: false,
         chapter_complete: false,
         total_block_count: 0,
+        pending_style_table: None,
     }
 }
 

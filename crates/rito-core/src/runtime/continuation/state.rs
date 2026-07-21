@@ -244,6 +244,9 @@ pub(in crate::runtime) struct RuntimeChapterContinuation {
     pub(super) has_published_pages: bool,
     pub(super) chapter_complete: bool,
     pub(super) total_block_count: usize,
+    /// This chapter's typed style tables, held until the chapter first
+    /// contributes to published work, then moved into the revision.
+    pub(super) pending_style_table: Option<crate::runtime::frame::RuntimeChapterStyleTables>,
 }
 
 impl RuntimeChapterContinuation {
@@ -253,6 +256,7 @@ impl RuntimeChapterContinuation {
         completed_chapter_idrefs: BTreeSet<String>,
         unpublished_pages: Vec<LayoutRuntimePage>,
         has_published_pages: bool,
+        pending_style_table: Option<crate::runtime::frame::RuntimeChapterStyleTables>,
     ) -> Self {
         Self {
             idref,
@@ -262,6 +266,7 @@ impl RuntimeChapterContinuation {
             has_published_pages,
             chapter_complete: false,
             total_block_count: 0,
+            pending_style_table,
         }
     }
 }
@@ -269,6 +274,11 @@ impl RuntimeChapterContinuation {
 #[derive(Debug, Default)]
 pub(in crate::runtime) struct RuntimeContinuationWork {
     pub(super) batches: Vec<RuntimeChapterPageBatch>,
+    /// Typed style tables for chapters whose work is published by this
+    /// advance, keyed by idref. Applied to the revision atomically with
+    /// the page batches; retired work drops them with the batches.
+    pub(super) chapter_style_tables:
+        Vec<(String, crate::runtime::frame::RuntimeChapterStyleTables)>,
     pub(super) available_interactions: Vec<RuntimeRevisionInteractions>,
     pub(super) completed_chapter_idrefs: BTreeSet<String>,
     pub(super) processed_top_level_nodes: usize,

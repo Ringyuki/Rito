@@ -1,14 +1,17 @@
 mod access_tests;
+mod chapter_tree_report_tests;
 mod cleanup_queue_tests;
 mod command_hash;
 mod continuation_tests;
 pub(in crate::runtime) mod fixture;
+mod fragment_shadow_tests;
 mod pinned_font_policy_fixtures;
 mod pinned_font_policy_tests;
 mod pinned_font_policy_validation_tests;
 mod pinned_font_wiring_tests;
 mod reading_anchor_tests;
 mod reading_anchor_view_tests;
+mod style_table_summary_tests;
 mod text_granularity_chapter_tests;
 mod text_granularity_tests;
 mod text_interaction_tests;

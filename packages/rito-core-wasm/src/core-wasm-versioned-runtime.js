@@ -391,6 +391,22 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
         requireShapeProvenanceDiagnostic,
       );
     },
+    getStyleTableSummaryAtRevision(handle) {
+      return versionedNoArg(
+        this,
+        'getStyleTableSummaryAtRevision',
+        handle,
+        requireSchemaOneDiagnostic,
+      );
+    },
+    getChapterTreeReportAtRevision(handle) {
+      return versionedNoArg(
+        this,
+        'getChapterTreeReportAtRevision',
+        handle,
+        requireSchemaOneDiagnostic,
+      );
+    },
     getRevisionBundleAtRevision(handle, includeTocTargets = false) {
       return versionedJson(
         this,
@@ -529,4 +545,22 @@ function nextRevisionHandle(revision, operation) {
     throw new Error(`${operation} cannot advance revisionVersion beyond u32`);
   }
   return { ...revision, revisionVersion: revision.revisionVersion + 1 };
+}
+
+/**
+ * Minimal envelope check shared by schema-v1 engine diagnostics whose full
+ * shapes are owned by the core: an object with schemaVersion 1 and a
+ * boolean isComplete.
+ */
+function requireSchemaOneDiagnostic(value, _revision, operation) {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error(`${operation} returned a non-object diagnostic`);
+  }
+  if (value.schemaVersion !== 1) {
+    throw new Error(`${operation} returned an unsupported diagnostic schemaVersion`);
+  }
+  if (typeof value.isComplete !== 'boolean') {
+    throw new Error(`${operation} returned an invalid diagnostic isComplete`);
+  }
+  return value;
 }

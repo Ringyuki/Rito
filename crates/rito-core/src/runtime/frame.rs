@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use rito_style_contract::{InlineStyleTableV1, LayoutStyleTableV1};
 use serde_json::{Number, Value};
 
 use crate::{
@@ -35,6 +36,13 @@ pub(super) enum RuntimeRevisionCoordinateSpace {
     },
 }
 
+/// The typed style tables one resolved chapter retains.
+#[derive(Debug)]
+pub(super) struct RuntimeChapterStyleTables {
+    pub(super) layout: LayoutStyleTableV1,
+    pub(super) inline: InlineStyleTableV1,
+}
+
 #[derive(Debug)]
 pub(super) struct RuntimeRevision {
     pub(super) coordinate_space: RuntimeRevisionCoordinateSpace,
@@ -44,6 +52,11 @@ pub(super) struct RuntimeRevision {
     pub(super) final_extent: Option<RuntimeRevisionExtent>,
     pub(super) layout: BuiltLayout,
     pub(super) layout_config: LayoutConfig,
+    /// Typed style tables per resolved chapter idref. Populated
+    /// whole-revision on eager builds and per chapter as continuations
+    /// publish; the fragment pipeline and style diagnostics read these
+    /// instead of any JSON style representation.
+    pub(super) chapter_style_tables: BTreeMap<String, RuntimeChapterStyleTables>,
     pub(super) required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
     pub(super) interactions: RuntimeRevisionInteractions,
     pub(super) frame_cache: BTreeMap<usize, RuntimeCachedFrame>,
@@ -116,6 +129,7 @@ impl RuntimeRevision {
     pub(super) fn completed(
         layout: BuiltLayout,
         layout_config: LayoutConfig,
+        chapter_style_tables: BTreeMap<String, RuntimeChapterStyleTables>,
         required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
         interactions: RuntimeRevisionInteractions,
     ) -> Self {
@@ -128,6 +142,7 @@ impl RuntimeRevision {
             final_extent: Some(extent),
             layout,
             layout_config,
+            chapter_style_tables,
             required_font_face_catalog,
             interactions,
             frame_cache: BTreeMap::new(),
@@ -152,6 +167,7 @@ impl RuntimeRevision {
             final_extent: None,
             layout,
             layout_config,
+            chapter_style_tables: BTreeMap::new(),
             required_font_face_catalog,
             interactions,
             frame_cache: BTreeMap::new(),
