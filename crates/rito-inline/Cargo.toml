@@ -1,0 +1,11 @@
+[package]
+name = "rito-inline"
+description = "Parley-backed inline formatting context implementing the rito-fragment provider contract."
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+parley = "0.11"
+rito-fragment = { path = "../rito-fragment" }
+rito-style-contract = { path = "../rito-style-contract" }
