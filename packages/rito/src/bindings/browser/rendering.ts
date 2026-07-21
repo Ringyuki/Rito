@@ -1,4 +1,5 @@
 import { renderFrameCommandsToCanvas, type CanvasRenderingTarget } from './frame-command-renderer';
+import { touchBrowserReaderDecodedImages } from './decoded-image-cache';
 import { createCanvasImageResolver } from './image-href-resolver';
 import { throwIfBrowserReaderImageResourceFailed } from './resources';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
@@ -56,6 +57,7 @@ function prepareSpreadRender(
   }
   const resolveImage = createCanvasImageResolver(state.images);
   if (!requiredFrameImagesAreReady(state, index, frame, resolveImage)) return undefined;
+  touchBrowserReaderDecodedImages(state.images, frame.resourceRefs.images);
   return { frame, resolveImage };
 }
 

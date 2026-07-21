@@ -1,3 +1,4 @@
+import { evictColdBrowserReaderDecodedImages } from './decoded-image-cache';
 import type { BrowserReaderRevisionHandle, BrowserReaderState } from './reader/types';
 import type {
   BrowserReaderResourceBytes,
@@ -247,10 +248,23 @@ async function loadImageBytes(
     const previous = state.images.get(href);
     previous?.close();
     state.images.set(href, image);
+    evictColdBrowserReaderImages(state);
     return { status: 'ready' };
   } catch {
     return { status: 'failed', reason: 'decode-failed' };
   }
+}
+
+/**
+ * Keeps decoded-bitmap residency under its byte budget. Pending loads and the
+ * active spread's own frame references stay resident so the visible canvas
+ * and in-flight decodes are never invalidated by their own eviction.
+ */
+function evictColdBrowserReaderImages(state: BrowserReaderState): void {
+  const protectedHrefs = new Set(state.pendingImageLoads.keys());
+  const activeFrame = state.frames.get(state.activeSpreadIndex);
+  for (const href of activeFrame?.resourceRefs.images ?? []) protectedHrefs.add(href);
+  evictColdBrowserReaderDecodedImages(state.images, protectedHrefs);
 }
 
 function recordImageFailure(
