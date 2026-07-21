@@ -171,6 +171,11 @@ pub enum ListMarkerStyleV1 {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct LayoutFormattingStyleV1 {
     pub display: LayoutDisplayV1,
+    /// Physical box margins. Percentages resolve against the containing
+    /// block's inline size (including the vertical sides, per CSS).
+    pub margin: PhysicalSides<LengthPercentageOrAuto>,
+    /// Physical box padding.
+    pub padding: PhysicalSides<NonNegativeLengthPercentage>,
     pub justify_content: JustifyContentV1,
     pub align_items: AlignItemsV1,
     pub break_before: PageBreakV1,
@@ -280,6 +285,7 @@ impl fmt::Display for LayoutStyleTableError {
 impl std::error::Error for LayoutStyleTableError {}
 
 /// Deterministically interned layout styles plus a dense source-node mapping.
+#[derive(Clone)]
 pub struct LayoutStyleTableV1 {
     styles: Vec<LayoutFormattingStyleV1>,
     interned: HashMap<LayoutFormattingStyleV1, LayoutStyleId>,
@@ -307,6 +313,23 @@ impl LayoutStyleTableV1 {
             interned: HashMap::new(),
             node_styles: vec![None; node_count],
         }
+    }
+
+    /// Interns a style without assigning it to a node slot, for synthesized
+    /// boxes (anonymous block boxes) that have no source element.
+    pub fn intern(
+        &mut self,
+        style: LayoutFormattingStyleV1,
+    ) -> Result<LayoutStyleId, LayoutStyleTableError> {
+        if let Some(style_id) = self.interned.get(&style) {
+            return Ok(*style_id);
+        }
+        let raw = u32::try_from(self.styles.len())
+            .map_err(|_| LayoutStyleTableError::StyleCapacityExceeded)?;
+        let style_id = LayoutStyleId(raw);
+        self.styles.push(style);
+        self.interned.insert(style, style_id);
+        Ok(style_id)
     }
 
     pub fn intern_for_node(

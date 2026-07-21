@@ -177,6 +177,14 @@ impl InlineStyleProjectionV1 {
         &self.table
     }
 
+    /// Consumes the projection, keeping only the interned table.
+    ///
+    /// Dispositions exist to explain rejection; a chapter that materialized
+    /// successfully has none, so retention callers keep just the table.
+    pub fn into_table(self) -> InlineStyleTableV1 {
+        self.table
+    }
+
     /// Returns the immutable source-element disposition ledger.
     pub fn dispositions(&self) -> &[InlineStyleDispositionV1] {
         &self.dispositions

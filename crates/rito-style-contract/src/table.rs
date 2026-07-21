@@ -107,6 +107,7 @@ impl std::error::Error for StyleTableError {}
 ///
 /// New IDs are assigned in first-seen input order. Hash-map iteration order is
 /// never exposed, so random hash seeding cannot affect IDs or [`Self::styles`].
+#[derive(Clone)]
 pub struct InlineStyleTableV1 {
     styles: Vec<InlineFormattingStyleV1>,
     interned: HashMap<u64, Vec<StyleId>>,

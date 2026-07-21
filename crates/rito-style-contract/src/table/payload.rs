@@ -5,7 +5,7 @@ use crate::{
     TransformListV1,
 };
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct PayloadInterners {
     font_families: PayloadInterner<FontFamilies>,
     languages: PayloadInterner<LanguageTag>,
@@ -48,6 +48,17 @@ impl PayloadInterners {
 struct PayloadInterner<T> {
     values: HashSet<T>,
     canonical_addresses: HashSet<usize>,
+}
+
+impl<T: Clone> Clone for PayloadInterner<T> {
+    fn clone(&self) -> Self {
+        // Canonical addresses point at the original table's allocations;
+        // the clone re-canonicalizes as it interns, starting empty.
+        Self {
+            values: self.values.clone(),
+            canonical_addresses: HashSet::new(),
+        }
+    }
 }
 
 impl<T> Default for PayloadInterner<T> {

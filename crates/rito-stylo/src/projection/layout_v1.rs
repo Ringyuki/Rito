@@ -49,6 +49,8 @@ pub enum LayoutStyleFieldV1 {
     Overflow,
     Position,
     Inset,
+    Margin,
+    Padding,
     ListStyleType,
 }
 
@@ -104,6 +106,14 @@ impl fmt::Debug for LayoutStyleProjectionV1 {
 impl LayoutStyleProjectionV1 {
     pub fn table(&self) -> &LayoutStyleTableV1 {
         &self.table
+    }
+
+    /// Consumes the projection, keeping only the interned table.
+    ///
+    /// Dispositions exist to explain rejection; a chapter that materialized
+    /// successfully has none, so retention callers keep just the table.
+    pub fn into_table(self) -> LayoutStyleTableV1 {
+        self.table
     }
 
     pub fn dispositions(&self) -> &[LayoutStyleDispositionV1] {
@@ -190,6 +200,8 @@ fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingSty
         list_style_type: list_style_type(styles.clone_list_style_type())?,
         position: position(styles.get_box().clone_position())?,
         inset: inset(styles)?,
+        margin: margin(styles)?,
+        padding: padding(styles)?,
     })
 }
 
@@ -379,6 +391,49 @@ fn inset(styles: &ComputedValues) -> ProjectionResult<PhysicalSides<LengthPercen
         right: inset_side(&position.right)?,
         bottom: inset_side(&position.bottom)?,
         left: inset_side(&position.left)?,
+    })
+}
+
+fn margin(styles: &ComputedValues) -> ProjectionResult<PhysicalSides<LengthPercentageOrAuto>> {
+    let margin = styles.get_margin();
+    Ok(PhysicalSides {
+        top: margin_side(&margin.margin_top)?,
+        right: margin_side(&margin.margin_right)?,
+        bottom: margin_side(&margin.margin_bottom)?,
+        left: margin_side(&margin.margin_left)?,
+    })
+}
+
+fn margin_side(
+    value: &style::values::computed::Margin,
+) -> ProjectionResult<LengthPercentageOrAuto> {
+    use style::values::generics::length::GenericMargin as Margin;
+
+    match value {
+        Margin::Auto => Ok(LengthPercentageOrAuto::Auto),
+        Margin::LengthPercentage(value) => Ok(LengthPercentageOrAuto::Value(length_percentage(
+            value,
+            LayoutStyleFieldV1::Margin,
+        )?)),
+        // Anchor positioning has no consumer here.
+        Margin::AnchorSizeFunction(_) | Margin::AnchorContainingCalcFunction(_) => {
+            Err(unsupported(LayoutStyleFieldV1::Margin))
+        }
+    }
+}
+
+fn padding(
+    styles: &ComputedValues,
+) -> ProjectionResult<PhysicalSides<NonNegativeLengthPercentage>> {
+    let padding = styles.get_padding();
+    Ok(PhysicalSides {
+        top: non_negative_length_percentage(&padding.padding_top, LayoutStyleFieldV1::Padding)?,
+        right: non_negative_length_percentage(&padding.padding_right, LayoutStyleFieldV1::Padding)?,
+        bottom: non_negative_length_percentage(
+            &padding.padding_bottom,
+            LayoutStyleFieldV1::Padding,
+        )?,
+        left: non_negative_length_percentage(&padding.padding_left, LayoutStyleFieldV1::Padding)?,
     })
 }
 
