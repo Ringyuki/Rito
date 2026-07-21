@@ -1,6 +1,7 @@
 import type { ReaderLocator, ReaderOptions } from '../../../../reader';
 import {
   createBrowserReaderBoundedSessionOwner,
+  reclaimBrowserReaderStalledSession,
   startBrowserReaderBoundedCandidate,
 } from '../../bounded-session-runtime';
 import { openBrowserReaderWorker } from '../../pinned-fonts';
@@ -241,23 +242,41 @@ async function createBoundedCandidate(
   }
 }
 
+/// A suspended gate is reopened by whichever operation suspended it, so this
+/// wait depends on progress it cannot make itself. Bound it: a gate that never
+/// reopens is a defect somewhere upstream, and surfacing it as an error keeps
+/// a reader interaction from stalling with no explanation.
+const EXACT_READ_WAIT_LIMIT_MS = 5_000;
+
 async function waitForExactReads(
   state: State,
   request: Request,
   signal: AbortSignal,
 ): Promise<void> {
   const owner = state.boundedSessions.current;
+  const deadline = nowMilliseconds() + EXACT_READ_WAIT_LIMIT_MS;
   while (
     owner?.readsSuspended &&
     state.boundedSessions.current === owner &&
     !isStaleReflow(state, request) &&
     !signal.aborted
   ) {
+    if (nowMilliseconds() >= deadline) {
+      // The session that holds the gate is not going to reopen it. Retire it
+      // so this reflow can rebuild from a fresh session instead of waiting
+      // out an interaction the reader can never finish.
+      await reclaimBrowserReaderStalledSession(state, owner);
+      break;
+    }
     await yieldBrowserHostTask();
   }
-  if (!isStaleReflow(state, request) && !signal.aborted && !state.boundedSessions.current) {
-    throw new Error('Browser reader lost its current bounded session during reflow');
-  }
+  // A reflow builds its own candidate session, so a missing current session is
+  // not a failure here: it just means there are no in-flight exact reads to
+  // drain. The anchor capture falls back to the last active spread.
+}
+
+function nowMilliseconds(): number {
+  return typeof performance === 'object' ? performance.now() : Date.now();
 }
 
 function requestIsLive(state: State, request: Request, signal: AbortSignal): boolean {

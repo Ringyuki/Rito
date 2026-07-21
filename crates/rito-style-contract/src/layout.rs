@@ -1,6 +1,9 @@
 use std::{collections::HashMap, fmt};
 
-use crate::{NonNegativeCssPx, NonNegativeLengthPercentage, Percentage};
+use crate::{
+    LengthPercentageOrAuto, NonNegativeCssPx, NonNegativeLengthPercentage, Percentage,
+    PhysicalSides,
+};
 
 /// Outer display role retained from the computed CSS display pair.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -181,6 +184,22 @@ pub struct LayoutFormattingStyleV1 {
     pub float: FloatV1,
     pub overflow: OverflowV1,
     pub list_style_type: ListMarkerStyleV1,
+    /// Positioning scheme. Only the schemes Rito's flow consumer implements
+    /// are representable; anything else fails closed.
+    pub position: PositionV1,
+    /// Physical box offsets, meaningful only for a positioned box.
+    pub inset: PhysicalSides<LengthPercentageOrAuto>,
+}
+
+/// Positioning schemes implemented by Rito's current flow consumer.
+///
+/// `static` and `relative` participate in flow; `absolute` is removed from it.
+/// `fixed` and `sticky` have no paginated meaning here and fail closed.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum PositionV1 {
+    Static,
+    Relative,
+    Absolute,
 }
 
 /// Table-local zero-based identifier for one interned layout style.

@@ -5,8 +5,9 @@ use rito_style_contract::{
     InlineFormattingStyleV1, JustifyContentV1, LayoutDisplayInsideV1, LayoutDisplayOutsideV1,
     LayoutFormattingStyleV1, LengthPercentage, LengthPercentageOrAuto, LineBreak, LineHeight,
     ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, OverflowV1, OverflowWrap,
-    PageBreakV1, PhysicalSides, PreferredSizeV1, TextAlign, TextDecorationStyle, TextJustify,
-    TextTransformCase, TextWrapMode, UnicodeBidi, WhiteSpaceCollapse, WordBreak, WritingMode,
+    PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1, TextAlign, TextDecorationStyle,
+    TextJustify, TextTransformCase, TextWrapMode, UnicodeBidi, WhiteSpaceCollapse, WordBreak,
+    WritingMode,
 };
 use serde_json::{json, Map, Value};
 
@@ -35,6 +36,7 @@ pub(crate) enum MaterializeField {
     Width,
     Height,
     MaxWidth,
+    Inset,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -556,6 +558,8 @@ fn materialize_layout(
     materialize_max_width(output, style.max_width)?;
     materialize_min_height(output, style.min_height);
     materialize_max_height(output, style.max_height);
+    insert_string(output, "position", position(style.position));
+    materialize_inset(output, style.inset)?;
     insert_string(output, "clear", clear(style.clear));
     insert_string(output, "float", float(style.float));
     // The legacy resolver materialized an `objectFit` default on every
@@ -569,6 +573,37 @@ fn materialize_layout(
         "listStyleType",
         list_style_type(style.list_style_type),
     );
+    Ok(())
+}
+
+fn position(value: PositionV1) -> &'static str {
+    match value {
+        PositionV1::Static => "static",
+        PositionV1::Relative => "relative",
+        PositionV1::Absolute => "absolute",
+    }
+}
+
+/// The flow consumer reads physical offsets as plain pixels and treats an
+/// omitted side as zero, matching the retired resolver's default map.
+fn materialize_inset(
+    output: &mut Map<String, Value>,
+    inset: PhysicalSides<LengthPercentageOrAuto>,
+) -> Result<()> {
+    for (key, value) in [
+        ("top", inset.top),
+        ("right", inset.right),
+        ("bottom", inset.bottom),
+        ("left", inset.left),
+    ] {
+        let pixels = match value {
+            LengthPercentageOrAuto::Auto => 0.0,
+            LengthPercentageOrAuto::Value(value) => {
+                absolute_length(value, MaterializeField::Inset)?
+            }
+        };
+        insert_number(output, key, pixels);
+    }
     Ok(())
 }
 

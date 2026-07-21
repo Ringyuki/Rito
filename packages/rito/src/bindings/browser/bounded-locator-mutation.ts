@@ -230,7 +230,9 @@ async function targetLatestLocator(
       continue;
     }
     coordinator.phase = 'settling';
-    if (outcome.kind === 'error') throw outcome.error;
+    if (outcome.kind === 'error') {
+      throw outcome.error;
+    }
     return outcome.snapshot;
   }
 }

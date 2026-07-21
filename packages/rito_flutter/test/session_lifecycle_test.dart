@@ -964,7 +964,7 @@ final class _MockGateway implements RitoReaderGateway {
       return const RitoResourceDecoder().decode(
         resourceFixture(
           kind: 1,
-          href: 'OEBPS/fonts/serif.woff2',
+          href: href,
           mediaType: 'font/woff2',
           bytes: List<int>.filled(8192, 0x5a),
         ),

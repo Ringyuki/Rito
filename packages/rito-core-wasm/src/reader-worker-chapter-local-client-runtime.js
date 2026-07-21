@@ -4,6 +4,7 @@ import {
   requireCreatedChapterLocalAdvance,
 } from './chapter-local-advance-validation-runtime.js';
 import { requireReaderChapterLocalFrame } from './chapter-local-frame-validation-runtime.js';
+import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import {
   nextChapterLocalOwner,
   requireBoundedChapterLocalRequest,
@@ -98,6 +99,11 @@ async function mutationResult(
     const frame = requireMutationFrame(result.frame, advance, boundOwner, kind);
     return { advance, ...(frame === undefined ? {} : { frame }) };
   } catch (error) {
+    // A typed worker error proves the worker answered in protocol: its payload
+    // runtime already rolled back (or fail-closed) the mutation's own owner.
+    // Disposing the shared session here would let an optional chapter-local
+    // failure kill the reader that the main navigation still needs.
+    if (error instanceof RitoCoreWasmError) throw error;
     const rollbackOwner = fallbackRollbackOwner ?? boundOwner;
     if (
       rollbackOwner === undefined ||

@@ -52,7 +52,7 @@ pub use layout::{
     AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
     LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleId,
     LayoutStyleTableError, LayoutStyleTableV1, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1,
-    MinimumHeightV1, OverflowV1, PageBreakV1, PreferredSizeV1,
+    MinimumHeightV1, OverflowV1, PageBreakV1, PositionV1, PreferredSizeV1,
 };
 pub use length::{LengthPercentage, LengthPercentageOrAuto, NonNegativeLengthPercentage};
 pub use paint::{

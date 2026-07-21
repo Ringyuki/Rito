@@ -420,7 +420,10 @@ impl ReaderSessionV1 {
         Ok(ReaderResourceV1 {
             artifact_id,
             kind,
-            href: resource.href,
+            // Resource resolution may canonicalize the href away from the
+            // artifact's declared reference; adapters validate the response
+            // against the reference they asked for, so echo that lookup key.
+            href: href.to_owned(),
             media_type: resource.media_type,
             bytes: resource.bytes,
             width: resource.width,

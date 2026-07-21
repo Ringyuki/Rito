@@ -219,6 +219,65 @@ fn zip_parser_ignores_a_shadow_archive_inside_the_selected_comment() {
     assert_eq!(archive.entry_size("real.txt").expect("entry exists"), 4);
 }
 
+#[test]
+fn accepts_a_trailing_upload_boundary_after_the_footer_comment() {
+    let mut bytes = fixture_zip(&[("real.txt", b"real")]);
+    bytes.extend_from_slice(b"\r\n------WebKitFormBoundaryMIR0kn1Fdy9b4SAa--\r\n");
+
+    let mut archive = EpubArchive::new(&bytes).expect("trailing transport bytes are tolerated");
+    assert_eq!(archive.read_bytes("real.txt").expect("entry reads"), b"real");
+}
+
+#[test]
+fn accepts_a_multipart_wrapped_archive_with_prefix_and_trailer() {
+    let zip = fixture_zip(&[("real.txt", b"real")]);
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(
+        b"------WebKitFormBoundaryMIR0kn1Fdy9b4SAa\r\nContent-Disposition: form-data; name=\"file\"; filename=\"book.epub\"\r\nContent-Type: application/epub+zip\r\n\r\n",
+    );
+    bytes.extend_from_slice(&zip);
+    bytes.extend_from_slice(b"\r\n------WebKitFormBoundaryMIR0kn1Fdy9b4SAa--\r\n");
+
+    let mut archive = EpubArchive::new(&bytes).expect("multipart-wrapped archive opens");
+    assert_eq!(archive.read_bytes("real.txt").expect("entry reads"), b"real");
+}
+
+#[test]
+fn rejects_ambiguous_footers_inside_trailing_garbage() {
+    let mut bytes = fixture_zip(&[("real.txt", b"real")]);
+    // A second parseable in-bounds footer signature in the trailing bytes makes
+    // footer selection non-deterministic across parsers; that fails closed.
+    let mut fake_footer = [0_u8; 22];
+    fake_footer[0..4].copy_from_slice(&0x0605_4b50_u32.to_le_bytes());
+    bytes.extend_from_slice(&fake_footer);
+    bytes.extend_from_slice(b"trailing-garbage");
+
+    let error = match EpubArchive::new(&bytes) {
+        Ok(_) => panic!("ambiguous trailing footers must not be resolved by guessing"),
+        Err(error) => error,
+    };
+    assert!(error.message().contains("Invalid EPUB ZIP"));
+}
+
+#[test]
+fn rejects_a_truncated_footer_comment() {
+    let mut bytes = fixture_zip(&[("real.txt", b"real")]);
+    let eocd = bytes
+        .windows(4)
+        .rposition(|window| window == 0x0605_4b50_u32.to_le_bytes())
+        .expect("fixture footer exists");
+    // Declare a comment longer than the remaining file: a truncated download.
+    bytes[eocd + 20..eocd + 22].copy_from_slice(&64_u16.to_le_bytes());
+
+    let error = match EpubArchive::new(&bytes) {
+        Ok(_) => panic!("a truncated footer comment must stay invalid"),
+        Err(error) => error,
+    };
+    assert!(error
+        .message()
+        .contains("Invalid EPUB ZIP end of central directory"));
+}
+
 fn replace_entry_path(bytes: &mut [u8], from: &[u8], to: &[u8]) {
     assert_eq!(from.len(), to.len(), "in-place patch must keep offsets");
     let mut replaced = 0_usize;

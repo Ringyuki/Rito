@@ -43,7 +43,7 @@ void main() {
   test(
     'configured resources finish before initial foreground adoption',
     () async {
-      final gateway = _FontGateway(includeFontResource: false);
+      final gateway = _FontGateway();
       final started = Completer<void>();
       final complete = Completer<void>();
       final open = RitoReaderSession.open(

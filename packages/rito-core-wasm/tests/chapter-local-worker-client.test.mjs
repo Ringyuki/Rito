@@ -147,37 +147,53 @@ test('unconfirmed exact N+1 continuation rollback disposes the Worker session', 
   assert.equal(worker.terminateCount, 1);
 });
 
-test('create transport rejection disposes the Worker when no exact owner can be recovered', async () => {
+test('typed create failure propagates without disposing the shared Worker session', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
   const creating = client.createBoundedChapterLocalRevision(
     createRequest({ href: 'chapter.xhtml' }),
   );
+  const messageCount = worker.messages.length;
 
-  worker.rejectLast('create transport failed');
+  worker.rejectLast('create failed in the worker');
 
-  await assert.rejects(creating, /create transport failed/);
-  await client.whenDisposed();
-  assert.equal(worker.terminateCount, 1);
+  await assert.rejects(creating, /create failed in the worker/);
+  assert.equal(worker.terminateCount, 0);
+  assert.equal(worker.messages.length, messageCount);
+  client.dispose();
 });
 
-test('continue transport rejection rolls back the predicted exact N+1 owner', async () => {
+test('typed continue failure does not double-release the worker-contained owner', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
   const continuation = pendingAdvance(owner(0), { href: 'chapter.xhtml' }).continuation;
   const continuing = client.continueChapterLocalRevision({ continuation, budget: budget() });
   const messageCount = worker.messages.length;
 
-  worker.rejectLast('continue transport failed');
+  worker.rejectLast('continue failed in the worker');
 
-  await waitForMessageCount(worker, messageCount + 1);
-  const rollback = worker.messages.at(-1);
-  assert.equal(rollback.kind, 'releaseChapterLocalRevision');
-  assert.deepEqual(rollback.owner, owner(1));
-  worker.respond(rollback.id, releasePayload(owner(1), true));
-  await assert.rejects(continuing, /continue transport failed/);
+  await assert.rejects(continuing, /continue failed in the worker/);
+  assert.equal(
+    worker.messages.filter(({ kind }) => kind === 'releaseChapterLocalRevision').length,
+    0,
+  );
+  assert.equal(worker.messages.length, messageCount);
   assert.equal(worker.terminateCount, 0);
   client.dispose();
+});
+
+test('channel-level create failure still disposes the Worker session', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+  const creating = client.createBoundedChapterLocalRevision(
+    createRequest({ href: 'chapter.xhtml' }),
+  );
+
+  worker.emit('error', { message: 'reader worker crashed' });
+
+  await assert.rejects(creating, /reader worker crashed/);
+  await client.whenDisposed();
+  assert.ok(worker.terminateCount >= 1);
 });
 
 test('release transport rejection disposes the Worker to contain unknown ownership', async () => {

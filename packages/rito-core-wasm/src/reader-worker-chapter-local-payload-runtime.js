@@ -47,7 +47,20 @@ export function chapterLocalResponseTransfers(payload) {
 }
 
 function mutationResponse(document, kind, advance) {
-  const owner = requireChapterLocalOwner(advance.revision, `${kind} result`);
+  let owner;
+  try {
+    owner = requireChapterLocalOwner(advance.revision, `${kind} result`);
+  } catch (error) {
+    // A committed revision without a valid owner identity can never be
+    // released; free the document so its ownership cannot leak silently.
+    // Clients treat every typed mutation error as already contained here.
+    try {
+      document.free();
+    } catch {
+      // Preserve the identity failure after best-effort containment.
+    }
+    throw error;
+  }
   try {
     const frame = resolvedFrame(document, advance, owner, kind);
     return { kind, result: { advance, ...(frame === undefined ? {} : { frame }) } };

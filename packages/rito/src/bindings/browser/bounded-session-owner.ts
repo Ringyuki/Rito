@@ -7,6 +7,7 @@ import {
   withReaderSessionDisposeTimeout,
 } from './reader-session-host';
 import { disposeAndWaitBrowserReaderWorkerClient } from './reader/worker-client';
+import { resumeBrowserReaderSuspendedFrameMisses } from './suspended-frame-misses';
 import type { BrowserReaderState } from './reader/types';
 import {
   createBrowserReaderContinuationBatchRegistration,
@@ -111,6 +112,13 @@ export async function retireBrowserReaderBoundedOwner(
   state: BrowserReaderState,
   owner: BrowserReaderBoundedSessionOwner,
 ): Promise<void> {
+  // A suspension is released by whichever operation took it, but a retired
+  // session runs no such operation. Clear it here so a reader that waits on
+  // this owner's exact reads never waits on a session that no longer exists.
+  if (owner.readsSuspended) {
+    owner.readsSuspended = false;
+    resumeBrowserReaderSuspendedFrameMisses(state, owner);
+  }
   retireBrowserReaderContinuationBatchOwner(owner);
   await scheduleBrowserReaderBoundedOwnerRetirement(state, owner, async () => {
     await disposeController(state, owner);

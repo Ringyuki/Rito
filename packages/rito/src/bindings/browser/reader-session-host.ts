@@ -81,7 +81,15 @@ export function restoreBrowserReaderExactReads(
 ): boolean {
   const revision = state.revisionBundle.revision;
   const accepted = gate.owner.acceptedRevision;
-  const snapshot = gate.owner.controller.currentSnapshot();
+  // A dead session cannot be restored; reading its snapshot may throw. Treat
+  // that as "cannot restore" so the caller runs its retirement path instead
+  // of letting the exception skip cleanup and strand the suspension.
+  let snapshot;
+  try {
+    snapshot = gate.owner.controller.currentSnapshot();
+  } catch {
+    return false;
+  }
   if (
     state.disposed ||
     state.revisionHandle ||

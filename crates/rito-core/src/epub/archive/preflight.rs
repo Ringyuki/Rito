@@ -129,13 +129,31 @@ fn find_end_of_central_directory(bytes: &[u8]) -> Option<usize> {
     let first = bytes
         .len()
         .saturating_sub(END_OF_CENTRAL_DIRECTORY_BYTES + MAX_ZIP_COMMENT_BYTES);
-    (first..=last).rev().find(|&offset| {
+    if let Some(exact) = (first..=last).rev().find(|&offset| {
         read_u32(bytes, offset) == END_OF_CENTRAL_DIRECTORY_SIGNATURE
-            && offset
-                .checked_add(END_OF_CENTRAL_DIRECTORY_BYTES)
-                .and_then(|end| end.checked_add(usize::from(read_u16(bytes, offset + 20))))
-                == Some(bytes.len())
-    })
+            && end_of_central_directory_end(bytes, offset) == Some(bytes.len())
+    }) {
+        return Some(exact);
+    }
+    // Real books saved from HTTP uploads keep a transport trailer (for example
+    // a multipart form boundary) after the footer comment. Accept exactly one
+    // in-bounds footer; a second parseable candidate cannot deterministically
+    // own the archive, so that stays fail-closed.
+    let mut in_bounds = (first..=last).rev().filter(|&offset| {
+        read_u32(bytes, offset) == END_OF_CENTRAL_DIRECTORY_SIGNATURE
+            && end_of_central_directory_end(bytes, offset).is_some_and(|end| end <= bytes.len())
+    });
+    let selected = in_bounds.next()?;
+    if in_bounds.next().is_some() {
+        return None;
+    }
+    Some(selected)
+}
+
+fn end_of_central_directory_end(bytes: &[u8], offset: usize) -> Option<usize> {
+    offset
+        .checked_add(END_OF_CENTRAL_DIRECTORY_BYTES)
+        .and_then(|end| end.checked_add(usize::from(read_u16(bytes, offset + 20))))
 }
 
 fn read_zip64_central_directory(

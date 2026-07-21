@@ -63,26 +63,24 @@ fn production_publication_omits_compatibility_diagnostics() {
 }
 
 #[test]
-fn production_rejects_unsupported_css_without_initializing_legacy_artifacts() {
+fn production_renders_unrepresentable_css_without_initializing_legacy_artifacts() {
     let mut document = supported_document();
-    document.stylesheets[0].text = "p { color: red; position: relative; }".to_owned();
+    // `border-image` is real CSS this engine's typed contract cannot carry.
+    // CSS drops what an engine cannot represent and applies the rest, so the
+    // publication must still open with its supported declarations intact.
+    document.stylesheets[0].text = "p { color: red; border-image: none; }".to_owned();
     let prepared = prepare_loaded_document(&document);
     let layout = default_publication_layout_config();
 
-    let error = match build_prepared_loaded_document_with_layout_and_line_breaking(
+    build_prepared_loaded_document_with_layout_and_line_breaking(
         &document,
         &prepared,
         &layout,
         LineBreaking::Greedy,
         PublicationDiagnosticsMode::None,
-    ) {
-        Ok(_) => panic!("production must reject unsupported CSS"),
-        Err(error) => error,
-    };
+    )
+    .expect("unrepresentable CSS must not refuse the publication");
 
-    assert!(error.message().contains("chapter.xhtml"));
-    assert!(error.message().contains("UnsupportedProperty"));
-    assert!(error.message().contains("position"));
     assert!(prepared
         .stylesheet_ledger
         .legacy_artifacts_if_initialized()

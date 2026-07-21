@@ -758,7 +758,6 @@ fn one_session_supports_followup_seek_reflow_and_rejects_stale_request_ids() {
 fn resource_projection_is_core_identical_for_the_real_0005_image() {
     let publication = book_10_publication();
     let artifact_request = request_wire(SESSION_ID, 1, "OEBPS/Text/Section001.xhtml");
-    let image_href = "OEBPS/Images/0005_s.jpg";
 
     let mut direct = ReaderSessionV1::open_owned(SESSION_ID, publication.clone())
         .expect("direct Core session opens");
@@ -794,14 +793,14 @@ fn resource_projection_is_core_identical_for_the_real_0005_image() {
         .iter()
         .any(|resource| resource.href == display_href));
     let wasm_wire = wasm
-        .read_resource_v1(artifact.artifact_id, 0, display_href)
+        .read_resource_v1(artifact.artifact_id, 0, display_href.clone())
         .unwrap_or_else(|_| panic!("WASM resource resolves"));
     let resource = decode_reader_resource_v1(&wasm_wire).expect("resource wire decodes");
 
     assert_eq!(wasm_wire, direct_wire);
     assert_eq!(&wasm_wire[..8], b"RITORES1");
     assert_eq!(resource.kind, ReaderResourceKindV1::Image);
-    assert_eq!(resource.href, image_href);
+    assert_eq!(resource.href, display_href);
     assert_eq!(resource.media_type, "image/jpeg");
     assert_eq!(resource.bytes.len(), 71_220);
     assert_eq!(resource.bytes.get(..3), Some(&[0xff, 0xd8, 0xff][..]));

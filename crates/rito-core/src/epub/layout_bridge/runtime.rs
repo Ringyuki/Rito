@@ -59,7 +59,7 @@ pub(crate) fn build_prepared_loaded_document_runtime_layout<'a>(
         StyleResolutionMode::Strict,
     )?;
     let layout = crate::layout::build_inline_segments_runtime(
-        inputs,
+        inputs.chapters,
         &prepared.resources,
         layout_config,
         line_breaking,

@@ -212,7 +212,6 @@ fn open_release_and_dispose_are_owned_and_idempotent() {
         RITO_STATUS_INVALID_ARGUMENT_V1
     );
 
-    let image_href = "OEBPS/Images/0005_s.jpg";
     let image = call_read_resource(
         session_id,
         artifact.artifact_id,
@@ -223,7 +222,7 @@ fn open_release_and_dispose_are_owned_and_idempotent() {
     let image = decode_reader_resource_v1(&image.resource).expect("resource decodes");
     assert_eq!(image.artifact_id, artifact.artifact_id);
     assert_eq!(image.kind, ReaderResourceKindV1::Image);
-    assert_eq!(image.href, image_href);
+    assert_eq!(image.href, display_image_href);
     assert_eq!(image.media_type, "image/jpeg");
     assert_eq!(image.bytes.len(), 71_220);
     assert_eq!(image.bytes.get(..3), Some(&[0xff, 0xd8, 0xff][..]));
@@ -269,7 +268,7 @@ fn open_release_and_dispose_are_owned_and_idempotent() {
             session_id,
             artifact.artifact_id,
             u32::MAX,
-            image_href.as_bytes(),
+            display_image_href.as_bytes(),
         )
         .status,
         RITO_STATUS_INVALID_ARGUMENT_V1

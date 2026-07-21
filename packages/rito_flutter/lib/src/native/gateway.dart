@@ -21,6 +21,7 @@ import 'gateway_queue.dart';
 import 'owned_byte_transfer.dart';
 import 'pending_adjacent.dart';
 import 'pending_open.dart';
+import 'session_lane.dart';
 import 'worker_lifecycle.dart';
 
 export 'session_lane.dart'

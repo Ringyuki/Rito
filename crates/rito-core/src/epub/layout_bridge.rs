@@ -11,7 +11,7 @@ use crate::{
     },
     style::{
         resolve_prepared_chapter_style, rewrite_font_families, ChapterStyleOptions,
-        FontFallbackPolicy, PreparedStyleChapterInput, StyledNode,
+        FontFallbackPolicy, PreparedStyleChapterInput, StyleCapabilityReport, StyledNode,
     },
 };
 
@@ -171,6 +171,7 @@ pub(crate) fn prepare_runtime_layout_chapter(
         font_fallbacks,
         StyleResolutionMode::Strict,
     )?
+    .chapters
     .into_iter()
     .next();
     let Some(input) = input else {
@@ -208,15 +209,17 @@ fn build_prepared_loaded_document_with_layout_and_line_breaking(
 ) -> EpubResult<BuiltEpubPublication> {
     let text_measurement_fonts =
         text_measurement_font_assembly_for_layout(document, layout_config, None, Vec::new()).fonts;
+    let inputs = layout_inputs(
+        &prepared.stylesheet_ledger,
+        &prepared.chapters,
+        &prepared.filtered_footnote_nodes,
+        layout_config,
+        None,
+        diagnostics_mode.into(),
+    )?;
+    let style_capabilities = inputs.capabilities.summary();
     let built_layout = crate::layout::build_inline_segments(
-        layout_inputs(
-            &prepared.stylesheet_ledger,
-            &prepared.chapters,
-            &prepared.filtered_footnote_nodes,
-            layout_config,
-            None,
-            diagnostics_mode.into(),
-        )?,
+        inputs.chapters,
         &prepared.resources,
         layout_config,
         line_breaking,
@@ -264,6 +267,7 @@ fn build_prepared_loaded_document_with_layout_and_line_breaking(
         style,
         layout: built_layout.summary.clone(),
         interaction: prepared.interaction.clone(),
+        style_capabilities,
     };
 
     Ok(BuiltEpubPublication { publication })
@@ -294,13 +298,14 @@ fn layout_inputs<'a>(
     layout_config: &LayoutConfig,
     font_fallbacks: Option<&FontFallbackPolicy<'_>>,
     style_resolution_mode: StyleResolutionMode,
-) -> EpubResult<Vec<InlineSegmentChapterInput<'a>>> {
+) -> EpubResult<LayoutInputs<'a>> {
     let viewport = Some(crate::css::CssViewport::new(
         layout_config.viewport_width,
         layout_config.viewport_height,
     ));
 
-    chapters
+    let mut capabilities = StyleCapabilityReport::default();
+    let chapters = chapters
         .iter()
         .map(|chapter| -> EpubResult<InlineSegmentChapterInput<'a>> {
             let pagination_nodes = filtered_footnote_nodes
@@ -365,6 +370,7 @@ fn layout_inputs<'a>(
                     rewrite_font_families(nodes, font_fallbacks);
                 }
             }
+            capabilities.absorb(resolved.capabilities);
             Ok(InlineSegmentChapterInput {
                 idref: &chapter.source.idref,
                 href: &chapter.source.href,
@@ -373,7 +379,18 @@ fn layout_inputs<'a>(
                 page_paint: resolved.page_paint,
             })
         })
-        .collect()
+        .collect::<EpubResult<Vec<_>>>()?;
+    Ok(LayoutInputs {
+        chapters,
+        capabilities,
+    })
+}
+
+/// Chapter layout inputs plus what the publication's CSS asked for that this
+/// engine could not represent.
+struct LayoutInputs<'a> {
+    chapters: Vec<InlineSegmentChapterInput<'a>>,
+    capabilities: StyleCapabilityReport,
 }
 
 /// Formal XHTML parse failures are retained as warning-only empty chapters.

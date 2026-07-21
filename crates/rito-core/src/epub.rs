@@ -161,4 +161,29 @@ pub struct EpubPublication {
     pub style: Option<StyleSummary>,
     pub layout: LayoutSummary,
     pub interaction: InteractionSummary,
+    /// What this publication's CSS asked for that the engine could not
+    /// represent. Empty means the supported profile covered every declaration
+    /// the stylesheets used.
+    #[serde(default)]
+    pub style_capabilities: StyleCapabilitySummary,
+}
+
+/// Publication-level record of CSS this engine could not represent.
+///
+/// CSS drops content an engine does not understand and applies the rest, so
+/// divergence is normal and must be described rather than treated as failure.
+/// Consumers use this to explain reduced fidelity; the project uses it to
+/// prioritize real capability work from real books.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StyleCapabilitySummary {
+    /// Declarations that cannot change this engine's layout or paint, so
+    /// dropping them renders what a supporting engine would render.
+    pub ignored: Vec<String>,
+    /// Declarations that would have changed rendering. Output stays readable
+    /// and self-consistent but is not what the author specified.
+    pub degraded: Vec<String>,
+    /// Whether every selected stylesheet was fully inventoried. When false the
+    /// lists above may under-report; Stylo remains the rendering authority.
+    pub complete: bool,
 }

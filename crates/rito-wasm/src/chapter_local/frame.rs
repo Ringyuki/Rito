@@ -130,7 +130,12 @@ impl WasmRuntimeDocument {
             .document
             .get_chapter_local_resource(owner, kind, href)
             .map_err(WasmRuntimeError::from_chapter_local)?;
-        self.chapter_local_transfers.store_at(owner, resource)
+        let mut payload = self.chapter_local_transfers.store_at(owner, resource)?;
+        // Resource resolution may canonicalize the href away from the frame's
+        // resource-table key; consumers match payloads against that table, so
+        // the payload must report the lookup key it satisfies.
+        payload.href = href.to_owned();
+        Ok(payload)
     }
 
     fn finish_local_resource_payload_transport<T>(
@@ -187,6 +192,40 @@ mod tests {
     use serde_json::{json, Value};
 
     use crate::{tests::fixture, WasmRuntimeDocument, WasmRuntimeError};
+
+    #[test]
+    fn resource_payload_reports_the_lookup_href_not_the_canonical_manifest_href() {
+        let mut document = WasmRuntimeDocument::from_loaded_document(fixture::fixture_document());
+        let advance = document
+            .create_bounded_chapter_local_revision_json(
+                &json!({
+                    "layoutConfig": fixture::layout(),
+                    "targetChapterIndex": 0,
+                    "targetLocator": { "href": "chapter.xhtml" },
+                    "localPageCap": 4,
+                    "budget": { "maxTopLevelNodes": 64 }
+                })
+                .to_string(),
+            )
+            .expect("local revision");
+        let advance: Value = serde_json::from_str(&advance).expect("advance JSON");
+        let owner = super::parse_owner(
+            &json!({
+                "revisionId": advance["revision"]["revisionId"],
+                "revisionVersion": advance["revision"]["revisionVersion"],
+                "coordinate": advance["revision"]["coordinate"]
+            })
+            .to_string(),
+        )
+        .expect("owner");
+
+        let payload = document
+            .store_chapter_local_resource(&owner, RuntimeResourceKind::Image, "../Images/cover.png")
+            .expect("resource lease resolves through display-href semantics");
+
+        assert_eq!(payload.href, "../Images/cover.png");
+        assert_eq!(payload.media_type, "image/png");
+    }
 
     #[test]
     fn resource_payload_encoder_failure_rolls_back_only_its_new_exact_lease() {

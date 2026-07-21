@@ -4,9 +4,10 @@ use rito_source::NodeId;
 use rito_style_contract::{
     AlignItemsV1, ClearV1, CssPx, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
     LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleId,
-    LayoutStyleTableError, LayoutStyleTableV1, LengthPercentage, ListMarkerStyleV1,
-    MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, NonNegativeCssPx, NonNegativeLengthPercentage,
-    NumericError, OverflowV1, PageBreakV1, Percentage, PreferredSizeV1,
+    LayoutStyleTableError, LayoutStyleTableV1, LengthPercentage, LengthPercentageOrAuto,
+    ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, NonNegativeCssPx,
+    NonNegativeLengthPercentage, NumericError, OverflowV1, PageBreakV1, Percentage, PhysicalSides,
+    PositionV1, PreferredSizeV1,
 };
 use style::{
     counter_style::CounterStyle,
@@ -46,6 +47,8 @@ pub enum LayoutStyleFieldV1 {
     Clear,
     Float,
     Overflow,
+    Position,
+    Inset,
     ListStyleType,
 }
 
@@ -185,6 +188,8 @@ fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingSty
         float: float(styles.clone_float())?,
         overflow: overflow(styles.clone_overflow_x(), styles.clone_overflow_y())?,
         list_style_type: list_style_type(styles.clone_list_style_type())?,
+        position: position(styles.get_box().clone_position())?,
+        inset: inset(styles)?,
     })
 }
 
@@ -350,6 +355,46 @@ fn maximum_height(value: StyloMaxSize) -> ProjectionResult<MaximumHeightV1> {
         | GenericMaxSize::FitContentFunction(_)
         | GenericMaxSize::AnchorSizeFunction(_) => Err(unsupported(field)),
         GenericMaxSize::AnchorContainingCalcFunction(_) => Err(opaque_calc(field)),
+    }
+}
+
+fn position(value: style::computed_values::position::T) -> ProjectionResult<PositionV1> {
+    use style::computed_values::position::T as StyloPosition;
+
+    Ok(match value {
+        StyloPosition::Static => PositionV1::Static,
+        StyloPosition::Relative => PositionV1::Relative,
+        StyloPosition::Absolute => PositionV1::Absolute,
+        // Fixed and sticky have no paginated meaning in this consumer.
+        StyloPosition::Fixed | StyloPosition::Sticky => {
+            return Err(unsupported(LayoutStyleFieldV1::Position));
+        }
+    })
+}
+
+fn inset(styles: &ComputedValues) -> ProjectionResult<PhysicalSides<LengthPercentageOrAuto>> {
+    let position = styles.get_position();
+    Ok(PhysicalSides {
+        top: inset_side(&position.top)?,
+        right: inset_side(&position.right)?,
+        bottom: inset_side(&position.bottom)?,
+        left: inset_side(&position.left)?,
+    })
+}
+
+fn inset_side(value: &style::values::computed::Inset) -> ProjectionResult<LengthPercentageOrAuto> {
+    use style::values::generics::position::GenericInset as Inset;
+
+    match value {
+        Inset::Auto => Ok(LengthPercentageOrAuto::Auto),
+        Inset::LengthPercentage(value) => Ok(LengthPercentageOrAuto::Value(length_percentage(
+            value,
+            LayoutStyleFieldV1::Inset,
+        )?)),
+        // Anchor positioning has no consumer here.
+        Inset::AnchorFunction(_)
+        | Inset::AnchorSizeFunction(_)
+        | Inset::AnchorContainingCalcFunction(_) => Err(unsupported(LayoutStyleFieldV1::Inset)),
     }
 }
 

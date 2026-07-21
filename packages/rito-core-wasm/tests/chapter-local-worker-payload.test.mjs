@@ -142,6 +142,27 @@ test('unconfirmed post-commit aggregate rollback disposes the document owner', (
   assert.equal(freeCount, 1);
 });
 
+test('a committed advance without a valid owner identity disposes the document owner', () => {
+  let freeCount = 0;
+  const document = {
+    createBoundedChapterLocalRevision: () => ({
+      ...completedAdvance(owner(0)),
+      revision: { revisionId: '', revisionVersion: -1 },
+    }),
+    free() {
+      freeCount += 1;
+    },
+  };
+
+  assert.throws(() =>
+    chapterLocalReaderWorkerPayload(document, {
+      kind: 'createBoundedChapterLocalRevision',
+      request: createRequest(),
+    }),
+  );
+  assert.equal(freeCount, 1);
+});
+
 test('take failure requires release proof for the current and all later local transfers', () => {
   const exactOwner = owner(0);
   const releases = [];

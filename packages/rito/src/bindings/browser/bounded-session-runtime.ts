@@ -18,6 +18,7 @@ import {
   type BrowserReaderExactReadGate,
 } from './reader-session-host';
 import { toCoreLayoutConfig } from './reader-layout';
+import { resumeBrowserReaderSuspendedFrameMisses } from './suspended-frame-misses';
 import { copyReaderLocator } from './reader/interaction-capture';
 import type { BrowserReaderState } from './reader/types';
 import {
@@ -286,7 +287,15 @@ async function mutateCurrent(
     await recoverUncommittedMutation(state, owner, gate);
     return undefined;
   } catch (error) {
-    if (state.disposed || state.boundedSessions.current !== owner) return undefined;
+    // A suspension outlives the operation that created it, so every exit has
+    // to either hand reads back or retire the owner that holds them. Leaving
+    // both undone strands `readsSuspended` and every later reflow waits on a
+    // gate nobody can reopen.
+    if (state.disposed) return undefined;
+    if (state.boundedSessions.current !== owner) {
+      releaseStrandedExactReads(state, owner, gate);
+      return undefined;
+    }
     if (!restoreBrowserReaderExactReads(state, gate)) {
       await detachFailedCurrentOwner(state, owner, error);
     }
@@ -294,12 +303,29 @@ async function mutateCurrent(
   }
 }
 
+// Hands reads back on an owner this state no longer tracks.
+///
+// The owner is already superseded, so nothing will commit through its gate;
+// the flag would otherwise stay set on a session that outlives the failure.
+function releaseStrandedExactReads(
+  state: BrowserReaderState,
+  owner: BrowserReaderBoundedSessionOwner,
+  gate: BrowserReaderExactReadGate,
+): void {
+  if (owner.gateGeneration !== gate.generation) return;
+  owner.readsSuspended = false;
+  resumeBrowserReaderSuspendedFrameMisses(state, owner);
+}
+
 async function recoverUncommittedMutation(
   state: BrowserReaderState,
   owner: BrowserReaderBoundedSessionOwner,
   gate: BrowserReaderExactReadGate,
 ): Promise<void> {
-  if (state.boundedSessions.current !== owner) return;
+  if (state.boundedSessions.current !== owner) {
+    releaseStrandedExactReads(state, owner, gate);
+    return;
+  }
   if (!restoreBrowserReaderExactReads(state, gate)) {
     await detachFailedCurrentOwner(
       state,
@@ -307,6 +333,24 @@ async function recoverUncommittedMutation(
       new Error('Bounded reader mutation could not restore its exact revision'),
     );
   }
+}
+
+/// Retires a bounded session whose suspended reads never reopened.
+///
+/// Suspension is handed back by whichever operation took it, so an operation
+/// that never settles keeps the gate shut forever. The session is then
+/// unusable: retire it so a caller can rebuild instead of waiting on a gate
+/// nobody will reopen.
+export async function reclaimBrowserReaderStalledSession(
+  state: BrowserReaderState,
+  owner: BrowserReaderBoundedSessionOwner,
+): Promise<void> {
+  if (state.boundedSessions.current !== owner) return;
+  await detachFailedCurrentOwner(
+    state,
+    owner,
+    new Error('Bounded reader session never reopened its exact reads'),
+  );
 }
 
 async function detachFailedCurrentOwner(

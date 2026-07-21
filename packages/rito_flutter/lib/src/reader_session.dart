@@ -76,12 +76,17 @@ final class RitoReaderSession {
       publicationBytes: publicationBytes,
       request: request,
     );
+    // Marker capabilities are unrelated to RitoReaderGateway, so an `is`
+    // check cannot promote; the pattern binds the capable view instead.
     final resumedIdentity = artifact.requestId > request.requestId &&
-        gateway is RitoResumableExactSeekGateway &&
-        gateway.acceptsResumedExactSeekArtifact(
-          request: request,
-          artifact: artifact,
-        );
+        switch (gateway) {
+          final RitoResumableExactSeekGateway exactGateway =>
+            exactGateway.acceptsResumedExactSeekArtifact(
+              request: request,
+              artifact: artifact,
+            ),
+          _ => false,
+        };
     if (artifact.sessionId != request.sessionId ||
         (artifact.requestId != request.requestId && !resumedIdentity)) {
       await gateway.dispose(sessionId: request.sessionId);
@@ -630,25 +635,24 @@ final class RitoReaderSession {
     RitoArtifactRequest request,
     RitoArtifact artifact,
   ) {
-    final exactGateway = gateway;
-    return artifact.requestId > request.requestId &&
-        exactGateway is RitoResumableExactSeekGateway &&
-        exactGateway.acceptsResumedExactSeekArtifact(
-          request: request,
-          artifact: artifact,
-        );
+    if (gateway case final RitoResumableExactSeekGateway exactGateway) {
+      return artifact.requestId > request.requestId &&
+          exactGateway.acceptsResumedExactSeekArtifact(
+            request: request,
+            artifact: artifact,
+          );
+    }
+    return false;
   }
 
   void _syncConsumedExactSeekRequestId(RitoArtifactRequest request) {
-    final exactGateway = gateway;
-    if (exactGateway is! RitoResumableExactSeekGateway) {
-      return;
-    }
-    final consumed = exactGateway.latestRequestIdForExactSeek(
-      request: request,
-    );
-    if (consumed != null && consumed <= _maxRequestId) {
-      _recordConsumedRequestId(consumed);
+    if (gateway case final RitoResumableExactSeekGateway exactGateway) {
+      final consumed = exactGateway.latestRequestIdForExactSeek(
+        request: request,
+      );
+      if (consumed != null && consumed <= _maxRequestId) {
+        _recordConsumedRequestId(consumed);
+      }
     }
   }
 
@@ -656,25 +660,24 @@ final class RitoReaderSession {
     RitoAdjacentRequest request,
     RitoArtifact artifact,
   ) {
-    final adjacentGateway = gateway;
-    return artifact.requestId > request.requestId &&
-        adjacentGateway is RitoResumableAdjacentGateway &&
-        adjacentGateway.acceptsResumedAdjacentArtifact(
-          request: request,
-          artifact: artifact,
-        );
+    if (gateway case final RitoResumableAdjacentGateway adjacentGateway) {
+      return artifact.requestId > request.requestId &&
+          adjacentGateway.acceptsResumedAdjacentArtifact(
+            request: request,
+            artifact: artifact,
+          );
+    }
+    return false;
   }
 
   void _syncConsumedAdjacentRequestId(RitoAdjacentRequest request) {
-    final adjacentGateway = gateway;
-    if (adjacentGateway is! RitoResumableAdjacentGateway) {
-      return;
-    }
-    final consumed = adjacentGateway.latestRequestIdForAdjacent(
-      request: request,
-    );
-    if (consumed != null && consumed <= _maxRequestId) {
-      _recordConsumedRequestId(consumed);
+    if (gateway case final RitoResumableAdjacentGateway adjacentGateway) {
+      final consumed = adjacentGateway.latestRequestIdForAdjacent(
+        request: request,
+      );
+      if (consumed != null && consumed <= _maxRequestId) {
+        _recordConsumedRequestId(consumed);
+      }
     }
   }
 

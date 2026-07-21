@@ -56,7 +56,9 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // exact-version frame/resource/search ownership, failure-isolated disposal, and
 // host-task disposal barriers are required orchestration capabilities.
 const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3060;
+// Raised for the exact-read reclaim path: a suspended session that never
+// reopens its gate must be retired, not waited on forever.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3063;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 const READER_PUBLIC_CONTRACT_LINE_BUDGET = 705;

@@ -92,11 +92,11 @@ void main() {
     expect(session, contains('_recordConsumedRequestId(artifact.requestId)'));
     expect(gateway, contains('_guardNativeMutation<RitoArtifact>'));
     expect(
-      '_guardNativeMutation'.allMatches(gateway),
+      '_guardNativeMutation'.allMatches(gateway).length,
       greaterThanOrEqualTo(7),
     );
     expect(
-      '_guardNativeSessionOperation'.allMatches(gateway),
+      '_guardNativeSessionOperation'.allMatches(gateway).length,
       greaterThanOrEqualTo(4),
     );
     expect(
@@ -223,7 +223,10 @@ void main() {
       'lib/src/font/artifact_font_cache.dart',
     ).readAsStringSync();
 
-    expect(session, contains('await session._prepareOwnedArtifact(artifact)'));
+    expect(
+      session,
+      contains('await session._prepareInitialCandidate(artifact)'),
+    );
     expect(
       session,
       contains('prepared = await _prepareOwnedArtifact(artifact)'),

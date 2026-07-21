@@ -38,3 +38,13 @@ pub use ua::{epub_ua_stylesheet, EPUB_UA_PROFILE_ID};
 
 /// Exact upstream engine version compiled into this adapter.
 pub const STYLO_VERSION: &str = "0.19.0";
+
+/// Reports whether CSS itself defines this property name.
+///
+/// Publications carry author typos (`boder`), tool-injected custom properties,
+/// and unknown vendor prefixes. Browsers drop such declarations and keep the
+/// rest of the rule, so a source gate must not treat them as unrepresentable
+/// content — only a property CSS *does* define can be a real capability gap.
+pub fn css_defines_property(name: &str) -> bool {
+    style::properties::PropertyId::parse_enabled_for_all_content(name).is_ok()
+}

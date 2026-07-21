@@ -40,6 +40,7 @@ pub(crate) use font_fallback::{
     rewrite_font_families, FontFallbackFace, FontFallbackPolicy, FontGenericRole,
 };
 pub(crate) use inheritance::inheritable_style;
+pub(crate) use stylo_sources::StyleCapabilityReport;
 pub use tree::{StyledNode, StyledNodeKind};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -30,7 +30,10 @@ use super::{
     stylo_materialize::{
         materialize_stylo_chapter, StyloMaterializeInput, StyloMaterializeRejection,
     },
-    stylo_sources::{select_stylo_sources, validate_stylo_source_arena, StyloSourceRejection},
+    stylo_sources::{
+        select_stylo_sources, validate_stylo_source_arena, StyleCapabilityReport,
+        StyloSourceRejection,
+    },
     ChapterStyleOptions, DEFAULT_UA_STYLESHEET,
 };
 
@@ -60,6 +63,10 @@ pub(crate) struct ResolvedPreparedChapterStyle {
     pub(crate) styled_nodes: Vec<super::StyledNode>,
     pub(crate) pagination_styled_nodes: Option<Vec<super::StyledNode>>,
     pub(crate) page_paint: Option<serde_json::Value>,
+    /// What this chapter's CSS asked for that the engine could not represent.
+    /// Consumers use it to describe reduced fidelity instead of discovering it
+    /// as a missing feature.
+    pub(crate) capabilities: StyleCapabilityReport,
 }
 
 #[cfg(feature = "legacy-css-diagnostics")]
@@ -299,6 +306,7 @@ fn try_resolve_with_stylo(
     let projection = document
         .resolve_production_slice_v1()
         .map_err(StyleBackendError::CascadeOrProjection)?;
+    let capabilities = selection.capabilities;
     let (inline, layout) = projection.into_parts();
     drop(document);
     let resolved = materialize_stylo_chapter(StyloMaterializeInput {
@@ -315,6 +323,7 @@ fn try_resolve_with_stylo(
         styled_nodes: resolved.styled_nodes,
         pagination_styled_nodes: resolved.pagination_styled_nodes,
         page_paint: resolved.page_paint,
+        capabilities,
     })
 }
 
