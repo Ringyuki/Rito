@@ -1,0 +1,13 @@
+[package]
+name = "rito-inline-spike"
+description = "Diagnostic tool measuring the Parley-backed inline provider against the pinned Chromium oracle. Not part of any production dependency graph."
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rito-fragment = { path = "../rito-fragment" }
+rito-inline = { path = "../rito-inline" }
+rito-style-contract = { path = "../rito-style-contract" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

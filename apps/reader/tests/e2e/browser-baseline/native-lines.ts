@@ -89,10 +89,17 @@ export async function pinnedFontBytes(): Promise<Map<string, Buffer>> {
   return new Map(entries);
 }
 
-export async function extractNativeChapterLines(
-  epubPath: string,
-  chapterHrefSuffix: string,
-): Promise<NativeChapterLines> {
+export interface BaselineDocument {
+  readonly chapters: readonly {
+    href: string;
+    startPage?: number | undefined;
+    endPage?: number | undefined;
+  }[];
+  extractChapterLines(chapterHrefSuffix: string): NativeChapterLines;
+}
+
+/** Opens the fixture once; chapter extractions reuse the complete revision. */
+export async function openBaselineDocument(epubPath: string): Promise<BaselineDocument> {
   const coreWasm = (await import(resolve(CORE_WASM_DIST, 'index.mjs'))) as {
     initRitoCoreWasmEngine: (input: { module_or_path: Buffer }) => Promise<{
       openDocument: (bytes: Uint8Array, options?: object) => CoreWasmDocumentLike;
@@ -125,43 +132,47 @@ export async function extractNativeChapterLines(
     activeSpreadIndex: 0,
   });
   const revision = bundle.bundle.revision;
-  const chapter = bundle.bundle.navigation.chapters.find((entry: { href: string }) =>
-    entry.href.endsWith(chapterHrefSuffix),
-  );
-  if (!chapter || chapter.startPage === undefined || chapter.endPage === undefined) {
-    throw new Error(`Chapter ${chapterHrefSuffix} is not paginated in the baseline revision`);
-  }
-  const lines: NativeLine[] = [];
-  let rubyCommandCount = 0;
-  for (let pageIndex = chapter.startPage; pageIndex <= chapter.endPage; pageIndex += 1) {
-    const metadata = document.getFrameCommandBufferMetadata(revision.revisionId, pageIndex);
-    const buffer = document.readFrameCommandBuffer(revision.revisionId, pageIndex);
-    const decoded = decodeRitoFrameCommandBuffer(metadata, buffer);
-    const pageLines: NativeLine[] = [];
-    for (const command of decoded.commands) {
-      if (command['kind'] === 'paintRuby') rubyCommandCount += 1;
-      if (command['kind'] !== 'paintText') continue;
-      const rect = command['rect'] as { x: number; y: number; width: number; height: number };
-      const paint = command['paint'] as { font: { sizePx: number } };
-      pageLines.push({
-        pageIndex,
-        x: rect.x - BASELINE_LAYOUT.marginLeft,
-        yInPage: rect.y - BASELINE_LAYOUT.marginTop,
-        width: rect.width,
-        lineHeightPx: command['lineHeightPx'] as number,
-        fontSizePx: paint.font.sizePx,
-        text: command['text'] as string,
-      });
-    }
-    pageLines.sort((left, right) => left.yInPage - right.yInPage || left.x - right.x);
-    lines.push(...mergeSameRowSegments(pageLines));
-  }
+  const chapters = bundle.bundle.navigation.chapters;
   return {
-    chapterHref: chapter.href,
-    startPage: chapter.startPage,
-    endPage: chapter.endPage,
-    lines,
-    rubyCommandCount,
+    chapters,
+    extractChapterLines(chapterHrefSuffix: string): NativeChapterLines {
+      const chapter = chapters.find((entry) => entry.href.endsWith(chapterHrefSuffix));
+      if (!chapter || chapter.startPage === undefined || chapter.endPage === undefined) {
+        throw new Error(`Chapter ${chapterHrefSuffix} is not paginated in the baseline revision`);
+      }
+      const lines: NativeLine[] = [];
+      let rubyCommandCount = 0;
+      for (let pageIndex = chapter.startPage; pageIndex <= chapter.endPage; pageIndex += 1) {
+        const metadata = document.getFrameCommandBufferMetadata(revision.revisionId, pageIndex);
+        const buffer = document.readFrameCommandBuffer(revision.revisionId, pageIndex);
+        const decoded = decodeRitoFrameCommandBuffer(metadata, buffer);
+        const pageLines: NativeLine[] = [];
+        for (const command of decoded.commands) {
+          if (command['kind'] === 'paintRuby') rubyCommandCount += 1;
+          if (command['kind'] !== 'paintText') continue;
+          const rect = command['rect'] as { x: number; y: number; width: number; height: number };
+          const paint = command['paint'] as { font: { sizePx: number } };
+          pageLines.push({
+            pageIndex,
+            x: rect.x - BASELINE_LAYOUT.marginLeft,
+            yInPage: rect.y - BASELINE_LAYOUT.marginTop,
+            width: rect.width,
+            lineHeightPx: command['lineHeightPx'] as number,
+            fontSizePx: paint.font.sizePx,
+            text: command['text'] as string,
+          });
+        }
+        pageLines.sort((left, right) => left.yInPage - right.yInPage || left.x - right.x);
+        lines.push(...mergeSameRowSegments(pageLines));
+      }
+      return {
+        chapterHref: chapter.href,
+        startPage: chapter.startPage,
+        endPage: chapter.endPage,
+        lines,
+        rubyCommandCount,
+      };
+    },
   };
 }
 
@@ -181,6 +192,26 @@ function mergeSameRowSegments(pageLines: readonly NativeLine[]): NativeLine[] {
     merged.push(line);
   }
   return merged;
+}
+
+export async function readEpubEntryBytes(epubPath: string, entrySuffix: string): Promise<Buffer> {
+  const listing = await execFileAsync('unzip', ['-Z1', epubPath]).catch((error: unknown) => ({
+    stdout: (error as Error & { stdout?: string }).stdout ?? '',
+  }));
+  const entry = listing.stdout
+    .split('\n')
+    .map((name) => name.trim())
+    .find((name) => name.endsWith(entrySuffix));
+  if (!entry) throw new Error(`EPUB entry ${entrySuffix} not found in ${epubPath}`);
+  const extracted = await execFileAsync('unzip', ['-p', epubPath, entry], {
+    maxBuffer: 64 * 1024 * 1024,
+    encoding: 'buffer',
+  }).catch((error: unknown) => {
+    const stdout = (error as Error & { stdout?: Buffer }).stdout;
+    if (!stdout || stdout.length === 0) throw error;
+    return { stdout };
+  });
+  return extracted.stdout;
 }
 
 export async function readEpubEntry(epubPath: string, entrySuffix: string): Promise<string> {
