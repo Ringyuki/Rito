@@ -507,6 +507,55 @@ fn push_item_styles(
         LineHeight::Length(px) => {
             builder.push(
                 StyleProperty::LineHeight(parley::LineHeight::Absolute(px.get())),
+                range.clone(),
+            );
+        }
+    }
+    if let LengthPercentage::Length(px) = style.text_flow.letter_spacing {
+        if px.get() != 0.0 {
+            builder.push(StyleProperty::LetterSpacing(px.get()), range.clone());
+        }
+    }
+    if let LengthPercentage::Length(px) = style.text_flow.word_spacing {
+        if px.get() != 0.0 {
+            builder.push(StyleProperty::WordSpacing(px.get()), range.clone());
+        }
+    }
+    match style.text_flow.word_break {
+        rito_style_contract::WordBreak::Normal => {}
+        rito_style_contract::WordBreak::BreakAll => {
+            builder.push(
+                StyleProperty::WordBreak(parley::WordBreak::BreakAll),
+                range.clone(),
+            );
+        }
+        rito_style_contract::WordBreak::KeepAll => {
+            builder.push(
+                StyleProperty::WordBreak(parley::WordBreak::KeepAll),
+                range.clone(),
+            );
+        }
+    }
+    match style.text_flow.overflow_wrap {
+        rito_style_contract::OverflowWrap::Normal => {}
+        rito_style_contract::OverflowWrap::Anywhere => {
+            builder.push(
+                StyleProperty::OverflowWrap(parley::OverflowWrap::Anywhere),
+                range.clone(),
+            );
+        }
+        rito_style_contract::OverflowWrap::BreakWord => {
+            builder.push(
+                StyleProperty::OverflowWrap(parley::OverflowWrap::BreakWord),
+                range.clone(),
+            );
+        }
+    }
+    match style.text_flow.text_wrap_mode {
+        rito_style_contract::TextWrapMode::Wrap => {}
+        rito_style_contract::TextWrapMode::NoWrap => {
+            builder.push(
+                StyleProperty::TextWrapMode(parley::TextWrapMode::NoWrap),
                 range,
             );
         }

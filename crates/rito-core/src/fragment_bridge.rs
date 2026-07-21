@@ -463,11 +463,12 @@ fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String>
         c::PreferredSizeV1::Auto | c::PreferredSizeV1::Value(_) => {}
         other => return Some(format!("block width {other:?}")),
     }
-    if style.height != c::PreferredSizeV1::Auto {
-        return Some(format!("block height {:?}", style.height));
-    }
-    if style.max_width != c::MaximumSizeV1::None {
-        return Some(format!("block max-width {:?}", style.max_width));
+    // Fixed heights resolve in the block context (content overflowing a
+    // fixed box still fails closed at layout time); max-width caps the
+    // horizontal box model.
+    match style.height {
+        c::PreferredSizeV1::Auto | c::PreferredSizeV1::Value(_) => {}
+        other => return Some(format!("block height {other:?}")),
     }
     if style.min_height != c::MinimumHeightV1::Auto {
         return Some(format!("block min-height {:?}", style.min_height));
@@ -579,27 +580,20 @@ fn inline_text_capability_violation(
         c::WhiteSpaceCollapse::Collapse => {}
         other => return Some(format!("white-space {other:?}")),
     }
-    match style.text_flow.text_wrap_mode {
-        c::TextWrapMode::Wrap => {}
-        other => return Some(format!("text-wrap {other:?}")),
-    }
-    match style.text_flow.word_break {
-        c::WordBreak::Normal => {}
-        other => return Some(format!("word-break {other:?}")),
-    }
+    // text-wrap, word-break, overflow-wrap, and letter/word spacing are
+    // wired straight into Parley's ranged styles; percentages and calc
+    // spacings have no basis in inline layout and stay rejected.
     match style.text_flow.line_break {
         c::LineBreak::Auto => {}
         other => return Some(format!("line-break {other:?}")),
     }
-    match style.text_flow.overflow_wrap {
-        c::OverflowWrap::Normal => {}
-        other => return Some(format!("overflow-wrap {other:?}")),
+    match style.text_flow.letter_spacing {
+        c::LengthPercentage::Length(_) => {}
+        other => return Some(format!("letter-spacing {other:?}")),
     }
-    if !length_percentage_is_zero(&style.text_flow.letter_spacing) {
-        return Some("letter-spacing".to_owned());
-    }
-    if !length_percentage_is_zero(&style.text_flow.word_spacing) {
-        return Some("word-spacing".to_owned());
+    match style.text_flow.word_spacing {
+        c::LengthPercentage::Length(_) => {}
+        other => return Some(format!("word-spacing {other:?}")),
     }
     match (
         style.bidi.direction,

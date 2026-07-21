@@ -550,12 +550,15 @@ parent-child collapse per CSS), per-child border-box placement, nested
 containers sized by their border box, `box-sizing` added to the typed
 contract and projected from Stylo.
 
-Corpus representability: 79.0% → 80.6% (sup) → **88.4%** (horizontal
-box). Remaining queue by chapter count: floats 39, block height 24,
-letter-spacing 23, word-break 20, nowrap 12, single-item flex 10, inline
-padding/border 9, block max-width 4, tail 4. Oracle unchanged at 99.83%
-parity, x p95 = 0, y p50 13.6 (heading strut metrics and shift-constant
-calibration are the remaining y residue).
+Corpus representability: 79.0% → 80.6% (sup) → 88.4% (horizontal box) →
+92.9% (Parley wiring: letter/word spacing, word-break, overflow-wrap,
+nowrap straight into ranged styles) → **94.7%** (fixed heights — content
+overflowing a fixed box still fails closed at layout time — and
+max-width capping the horizontal model, including the
+max-width+margin:auto centering pattern). Remaining queue: floats 43,
+single-item flex 10, inline padding/border 9, tail 4. Oracle unchanged
+at 99.83% parity, x p95 = 0, y p50 13.6 (heading strut metrics and
+shift-constant calibration are the remaining y residue).
 
 ## OPEN — after the third pass
 

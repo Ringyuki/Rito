@@ -32,7 +32,8 @@ use rito_fragment::{
     FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
 };
 use rito_style_contract::{
-    BoxSizingV1, LayoutFormattingStyleV1, LengthPercentage, LengthPercentageOrAuto, PreferredSizeV1,
+    BoxSizingV1, LayoutFormattingStyleV1, LengthPercentage, LengthPercentageOrAuto, MaximumSizeV1,
+    PreferredSizeV1,
 };
 
 /// Byte budget for the internal inline-outcome cache. Sized for one
@@ -373,6 +374,21 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // The container's bottom padding closes its final fragment,
         // truncated at a fragmentainer edge like a meeting margin.
         y += container_padding_bottom.min(remaining.max(0.0));
+        // A specified height fixes the border-box height. Content shorter
+        // than the box leaves empty space (spacers); content taller than a
+        // fixed height needs overflow layout the engine cannot represent
+        // yet, so it fails closed instead of overlapping what follows.
+        if let Some(fixed) = resolve_fixed_height(
+            container_style,
+            container_padding_top + container_padding_bottom,
+        )? {
+            if y > fixed + 0.01 {
+                return Err(LayoutError::Invalid(format!(
+                    "content ({y:.1}px) overflows the fixed height ({fixed:.1}px)"
+                )));
+            }
+            y = fixed;
+        }
         Ok(LayoutOutcome {
             fragments: sealed(container, space.inline_size, y, fragments),
             continuation: None,
@@ -641,6 +657,31 @@ fn resolve_horizontal_box(
             )));
         }
     };
+    // max-width caps the used width; an auto width capped below the
+    // available space behaves like a specified width (so auto margins can
+    // center the capped box, the common `max-width + margin:auto` pattern).
+    let max_width = match style.max_width {
+        MaximumSizeV1::None => None,
+        MaximumSizeV1::Value(value) => Some(resolve(value.value()).max(0.0)),
+    };
+    let width = match (width, max_width) {
+        (Some(width), Some(cap)) => Some(width.min(cap)),
+        (Some(width), None) => Some(width),
+        (None, Some(cap)) => {
+            let margin_used = margin_left.unwrap_or(0.0) + margin_right.unwrap_or(0.0);
+            let auto_border = (containing_width - margin_used).max(0.0);
+            let cap_border = match style.box_sizing {
+                BoxSizingV1::ContentBox => cap + padding_left + padding_right,
+                BoxSizingV1::BorderBox => cap,
+            };
+            if auto_border > cap_border {
+                Some(cap)
+            } else {
+                None
+            }
+        }
+        (None, None) => None,
+    };
     match width {
         None => {
             let margin_left = margin_left.unwrap_or(0.0);
@@ -678,6 +719,32 @@ fn resolve_horizontal_box(
             })
         }
     }
+}
+
+/// The container's fixed border-box height, when `height` is specified.
+/// Percentages need a definite containing-block height that block flow
+/// does not provide, so they resolve to `None` (auto), per CSS.
+fn resolve_fixed_height(
+    style: &LayoutFormattingStyleV1,
+    vertical_padding: f64,
+) -> Result<Option<f64>, LayoutError> {
+    let height = match style.height {
+        PreferredSizeV1::Auto => return Ok(None),
+        PreferredSizeV1::Value(value) => match value.value() {
+            LengthPercentage::Length(px) => f64::from(px.get()),
+            // No definite height basis in block flow: behaves as auto.
+            LengthPercentage::Percentage(_) | LengthPercentage::Linear { .. } => return Ok(None),
+        },
+        other => {
+            return Err(LayoutError::Invalid(format!(
+                "block height {other:?} is not representable yet"
+            )));
+        }
+    };
+    Ok(Some(match style.box_sizing {
+        BoxSizingV1::ContentBox => height.max(0.0) + vertical_padding,
+        BoxSizingV1::BorderBox => height.max(0.0),
+    }))
 }
 
 /// Resolved vertical margins of one in-flow child, in CSS px.
