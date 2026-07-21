@@ -1,0 +1,9 @@
+[package]
+name = "rito-fragment"
+description = "The Rito-owned layout contract (FormattingTree + ConstraintSpace + BreakToken -> FragmentTree) that interchangeable formatting engines target."
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rito-style-contract = { path = "../rito-style-contract" }

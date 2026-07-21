@@ -2,6 +2,10 @@
 members = [
   "crates/rito-core",
   "crates/rito-ffi",
+  "crates/rito-block",
+  "crates/rito-fragment",
+  "crates/rito-inline",
+  "crates/rito-inline-spike",
   "crates/rito-source",
   "crates/rito-style-contract",
   "crates/rito-stylo",
