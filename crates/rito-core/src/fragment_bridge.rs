@@ -83,9 +83,11 @@ pub fn build_chapter_formatting_tree(
         source_nodes: Vec::new(),
         node_paints: BTreeMap::new(),
         checked_block_styles: std::collections::HashMap::new(),
+        checked_box_paints: std::collections::HashMap::new(),
         checked_inline_styles: std::collections::HashMap::new(),
     };
     let body_style = builder.layout_style_id(body_source_node_index, "chapter body")?;
+    builder.require_box_paint_representable(body_source_node_index, "chapter body")?;
     let body_inline_style = builder.inline_style_id(body_source_node_index, "chapter body")?;
     let children = builder.build_children(nodes, body_inline_style)?;
     let root = builder.push_node(
@@ -129,6 +131,7 @@ struct TreeBuilder<'a> {
     /// Capability verdict per interned style id, so each distinct style is
     /// checked once per chapter.
     checked_block_styles: std::collections::HashMap<u32, Option<String>>,
+    checked_box_paints: std::collections::HashMap<u32, Option<String>>,
     checked_inline_styles: std::collections::HashMap<(u32, bool), Option<String>>,
 }
 
@@ -228,6 +231,8 @@ impl TreeBuilder<'_> {
         }
         let style = self.layout_style_id(source_index, &element.tag)?;
         self.require_block_capabilities(style, &element.tag)?;
+        let tag = element.tag.clone();
+        self.require_box_paint_representable(source_index, &tag)?;
         let has_block_children = element
             .children
             .iter()
@@ -514,6 +519,37 @@ impl TreeBuilder<'_> {
     /// else fails closed naming the field. The default is rejection: a
     /// property this list has never heard of can only over-reject (visible
     /// in the representability reports), never silently mis-lay.
+    /// Fails closed on box paint the fragment painter cannot reproduce
+    /// yet (backgrounds, borders, box shadows, transforms). The bridge
+    /// used to catch these on the retained pages it swapped against; with
+    /// the fragment engine as pagination authority there is no retained
+    /// page to compare, so the tree build itself must refuse them.
+    fn require_box_paint_representable(
+        &mut self,
+        source_index: usize,
+        what: &str,
+    ) -> EpubResult<()> {
+        let style = self.inline_style_id(source_index, what)?;
+        let verdict = match self.checked_box_paints.get(&style.raw()) {
+            Some(cached) => cached.clone(),
+            None => {
+                let resolved = self
+                    .inline
+                    .style(style)
+                    .map_err(|error| EpubError::new(format!("{what} style resolves: {error}")))?;
+                let verdict = box_paint_violation(resolved);
+                self.checked_box_paints.insert(style.raw(), verdict.clone());
+                verdict
+            }
+        };
+        match verdict {
+            None => Ok(()),
+            Some(reason) => Err(EpubError::new(format!(
+                "<{what}> {reason} is not representable in fragment paint yet"
+            ))),
+        }
+    }
+
     fn require_block_capabilities(&mut self, style: LayoutStyleId, what: &str) -> EpubResult<()> {
         let verdict = match self.checked_block_styles.get(&style.raw()) {
             Some(cached) => cached.clone(),
@@ -779,6 +815,39 @@ fn inline_text_capability_violation(
     None
 }
 
+/// Paint the fragment display-command producer cannot reproduce on a box
+/// yet. Borders are checked here for block boxes; inline boxes reject
+/// them earlier in their own whitelist.
+fn box_paint_violation(style: &rito_style_contract::InlineFormattingStyleV1) -> Option<String> {
+    use rito_style_contract as c;
+    match style.paint.background {
+        c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => {}
+        other => return Some(format!("background {other:?}")),
+    }
+    if style.paint.background_image.is_some() {
+        return Some("background-image".to_owned());
+    }
+    if !style.paint.box_shadows.is_empty() {
+        return Some("box-shadow".to_owned());
+    }
+    if !style.paint.transform.is_none() {
+        return Some("transform".to_owned());
+    }
+    for (edge, name) in [
+        (&style.fragment.border.top, "border-top"),
+        (&style.fragment.border.right, "border-right"),
+        (&style.fragment.border.bottom, "border-bottom"),
+        (&style.fragment.border.left, "border-left"),
+    ] {
+        let painted = edge.resolved_width.get() > 0.0
+            && !matches!(edge.style, c::BorderStyle::None | c::BorderStyle::Hidden);
+        if painted {
+            return Some(format!("{name}"));
+        }
+    }
+    None
+}
+
 /// Box-level inline whitelist: non-inherited fields that only apply to an
 /// actual inline box (a styled element or an image), never to a text run
 /// borrowing its ancestor's style.
@@ -786,6 +855,9 @@ fn inline_box_capability_violation(
     style: &rito_style_contract::InlineFormattingStyleV1,
 ) -> Option<String> {
     use rito_style_contract as c;
+    if let Some(reason) = box_paint_violation(style) {
+        return Some(format!("inline {reason}"));
+    }
     // Inline fragment boxes: margins/padding/borders displace glyphs.
     if let Some(reason) =
         horizontal_spacing_violation(&style.fragment.margin, &style.fragment.padding)
