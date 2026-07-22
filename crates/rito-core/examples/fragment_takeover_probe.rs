@@ -26,6 +26,8 @@ struct ProbeRequest {
     serif_font_path: String,
     serif_language: Option<String>,
     epub_paths: Vec<String>,
+    #[serde(default)]
+    viewport: Option<(f64, f64, f64)>,
 }
 
 #[derive(Serialize)]
@@ -75,12 +77,16 @@ fn main() {
     let books: Vec<ProbeBook> = request
         .epub_paths
         .iter()
-        .map(|path| probe_book(path, policy.clone()))
+        .map(|path| probe_book(path, policy.clone(), request.viewport))
         .collect();
     println!("{}", serde_json::to_string(&books).expect("report encodes"));
 }
 
-fn probe_book(epub_path: &str, policy: RuntimePinnedFontPolicyInput) -> ProbeBook {
+fn probe_book(
+    epub_path: &str,
+    policy: RuntimePinnedFontPolicyInput,
+    viewport: Option<(f64, f64, f64)>,
+) -> ProbeBook {
     let mut book = ProbeBook {
         epub_path: epub_path.to_owned(),
         error: None,
@@ -104,10 +110,11 @@ fn probe_book(epub_path: &str, policy: RuntimePinnedFontPolicyInput) -> ProbeBoo
         }
     };
     document.set_fragment_page_table_enabled(true);
+    let (width, height, margin) = viewport.unwrap_or((1218.0, 619.0, 50.0));
     let layout_config = create_layout_config(LayoutConfigInput {
-        width: 1218.0,
-        height: 619.0,
-        margin: MarginInput::All(50.0),
+        width,
+        height,
+        margin: MarginInput::All(margin),
         spread: SpreadMode::Double,
         first_page_alone: true,
         spread_gap: 0.0,
