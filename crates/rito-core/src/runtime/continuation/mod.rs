@@ -58,8 +58,42 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeBoundedRevisionRequest,
     ) -> Result<RuntimeRevisionAdvance, RuntimeContinuationError> {
+        if self.fragment_page_table_enabled {
+            return self.create_fragment_bounded_revision(request);
+        }
         let (continuation, layout_key, budget) = self.initialize_bounded_revision(request)?;
         self.advance_initial_revision(continuation, budget, &layout_key)
+    }
+
+    /// The fragment-only bounded path: the whole book paginates in one
+    /// step and the advance arrives already complete, with no
+    /// continuation to drive. Progressive per-chapter publication is the
+    /// planned optimization on top of this.
+    fn create_fragment_bounded_revision(
+        &mut self,
+        request: RuntimeBoundedRevisionRequest,
+    ) -> Result<RuntimeRevisionAdvance, RuntimeContinuationError> {
+        let summary = self
+            .create_revision_with_line_breaking(&request.layout_config, request.line_breaking)
+            .map_err(|error| {
+                super::continuation::error::continuation_error(
+                    crate::runtime::RuntimeContinuationErrorKind::EngineFailure,
+                    error.message().to_owned(),
+                )
+            })?;
+        Ok(RuntimeRevisionAdvance {
+            previous_known_extent: crate::runtime::RuntimeRevisionExtent {
+                page_count: 0,
+                spread_count: 0,
+            },
+            newly_known_pages: crate::runtime::RuntimeRevisionPageRange {
+                start_page: 0,
+                end_page_exclusive: summary.known_extent.page_count,
+            },
+            processed_top_level_nodes: 0,
+            continuation: None,
+            revision: summary,
+        })
     }
 
     fn initialize_bounded_revision(

@@ -20,7 +20,8 @@ mod runtime;
 mod tests;
 
 pub(crate) use runtime::{
-    build_prepared_loaded_document_runtime_layout, PreparedRuntimeLayoutOptions,
+    build_prepared_loaded_document_runtime_layout, project_prepared_document_styles,
+    PreparedRuntimeLayoutOptions,
 };
 
 use super::{

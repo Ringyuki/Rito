@@ -77,6 +77,9 @@ impl RuntimeDocument {
         line_breaking: LineBreaking,
         chapter_limit: Option<usize>,
     ) -> EpubResult<RuntimeRevisionSummary> {
+        if self.fragment_page_table_enabled && chapter_limit.is_none() {
+            return self.create_fragment_revision(layout_config, line_breaking);
+        }
         let revision_id = self.create_revision_id();
         let (
             layout_config,
@@ -160,6 +163,100 @@ impl RuntimeDocument {
         );
         self.insert_new_revision(revision_id.clone(), revision);
         self.try_attach_fragment_page_table(&revision_id);
+        let revision = self
+            .any_revision(&revision_id)
+            .expect("the revision was just inserted");
+        let summary = revision_summary(&revision_id, &layout_key, revision);
+        Ok(summary)
+    }
+
+    /// Builds a whole-book revision paginated by the fragment engine
+    /// alone: style projection runs, the retained layout engine does not.
+    /// The revision keeps an empty retained scaffold only because the
+    /// storage type still requires one; every query serves from the
+    /// fragment page table.
+    fn create_fragment_revision(
+        &mut self,
+        layout_config: LayoutConfig,
+        line_breaking: LineBreaking,
+    ) -> EpubResult<RuntimeRevisionSummary> {
+        // The fragment engine's line breaking is its own; the retained
+        // engine's greedy/optimal switch does not apply.
+        let _ = line_breaking;
+        let revision_id = self.create_revision_id();
+        let (
+            layout_config,
+            (
+                chapter_count,
+                chapter_style_tables,
+                required_font_face_catalog,
+                interactions,
+                layout_key,
+            ),
+        ) = self.run_with_owned_layout_config(layout_config, |document, layout_config| {
+            document.document.ensure_all_chapters_loaded()?;
+            document
+                .document
+                .ensure_chapter_image_dimensions_loaded(0, document.document.chapters.len())?;
+            document.ensure_layout_font_resources(layout_config)?;
+            document.ensure_prepared_all();
+            let prepared = document
+                .prepared
+                .as_ref()
+                .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
+            let pinned_faces = document
+                .pinned_font_policy
+                .measurement_faces_for_layout(layout_config);
+            let font_fallbacks = document.pinned_font_policy.family_fallbacks_for_layout(
+                layout_config,
+                &document.document.package.metadata.language,
+            );
+            let projected = crate::epub::project_prepared_document_styles(
+                &document.document,
+                prepared,
+                layout_config,
+                crate::epub::PreparedRuntimeLayoutOptions {
+                    chapter_start: 0,
+                    chapter_count: prepared.chapters.len(),
+                    line_breaking: LineBreaking::Greedy,
+                    text_measurement_cache: Some(document.text_measurement_cache.clone()),
+                    pinned_faces,
+                    font_fallbacks,
+                },
+            )?;
+            let required_font_face_catalog = document
+                .required_font_face_catalog_from_faces(projected.shapeable_publication_faces);
+            let layout_key = layout_key(layout_config, &document.pinned_font_policy)?;
+            let interactions = runtime_revision_interactions(prepared, true);
+            Ok((
+                prepared.chapters.len(),
+                chapter_style_table_map(projected.chapter_style_tables),
+                required_font_face_catalog,
+                interactions,
+                layout_key,
+            ))
+        })?;
+        let revision = RuntimeRevision::completed(
+            crate::layout::create_empty_runtime_layout(chapter_count, &layout_config),
+            layout_config,
+            chapter_style_tables,
+            required_font_face_catalog,
+            interactions,
+        );
+        self.insert_new_revision(revision_id.clone(), revision);
+        self.try_attach_fragment_page_table(&revision_id);
+        let revision = self
+            .any_revision(&revision_id)
+            .expect("the revision was just inserted");
+        if revision.fragment_layout.is_none() {
+            let reason = self
+                .fragment_page_table_rejection_reason(&revision_id)
+                .unwrap_or_else(|| "unknown".to_owned());
+            self.release_revision(&revision_id);
+            return Err(EpubError::new(format!(
+                "fragment pagination failed: {reason}"
+            )));
+        }
         let revision = self
             .any_revision(&revision_id)
             .expect("the revision was just inserted");
