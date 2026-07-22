@@ -43,4 +43,9 @@ pub struct FloatBreak {
     pub child: FormattingNodeId,
     /// Resumption inside the float's subtree.
     pub token: BreakToken,
+    /// Which container on the resume path owns this float: `0` is the
+    /// container receiving the token, `1` the container `resume_path[0]`
+    /// names, and so on. Each descent strips a level, so every container
+    /// consumes exactly the floats it split.
+    pub depth: u32,
 }

@@ -59,7 +59,7 @@ enum TokenStageKey {
 struct TokenKey {
     path: Vec<u32>,
     stage: TokenStageKey,
-    floats: Vec<(u32, TokenKey)>,
+    floats: Vec<(u32, u32, TokenKey)>,
 }
 
 fn token_key(token: &BreakToken) -> TokenKey {
@@ -76,7 +76,13 @@ fn token_key(token: &BreakToken) -> TokenKey {
         floats: token
             .pending_floats
             .iter()
-            .map(|float_break| (float_break.child.0, token_key(&float_break.token)))
+            .map(|float_break| {
+                (
+                    float_break.child.0,
+                    float_break.depth,
+                    token_key(&float_break.token),
+                )
+            })
             .collect(),
     }
 }

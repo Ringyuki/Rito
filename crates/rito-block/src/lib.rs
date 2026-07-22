@@ -111,7 +111,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         let mut floats = FloatBands::new();
         let mut pending_float_breaks: Vec<FloatBreak> = Vec::new();
         if let Some(token) = token {
-            for float_break in &token.pending_floats {
+            // Only depth-0 floats belong to this container; deeper ones
+            // ride the resume path down to the container that split them.
+            for float_break in token.pending_floats.iter().filter(|entry| entry.depth == 0) {
                 if cancel.is_cancelled() {
                     return Err(LayoutError::Cancelled);
                 }
@@ -170,6 +172,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     pending_float_breaks.push(FloatBreak {
                         child: child_id,
                         token: sub_token,
+                        depth: 0,
                     });
                 }
             }
@@ -289,6 +292,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         pending_float_breaks.push(FloatBreak {
                             child: *child_id,
                             token: sub_token,
+                            depth: 0,
                         });
                     }
                     continue;
@@ -604,16 +608,20 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             continue;
                         }
                         Some(inner) => {
-                            if !inner.pending_floats.is_empty() {
-                                return Err(LayoutError::Invalid(
-                                    "a float split inside a nested container cannot resume \
-                                     across its parent's fragmentainer edge yet"
-                                        .to_owned(),
-                                ));
-                            }
+                            // The inner container's split floats ride along
+                            // one level deeper; this container's own ride at
+                            // depth 0. Each descent strips a level, so the
+                            // splitting container gets its floats back.
                             let mut resume_path = Vec::with_capacity(inner.resume_path.len() + 1);
                             resume_path.push(*child_id);
                             resume_path.extend(inner.resume_path);
+                            let mut pending_floats = std::mem::take(&mut pending_float_breaks);
+                            pending_floats.extend(inner.pending_floats.into_iter().map(|entry| {
+                                FloatBreak {
+                                    depth: entry.depth + 1,
+                                    ..entry
+                                }
+                            }));
                             return Ok(sealed_with_break(
                                 container,
                                 space.inline_size,
@@ -622,7 +630,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 BreakToken {
                                     resume_path,
                                     stage: inner.stage,
-                                    pending_floats: std::mem::take(&mut pending_float_breaks),
+                                    pending_floats,
                                 },
                             ));
                         }
@@ -885,11 +893,33 @@ fn descend_token(
     let Some(token) = token else {
         return Ok(None);
     };
+    // Floats deeper than this level descend with the path, one level
+    // stripped, so the container that split them consumes them at its own
+    // depth 0.
+    let descended_floats: Vec<FloatBreak> = token
+        .pending_floats
+        .iter()
+        .filter(|entry| entry.depth > 0)
+        .map(|entry| FloatBreak {
+            child: entry.child,
+            token: entry.token.clone(),
+            depth: entry.depth - 1,
+        })
+        .collect();
     if token.resume_path.len() > 1 {
         return Ok(Some(BreakToken {
             resume_path: token.resume_path[1..].to_vec(),
             stage: token.stage,
-            pending_floats: Vec::new(),
+            pending_floats: descended_floats,
+        }));
+    }
+    if !descended_floats.is_empty() {
+        // The named child finished its in-flow content on the previous
+        // fragmentainer; only its split floats resume.
+        return Ok(Some(BreakToken {
+            resume_path: Vec::new(),
+            stage: BreakTokenStage::Before,
+            pending_floats: descended_floats,
         }));
     }
     if consumed != 0.0 {
@@ -2238,6 +2268,135 @@ mod tests {
             right_tail.x
         );
         // No fragment anywhere may carry negative coordinates.
+        for (index, page) in pages.iter().enumerate() {
+            for fragment in box_children(page) {
+                assert!(
+                    fragment.rect().y >= -1e-6,
+                    "page {index} fragment starts above the page top",
+                );
+            }
+        }
+    }
+
+    /// The same paired columns, but inside a wrapper container — how real
+    /// books structure character pages (body > div.intro > two columns).
+    /// The wrapper's split floats must ride the resume path down and come
+    /// back side by side on the next page.
+    #[test]
+    fn nested_float_columns_resume_side_by_side_across_pages() {
+        use rito_style_contract::{FloatV1, NonNegativeLengthPercentage, Percentage};
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let half_width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+            LengthPercentage::Percentage(Percentage::from_percent(49.0).expect("finite")),
+        ));
+        let mut column = block_style(margin_px(0.0), margin_px(0.0));
+        column.width = half_width;
+        let mut left_column = column;
+        left_column.float = FloatV1::Left;
+        let mut right_column = column;
+        right_column.float = FloatV1::Right;
+        let layout = layout_table_with(5, |index| match index {
+            0 => left_column,
+            1 => right_column,
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let paragraph = |node_index: usize, line_count: usize| FormattingNode {
+            style: node_style_id(&layout, node_index),
+            content: FormattingNodeContent::InlineFlow {
+                items: (0..line_count)
+                    .map(|line| InlineItem::Text {
+                        text: format!("line {line}"),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    })
+                    .collect(),
+            },
+            children: Vec::new(),
+        };
+        // body(8) > wrapper(7) > [left column(2), right column(5)]; each
+        // column holds two 30px paragraphs in a 40px fragmentainer, so
+        // both columns split inside the wrapper and resume on page two.
+        let nodes = vec![
+            paragraph(2, 3),
+            paragraph(3, 3),
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+            },
+            paragraph(2, 3),
+            paragraph(3, 3),
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(3), FormattingNodeId(4)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 4),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(2), FormattingNodeId(5)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 4),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(6)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(7),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(200.0, 40.0));
+        assert_eq!(pages.len(), 2, "the nested columns span exactly two pages");
+
+        let columns_of = |page: &LayoutOutcome| -> Vec<FragmentRect> {
+            let wrappers = box_children(page);
+            assert_eq!(wrappers.len(), 1, "each page holds the wrapper box");
+            let Fragment::Box(wrapper) = &wrappers[0] else {
+                panic!("wrapper is a box");
+            };
+            wrapper.children.iter().map(|child| child.rect()).collect()
+        };
+        let first = columns_of(&pages[0]);
+        assert_eq!(first.len(), 2, "page one holds both column heads");
+        assert!((first[0].x - 0.0).abs() < 1e-6);
+        assert!(
+            (first[1].x - (200.0 - 98.0)).abs() < 1e-3,
+            "right head against the right edge, got {}",
+            first[1].x
+        );
+        assert!((first[0].y - 0.0).abs() < 1e-6);
+        assert!((first[1].y - 0.0).abs() < 1e-6, "heads share the page top");
+
+        let second = columns_of(&pages[1]);
+        assert_eq!(second.len(), 2, "page two holds both column tails");
+        assert!((second[0].y - 0.0).abs() < 1e-6, "tails resume at the top");
+        assert!(
+            (second[1].y - 0.0).abs() < 1e-6,
+            "tails resume side by side, got y {}",
+            second[1].y
+        );
+        assert!((second[0].x - 0.0).abs() < 1e-6);
+        assert!(
+            (second[1].x - (200.0 - 98.0)).abs() < 1e-3,
+            "right tail keeps its band, got {}",
+            second[1].x
+        );
         for (index, page) in pages.iter().enumerate() {
             for fragment in box_children(page) {
                 assert!(
