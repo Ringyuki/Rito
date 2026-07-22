@@ -12,6 +12,7 @@ mod chapter_text;
 mod chapter_tree_report;
 mod cleanup;
 mod continuation;
+mod fragment_backend;
 mod fragment_frame;
 mod fragment_page_report;
 mod fragment_shadow;
@@ -138,6 +139,12 @@ pub struct RuntimeDocument {
     chapter_local_revisions: BTreeMap<String, RuntimeRevision>,
     continuations: continuation::RuntimeContinuationStore,
     cleanup_queue: RuntimeCleanupQueue,
+    /// Whether completed whole-book revisions may hand pagination to the
+    /// fragment engine. Off by default while the fragment backend's
+    /// interaction surface (selection, source locators) is still
+    /// unimplemented: routing would trade working interactions for
+    /// fragment pagination. Probes and tests opt in.
+    fragment_page_table_enabled: bool,
 }
 
 impl RuntimeDocument {
@@ -184,7 +191,15 @@ impl RuntimeDocument {
             chapter_local_revisions: BTreeMap::new(),
             continuations: continuation::RuntimeContinuationStore::default(),
             cleanup_queue: RuntimeCleanupQueue::default(),
+            fragment_page_table_enabled: false,
         }
+    }
+
+    /// Opts completed whole-book revisions into fragment-engine
+    /// pagination. See the field's caveats; this is a cutover lever, not
+    /// a stable API.
+    pub fn set_fragment_page_table_enabled(&mut self, enabled: bool) {
+        self.fragment_page_table_enabled = enabled;
     }
 
     pub fn document(&self) -> &LoadedEpubDocument {

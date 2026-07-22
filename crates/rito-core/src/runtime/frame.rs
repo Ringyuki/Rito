@@ -67,6 +67,9 @@ pub(super) struct RuntimeRevision {
     /// absent chapters are undecided.
     pub(super) fragment_chapter_frames:
         BTreeMap<String, Option<super::fragment_frame::FragmentChapterFrames>>,
+    /// Whole-book fragment page table. `Some` makes the fragment engine
+    /// this revision's pagination authority and idles the bridge above.
+    pub(super) fragment_layout: Option<super::fragment_backend::FragmentBuiltLayout>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,6 +157,7 @@ impl RuntimeRevision {
             frame_cache: BTreeMap::new(),
             frame_cache_order: VecDeque::new(),
             fragment_chapter_frames: BTreeMap::new(),
+            fragment_layout: None,
         }
     }
 
@@ -180,6 +184,7 @@ impl RuntimeRevision {
             frame_cache: BTreeMap::new(),
             frame_cache_order: VecDeque::new(),
             fragment_chapter_frames: BTreeMap::new(),
+            fragment_layout: None,
         }
     }
 

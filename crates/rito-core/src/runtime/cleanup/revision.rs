@@ -142,6 +142,7 @@ impl PendingRuntimeRevisionCleanup {
             frame_cache_order,
             // Shared command vectors; dropped in place, no staged cleanup.
             fragment_chapter_frames: _,
+            fragment_layout: _,
         } = owner;
         self.frame_cache = Some(PendingRuntimeFrameCacheCleanup::new(
             RuntimeFrameCacheOwner {

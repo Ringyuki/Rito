@@ -58,7 +58,7 @@ impl RuntimeDocument {
             .or_else(|| self.chapter_local_revisions.get(revision_id))
     }
 
-    fn any_revision_mut(&mut self, revision_id: &str) -> Option<&mut RuntimeRevision> {
+    pub(super) fn any_revision_mut(&mut self, revision_id: &str) -> Option<&mut RuntimeRevision> {
         if self.revisions.contains_key(revision_id) {
             return self.revisions.get_mut(revision_id);
         }
@@ -99,6 +99,43 @@ impl RuntimeDocument {
     /// their pages swap in, or they stay retained for this revision's
     /// lifetime. Chapters still paginating are left undecided so they are
     /// reconsidered once complete.
+    /// The family policy fragment paint runs under, or `None` when the
+    /// publication names a face into the pinned alias namespace. The
+    /// retained pipeline resolves such collisions in the pinned face's
+    /// favor; the fragment pipeline registers fonts by declared name and
+    /// would let the publication face win, so those books stay retained.
+    /// Painted family stacks must resolve to the same faces layout
+    /// measured with: only engine-registered families survive, and the
+    /// pinned faces ride along under the alias names the host registered
+    /// for them.
+    pub(super) fn fragment_paint_family_policy(&self) -> Option<PaintFamilyPolicy> {
+        if self.resolved_font_face_sources().iter().any(|source| {
+            source
+                .family()
+                .to_ascii_lowercase()
+                .starts_with("__ritopinned")
+        }) {
+            return None;
+        }
+        let engine = self.fragment_engine()?;
+        Some(PaintFamilyPolicy {
+            available: engine
+                .engine
+                .inline()
+                .registered_families()
+                .iter()
+                .map(|family| family.to_ascii_lowercase())
+                .collect(),
+            aliases: self
+                .pinned_font_policy
+                .summary()
+                .faces
+                .into_iter()
+                .map(|face| face.family_alias)
+                .collect(),
+        })
+    }
+
     pub(super) fn prepare_fragment_spread_frames(
         &mut self,
         revision_id: &str,
@@ -107,6 +144,9 @@ impl RuntimeDocument {
         let Some(revision) = self.any_revision(revision_id) else {
             return;
         };
+        if revision.fragment_layout.is_some() {
+            return;
+        }
         let mut pending = Vec::new();
         for page_index in spread_page_indexes(revision, spread_index) {
             let Some((idref, _)) = chapter_of_page(revision, page_index) else {
@@ -158,40 +198,8 @@ impl RuntimeDocument {
         if !legacy_pages.iter().all(page_supports_swap) {
             return None;
         }
-        // The retained pipeline resolves pinned-font alias collisions in
-        // the pinned face's favor; the fragment pipeline registers fonts
-        // by declared name and would let the publication face win, so a
-        // book that names a face into the pinned alias namespace stays
-        // retained.
-        if self.resolved_font_face_sources().iter().any(|source| {
-            source
-                .family()
-                .to_ascii_lowercase()
-                .starts_with("__ritopinned")
-        }) {
-            return None;
-        }
+        let family_policy = self.fragment_paint_family_policy()?;
         let engine = self.fragment_engine()?;
-        // Painted family stacks must resolve to the same faces layout
-        // measured with: only engine-registered families survive, and the
-        // pinned faces ride along under the alias names the host
-        // registered for them.
-        let family_policy = PaintFamilyPolicy {
-            available: engine
-                .engine
-                .inline()
-                .registered_families()
-                .iter()
-                .map(|family| family.to_ascii_lowercase())
-                .collect(),
-            aliases: self
-                .pinned_font_policy
-                .summary()
-                .faces
-                .into_iter()
-                .map(|face| face.family_alias)
-                .collect(),
-        };
         let built = self.chapter_formatting_tree(revision_id, idref).ok()?;
         let config = &revision.layout_config;
         let pages = paginate_chapter(
@@ -227,6 +235,11 @@ pub(super) fn fragment_spread_frame(
     revision: &RuntimeRevision,
     spread_index: usize,
 ) -> Option<PageArtifactFrame> {
+    // A fragment page table owns pagination outright; the bridge only
+    // exists to repaint retained pages and must not touch such revisions.
+    if revision.fragment_layout.is_some() {
+        return None;
+    }
     let config = &revision.layout_config;
     let spreads = build_spread_slots(
         revision.layout.pages.len(),
@@ -360,17 +373,23 @@ fn page_background_color(page: &LayoutRuntimePage) -> Option<&str> {
         .filter(|color| !color.is_empty())
 }
 
-fn paint_rect_command(x: f64, y: f64, width: f64, height: f64, color: &str) -> DisplayCommand {
+pub(super) fn paint_rect_command(
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    color: &str,
+) -> DisplayCommand {
     DisplayCommand::paint_page(
         rect_value(x, y, width, height),
         serde_json::json!({ "backgroundColor": color }),
     )
 }
 
-fn number_value(value: f64) -> Value {
+pub(super) fn number_value(value: f64) -> Value {
     crate::fragment_paint::number_value(value)
 }
 
-fn rect_value(x: f64, y: f64, width: f64, height: f64) -> Value {
+pub(super) fn rect_value(x: f64, y: f64, width: f64, height: f64) -> Value {
     crate::fragment_paint::rect_value(x, y, width, height)
 }

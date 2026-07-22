@@ -158,8 +158,12 @@ impl RuntimeDocument {
             required_font_face_catalog,
             interactions,
         );
-        let summary = revision_summary(&revision_id, &layout_key, &revision);
-        self.insert_new_revision(revision_id, revision);
+        self.insert_new_revision(revision_id.clone(), revision);
+        self.try_attach_fragment_page_table(&revision_id);
+        let revision = self
+            .any_revision(&revision_id)
+            .expect("the revision was just inserted");
+        let summary = revision_summary(&revision_id, &layout_key, revision);
         Ok(summary)
     }
 
