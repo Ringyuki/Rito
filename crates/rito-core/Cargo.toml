@@ -48,7 +48,9 @@ path = "tests/rust_fixture_package.rs"
 required-features = ["legacy-css-diagnostics"]
 
 [dependencies]
+rito-block = { path = "../rito-block" }
 rito-fragment = { path = "../rito-fragment" }
+rito-inline = { path = "../rito-inline" }
 rito-source = { path = "../rito-source" }
 rito-style-contract = { path = "../rito-style-contract" }
 rito-stylo = { path = "../rito-stylo" }
@@ -66,8 +68,6 @@ icu_locale_core = "2.2.0"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
-rito-block = { path = "../rito-block" }
-rito-inline = { path = "../rito-inline" }
 flate2 = "1.1"
 
 [lints]

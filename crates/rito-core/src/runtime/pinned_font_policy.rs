@@ -59,6 +59,11 @@ impl RuntimePinnedFontPolicy {
         self.faces.is_empty()
     }
 
+    /// Raw bytes of every pinned face, in policy order.
+    pub(crate) fn face_bytes(&self) -> impl Iterator<Item = &[u8]> {
+        self.faces.iter().map(|face| face.bytes.as_slice())
+    }
+
     pub(crate) fn identity(&self) -> &[u8] {
         &self.identity
     }

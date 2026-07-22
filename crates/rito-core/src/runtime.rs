@@ -12,6 +12,7 @@ mod chapter_text;
 mod chapter_tree_report;
 mod cleanup;
 mod continuation;
+mod fragment_frame;
 mod fragment_page_report;
 mod fragment_shadow;
 mod frame;
@@ -128,6 +129,7 @@ pub struct RuntimeDocument {
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
     font_face_sources: OnceCell<Vec<crate::epub::ResolvedFontFaceSource>>,
+    fragment_engine: OnceCell<Option<fragment_frame::RuntimeFragmentEngine>>,
     text_measurement_cache: TextMeasurementCache,
     pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
     next_revision_index: usize,
@@ -173,6 +175,7 @@ impl RuntimeDocument {
             source_chapter_indices: BTreeMap::new(),
             parsed_chapters: BTreeMap::new(),
             font_face_sources: OnceCell::new(),
+            fragment_engine: OnceCell::new(),
             text_measurement_cache: TextMeasurementCache::default(),
             pinned_font_policy,
             next_revision_index: 1,

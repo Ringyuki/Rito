@@ -84,6 +84,7 @@ impl RuntimeDocument {
             content_height,
             config.margin_left,
             config.margin_top,
+            None,
             &CancelFlag::new(),
         )?;
         Ok(pages
@@ -127,6 +128,7 @@ impl RuntimeDocument {
                         content_height,
                         origin_x,
                         origin_y,
+                        None,
                         &cancel,
                     )
                 });

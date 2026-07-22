@@ -29,6 +29,24 @@ use crate::layout::{
 use crate::render::{DisplayCommand, DisplayTextCommandInput};
 use crate::style::{absolute_color, serialize_font_families};
 
+/// How painted family stacks reach the canvas when the reader pins fonts.
+///
+/// The renderer resolves the painted `font-family` string against the
+/// host's font set, while layout resolved it against exactly the faces
+/// registered in the engine. Left as computed, a family the host happens
+/// to own (but the engine does not) would render in a font layout never
+/// measured. This policy reproduces the retained pipeline's rewrite:
+/// families the engine cannot resolve are dropped, and the reader's
+/// pinned faces are appended under their stable alias names ahead of the
+/// generic fallback, which the host has registered via `FontFace`.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct PaintFamilyPolicy {
+    /// Lowercased family names layout can actually resolve.
+    pub(crate) available: std::collections::BTreeSet<String>,
+    /// Pinned-face alias names, in policy order.
+    pub(crate) aliases: Vec<String>,
+}
+
 /// Fraction of the font size between a run's alphabetic baseline and the
 /// edge the reader's canvas painter anchors text at (`textBaseline: 'top'`
 /// places the em-square top at the paint rect's y). The canvas em-square
@@ -69,6 +87,7 @@ pub(crate) fn append_fragment_display_commands(
     fragment: &Fragment,
     origin_x: f64,
     origin_y: f64,
+    family_policy: Option<&PaintFamilyPolicy>,
 ) -> EpubResult<()> {
     match fragment {
         Fragment::Box(fragment) => {
@@ -79,11 +98,14 @@ pub(crate) fn append_fragment_display_commands(
                     child,
                     origin_x + fragment.rect.x,
                     origin_y + fragment.rect.y,
+                    family_policy,
                 )?;
             }
             Ok(())
         }
-        Fragment::Line(line) => append_line_commands(commands, tree, line, origin_x, origin_y),
+        Fragment::Line(line) => {
+            append_line_commands(commands, tree, line, origin_x, origin_y, family_policy)
+        }
         Fragment::Text(_) | Fragment::Image(_) => Err(EpubError::new(
             "text and image fragments paint through their line box, not standalone",
         )),
@@ -96,6 +118,7 @@ fn append_line_commands(
     line: &LineFragment,
     origin_x: f64,
     origin_y: f64,
+    family_policy: Option<&PaintFamilyPolicy>,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
         return Err(EpubError::new("line fragment source is not an inline flow"));
@@ -130,6 +153,7 @@ fn append_line_commands(
                     run,
                     line_x,
                     line_y,
+                    family_policy,
                 )?;
             }
             Fragment::Image(image) => {
@@ -156,6 +180,7 @@ fn append_text_run_command(
     run: &TextFragment,
     line_x: f64,
     line_y: f64,
+    family_policy: Option<&PaintFamilyPolicy>,
 ) -> EpubResult<()> {
     let start = run.text_start as usize;
     let end = run.text_end as usize;
@@ -182,7 +207,7 @@ fn append_text_run_command(
         .inline
         .style(*style)
         .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
-    let paint = run_paint(style)?;
+    let paint = run_paint(style, family_policy)?;
     let font_size = f64::from(style.font.size.get());
     // The run's baseline is the line's, raised by the item's own shift;
     // the paint rect starts one canvas-'top' ascent above it and spans the
@@ -238,7 +263,10 @@ fn append_image_command(
 /// Builds the typed run paint the renderer consumes from one item's inline
 /// style. Pure paint properties the command protocol cannot express fail
 /// closed by name rather than dropping ink.
-fn run_paint(style: &InlineFormattingStyleV1) -> EpubResult<RunPaint> {
+fn run_paint(
+    style: &InlineFormattingStyleV1,
+    family_policy: Option<&PaintFamilyPolicy>,
+) -> EpubResult<RunPaint> {
     let paint = &style.paint;
     if paint.opacity.get() != 1.0 {
         return Err(not_paintable("inline opacity below one"));
@@ -284,8 +312,7 @@ fn run_paint(style: &InlineFormattingStyleV1) -> EpubResult<RunPaint> {
                 },
                 weight: f64::from(style.font.weight.get()),
                 size_px: font_size,
-                family: serialize_font_families(&style.font)
-                    .map_err(|error| not_paintable(&format!("font family list: {error:?}")))?,
+                family: paint_family_stack(style, family_policy)?,
             },
             word_spacing_px: spacing_px(style.text_flow.word_spacing)?,
             letter_spacing_px: spacing_px(style.text_flow.letter_spacing)?,
@@ -345,6 +372,65 @@ fn spacing_px(spacing: LengthPercentage) -> EpubResult<Option<f64>> {
     }
 }
 
+/// The `font-family` string painted for a run: the computed stack as-is
+/// without a policy, or the policy's rewrite of it (see
+/// [`PaintFamilyPolicy`]).
+fn paint_family_stack(
+    style: &InlineFormattingStyleV1,
+    family_policy: Option<&PaintFamilyPolicy>,
+) -> EpubResult<String> {
+    use rito_style_contract::{FontFamily, FontFamilyNameSyntax, GenericFontFamily};
+    let Some(policy) = family_policy else {
+        return serialize_font_families(&style.font)
+            .map_err(|error| not_paintable(&format!("font family list: {error:?}")));
+    };
+    let generic_keyword = |generic: GenericFontFamily| -> &'static str {
+        match generic {
+            GenericFontFamily::Serif => "serif",
+            GenericFontFamily::SansSerif => "sans-serif",
+            GenericFontFamily::Monospace => "monospace",
+            GenericFontFamily::Cursive => "cursive",
+            GenericFontFamily::Fantasy => "fantasy",
+            GenericFontFamily::SystemUi => "system-ui",
+        }
+    };
+    let mut parts: Vec<String> = Vec::new();
+    let mut aliases_added = false;
+    for family in style.font.families.iter() {
+        match family {
+            FontFamily::Named(name) => {
+                if !policy
+                    .available
+                    .contains(&name.as_str().to_ascii_lowercase())
+                {
+                    continue;
+                }
+                parts.push(match name.syntax() {
+                    FontFamilyNameSyntax::Quoted => format!(
+                        "\"{}\"",
+                        name.as_str().replace('\\', "\\\\").replace('"', "\\\"")
+                    ),
+                    FontFamilyNameSyntax::Identifiers => name.as_str().to_owned(),
+                });
+            }
+            FontFamily::Generic(generic) => {
+                if !aliases_added {
+                    parts.extend(policy.aliases.iter().cloned());
+                    aliases_added = true;
+                }
+                parts.push(generic_keyword(*generic).to_owned());
+            }
+        }
+    }
+    if !aliases_added {
+        parts.extend(policy.aliases.iter().cloned());
+    }
+    if parts.is_empty() {
+        return Err(not_paintable("an empty rewritten font family stack"));
+    }
+    Ok(parts.join(", "))
+}
+
 fn css_color(color: AbsoluteColor) -> EpubResult<String> {
     absolute_color(color).map_err(|error| not_paintable(&format!("color: {error:?}")))
 }
@@ -387,8 +473,6 @@ mod tests {
 
     struct FlowFixture {
         tree: FormattingTree,
-        red: StyleId,
-        black: StyleId,
     }
 
     /// Two-item flow — "Red " in red then "black." in black — so tests can
@@ -416,7 +500,7 @@ mod tests {
             },
         )
         .expect("tree builds");
-        FlowFixture { tree, red, black }
+        FlowFixture { tree }
     }
 
     fn text_item(text: &str, style: StyleId, shift: f64) -> InlineItem {
@@ -467,7 +551,7 @@ mod tests {
 
     fn paint(tree: &FormattingTree, root: &Fragment) -> Vec<DisplayCommand> {
         let mut commands = Vec::new();
-        append_fragment_display_commands(&mut commands, tree, root, 0.0, 0.0)
+        append_fragment_display_commands(&mut commands, tree, root, 0.0, 0.0, None)
             .expect("fragments paint");
         commands
     }
@@ -507,6 +591,35 @@ mod tests {
             panic!("expected a text command, got {:?}", commands[0]);
         };
         assert_eq!(command.rect, rect_value(14.0, 22.2, 8.0, 16.0));
+    }
+
+    #[test]
+    fn the_family_policy_drops_unresolvable_families_and_appends_aliases() {
+        let fixture = two_color_flow(|red, _| vec![text_item("x", red, 0.0)]);
+        let root = boxed_line(vec![text_run(0.0, 8.0, 0, 1)]);
+        let policy = PaintFamilyPolicy {
+            available: ["tinos".to_owned()].into_iter().collect(),
+            aliases: vec!["__RitoPinned_test".to_owned()],
+        };
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &fixture.tree,
+            &root,
+            0.0,
+            0.0,
+            Some(&policy),
+        )
+        .expect("fragments paint");
+        let DisplayCommand::PaintText(command) = &commands[0] else {
+            panic!("expected a text command, got {:?}", commands[0]);
+        };
+        // The fixture stack is just "Tinos" with no generic, so the alias
+        // lands at the end; a host-only family would have been dropped.
+        assert_eq!(
+            command.paint.measure().font.family,
+            "Tinos, __RitoPinned_test"
+        );
     }
 
     #[test]
@@ -613,8 +726,9 @@ mod tests {
         });
         let root = boxed_line(vec![text_run(0.0, 60.0, 2, 8)]);
         let mut commands = Vec::new();
-        let error = append_fragment_display_commands(&mut commands, &fixture.tree, &root, 0.0, 0.0)
-            .expect_err("a run straddling two items must not paint");
+        let error =
+            append_fragment_display_commands(&mut commands, &fixture.tree, &root, 0.0, 0.0, None)
+                .expect_err("a run straddling two items must not paint");
         assert!(
             error
                 .to_string()
@@ -647,7 +761,7 @@ mod tests {
         .expect("tree builds");
         let root = boxed_line(vec![text_run(0.0, 20.0, 0, 3)]);
         let mut commands = Vec::new();
-        let error = append_fragment_display_commands(&mut commands, &tree, &root, 0.0, 0.0)
+        let error = append_fragment_display_commands(&mut commands, &tree, &root, 0.0, 0.0, None)
             .expect_err("translucent ink must not silently flatten");
         assert!(
             error.to_string().contains("inline opacity"),

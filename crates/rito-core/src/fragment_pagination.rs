@@ -11,13 +11,16 @@
 use rito_fragment::{CancelFlag, ConstraintSpace, FormattingContext, FormattingTree, Fragment};
 
 use crate::epub::{EpubError, EpubResult};
-use crate::fragment_paint::append_fragment_display_commands;
+use crate::fragment_paint::{append_fragment_display_commands, PaintFamilyPolicy};
 use crate::render::DisplayCommand;
 
 /// One paginated page: the sealed fragment tree that fit the page's
 /// content box, and the commands that paint it.
 pub(crate) struct FragmentChapterPage {
     /// Root fragment of this page's content, in content-box coordinates.
+    /// The frame bridge paints from `commands` alone; the fragment page
+    /// artifact (interaction geometry) will consume this tree.
+    #[allow(dead_code)]
     pub(crate) root: Fragment,
     /// Paint commands for the page content, translated to the origin the
     /// paginator was given (the page's content origin within its frame).
@@ -39,6 +42,7 @@ pub(crate) fn paginate_chapter(
     content_height: f64,
     origin_x: f64,
     origin_y: f64,
+    family_policy: Option<&PaintFamilyPolicy>,
     cancel: &CancelFlag,
 ) -> EpubResult<Vec<FragmentChapterPage>> {
     let space = ConstraintSpace::fragmented(content_width, content_height);
@@ -60,6 +64,7 @@ pub(crate) fn paginate_chapter(
             &outcome.fragments.root,
             origin_x,
             origin_y,
+            family_policy,
         )?;
         pages.push(FragmentChapterPage {
             root: outcome.fragments.root,
@@ -210,7 +215,7 @@ mod tests {
         let sample = "The quick brown fox jumps over the lazy dog. ".repeat(40);
         let tree = paragraph_tree(sample.trim_end());
         let cancel = CancelFlag::new();
-        let pages = paginate_chapter(&engine, &tree, 200.0, 100.0, 24.0, 32.0, &cancel)
+        let pages = paginate_chapter(&engine, &tree, 200.0, 100.0, 24.0, 32.0, None, &cancel)
             .expect("chapter paginates");
         assert!(
             pages.len() > 1,
@@ -242,7 +247,7 @@ mod tests {
         let engine = BlockFormattingContext::new(context);
         let tree = paragraph_tree("One line.");
         let cancel = CancelFlag::new();
-        let pages = paginate_chapter(&engine, &tree, 200.0, 100.0, 24.0, 32.0, &cancel)
+        let pages = paginate_chapter(&engine, &tree, 200.0, 100.0, 24.0, 32.0, None, &cancel)
             .expect("chapter paginates");
         assert_eq!(pages.len(), 1);
         let DisplayCommand::PaintText(input) = &pages[0].commands[0] else {

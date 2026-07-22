@@ -61,6 +61,12 @@ pub(super) struct RuntimeRevision {
     pub(super) interactions: RuntimeRevisionInteractions,
     pub(super) frame_cache: BTreeMap<usize, RuntimeCachedFrame>,
     pub(super) frame_cache_order: VecDeque<usize>,
+    /// Per-chapter fragment-engine paint commands for the cutover bridge:
+    /// `Some` swaps the chapter's frames in, `None` pins it to the
+    /// retained engine for this revision's lifetime. Keyed by idref;
+    /// absent chapters are undecided.
+    pub(super) fragment_chapter_frames:
+        BTreeMap<String, Option<super::fragment_frame::FragmentChapterFrames>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -147,6 +153,7 @@ impl RuntimeRevision {
             interactions,
             frame_cache: BTreeMap::new(),
             frame_cache_order: VecDeque::new(),
+            fragment_chapter_frames: BTreeMap::new(),
         }
     }
 
@@ -172,6 +179,7 @@ impl RuntimeRevision {
             interactions,
             frame_cache: BTreeMap::new(),
             frame_cache_order: VecDeque::new(),
+            fragment_chapter_frames: BTreeMap::new(),
         }
     }
 
@@ -502,6 +510,7 @@ impl RuntimeDocument {
         spread_index: usize,
         payload: RuntimeFrameCachePayload,
     ) -> EpubResult<&RuntimeCachedFrame> {
+        self.prepare_fragment_spread_frames(revision_id, spread_index);
         let result = self
             .revisions
             .get_mut(revision_id)
@@ -589,9 +598,8 @@ fn cache_runtime_frame(
         touch_cached_frame(revision, spread_index);
         return Ok((None, None));
     }
-    let frame_commands = revision
-        .chapter_engine_session()
-        .frame(spread_index)
+    let frame_commands = super::fragment_frame::fragment_spread_frame(revision, spread_index)
+        .or_else(|| revision.chapter_engine_session().frame(spread_index))
         .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))?;
     let cached_frame = runtime_cached_frame(
         revision_id,
@@ -618,9 +626,8 @@ fn materialize_cached_runtime_frame(
     if !needs_json {
         return Ok(());
     }
-    let frame_commands = revision
-        .chapter_engine_session()
-        .frame(spread_index)
+    let frame_commands = super::fragment_frame::fragment_spread_frame(revision, spread_index)
+        .or_else(|| revision.chapter_engine_session().frame(spread_index))
         .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))?;
     let runtime_frame = {
         let cached = revision

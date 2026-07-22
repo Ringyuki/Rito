@@ -17,6 +17,16 @@ pub(crate) struct ResolvedFontFaceSource {
 }
 
 impl ResolvedFontFaceSource {
+    /// The `@font-face` declared family name this source binds.
+    pub(crate) fn family(&self) -> &str {
+        &self.family
+    }
+
+    /// Index of the bound font resource in the document's font list.
+    pub(crate) fn resource_index(&self) -> usize {
+        self.resource_index
+    }
+
     pub(super) fn measurement_face<'a>(
         &self,
         resource: &'a LoadedBinaryResource,
