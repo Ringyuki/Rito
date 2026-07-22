@@ -447,10 +447,24 @@ fn paint_family_stack(
     for family in style.font.families.iter() {
         match family {
             FontFamily::Named(name) => {
-                if !policy
-                    .available
-                    .contains(&name.as_str().to_ascii_lowercase())
-                {
+                let lower = name.as_str().to_ascii_lowercase();
+                // CSS generic keywords ride through even in named form:
+                // the canvas needs them as its final fallback exactly as
+                // the retained stack carried them, or an unavailable
+                // stack drops to the renderer's default sans.
+                let generic_keyword_name = matches!(
+                    lower.as_str(),
+                    "serif" | "sans-serif" | "monospace" | "cursive" | "fantasy" | "system-ui"
+                );
+                if generic_keyword_name {
+                    if !aliases_added {
+                        parts.extend(policy.aliases.iter().cloned());
+                        aliases_added = true;
+                    }
+                    parts.push(lower);
+                    continue;
+                }
+                if !policy.available.contains(&lower) {
                     continue;
                 }
                 parts.push(match name.syntax() {
@@ -473,8 +487,17 @@ fn paint_family_stack(
     if !aliases_added {
         parts.extend(policy.aliases.iter().cloned());
     }
-    if parts.is_empty() {
-        return Err(not_paintable("an empty rewritten font family stack"));
+    // The retained pipeline injected a generic keyword at the stack tail;
+    // the canvas needs one too, or an unavailable stack silently drops to
+    // the renderer's default sans instead of the book's serif shape.
+    let has_generic_tail = parts.last().is_some_and(|part| {
+        matches!(
+            part.as_str(),
+            "serif" | "sans-serif" | "monospace" | "cursive" | "fantasy" | "system-ui"
+        )
+    });
+    if !has_generic_tail {
+        parts.push("serif".to_owned());
     }
     Ok(parts.join(", "))
 }
@@ -728,10 +751,11 @@ mod tests {
             panic!("expected a text command, got {:?}", commands[0]);
         };
         // The fixture stack is just "Tinos" with no generic, so the alias
-        // lands at the end; a host-only family would have been dropped.
+        // lands after it and the injected generic closes the stack; a
+        // host-only family would have been dropped.
         assert_eq!(
             command.paint.measure().font.family,
-            "Tinos, __RitoPinned_test"
+            "Tinos, __RitoPinned_test, serif"
         );
     }
 

@@ -41,6 +41,7 @@ struct ProbeLine {
     y: f64,
     width: f64,
     height: f64,
+    family: String,
 }
 
 #[derive(Serialize)]
@@ -126,12 +127,20 @@ fn main() {
                     .unwrap_or_default();
                 let rect = command.get("rect").cloned().unwrap_or_default();
                 let field = |name: &str| rect.get(name).and_then(Value::as_f64).unwrap_or(f64::NAN);
+                let family = command
+                    .get("paint")
+                    .and_then(|paint| paint.get("font"))
+                    .and_then(|font| font.get("family"))
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned();
                 lines.push(ProbeLine {
                     text: text.chars().take(16).collect(),
                     x: field("x"),
                     y: field("y"),
                     width: field("width"),
                     height: field("height"),
+                    family,
                 });
             }
             spreads.push(ProbeSpread {

@@ -160,9 +160,13 @@ function publishFrameDiagnostics(
 ): void {
   const scope = globalThis as { __ritoLastFrame?: unknown };
   const texts: string[] = [];
+  const families: string[] = [];
   for (const command of frame.commands) {
     if (command.kind === 'paintText' && typeof command.text === 'string') {
       texts.push(command.text);
+      if (families.length === 0) {
+        families.push(JSON.stringify(command).slice(0, 400));
+      }
       if (texts.length >= 3) break;
     }
   }
@@ -179,6 +183,7 @@ function publishFrameDiagnostics(
       return acc;
     }, {}),
     firstTexts: texts,
+    firstFamilies: families,
     frameSize: { width: frame.width, height: frame.height },
     canvasSize: { width: ctx.canvas.width, height: ctx.canvas.height },
     canvasCssSize: {

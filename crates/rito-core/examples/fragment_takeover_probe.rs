@@ -46,6 +46,8 @@ struct ProbeBook {
     /// Chapters the fragment tree cannot represent, with reasons; empty
     /// for fragment-backed books.
     chapter_errors: Vec<ProbeChapterError>,
+    /// Approximations the fragment tree applied, per chapter.
+    degradations: Vec<ProbeChapterError>,
 }
 
 #[derive(Serialize)]
@@ -94,6 +96,7 @@ fn probe_book(
         page_count: None,
         rejection: None,
         chapter_errors: Vec::new(),
+        degradations: Vec::new(),
     };
     let bytes = match std::fs::read(epub_path) {
         Ok(bytes) => bytes,
@@ -138,6 +141,18 @@ fn probe_book(
         .revision_pagination_backend(&revision.revision_id)
         .map(str::to_owned);
     if book.backend.as_deref() == Some("fragment") {
+        for chapter in document.publication_info().chapters {
+            if let Ok(built) =
+                document.chapter_formatting_tree(&revision.revision_id, &chapter.idref)
+            {
+                for reason in built.degradations {
+                    book.degradations.push(ProbeChapterError {
+                        idref: chapter.idref.clone(),
+                        error: reason,
+                    });
+                }
+            }
+        }
         return book;
     }
     book.rejection = document.fragment_page_table_rejection_reason(&revision.revision_id);
