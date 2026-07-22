@@ -31,14 +31,14 @@ function getThemeOptions(theme: 'light' | 'dark') {
 }
 
 /**
- * Cutover lever for the fragment pagination engine, off unless the page
- * is opened with `?fragmentPagination=1`. When on, completed books whose
- * every chapter the fragment engine can represent are re-paginated and
- * repainted by it.
+ * Cutover lever for the fragment pagination engine, on by default in the
+ * demo: completed books whose every chapter the fragment engine can
+ * represent are re-paginated and repainted by it. `?fragmentPagination=0`
+ * is the kill switch back to the retained engine.
  */
 const FRAGMENT_PAGINATION_ENABLED =
-  typeof window !== 'undefined' &&
-  new URLSearchParams(window.location.search).get('fragmentPagination') === '1';
+  typeof window === 'undefined' ||
+  new URLSearchParams(window.location.search).get('fragmentPagination') !== '0';
 
 export function useReader(
   theme: 'light' | 'dark',
