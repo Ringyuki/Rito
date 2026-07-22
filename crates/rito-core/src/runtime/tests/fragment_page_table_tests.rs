@@ -7,7 +7,11 @@ use super::{
     pinned_font_policy_fixtures::{face, font_aware_layout, policy, serif_text_font},
 };
 use crate::runtime::page_artifact::PageArtifactSemanticRole;
-use crate::runtime::{RuntimeDocument, RuntimePinnedFontGenericRole};
+use crate::runtime::{
+    RuntimeDocument, RuntimePinnedFontGenericRole, RuntimeRevisionHandle, RuntimeTextPointRequest,
+    RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResolution,
+    RuntimeTextRangeToPointRequest, RuntimeTextSelectionGranularity,
+};
 
 fn fragment_routed_document() -> (RuntimeDocument, String) {
     let mut document = RuntimeDocument::open_with_pinned_font_policy(
@@ -172,4 +176,125 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
         .expect("the heading is in the outline");
     assert_eq!(heading.level, Some(2));
     assert_eq!(heading.text.as_deref(), Some("Title Here"));
+}
+
+#[test]
+fn fragment_pages_resolve_pointer_selection() {
+    let epub = fixture_epub_with_chapter_and_stylesheet(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p>The quick brown fox jumps over the lazy dog.</p></body></html>"#,
+        "p { margin: 0; }\n",
+    );
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("selection fixture opens");
+    document.set_fragment_page_table_enabled(true);
+    let mut layout = font_aware_layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let handle = RuntimeRevisionHandle::from(&summary);
+    let revision = document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained");
+    assert!(
+        revision.fragment_layout.is_some(),
+        "the fixture routes to the fragment engine: {:?}",
+        document.fragment_page_table_rejection_reason(&summary.revision_id),
+    );
+
+    // Locate the word "quick" through the fragment page artifact itself.
+    let session = revision.chapter_engine_session();
+    let page = session.page(0).expect("page 0 resolves");
+    let positions = page.text_positions();
+    let word_start = positions.text.find("quick").expect("the word is on page 0");
+    let offset = positions.text[..word_start].encode_utf16().count();
+    let run = positions
+        .offsets
+        .iter()
+        .find(|run| run.start <= offset && offset < run.end)
+        .expect("the word has a run");
+    let geometry = page.text_range_geometry(
+        crate::runtime::page_artifact::PageArtifactTextPosition {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: offset - run.start,
+        },
+        crate::runtime::page_artifact::PageArtifactTextPosition {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: offset - run.start + 5,
+        },
+    );
+    let rect = geometry.rects.first().expect("the word has geometry");
+    let point = RuntimeTextPointRequest {
+        page_index: 0,
+        x: rect.x + rect.width / 2.0,
+        y: rect.y + rect.height / 2.0,
+    };
+
+    // Double-tap: word granularity from a single point.
+    let response = document
+        .resolve_text_range_from_points_at(
+            &handle,
+            RuntimeTextRangeFromPointsRequest {
+                anchor: point,
+                focus: point,
+                granularity: RuntimeTextSelectionGranularity::Word,
+            },
+        )
+        .expect("word request is valid");
+    let RuntimeTextRangeFromPointsResolution::Resolved {
+        anchor_caret,
+        range,
+        ..
+    } = response.value.resolution
+    else {
+        panic!(
+            "word selection resolves on a fragment page, got {:?}",
+            response.value.resolution
+        );
+    };
+    assert_eq!(range.selected_text, "quick");
+    assert!(!range.rects.is_empty());
+
+    // Drag: extend from the word's anchor to a later point on the line.
+    let drag = document
+        .resolve_text_range_to_point_at(
+            &handle,
+            RuntimeTextRangeToPointRequest {
+                anchor: anchor_caret.address,
+                focus: RuntimeTextPointRequest {
+                    page_index: 0,
+                    x: rect.x + rect.width * 3.0,
+                    y: rect.y + rect.height / 2.0,
+                },
+            },
+        )
+        .expect("drag request is valid");
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = drag.value.resolution else {
+        panic!(
+            "drag selection resolves on a fragment page, got {:?}",
+            drag.value.resolution
+        );
+    };
+    assert!(
+        range.selected_text.starts_with("quick"),
+        "the drag keeps its anchor, got {:?}",
+        range.selected_text
+    );
+    assert!(
+        range.selected_text.len() > "quick".len(),
+        "the drag extends past the word"
+    );
 }

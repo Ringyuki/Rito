@@ -35,20 +35,20 @@ use crate::fragment_bridge::FlowItemSource;
 
 /// One text run's geometry and text, pre-resolved from the fragment tree.
 #[derive(Debug, Clone)]
-struct FragmentRunRecord {
-    block_index: usize,
-    line_index: usize,
-    run_index: usize,
+pub(in crate::runtime) struct FragmentRunRecord {
+    pub(in crate::runtime) block_index: usize,
+    pub(in crate::runtime) line_index: usize,
+    pub(in crate::runtime) run_index: usize,
     /// UTF-16 offset range in the page text.
-    start: usize,
-    end: usize,
+    pub(in crate::runtime) start: usize,
+    pub(in crate::runtime) end: usize,
     /// Absolute page-content coordinates.
-    x: f64,
-    y: f64,
-    width: f64,
-    height: f64,
+    pub(in crate::runtime) x: f64,
+    pub(in crate::runtime) y: f64,
+    pub(in crate::runtime) width: f64,
+    pub(in crate::runtime) height: f64,
     /// Destination of the enclosing link, when the run sits inside one.
-    href: Option<String>,
+    pub(in crate::runtime) href: Option<String>,
 }
 
 /// Query-ready interaction data for one fragment-engine page.
@@ -106,6 +106,16 @@ impl FragmentPageArtifact {
             images: Vec::new(),
             semantics: Vec::new(),
         }
+    }
+
+    /// The page's text runs, for interaction resolvers.
+    pub(in crate::runtime) fn interaction_runs(&self) -> &[FragmentRunRecord] {
+        &self.runs
+    }
+
+    /// The page's concatenated flow text (UTF-16 offsets index into it).
+    pub(in crate::runtime) fn page_text(&self) -> &str {
+        &self.text
     }
 
     /// Builds the artifact from one page's root fragment. `origin_x` and

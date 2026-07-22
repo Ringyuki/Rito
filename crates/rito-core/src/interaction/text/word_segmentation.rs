@@ -25,6 +25,27 @@ pub(super) fn word_bounds(
     None
 }
 
+/// Word bounds around a UTF-16 hit range in plain text, for resolvers
+/// that address text by page-artifact offsets rather than a shaped flow.
+pub(crate) fn plain_word_bounds(
+    text: &str,
+    hit_start: u32,
+    hit_end: u32,
+    language: Option<&str>,
+) -> Option<(u32, u32)> {
+    let utf16 = text.encode_utf16().collect::<Vec<_>>();
+    let boundaries = word_boundaries(&utf16, language);
+    let mut boundaries = boundaries.into_iter();
+    let mut start = boundaries.next()?;
+    for end in boundaries {
+        if start <= hit_start && hit_end <= end && start < end {
+            return Some((start, end));
+        }
+        start = end;
+    }
+    None
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct WordLikeSegment {
     pub(super) start: u32,
