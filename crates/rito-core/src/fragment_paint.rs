@@ -120,6 +120,18 @@ pub(crate) fn append_fragment_display_commands(
                             serde_json::json!({ "color": color, "style": style }),
                         ));
                     }
+                    NodePaint::Box { paint, border_box } => {
+                        commands.push(DisplayCommand::paint_block(
+                            rect_value(
+                                origin_x + fragment.rect.x,
+                                origin_y + fragment.rect.y,
+                                fragment.rect.width,
+                                fragment.rect.height,
+                            ),
+                            paint.clone(),
+                            border_box.clone(),
+                        ));
+                    }
                 }
             }
             for child in &fragment.children {

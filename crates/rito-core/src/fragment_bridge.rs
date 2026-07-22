@@ -29,6 +29,8 @@ use rito_style_contract::{
 
 use std::collections::BTreeMap;
 
+use serde_json::Value;
+
 use crate::epub::{EpubError, EpubResult};
 use crate::xhtml::{DocumentNode, ElementNode, ImageNode};
 
@@ -61,6 +63,15 @@ pub enum NodePaint {
         /// Stroke pattern understood by the render protocol.
         style: &'static str,
     },
+    /// Block-box decoration: the `paintBlock` command's `paint` object
+    /// and optional `borderBox` widths, exactly as the render protocol
+    /// consumes them. Border widths are already lowered into the node's
+    /// layout padding, so the fragment rect is the CSS border box and the
+    /// renderer strokes edges inside it.
+    Box {
+        paint: Value,
+        border_box: Option<Value>,
+    },
 }
 
 /// Builds the formatting tree for one chapter's parsed body content.
@@ -80,7 +91,7 @@ pub fn build_chapter_formatting_tree(
         .intern(anonymous_block_style())
         .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))?;
     let mut builder = TreeBuilder {
-        layout: &layout,
+        layout: &mut layout,
         inline,
         image_dimensions,
         anonymous_style,
@@ -127,7 +138,7 @@ pub fn build_chapter_formatting_tree(
 }
 
 struct TreeBuilder<'a> {
-    layout: &'a LayoutStyleTableV1,
+    layout: &'a mut LayoutStyleTableV1,
     inline: &'a InlineStyleTableV1,
     image_dimensions: &'a BTreeMap<String, (u32, u32)>,
     anonymous_style: LayoutStyleId,
@@ -137,7 +148,8 @@ struct TreeBuilder<'a> {
     /// Capability verdict per interned style id, so each distinct style is
     /// checked once per chapter.
     checked_block_styles: std::collections::HashMap<u32, Option<String>>,
-    checked_box_paints: std::collections::HashMap<u32, Option<String>>,
+    checked_box_paints:
+        std::collections::HashMap<u32, Result<Option<(NodePaint, [f64; 4])>, String>>,
     checked_inline_styles: std::collections::HashMap<(u32, bool), Option<String>>,
 }
 
@@ -238,50 +250,99 @@ impl TreeBuilder<'_> {
         let style = self.layout_style_id(source_index, &element.tag)?;
         self.require_block_capabilities(style, &element.tag)?;
         let tag = element.tag.clone();
-        self.require_box_paint_representable(source_index, &tag)?;
+        let plan = self.block_box_paint_plan(source_index, &tag)?;
+        // Border widths become padding on a derived layout style: the
+        // fragment rect grows into the CSS border box, contents shrink
+        // exactly as CSS reserves border space, and the painter strokes
+        // the edges inside the rect.
+        let (style, decoration) = match plan {
+            Some((paint, widths)) if widths.iter().any(|width| *width > 0.0) => (
+                self.style_with_border_padding(style, widths, &tag)?,
+                Some(paint),
+            ),
+            Some((paint, _)) => (style, Some(paint)),
+            None => (style, None),
+        };
         let has_block_children = element
             .children
             .iter()
             .any(|child| matches!(child, DocumentNode::Block(_)));
-        if has_block_children {
+        let id = if has_block_children {
             let container_inline_style = self.inline_style_id(source_index, &element.tag)?;
             let children = self.build_children(&element.children, container_inline_style)?;
-            return Ok(Some(self.push_node(
+            self.push_node(
                 FormattingNode {
                     style,
                     content: FormattingNodeContent::BlockContainer,
                     children,
                 },
                 Some(source_index),
-            )));
-        }
-        // A block whose children are all inline-level is one inline flow.
-        let inline_style = self.inline_style_id(source_index, &element.tag)?;
-        let mut collector = InlineCollector::default();
-        for child in &element.children {
-            self.collect_inline(child, inline_style, 0.0, &mut collector)?;
-        }
-        let items = collector.finish();
-        if items.is_empty() {
-            // An empty block still occupies flow (its margins apply); it
-            // just has no line boxes.
-            return Ok(Some(self.push_node(
+            )
+        } else {
+            // A block whose children are all inline-level is one inline
+            // flow; an empty block still occupies flow (its margins
+            // apply), it just has no line boxes.
+            let inline_style = self.inline_style_id(source_index, &element.tag)?;
+            let mut collector = InlineCollector::default();
+            for child in &element.children {
+                self.collect_inline(child, inline_style, 0.0, &mut collector)?;
+            }
+            let items = collector.finish();
+            let content = if items.is_empty() {
+                FormattingNodeContent::BlockContainer
+            } else {
+                FormattingNodeContent::InlineFlow { items }
+            };
+            self.push_node(
                 FormattingNode {
                     style,
-                    content: FormattingNodeContent::BlockContainer,
+                    content,
                     children: Vec::new(),
                 },
                 Some(source_index),
-            )));
+            )
+        };
+        if let Some(paint) = decoration {
+            self.node_paints.insert(id.0, paint);
         }
-        Ok(Some(self.push_node(
-            FormattingNode {
-                style,
-                content: FormattingNodeContent::InlineFlow { items },
-                children: Vec::new(),
-            },
-            Some(source_index),
-        )))
+        Ok(Some(id))
+    }
+
+    /// Interns a copy of `style` whose padding absorbs the given border
+    /// widths (top, right, bottom, left). Percentage padding cannot
+    /// absorb a pixel border, so it fails closed.
+    fn style_with_border_padding(
+        &mut self,
+        style: LayoutStyleId,
+        widths: [f64; 4],
+        what: &str,
+    ) -> EpubResult<LayoutStyleId> {
+        let mut derived = self
+            .layout
+            .style(style)
+            .map_err(|error| EpubError::new(format!("{what} style resolves: {error}")))?
+            .clone();
+        let widen = |side: &mut NonNegativeLengthPercentage, width: f64| -> EpubResult<()> {
+            if width <= 0.0 {
+                return Ok(());
+            }
+            let LengthPercentage::Length(px) = side.value() else {
+                return Err(EpubError::new(format!(
+                    "<{what}> border with percentage padding is not representable yet"
+                )));
+            };
+            let total = rito_style_contract::CssPx::new(px.get() + width as f32)
+                .map_err(|error| EpubError::new(format!("{what} border padding: {error:?}")))?;
+            *side = NonNegativeLengthPercentage::new(LengthPercentage::Length(total));
+            Ok(())
+        };
+        widen(&mut derived.padding.top, widths[0])?;
+        widen(&mut derived.padding.right, widths[1])?;
+        widen(&mut derived.padding.bottom, widths[2])?;
+        widen(&mut derived.padding.left, widths[3])?;
+        self.layout
+            .intern(derived)
+            .map_err(|error| EpubError::new(format!("{what} border style interns: {error}")))
     }
 
     /// Collects inline-level content into styled text items. `inherited` is
@@ -550,6 +611,24 @@ impl TreeBuilder<'_> {
                 )))
             }
         };
+        for (edge, name) in [
+            (&resolved.fragment.border.top, "border-top"),
+            (&resolved.fragment.border.right, "border-right"),
+            (&resolved.fragment.border.bottom, "border-bottom"),
+            (&resolved.fragment.border.left, "border-left"),
+        ] {
+            let painted = edge.resolved_width.get() > 0.0
+                && !matches!(
+                    edge.style,
+                    rito_style_contract::BorderStyle::None
+                        | rito_style_contract::BorderStyle::Hidden
+                );
+            if painted {
+                return Err(EpubError::new(format!(
+                    "<chapter body> {name} is not representable in fragment paint yet"
+                )));
+            }
+        }
         if let Some(reason) = box_decoration_violation(resolved) {
             return Err(EpubError::new(format!(
                 "<chapter body> {reason} is not representable in fragment paint yet"
@@ -558,16 +637,18 @@ impl TreeBuilder<'_> {
         Ok(background)
     }
 
-    /// Fails closed on box paint the fragment painter cannot reproduce
-    /// yet (backgrounds, borders, box shadows, transforms). The bridge
-    /// used to catch these on the retained pages it swapped against; with
-    /// the fragment engine as pagination authority there is no retained
-    /// page to compare, so the tree build itself must refuse them.
-    fn require_box_paint_representable(
+    /// The block's decoration plan: `None` for an undecorated box, or
+    /// the `paintBlock` payload plus the border widths the layout style
+    /// must absorb as padding. Paint the fragment painter cannot
+    /// reproduce (background images, shadows, transforms, exotic border
+    /// styles) fails closed — with the fragment engine as pagination
+    /// authority there is no retained page to compare against, so the
+    /// tree build itself must refuse what it cannot paint.
+    fn block_box_paint_plan(
         &mut self,
         source_index: usize,
         what: &str,
-    ) -> EpubResult<()> {
+    ) -> EpubResult<Option<(NodePaint, [f64; 4])>> {
         let style = self.inline_style_id(source_index, what)?;
         let verdict = match self.checked_box_paints.get(&style.raw()) {
             Some(cached) => cached.clone(),
@@ -576,17 +657,16 @@ impl TreeBuilder<'_> {
                     .inline
                     .style(style)
                     .map_err(|error| EpubError::new(format!("{what} style resolves: {error}")))?;
-                let verdict = box_paint_violation(resolved);
+                let verdict = block_box_paint(resolved);
                 self.checked_box_paints.insert(style.raw(), verdict.clone());
                 verdict
             }
         };
-        match verdict {
-            None => Ok(()),
-            Some(reason) => Err(EpubError::new(format!(
+        verdict.map_err(|reason| {
+            EpubError::new(format!(
                 "<{what}> {reason} is not representable in fragment paint yet"
-            ))),
-        }
+            ))
+        })
     }
 
     fn require_block_capabilities(&mut self, style: LayoutStyleId, what: &str) -> EpubResult<()> {
@@ -857,22 +937,91 @@ fn inline_text_capability_violation(
 /// Paint the fragment display-command producer cannot reproduce on a box
 /// yet. Borders are checked here for block boxes; inline boxes reject
 /// them earlier in their own whitelist.
-fn box_paint_violation(style: &rito_style_contract::InlineFormattingStyleV1) -> Option<String> {
+/// Resolves one block box's paintable decoration, or names the first
+/// thing the fragment painter cannot reproduce. `Ok(None)` is an
+/// undecorated box; `Ok(Some((paint, widths)))` carries the `paintBlock`
+/// payload and the four border widths (top, right, bottom, left) the
+/// layout style must absorb as padding so the fragment rect becomes the
+/// CSS border box.
+fn block_box_paint(
+    style: &rito_style_contract::InlineFormattingStyleV1,
+) -> Result<Option<(NodePaint, [f64; 4])>, String> {
     use rito_style_contract as c;
-    match style.paint.background {
-        c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => {}
-        other => return Some(format!("background {other:?}")),
+    if let Some(reason) = box_decoration_violation(style) {
+        return Err(reason);
     }
-    box_decoration_violation(style)
+    let background = match style.paint.background {
+        c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => None,
+        c::ComputedColorV1::Absolute(color) => Some(
+            crate::style::absolute_color(color)
+                .map_err(|error| format!("background color ({error:?})"))?,
+        ),
+        c::ComputedColorV1::CurrentColor => Some(
+            crate::style::absolute_color(style.paint.foreground)
+                .map_err(|error| format!("background color ({error:?})"))?,
+        ),
+    };
+    let mut widths = [0.0; 4];
+    let mut border = serde_json::Map::new();
+    let mut border_box = serde_json::Map::new();
+    for (index, (edge, name, box_name)) in [
+        (&style.fragment.border.top, "top", "topWidth"),
+        (&style.fragment.border.right, "right", "rightWidth"),
+        (&style.fragment.border.bottom, "bottom", "bottomWidth"),
+        (&style.fragment.border.left, "left", "leftWidth"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let width = f64::from(edge.resolved_width.get());
+        if width <= 0.0 || matches!(edge.style, c::BorderStyle::None | c::BorderStyle::Hidden) {
+            continue;
+        }
+        let stroke = match edge.style {
+            c::BorderStyle::Solid => "solid",
+            c::BorderStyle::Dashed => "dashed",
+            c::BorderStyle::Dotted => "dotted",
+            other => return Err(format!("border-{name} style {other:?}")),
+        };
+        let color = crate::style::absolute_color(edge.color.resolve(style.paint.foreground))
+            .map_err(|error| format!("border-{name} color ({error:?})"))?;
+        widths[index] = width;
+        border.insert(
+            name.to_owned(),
+            serde_json::json!({ "width": width, "color": color, "style": stroke }),
+        );
+        border_box.insert(box_name.to_owned(), serde_json::json!(width));
+    }
+    if background.is_none() && border.is_empty() {
+        return Ok(None);
+    }
+    let mut paint = serde_json::Map::new();
+    if let Some(color) = background {
+        paint.insert(
+            "background".to_owned(),
+            serde_json::json!({ "color": color }),
+        );
+    }
+    if !border.is_empty() {
+        paint.insert("border".to_owned(), Value::Object(border));
+    }
+    let border_box = (!border_box.is_empty()).then(|| Value::Object(border_box));
+    Ok(Some((
+        NodePaint::Box {
+            paint: Value::Object(paint),
+            border_box,
+        },
+        widths,
+    )))
 }
 
-/// Box decoration beyond the background color that the fragment painter
-/// cannot reproduce. The chapter body checks this alone because its plain
-/// background hoists onto the page wash instead of failing.
+/// Box decoration the fragment painter cannot reproduce on any box:
+/// background images, shadows, and transforms. Backgrounds and borders
+/// are painted for block boxes (and checked separately where they are
+/// not), so they are not this function's concern.
 fn box_decoration_violation(
     style: &rito_style_contract::InlineFormattingStyleV1,
 ) -> Option<String> {
-    use rito_style_contract as c;
     if style.paint.background_image.is_some() {
         return Some("background-image".to_owned());
     }
@@ -881,18 +1030,6 @@ fn box_decoration_violation(
     }
     if !style.paint.transform.is_none() {
         return Some("transform".to_owned());
-    }
-    for (edge, name) in [
-        (&style.fragment.border.top, "border-top"),
-        (&style.fragment.border.right, "border-right"),
-        (&style.fragment.border.bottom, "border-bottom"),
-        (&style.fragment.border.left, "border-left"),
-    ] {
-        let painted = edge.resolved_width.get() > 0.0
-            && !matches!(edge.style, c::BorderStyle::None | c::BorderStyle::Hidden);
-        if painted {
-            return Some(format!("{name}"));
-        }
     }
     None
 }
@@ -904,7 +1041,11 @@ fn inline_box_capability_violation(
     style: &rito_style_contract::InlineFormattingStyleV1,
 ) -> Option<String> {
     use rito_style_contract as c;
-    if let Some(reason) = box_paint_violation(style) {
+    match style.paint.background {
+        c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => {}
+        other => return Some(format!("inline background {other:?}")),
+    }
+    if let Some(reason) = box_decoration_violation(style) {
         return Some(format!("inline {reason}"));
     }
     // Inline fragment boxes: margins/padding/borders displace glyphs.
@@ -1506,6 +1647,84 @@ p { margin: 8px 0; }\n\
                 color: "#223344".to_owned(),
                 style: "solid",
             }),
+        );
+    }
+
+    #[test]
+    fn decorated_blocks_carry_box_paint_and_absorb_border_widths() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <div class="card"><p>Inside the card.</p></div>
+</body></html>"#,
+            ".card { background-color: #112233; border: 2px solid #445566; padding: 4px; }\n",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("decorated block builds");
+        let root = built.tree.node(built.tree.root());
+        let card_id = root.children[0];
+        let card = built.tree.node(card_id);
+        // Border widths absorbed into padding: 4px author padding + 2px border.
+        let styles = built.tree.styles().expect("tree carries styles");
+        let card_style = styles
+            .layout
+            .style(card.style)
+            .expect("card style resolves");
+        for side in [
+            card_style.padding.top,
+            card_style.padding.right,
+            card_style.padding.bottom,
+            card_style.padding.left,
+        ] {
+            let LengthPercentage::Length(px) = side.value() else {
+                panic!("card padding stays a length");
+            };
+            assert!(
+                (f64::from(px.get()) - 6.0).abs() < 1e-6,
+                "padding absorbs the border"
+            );
+        }
+        let Some(NodePaint::Box { paint, border_box }) = built.node_paints.get(&card_id.0) else {
+            panic!(
+                "card carries box paint, got {:?}",
+                built.node_paints.get(&card_id.0)
+            );
+        };
+        assert_eq!(paint["background"]["color"], "#112233");
+        assert_eq!(paint["border"]["top"]["width"], 2.0);
+        assert_eq!(paint["border"]["top"]["style"], "solid");
+        assert_eq!(paint["border"]["left"]["color"], "#445566");
+        assert_eq!(
+            border_box.as_ref().expect("borders carry a border box")["topWidth"],
+            2.0
+        );
+    }
+
+    #[test]
+    fn exotic_border_styles_fail_closed_by_name() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <div class="frame"><p>text</p></div>
+</body></html>"#,
+            ".frame { border: 3px double #000000; }\n",
+        );
+        let error = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect_err("double borders fail closed");
+        assert!(
+            error.message().contains("border-top style"),
+            "error names the construct: {}",
+            error.message()
         );
     }
 
