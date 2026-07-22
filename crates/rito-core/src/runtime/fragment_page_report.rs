@@ -20,6 +20,7 @@ use serde_json::Value;
 
 use crate::epub::EpubResult;
 use crate::fragment_pagination::paginate_chapter;
+use crate::fragment_paint::FragmentPaintContext;
 use crate::render::{count_display_commands, display_command_values};
 
 use super::{RuntimeDocument, RuntimeRevisionStatus};
@@ -84,7 +85,10 @@ impl RuntimeDocument {
             content_height,
             config.margin_left,
             config.margin_top,
-            None,
+            FragmentPaintContext {
+                family_policy: None,
+                node_paints: Some(&built.node_paints),
+            },
             &CancelFlag::new(),
         )?;
         Ok(pages
@@ -128,7 +132,10 @@ impl RuntimeDocument {
                         content_height,
                         origin_x,
                         origin_y,
-                        None,
+                        FragmentPaintContext {
+                            family_policy: None,
+                            node_paints: Some(&built.node_paints),
+                        },
                         &cancel,
                     )
                 });

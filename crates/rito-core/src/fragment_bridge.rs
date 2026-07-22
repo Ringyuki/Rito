@@ -39,6 +39,23 @@ pub struct ChapterFormattingTree {
     /// Source-arena node index per formatting node; `None` for synthesized
     /// boxes (the chapter root, anonymous block boxes).
     pub source_nodes: Vec<Option<usize>>,
+    /// Paint the fragment painter must apply to specific formatting nodes
+    /// (keyed by node id). Every entry is layout-inert: it colors a box the
+    /// engine already sized, and a painter that does not understand an
+    /// entry must fail closed rather than skip it.
+    pub node_paints: BTreeMap<u32, NodePaint>,
+}
+
+/// One node's layout-inert paint requirement.
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodePaint {
+    /// A horizontal rule's stroke across the node's box.
+    Rule {
+        /// CSS color of the stroke.
+        color: String,
+        /// Stroke pattern understood by the render protocol.
+        style: &'static str,
+    },
 }
 
 /// Builds the formatting tree for one chapter's parsed body content.
@@ -64,6 +81,7 @@ pub fn build_chapter_formatting_tree(
         anonymous_style,
         nodes: Vec::new(),
         source_nodes: Vec::new(),
+        node_paints: BTreeMap::new(),
         checked_block_styles: std::collections::HashMap::new(),
         checked_inline_styles: std::collections::HashMap::new(),
     };
@@ -81,6 +99,7 @@ pub fn build_chapter_formatting_tree(
     let TreeBuilder {
         nodes: formatting_nodes,
         source_nodes,
+        node_paints,
         ..
     } = builder;
     let tree = FormattingTree::with_styles(
@@ -92,7 +111,11 @@ pub fn build_chapter_formatting_tree(
         },
     )
     .map_err(EpubError::new)?;
-    Ok(ChapterFormattingTree { tree, source_nodes })
+    Ok(ChapterFormattingTree {
+        tree,
+        source_nodes,
+        node_paints,
+    })
 }
 
 struct TreeBuilder<'a> {
@@ -102,6 +125,7 @@ struct TreeBuilder<'a> {
     anonymous_style: LayoutStyleId,
     nodes: Vec<FormattingNode>,
     source_nodes: Vec<Option<usize>>,
+    node_paints: BTreeMap<u32, NodePaint>,
     /// Capability verdict per interned style id, so each distinct style is
     /// checked once per chapter.
     checked_block_styles: std::collections::HashMap<u32, Option<String>>,
@@ -196,10 +220,7 @@ impl TreeBuilder<'_> {
     /// Builds one block-level element. Returns `None` for `display: none`.
     fn build_block(&mut self, element: &ElementNode) -> EpubResult<Option<FormattingNodeId>> {
         if element.tag == "hr" {
-            // A horizontal rule paints its box border as the visible line,
-            // and the fragment pipeline cannot paint block borders yet; an
-            // unpainted rule would silently disappear.
-            return Err(EpubError::new("horizontal rules are not representable yet"));
+            return self.build_hr(element);
         }
         let source_index = element_source_index(element)?;
         if self.is_display_none(source_index, &element.tag)? {
@@ -322,6 +343,62 @@ impl TreeBuilder<'_> {
                 element.tag
             ))),
         }
+    }
+
+    /// Builds one `<hr>`: a fixed-height leaf whose visible line is a
+    /// stroke across its box. An author border-top drives the line's
+    /// height, pattern, and color, mirroring the retained engine's rule
+    /// resolution; without one the rule is the classic one-pixel solid
+    /// line in the element's text color. Exotic stroke patterns collapse
+    /// to solid exactly as the render protocol does.
+    fn build_hr(&mut self, element: &ElementNode) -> EpubResult<Option<FormattingNodeId>> {
+        use rito_style_contract::BorderStyle;
+        let source_index = element_source_index(element)?;
+        if self.is_display_none(source_index, "hr")? {
+            return Ok(None);
+        }
+        let style = self.layout_style_id(source_index, "hr")?;
+        self.require_block_capabilities(style, "hr")?;
+        let inline_style = self.inline_style_id(source_index, "hr")?;
+        let resolved = self
+            .inline
+            .style(inline_style)
+            .map_err(|error| EpubError::new(format!("hr style: {error}")))?;
+        let border = resolved.fragment.border.top;
+        let use_border = border.resolved_width.get() > 0.0
+            && !matches!(border.style, BorderStyle::None | BorderStyle::Hidden);
+        let (height, stroke, color) = if use_border {
+            let stroke = match border.style {
+                BorderStyle::Dotted => "dotted",
+                BorderStyle::Dashed => "dashed",
+                _ => "solid",
+            };
+            let color = border.color.resolve(resolved.paint.foreground);
+            (f64::from(border.resolved_width.get()), stroke, color)
+        } else {
+            (1.0, "solid", resolved.paint.foreground)
+        };
+        let color = crate::style::absolute_color(color)
+            .map_err(|error| EpubError::new(format!("hr stroke color: {error:?}")))?;
+        let id = self.push_node(
+            FormattingNode {
+                style,
+                content: FormattingNodeContent::SizedLeaf {
+                    block_size: height,
+                    breakable: false,
+                },
+                children: Vec::new(),
+            },
+            Some(source_index),
+        );
+        self.node_paints.insert(
+            id.0,
+            NodePaint::Rule {
+                color,
+                style: stroke,
+            },
+        );
+        Ok(Some(id))
     }
 
     /// Collects one `<ruby>` element as mono-ruby pairs: each `<rt>` closes
@@ -576,15 +653,9 @@ fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String>
 /// Constraints shared by every box the engine lays out, replaced or not.
 fn shared_box_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String> {
     use rito_style_contract as c;
-    // Floated blocks with a resolvable width lay out as placed float
-    // boxes (paired columns, decorative side boxes); shrink-to-fit floats
-    // and floated images (line-box wrapping) stay rejected.
-    if style.float != c::FloatV1::None
-        && matches!(style.width, c::PreferredSizeV1::Auto)
-        && style.max_width == c::MaximumSizeV1::None
-    {
-        return Some(format!("float {:?} without a width", style.float));
-    }
+    // Floated blocks lay out as placed float boxes: a resolvable width is
+    // used directly, and an auto width shrinks to fit its content.
+    // Floated images (line-box wrapping) stay rejected at collection.
     // `clear` is implemented as clearance past active floats.
     match style.position {
         c::PositionV1::Static => {}
@@ -1073,6 +1144,10 @@ p { margin: 8px 0; }\n\
     }
 
     fn resolved_chapter_from(xhtml: &str) -> ResolvedChapter {
+        resolved_chapter_with(xhtml, CHAPTER_CSS)
+    }
+
+    fn resolved_chapter_with(xhtml: &str, css: &str) -> ResolvedChapter {
         let document = LoadedEpubDocument {
             package: PackageDocument {
                 metadata: PackageMetadata {
@@ -1087,7 +1162,7 @@ p { margin: 8px 0; }\n\
             },
             stylesheets: vec![LoadedTextResource {
                 href: "styles/main.css".to_owned(),
-                text: CHAPTER_CSS.to_owned(),
+                text: css.to_owned(),
             }],
             fonts: Vec::new(),
             images: Vec::new(),
@@ -1254,6 +1329,57 @@ p { margin: 8px 0; }\n\
             })
             .collect();
         assert_eq!(runs, vec![("漢", Some("かん")), ("字", Some("じ"))],);
+    }
+
+    #[test]
+    fn horizontal_rules_build_sized_leaves_with_rule_paint() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <hr class="fancy"/>
+  <hr/>
+</body></html>"#,
+            "html { color: #223344; }\n.fancy { border-top: 2px dashed #336699; }\n",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("rules build");
+        let root = built.tree.node(built.tree.root());
+        assert_eq!(root.children.len(), 2);
+        let fancy = built.tree.node(root.children[0]);
+        assert!(matches!(
+            fancy.content,
+            FormattingNodeContent::SizedLeaf {
+                block_size,
+                breakable: false,
+            } if block_size == 2.0
+        ));
+        assert_eq!(
+            built.node_paints.get(&root.children[0].0),
+            Some(&NodePaint::Rule {
+                color: "#336699".to_owned(),
+                style: "dashed",
+            }),
+        );
+        let plain = built.tree.node(root.children[1]);
+        assert!(matches!(
+            plain.content,
+            FormattingNodeContent::SizedLeaf {
+                block_size,
+                breakable: false,
+            } if block_size == 1.0
+        ));
+        assert_eq!(
+            built.node_paints.get(&root.children[1].0),
+            Some(&NodePaint::Rule {
+                color: "#223344".to_owned(),
+                style: "solid",
+            }),
+        );
     }
 
     #[test]

@@ -21,7 +21,10 @@ use rito_style_contract::{
 };
 use serde_json::Value;
 
+use std::collections::BTreeMap;
+
 use crate::epub::{EpubError, EpubResult};
+use crate::fragment_bridge::NodePaint;
 use crate::layout::{
     FontPaint, FontPaintStyle, MeasurePaint, RunDecoration, RunDecorationKind, RunPaint,
     RunPaintData, TextShadowPaint,
@@ -78,6 +81,16 @@ pub(crate) fn rect_value(x: f64, y: f64, width: f64, height: f64) -> Value {
     })
 }
 
+/// Everything the paint walk needs besides the fragments themselves.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct FragmentPaintContext<'a> {
+    /// Family-stack rewrite for pinned-font readers; `None` paints
+    /// computed stacks as-is.
+    pub(crate) family_policy: Option<&'a PaintFamilyPolicy>,
+    /// Layout-inert per-node paint the bridge collected (rules today).
+    pub(crate) node_paints: Option<&'a BTreeMap<u32, NodePaint>>,
+}
+
 /// Walks a laid-out fragment tree and appends the display commands that
 /// paint it, with every rectangle translated by `(origin_x, origin_y)`
 /// into the caller's coordinate space (a page's content origin).
@@ -87,10 +100,28 @@ pub(crate) fn append_fragment_display_commands(
     fragment: &Fragment,
     origin_x: f64,
     origin_y: f64,
-    family_policy: Option<&PaintFamilyPolicy>,
+    context: FragmentPaintContext<'_>,
 ) -> EpubResult<()> {
     match fragment {
         Fragment::Box(fragment) => {
+            if let Some(paint) = context
+                .node_paints
+                .and_then(|paints| paints.get(&fragment.source.0))
+            {
+                match paint {
+                    NodePaint::Rule { color, style } => {
+                        commands.push(DisplayCommand::paint_horizontal_rule(
+                            rect_value(
+                                origin_x + fragment.rect.x,
+                                origin_y + fragment.rect.y,
+                                fragment.rect.width,
+                                fragment.rect.height,
+                            ),
+                            serde_json::json!({ "color": color, "style": style }),
+                        ));
+                    }
+                }
+            }
             for child in &fragment.children {
                 append_fragment_display_commands(
                     commands,
@@ -98,14 +129,19 @@ pub(crate) fn append_fragment_display_commands(
                     child,
                     origin_x + fragment.rect.x,
                     origin_y + fragment.rect.y,
-                    family_policy,
+                    context,
                 )?;
             }
             Ok(())
         }
-        Fragment::Line(line) => {
-            append_line_commands(commands, tree, line, origin_x, origin_y, family_policy)
-        }
+        Fragment::Line(line) => append_line_commands(
+            commands,
+            tree,
+            line,
+            origin_x,
+            origin_y,
+            context.family_policy,
+        ),
         Fragment::Text(_) | Fragment::Image(_) => Err(EpubError::new(
             "text and image fragments paint through their line box, not standalone",
         )),
@@ -571,8 +607,15 @@ mod tests {
 
     fn paint(tree: &FormattingTree, root: &Fragment) -> Vec<DisplayCommand> {
         let mut commands = Vec::new();
-        append_fragment_display_commands(&mut commands, tree, root, 0.0, 0.0, None)
-            .expect("fragments paint");
+        append_fragment_display_commands(
+            &mut commands,
+            tree,
+            root,
+            0.0,
+            0.0,
+            FragmentPaintContext::default(),
+        )
+        .expect("fragments paint");
         commands
     }
 
@@ -614,6 +657,60 @@ mod tests {
     }
 
     #[test]
+    fn rule_paints_stroke_across_its_sized_box() {
+        let fixture = two_color_flow(|red, _| vec![text_item("x", red, 0.0)]);
+        let rule = Fragment::Box(BoxFragment {
+            source: FormattingNodeId(0),
+            rect: FragmentRect {
+                x: 3.0,
+                y: 7.0,
+                width: 90.0,
+                height: 2.0,
+            },
+            children: Vec::new(),
+        });
+        let root = Fragment::Box(BoxFragment {
+            source: FormattingNodeId(0),
+            rect: FragmentRect {
+                x: 10.0,
+                y: 20.0,
+                width: 100.0,
+                height: 30.0,
+            },
+            children: vec![rule],
+        });
+        let mut paints = std::collections::BTreeMap::new();
+        paints.insert(
+            0u32,
+            NodePaint::Rule {
+                color: "#445566".to_owned(),
+                style: "solid",
+            },
+        );
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &fixture.tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                family_policy: None,
+                node_paints: Some(&paints),
+            },
+        )
+        .expect("rule paints");
+        // Both boxes share source node 0 in this fixture, so the outer box
+        // also strokes; the inner rule is the second command.
+        let DisplayCommand::PaintHorizontalRule { rect, paint } = &commands[1] else {
+            panic!("expected a rule command, got {:?}", commands[1]);
+        };
+        assert_eq!(*rect, rect_value(13.0, 27.0, 90.0, 2.0));
+        assert_eq!(paint["color"], "#445566");
+        assert_eq!(paint["style"], "solid");
+    }
+
+    #[test]
     fn the_family_policy_drops_unresolvable_families_and_appends_aliases() {
         let fixture = two_color_flow(|red, _| vec![text_item("x", red, 0.0)]);
         let root = boxed_line(vec![text_run(0.0, 8.0, 0, 1)]);
@@ -628,7 +725,10 @@ mod tests {
             &root,
             0.0,
             0.0,
-            Some(&policy),
+            FragmentPaintContext {
+                family_policy: Some(&policy),
+                node_paints: None,
+            },
         )
         .expect("fragments paint");
         let DisplayCommand::PaintText(command) = &commands[0] else {
@@ -776,9 +876,15 @@ mod tests {
         });
         let root = boxed_line(vec![text_run(0.0, 60.0, 2, 8)]);
         let mut commands = Vec::new();
-        let error =
-            append_fragment_display_commands(&mut commands, &fixture.tree, &root, 0.0, 0.0, None)
-                .expect_err("a run straddling two items must not paint");
+        let error = append_fragment_display_commands(
+            &mut commands,
+            &fixture.tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext::default(),
+        )
+        .expect_err("a run straddling two items must not paint");
         assert!(
             error
                 .to_string()
@@ -811,8 +917,15 @@ mod tests {
         .expect("tree builds");
         let root = boxed_line(vec![text_run(0.0, 20.0, 0, 3)]);
         let mut commands = Vec::new();
-        let error = append_fragment_display_commands(&mut commands, &tree, &root, 0.0, 0.0, None)
-            .expect_err("translucent ink must not silently flatten");
+        let error = append_fragment_display_commands(
+            &mut commands,
+            &tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext::default(),
+        )
+        .expect_err("translucent ink must not silently flatten");
         assert!(
             error.to_string().contains("inline opacity"),
             "unexpected error: {error}"

@@ -11,7 +11,7 @@
 use rito_fragment::{CancelFlag, ConstraintSpace, FormattingContext, FormattingTree, Fragment};
 
 use crate::epub::{EpubError, EpubResult};
-use crate::fragment_paint::{append_fragment_display_commands, PaintFamilyPolicy};
+use crate::fragment_paint::{append_fragment_display_commands, FragmentPaintContext};
 use crate::render::DisplayCommand;
 
 /// One paginated page: the sealed fragment tree that fit the page's
@@ -42,7 +42,7 @@ pub(crate) fn paginate_chapter(
     content_height: f64,
     origin_x: f64,
     origin_y: f64,
-    family_policy: Option<&PaintFamilyPolicy>,
+    paint_context: FragmentPaintContext<'_>,
     cancel: &CancelFlag,
 ) -> EpubResult<Vec<FragmentChapterPage>> {
     let space = ConstraintSpace::fragmented(content_width, content_height);
@@ -64,7 +64,7 @@ pub(crate) fn paginate_chapter(
             &outcome.fragments.root,
             origin_x,
             origin_y,
-            family_policy,
+            paint_context,
         )?;
         pages.push(FragmentChapterPage {
             root: outcome.fragments.root,
@@ -216,8 +216,17 @@ mod tests {
         let sample = "The quick brown fox jumps over the lazy dog. ".repeat(40);
         let tree = paragraph_tree(sample.trim_end());
         let cancel = CancelFlag::new();
-        let pages = paginate_chapter(&engine, &tree, 200.0, 100.0, 24.0, 32.0, None, &cancel)
-            .expect("chapter paginates");
+        let pages = paginate_chapter(
+            &engine,
+            &tree,
+            200.0,
+            100.0,
+            24.0,
+            32.0,
+            FragmentPaintContext::default(),
+            &cancel,
+        )
+        .expect("chapter paginates");
         assert!(
             pages.len() > 1,
             "40 sentences at 200×100 must span pages, got {}",
@@ -248,8 +257,17 @@ mod tests {
         let engine = BlockFormattingContext::new(context);
         let tree = paragraph_tree("One line.");
         let cancel = CancelFlag::new();
-        let pages = paginate_chapter(&engine, &tree, 200.0, 100.0, 24.0, 32.0, None, &cancel)
-            .expect("chapter paginates");
+        let pages = paginate_chapter(
+            &engine,
+            &tree,
+            200.0,
+            100.0,
+            24.0,
+            32.0,
+            FragmentPaintContext::default(),
+            &cancel,
+        )
+        .expect("chapter paginates");
         assert_eq!(pages.len(), 1);
         let DisplayCommand::PaintText(input) = &pages[0].commands[0] else {
             panic!("expected a text command, got {:?}", pages[0].commands[0]);

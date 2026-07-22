@@ -21,7 +21,7 @@ use rito_fragment::CancelFlag;
 use rito_inline::ParleyInlineContext;
 
 use crate::fragment_pagination::paginate_chapter;
-use crate::fragment_paint::PaintFamilyPolicy;
+use crate::fragment_paint::{FragmentPaintContext, PaintFamilyPolicy};
 use crate::layout::{
     build_spread_slots, LayoutRuntimePage, RuntimeBlock, RuntimeChild, SpreadMode,
 };
@@ -185,7 +185,10 @@ impl RuntimeDocument {
             config.page_height - config.margin_top - config.margin_bottom,
             config.margin_left,
             config.margin_top,
-            Some(&family_policy),
+            FragmentPaintContext {
+                family_policy: Some(&family_policy),
+                node_paints: Some(&built.node_paints),
+            },
             &CancelFlag::new(),
         )
         .ok()?;
@@ -321,8 +324,7 @@ fn block_supports_swap(block: &RuntimeBlock<crate::layout::LineBox>) -> bool {
     }
     block.children.iter().all(|child| match child {
         RuntimeChild::Block(inner) => block_supports_swap(inner),
-        RuntimeChild::Line(_) | RuntimeChild::Image(_) => true,
-        RuntimeChild::Hr(_) => false,
+        RuntimeChild::Line(_) | RuntimeChild::Image(_) | RuntimeChild::Hr(_) => true,
     })
 }
 
