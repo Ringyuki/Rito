@@ -225,7 +225,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     content_height += hbox.padding_top + hbox.padding_bottom;
                 }
                 let occupy_width = hbox.x + hbox.border_width + margin_right;
-                let occupy_height = top_margin.max(0.0) + content_height + bottom_margin.max(0.0);
+                // A negative top margin pulls the float's border box above
+                // its flow position (how title pages hoist a volume badge
+                // back to the page top); the occupied band never extends
+                // above the flow and collapses to nothing when the margin
+                // swallows the whole box.
+                let occupy_height = (top_margin + content_height + bottom_margin.max(0.0)).max(0.0);
                 let page_bottom = y + remaining.max(0.0);
                 let fy_probe = floats.probe_y(occupy_width, y, content_width);
                 let fits = space.fragmentainer_remaining.is_none()
@@ -242,7 +247,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         source: *child_id,
                         rect: FragmentRect {
                             x: content_left + fx + hbox.x,
-                            y: fy + top_margin.max(0.0),
+                            y: fy + top_margin,
                             width: hbox.border_width,
                             height: content_height,
                         },
@@ -2405,6 +2410,80 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// A floated badge with a large negative top margin hoists above its
+    /// flow position — how title pages pull a volume number back to the
+    /// page top — and occupies no float band doing it.
+    #[test]
+    fn negative_top_margins_hoist_floats_above_their_flow_position() {
+        use rito_style_contract::FloatV1;
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut badge = block_style(margin_px(-100.0), margin_px(0.0));
+        badge.float = FloatV1::Right;
+        let layout = layout_table_with(3, |index| match index {
+            0 => badge,
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let paragraph = |node_index: usize, line_count: usize| FormattingNode {
+            style: node_style_id(&layout, node_index),
+            content: FormattingNodeContent::InlineFlow {
+                items: (0..line_count)
+                    .map(|line| InlineItem::Text {
+                        text: format!("line {line}"),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    })
+                    .collect(),
+            },
+            children: Vec::new(),
+        };
+        // Flow: a 120px paragraph, then the floated one-line badge with
+        // margin-top -100 — its box must land 100px above the flow tail.
+        let nodes = vec![
+            paragraph(1, 12),
+            paragraph(0, 1),
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let pages = paginate(&context, &tree, ConstraintSpace::continuous(300.0));
+        let children = box_children(&pages[0]);
+        assert_eq!(children.len(), 2);
+        let badge_rect = children[1].rect();
+        // Flow tail is y=120; the badge box hoists to 120 - 100 = 20.
+        assert!(
+            (badge_rect.y - 20.0).abs() < 1e-6,
+            "the badge hoists above the flow, got y {}",
+            badge_rect.y
+        );
+        // The container's height is the flow's, not stretched by the badge.
+        assert!(
+            (pages[0].fragments.root.rect().height - 120.0).abs() < 1e-6,
+            "the hoisted badge occupies no band, got {}",
+            pages[0].fragments.root.rect().height
+        );
     }
 
     #[test]
