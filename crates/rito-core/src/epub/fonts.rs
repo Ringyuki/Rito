@@ -221,6 +221,23 @@ fn selectable_publication_face<'a>(
     Some((resource, face, family))
 }
 
+/// Every `@font-face` bound face in the publication, regardless of host
+/// measurement support — the fragment engine registers them all with its
+/// own shaper, so the paint side must register them all with the canvas.
+pub(crate) fn publication_font_face_catalog(
+    document: &crate::epub::LoadedEpubDocument,
+    sources: &[ResolvedFontFaceSource],
+) -> Vec<ShapeablePublicationFontFace> {
+    sources
+        .iter()
+        .filter_map(|source| {
+            let resource = document.fonts.get(source.resource_index())?;
+            let face = source.measurement_face(resource);
+            Some(shapeable_catalog_face(source, resource, &face))
+        })
+        .collect()
+}
+
 fn shapeable_catalog_face(
     source: &ResolvedFontFaceSource,
     resource: &crate::epub::LoadedBinaryResource,

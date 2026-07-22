@@ -1137,6 +1137,168 @@ running through the quiet forest until the morning light returns.";
         assert!(outcome.continuation.is_none());
     }
 
+    /// A registered named font must win over the pinned fallback when the
+    /// style names it: the two faces have different advances for the same
+    /// glyphs, so the line width tells which one shaped.
+    #[test]
+    fn named_publication_fonts_shape_instead_of_the_pinned_fallback() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let mut context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        // Tinos under a publication name: its Latin advances differ from
+        // Source Han's, so a hit is measurable.
+        context
+            .register_named_font("PubFace", tinos_bytes())
+            .expect("named font registers");
+
+        let shape_width = |families: Vec<FontFamily>| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(families).expect("family list"),
+                        32.0,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "Wilhelm".to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            let outcome = context
+                .layout(
+                    &tree,
+                    tree.root(),
+                    &ConstraintSpace::continuous(10_000.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("root is a box");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            line.children
+                .iter()
+                .map(|child| child.rect().width)
+                .sum::<f64>()
+        };
+
+        let named = shape_width(vec![FontFamily::Named(FontFamilyName::new("PubFace"))]);
+        let fallback = shape_width(vec![FontFamily::Named(FontFamilyName::new("NoSuchFace"))]);
+        assert!(
+            (named - fallback).abs() > 1.0,
+            "the named face must shape differently from the fallback: named {named}, fallback {fallback}"
+        );
+    }
+
+    /// The same must hold for CJK text: a named face whose ideograph
+    /// advance differs from the pinned fallback's has to win shaping when
+    /// the style names it. This is the exact 86 body-text shape.
+    #[test]
+    fn named_cjk_publication_fonts_shape_instead_of_the_pinned_fallback() {
+        let kai = std::env::var("RITO_TEST_CJK_FONT")
+            .ok()
+            .and_then(|path| std::fs::read(path).ok());
+        let Some(kai) = kai else {
+            eprintln!("RITO_TEST_CJK_FONT not set; skipping");
+            return;
+        };
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let mut context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        context
+            .register_named_font("FZWBKS", kai)
+            .expect("named font registers");
+        let shape_width = |families: Vec<FontFamily>| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(families).expect("family list"),
+                        16.0,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "在那座战场上没有任何阵亡者".to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            let outcome = context
+                .layout(
+                    &tree,
+                    tree.root(),
+                    &ConstraintSpace::continuous(10_000.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("root is a box");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            line.children
+                .iter()
+                .map(|child| child.rect().width)
+                .sum::<f64>()
+        };
+        let named = shape_width(vec![FontFamily::Named(FontFamilyName::new("FZWBKS"))]);
+        let fallback = shape_width(vec![FontFamily::Named(FontFamilyName::new("NoSuchFace"))]);
+        eprintln!("named {named} fallback {fallback}");
+        assert!(
+            (named - fallback).abs() > 0.5,
+            "the named CJK face must shape differently: named {named}, fallback {fallback}"
+        );
+    }
+
     #[test]
     fn layout_is_deterministic_and_cache_replayable() {
         let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");

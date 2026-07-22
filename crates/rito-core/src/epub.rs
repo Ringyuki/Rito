@@ -33,7 +33,8 @@ pub(crate) use fonts::{
     FontFaceSourceCacheMetrics,
 };
 pub(crate) use fonts::{
-    resolve_font_face_sources, shapeable_publication_families_for_layout_with_sources,
+    publication_font_face_catalog, resolve_font_face_sources,
+    shapeable_publication_families_for_layout_with_sources,
     text_measurement_font_assembly_for_layout_with_sources,
     text_measurement_fonts_for_layout_with_sources, ResolvedFontFaceSource,
     ShapeablePublicationFontFace,

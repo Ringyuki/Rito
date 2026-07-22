@@ -161,13 +161,24 @@ function publishFrameDiagnostics(
   const scope = globalThis as { __ritoLastFrame?: unknown };
   const texts: string[] = [];
   const families: string[] = [];
+  const runs: { t: string; x: number; y: number; w: number; n: number }[] = [];
   for (const command of frame.commands) {
     if (command.kind === 'paintText' && typeof command.text === 'string') {
-      texts.push(command.text);
-      if (families.length === 0) {
-        families.push(JSON.stringify(command).slice(0, 400));
+      if (texts.length < 3) texts.push(command.text);
+      const paint = (command as { paint?: { font?: { family?: unknown } } }).paint;
+      const family = paint?.font?.family;
+      if (typeof family === 'string' && !families.includes(family)) families.push(family);
+      const rect = (command as { rect?: { x?: number; y?: number } }).rect;
+      if (runs.length < 300 && rect && typeof rect.x === 'number' && typeof rect.y === 'number') {
+        const width = (rect as { width?: number }).width;
+        runs.push({
+          t: command.text.slice(0, 24),
+          x: rect.x,
+          y: rect.y,
+          w: typeof width === 'number' ? width : 0,
+          n: command.text.length,
+        });
       }
-      if (texts.length >= 3) break;
     }
   }
   const canvas = ctx.canvas as Partial<HTMLCanvasElement> & { __ritoCanvasId?: number };
@@ -184,6 +195,7 @@ function publishFrameDiagnostics(
     }, {}),
     firstTexts: texts,
     firstFamilies: families,
+    textRuns: runs,
     frameSize: { width: frame.width, height: frame.height },
     canvasSize: { width: ctx.canvas.width, height: ctx.canvas.height },
     canvasCssSize: {

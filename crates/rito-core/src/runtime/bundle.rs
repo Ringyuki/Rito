@@ -451,7 +451,24 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        let font_families = summarize_layout_font_families(&revision_record.layout.pages);
+        // Fragment pagination keeps every registered publication face in
+        // its paint stacks, so the canvas must load them all; the
+        // retained backend reports only the families its pages used.
+        let font_families = if revision_record.fragment_layout.is_some() {
+            revision_record
+                .required_font_face_catalog
+                .as_deref()
+                .map(|catalog| {
+                    let mut families: Vec<String> =
+                        catalog.iter().map(|face| face.family.clone()).collect();
+                    families.sort();
+                    families.dedup();
+                    families
+                })
+                .unwrap_or_default()
+        } else {
+            summarize_layout_font_families(&revision_record.layout.pages)
+        };
         let font_vertical_metric_demands = (revision_record.layout_config.text_measurement
             == TextMeasurementMode::FontAware)
             .then(|| summarize_layout_font_vertical_metric_demands(&revision_record.layout.pages))

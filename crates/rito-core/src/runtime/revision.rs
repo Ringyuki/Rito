@@ -224,8 +224,16 @@ impl RuntimeDocument {
                     font_fallbacks,
                 },
             )?;
-            let required_font_face_catalog = document
-                .required_font_face_catalog_from_faces(projected.shapeable_publication_faces);
+            // The fragment engine shapes with every publication face; the
+            // canvas must register them all too, so the catalog is the
+            // full `@font-face` set rather than the host-measurable one.
+            let _ = projected.shapeable_publication_faces;
+            let catalog_faces = crate::epub::publication_font_face_catalog(
+                &document.document,
+                document.resolved_font_face_sources(),
+            );
+            let required_font_face_catalog =
+                document.required_font_face_catalog_from_faces(catalog_faces);
             let layout_key = layout_key(layout_config, &document.pinned_font_policy)?;
             let interactions = runtime_revision_interactions(prepared, true);
             Ok((
