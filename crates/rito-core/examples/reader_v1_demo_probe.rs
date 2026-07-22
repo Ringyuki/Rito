@@ -10,7 +10,10 @@ use rito_core::runtime::{
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let bytes = std::fs::read(&args[1]).expect("epub reads");
-    let href = args.get(2).cloned().unwrap_or_else(|| "Text/illu4-t.xhtml".to_owned());
+    let href = args
+        .get(2)
+        .cloned()
+        .unwrap_or_else(|| "Text/illu4-t.xhtml".to_owned());
     let mut session = ReaderSessionV1::open_owned(1, bytes).expect("session opens");
     let artifact = session
         .request_artifact(ReaderArtifactRequestV1 {

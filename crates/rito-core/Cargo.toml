@@ -24,6 +24,14 @@ name = "reader-v1-demo-probe"
 path = "examples/reader_v1_demo_probe.rs"
 
 [[example]]
+name = "chapter-local-probe"
+path = "examples/chapter_local_probe.rs"
+
+[[example]]
+name = "bounded-float-probe"
+path = "examples/bounded_float_probe.rs"
+
+[[example]]
 name = "bounded-pagination-probe"
 path = "examples/bounded_pagination_probe.rs"
 required-features = ["bench-internals"]
