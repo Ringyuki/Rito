@@ -650,8 +650,7 @@ mod tests {
     };
     use rito_inline::{plain_paragraph_style, ParleyInlineContext};
     use rito_style_contract::{
-        FontFamilies, FontFamily, FontFamilyName, InlineStyleTableV1, LayoutStyleId,
-        LayoutStyleTableV1,
+        FontFamilies, FontFamily, FontFamilyName, InlineStyleTableV1, LayoutStyleTableV1,
     };
     use std::collections::BTreeMap;
 

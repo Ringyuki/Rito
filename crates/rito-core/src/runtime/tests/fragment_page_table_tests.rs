@@ -79,7 +79,7 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
         positions.text
     );
 
-    // Frames paint fragment commands; the spread-frame bridge stays idle.
+    // Frames paint fragment commands.
     let frame = session.frame(0).expect("spread 0 has a frame");
     assert!(!frame.commands.is_empty());
     let painted_text = frame
@@ -87,7 +87,6 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
         .iter()
         .any(|command| format!("{command:?}").contains("chapter one"));
     assert!(painted_text, "spread 0 paints the first chapter's text");
-    assert!(revision.fragment_chapter_frames.is_empty());
 }
 
 #[test]

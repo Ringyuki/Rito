@@ -768,42 +768,6 @@ fn continue_once(document: &mut WasmRuntimeDocument, advance: &Value) -> Value {
 }
 
 #[test]
-fn fragment_shadow_report_is_versioned_and_fails_closed() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let revision_id = revision_id(&mut document);
-
-    let report = parse(
-        document
-            .get_fragment_shadow_report_at_revision_json(&revision_id, 0, "stub-block")
-            .expect("fragment shadow report"),
-    );
-    assert_revision(&report, &revision_id, 0);
-    assert_eq!(report["value"]["schemaVersion"], 1);
-    assert_eq!(report["value"]["engineProvider"], "stub-block");
-    assert_eq!(report["value"]["isComplete"], true);
-    assert_eq!(
-        report["value"]["fittingPageCount"],
-        report["value"]["shadowedPageCount"]
-    );
-    assert_eq!(report["value"]["replayVerified"], true);
-    let digest = report["value"]["artifactDigest"]
-        .as_str()
-        .expect("digest string");
-    assert_eq!(digest.len(), 16);
-    let replayed = parse(
-        document
-            .get_fragment_shadow_report_at_revision_json(&revision_id, 0, "stub-block")
-            .expect("second fragment shadow report"),
-    );
-    assert_eq!(report, replayed);
-
-    let unknown = document
-        .get_fragment_shadow_report_at_revision_json(&revision_id, 0, "servo-block")
-        .expect_err("unknown provider is rejected");
-    assert_eq!(unknown.code(), WasmRuntimeErrorCode::EngineError);
-}
-
-#[test]
 fn style_table_summary_is_versioned_and_deterministic() {
     let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
     let revision_id = revision_id(&mut document);

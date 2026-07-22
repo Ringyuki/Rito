@@ -16,10 +16,6 @@ name = "chapter-fragment-probe"
 path = "examples/chapter_fragment_probe.rs"
 
 [[example]]
-name = "fragment-pagination-probe"
-path = "examples/fragment_pagination_probe.rs"
-
-[[example]]
 name = "reader-v1-demo-probe"
 path = "examples/reader_v1_demo_probe.rs"
 

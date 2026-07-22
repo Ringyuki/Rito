@@ -209,7 +209,6 @@ impl RuntimeDocument {
         // session publishing progressively) describe the old page table.
         revision.frame_cache.clear();
         revision.frame_cache_order.clear();
-        revision.fragment_chapter_frames.clear();
     }
 
     /// Why a revision cannot hand pagination to the fragment engine, or

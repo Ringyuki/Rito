@@ -1,8 +1,8 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
-    RuntimeChapterTreeReport, RuntimeDocument, RuntimeFragmentShadowReport, RuntimeRevisionBundle,
-    RuntimeRevisionNavigation, RuntimeRevisionPresentation, RuntimeRevisionSummary,
-    RuntimeShapeProvenanceDiagnostic, RuntimeStyleTableSummary,
+    RuntimeChapterTreeReport, RuntimeDocument, RuntimeRevisionBundle, RuntimeRevisionNavigation,
+    RuntimeRevisionPresentation, RuntimeRevisionSummary, RuntimeShapeProvenanceDiagnostic,
+    RuntimeStyleTableSummary,
 };
 
 impl RuntimeDocument {
@@ -48,16 +48,6 @@ impl RuntimeDocument {
     {
         self.versioned_read(handle, |document, revision_id| {
             document.shape_provenance_diagnostic(revision_id)
-        })
-    }
-
-    pub fn fragment_shadow_report_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-        engine_provider: &str,
-    ) -> Result<RuntimeVersioned<RuntimeFragmentShadowReport>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, |document, revision_id| {
-            document.fragment_shadow_report(revision_id, engine_provider)
         })
     }
 
