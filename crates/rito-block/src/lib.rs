@@ -122,15 +122,44 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // content edges, never advance `y`, and never split. In-flow
             // margins collapse straight through them.
             if child_style.float != FloatV1::None {
-                let hbox = resolve_horizontal_box(child_style, content_width)?;
+                let mut hbox = resolve_horizontal_box(child_style, content_width)?;
                 if matches!(child_style.width, PreferredSizeV1::Auto)
                     && child_style.max_width == MaximumSizeV1::None
                 {
-                    return Err(LayoutError::Invalid(
-                        "a floated box without a width needs shrink-to-fit sizing, which is \
-                         not representable yet"
-                            .to_owned(),
-                    ));
+                    // CSS 10.3.5 shrink-to-fit for a floated box with auto
+                    // width: as wide as its widest unbroken content wants,
+                    // capped by the space left after margins and padding,
+                    // never narrower than its longest unbreakable piece.
+                    let sizes = self.intrinsic_inline_sizes(tree, *child_id)?;
+                    let resolve = |value| resolve_length_percentage(value, content_width);
+                    let margin_used = [child_style.margin.left, child_style.margin.right]
+                        .iter()
+                        .map(|side| match side {
+                            LengthPercentageOrAuto::Auto => 0.0,
+                            LengthPercentageOrAuto::Value(value) => resolve(*value),
+                        })
+                        .sum::<f64>();
+                    let padding_left = resolve(child_style.padding.left.value()).max(0.0);
+                    let padding_right = resolve(child_style.padding.right.value()).max(0.0);
+                    let available =
+                        (content_width - margin_used - padding_left - padding_right).max(0.0);
+                    let fit = sizes
+                        .max_content
+                        .min(available)
+                        .max(sizes.min_content.min(available));
+                    // Floats never resolve auto margins to centering, so
+                    // the fit box sits at its left margin edge.
+                    hbox = HorizontalBox {
+                        x: match child_style.margin.left {
+                            LengthPercentageOrAuto::Auto => 0.0,
+                            LengthPercentageOrAuto::Value(value) => resolve(value),
+                        },
+                        border_width: fit + padding_left + padding_right,
+                        padding_left,
+                        content_width: fit,
+                        padding_top: hbox.padding_top,
+                        padding_bottom: hbox.padding_bottom,
+                    };
                 }
                 let margin_side = |side: LengthPercentageOrAuto| match side {
                     LengthPercentageOrAuto::Auto => 0.0,
@@ -1896,6 +1925,80 @@ mod tests {
 
     /// Paired float columns like a character-introduction page: 49% left
     /// and 49% right, different heights, followed by nothing.
+    #[test]
+    fn auto_width_floats_shrink_to_their_content() {
+        use rito_style_contract::FloatV1;
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut side_note = block_style(margin_px(0.0), margin_px(0.0));
+        side_note.float = FloatV1::Right;
+        let layout = layout_table_with(2, |index| match index {
+            0 => side_note,
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "note".to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(1),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        // The fixture provider reports max-content 100; in a 300px
+        // containing block the float takes its preferred 100, not the
+        // full width, and floats right against the edge.
+        let pages = paginate(&context, &tree, ConstraintSpace::continuous(300.0));
+        let children = box_children(&pages[0]);
+        assert_eq!(children.len(), 1);
+        let rect = children[0].rect();
+        assert!(
+            (rect.width - 100.0).abs() < 1e-6,
+            "fit width, got {}",
+            rect.width
+        );
+        assert!((rect.x - 200.0).abs() < 1e-6, "flush right, got {}", rect.x);
+
+        // In a 60px containing block the preferred width no longer fits;
+        // the float shrinks to the available space, floored by
+        // min-content (10).
+        let narrow = paginate(&context, &tree, ConstraintSpace::continuous(60.0));
+        let children = box_children(&narrow[0]);
+        let rect = children[0].rect();
+        assert!(
+            (rect.width - 60.0).abs() < 1e-6,
+            "clamped to available, got {}",
+            rect.width
+        );
+    }
+
     #[test]
     fn paired_float_columns_sit_side_by_side() {
         use rito_style_contract::{FloatV1, NonNegativeLengthPercentage, Percentage};
