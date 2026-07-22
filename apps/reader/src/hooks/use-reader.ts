@@ -30,6 +30,16 @@ function getThemeOptions(theme: 'light' | 'dark') {
   return { backgroundColor: '#ffffff', foregroundColor: null };
 }
 
+/**
+ * Cutover lever for the fragment pagination engine, off unless the page
+ * is opened with `?fragmentPagination=1`. When on, completed books whose
+ * every chapter the fragment engine can represent are re-paginated and
+ * repainted by it.
+ */
+const FRAGMENT_PAGINATION_ENABLED =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('fragmentPagination') === '1';
+
 export function useReader(
   theme: 'light' | 'dark',
   containerWidth: number,
@@ -58,6 +68,7 @@ export function useReader(
       spread: spreadMode,
       lineBreaking,
       pinnedFontPolicy,
+      experimentalFragmentPagination: FRAGMENT_PAGINATION_ENABLED,
       ...getThemeOptions(theme),
     },
     controller: {

@@ -61,7 +61,12 @@ export async function createReader(
     const worker = workerFactory();
     const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
     if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
-    const opened = await openBrowserReaderDocument(worker, data, options.pinnedFontPolicy);
+    const opened = await openBrowserReaderDocument(
+      worker,
+      data,
+      options.pinnedFontPolicy,
+      options.experimentalFragmentPagination === true,
+    );
     pinnedFonts = opened.pinnedFonts;
     state = createInitialState(
       worker,
@@ -113,10 +118,17 @@ async function openBrowserReaderDocument(
   worker: BrowserReaderWorkerClient,
   data: ArrayBuffer,
   policy: ReaderOptions['pinnedFontPolicy'],
+  fragmentPagination: boolean,
 ): Promise<OpenedBrowserReaderDocument> {
   const prepared = prepareBrowserReaderPinnedFonts(policy);
   const documentData = data.slice(0);
-  const openResult = await openBrowserReaderWorker(worker, data, prepared.policy);
+  const openResult = await openBrowserReaderWorker(
+    worker,
+    data,
+    prepared.policy,
+    undefined,
+    fragmentPagination,
+  );
   const pinnedFonts = await registerBrowserReaderPinnedFonts(prepared, openResult.pinnedFontPolicy);
   return { documentData, openResult, pinnedFonts };
 }
@@ -139,6 +151,7 @@ function createInitialState(
     decodeFrameCommandBuffer: module.decodeRitoFrameCommandBuffer,
     documentData,
     pinnedFonts,
+    fragmentPagination: options.experimentalFragmentPagination === true,
     canvas,
     ctx,
     fontMetrics: createHostFontMetrics(),

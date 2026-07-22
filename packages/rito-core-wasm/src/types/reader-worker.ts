@@ -222,6 +222,12 @@ export interface RitoCoreWasmReaderWorkerPinnedFontPolicyInput {
 
 export interface RitoCoreWasmReaderWorkerOpenOptions {
   readonly pinnedFontPolicy?: RitoCoreWasmReaderWorkerPinnedFontPolicyInput | undefined;
+  /**
+   * Cutover lever: lets completed whole-book revisions hand pagination
+   * to the fragment engine. Off by default while the fragment backend's
+   * interaction surface is still incomplete.
+   */
+  readonly fragmentPageTable?: boolean | undefined;
 }
 
 export interface RitoCoreWasmReaderWorkerPinnedFontFaceMetadata {

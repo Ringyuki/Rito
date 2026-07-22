@@ -58,10 +58,13 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
 // Raised for the exact-read reclaim path: a suspended session that never
 // reopens its gate must be retired, not waited on forever.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3065;
+// Raised again for the fragment page-table lever: open threading and the
+// backend-change frame-cache guard.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3090;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 712;
+// Includes the experimental fragment-pagination option.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 718;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

@@ -128,6 +128,7 @@ async function runInitialCandidateLoop(
         state.documentData.slice(0),
         state.pinnedFonts.policy,
         state.pinnedFonts.summary,
+        state.fragmentPagination,
       );
       owner = createBrowserReaderBoundedSessionOwner(worker);
     } catch (error) {
@@ -213,6 +214,7 @@ async function createBoundedCandidate(
       state.documentData.slice(0),
       state.pinnedFonts.policy,
       state.pinnedFonts.summary,
+      state.fragmentPagination,
     );
     if (!requestIsLive(state, request, signal)) return 'cancelled';
     await waitForExactReads(state, request, signal);

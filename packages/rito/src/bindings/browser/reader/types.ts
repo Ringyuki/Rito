@@ -127,6 +127,8 @@ export interface BrowserReaderState {
   readonly decodeFrameCommandBuffer: typeof decodeRitoFrameCommandBuffer;
   documentData: ArrayBuffer;
   readonly pinnedFonts: BrowserReaderPinnedFonts;
+  /** Whether reopened worker sessions re-arm the fragment page table. */
+  readonly fragmentPagination: boolean;
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
   readonly ctx: CanvasRenderingTarget;
   readonly fontMetrics: HostFontMetrics;

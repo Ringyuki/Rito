@@ -6,7 +6,7 @@ const SUMMARY_KEYS = new Set(['schemaVersion', 'policyId', 'faces']);
 const FACE_SUMMARY_KEYS = new Set(
   'sha256 shapeFingerprint familyAlias byteLength genericRole language style weight'.split(' '),
 );
-const OPEN_KEYS = new Set(['pinnedFontPolicy']);
+const OPEN_KEYS = new Set(['pinnedFontPolicy', 'fragmentPageTable']);
 const GENERIC_ROLES = new Set(['serif', 'sansSerif', 'monospace']);
 const ROLE_ORDER = { serif: 0, sansSerif: 1, monospace: 2 };
 const EXPECTED_HASH_RE = /^[0-9a-fA-F]{64}$/;
@@ -18,17 +18,20 @@ export function openRawDocument(RawDocument, bytes, options) {
     badRequest('openDocument bytes must be a Uint8Array');
   }
   const pinned = preparePinnedFontPolicyOpen(options);
-  if (pinned === undefined) {
-    return { inner: new RawDocument(bytes), expectedFaces: [] };
+  const inner =
+    pinned === undefined
+      ? new RawDocument(bytes)
+      : RawDocument.openWithPinnedFontPolicy(
+          bytes,
+          JSON.stringify(pinned.metadata),
+          pinned.faceBytes,
+        );
+  // Cutover lever: completed whole-book revisions may hand pagination to
+  // the fragment engine.
+  if (options !== undefined && options.fragmentPageTable === true) {
+    inner.setFragmentPageTableEnabled(true);
   }
-  return {
-    inner: RawDocument.openWithPinnedFontPolicy(
-      bytes,
-      JSON.stringify(pinned.metadata),
-      pinned.faceBytes,
-    ),
-    expectedFaces: pinned.expectedFaces,
-  };
+  return { inner, expectedFaces: pinned === undefined ? [] : pinned.expectedFaces };
 }
 export function decodePinnedFontPolicySummary(payload, expectedFaces) {
   const summary = parseSummaryPayload(payload, 'pinnedFontPolicy');

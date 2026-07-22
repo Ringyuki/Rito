@@ -30,6 +30,13 @@ export interface RitoCoreWasmRevisionSummary {
   readonly pageCount: number;
   /** Backward-compatible alias for `knownExtent.spreadCount`. */
   readonly spreadCount: number;
+  /**
+   * Which engine owns this revision's pagination. When this changes on
+   * one revision (a completed book handing pagination to the fragment
+   * engine), every cached frame describes the old page table and must be
+   * dropped.
+   */
+  readonly paginationBackend?: 'fragment' | 'retained' | undefined;
 }
 
 /** Stable identity for one published revision version. */

@@ -15,11 +15,19 @@ export function prepareBrowserReaderBoundedFrameCache(
 ): PreparedBrowserReaderFrameCache {
   const previous = state.revisionBundle.revision;
   const next = result.bundle.revision;
+  // A pagination-backend change on one revision (a completed book handing
+  // pagination to the fragment engine) renumbers and repaints every page,
+  // so cached frames must not survive it.
+  const backendUnchanged =
+    previous.paginationBackend === undefined ||
+    next.paginationBackend === undefined ||
+    previous.paginationBackend === next.paginationBackend;
   const preserve =
     previous.revisionId.length > 0 &&
     state.worker.sessionId === worker.sessionId &&
     previous.revisionId === next.revisionId &&
-    next.revisionVersion > previous.revisionVersion;
+    next.revisionVersion > previous.revisionVersion &&
+    backendUnchanged;
   if (preserve) resetFrameCache(state, true);
   return {
     frameCachePrepared: preserve,

@@ -214,6 +214,12 @@ export interface ReaderOptions {
   readonly fontFamilyForce?: boolean;
   /** Required, immutable fallback faces shared by native shaping and Canvas paint. */
   readonly pinnedFontPolicy?: ReaderPinnedFontPolicy;
+  /**
+   * Cutover lever: lets completed whole-book revisions hand pagination to
+   * the fragment engine when it can represent every chapter. Experimental
+   * while the fragment backend's interaction surface is completed.
+   */
+  readonly experimentalFragmentPagination?: boolean;
 }
 export interface ReaderThemeOptions {
   readonly backgroundColor?: string | null;
