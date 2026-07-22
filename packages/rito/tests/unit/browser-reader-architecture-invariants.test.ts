@@ -61,7 +61,7 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
 const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3065;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 705;
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 712;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

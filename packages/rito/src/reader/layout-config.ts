@@ -27,6 +27,7 @@ export function createLayoutConfig(input: LayoutConfigInput): LayoutConfig {
       : {}),
     ...(input.fontFamilyForce !== undefined ? { fontFamilyForce: input.fontFamilyForce } : {}),
     ...(input.paginationPolicy !== undefined ? { paginationPolicy: input.paginationPolicy } : {}),
+    textMeasurement: 'fontAware',
   };
 }
 function resolveMargins(margin: LayoutConfigInput['margin']): {

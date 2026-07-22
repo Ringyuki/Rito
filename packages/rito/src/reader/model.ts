@@ -43,6 +43,12 @@ export interface LayoutConfig {
   readonly fontFamilyOverride?: string | undefined;
   readonly fontFamilyForce?: boolean | undefined;
   readonly paginationPolicy?: PaginationPolicy | undefined;
+  /**
+   * How the engine measures text. Reader layouts measure with real font
+   * glyphs; the legacy estimator exists only for fixture parity and
+   * misplaces real-book line breaks.
+   */
+  readonly textMeasurement?: 'fontAware' | undefined;
 }
 
 export interface LayoutConfigInput {

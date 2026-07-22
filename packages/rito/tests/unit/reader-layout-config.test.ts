@@ -24,6 +24,7 @@ describe('reader createLayoutConfig', () => {
       firstPageAlone: true,
       spreadGap: 20,
       rootFontSize: 16,
+      textMeasurement: 'fontAware',
     });
   });
 
