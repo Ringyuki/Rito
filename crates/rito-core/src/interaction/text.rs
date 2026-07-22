@@ -28,7 +28,7 @@ pub(crate) use types::{
     LayoutTextSelectionGranularity, LayoutTextSelectionMovement,
     LayoutTextSelectionMovementResolution, LayoutTextSelectionMovementTarget,
 };
-pub(crate) use word_segmentation::plain_word_bounds;
+pub(crate) use word_segmentation::{plain_word_boundaries, plain_word_bounds};
 
 #[cfg(test)]
 mod granularity_tests;

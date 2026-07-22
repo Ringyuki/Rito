@@ -10,11 +10,19 @@
 //! collapse-aware source-offset mapping, the latter the shaped-caret
 //! movement engine, and both are their own cutover steps.
 
+mod movement;
+
 use std::{collections::BTreeMap, ops::Range};
+
+use movement::{build_scope_page, move_focus, Moved, MovementRequest, StreamPosition};
 
 use crate::interaction::{
     plain_word_bounds, TextCaretAddress, TextCaretAffinity, TextCaretGeometry,
     TextInteractionUnavailableReason,
+};
+
+use super::super::page_artifact::{
+    PageArtifactTextSelectionMovement, PageArtifactTextSelectionMovementTarget,
 };
 use crate::layout::{build_spread_slots, SpreadMode};
 use crate::render::DisplayCommand;
@@ -280,11 +288,92 @@ impl<'a> FragmentChapterEngineSession<'a> {
 
     pub(super) fn resolve_text_selection_movement(
         &self,
-        _query: PageArtifactTextSelectionMovementQuery<'_>,
+        query: PageArtifactTextSelectionMovementQuery<'_>,
     ) -> PageArtifactTextSelectionMovementResolution {
-        PageArtifactTextSelectionMovementResolution::Unavailable(
-            TextInteractionUnavailableReason::SourceUnavailable,
-        )
+        use PageArtifactTextSelectionMovementResolution as Resolution;
+        let first = query.scope.first_page;
+        let last = query.scope.last_page;
+        if first > last || last >= self.layout.page_count() {
+            return Resolution::Unavailable(TextInteractionUnavailableReason::InvalidCaret);
+        }
+        // A boundary target is the caller saying the jump leaves the
+        // scope; report the boundary so it can grow the scope and retry.
+        let target_slot = match query.target {
+            PageArtifactTextSelectionMovementTarget::Boundary { boundary, .. } => {
+                return Resolution::Boundary(boundary);
+            }
+            PageArtifactTextSelectionMovementTarget::Page(target) => {
+                if target.page_index < first || target.page_index > last {
+                    return Resolution::Unavailable(TextInteractionUnavailableReason::InvalidCaret);
+                }
+                Some(target.page_index - first)
+            }
+            PageArtifactTextSelectionMovementTarget::Scope(_) => None,
+        };
+        let mut pages = Vec::with_capacity(last - first + 1);
+        for page_index in first..=last {
+            let Some(artifact) = self.artifact(page_index) else {
+                return Resolution::Unavailable(
+                    TextInteractionUnavailableReason::VisualGeometryUnavailable,
+                );
+            };
+            pages.push(build_scope_page(page_index, artifact));
+        }
+        let position_in_scope = |address: &TextCaretAddress| -> Option<StreamPosition> {
+            if address.page_index < first || address.page_index > last {
+                return None;
+            }
+            let slot = address.page_index - first;
+            let offset = position_of(pages[slot].artifact, address)?;
+            Some(StreamPosition { slot, offset })
+        };
+        let Some(focus) = position_in_scope(&query.focus_address) else {
+            return Resolution::Unavailable(TextInteractionUnavailableReason::InvalidCaret);
+        };
+        if position_in_scope(&query.anchor_address).is_none() {
+            return Resolution::Unavailable(TextInteractionUnavailableReason::InvalidCaret);
+        }
+        let moved = move_focus(
+            &pages,
+            focus,
+            MovementRequest {
+                movement: query.movement,
+                language: query.language,
+                preferred_inline_position: query.preferred_inline_position,
+                preferred_block_position: query.preferred_block_position,
+                target_slot,
+            },
+        );
+        let outcome = match moved {
+            Moved::Boundary(boundary) => return Resolution::Boundary(boundary),
+            Moved::To(outcome) => outcome,
+        };
+        let target_page = pages[outcome.focus.slot].page_index;
+        let Some(focus_address) = address_of(
+            pages[outcome.focus.slot].artifact,
+            target_page,
+            outcome.focus.offset,
+        ) else {
+            return Resolution::Unavailable(
+                TextInteractionUnavailableReason::VisualGeometryUnavailable,
+            );
+        };
+        let (Some(anchor_caret), Some(focus_caret)) = (
+            self.caret_at(query.anchor_address),
+            self.caret_at(focus_address),
+        ) else {
+            return Resolution::Unavailable(TextInteractionUnavailableReason::InvalidCaret);
+        };
+        let Some(range) = self.range_between(query.anchor_address, focus_address) else {
+            return Resolution::Unavailable(TextInteractionUnavailableReason::InvalidCaret);
+        };
+        Resolution::Resolved(Box::new(PageArtifactTextSelectionMovement {
+            anchor_caret,
+            focus_caret,
+            range: Box::new(range),
+            preferred_inline_position: outcome.preferred_inline_position,
+            preferred_block_position: outcome.preferred_block_position,
+        }))
     }
 
     fn artifact(&self, page_index: usize) -> Option<&'a FragmentPageArtifact> {

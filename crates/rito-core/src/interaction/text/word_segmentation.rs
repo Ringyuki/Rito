@@ -25,6 +25,13 @@ pub(super) fn word_bounds(
     None
 }
 
+/// All word-segmentation boundaries of plain text as UTF-16 offsets
+/// (starts with 0, ends with the text length), for movement resolvers.
+pub(crate) fn plain_word_boundaries(text: &str, language: Option<&str>) -> Vec<u32> {
+    let utf16 = text.encode_utf16().collect::<Vec<_>>();
+    word_boundaries(&utf16, language)
+}
+
 /// Word bounds around a UTF-16 hit range in plain text, for resolvers
 /// that address text by page-artifact offsets rather than a shaped flow.
 pub(crate) fn plain_word_bounds(

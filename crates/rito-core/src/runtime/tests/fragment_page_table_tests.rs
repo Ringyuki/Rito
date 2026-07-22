@@ -6,13 +6,15 @@ use super::{
     fixture::{fixture_epub_with_chapter_and_stylesheet, multi_chapter_fixture_epub},
     pinned_font_policy_fixtures::{face, font_aware_layout, policy, serif_text_font},
 };
+use crate::interaction::TextSelectionMovement;
 use crate::runtime::page_artifact::PageArtifactSemanticRole;
 use crate::runtime::{
     RuntimeBoundedRevisionRequest, RuntimeContinueRevisionRequest, RuntimeDocument,
     RuntimePinnedFontGenericRole, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
     RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
     RuntimeTextRangeFromPointsResolution, RuntimeTextRangeToPointRequest,
-    RuntimeTextSelectionGranularity,
+    RuntimeTextSelectionGranularity, RuntimeTextSelectionMovementRequest,
+    RuntimeTextSelectionMovementResolution,
 };
 
 fn fragment_routed_document() -> (RuntimeDocument, String) {
@@ -359,4 +361,153 @@ fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
         .expect("the fragment page table attached");
     assert_eq!(advance.revision.page_count, table.page_count());
     assert!(revision.frame_cache.is_empty(), "stale frames were dropped");
+}
+
+#[test]
+fn fragment_pages_resolve_keyboard_selection_movement() {
+    let epub = fixture_epub_with_chapter_and_stylesheet(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p>The quick brown fox jumps over the lazy dog and runs far away home.</p><p>A second paragraph follows the first one here.</p></body></html>"#,
+        "p { margin: 0; }\n",
+    );
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("movement fixture opens");
+    document.set_fragment_page_table_enabled(true);
+    let mut layout = font_aware_layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let handle = RuntimeRevisionHandle::from(&summary);
+    assert_eq!(
+        document.revision_pagination_backend(&summary.revision_id),
+        Some("fragment"),
+        "rejection: {:?}",
+        document.fragment_page_table_rejection_reason(&summary.revision_id),
+    );
+
+    // Select the word "quick" to obtain a live anchor/focus pair.
+    let revision = document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained");
+    let session = revision.chapter_engine_session();
+    let page = session.page(0).expect("page 0 resolves");
+    let positions = page.text_positions();
+    let word_start = positions.text.find("quick").expect("the word is on page 0");
+    let offset = positions.text[..word_start].encode_utf16().count();
+    let run = positions
+        .offsets
+        .iter()
+        .find(|run| run.start <= offset && offset < run.end)
+        .expect("the word has a run");
+    let geometry = page.text_range_geometry(
+        crate::runtime::page_artifact::PageArtifactTextPosition {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: offset - run.start,
+        },
+        crate::runtime::page_artifact::PageArtifactTextPosition {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: offset - run.start + 5,
+        },
+    );
+    let rect = geometry.rects.first().expect("the word has geometry");
+    let point = RuntimeTextPointRequest {
+        page_index: 0,
+        x: rect.x + rect.width / 2.0,
+        y: rect.y + rect.height / 2.0,
+    };
+    let selected = document
+        .resolve_text_range_from_points_at(
+            &handle,
+            RuntimeTextRangeFromPointsRequest {
+                anchor: point,
+                focus: point,
+                granularity: RuntimeTextSelectionGranularity::Word,
+            },
+        )
+        .expect("word request is valid");
+    let RuntimeTextRangeFromPointsResolution::Resolved {
+        anchor_caret,
+        focus_caret,
+        range,
+    } = selected.value.resolution
+    else {
+        panic!("word selection resolves");
+    };
+    assert_eq!(range.selected_text, "quick");
+
+    let movement = |anchor: crate::interaction::TextCaretAddress,
+                    focus: crate::interaction::TextCaretAddress,
+                    movement: TextSelectionMovement| {
+        document
+            .resolve_text_selection_movement_at(
+                &handle,
+                RuntimeTextSelectionMovementRequest {
+                    anchor,
+                    focus,
+                    movement,
+                    preferred_inline_position: None,
+                    preferred_block_position: None,
+                },
+            )
+            .expect("movement request is valid")
+            .value
+            .resolution
+    };
+
+    // Shift+Right: the selection grows by one character.
+    let RuntimeTextSelectionMovementResolution::Resolved {
+        range: grown,
+        focus_caret: after_char,
+        ..
+    } = movement(
+        anchor_caret.address,
+        focus_caret.address,
+        TextSelectionMovement::CharacterRight,
+    )
+    else {
+        panic!("character movement resolves on a fragment page");
+    };
+    assert_eq!(grown.selected_text, "quick ");
+
+    // Shift+Down: the focus drops to the next line; the selection spans it.
+    let RuntimeTextSelectionMovementResolution::Resolved { range: lines, .. } = movement(
+        anchor_caret.address,
+        after_char.address,
+        TextSelectionMovement::LineDown,
+    ) else {
+        panic!("line movement resolves on a fragment page");
+    };
+    assert!(
+        lines.selected_text.contains('\n') || lines.selected_text.len() > "quick ".len() + 4,
+        "the selection crossed a line, got {:?}",
+        lines.selected_text
+    );
+
+    // Word right from the original selection lands at the next word edge.
+    let RuntimeTextSelectionMovementResolution::Resolved { range: word, .. } = movement(
+        anchor_caret.address,
+        focus_caret.address,
+        TextSelectionMovement::WordRight,
+    ) else {
+        panic!("word movement resolves on a fragment page");
+    };
+    assert!(
+        word.selected_text.starts_with("quick"),
+        "word-right keeps the anchor, got {:?}",
+        word.selected_text
+    );
+    assert!(word.selected_text.len() > "quick".len());
 }
