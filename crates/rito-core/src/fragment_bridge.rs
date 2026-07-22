@@ -1044,12 +1044,11 @@ fn block_box_paint(
     };
     let mut widths = [0.0; 4];
     let mut border = serde_json::Map::new();
-    let mut border_box = serde_json::Map::new();
-    for (index, (edge, name, box_name)) in [
-        (&style.fragment.border.top, "top", "topWidth"),
-        (&style.fragment.border.right, "right", "rightWidth"),
-        (&style.fragment.border.bottom, "bottom", "bottomWidth"),
-        (&style.fragment.border.left, "left", "leftWidth"),
+    for (index, (edge, name)) in [
+        (&style.fragment.border.top, "top"),
+        (&style.fragment.border.right, "right"),
+        (&style.fragment.border.bottom, "bottom"),
+        (&style.fragment.border.left, "left"),
     ]
     .into_iter()
     .enumerate()
@@ -1071,8 +1070,17 @@ fn block_box_paint(
             name.to_owned(),
             serde_json::json!({ "width": width, "color": color, "style": stroke }),
         );
-        border_box.insert(box_name.to_owned(), serde_json::json!(width));
     }
+    // The frame-buffer protocol requires all four widths whenever a
+    // border box is present, zero-filled for unpainted edges.
+    let border_box = (!border.is_empty()).then(|| {
+        serde_json::json!({
+            "topWidth": widths[0],
+            "rightWidth": widths[1],
+            "bottomWidth": widths[2],
+            "leftWidth": widths[3],
+        })
+    });
     if background.is_none() && border.is_empty() {
         return Ok(None);
     }
@@ -1086,7 +1094,6 @@ fn block_box_paint(
     if !border.is_empty() {
         paint.insert("border".to_owned(), Value::Object(border));
     }
-    let border_box = (!border_box.is_empty()).then(|| Value::Object(border_box));
     Ok(Some((
         NodePaint::Box {
             paint: Value::Object(paint),
