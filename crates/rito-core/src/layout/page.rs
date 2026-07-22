@@ -2,10 +2,7 @@ use serde_json::Value;
 
 mod cleanup;
 
-pub(crate) use cleanup::{
-    PendingRuntimePageAccumulatorCleanup, PendingRuntimePageCleanup,
-    PendingRuntimePageVectorCleanup,
-};
+pub(crate) use cleanup::{PendingRuntimePageAccumulatorCleanup, PendingRuntimePageVectorCleanup};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RuntimePage<Content> {

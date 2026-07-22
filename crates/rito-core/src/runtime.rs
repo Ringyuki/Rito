@@ -12,6 +12,7 @@ mod chapter_text;
 mod chapter_tree_report;
 mod cleanup;
 mod continuation;
+mod fragment_page_report;
 mod fragment_shadow;
 mod frame;
 mod metadata;
@@ -56,6 +57,10 @@ pub use chapter_tree_report::{
     RuntimeChapterTreeChapter, RuntimeChapterTreeReport, RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
 };
 use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
+pub use fragment_page_report::{
+    RuntimeFragmentPageChapter, RuntimeFragmentPageReport,
+    RUNTIME_FRAGMENT_PAGE_REPORT_SCHEMA_VERSION,
+};
 pub use fragment_shadow::{
     RuntimeFragmentShadowReport, RUNTIME_FRAGMENT_SHADOW_PROVIDER_STUB_BLOCK,
     RUNTIME_FRAGMENT_SHADOW_SCHEMA_VERSION,

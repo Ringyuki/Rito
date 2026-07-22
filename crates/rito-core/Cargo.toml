@@ -16,6 +16,10 @@ name = "chapter-fragment-probe"
 path = "examples/chapter_fragment_probe.rs"
 
 [[example]]
+name = "fragment-pagination-probe"
+path = "examples/fragment_pagination_probe.rs"
+
+[[example]]
 name = "bounded-pagination-probe"
 path = "examples/bounded_pagination_probe.rs"
 required-features = ["bench-internals"]
