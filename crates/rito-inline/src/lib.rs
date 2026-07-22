@@ -1235,6 +1235,7 @@ running through the quiet forest until the morning light returns.";
         let token = BreakToken {
             resume_path: vec![FormattingNodeId(0)],
             stage: BreakTokenStage::Before,
+            pending_floats: Vec::new(),
         };
         assert!(matches!(
             context.layout(
