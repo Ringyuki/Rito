@@ -20,6 +20,10 @@ name = "fragment-pagination-probe"
 path = "examples/fragment_pagination_probe.rs"
 
 [[example]]
+name = "reader-v1-demo-probe"
+path = "examples/reader_v1_demo_probe.rs"
+
+[[example]]
 name = "bounded-pagination-probe"
 path = "examples/bounded_pagination_probe.rs"
 required-features = ["bench-internals"]
