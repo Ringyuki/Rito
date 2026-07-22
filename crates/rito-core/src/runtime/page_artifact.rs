@@ -4,8 +4,11 @@
 //! Runtime consumers must depend on this contract rather than inspect a
 //! backend's box, line, or fragment tree directly.
 
+mod fragment;
 mod interaction;
 mod legacy;
+
+pub(in crate::runtime) use fragment::FragmentPageArtifact;
 
 use crate::render::DisplayCommand;
 
