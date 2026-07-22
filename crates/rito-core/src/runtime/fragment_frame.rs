@@ -201,6 +201,13 @@ impl RuntimeDocument {
         let family_policy = self.fragment_paint_family_policy()?;
         let engine = self.fragment_engine()?;
         let built = self.chapter_formatting_tree(revision_id, idref).ok()?;
+        // The bridge swaps paint under a retained page table, so only an
+        // exact tree qualifies; degraded approximations ride the full
+        // fragment page table (where the whole book opted in), never a
+        // silent per-chapter repaint.
+        if !built.degradations.is_empty() {
+            return None;
+        }
         let config = &revision.layout_config;
         let pages = paginate_chapter(
             &engine.engine,

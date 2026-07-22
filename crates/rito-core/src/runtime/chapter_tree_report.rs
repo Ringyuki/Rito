@@ -133,9 +133,9 @@ impl RuntimeDocument {
                 crate::epub::EpubError::new(format!("chapter {idref} is not prepared"))
             })?;
         let Some(body) = chapter.parsed.body_source_node_id else {
-            return Err(crate::epub::EpubError::new(
-                "chapter has no body source node",
-            ));
+            // Malformed or empty markup: render an empty chapter rather
+            // than blocking the whole book on it.
+            return crate::fragment_bridge::empty_chapter_formatting_tree();
         };
         // The reader-semantic content flow: footnote asides leave the flow
         // before layout, the same selection production pagination uses.

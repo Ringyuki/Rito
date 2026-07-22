@@ -59,6 +59,10 @@ pub struct ChapterFormattingTree {
     pub node_anchors: BTreeMap<u32, String>,
     /// Source tag per block-level formatting node, for semantic roles.
     pub node_tags: BTreeMap<u32, String>,
+    /// Constructs the tree could not represent exactly and rendered with
+    /// an approximation instead (ignored decoration, flattened display,
+    /// collapsed preserved white space, …). Empty means exact.
+    pub degradations: Vec<String>,
 }
 
 /// One inline item's interaction provenance.
@@ -140,6 +144,7 @@ pub fn build_chapter_formatting_tree(
         flow_item_sources: BTreeMap::new(),
         node_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
+        degradations: Vec::new(),
         checked_block_styles: std::collections::HashMap::new(),
         checked_box_paints: std::collections::HashMap::new(),
         checked_inline_styles: std::collections::HashMap::new(),
@@ -163,6 +168,7 @@ pub fn build_chapter_formatting_tree(
         flow_item_sources,
         node_anchors,
         node_tags,
+        degradations,
         ..
     } = builder;
     let tree = FormattingTree::with_styles(
@@ -182,6 +188,7 @@ pub fn build_chapter_formatting_tree(
         flow_item_sources,
         node_anchors,
         node_tags,
+        degradations,
     })
 }
 
@@ -196,15 +203,24 @@ struct TreeBuilder<'a> {
     flow_item_sources: BTreeMap<u32, Vec<FlowItemSource>>,
     node_anchors: BTreeMap<u32, String>,
     node_tags: BTreeMap<u32, String>,
+    degradations: Vec<String>,
     /// Capability verdict per interned style id, so each distinct style is
     /// checked once per chapter.
     checked_block_styles: std::collections::HashMap<u32, Option<String>>,
     checked_box_paints:
-        std::collections::HashMap<u32, Result<Option<(NodePaint, [f64; 4])>, String>>,
+        std::collections::HashMap<u32, (Option<(NodePaint, [f64; 4])>, Vec<String>)>,
     checked_inline_styles: std::collections::HashMap<(u32, bool), Option<String>>,
 }
 
 impl TreeBuilder<'_> {
+    /// Records one approximation the tree build applied instead of
+    /// failing the chapter. Deduplicated: one entry per distinct reason.
+    fn degrade(&mut self, reason: String) {
+        if !self.degradations.contains(&reason) {
+            self.degradations.push(reason);
+        }
+    }
+
     fn push_node(&mut self, node: FormattingNode, source: Option<usize>) -> FormattingNodeId {
         let id = FormattingNodeId(self.nodes.len() as u32);
         self.nodes.push(node);
@@ -391,9 +407,10 @@ impl TreeBuilder<'_> {
                 return Ok(());
             }
             let LengthPercentage::Length(px) = side.value() else {
-                return Err(EpubError::new(format!(
-                    "<{what}> border with percentage padding is not representable yet"
-                )));
+                // Percentage padding cannot absorb a pixel border; keep
+                // the padding untouched (the edge still paints, content
+                // sits closer to it than a browser would place it).
+                return Ok(());
             };
             let total = rito_style_contract::CssPx::new(px.get() + width as f32)
                 .map_err(|error| EpubError::new(format!("{what} border padding: {error:?}")))?;
@@ -457,13 +474,13 @@ impl TreeBuilder<'_> {
                     return self.collect_ruby(element, ancestor_shift_px, collector);
                 }
                 if element.tag == "rt" || element.tag == "rp" {
-                    // Annotation parts are consumed by their <ruby> parent;
-                    // reaching one here means malformed markup whose text
-                    // would otherwise leak into the base flow.
-                    return Err(EpubError::new(format!(
-                        "<{}> outside a <ruby> element is not representable",
+                    // Annotation parts outside a <ruby> are malformed
+                    // markup; render their text as plain inline content
+                    // rather than dropping the chapter.
+                    self.degrade(format!(
+                        "<{}> outside <ruby> rendered as plain text",
                         element.tag
-                    )));
+                    ));
                 }
                 let source_index = element_source_index(element)?;
                 if self.is_display_none(source_index, &element.tag)? {
@@ -589,12 +606,15 @@ impl TreeBuilder<'_> {
                 DocumentNode::Text(text) => pending_base.push_str(&text.content),
                 DocumentNode::Inline(inner) if inner.tag == "rt" => {
                     let mut text = String::new();
-                    collect_plain_text(&inner.children, &mut text)?;
+                    if collect_plain_text(&inner.children, &mut text).is_err() {
+                        self.degrade("ruby annotation markup flattened to text".to_owned());
+                        text.clear();
+                        collect_text_lenient(&inner.children, &mut text);
+                    }
                     let annotation = text.split_whitespace().collect::<Vec<_>>().join(" ");
                     if pending_base.trim().is_empty() && !annotation.is_empty() {
-                        return Err(EpubError::new(
-                            "ruby annotation without a base segment is not representable",
-                        ));
+                        self.degrade("ruby annotation without a base dropped".to_owned());
+                        continue;
                     }
                     collector.push_text(
                         &std::mem::take(&mut pending_base),
@@ -608,18 +628,22 @@ impl TreeBuilder<'_> {
                 }
                 DocumentNode::Inline(inner) if inner.tag == "rp" => {}
                 DocumentNode::Inline(inner) if inner.tag == "rb" => {
-                    collect_plain_text(&inner.children, &mut pending_base)?;
+                    if collect_plain_text(&inner.children, &mut pending_base).is_err() {
+                        self.degrade("ruby base markup flattened to text".to_owned());
+                        collect_text_lenient(&inner.children, &mut pending_base);
+                    }
                 }
                 DocumentNode::Inline(inner) => {
-                    return Err(EpubError::new(format!(
-                        "ruby base with nested <{}> markup is not representable yet",
+                    // Nested inline markup inside a ruby base: flatten to
+                    // its text so the base still reads.
+                    self.degrade(format!(
+                        "ruby base <{}> markup flattened to text",
                         inner.tag
-                    )));
+                    ));
+                    collect_text_lenient(&inner.children, &mut pending_base);
                 }
                 DocumentNode::Image(_) | DocumentNode::Block(_) => {
-                    return Err(EpubError::new(
-                        "ruby containing non-text content is not representable yet",
-                    ));
+                    self.degrade("non-text ruby content dropped".to_owned());
                 }
             }
         }
@@ -695,48 +719,44 @@ impl TreeBuilder<'_> {
     /// still fails closed like any other box.
     fn chapter_body_background(&mut self, source_index: usize) -> EpubResult<Option<String>> {
         let style = self.inline_style_id(source_index, "chapter body")?;
-        let resolved = self
-            .inline
-            .style(style)
-            .map_err(|error| EpubError::new(format!("chapter body style resolves: {error}")))?;
-        let background = match resolved.paint.background {
-            rito_style_contract::ComputedColorV1::Absolute(color) => {
-                if color.alpha().get() == 0.0 {
-                    None
-                } else {
-                    Some(crate::style::absolute_color(color).map_err(|error| {
-                        EpubError::new(format!("chapter body background: {error:?}"))
-                    })?)
+        let (background, bordered, decoration) = {
+            let resolved = self
+                .inline
+                .style(style)
+                .map_err(|error| EpubError::new(format!("chapter body style resolves: {error}")))?;
+            let background = match resolved.paint.background {
+                rito_style_contract::ComputedColorV1::Absolute(color)
+                    if color.alpha().get() > 0.0 =>
+                {
+                    crate::style::absolute_color(color).ok()
                 }
-            }
-            other => {
-                return Err(EpubError::new(format!(
-                    "<chapter body> background {other:?} is not representable in fragment paint yet"
-                )))
-            }
+                rito_style_contract::ComputedColorV1::CurrentColor => {
+                    crate::style::absolute_color(resolved.paint.foreground).ok()
+                }
+                _ => None,
+            };
+            let bordered = [
+                &resolved.fragment.border.top,
+                &resolved.fragment.border.right,
+                &resolved.fragment.border.bottom,
+                &resolved.fragment.border.left,
+            ]
+            .iter()
+            .any(|edge| {
+                edge.resolved_width.get() > 0.0
+                    && !matches!(
+                        edge.style,
+                        rito_style_contract::BorderStyle::None
+                            | rito_style_contract::BorderStyle::Hidden
+                    )
+            });
+            (background, bordered, box_decoration_violation(resolved))
         };
-        for (edge, name) in [
-            (&resolved.fragment.border.top, "border-top"),
-            (&resolved.fragment.border.right, "border-right"),
-            (&resolved.fragment.border.bottom, "border-bottom"),
-            (&resolved.fragment.border.left, "border-left"),
-        ] {
-            let painted = edge.resolved_width.get() > 0.0
-                && !matches!(
-                    edge.style,
-                    rito_style_contract::BorderStyle::None
-                        | rito_style_contract::BorderStyle::Hidden
-                );
-            if painted {
-                return Err(EpubError::new(format!(
-                    "<chapter body> {name} is not representable in fragment paint yet"
-                )));
-            }
+        if bordered {
+            self.degrade("<chapter body> border not painted".to_owned());
         }
-        if let Some(reason) = box_decoration_violation(resolved) {
-            return Err(EpubError::new(format!(
-                "<chapter body> {reason} is not representable in fragment paint yet"
-            )));
+        if let Some(reason) = decoration {
+            self.degrade(format!("<chapter body> decoration ignored: {reason}"));
         }
         Ok(background)
     }
@@ -766,13 +786,17 @@ impl TreeBuilder<'_> {
                 verdict
             }
         };
-        verdict.map_err(|reason| {
-            EpubError::new(format!(
-                "<{what}> {reason} is not representable in fragment paint yet"
-            ))
-        })
+        let (plan, degradations) = verdict;
+        for reason in degradations {
+            self.degrade(format!("<{what}> {reason}"));
+        }
+        Ok(plan)
     }
 
+    /// Fail-open gate for block layout styles: an unimplemented field is
+    /// recorded as a degradation and the box lays out as plain block flow
+    /// (display variants flatten, exotic sizing constraints are ignored),
+    /// keeping every chapter representable at reduced fidelity.
     fn require_block_capabilities(&mut self, style: LayoutStyleId, what: &str) -> EpubResult<()> {
         let verdict = match self.checked_block_styles.get(&style.raw()) {
             Some(cached) => cached.clone(),
@@ -787,32 +811,33 @@ impl TreeBuilder<'_> {
                 verdict
             }
         };
-        match verdict {
-            None => Ok(()),
-            Some(reason) => Err(EpubError::new(format!(
-                "<{what}> is not representable yet: {reason}"
-            ))),
+        if let Some(reason) = verdict {
+            self.degrade(format!("<{what}> laid out as plain block flow: {reason}"));
         }
+        Ok(())
     }
 
     /// Whitelist gate for an image's layout style: the sizing fields are
     /// consumed by image display sizing, so more values are implemented
     /// than for plain blocks.
     fn require_image_capabilities(&mut self, style: LayoutStyleId) -> EpubResult<()> {
-        let resolved = self
-            .layout
-            .style(style)
-            .map_err(|error| EpubError::new(format!("image style resolves: {error}")))?;
-        if resolved.float != rito_style_contract::FloatV1::None {
-            return Err(EpubError::new(
-                "a floated image needs line-box wrapping, which is not representable yet"
-                    .to_owned(),
-            ));
+        let (floated, violation) = {
+            let resolved = self
+                .layout
+                .style(style)
+                .map_err(|error| EpubError::new(format!("image style resolves: {error}")))?;
+            (
+                resolved.float != rito_style_contract::FloatV1::None,
+                shared_box_capability_violation(resolved),
+            )
+        };
+        if floated {
+            self.degrade(
+                "floated image laid out in-flow (line-box wrapping is unimplemented)".to_owned(),
+            );
         }
-        if let Some(reason) = shared_box_capability_violation(resolved) {
-            return Err(EpubError::new(format!(
-                "image is not representable yet: {reason}"
-            )));
+        if let Some(reason) = violation {
+            self.degrade(format!("image constraint ignored: {reason}"));
         }
         Ok(())
     }
@@ -846,12 +871,10 @@ impl TreeBuilder<'_> {
                 verdict
             }
         };
-        match verdict {
-            None => Ok(()),
-            Some(reason) => Err(EpubError::new(format!(
-                "{what} is not representable yet: {reason}"
-            ))),
+        if let Some(reason) = verdict {
+            self.degrade(format!("{what} inline decoration ignored: {reason}"));
         }
+        Ok(())
     }
 
     fn white_space_collapse(&self, style: StyleId) -> EpubResult<bool> {
@@ -1049,21 +1072,18 @@ fn inline_text_capability_violation(
 /// CSS border box.
 fn block_box_paint(
     style: &rito_style_contract::InlineFormattingStyleV1,
-) -> Result<Option<(NodePaint, [f64; 4])>, String> {
+) -> (Option<(NodePaint, [f64; 4])>, Vec<String>) {
     use rito_style_contract as c;
+    let mut degradations = Vec::new();
     if let Some(reason) = box_decoration_violation(style) {
-        return Err(reason);
+        degradations.push(format!("block decoration ignored: {reason}"));
     }
     let background = match style.paint.background {
         c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => None,
-        c::ComputedColorV1::Absolute(color) => Some(
-            crate::style::absolute_color(color)
-                .map_err(|error| format!("background color ({error:?})"))?,
-        ),
-        c::ComputedColorV1::CurrentColor => Some(
-            crate::style::absolute_color(style.paint.foreground)
-                .map_err(|error| format!("background color ({error:?})"))?,
-        ),
+        c::ComputedColorV1::Absolute(color) => crate::style::absolute_color(color).ok(),
+        c::ComputedColorV1::CurrentColor => {
+            crate::style::absolute_color(style.paint.foreground).ok()
+        }
     };
     let mut widths = [0.0; 4];
     let mut border = serde_json::Map::new();
@@ -1084,10 +1104,16 @@ fn block_box_paint(
             c::BorderStyle::Solid => "solid",
             c::BorderStyle::Dashed => "dashed",
             c::BorderStyle::Dotted => "dotted",
-            other => return Err(format!("border-{name} style {other:?}")),
+            other => {
+                degradations.push(format!("border-{name} style {other:?} drawn solid"));
+                "solid"
+            }
         };
-        let color = crate::style::absolute_color(edge.color.resolve(style.paint.foreground))
-            .map_err(|error| format!("border-{name} color ({error:?})"))?;
+        let Ok(color) = crate::style::absolute_color(edge.color.resolve(style.paint.foreground))
+        else {
+            degradations.push(format!("border-{name} color unresolvable, edge skipped"));
+            continue;
+        };
         widths[index] = width;
         border.insert(
             name.to_owned(),
@@ -1105,7 +1131,7 @@ fn block_box_paint(
         })
     });
     if background.is_none() && border.is_empty() {
-        return Ok(None);
+        return (None, degradations);
     }
     let mut paint = serde_json::Map::new();
     if let Some(color) = background {
@@ -1117,13 +1143,16 @@ fn block_box_paint(
     if !border.is_empty() {
         paint.insert("border".to_owned(), Value::Object(border));
     }
-    Ok(Some((
-        NodePaint::Box {
-            paint: Value::Object(paint),
-            border_box,
-        },
-        widths,
-    )))
+    (
+        Some((
+            NodePaint::Box {
+                paint: Value::Object(paint),
+                border_box,
+            },
+            widths,
+        )),
+        degradations,
+    )
 }
 
 /// Box decoration the fragment painter cannot reproduce on any box:
@@ -1210,6 +1239,18 @@ fn resolved_baseline_shift(style: &rito_style_contract::InlineFormattingStyleV1)
         // Zero offsets pass the whitelist; every other value is rejected
         // there before reaching this resolver.
         _ => 0.0,
+    }
+}
+
+/// Flattens all text content into `out`, descending through inline
+/// markup and skipping non-text nodes — the lenient ruby fallback.
+fn collect_text_lenient(nodes: &[DocumentNode], out: &mut String) {
+    for node in nodes {
+        match node {
+            DocumentNode::Text(text) => out.push_str(&text.content),
+            DocumentNode::Inline(element) => collect_text_lenient(&element.children, out),
+            DocumentNode::Image(_) | DocumentNode::Block(_) => {}
+        }
     }
 }
 
@@ -1335,9 +1376,9 @@ impl InlineCollector {
         let mut source_position = utf16(text) - utf16(rest);
         let mut collapsed_units = utf16(&collapsed);
         let mut open: Option<(u32, u32)> = None;
-        let mut close = |open: &mut Option<(u32, u32)>,
-                         segments: &mut Vec<SourceSegment>,
-                         collapsed_units: u32| {
+        let close = |open: &mut Option<(u32, u32)>,
+                     segments: &mut Vec<SourceSegment>,
+                     collapsed_units: u32| {
             if let Some((item_start, source_start)) = open.take() {
                 segments.push(SourceSegment {
                     item_start,
@@ -1515,6 +1556,38 @@ impl InlineCollector {
 #[cfg(test)]
 pub(crate) fn tests_block_style() -> LayoutFormattingStyleV1 {
     anonymous_block_style()
+}
+
+/// A contentless chapter tree, for sources the parser found no body in:
+/// the chapter renders as one empty page instead of blocking the book.
+pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
+    let mut layout = LayoutStyleTableV1::new(1);
+    let style = layout
+        .intern(anonymous_block_style())
+        .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))?;
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style,
+            content: FormattingNodeContent::BlockContainer,
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        FormattingTreeStyles {
+            layout,
+            inline: InlineStyleTableV1::new(1),
+        },
+    )
+    .map_err(EpubError::new)?;
+    Ok(ChapterFormattingTree {
+        tree,
+        source_nodes: vec![None],
+        node_paints: BTreeMap::new(),
+        page_background: None,
+        flow_item_sources: BTreeMap::new(),
+        node_anchors: BTreeMap::new(),
+        node_tags: BTreeMap::new(),
+        degradations: vec!["chapter has no body source node; rendered empty".to_owned()],
+    })
 }
 
 fn anonymous_block_style() -> LayoutFormattingStyleV1 {
@@ -1735,32 +1808,28 @@ p { margin: 8px 0; }\n\
     }
 
     #[test]
-    fn list_items_fail_closed_pending_marker_layout() {
+    fn list_items_degrade_to_plain_blocks_pending_marker_layout() {
         let chapter = resolved_chapter_from(
             r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
   <ol><li>first entry</li></ol>
 </body></html>"#,
         );
-        for id in 0..4 {
-            if let Ok(style) = chapter
-                .layout
-                .style(rito_style_contract::LayoutStyleId::from_raw(id))
-            {
-                eprintln!(
-                    "layout style {id}: display {:?} list {:?}",
-                    style.display, style.list_style_type
-                );
-            }
-        }
-        let error = build_chapter_formatting_tree(
+        let built = build_chapter_formatting_tree(
             &chapter.nodes,
             chapter.body_index,
             &chapter.layout,
             &chapter.inline,
             &no_images(),
         )
-        .expect_err("list items paint markers the fragment engine cannot produce yet");
-        assert!(error.to_string().contains("list"), "{error}");
+        .expect("list items lay out as plain blocks");
+        assert!(
+            built
+                .degradations
+                .iter()
+                .any(|reason| reason.contains("plain block flow")),
+            "the flattened list is recorded: {:?}",
+            built.degradations
+        );
     }
 
     #[test]
@@ -1905,44 +1974,59 @@ p { margin: 8px 0; }\n\
     }
 
     #[test]
-    fn exotic_border_styles_fail_closed_by_name() {
+    fn exotic_border_styles_degrade_to_solid() {
         let chapter = resolved_chapter_with(
             r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
   <div class="frame"><p>text</p></div>
 </body></html>"#,
             ".frame { border: 3px double #000000; }\n",
         );
-        let error = build_chapter_formatting_tree(
+        let built = build_chapter_formatting_tree(
             &chapter.nodes,
             chapter.body_index,
             &chapter.layout,
             &chapter.inline,
             &no_images(),
         )
-        .expect_err("double borders fail closed");
+        .expect("double borders draw solid");
+        let root = built.tree.node(built.tree.root());
+        let Some(NodePaint::Box { paint, .. }) = built.node_paints.get(&root.children[0].0) else {
+            panic!("the frame still paints its border");
+        };
+        assert_eq!(paint["border"]["top"]["style"], "solid");
         assert!(
-            error.message().contains("border-top style"),
-            "error names the construct: {}",
-            error.message()
+            built
+                .degradations
+                .iter()
+                .any(|reason| reason.contains("drawn solid")),
+            "the approximation is recorded: {:?}",
+            built.degradations
         );
     }
 
     #[test]
-    fn malformed_ruby_structures_fail_closed_by_name() {
+    fn malformed_ruby_structures_degrade_to_plain_text() {
         let stray_rt = resolved_chapter_from(
             r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
   <p>text<rt>leak</rt></p>
 </body></html>"#,
         );
-        let error = build_chapter_formatting_tree(
+        let built = build_chapter_formatting_tree(
             &stray_rt.nodes,
             stray_rt.body_index,
             &stray_rt.layout,
             &stray_rt.inline,
             &no_images(),
         )
-        .expect_err("a stray <rt> would leak annotation text into the flow");
-        assert!(error.to_string().contains("outside a <ruby>"), "{error}");
+        .expect("a stray <rt> renders as plain text");
+        assert!(
+            built
+                .degradations
+                .iter()
+                .any(|reason| reason.contains("outside <ruby>")),
+            "the malformed markup is recorded: {:?}",
+            built.degradations
+        );
     }
 
     #[test]

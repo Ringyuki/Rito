@@ -707,6 +707,7 @@ mod tests {
             flow_item_sources: BTreeMap::new(),
             node_anchors: BTreeMap::new(),
             node_tags: BTreeMap::new(),
+            degradations: Vec::new(),
         }
     }
 

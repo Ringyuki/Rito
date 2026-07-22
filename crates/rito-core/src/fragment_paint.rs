@@ -16,9 +16,7 @@ use rito_fragment::{
     FormattingNodeContent, FormattingTree, Fragment, ImageFragment, InlineItem, LineFragment,
     TextFragment,
 };
-use rito_style_contract::{
-    AbsoluteColor, FontSlant, InlineFormattingStyleV1, LengthPercentage, TextDecorationStyle,
-};
+use rito_style_contract::{AbsoluteColor, FontSlant, InlineFormattingStyleV1, LengthPercentage};
 use serde_json::Value;
 
 use std::collections::BTreeMap;
@@ -328,25 +326,14 @@ fn append_image_command(
 }
 
 /// Builds the typed run paint the renderer consumes from one item's inline
-/// style. Pure paint properties the command protocol cannot express fail
-/// closed by name rather than dropping ink.
+/// style. Paint the command protocol cannot express is approximated —
+/// unexpressible effects (transforms, box shadows, background images,
+/// partial opacity) drop while the ink itself always paints.
 fn run_paint(
     style: &InlineFormattingStyleV1,
     family_policy: Option<&PaintFamilyPolicy>,
 ) -> EpubResult<RunPaint> {
     let paint = &style.paint;
-    if paint.opacity.get() != 1.0 {
-        return Err(not_paintable("inline opacity below one"));
-    }
-    if paint.background_image.is_some() {
-        return Err(not_paintable("inline background-image"));
-    }
-    if !paint.transform.is_none() {
-        return Err(not_paintable("inline transform"));
-    }
-    if !paint.box_shadows.is_empty() {
-        return Err(not_paintable("inline box-shadow"));
-    }
     let color = css_color(paint.foreground)?;
     let background = paint.background.resolve(paint.foreground);
     let background_color = if background.alpha().get() == 0.0 {
@@ -404,16 +391,11 @@ fn run_decoration(
     if lines.is_empty() {
         return Ok(None);
     }
-    if lines.overline || lines.blink {
-        return Err(not_paintable("text-decoration overline or blink"));
+    if !lines.underline && !lines.line_through {
+        // Overline/blink alone have no protocol expression; drop them.
+        return Ok(None);
     }
-    if lines.underline && lines.line_through {
-        return Err(not_paintable("combined text-decoration lines"));
-    }
-    match decoration.style {
-        TextDecorationStyle::Solid | TextDecorationStyle::MozNone => {}
-        _ => return Err(not_paintable("non-solid text-decoration stroke")),
-    }
+    // Combined lines pick the underline; non-solid strokes draw solid.
     let (kind, y) = if lines.underline {
         (RunDecorationKind::UNDERLINE, font_size)
     } else {
@@ -432,10 +414,9 @@ fn run_decoration(
 fn spacing_px(spacing: LengthPercentage) -> EpubResult<Option<f64>> {
     match spacing {
         LengthPercentage::Length(px) if px.get() != 0.0 => Ok(Some(f64::from(px.get()))),
-        LengthPercentage::Length(_) => Ok(None),
-        LengthPercentage::Percentage(_) | LengthPercentage::Linear { .. } => {
-            Err(not_paintable("non-length letter/word spacing"))
-        }
+        // Percentage and calc spacing have no canvas expression; they
+        // paint unspaced rather than dropping the run.
+        _ => Ok(None),
     }
 }
 
@@ -906,7 +887,7 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_pure_paint_fails_closed_by_name() {
+    fn unexpressible_pure_paint_approximates_and_still_inks() {
         let mut inline = InlineStyleTableV1::new(1);
         let mut style = body_style(srgb(0.0, 0.0, 0.0, 1.0));
         style.paint.opacity = UnitInterval::new(0.5).expect("opacity is bounded");
@@ -929,7 +910,7 @@ mod tests {
         .expect("tree builds");
         let root = boxed_line(vec![text_run(0.0, 20.0, 0, 3)]);
         let mut commands = Vec::new();
-        let error = append_fragment_display_commands(
+        append_fragment_display_commands(
             &mut commands,
             &tree,
             &root,
@@ -937,10 +918,12 @@ mod tests {
             0.0,
             FragmentPaintContext::default(),
         )
-        .expect_err("translucent ink must not silently flatten");
+        .expect("translucent text approximates to opaque ink");
         assert!(
-            error.to_string().contains("inline opacity"),
-            "unexpected error: {error}"
+            commands
+                .iter()
+                .any(|command| matches!(command, DisplayCommand::PaintText(_))),
+            "the run still paints"
         );
     }
 }

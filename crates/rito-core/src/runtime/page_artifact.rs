@@ -8,7 +8,7 @@ mod fragment;
 mod interaction;
 mod legacy;
 
-pub(in crate::runtime) use fragment::{FragmentPageArtifact, FragmentRunRecord, RunSourceMap};
+pub(in crate::runtime) use fragment::{FragmentPageArtifact, FragmentRunRecord};
 
 use crate::render::DisplayCommand;
 
