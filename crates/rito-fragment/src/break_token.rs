@@ -24,8 +24,23 @@ pub enum BreakTokenStage {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BreakToken {
     /// Path from the context root to the node where layout resumes; each
-    /// entry is the node to resume at within its parent's child list.
+    /// entry is the node to resume at within its parent's child list. May
+    /// be empty when only `pending_floats` remain to lay out.
     pub resume_path: Vec<FormattingNodeId>,
     /// Stage within the final node of `resume_path`.
     pub stage: BreakTokenStage,
+    /// Floats the same fragmentainer edge split. Each resumes in its own
+    /// float band at the top of the next fragmentainer, side by side,
+    /// while in-flow layout resumes at `resume_path` — the way columns
+    /// built from floats continue across pages in a browser.
+    pub pending_floats: Vec<FloatBreak>,
+}
+
+/// One float's resumption across a fragmentainer edge.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FloatBreak {
+    /// The floated child; its side and box derive from its own style.
+    pub child: FormattingNodeId,
+    /// Resumption inside the float's subtree.
+    pub token: BreakToken,
 }

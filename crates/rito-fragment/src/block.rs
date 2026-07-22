@@ -75,6 +75,7 @@ impl FormattingContext for StubBlockContext {
                         stage: BreakTokenStage::Inside {
                             consumed_block_size: already,
                         },
+                        pending_floats: Vec::new(),
                     },
                 ));
             }
@@ -90,6 +91,7 @@ impl FormattingContext for StubBlockContext {
                     BreakToken {
                         resume_path: vec![*child_id],
                         stage: BreakTokenStage::Before,
+                        pending_floats: Vec::new(),
                     },
                 ));
             }
@@ -101,6 +103,7 @@ impl FormattingContext for StubBlockContext {
                 continuation: next.map(|next_id| BreakToken {
                     resume_path: vec![*next_id],
                     stage: BreakTokenStage::Before,
+                    pending_floats: Vec::new(),
                 }),
             });
         }

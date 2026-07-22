@@ -44,13 +44,41 @@ struct CacheKey {
     fragmentainer_remaining_bits: Option<u64>,
     fragmentainer_size_bits: Option<u64>,
     /// Break token in canonical form; `None` for a from-the-start layout.
-    token: Option<(Vec<u32>, TokenStageKey)>,
+    token: Option<TokenKey>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum TokenStageKey {
     Before,
     Inside { consumed_bits: u64 },
+}
+
+/// Recursive token identity: resume path, stage, and the identities of
+/// every float the same edge split.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct TokenKey {
+    path: Vec<u32>,
+    stage: TokenStageKey,
+    floats: Vec<(u32, TokenKey)>,
+}
+
+fn token_key(token: &BreakToken) -> TokenKey {
+    TokenKey {
+        path: token.resume_path.iter().map(|node| node.0).collect(),
+        stage: match token.stage {
+            crate::BreakTokenStage::Before => TokenStageKey::Before,
+            crate::BreakTokenStage::Inside {
+                consumed_block_size,
+            } => TokenStageKey::Inside {
+                consumed_bits: consumed_block_size.to_bits(),
+            },
+        },
+        floats: token
+            .pending_floats
+            .iter()
+            .map(|float_break| (float_break.child.0, token_key(&float_break.token)))
+            .collect(),
+    }
 }
 
 struct CacheEntry {
@@ -201,19 +229,7 @@ fn cache_key(
         inline_size_bits: space.inline_size.to_bits(),
         fragmentainer_remaining_bits: space.fragmentainer_remaining.map(f64::to_bits),
         fragmentainer_size_bits: space.fragmentainer_size.map(f64::to_bits),
-        token: token.map(|token| {
-            (
-                token.resume_path.iter().map(|node| node.0).collect(),
-                match token.stage {
-                    crate::BreakTokenStage::Before => TokenStageKey::Before,
-                    crate::BreakTokenStage::Inside {
-                        consumed_block_size,
-                    } => TokenStageKey::Inside {
-                        consumed_bits: consumed_block_size.to_bits(),
-                    },
-                },
-            )
-        }),
+        token: token.map(token_key),
     }
 }
 

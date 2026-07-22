@@ -171,6 +171,11 @@ fn decode_rect(reader: &mut Reader<'_>) -> Result<FragmentRect, String> {
 }
 
 fn encode_break_token(token: &BreakToken, out: &mut Vec<u8>) {
+    out.extend_from_slice(&(token.pending_floats.len() as u32).to_le_bytes());
+    for float_break in &token.pending_floats {
+        out.extend_from_slice(&float_break.child.0.to_le_bytes());
+        encode_break_token(&float_break.token, out);
+    }
     out.extend_from_slice(&(token.resume_path.len() as u32).to_le_bytes());
     for node in &token.resume_path {
         out.extend_from_slice(&node.0.to_le_bytes());
@@ -187,6 +192,13 @@ fn encode_break_token(token: &BreakToken, out: &mut Vec<u8>) {
 }
 
 fn decode_break_token(reader: &mut Reader<'_>) -> Result<BreakToken, String> {
+    let float_count = reader.u32()? as usize;
+    let mut pending_floats = Vec::with_capacity(float_count.min(reader.remaining()));
+    for _ in 0..float_count {
+        let child = FormattingNodeId(reader.u32()?);
+        let token = decode_break_token(reader)?;
+        pending_floats.push(crate::FloatBreak { child, token });
+    }
     let path_len = reader.u32()? as usize;
     let mut resume_path = Vec::with_capacity(path_len.min(reader.remaining()));
     for _ in 0..path_len {
@@ -199,7 +211,11 @@ fn decode_break_token(reader: &mut Reader<'_>) -> Result<BreakToken, String> {
         },
         tag => return Err(format!("unknown break-token stage tag {tag}")),
     };
-    Ok(BreakToken { resume_path, stage })
+    Ok(BreakToken {
+        resume_path,
+        stage,
+        pending_floats,
+    })
 }
 
 struct Reader<'a> {
@@ -282,6 +298,7 @@ mod tests {
                 stage: BreakTokenStage::Inside {
                     consumed_block_size: 79.5,
                 },
+                pending_floats: Vec::new(),
             }),
         }
     }
