@@ -540,6 +540,7 @@ impl RuntimeDocument {
         local_spread_index: usize,
         payload: RuntimeFrameCachePayload,
     ) -> EpubResult<&RuntimeCachedFrame> {
+        self.prepare_fragment_spread_frames(revision_id, local_spread_index);
         let result = self
             .chapter_local_revisions
             .get_mut(revision_id)

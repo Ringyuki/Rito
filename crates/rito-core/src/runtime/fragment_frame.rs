@@ -49,6 +49,22 @@ impl std::fmt::Debug for RuntimeFragmentEngine {
 pub(super) type FragmentChapterFrames = Arc<Vec<Vec<DisplayCommand>>>;
 
 impl RuntimeDocument {
+    /// Looks a revision up in whichever store holds it: publication
+    /// revisions and chapter-local (preview) revisions share the frame
+    /// path and both route through the bridge.
+    pub(super) fn any_revision(&self, revision_id: &str) -> Option<&RuntimeRevision> {
+        self.revisions
+            .get(revision_id)
+            .or_else(|| self.chapter_local_revisions.get(revision_id))
+    }
+
+    fn any_revision_mut(&mut self, revision_id: &str) -> Option<&mut RuntimeRevision> {
+        if self.revisions.contains_key(revision_id) {
+            return self.revisions.get_mut(revision_id);
+        }
+        self.chapter_local_revisions.get_mut(revision_id)
+    }
+
     /// The document's fragment engine, built once from the pinned font
     /// policy and the publication's `@font-face` bindings. `None` when no
     /// fonts are available or a face fails to register — layout without
@@ -88,7 +104,7 @@ impl RuntimeDocument {
         revision_id: &str,
         spread_index: usize,
     ) {
-        let Some(revision) = self.revisions.get(revision_id) else {
+        let Some(revision) = self.any_revision(revision_id) else {
             return;
         };
         let mut pending = Vec::new();
@@ -113,7 +129,7 @@ impl RuntimeDocument {
         }
         for idref in pending {
             let frames = self.build_fragment_chapter_frames(revision_id, &idref);
-            if let Some(revision) = self.revisions.get_mut(revision_id) {
+            if let Some(revision) = self.any_revision_mut(revision_id) {
                 revision.fragment_chapter_frames.insert(idref, frames);
             }
         }
@@ -126,7 +142,7 @@ impl RuntimeDocument {
         revision_id: &str,
         idref: &str,
     ) -> Option<FragmentChapterFrames> {
-        let revision = self.revisions.get(revision_id)?;
+        let revision = self.any_revision(revision_id)?;
         let range = revision
             .layout
             .summary

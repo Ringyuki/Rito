@@ -114,7 +114,7 @@ impl RuntimeDocument {
         revision_id: &str,
         idref: &str,
     ) -> EpubResult<ChapterFormattingTree> {
-        let revision = self.revisions.get(revision_id).ok_or_else(|| {
+        let revision = self.any_revision(revision_id).ok_or_else(|| {
             crate::epub::EpubError::new(format!("unknown revision: {revision_id}"))
         })?;
         let tables = revision.chapter_style_tables.get(idref).ok_or_else(|| {
