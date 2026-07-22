@@ -156,7 +156,7 @@ impl ParleyInlineContext {
                         .inline
                         .style(*style)
                         .map_err(|error| LayoutError::Invalid(error.to_string()))?;
-                    runs.push((start..text.len(), style));
+                    runs.push((start..text.len(), style, item_index));
                 }
                 InlineItem::Image {
                     intrinsic_width,
@@ -189,11 +189,22 @@ impl ParleyInlineContext {
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = layouts.ranged_builder(&mut fonts, &text, 1.0, true);
         let mut first_line_indent = 0.0_f32;
-        for (range, style) in &runs {
+        for (range, style, item_index) in &runs {
             if range.is_empty() {
                 continue;
             }
             push_item_styles(&mut builder, style, range.clone());
+            // Parley merges adjacent resolved styles that compare equal,
+            // which would fuse glyph runs across item boundaries whenever
+            // neighbouring items differ only in properties Parley never
+            // sees (color, decoration, other pure paint). A distinct
+            // per-item brush keeps every glyph run inside exactly one
+            // source item, so consumers can map a run back to its item —
+            // and that item's paint style — by byte range alone.
+            builder.push(
+                StyleProperty::Brush((*item_index as u32).to_le_bytes()),
+                range.clone(),
+            );
             if range.start == 0 {
                 first_line_indent = resolved_text_indent(style);
             }
@@ -286,6 +297,28 @@ impl FormattingContext for ParleyInlineContext {
                 .collect(),
             _ => Vec::new(),
         };
+        // Byte range each item occupies in the flow text (images occupy
+        // none). Parley reports a glyph run's range at shaping-run
+        // granularity, and one shaping run can span several items when
+        // their measure styles are identical; intersecting with the run's
+        // brushed item recovers the exact per-item range.
+        let item_text_ranges: Vec<std::ops::Range<usize>> = match &tree.node(root).content {
+            FormattingNodeContent::InlineFlow { items } => {
+                let mut cursor = 0usize;
+                items
+                    .iter()
+                    .map(|item| match item {
+                        InlineItem::Text { text, .. } => {
+                            let start = cursor;
+                            cursor += text.len();
+                            start..cursor
+                        }
+                        InlineItem::Image { .. } => cursor..cursor,
+                    })
+                    .collect()
+            }
+            _ => Vec::new(),
+        };
         let shift_for_range = |range: &std::ops::Range<usize>| -> f64 {
             shifted_ranges
                 .iter()
@@ -322,7 +355,26 @@ impl FormattingContext for ParleyInlineContext {
             for item in line.items() {
                 match item {
                     PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let run_range = glyph_run.run().text_range();
+                        let shaping_range = glyph_run.run().text_range();
+                        let item_index = u32::from_le_bytes(glyph_run.style().brush) as usize;
+                        let item_range =
+                            item_text_ranges.get(item_index).cloned().ok_or_else(|| {
+                                LayoutError::Invalid(format!(
+                                    "glyph run brush names item {item_index} outside the flow"
+                                ))
+                            })?;
+                        // A glyph run never crosses a brush (item) boundary,
+                        // and one shaping run holds at most one glyph run
+                        // per item, so this intersection is the run's exact
+                        // byte range.
+                        let run_range = shaping_range.start.max(item_range.start)
+                            ..shaping_range.end.min(item_range.end);
+                        if run_range.start >= run_range.end {
+                            return Err(LayoutError::Invalid(format!(
+                                "glyph run range {shaping_range:?} does not intersect its \
+                                 item's range {item_range:?}"
+                            )));
+                        }
                         let shift = shift_for_range(&run_range);
                         max_rise = max_rise.max(shift);
                         children.push((
@@ -1305,6 +1357,7 @@ running through the quiet forest until the morning light returns.";
                         baseline_shift_px: 0.0,
                     },
                     InlineItem::Image {
+                        src: "images/figure.png".to_owned(),
                         intrinsic_width: 40.0,
                         intrinsic_height: 30.0,
                         style: text_style,
@@ -1367,6 +1420,70 @@ running through the quiet forest until the morning light returns.";
             )
             .expect("replay succeeds");
         assert_eq!(outcome, replay);
+    }
+
+    #[test]
+    fn glyph_runs_split_at_item_boundaries_even_with_identical_measure_styles() {
+        // Two items sharing one interned style differ in nothing Parley
+        // measures — exactly the shape of a pure paint change (a colored
+        // span). The per-item brush must still keep their runs apart so a
+        // paint consumer can map each run to its item by byte range.
+        let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(0, tinos_style(0.0))
+            .expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "ab".to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                    },
+                    InlineItem::Text {
+                        text: "cd".to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(400.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let mut ranges = Vec::new();
+        for line in &root.children {
+            let Fragment::Line(line) = line else {
+                panic!("children are lines");
+            };
+            for child in &line.children {
+                if let Fragment::Text(run) = child {
+                    ranges.push((run.text_start, run.text_end));
+                }
+            }
+        }
+        assert_eq!(ranges, vec![(0, 2), (2, 4)]);
     }
 
     #[test]

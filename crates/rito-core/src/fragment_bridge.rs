@@ -338,6 +338,7 @@ impl TreeBuilder<'_> {
             .style(style)
             .map_err(|error| EpubError::new(format!("image style: {error}")))?;
         collector.push_image(InlineItem::Image {
+            src: image.src.clone(),
             intrinsic_width: f64::from(*width),
             intrinsic_height: f64::from(*height),
             style,

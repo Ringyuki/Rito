@@ -28,6 +28,9 @@ pub enum InlineItem {
     /// layout time from the layout style's sizing fields against these
     /// intrinsic dimensions.
     Image {
+        /// Resource reference of the image source, as authored (the
+        /// consumer resolves it against the publication's resources).
+        src: String,
         /// Intrinsic pixel width of the image source.
         intrinsic_width: f64,
         /// Intrinsic pixel height of the image source.
@@ -268,6 +271,7 @@ fn fingerprint(
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
                         }
                         InlineItem::Image {
+                            src,
                             intrinsic_width,
                             intrinsic_height,
                             style,
@@ -275,6 +279,8 @@ fn fingerprint(
                             baseline_shift_px,
                         } => {
                             mixer.mix(&[1]);
+                            mixer.mix(&(src.len() as u32).to_le_bytes());
+                            mixer.mix(src.as_bytes());
                             mixer.mix(&intrinsic_width.to_bits().to_le_bytes());
                             mixer.mix(&intrinsic_height.to_bits().to_le_bytes());
                             mixer.mix(&style.raw().to_le_bytes());
