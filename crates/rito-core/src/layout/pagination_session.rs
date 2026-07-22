@@ -1,11 +1,9 @@
 use std::{collections::VecDeque, sync::Arc};
 
-#[allow(dead_code)] // Chapter-session retirement consumes this next.
 mod cleanup;
 mod image_frontier;
 mod work_meter;
 
-#[allow(unused_imports)] // Chapter-session retirement consumes this next.
 pub(crate) use cleanup::PendingContinuousLayoutSessionCleanup;
 pub(super) use work_meter::LayoutSessionScope;
 pub(crate) use work_meter::LayoutWorkBudget;

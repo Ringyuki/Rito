@@ -328,8 +328,12 @@ fn place_pagination_block(
         state.emit_page();
     }
 
-    let effective_spacing = if !state.page_blocks.is_empty() || !state.has_emitted_pages() {
-        spacing
+    // A negative gap (a float column beside its predecessor) only holds
+    // while both are on one page; never open a page above its own top.
+    let effective_spacing = if !state.page_blocks.is_empty() {
+        spacing.max(-state.used_height)
+    } else if !state.has_emitted_pages() {
+        spacing.max(0.0)
     } else {
         0.0
     };
