@@ -10,6 +10,7 @@ import { LinkDialog } from '@/components/link-dialog';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ReaderContextMenu } from '@/components/reader-context-menu';
 import { type useReader } from '@/hooks/use-reader';
+import { EngineBadge } from '@/components/engine-badge';
 import { Button } from '@/components/ui/button';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 
@@ -63,6 +64,7 @@ export function Reader({
       data-render-scale={reader.zoomScale}
       className="relative flex flex-1 bg-muted/30 select-none"
     >
+      <EngineBadge />
       {reader.isLoading && (
         <div
           data-testid="reader-loading"
