@@ -25,10 +25,13 @@ fn hash_page_text(text: &str) -> String {
 }
 
 use super::{
-    PageArtifact, PageArtifactMetadata, PageArtifactSemanticNode, PageArtifactTargets,
-    PageArtifactTextPosition, PageArtifactTextPositions, PageArtifactTextRangeGeometry,
-    PageArtifactTextRangeRect, PageArtifactTextRunOffset,
+    PageArtifact, PageArtifactMetadata, PageArtifactRect, PageArtifactSemanticNode,
+    PageArtifactSemanticRole, PageArtifactTarget, PageArtifactTargets, PageArtifactTextPosition,
+    PageArtifactTextPositions, PageArtifactTextRangeGeometry, PageArtifactTextRangeRect,
+    PageArtifactTextRunOffset,
 };
+
+use crate::fragment_bridge::FlowItemSource;
 
 /// One text run's geometry and text, pre-resolved from the fragment tree.
 #[derive(Debug, Clone)]
@@ -44,6 +47,8 @@ struct FragmentRunRecord {
     y: f64,
     width: f64,
     height: f64,
+    /// Destination of the enclosing link, when the run sits inside one.
+    href: Option<String>,
 }
 
 /// Query-ready interaction data for one fragment-engine page.
@@ -56,6 +61,34 @@ pub(in crate::runtime) struct FragmentPageArtifact {
     text_length: usize,
     text_hash: String,
     runs: Vec<FragmentRunRecord>,
+    images: Vec<FragmentImageRecord>,
+    semantics: Vec<FragmentSemanticRecord>,
+}
+
+/// One laid-out image on the page, with its interaction provenance.
+#[derive(Debug, Clone)]
+struct FragmentImageRecord {
+    block_index: usize,
+    line_index: usize,
+    run_index: usize,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    src: String,
+    alt: Option<String>,
+    href: Option<String>,
+}
+
+/// One block-level box with a known source tag, in page coordinates.
+#[derive(Debug, Clone)]
+struct FragmentSemanticRecord {
+    tag: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    text: String,
 }
 
 impl FragmentPageArtifact {
@@ -70,6 +103,8 @@ impl FragmentPageArtifact {
             text_length: 0,
             text_hash: hash_page_text(""),
             runs: Vec::new(),
+            images: Vec::new(),
+            semantics: Vec::new(),
         }
     }
 
@@ -91,6 +126,8 @@ impl FragmentPageArtifact {
             offset: 0,
             has_text: false,
             runs: Vec::new(),
+            images: Vec::new(),
+            semantics: Vec::new(),
         };
         let Fragment::Box(page_root) = root else {
             return Self::empty(page_index, width, height);
@@ -115,6 +152,8 @@ impl FragmentPageArtifact {
             text_length,
             text_hash,
             runs: builder.runs,
+            images: builder.images,
+            semantics: builder.semantics,
         }
     }
 
@@ -127,6 +166,8 @@ impl FragmentPageArtifact {
             text_length: 0,
             text_hash: hash_page_text(""),
             runs: Vec::new(),
+            images: Vec::new(),
+            semantics: Vec::new(),
         }
     }
 }
@@ -138,6 +179,8 @@ struct ArtifactBuilder<'a> {
     offset: usize,
     has_text: bool,
     runs: Vec<FragmentRunRecord>,
+    images: Vec<FragmentImageRecord>,
+    semantics: Vec<FragmentSemanticRecord>,
 }
 
 impl ArtifactBuilder<'_> {
@@ -151,6 +194,16 @@ impl ArtifactBuilder<'_> {
     ) {
         match fragment {
             Fragment::Box(inner) => {
+                if let Some(tag) = self.chapter.node_tags.get(&inner.source.0) {
+                    self.semantics.push(FragmentSemanticRecord {
+                        tag: tag.clone(),
+                        x: origin_x + inner.rect.x,
+                        y: origin_y + inner.rect.y,
+                        width: inner.rect.width,
+                        height: inner.rect.height,
+                        text: fragment_subtree_text(&self.chapter.tree, fragment),
+                    });
+                }
                 for child in &inner.children {
                     self.collect(
                         child,
@@ -167,13 +220,22 @@ impl ArtifactBuilder<'_> {
                 else {
                     return;
                 };
-                let flow_text: String = items
-                    .iter()
-                    .filter_map(|item| match item {
-                        InlineItem::Text { text, .. } => Some(text.as_str()),
-                        InlineItem::Image { .. } => None,
-                    })
-                    .collect();
+                // Text fragments address the flow's concatenated text-item
+                // bytes; rebuild the ranges to attribute each run to the
+                // item (and so to the link/source) that produced it.
+                let mut flow_text = String::new();
+                let mut item_ranges: Vec<(std::ops::Range<usize>, usize)> = Vec::new();
+                for (item_index, item) in items.iter().enumerate() {
+                    if let InlineItem::Text { text, .. } = item {
+                        let start = flow_text.len();
+                        flow_text.push_str(text);
+                        item_ranges.push((start..flow_text.len(), item_index));
+                    }
+                }
+                let sources = self.chapter.flow_item_sources.get(&line.source.0);
+                let item_source = |item_index: usize| -> Option<&FlowItemSource> {
+                    sources.and_then(|sources| sources.get(item_index))
+                };
                 let line_x = origin_x + line.rect.x;
                 let line_y = origin_y + line.rect.y;
                 let has_line_text = line
@@ -185,29 +247,58 @@ impl ArtifactBuilder<'_> {
                     self.offset += 1;
                 }
                 for (run_index, child) in line.children.iter().enumerate() {
-                    let Fragment::Text(run) = child else {
-                        continue;
-                    };
-                    let Some(run_text) =
-                        flow_text.get(run.text_start as usize..run.text_end as usize)
-                    else {
-                        continue;
-                    };
-                    let length = run_text.encode_utf16().count();
-                    self.runs.push(FragmentRunRecord {
-                        block_index,
-                        line_index: *line_index,
-                        run_index,
-                        start: self.offset,
-                        end: self.offset + length,
-                        x: line_x + run.rect.x,
-                        y: line_y,
-                        width: run.rect.width,
-                        height: line.rect.height,
-                    });
-                    self.text.push_str(run_text);
-                    self.offset += length;
-                    self.has_text = true;
+                    match child {
+                        Fragment::Text(run) => {
+                            let Some(run_text) =
+                                flow_text.get(run.text_start as usize..run.text_end as usize)
+                            else {
+                                continue;
+                            };
+                            let owner = item_ranges
+                                .iter()
+                                .find(|(range, _)| range.contains(&(run.text_start as usize)))
+                                .map(|(_, item_index)| *item_index);
+                            let href = owner
+                                .and_then(item_source)
+                                .and_then(|source| source.href.clone());
+                            let length = run_text.encode_utf16().count();
+                            self.runs.push(FragmentRunRecord {
+                                block_index,
+                                line_index: *line_index,
+                                run_index,
+                                start: self.offset,
+                                end: self.offset + length,
+                                x: line_x + run.rect.x,
+                                y: line_y,
+                                width: run.rect.width,
+                                height: line.rect.height,
+                                href,
+                            });
+                            self.text.push_str(run_text);
+                            self.offset += length;
+                            self.has_text = true;
+                        }
+                        Fragment::Image(image) => {
+                            let InlineItem::Image { src, .. } = &items[image.item_index as usize]
+                            else {
+                                continue;
+                            };
+                            let source = item_source(image.item_index as usize);
+                            self.images.push(FragmentImageRecord {
+                                block_index,
+                                line_index: *line_index,
+                                run_index,
+                                x: line_x + image.rect.x,
+                                y: line_y + image.rect.y,
+                                width: image.rect.width,
+                                height: image.rect.height,
+                                src: src.clone(),
+                                alt: source.and_then(|source| source.image_alt.clone()),
+                                href: source.and_then(|source| source.href.clone()),
+                            });
+                        }
+                        _ => {}
+                    }
                 }
                 *line_index += 1;
             }
@@ -226,15 +317,81 @@ impl PageArtifact for FragmentPageArtifact {
     }
 
     fn semantic_nodes(&self) -> Vec<PageArtifactSemanticNode> {
-        // Semantic and target surfaces land with the backend wiring; the
-        // artifact is not reachable from any session until they do.
-        Vec::new()
+        self.semantics
+            .iter()
+            .map(|record| {
+                let (role, level) = semantic_role(&record.tag);
+                PageArtifactSemanticNode {
+                    role,
+                    level,
+                    text: (!record.text.is_empty()).then(|| record.text.clone()),
+                    alt: None,
+                    href: None,
+                    bounds: PageArtifactRect {
+                        x: record.x,
+                        y: record.y,
+                        width: record.width,
+                        height: record.height,
+                    },
+                    children: Vec::new(),
+                }
+            })
+            .collect()
     }
 
     fn targets(&self) -> PageArtifactTargets {
+        // Entry order and hashing mirror the retained backend: text runs
+        // in flow order (their concatenation is the hash input), then
+        // page images.
+        let mut text = String::new();
+        let mut entries = Vec::new();
+        for run in &self.runs {
+            let run_text = page_text_slice(&self.text, run.start, run.end);
+            text.push_str(&run_text);
+            entries.push(PageArtifactTarget {
+                block_index: run.block_index,
+                line_index: run.line_index,
+                run_index: run.run_index,
+                bounds: PageArtifactRect {
+                    x: run.x,
+                    y: run.y,
+                    width: run.width,
+                    height: run.height,
+                },
+                text_hash: hash_page_text(&run_text),
+                text_length: run.end - run.start,
+                text: run_text,
+                href: run.href.clone(),
+                source_path: None,
+                source_text_offset: None,
+                image_src: None,
+                image_alt: None,
+            });
+        }
+        for image in &self.images {
+            entries.push(PageArtifactTarget {
+                block_index: image.block_index,
+                line_index: image.line_index,
+                run_index: image.run_index,
+                bounds: PageArtifactRect {
+                    x: image.x,
+                    y: image.y,
+                    width: image.width,
+                    height: image.height,
+                },
+                text: String::new(),
+                text_hash: hash_page_text(""),
+                text_length: 0,
+                href: image.href.clone(),
+                source_path: None,
+                source_text_offset: None,
+                image_src: Some(image.src.clone()),
+                image_alt: image.alt.clone(),
+            });
+        }
         PageArtifactTargets {
-            entries: Vec::new(),
-            text_hash: self.text_hash.clone(),
+            entries,
+            text_hash: hash_page_text(&text),
         }
     }
 
@@ -322,6 +479,83 @@ fn position_key(position: &PageArtifactTextPosition) -> (usize, usize, usize, us
     )
 }
 
+/// UTF-16 offset range back to a string slice of the page text.
+fn page_text_slice(text: &str, start: usize, end: usize) -> String {
+    text.encode_utf16()
+        .skip(start)
+        .take(end.saturating_sub(start))
+        .collect::<Vec<u16>>()
+        .pipe(|units| String::from_utf16_lossy(&units))
+}
+
+trait Pipe: Sized {
+    fn pipe<T>(self, apply: impl FnOnce(Self) -> T) -> T {
+        apply(self)
+    }
+}
+impl<T: Sized> Pipe for T {}
+
+/// Text content of one fragment subtree, lines joined by spaces — the
+/// heading/paragraph text a semantic outline shows.
+fn fragment_subtree_text(tree: &rito_fragment::FormattingTree, fragment: &Fragment) -> String {
+    fn walk(tree: &rito_fragment::FormattingTree, fragment: &Fragment, out: &mut String) {
+        match fragment {
+            Fragment::Box(inner) => {
+                for child in &inner.children {
+                    walk(tree, child, out);
+                }
+            }
+            Fragment::Line(line) => {
+                let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content
+                else {
+                    return;
+                };
+                let flow_text: String = items
+                    .iter()
+                    .filter_map(|item| match item {
+                        InlineItem::Text { text, .. } => Some(text.as_str()),
+                        InlineItem::Image { .. } => None,
+                    })
+                    .collect();
+                for child in &line.children {
+                    if let Fragment::Text(run) = child {
+                        if let Some(run_text) =
+                            flow_text.get(run.text_start as usize..run.text_end as usize)
+                        {
+                            if !out.is_empty() && !out.ends_with(' ') {
+                                out.push(' ');
+                            }
+                            out.push_str(run_text);
+                        }
+                    }
+                }
+            }
+            Fragment::Text(_) | Fragment::Image(_) => {}
+        }
+    }
+    let mut out = String::new();
+    walk(tree, fragment, &mut out);
+    out.trim().to_owned()
+}
+
+/// Source tag to the artifact's semantic role.
+fn semantic_role(tag: &str) -> (PageArtifactSemanticRole, Option<u8>) {
+    match tag {
+        "h1" => (PageArtifactSemanticRole::Heading, Some(1)),
+        "h2" => (PageArtifactSemanticRole::Heading, Some(2)),
+        "h3" => (PageArtifactSemanticRole::Heading, Some(3)),
+        "h4" => (PageArtifactSemanticRole::Heading, Some(4)),
+        "h5" => (PageArtifactSemanticRole::Heading, Some(5)),
+        "h6" => (PageArtifactSemanticRole::Heading, Some(6)),
+        "p" => (PageArtifactSemanticRole::Paragraph, None),
+        "ul" | "ol" => (PageArtifactSemanticRole::List, None),
+        "li" => (PageArtifactSemanticRole::ListItem, None),
+        "blockquote" => (PageArtifactSemanticRole::Blockquote, None),
+        "table" => (PageArtifactSemanticRole::Table, None),
+        _ => (PageArtifactSemanticRole::Generic, None),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -387,6 +621,9 @@ mod tests {
             source_nodes: vec![None, None],
             node_paints: BTreeMap::new(),
             page_background: None,
+            flow_item_sources: BTreeMap::new(),
+            node_anchors: BTreeMap::new(),
+            node_tags: BTreeMap::new(),
         }
     }
 

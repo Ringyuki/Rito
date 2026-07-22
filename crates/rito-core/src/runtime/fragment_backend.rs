@@ -234,6 +234,7 @@ impl RuntimeDocument {
             return Err("page content box is empty".to_owned());
         }
         let mut chapters = Vec::with_capacity(prepared.chapters.len());
+        let mut anchors = BTreeMap::new();
         let mut page_index = 0;
         for chapter in &prepared.chapters {
             let idref = chapter.source.idref.clone();
@@ -259,6 +260,7 @@ impl RuntimeDocument {
             let block_count = built.tree.node(built.tree.root()).children.len();
             let mut backend_pages = Vec::with_capacity(pages.len());
             for page in pages {
+                collect_page_anchors(&page.root, &built.node_anchors, page_index, &mut anchors);
                 backend_pages.push(FragmentBackendPage {
                     artifact: FragmentPageArtifact::build(
                         page_index,
@@ -280,6 +282,27 @@ impl RuntimeDocument {
                 pages: backend_pages,
             });
         }
-        Ok(FragmentBuiltLayout::new(chapters))
+        let mut layout = FragmentBuiltLayout::new(chapters);
+        layout.anchors = anchors;
+        Ok(layout)
+    }
+}
+
+/// Records each anchored node's first page. Anchors are block-level ids
+/// from the bridge; the first fragment of a split block wins, which is
+/// where a jump should land.
+fn collect_page_anchors(
+    fragment: &rito_fragment::Fragment,
+    node_anchors: &BTreeMap<u32, String>,
+    page_index: usize,
+    out: &mut BTreeMap<String, usize>,
+) {
+    if let Some(anchor) = node_anchors.get(&fragment.source().0) {
+        out.entry(anchor.clone()).or_insert(page_index);
+    }
+    if let rito_fragment::Fragment::Box(inner) = fragment {
+        for child in &inner.children {
+            collect_page_anchors(child, node_anchors, page_index, out);
+        }
     }
 }

@@ -145,7 +145,7 @@ fn fixture_epub_with_chapter(chapter: &[u8]) -> Vec<u8> {
     fixture_epub_with_chapter_and_stylesheet(chapter, fixture_stylesheet())
 }
 
-fn fixture_epub_with_chapter_and_stylesheet(chapter: &[u8], stylesheet: &str) -> Vec<u8> {
+pub fn fixture_epub_with_chapter_and_stylesheet(chapter: &[u8], stylesheet: &str) -> Vec<u8> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options: FileOptions<'_, ()> = FileOptions::default();
     add_file(

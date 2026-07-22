@@ -51,6 +51,26 @@ pub struct ChapterFormattingTree {
     /// — matching how the retained pipeline hoists a body background onto
     /// the page rather than painting a content-box rectangle.
     pub page_background: Option<String>,
+    /// Per inline-flow node: each item's interaction source, index-aligned
+    /// with the flow's `InlineItem` list. Page artifacts join laid-out
+    /// runs back to links, images, and source nodes through this table.
+    pub flow_item_sources: BTreeMap<u32, Vec<FlowItemSource>>,
+    /// Anchor `id` attributes per formatting node, for jump navigation.
+    pub node_anchors: BTreeMap<u32, String>,
+    /// Source tag per block-level formatting node, for semantic roles.
+    pub node_tags: BTreeMap<u32, String>,
+}
+
+/// One inline item's interaction provenance.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FlowItemSource {
+    /// Source-arena node index of the item's owner (the text node for a
+    /// text run, the image element for an image).
+    pub source_index: Option<usize>,
+    /// Destination of the nearest enclosing `<a href>`, if any.
+    pub href: Option<String>,
+    /// Alt text for an image item.
+    pub image_alt: Option<String>,
 }
 
 /// One node's layout-inert paint requirement.
@@ -98,6 +118,9 @@ pub fn build_chapter_formatting_tree(
         nodes: Vec::new(),
         source_nodes: Vec::new(),
         node_paints: BTreeMap::new(),
+        flow_item_sources: BTreeMap::new(),
+        node_anchors: BTreeMap::new(),
+        node_tags: BTreeMap::new(),
         checked_block_styles: std::collections::HashMap::new(),
         checked_box_paints: std::collections::HashMap::new(),
         checked_inline_styles: std::collections::HashMap::new(),
@@ -118,6 +141,9 @@ pub fn build_chapter_formatting_tree(
         nodes: formatting_nodes,
         source_nodes,
         node_paints,
+        flow_item_sources,
+        node_anchors,
+        node_tags,
         ..
     } = builder;
     let tree = FormattingTree::with_styles(
@@ -134,6 +160,9 @@ pub fn build_chapter_formatting_tree(
         source_nodes,
         node_paints,
         page_background,
+        flow_item_sources,
+        node_anchors,
+        node_tags,
     })
 }
 
@@ -145,6 +174,9 @@ struct TreeBuilder<'a> {
     nodes: Vec<FormattingNode>,
     source_nodes: Vec<Option<usize>>,
     node_paints: BTreeMap<u32, NodePaint>,
+    flow_item_sources: BTreeMap<u32, Vec<FlowItemSource>>,
+    node_anchors: BTreeMap<u32, String>,
+    node_tags: BTreeMap<u32, String>,
     /// Capability verdict per interned style id, so each distinct style is
     /// checked once per chapter.
     checked_block_styles: std::collections::HashMap<u32, Option<String>>,
@@ -222,7 +254,7 @@ impl TreeBuilder<'_> {
         for node in run {
             self.collect_inline(node, container_inline_style, 0.0, &mut collector)?;
         }
-        let items = collector.finish();
+        let (items, sources) = collector.finish();
         if items.is_empty() {
             return Ok(());
         }
@@ -234,6 +266,7 @@ impl TreeBuilder<'_> {
             },
             None,
         );
+        self.flow_item_sources.insert(id.0, sources);
         built.push(id);
         Ok(())
     }
@@ -287,21 +320,33 @@ impl TreeBuilder<'_> {
             for child in &element.children {
                 self.collect_inline(child, inline_style, 0.0, &mut collector)?;
             }
-            let items = collector.finish();
-            let content = if items.is_empty() {
-                FormattingNodeContent::BlockContainer
+            let (items, sources) = collector.finish();
+            let (content, sources) = if items.is_empty() {
+                (FormattingNodeContent::BlockContainer, None)
             } else {
-                FormattingNodeContent::InlineFlow { items }
+                (FormattingNodeContent::InlineFlow { items }, Some(sources))
             };
-            self.push_node(
+            let id = self.push_node(
                 FormattingNode {
                     style,
                     content,
                     children: Vec::new(),
                 },
                 Some(source_index),
-            )
+            );
+            if let Some(sources) = sources {
+                self.flow_item_sources.insert(id.0, sources);
+            }
+            id
         };
+        if let Some(anchor) = element
+            .attributes
+            .as_ref()
+            .and_then(|attributes| attributes.id.clone())
+        {
+            self.node_anchors.insert(id.0, anchor);
+        }
+        self.node_tags.insert(id.0, tag);
         if let Some(paint) = decoration {
             self.node_paints.insert(id.0, paint);
         }
@@ -377,7 +422,14 @@ impl TreeBuilder<'_> {
                 }
                 self.require_inline_capabilities(inherited, false, "text run")?;
                 let collapse = self.white_space_collapse(inherited)?;
-                collector.push_text(&text.content, inherited, ancestor_shift_px, collapse, None);
+                collector.push_text(
+                    &text.content,
+                    inherited,
+                    ancestor_shift_px,
+                    collapse,
+                    None,
+                    text.source_ref.source_node_id.map(|id| id.index()),
+                );
                 Ok(())
             }
             DocumentNode::Inline(element) => {
@@ -404,8 +456,25 @@ impl TreeBuilder<'_> {
                     .style(style)
                     .map_err(|error| EpubError::new(format!("{} style: {error}", element.tag)))?;
                 let shift = ancestor_shift_px + resolved_baseline_shift(resolved);
+                // An <a href> scopes its destination over everything it
+                // contains; nested links (invalid HTML) keep the inner.
+                let link = (element.tag == "a")
+                    .then(|| {
+                        element
+                            .attributes
+                            .as_ref()
+                            .and_then(|attributes| attributes.href.clone())
+                    })
+                    .flatten();
+                let saved_link = match link {
+                    Some(href) => Some(collector.current_link.replace(href)),
+                    None => None,
+                };
                 for child in &element.children {
                     self.collect_inline(child, style, shift, collector)?;
+                }
+                if let Some(saved) = saved_link {
+                    collector.current_link = saved;
                 }
                 Ok(())
             }
@@ -513,6 +582,7 @@ impl TreeBuilder<'_> {
                         ancestor_shift_px,
                         collapse,
                         Some(annotation).filter(|text| !text.is_empty()),
+                        Some(source_index),
                     );
                 }
                 DocumentNode::Inline(inner) if inner.tag == "rp" => {}
@@ -533,7 +603,14 @@ impl TreeBuilder<'_> {
             }
         }
         if !pending_base.is_empty() {
-            collector.push_text(&pending_base, style, ancestor_shift_px, collapse, None);
+            collector.push_text(
+                &pending_base,
+                style,
+                ancestor_shift_px,
+                collapse,
+                None,
+                Some(source_index),
+            );
         }
         Ok(())
     }
@@ -570,14 +647,18 @@ impl TreeBuilder<'_> {
             .inline
             .style(style)
             .map_err(|error| EpubError::new(format!("image style: {error}")))?;
-        collector.push_image(InlineItem::Image {
-            src: image.src.clone(),
-            intrinsic_width: f64::from(*width),
-            intrinsic_height: f64::from(*height),
-            style,
-            layout_style,
-            baseline_shift_px: ancestor_shift_px + resolved_baseline_shift(resolved),
-        });
+        collector.push_image(
+            InlineItem::Image {
+                src: image.src.clone(),
+                intrinsic_width: f64::from(*width),
+                intrinsic_height: f64::from(*height),
+                style,
+                layout_style,
+                baseline_shift_px: ancestor_shift_px + resolved_baseline_shift(resolved),
+            },
+            source_index,
+            &image.alt,
+        );
         Ok(())
     }
 
@@ -1143,6 +1224,10 @@ fn element_source_index(element: &ElementNode) -> EpubResult<usize> {
 #[derive(Default)]
 struct InlineCollector {
     items: Vec<InlineItem>,
+    /// Interaction provenance, index-aligned with `items`.
+    sources: Vec<FlowItemSource>,
+    /// The nearest enclosing `<a href>` destination while collecting.
+    current_link: Option<String>,
     pending_space: bool,
     has_content: bool,
 }
@@ -1166,7 +1251,13 @@ impl InlineCollector {
         baseline_shift_px: f64,
         collapse: bool,
         ruby_annotation: Option<String>,
+        source_index: Option<usize>,
     ) {
+        let source = FlowItemSource {
+            source_index,
+            href: self.current_link.clone(),
+            image_alt: None,
+        };
         debug_assert!(collapse, "preserved white space fails closed upstream");
         let is_space = |ch: char| matches!(ch, ' ' | '\t' | '\n' | '\r');
         let mut rest = text;
@@ -1225,6 +1316,7 @@ impl InlineCollector {
             // shaping run.
             // A ruby base never merges with its neighbours: its annotation
             // attaches to exactly this run's laid-out extent.
+            let same_source = self.sources.last() == Some(&source);
             if let Some(InlineItem::Text {
                 text: last,
                 style: last_style,
@@ -1236,6 +1328,7 @@ impl InlineCollector {
                     && *last_shift == baseline_shift_px
                     && last_ruby.is_none()
                     && ruby_annotation.is_none()
+                    && same_source
                 {
                     last.push_str(&collapsed);
                 } else {
@@ -1245,8 +1338,10 @@ impl InlineCollector {
                         baseline_shift_px,
                         ruby_annotation,
                     });
+                    self.sources.push(source);
                 }
             } else {
+                self.sources.push(source);
                 self.items.push(InlineItem::Text {
                     text: collapsed,
                     style,
@@ -1273,6 +1368,11 @@ impl InlineCollector {
         {
             last.push('\n');
         } else {
+            self.sources.push(FlowItemSource {
+                source_index: None,
+                href: self.current_link.clone(),
+                image_alt: None,
+            });
             self.items.push(InlineItem::Text {
                 text: "\n".to_owned(),
                 style,
@@ -1286,7 +1386,7 @@ impl InlineCollector {
     /// Appends an atomic image item. A space pending from earlier text
     /// lands on that text; a space pending between two images collapses
     /// away (an accepted gap until mixed image runs need it).
-    fn push_image(&mut self, item: InlineItem) {
+    fn push_image(&mut self, item: InlineItem, source_index: usize, alt: &str) {
         if self.pending_space {
             if let Some(InlineItem::Text {
                 text: last,
@@ -1298,14 +1398,20 @@ impl InlineCollector {
             }
             self.pending_space = false;
         }
+        self.sources.push(FlowItemSource {
+            source_index: Some(source_index),
+            href: self.current_link.clone(),
+            image_alt: (!alt.is_empty()).then(|| alt.to_owned()),
+        });
         self.items.push(item);
         self.has_content = true;
     }
 
-    fn finish(self) -> Vec<InlineItem> {
+    fn finish(self) -> (Vec<InlineItem>, Vec<FlowItemSource>) {
         // Trailing pending space is dropped: flow-final white space
         // collapses away.
-        self.items
+        debug_assert_eq!(self.items.len(), self.sources.len());
+        (self.items, self.sources)
     }
 }
 
