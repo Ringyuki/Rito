@@ -968,8 +968,12 @@ fn artifact_resources_follow_their_revision_release_order() {
 fn long_chapter_rollover_matches_full_layout_for_twenty_adjacent_pages() {
     let publication = long_chapter_window_fixture_epub();
     let mut reference = RuntimeDocument::open(&publication).expect("reference document");
+    // Reader sessions measure font-aware; the full-layout reference must
+    // measure the same way or its line breaks (and pages) diverge.
+    let mut reference_layout = runtime_layout();
+    reference_layout.text_measurement = crate::layout::TextMeasurementMode::FontAware;
     let reference_revision = reference
-        .create_revision(&runtime_layout())
+        .create_revision(&reference_layout)
         .expect("full reference layout");
     assert!(
         reference_revision.page_count > 40,
@@ -1161,7 +1165,7 @@ fn exact_tail_locator_exhaustion_is_typed_and_retains_only_the_pending_owner() {
     let mut tail_request = request(102, 1, "chapter.xhtml#window-point-519");
     tail_request.work.local_page_cap = 4;
     tail_request.work.max_top_level_nodes_per_quantum = 8;
-    tail_request.work.max_foreground_quanta = 256;
+    tail_request.work.max_foreground_quanta = 24;
     let error = session
         .request_artifact(tail_request.clone())
         .expect_err("bounded exact scan fails closed before accepting the tail target");
@@ -1179,7 +1183,7 @@ fn exact_tail_locator_exhaustion_is_typed_and_retains_only_the_pending_owner() {
     assert!(session.cleanup_backlog_is_empty());
 
     tail_request.request_id = 2;
-    tail_request.work.max_foreground_quanta = 128;
+    tail_request.work.max_foreground_quanta = 512;
     let tail = session
         .request_artifact(tail_request)
         .expect("same exact target resumes the retained scan");

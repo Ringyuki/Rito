@@ -1,5 +1,8 @@
 use crate::{
-    layout::{create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode},
+    layout::{
+        create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode,
+        TextMeasurementMode,
+    },
     runtime::{
         RuntimeResourceKind, RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy,
         RuntimeSourcePoint, RuntimeSourceRange,
@@ -36,7 +39,10 @@ pub(super) fn layout_config(value: ReaderLayoutV1) -> Result<LayoutConfig, Reade
         font_family_override: value.font_family_override,
         font_family_force: force_family.then_some(true),
         pagination_policy: None,
-        text_measurement: None,
+        // Reader sessions measure text with real font glyphs: the
+        // fixture-compatible estimator exists only for legacy TS fixture
+        // parity and misplaces real-book line breaks.
+        text_measurement: Some(TextMeasurementMode::FontAware),
     }))
 }
 
