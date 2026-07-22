@@ -187,6 +187,10 @@ function publishFrameDiagnostics(
     },
     pixelRatio,
     stateDpr: state.dpr,
+    paginationBackend: state.revisionBundle.revision.paginationBackend ?? null,
+    fragmentPaginationLever: state.fragmentPagination,
+    revisionStatus: state.revisionBundle.revision.status,
+    revisionVersion: state.revisionBundle.revision.revisionVersion,
     canvasId: canvas.__ritoCanvasId,
     offscreen:
       typeof HTMLCanvasElement === 'undefined' || !(ctx.canvas instanceof HTMLCanvasElement),

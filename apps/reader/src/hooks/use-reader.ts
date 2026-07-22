@@ -82,6 +82,11 @@ export function useReader(
     },
   });
 
+  if (FRAGMENT_PAGINATION_ENABLED && typeof window !== 'undefined') {
+    // Debug probe for the fragment-pagination cutover: lets headless
+    // verification drive and inspect the controller directly.
+    (window as unknown as { __ritoController?: unknown }).__ritoController = rito.controller;
+  }
   const selection = useSelection(rito.controller);
   const search = useSearch(rito.controller);
   const annotations = useAnnotations(rito.controller);

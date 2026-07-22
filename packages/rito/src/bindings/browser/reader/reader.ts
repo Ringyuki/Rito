@@ -21,6 +21,7 @@ import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { createBrowserReaderResourceState, preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
 import { disposeBrowserReaderState } from './reader-dispose';
+import { completeBrowserReaderBoundedSession } from '../bounded-session-runtime';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { createHostFontMetrics } from '../font-metrics';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
@@ -80,6 +81,7 @@ export async function createReader(
       options,
     );
     await startInitialReflow(state, options);
+    scheduleFragmentPaginationCompletion(state);
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
     defineBrowserReaderAccessors(reader, state);
     installBrowserReaderChapterLocalPresentation(reader, state);
@@ -102,6 +104,22 @@ export async function createReader(
     }
     throw await normalizeBrowserReaderError(error, 'createReader');
   }
+}
+
+/**
+ * The fragment page table attaches when a bounded session completes, but
+ * reading alone never completes one. With the lever on, finish the book
+ * in the background shortly after the first layout so the takeover
+ * happens while the reader is still near the front of the book.
+ */
+function scheduleFragmentPaginationCompletion(state: BrowserReaderState): void {
+  if (!state.fragmentPagination) return;
+  setTimeout(() => {
+    if (state.disposed) return;
+    completeBrowserReaderBoundedSession(state).catch((error: unknown) => {
+      state.logger.warn('rito: background fragment-pagination completion failed', error);
+    });
+  }, 1_000);
 }
 
 export async function preloadReaderRuntime(): Promise<void> {

@@ -100,8 +100,16 @@ export function cacheFrameBuffers(
       if (state.disposed || !isCurrentRevisionHandle(state, revision)) return;
       cacheFrame(state, spreadIndex, frame);
       if (notifyFrameInvalidation) notifySpreadContentInvalidated(state, spreadIndex);
-    } catch {
-      // Frame-window warmup is opportunistic; direct render misses can still load frames.
+    } catch (error) {
+      // Frame-window warmup is opportunistic; direct render misses can
+      // still load frames. A decode failure must stay observable though:
+      // a frame that never decodes strands navigation with no console
+      // signal at all, which is exactly how a protocol mismatch hides.
+      const scope = globalThis as { __ritoFrameDecodeFailures?: unknown[] };
+      scope.__ritoFrameDecodeFailures = [
+        ...(scope.__ritoFrameDecodeFailures ?? []).slice(-9),
+        { spreadIndex, error: String(error).slice(0, 400), at: new Date().toISOString() },
+      ];
     }
   }
 }
