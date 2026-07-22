@@ -322,7 +322,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 FormattingNodeContent::InlineFlow { .. } => {
                     let child_style = container_layout_style(tree, *child_id)?;
                     let hbox = resolve_horizontal_box(child_style, content_width)?;
-                    let lines = self.inline_lines(tree, *child_id, hbox.content_width, cancel)?;
+                    let lines = self.inline_lines(
+                        tree,
+                        *child_id,
+                        hbox.content_width,
+                        space.fragmentainer_size,
+                        cancel,
+                    )?;
                     // The paragraph's own top padding rides its first
                     // fragment; bottom padding rides the last.
                     let leading_padding = if consumed == 0.0 {
@@ -517,19 +523,22 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         tree: &FormattingTree,
         node: FormattingNodeId,
         inline_size: f64,
+        page_block_size: Option<f64>,
         cancel: &CancelFlag,
     ) -> Result<Vec<Fragment>, LayoutError> {
+        // Paragraphs lay out continuously — line-level slicing into pages
+        // happens here in the block container — but the provider still
+        // needs the page block size so replaced content can honor the
+        // reader's one-page bound.
+        let space = ConstraintSpace {
+            inline_size,
+            fragmentainer_remaining: None,
+            fragmentainer_size: page_block_size,
+        };
         let outcome = self
             .inline_cache
             .borrow_mut()
-            .layout(
-                &self.inline,
-                tree,
-                node,
-                &ConstraintSpace::continuous(inline_size),
-                None,
-                cancel,
-            )?
+            .layout(&self.inline, tree, node, &space, None, cancel)?
             .outcome;
         let Fragment::Box(root) = outcome.fragments.root else {
             return Err(LayoutError::Invalid(

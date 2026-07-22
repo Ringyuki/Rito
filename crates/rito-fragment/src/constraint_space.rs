@@ -8,9 +8,14 @@ pub struct ConstraintSpace {
     /// Available inline-axis size in CSS px.
     pub inline_size: f64,
     /// Remaining block-axis space in the current fragmentainer, in CSS px.
-    /// `None` means unfragmented (continuous) layout.
+    /// `None` means unfragmented (continuous) layout; this field alone
+    /// decides whether an invocation may fragment.
     pub fragmentainer_remaining: Option<f64>,
-    /// Total block size of one fragmentainer, for resumed fragments. CSS px.
+    /// Total block size of one fragmentainer, in CSS px. Present without
+    /// `fragmentainer_remaining`, it is pure context: the layout stays
+    /// continuous but describes content that page-sized fragmentainers
+    /// will slice, which reader semantics (such as scaling a replaced
+    /// image down to one page) need to know about.
     pub fragmentainer_size: Option<f64>,
 }
 

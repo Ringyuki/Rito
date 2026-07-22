@@ -121,6 +121,7 @@ impl ParleyInlineContext {
         tree: &FormattingTree,
         node: FormattingNodeId,
         available_inline_size: Option<f64>,
+        available_block_size: Option<f64>,
         cancel: &CancelFlag,
     ) -> Result<ParagraphLayout, LayoutError> {
         let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
@@ -173,6 +174,7 @@ impl ParleyInlineContext {
                         *intrinsic_height,
                         layout_style,
                         available_inline_size,
+                        available_block_size,
                     )?;
                     image_boxes.push(InlineBox {
                         id: item_index as u64,
@@ -265,7 +267,7 @@ impl FormattingContext for ParleyInlineContext {
                 "inline flows resume through their block container, not a break token".to_owned(),
             ));
         }
-        if space.fragmentainer_remaining.is_some() || space.fragmentainer_size.is_some() {
+        if space.fragmentainer_remaining.is_some() {
             return Err(LayoutError::Invalid(
                 "inline flows fragment through their block container; continuous space only"
                     .to_owned(),
@@ -277,7 +279,13 @@ impl FormattingContext for ParleyInlineContext {
             alignment,
             shifted_ranges,
             ..
-        } = self.build_layout(tree, root, Some(space.inline_size), cancel)?;
+        } = self.build_layout(
+            tree,
+            root,
+            Some(space.inline_size),
+            space.fragmentainer_size,
+            cancel,
+        )?;
         layout.break_all_lines(Some(space.inline_size as f32));
         if !matches!(alignment, parley::Alignment::Start) {
             layout.align(alignment, parley::AlignmentOptions::default());
@@ -506,7 +514,7 @@ impl FormattingContext for ParleyInlineContext {
                 node.0
             )));
         }
-        let built = self.build_layout(tree, node, None, &CancelFlag::new())?;
+        let built = self.build_layout(tree, node, None, None, &CancelFlag::new())?;
         let widths = built.layout.calculate_content_widths();
         Ok(IntrinsicInlineSizes {
             min_content: f64::from(widths.min),
@@ -822,6 +830,7 @@ fn image_display_size(
     intrinsic_height: f64,
     layout_style: &LayoutFormattingStyleV1,
     available_inline_size: Option<f64>,
+    available_block_size: Option<f64>,
 ) -> Result<(f32, f32), LayoutError> {
     let resolve = |value: LengthPercentage| -> Option<f64> {
         match value {
@@ -861,6 +870,26 @@ fn image_display_size(
             if width > cap && width > 0.0 {
                 let scale = cap / width;
                 width = cap;
+                height *= scale;
+            }
+        }
+    }
+    // A page-bound reader never shows a replaced image larger than one
+    // page: the retained pipeline scales oversized images down to the page
+    // content box on both axes, and this provider mirrors that reader
+    // semantic whenever a page context is present. Continuous layout
+    // without a page context leaves the image at its CSS size, exactly as
+    // a scrolling browser does.
+    if let Some(page_height) = available_block_size {
+        if height > page_height && height > 0.0 && page_height > 0.0 {
+            let scale = page_height / height;
+            height = page_height;
+            width *= scale;
+        }
+        if let Some(page_width) = available_inline_size {
+            if width > page_width && width > 0.0 && page_width > 0.0 {
+                let scale = page_width / width;
+                width = page_width;
                 height *= scale;
             }
         }
