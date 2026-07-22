@@ -135,7 +135,7 @@ fn materialize_font(
     Ok(())
 }
 
-fn serialize_font_families(style: &rito_style_contract::FontStyleV1) -> Result<String> {
+pub(crate) fn serialize_font_families(style: &rito_style_contract::FontStyleV1) -> Result<String> {
     if style.families.as_slice().is_empty() {
         return Err(unsupported(MaterializeField::FontFamily));
     }
@@ -822,7 +822,7 @@ fn background_color(value: ComputedColorV1, foreground: AbsoluteColor) -> Result
     }
 }
 
-fn absolute_color(value: AbsoluteColor) -> Result<String> {
+pub(crate) fn absolute_color(value: AbsoluteColor) -> Result<String> {
     if value.space() != AbsoluteColorSpace::Srgb {
         return Err(MaterializeValueError::NonSrgbColor);
     }

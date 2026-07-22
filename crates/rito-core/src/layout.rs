@@ -88,16 +88,14 @@ pub(crate) use line::TextRunInteractionGeometry;
 pub(crate) use line::{LineBox, LineRun, TextRunBox};
 pub use link_map::{LinkMapFlowPageDigest, LinkMapFlowSummary, LinkMapFlowTotals};
 pub(crate) use locator::{collect_anchor_pages, collect_source_run_starts, LayoutSourceRunStart};
-#[allow(unused_imports)] // Runtime revision retirement consumes these next.
-pub(crate) use page::{
-    PendingRuntimePageAccumulatorCleanup, PendingRuntimePageCleanup,
-    PendingRuntimePageVectorCleanup,
-};
+pub(crate) use page::{PendingRuntimePageAccumulatorCleanup, PendingRuntimePageVectorCleanup};
 pub use pagination_flow::{
     PaginationFlowChapterRange, PaginationFlowCounts, PaginationFlowPageDigest,
     PaginationFlowSummary,
 };
-pub(crate) use paint::{BorderEdgePaint, RunBorder, RunBorderEdge, RunPaint};
+pub(crate) use paint::TextShadowPaint;
+pub(crate) use paint::{BorderEdgePaint, FontPaint, FontPaintStyle, MeasurePaint, RunBorder};
+pub(crate) use paint::{RunBorderEdge, RunDecoration, RunDecorationKind, RunPaint, RunPaintData};
 pub(crate) use search_flow::{
     search_runtime_pages, SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
 };
