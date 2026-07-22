@@ -172,6 +172,15 @@ impl RuntimeDocument {
     /// paginate leaves the retained page table (and the spread-frame
     /// bridge) in charge, so there is never a mixed page table.
     pub(super) fn try_attach_fragment_page_table(&mut self, revision_id: &str) {
+        if !self.fragment_page_table_enabled {
+            return;
+        }
+        // The bounded pipeline consumes its prepared chapters quantum by
+        // quantum and leaves no whole-book preparation behind; rebuilding
+        // the page table needs every chapter's arena.
+        if self.prepared.is_none() && self.document.chapters.iter().all(|c| c.source_loaded) {
+            self.ensure_prepared_all();
+        }
         let Ok(layout) = self.build_fragment_page_table(revision_id) else {
             return;
         };

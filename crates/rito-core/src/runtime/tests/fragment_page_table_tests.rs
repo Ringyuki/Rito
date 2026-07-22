@@ -8,9 +8,11 @@ use super::{
 };
 use crate::runtime::page_artifact::PageArtifactSemanticRole;
 use crate::runtime::{
-    RuntimeDocument, RuntimePinnedFontGenericRole, RuntimeRevisionHandle, RuntimeTextPointRequest,
-    RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResolution,
-    RuntimeTextRangeToPointRequest, RuntimeTextSelectionGranularity,
+    RuntimeBoundedRevisionRequest, RuntimeContinueRevisionRequest, RuntimeDocument,
+    RuntimePinnedFontGenericRole, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
+    RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
+    RuntimeTextRangeFromPointsResolution, RuntimeTextRangeToPointRequest,
+    RuntimeTextSelectionGranularity,
 };
 
 fn fragment_routed_document() -> (RuntimeDocument, String) {
@@ -297,4 +299,64 @@ fn fragment_pages_resolve_pointer_selection() {
         range.selected_text.len() > "quick".len(),
         "the drag extends past the word"
     );
+}
+
+#[test]
+fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &multi_chapter_fixture_epub(),
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("multi-chapter document opens");
+    document.set_fragment_page_table_enabled(true);
+    let mut layout = font_aware_layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let mut advance = document
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: layout,
+            line_breaking: crate::layout::LineBreaking::Greedy,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 1,
+            },
+        })
+        .expect("bounded revision starts");
+    // Progressive publication stays retained until the book completes.
+    while let Some(cursor) = advance.continuation.clone() {
+        assert_eq!(
+            advance.revision.pagination_backend.as_deref(),
+            Some("retained"),
+            "an incomplete bounded revision stays retained"
+        );
+        advance = document
+            .continue_revision(RuntimeContinueRevisionRequest {
+                revision_id: cursor.revision_id,
+                revision_version: cursor.revision_version,
+                cursor: cursor.cursor,
+                budget: RuntimeRevisionWorkBudget {
+                    max_top_level_nodes: 1,
+                },
+            })
+            .expect("bounded revision advances");
+    }
+    assert_eq!(
+        advance.revision.pagination_backend.as_deref(),
+        Some("fragment"),
+        "the completed bounded session hands over; rejection: {:?}",
+        document.fragment_page_table_rejection_reason(&advance.revision.revision_id),
+    );
+    let revision = document
+        .revisions
+        .get(&advance.revision.revision_id)
+        .expect("revision is retained");
+    let table = revision
+        .fragment_layout
+        .as_ref()
+        .expect("the fragment page table attached");
+    assert_eq!(advance.revision.page_count, table.page_count());
+    assert!(revision.frame_cache.is_empty(), "stale frames were dropped");
 }
