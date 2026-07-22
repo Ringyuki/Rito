@@ -22,7 +22,9 @@ export function EngineBadge() {
     };
     read();
     const timer = setInterval(read, 500);
-    return () => { clearInterval(timer); };
+    return () => {
+      clearInterval(timer);
+    };
   }, []);
 
   if (!backend) return null;
