@@ -16,6 +16,7 @@ use crate::runtime::{
     RuntimeTextSelectionGranularity, RuntimeTextSelectionMovementRequest,
     RuntimeTextSelectionMovementResolution,
 };
+use crate::runtime::{RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution};
 
 fn fragment_routed_document() -> (RuntimeDocument, String) {
     let mut document = RuntimeDocument::open_with_pinned_font_policy(
@@ -510,4 +511,123 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         word.selected_text
     );
     assert!(word.selected_text.len() > "quick".len());
+}
+
+#[test]
+fn fragment_source_locators_round_trip_across_a_reflow() {
+    let epub = fixture_epub_with_chapter_and_stylesheet(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p>The quick brown fox jumps over the lazy dog and keeps running far away.</p></body></html>"#,
+        "p { margin: 0; }\n",
+    );
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("locator fixture opens");
+    document.set_fragment_page_table_enabled(true);
+    let mut layout = font_aware_layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let handle = RuntimeRevisionHandle::from(&summary);
+    assert_eq!(
+        document.revision_pagination_backend(&summary.revision_id),
+        Some("fragment"),
+    );
+
+    // Select "quick" and capture its durable source range.
+    let revision = document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained");
+    let session = revision.chapter_engine_session();
+    let page = session.page(0).expect("page 0 resolves");
+    let positions = page.text_positions();
+    let word_start = positions.text.find("quick").expect("the word is on page 0");
+    let offset = positions.text[..word_start].encode_utf16().count();
+    let run = positions
+        .offsets
+        .iter()
+        .find(|run| run.start <= offset && offset < run.end)
+        .expect("the word has a run");
+    let geometry = page.text_range_geometry(
+        crate::runtime::page_artifact::PageArtifactTextPosition {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: offset - run.start,
+        },
+        crate::runtime::page_artifact::PageArtifactTextPosition {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: offset - run.start + 5,
+        },
+    );
+    let rect = geometry.rects.first().expect("the word has geometry");
+    let point = RuntimeTextPointRequest {
+        page_index: 0,
+        x: rect.x + rect.width / 2.0,
+        y: rect.y + rect.height / 2.0,
+    };
+    let selected = document
+        .resolve_text_range_from_points_at(
+            &handle,
+            RuntimeTextRangeFromPointsRequest {
+                anchor: point,
+                focus: point,
+                granularity: RuntimeTextSelectionGranularity::Word,
+            },
+        )
+        .expect("word request is valid");
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = selected.value.resolution
+    else {
+        panic!("word selection resolves");
+    };
+    assert_eq!(range.selected_text, "quick");
+    let locator = range
+        .source_locator
+        .as_ref()
+        .expect("fragment selection carries a durable locator");
+    let source_range = locator
+        .source_range
+        .clone()
+        .expect("fragment selection owns an exact source range");
+    let href = locator.href.clone();
+
+    // A different font size re-paginates the whole book (still fragment);
+    // the durable range must land on the same word.
+    let mut reflowed = font_aware_layout();
+    reflowed.font_family_override = Some("serif".to_owned());
+    reflowed.font_family_force = Some(true);
+    reflowed.root_font_size = 22.0;
+    let second = document
+        .create_revision(&reflowed)
+        .expect("reflowed revision is created");
+    let second_handle = RuntimeRevisionHandle::from(&second);
+    assert_eq!(
+        document.revision_pagination_backend(&second.revision_id),
+        Some("fragment"),
+    );
+    let projected = document
+        .resolve_exact_source_range_at(
+            &second_handle,
+            RuntimeExactSourceRangeRequest { href, source_range },
+        )
+        .expect("durable range resolves on the reflowed revision");
+    let RuntimeExactSourceRangeResolution::Resolved { range: projected } =
+        projected.value.resolution
+    else {
+        panic!(
+            "durable source range stays exact across a fragment reflow, got {:?}",
+            projected.value.resolution
+        );
+    };
+    assert_eq!(projected.selected_text, "quick");
 }

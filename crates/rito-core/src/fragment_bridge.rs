@@ -67,10 +67,29 @@ pub struct FlowItemSource {
     /// Source-arena node index of the item's owner (the text node for a
     /// text run, the image element for an image).
     pub source_index: Option<usize>,
+    /// Source-tree node path of the item's owner, the durable locator
+    /// coordinate shared with the retained backend.
+    pub source_path: Option<Vec<usize>>,
     /// Destination of the nearest enclosing `<a href>`, if any.
     pub href: Option<String>,
     /// Alt text for an image item.
     pub image_alt: Option<String>,
+    /// Piecewise-linear map from item text to the owner's source text,
+    /// both UTF-16. White-space collapse breaks linearity, so each
+    /// contiguous copied stretch is one segment; offsets between
+    /// segments (collapsed spaces) have no exact source position.
+    pub segments: Vec<SourceSegment>,
+}
+
+/// One linear stretch of the item→source text mapping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceSegment {
+    /// Start offset in the item's text, UTF-16.
+    pub item_start: u32,
+    /// Start offset in the source node's text, UTF-16.
+    pub source_start: u32,
+    /// Length of the stretch, UTF-16.
+    pub len: u32,
 }
 
 /// One node's layout-inert paint requirement.
@@ -429,6 +448,7 @@ impl TreeBuilder<'_> {
                     collapse,
                     None,
                     text.source_ref.source_node_id.map(|id| id.index()),
+                    Some(text.source_ref.node_path.clone()),
                 );
                 Ok(())
             }
@@ -583,6 +603,7 @@ impl TreeBuilder<'_> {
                         collapse,
                         Some(annotation).filter(|text| !text.is_empty()),
                         Some(source_index),
+                        Some(element.source_ref.node_path.clone()),
                     );
                 }
                 DocumentNode::Inline(inner) if inner.tag == "rp" => {}
@@ -610,6 +631,7 @@ impl TreeBuilder<'_> {
                 collapse,
                 None,
                 Some(source_index),
+                Some(element.source_ref.node_path.clone()),
             );
         }
         Ok(())
@@ -657,6 +679,7 @@ impl TreeBuilder<'_> {
                 baseline_shift_px: ancestor_shift_px + resolved_baseline_shift(resolved),
             },
             source_index,
+            image.source_ref.node_path.clone(),
             &image.alt,
         );
         Ok(())
@@ -1251,6 +1274,7 @@ impl InlineCollector {
     /// run that produced it (the CSS "first space of the sequence wins"
     /// rule), so a space pending from earlier nodes lands at the end of the
     /// previous item, while this node's own interior spaces stay here.
+    #[allow(clippy::too_many_arguments)]
     fn push_text(
         &mut self,
         text: &str,
@@ -1259,11 +1283,14 @@ impl InlineCollector {
         collapse: bool,
         ruby_annotation: Option<String>,
         source_index: Option<usize>,
+        source_path: Option<Vec<usize>>,
     ) {
         let source = FlowItemSource {
             source_index,
+            source_path,
             href: self.current_link.clone(),
             image_alt: None,
+            segments: Vec::new(),
         };
         debug_assert!(collapse, "preserved white space fails closed upstream");
         let is_space = |ch: char| matches!(ch, ' ' | '\t' | '\n' | '\r');
@@ -1301,29 +1328,65 @@ impl InlineCollector {
             collapsed.push(' ');
             self.pending_space = false;
         }
+        // Track the piecewise-linear item→source mapping while copying:
+        // every skipped or synthesized space closes the open stretch.
+        let utf16 = |value: &str| value.encode_utf16().count() as u32;
+        let mut segments: Vec<SourceSegment> = Vec::new();
+        let mut source_position = utf16(text) - utf16(rest);
+        let mut collapsed_units = utf16(&collapsed);
+        let mut open: Option<(u32, u32)> = None;
+        let mut close = |open: &mut Option<(u32, u32)>,
+                         segments: &mut Vec<SourceSegment>,
+                         collapsed_units: u32| {
+            if let Some((item_start, source_start)) = open.take() {
+                segments.push(SourceSegment {
+                    item_start,
+                    source_start,
+                    len: collapsed_units - item_start,
+                });
+            }
+        };
         let mut interior_space = false;
         let mut trailing_space = false;
         for ch in rest.chars() {
+            let units = ch.len_utf16() as u32;
             if is_space(ch) {
+                close(&mut open, &mut segments, collapsed_units);
+                source_position += units;
                 interior_space = true;
                 trailing_space = true;
                 continue;
             }
             if interior_space {
                 collapsed.push(' ');
+                collapsed_units += 1;
                 interior_space = false;
+            }
+            if open.is_none() {
+                open = Some((collapsed_units, source_position));
             }
             trailing_space = false;
             collapsed.push(ch);
+            collapsed_units += units;
+            source_position += units;
             self.has_content = true;
         }
+        close(&mut open, &mut segments, collapsed_units);
         if !collapsed.is_empty() {
             // Merge into the previous item when the style and shift are
             // unchanged, so a paragraph of plain text stays a single
             // shaping run.
             // A ruby base never merges with its neighbours: its annotation
             // attaches to exactly this run's laid-out extent.
-            let same_source = self.sources.last() == Some(&source);
+            // Merge identity ignores the mapping segments: two pushes of
+            // the same source node extend one item, their segments
+            // concatenating shifted by the existing item length.
+            let same_source = self.sources.last().is_some_and(|last| {
+                last.source_index == source.source_index
+                    && last.source_path == source.source_path
+                    && last.href == source.href
+                    && last.image_alt == source.image_alt
+            });
             if let Some(InlineItem::Text {
                 text: last,
                 style: last_style,
@@ -1337,8 +1400,19 @@ impl InlineCollector {
                     && ruby_annotation.is_none()
                     && same_source
                 {
+                    let shift = utf16(last);
                     last.push_str(&collapsed);
+                    if let Some(last_source) = self.sources.last_mut() {
+                        last_source
+                            .segments
+                            .extend(segments.iter().map(|segment| SourceSegment {
+                                item_start: segment.item_start + shift,
+                                ..*segment
+                            }));
+                    }
                 } else {
+                    let mut source = source;
+                    source.segments = segments;
                     self.items.push(InlineItem::Text {
                         text: collapsed,
                         style,
@@ -1348,6 +1422,8 @@ impl InlineCollector {
                     self.sources.push(source);
                 }
             } else {
+                let mut source = source;
+                source.segments = segments;
                 self.sources.push(source);
                 self.items.push(InlineItem::Text {
                     text: collapsed,
@@ -1377,8 +1453,10 @@ impl InlineCollector {
         } else {
             self.sources.push(FlowItemSource {
                 source_index: None,
+                source_path: None,
                 href: self.current_link.clone(),
                 image_alt: None,
+                segments: Vec::new(),
             });
             self.items.push(InlineItem::Text {
                 text: "\n".to_owned(),
@@ -1393,7 +1471,13 @@ impl InlineCollector {
     /// Appends an atomic image item. A space pending from earlier text
     /// lands on that text; a space pending between two images collapses
     /// away (an accepted gap until mixed image runs need it).
-    fn push_image(&mut self, item: InlineItem, source_index: usize, alt: &str) {
+    fn push_image(
+        &mut self,
+        item: InlineItem,
+        source_index: usize,
+        source_path: Vec<usize>,
+        alt: &str,
+    ) {
         if self.pending_space {
             if let Some(InlineItem::Text {
                 text: last,
@@ -1407,8 +1491,10 @@ impl InlineCollector {
         }
         self.sources.push(FlowItemSource {
             source_index: Some(source_index),
+            source_path: Some(source_path),
             href: self.current_link.clone(),
             image_alt: (!alt.is_empty()).then(|| alt.to_owned()),
+            segments: Vec::new(),
         });
         self.items.push(item);
         self.has_content = true;

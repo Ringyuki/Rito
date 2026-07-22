@@ -49,6 +49,46 @@ pub(in crate::runtime) struct FragmentRunRecord {
     pub(in crate::runtime) height: f64,
     /// Destination of the enclosing link, when the run sits inside one.
     pub(in crate::runtime) href: Option<String>,
+    /// Source-locator mapping for the run, when its item has one.
+    pub(in crate::runtime) source: Option<RunSourceMap>,
+}
+
+/// A run's piecewise-linear mapping back to its source node's text.
+#[derive(Debug, Clone)]
+pub(in crate::runtime) struct RunSourceMap {
+    /// Source-tree node path, the durable locator coordinate.
+    pub(in crate::runtime) path: Vec<usize>,
+    /// `(run_start, source_start, len)`, all UTF-16 and run-local.
+    pub(in crate::runtime) segments: Vec<(u32, u32, u32)>,
+}
+
+impl RunSourceMap {
+    /// The source offset for a run-local caret offset. Offsets inside a
+    /// collapsed gap snap to the nearest following stretch (or the end
+    /// of the last one).
+    pub(in crate::runtime) fn source_offset(&self, run_offset: u32) -> Option<u32> {
+        for (run_start, source_start, len) in &self.segments {
+            if run_offset < *run_start {
+                return Some(*source_start);
+            }
+            if run_offset <= run_start + len {
+                return Some(source_start + (run_offset - run_start));
+            }
+        }
+        self.segments
+            .last()
+            .map(|(_, source_start, len)| source_start + len)
+    }
+
+    /// The run-local offset for a source offset, when a stretch covers it.
+    pub(in crate::runtime) fn run_offset(&self, source_offset: u32) -> Option<u32> {
+        for (run_start, source_start, len) in &self.segments {
+            if source_offset >= *source_start && source_offset <= source_start + len {
+                return Some(run_start + (source_offset - source_start));
+            }
+        }
+        None
+    }
 }
 
 /// Query-ready interaction data for one fragment-engine page.
@@ -268,9 +308,41 @@ impl ArtifactBuilder<'_> {
                                 .iter()
                                 .find(|(range, _)| range.contains(&(run.text_start as usize)))
                                 .map(|(_, item_index)| *item_index);
+                            let owner_range = owner.and_then(|item_index| {
+                                item_ranges
+                                    .iter()
+                                    .find(|(_, index)| *index == item_index)
+                                    .map(|(range, _)| range.clone())
+                            });
                             let href = owner
                                 .and_then(item_source)
                                 .and_then(|source| source.href.clone());
+                            let source = owner.and_then(item_source).and_then(|item| {
+                                let path = item.source_path.clone()?;
+                                let range = owner_range.clone()?;
+                                let prefix = flow_text
+                                    .get(range.start..run.text_start as usize)?
+                                    .encode_utf16()
+                                    .count() as u32;
+                                let run_len = run_text.encode_utf16().count() as u32;
+                                let segments = item
+                                    .segments
+                                    .iter()
+                                    .filter_map(|segment| {
+                                        let lo = segment.item_start.max(prefix);
+                                        let hi = (segment.item_start + segment.len)
+                                            .min(prefix + run_len);
+                                        (hi > lo).then(|| {
+                                            (
+                                                lo - prefix,
+                                                segment.source_start + (lo - segment.item_start),
+                                                hi - lo,
+                                            )
+                                        })
+                                    })
+                                    .collect::<Vec<_>>();
+                                Some(RunSourceMap { path, segments })
+                            });
                             let length = run_text.encode_utf16().count();
                             self.runs.push(FragmentRunRecord {
                                 block_index,
@@ -283,6 +355,7 @@ impl ArtifactBuilder<'_> {
                                 width: run.rect.width,
                                 height: line.rect.height,
                                 href,
+                                source,
                             });
                             self.text.push_str(run_text);
                             self.offset += length;

@@ -173,18 +173,92 @@ impl<'a> FragmentChapterEngineSession<'a> {
 
     pub(super) fn source_run_starts(
         &self,
-        _range: Range<usize>,
+        range: Range<usize>,
     ) -> Option<Vec<PageArtifactSourceRunStart>> {
-        None
+        if range.start > range.end || range.end > self.layout.page_count() {
+            return None;
+        }
+        let mut starts = Vec::new();
+        for page_index in range {
+            let Some(artifact) = self.artifact(page_index) else {
+                continue;
+            };
+            for run in artifact.interaction_runs() {
+                let Some(source) = run.source.as_ref() else {
+                    continue;
+                };
+                let Some(text_offset) = source.source_offset(0) else {
+                    continue;
+                };
+                starts.push(PageArtifactSourceRunStart {
+                    page_index,
+                    node_path: source.path.clone(),
+                    text_offset: text_offset as usize,
+                    text_length: run.end - run.start,
+                });
+            }
+        }
+        Some(starts)
     }
 
     pub(super) fn resolve_exact_source_range(
         &self,
-        _query: PageArtifactExactSourceRangeQuery,
+        query: PageArtifactExactSourceRangeQuery,
     ) -> PageArtifactExactTextRangeResolution {
-        PageArtifactExactTextRangeResolution::Unavailable(
-            TextInteractionUnavailableReason::SourceUnavailable,
-        )
+        let Some(start) =
+            self.address_at_source_point(query.first_page..query.last_page + 1, &query.start)
+        else {
+            return PageArtifactExactTextRangeResolution::Unavailable(
+                TextInteractionUnavailableReason::SourceUnavailable,
+            );
+        };
+        let Some(end) =
+            self.address_at_source_point(query.first_page..query.last_page + 1, &query.end)
+        else {
+            return PageArtifactExactTextRangeResolution::Unavailable(
+                TextInteractionUnavailableReason::SourceUnavailable,
+            );
+        };
+        match self.range_between(start, end) {
+            Some(range) => PageArtifactExactTextRangeResolution::Resolved(Box::new(range)),
+            None => PageArtifactExactTextRangeResolution::Unavailable(
+                TextInteractionUnavailableReason::InvalidCaret,
+            ),
+        }
+    }
+
+    /// The caret address a durable source point lands on, searching the
+    /// given pages in order.
+    fn address_at_source_point(
+        &self,
+        pages: Range<usize>,
+        point: &PageArtifactSourcePoint,
+    ) -> Option<TextCaretAddress> {
+        if point.node_path.is_empty() {
+            return None;
+        }
+        for page_index in pages {
+            let artifact = self.artifact(page_index)?;
+            for run in artifact.interaction_runs() {
+                let Some(source) = run.source.as_ref() else {
+                    continue;
+                };
+                if source.path != point.node_path {
+                    continue;
+                }
+                if let Some(run_offset) = source.run_offset(point.text_offset as u32) {
+                    return Some(TextCaretAddress {
+                        page_index,
+                        block_index: run.block_index,
+                        line_index: run.line_index,
+                        run_index: run.run_index,
+                        char_index: run_offset as usize,
+                        affinity: TextCaretAffinity::Downstream,
+                    });
+                }
+            }
+        }
+        None
     }
 
     pub(super) fn resolve_text_caret(
@@ -468,25 +542,38 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 });
             }
         }
+        let source_point_at = |address: &TextCaretAddress| {
+            self.artifact(address.page_index)
+                .and_then(|artifact| {
+                    artifact.interaction_runs().iter().find(|run| {
+                        run.block_index == address.block_index
+                            && run.line_index == address.line_index
+                            && run.run_index == address.run_index
+                    })
+                })
+                .map(|run| run_source_point(run, address.char_index))
+                .unwrap_or(PageArtifactSourcePoint {
+                    node_path: Vec::new(),
+                    text_offset: 0,
+                })
+        };
+        let source_start = source_point_at(&start);
+        let source_end = source_point_at(&end);
         Some(PageArtifactExactTextRange {
             anchor,
             focus,
             start,
             end,
+            // Segment texts come from the selected page text; consumers
+            // use them as a checksum against the source document.
+            exact_source_segments: if selected_text.is_empty() {
+                Vec::new()
+            } else {
+                vec![selected_text.clone()]
+            },
             selected_text,
-            // Source-domain projections wait on the collapse-aware offset
-            // mapping; empty is honest (no segments), and the empty node
-            // path marks the locator as unresolved rather than pointing
-            // at an arbitrary node.
-            exact_source_segments: Vec::new(),
-            source_start: PageArtifactSourcePoint {
-                node_path: Vec::new(),
-                text_offset: 0,
-            },
-            source_end: PageArtifactSourcePoint {
-                node_path: Vec::new(),
-                text_offset: 0,
-            },
+            source_start,
+            source_end,
             rects,
         })
     }
@@ -619,8 +706,27 @@ fn caret_record(
             y: run.y,
             height: run.height,
         },
-        source_point: PageArtifactSourcePoint {
+        source_point: run_source_point(run, char_index),
+    }
+}
+
+/// The durable source locator for a run-local caret offset. Runs without
+/// a source mapping (ruby assemblies, hard breaks) report the empty path,
+/// which consumers treat as unresolvable rather than a wrong node.
+fn run_source_point(run: &FragmentRunRecord, char_index: usize) -> PageArtifactSourcePoint {
+    let Some(source) = run.source.as_ref() else {
+        return PageArtifactSourcePoint {
             node_path: Vec::new(),
+            text_offset: 0,
+        };
+    };
+    match source.source_offset(char_index as u32) {
+        Some(offset) => PageArtifactSourcePoint {
+            node_path: source.path.clone(),
+            text_offset: offset as usize,
+        },
+        None => PageArtifactSourcePoint {
+            node_path: source.path.clone(),
             text_offset: 0,
         },
     }
