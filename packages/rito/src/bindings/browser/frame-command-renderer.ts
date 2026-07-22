@@ -38,10 +38,30 @@ export function renderFrameCommandsToCanvas(
 ): void {
   const canvasCtx = ctx as CanvasRenderingContext2D;
   const state = createRenderState(options);
+  let rendered = 0;
   canvasCtx.save();
   try {
     canvasCtx.scale(options.pixelRatio ?? 1, options.pixelRatio ?? 1);
-    for (const command of commands) renderCommand(canvasCtx, command, state);
+    for (const command of commands) {
+      renderCommand(canvasCtx, command, state);
+      rendered += 1;
+    }
+  } catch (error) {
+    // A painted frame must never silently truncate: publish the failure
+    // for support diagnostics before propagating it.
+    const scope = globalThis as { __ritoRenderFailures?: unknown[] };
+    scope.__ritoRenderFailures = [
+      ...(scope.__ritoRenderFailures ?? []).slice(-4),
+      {
+        message: String(error),
+        stack: error instanceof Error ? error.stack?.slice(0, 600) : undefined,
+        renderedCommands: rendered,
+        totalCommands: commands.length,
+        failedCommand: JSON.parse(JSON.stringify(commands[rendered] ?? null)) as unknown,
+        at: new Date().toISOString(),
+      },
+    ];
+    throw error;
   } finally {
     while (state.commandSaveDepth > 0) {
       canvasCtx.restore();

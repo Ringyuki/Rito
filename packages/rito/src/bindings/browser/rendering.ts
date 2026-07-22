@@ -128,11 +128,71 @@ function renderFrameToCanvas(
   resolveImage: CanvasImageResolver,
   pixelRatio: number,
 ): void {
-  renderFrameCommandsToCanvas(frame.commands, ctx, {
+  publishFrameDiagnostics(frame, ctx, state, pixelRatio);
+  try {
+    renderFrameCommandsToCanvas(frame.commands, ctx, {
+      pixelRatio,
+      resolveImage,
+      ...(state.fgColor ? { foregroundColor: state.fgColor, backgroundColor: state.bgColor } : {}),
+    });
+  } catch (error) {
+    const scope = globalThis as { __ritoLastRenderError?: unknown };
+    scope.__ritoLastRenderError = {
+      spreadIndex: frame.spreadIndex,
+      message: String(error),
+      stack: error instanceof Error ? error.stack?.slice(0, 600) : undefined,
+      at: new Date().toISOString(),
+    };
+    throw error;
+  }
+}
+
+/**
+ * Best-effort frame identity for support diagnostics: every painted frame
+ * publishes what it was, so a wrong-looking canvas can be attributed to an
+ * exact engine frame from the console without instrumented builds.
+ */
+function publishFrameDiagnostics(
+  frame: BrowserReaderFrame,
+  ctx: CanvasRenderingTarget,
+  state: BrowserReaderState,
+  pixelRatio: number,
+): void {
+  const scope = globalThis as { __ritoLastFrame?: unknown };
+  const texts: string[] = [];
+  for (const command of frame.commands) {
+    if (command.kind === 'paintText' && typeof command.text === 'string') {
+      texts.push(command.text);
+      if (texts.length >= 3) break;
+    }
+  }
+  const canvas = ctx.canvas as Partial<HTMLCanvasElement> & { __ritoCanvasId?: number };
+  const idScope = globalThis as { __ritoCanvasCounter?: number };
+  canvas.__ritoCanvasId ??= idScope.__ritoCanvasCounter = (idScope.__ritoCanvasCounter ?? 0) + 1;
+  const logScope = globalThis as { __ritoFrameLog?: unknown[] };
+  scope.__ritoLastFrame = {
+    revisionId: frame.revisionId,
+    spreadIndex: frame.spreadIndex,
+    commandCount: frame.commands.length,
+    commandCounts: frame.commands.reduce<Record<string, number>>((acc, command) => {
+      acc[command.kind] = (acc[command.kind] ?? 0) + 1;
+      return acc;
+    }, {}),
+    firstTexts: texts,
+    frameSize: { width: frame.width, height: frame.height },
+    canvasSize: { width: ctx.canvas.width, height: ctx.canvas.height },
+    canvasCssSize: {
+      width: canvas.clientWidth ?? null,
+      height: canvas.clientHeight ?? null,
+    },
     pixelRatio,
-    resolveImage,
-    ...(state.fgColor ? { foregroundColor: state.fgColor, backgroundColor: state.bgColor } : {}),
-  });
+    stateDpr: state.dpr,
+    canvasId: canvas.__ritoCanvasId,
+    offscreen:
+      typeof HTMLCanvasElement === 'undefined' || !(ctx.canvas instanceof HTMLCanvasElement),
+    at: new Date().toISOString(),
+  };
+  logScope.__ritoFrameLog = [...(logScope.__ritoFrameLog ?? []).slice(-19), scope.__ritoLastFrame];
 }
 
 function framePixelRatio(
