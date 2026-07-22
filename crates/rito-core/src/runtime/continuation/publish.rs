@@ -44,7 +44,7 @@ impl RuntimeDocument {
             self.service_cleanup_queue();
             return Err(unknown_revision(&revision_id));
         }
-        let summary = {
+        {
             let revision = self
                 .revisions
                 .get_mut(&revision_id)
@@ -55,6 +55,18 @@ impl RuntimeDocument {
                 continuation.published_page_count,
                 revision.known_extent.page_count
             );
+        }
+        // A finished whole-book revision may hand pagination to the
+        // fragment engine; the summary below must advertise the extent
+        // that takeover decides on.
+        if complete {
+            self.try_attach_fragment_page_table(&revision_id);
+        }
+        let summary = {
+            let revision = self
+                .revisions
+                .get(&revision_id)
+                .expect("revision existence was checked");
             revision_summary(&revision_id, layout_key, revision)
         };
         let continuation = if complete {

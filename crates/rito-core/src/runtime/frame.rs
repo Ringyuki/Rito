@@ -233,6 +233,14 @@ pub(super) fn revision_summary(
         final_extent: revision.final_extent,
         page_count: known_extent.page_count,
         spread_count: known_extent.spread_count,
+        pagination_backend: Some(
+            if revision.fragment_layout.is_some() {
+                "fragment"
+            } else {
+                "retained"
+            }
+            .to_owned(),
+        ),
     }
 }
 

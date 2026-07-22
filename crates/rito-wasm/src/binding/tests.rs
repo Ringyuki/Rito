@@ -59,6 +59,7 @@ fn serializes_failed_revision_state_with_continuation_errors() {
             final_extent: None,
             page_count: 2,
             spread_count: 2,
+            pagination_backend: None,
         })),
     });
     let value: serde_json::Value =

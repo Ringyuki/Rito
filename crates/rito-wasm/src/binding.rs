@@ -29,6 +29,24 @@ impl RitoWasmDocument {
         self.inner.publication_json().map_err(error_to_js_value)
     }
 
+    /// Cutover lever: lets completed whole-book revisions hand pagination
+    /// to the fragment engine. Off by default until the fragment
+    /// interaction surface is complete.
+    #[wasm_bindgen(js_name = setFragmentPageTableEnabled)]
+    pub fn set_fragment_page_table_enabled(&mut self, enabled: bool) {
+        self.inner.document.set_fragment_page_table_enabled(enabled);
+    }
+
+    /// Which backend owns a revision's pagination ("fragment" or
+    /// "retained"), for diagnostics.
+    #[wasm_bindgen(js_name = revisionPaginationBackend)]
+    pub fn revision_pagination_backend(&self, revision_id: &str) -> Option<String> {
+        self.inner
+            .document
+            .revision_pagination_backend(revision_id)
+            .map(str::to_owned)
+    }
+
     #[wasm_bindgen(js_name = createFullRevisionBundleJson)]
     pub fn create_full_revision_bundle_json(
         &mut self,

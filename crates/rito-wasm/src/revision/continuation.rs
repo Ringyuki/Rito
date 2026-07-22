@@ -236,6 +236,7 @@ mod tests {
             final_extent: None,
             page_count: 2,
             spread_count: 2,
+            pagination_backend: None,
         };
         let outcome = source_locator_failure(WasmRuntimeError::from_continuation(
             RuntimeContinuationError {

@@ -196,6 +196,11 @@ impl RuntimeDocument {
             spread_count,
         };
         revision.final_extent = Some(revision.known_extent);
+        // Frames cached while the retained engine paginated (a bounded
+        // session publishing progressively) describe the old page table.
+        revision.frame_cache.clear();
+        revision.frame_cache_order.clear();
+        revision.fragment_chapter_frames.clear();
     }
 
     /// Why a revision cannot hand pagination to the fragment engine, or

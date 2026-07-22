@@ -88,6 +88,11 @@ pub struct RuntimeRevisionSummary {
     pub page_count: usize,
     /// Backward-compatible alias for `known_extent.spread_count`.
     pub spread_count: usize,
+    /// Which engine owns this revision's pagination. Hosts must drop
+    /// every cached frame when this changes on one revision: the same
+    /// page numbers now describe different pages.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagination_backend: Option<String>,
 }
 
 /// Maximum top-level source nodes that one continuation quantum may accept.
