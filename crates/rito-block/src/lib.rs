@@ -350,15 +350,18 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 remaining = (page_bottom - y).max(0.0);
                 pending_margin = 0.0;
             }
-            // In-flow content beside an active float needs line boxes that
-            // shorten around it — not representable yet, so it fails
-            // closed instead of overlapping the float.
+            // In-flow content beside an active float needs line boxes
+            // that shorten around it. Until float wrapping lands, push
+            // the content below the floats instead — content stays
+            // readable and never overlaps, at the cost of the wrap.
             if floats.has_active(y) {
-                return Err(LayoutError::Invalid(
-                    "in-flow content beside a float needs float wrapping, which is not \
-                     representable yet"
-                        .to_owned(),
-                ));
+                let clear_all = floats.bottom_for(ClearV1::Both);
+                if clear_all > y {
+                    let page_bottom = y + remaining.max(0.0);
+                    y = clear_all;
+                    remaining = (page_bottom - y).max(0.0);
+                    pending_margin = 0.0;
+                }
             }
             // A margin that meets an unforced break is truncated to zero,
             // so a resumed child starts flush at the fragmentainer top.
@@ -659,18 +662,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // truncated at a fragmentainer edge like a meeting margin.
         y += container_padding_bottom.min(remaining.max(0.0));
         // A specified height fixes the border-box height. Content shorter
-        // than the box leaves empty space (spacers); content taller than a
-        // fixed height needs overflow layout the engine cannot represent
-        // yet, so it fails closed instead of overlapping what follows.
+        // than the box leaves empty space (spacers); taller content
+        // overflows the fixed box visibly — the box keeps its height and
+        // following flow continues below it, like CSS overflow: visible.
         if let Some(fixed) = resolve_fixed_height(
             container_style,
             container_padding_top + container_padding_bottom,
         )? {
-            if y > fixed + 0.01 {
-                return Err(LayoutError::Invalid(format!(
-                    "content ({y:.1}px) overflows the fixed height ({fixed:.1}px)"
-                )));
-            }
             y = fixed;
         }
         // Split floats still running past this fragmentainer resume on the
@@ -2639,7 +2637,7 @@ mod tests {
     }
 
     #[test]
-    fn cleared_content_starts_below_floats_and_uncleaned_content_fails_closed() {
+    fn content_beside_floats_clears_below_them() {
         use rito_style_contract::{ClearV1, FloatV1, NonNegativeLengthPercentage, Percentage};
         let context = BlockFormattingContext::new(FixedLineInline);
         let mut inline = InlineStyleTableV1::new(1);
@@ -2725,17 +2723,18 @@ mod tests {
             children[1].rect().y
         );
 
+        // Un-cleared content beside the float degrades to clearing below
+        // it (float wrapping is unimplemented): readable, never
+        // overlapping, at the cost of the wrap.
         let beside_tree = build(block_style(margin_px(0.0), margin_px(0.0)));
-        assert!(matches!(
-            context.layout(
-                &beside_tree,
-                beside_tree.root(),
-                &ConstraintSpace::continuous(200.0),
-                None,
-                &CancelFlag::new()
-            ),
-            Err(LayoutError::Invalid(_))
-        ));
+        let pages = paginate(&context, &beside_tree, ConstraintSpace::continuous(200.0));
+        let children = box_children(&pages[0]);
+        assert_eq!(children.len(), 2);
+        assert!(
+            (children[1].rect().y - 40.0).abs() < 1e-6,
+            "un-cleared content pushes below the float, got {}",
+            children[1].rect().y
+        );
     }
 
     fn tinos_bytes() -> Vec<u8> {
