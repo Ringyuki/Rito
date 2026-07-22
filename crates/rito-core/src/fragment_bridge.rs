@@ -33,6 +33,7 @@ use crate::epub::{EpubError, EpubResult};
 use crate::xhtml::{DocumentNode, ElementNode, ImageNode};
 
 /// One chapter's formatting tree plus the mapping back to source nodes.
+#[derive(Debug)]
 pub struct ChapterFormattingTree {
     pub tree: FormattingTree,
     /// Source-arena node index per formatting node; `None` for synthesized
@@ -283,18 +284,21 @@ impl TreeBuilder<'_> {
                 }
                 self.require_inline_capabilities(inherited, false, "text run")?;
                 let collapse = self.white_space_collapse(inherited)?;
-                collector.push_text(&text.content, inherited, ancestor_shift_px, collapse);
+                collector.push_text(&text.content, inherited, ancestor_shift_px, collapse, None);
                 Ok(())
             }
             DocumentNode::Inline(element) => {
-                if element.tag == "ruby" || element.tag == "rt" || element.tag == "rp" {
-                    // Ruby annotations need their own line model (base text
-                    // with annotation runs above it); collecting children as
-                    // plain inline items would pour the annotation text into
-                    // the base flow as ordinary characters.
-                    return Err(EpubError::new(
-                        "ruby annotation layout is not representable yet",
-                    ));
+                if element.tag == "ruby" {
+                    return self.collect_ruby(element, ancestor_shift_px, collector);
+                }
+                if element.tag == "rt" || element.tag == "rp" {
+                    // Annotation parts are consumed by their <ruby> parent;
+                    // reaching one here means malformed markup whose text
+                    // would otherwise leak into the base flow.
+                    return Err(EpubError::new(format!(
+                        "<{}> outside a <ruby> element is not representable",
+                        element.tag
+                    )));
                 }
                 let source_index = element_source_index(element)?;
                 if self.is_display_none(source_index, &element.tag)? {
@@ -318,6 +322,71 @@ impl TreeBuilder<'_> {
                 element.tag
             ))),
         }
+    }
+
+    /// Collects one `<ruby>` element as mono-ruby pairs: each `<rt>` closes
+    /// the base text accumulated before it, producing one text item whose
+    /// annotation paints above that base segment's laid-out extent at half
+    /// the base font size (the reader's ruby convention, shared with the
+    /// retained engine). The base segments shape and break with the flow
+    /// like ordinary text. `<rp>` fallback parentheses render only when
+    /// ruby is unsupported, so they drop. Anything beyond plain-text bases
+    /// and annotations — nested markup, images — fails closed by name.
+    fn collect_ruby(
+        &mut self,
+        element: &ElementNode,
+        ancestor_shift_px: f64,
+        collector: &mut InlineCollector,
+    ) -> EpubResult<()> {
+        let source_index = element_source_index(element)?;
+        if self.is_display_none(source_index, "ruby")? {
+            return Ok(());
+        }
+        let style = self.inline_style_id(source_index, "ruby")?;
+        self.require_inline_capabilities(style, true, "ruby")?;
+        let collapse = self.white_space_collapse(style)?;
+        let mut pending_base = String::new();
+        for child in &element.children {
+            match child {
+                DocumentNode::Text(text) => pending_base.push_str(&text.content),
+                DocumentNode::Inline(inner) if inner.tag == "rt" => {
+                    let mut text = String::new();
+                    collect_plain_text(&inner.children, &mut text)?;
+                    let annotation = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                    if pending_base.trim().is_empty() && !annotation.is_empty() {
+                        return Err(EpubError::new(
+                            "ruby annotation without a base segment is not representable",
+                        ));
+                    }
+                    collector.push_text(
+                        &std::mem::take(&mut pending_base),
+                        style,
+                        ancestor_shift_px,
+                        collapse,
+                        Some(annotation).filter(|text| !text.is_empty()),
+                    );
+                }
+                DocumentNode::Inline(inner) if inner.tag == "rp" => {}
+                DocumentNode::Inline(inner) if inner.tag == "rb" => {
+                    collect_plain_text(&inner.children, &mut pending_base)?;
+                }
+                DocumentNode::Inline(inner) => {
+                    return Err(EpubError::new(format!(
+                        "ruby base with nested <{}> markup is not representable yet",
+                        inner.tag
+                    )));
+                }
+                DocumentNode::Image(_) | DocumentNode::Block(_) => {
+                    return Err(EpubError::new(
+                        "ruby containing non-text content is not representable yet",
+                    ));
+                }
+            }
+        }
+        if !pending_base.is_empty() {
+            collector.push_text(&pending_base, style, ancestor_shift_px, collapse, None);
+        }
+        Ok(())
     }
 
     /// Collects one image as an atomic inline item. The image element has
@@ -700,6 +769,28 @@ fn resolved_baseline_shift(style: &rito_style_contract::InlineFormattingStyleV1)
     }
 }
 
+/// Flattens nested plain text (text nodes only) into `out`; any element
+/// or image inside fails closed, keeping ruby parts honest.
+fn collect_plain_text(nodes: &[DocumentNode], out: &mut String) -> EpubResult<()> {
+    for node in nodes {
+        match node {
+            DocumentNode::Text(text) => out.push_str(&text.content),
+            DocumentNode::Inline(element) => {
+                return Err(EpubError::new(format!(
+                    "ruby part with nested <{}> markup is not representable yet",
+                    element.tag
+                )));
+            }
+            DocumentNode::Image(_) | DocumentNode::Block(_) => {
+                return Err(EpubError::new(
+                    "ruby part with non-text content is not representable yet",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn element_source_index(element: &ElementNode) -> EpubResult<usize> {
     element
         .source_ref
@@ -735,14 +826,26 @@ impl InlineCollector {
     /// run that produced it (the CSS "first space of the sequence wins"
     /// rule), so a space pending from earlier nodes lands at the end of the
     /// previous item, while this node's own interior spaces stay here.
-    fn push_text(&mut self, text: &str, style: StyleId, baseline_shift_px: f64, collapse: bool) {
+    fn push_text(
+        &mut self,
+        text: &str,
+        style: StyleId,
+        baseline_shift_px: f64,
+        collapse: bool,
+        ruby_annotation: Option<String>,
+    ) {
         debug_assert!(collapse, "preserved white space fails closed upstream");
         let is_space = |ch: char| matches!(ch, ' ' | '\t' | '\n' | '\r');
         let mut rest = text;
         if self.pending_space {
             // The space belongs to an earlier node; this node's leading
             // white space folds into it and disappears.
-            if let Some(InlineItem::Text { text: last, .. }) = self.items.last_mut() {
+            if let Some(InlineItem::Text {
+                text: last,
+                ruby_annotation: None,
+                ..
+            }) = self.items.last_mut()
+            {
                 last.push(' ');
             }
             self.pending_space = false;
@@ -787,19 +890,27 @@ impl InlineCollector {
             // Merge into the previous item when the style and shift are
             // unchanged, so a paragraph of plain text stays a single
             // shaping run.
+            // A ruby base never merges with its neighbours: its annotation
+            // attaches to exactly this run's laid-out extent.
             if let Some(InlineItem::Text {
                 text: last,
                 style: last_style,
                 baseline_shift_px: last_shift,
+                ruby_annotation: last_ruby,
             }) = self.items.last_mut()
             {
-                if *last_style == style && *last_shift == baseline_shift_px {
+                if *last_style == style
+                    && *last_shift == baseline_shift_px
+                    && last_ruby.is_none()
+                    && ruby_annotation.is_none()
+                {
                     last.push_str(&collapsed);
                 } else {
                     self.items.push(InlineItem::Text {
                         text: collapsed,
                         style,
                         baseline_shift_px,
+                        ruby_annotation,
                     });
                 }
             } else {
@@ -807,6 +918,7 @@ impl InlineCollector {
                     text: collapsed,
                     style,
                     baseline_shift_px,
+                    ruby_annotation,
                 });
             }
         }
@@ -820,13 +932,19 @@ impl InlineCollector {
     /// Appends a forced line break as a preserved newline in the flow text.
     fn push_hard_break(&mut self, style: StyleId, baseline_shift_px: f64) {
         self.pending_space = false;
-        if let Some(InlineItem::Text { text: last, .. }) = self.items.last_mut() {
+        if let Some(InlineItem::Text {
+            text: last,
+            ruby_annotation: None,
+            ..
+        }) = self.items.last_mut()
+        {
             last.push('\n');
         } else {
             self.items.push(InlineItem::Text {
                 text: "\n".to_owned(),
                 style,
                 baseline_shift_px,
+                ruby_annotation: None,
             });
         }
         self.has_content = true;
@@ -837,7 +955,12 @@ impl InlineCollector {
     /// away (an accepted gap until mixed image runs need it).
     fn push_image(&mut self, item: InlineItem) {
         if self.pending_space {
-            if let Some(InlineItem::Text { text: last, .. }) = self.items.last_mut() {
+            if let Some(InlineItem::Text {
+                text: last,
+                ruby_annotation: None,
+                ..
+            }) = self.items.last_mut()
+            {
                 last.push(' ');
             }
             self.pending_space = false;
@@ -946,6 +1069,10 @@ p { margin: 8px 0; }\n\
     }
 
     fn resolved_chapter() -> ResolvedChapter {
+        resolved_chapter_from(CHAPTER_XHTML)
+    }
+
+    fn resolved_chapter_from(xhtml: &str) -> ResolvedChapter {
         let document = LoadedEpubDocument {
             package: PackageDocument {
                 metadata: PackageMetadata {
@@ -972,7 +1099,7 @@ p { margin: 8px 0; }\n\
             idref: "chapter-1".to_owned(),
             href: "chapter-1.xhtml".to_owned(),
             linear: true,
-            xhtml_source: CHAPTER_XHTML.to_owned(),
+            xhtml_source: xhtml.to_owned(),
             source_loaded: true,
             image_refs: None,
         };
@@ -1009,6 +1136,142 @@ p { margin: 8px 0; }\n\
             layout: resolved.layout_style_table,
             inline: resolved.inline_style_table,
         }
+    }
+
+    #[test]
+    fn ruby_bases_carry_annotations_and_never_merge_with_neighbours() {
+        let chapter = resolved_chapter_from(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <p>これは<ruby>漢字<rt>かんじ</rt></ruby>です。</p>
+  <p><ruby><rb>東京</rb><rp>（</rp><rt>とうきょう</rt><rp>）</rp></ruby></p>
+</body></html>"#,
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let root = built.tree.node(built.tree.root());
+        let FormattingNodeContent::InlineFlow { items } =
+            &built.tree.node(root.children[0]).content
+        else {
+            panic!("first paragraph is an inline flow");
+        };
+        let runs: Vec<(&str, Option<&str>)> = items
+            .iter()
+            .map(|item| match item {
+                InlineItem::Text {
+                    text,
+                    ruby_annotation,
+                    ..
+                } => (text.as_str(), ruby_annotation.as_deref()),
+                InlineItem::Image { .. } => panic!("no images here"),
+            })
+            .collect();
+        assert_eq!(
+            runs,
+            vec![("これは", None), ("漢字", Some("かんじ")), ("です。", None),],
+        );
+        let FormattingNodeContent::InlineFlow { items } =
+            &built.tree.node(root.children[1]).content
+        else {
+            panic!("second paragraph is an inline flow");
+        };
+        let InlineItem::Text {
+            text,
+            ruby_annotation,
+            ..
+        } = &items[0]
+        else {
+            panic!("ruby base is a text item");
+        };
+        assert_eq!(text, "東京");
+        assert_eq!(ruby_annotation.as_deref(), Some("とうきょう"));
+    }
+
+    #[test]
+    fn list_items_fail_closed_pending_marker_layout() {
+        let chapter = resolved_chapter_from(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <ol><li>first entry</li></ol>
+</body></html>"#,
+        );
+        for id in 0..4 {
+            if let Ok(style) = chapter
+                .layout
+                .style(rito_style_contract::LayoutStyleId::from_raw(id))
+            {
+                eprintln!(
+                    "layout style {id}: display {:?} list {:?}",
+                    style.display, style.list_style_type
+                );
+            }
+        }
+        let error = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect_err("list items paint markers the fragment engine cannot produce yet");
+        assert!(error.to_string().contains("list"), "{error}");
+    }
+
+    #[test]
+    fn mono_ruby_pairs_each_annotation_with_its_base_segment() {
+        let chapter = resolved_chapter_from(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <p><ruby>漢<rt>かん</rt>字<rt>じ</rt></ruby></p>
+</body></html>"#,
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("mono ruby builds");
+        let root = built.tree.node(built.tree.root());
+        let FormattingNodeContent::InlineFlow { items } =
+            &built.tree.node(root.children[0]).content
+        else {
+            panic!("paragraph is an inline flow");
+        };
+        let runs: Vec<(&str, Option<&str>)> = items
+            .iter()
+            .map(|item| match item {
+                InlineItem::Text {
+                    text,
+                    ruby_annotation,
+                    ..
+                } => (text.as_str(), ruby_annotation.as_deref()),
+                InlineItem::Image { .. } => panic!("no images here"),
+            })
+            .collect();
+        assert_eq!(runs, vec![("漢", Some("かん")), ("字", Some("じ"))],);
+    }
+
+    #[test]
+    fn malformed_ruby_structures_fail_closed_by_name() {
+        let stray_rt = resolved_chapter_from(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <p>text<rt>leak</rt></p>
+</body></html>"#,
+        );
+        let error = build_chapter_formatting_tree(
+            &stray_rt.nodes,
+            stray_rt.body_index,
+            &stray_rt.layout,
+            &stray_rt.inline,
+            &no_images(),
+        )
+        .expect_err("a stray <rt> would leak annotation text into the flow");
+        assert!(error.to_string().contains("outside a <ruby>"), "{error}");
     }
 
     #[test]

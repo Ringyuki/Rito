@@ -22,6 +22,11 @@ pub enum InlineItem {
         /// inline boxes, CSS px; positive raises the run. Resolved at tree
         /// construction so the provider needs no ancestor walk.
         baseline_shift_px: f64,
+        /// Ruby annotation text for a run that is a ruby base. The base
+        /// takes part in shaping and line breaking like any text; the
+        /// annotation is painted above the base's laid-out extent and
+        /// never affects inline geometry.
+        ruby_annotation: Option<String>,
     },
     /// An atomic inline replaced box (an image): it occupies inline space
     /// like a single glyph and never splits. Display size resolves at
@@ -263,12 +268,21 @@ fn fingerprint(
                             text,
                             style,
                             baseline_shift_px,
+                            ruby_annotation,
                         } => {
                             mixer.mix(&[0]);
                             mixer.mix(&(text.len() as u32).to_le_bytes());
                             mixer.mix(text.as_bytes());
                             mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
+                            match ruby_annotation {
+                                Some(annotation) => {
+                                    mixer.mix(&[1]);
+                                    mixer.mix(&(annotation.len() as u32).to_le_bytes());
+                                    mixer.mix(annotation.as_bytes());
+                                }
+                                None => mixer.mix(&[0]),
+                            }
                         }
                         InlineItem::Image {
                             src,
@@ -478,6 +492,7 @@ mod tests {
                     text: "orphan".to_owned(),
                     style: StyleId::from_raw(7),
                     baseline_shift_px: 0.0,
+                    ruby_annotation: None,
                 }],
             },
             children: Vec::new(),

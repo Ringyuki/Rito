@@ -147,6 +147,7 @@ impl ParleyInlineContext {
                     text: item_text,
                     style,
                     baseline_shift_px,
+                    ..
                 } => {
                     let start = text.len();
                     text.push_str(item_text);
@@ -1064,6 +1065,7 @@ mod tests {
                     text: text.to_owned(),
                     style,
                     baseline_shift_px: 0.0,
+                    ruby_annotation: None,
                 }],
             },
             children: Vec::new(),
@@ -1384,6 +1386,7 @@ running through the quiet forest until the morning light returns.";
                         text: "Before ".to_owned(),
                         style: text_style,
                         baseline_shift_px: 0.0,
+                        ruby_annotation: None,
                     },
                     InlineItem::Image {
                         src: "images/figure.png".to_owned(),
@@ -1397,6 +1400,7 @@ running through the quiet forest until the morning light returns.";
                         text: " after the picture.".to_owned(),
                         style: text_style,
                         baseline_shift_px: 0.0,
+                        ruby_annotation: None,
                     },
                 ],
             },
@@ -1470,11 +1474,13 @@ running through the quiet forest until the morning light returns.";
                         text: "ab".to_owned(),
                         style,
                         baseline_shift_px: 0.0,
+                        ruby_annotation: None,
                     },
                     InlineItem::Text {
                         text: "cd".to_owned(),
                         style,
                         baseline_shift_px: 0.0,
+                        ruby_annotation: None,
                     },
                 ],
             },

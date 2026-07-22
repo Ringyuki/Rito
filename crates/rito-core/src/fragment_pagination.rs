@@ -181,6 +181,7 @@ mod tests {
                         text: text.to_owned(),
                         style,
                         baseline_shift_px: 0.0,
+                        ruby_annotation: None,
                     }],
                 },
                 children: Vec::new(),

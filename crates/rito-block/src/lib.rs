@@ -1262,6 +1262,7 @@ mod tests {
                             text: format!("line {line}"),
                             style,
                             baseline_shift_px: 0.0,
+                            ruby_annotation: None,
                         })
                         .collect(),
                 },
@@ -1395,6 +1396,7 @@ mod tests {
                             text: format!("line {index}"),
                             style,
                             baseline_shift_px: 0.0,
+                            ruby_annotation: None,
                         })
                         .collect(),
                 },
@@ -1532,6 +1534,7 @@ mod tests {
                         text: format!("line {line}"),
                         style,
                         baseline_shift_px: 0.0,
+                        ruby_annotation: None,
                     })
                     .collect(),
             },
@@ -1651,6 +1654,7 @@ mod tests {
                             text: format!("line {line}"),
                             style,
                             baseline_shift_px: 0.0,
+                            ruby_annotation: None,
                         })
                         .collect(),
                 },
@@ -1755,6 +1759,7 @@ mod tests {
                             text: format!("line {line}"),
                             style,
                             baseline_shift_px: 0.0,
+                            ruby_annotation: None,
                         })
                         .collect(),
                 },
@@ -1929,6 +1934,7 @@ mod tests {
                         text: format!("line {line}"),
                         style,
                         baseline_shift_px: 0.0,
+                        ruby_annotation: None,
                     })
                     .collect(),
             },
@@ -2018,6 +2024,7 @@ mod tests {
                             text: format!("line {line}"),
                             style: style_id,
                             baseline_shift_px: 0.0,
+                            ruby_annotation: None,
                         })
                         .collect(),
                 },
@@ -2102,6 +2109,7 @@ single line across page boundaries.";
                         text: first_text.to_owned(),
                         style: first_style,
                         baseline_shift_px: 0.0,
+                        ruby_annotation: None,
                     }],
                 },
                 children: Vec::new(),
@@ -2113,6 +2121,7 @@ single line across page boundaries.";
                         text: second_text.to_owned(),
                         style: second_style,
                         baseline_shift_px: 0.0,
+                        ruby_annotation: None,
                     }],
                 },
                 children: Vec::new(),

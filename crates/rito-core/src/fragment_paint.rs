@@ -198,6 +198,7 @@ fn append_text_run_command(
     let InlineItem::Text {
         style,
         baseline_shift_px,
+        ruby_annotation,
         ..
     } = &items[*item_index]
     else {
@@ -214,14 +215,32 @@ fn append_text_run_command(
     // em box. The line box height travels separately so consumers can
     // reconstruct line geometry.
     let baseline = line_y + line.baseline - baseline_shift_px;
+    let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
+    if let Some(annotation) = ruby_annotation {
+        // The reader's ruby convention (shared with the retained engine):
+        // the annotation paints at half the base font size, centered over
+        // the base run's laid-out extent, its bottom edge one pixel above
+        // the base's paint anchor. A base split across lines repeats its
+        // full annotation over each of its runs.
+        let annotation_size = font_size * 0.5;
+        commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
+            text: Value::String(annotation.clone()),
+            rect: rect_value(
+                line_x + run.rect.x,
+                em_top - annotation_size - 1.0,
+                run.rect.width,
+                annotation_size,
+            ),
+            paint: paint.for_ruby(annotation_size),
+            line_height_px: None,
+            href: None,
+            source_text: None,
+            source_text_offset: None,
+        }));
+    }
     commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
         text: Value::String(full_text[start..end].to_owned()),
-        rect: rect_value(
-            line_x + run.rect.x,
-            baseline - CANVAS_TOP_ASCENT_RATIO * font_size,
-            run.rect.width,
-            font_size,
-        ),
+        rect: rect_value(line_x + run.rect.x, em_top, run.rect.width, font_size),
         paint,
         line_height_px: Some(number_value(line.rect.height)),
         href: None,
@@ -508,6 +527,7 @@ mod tests {
             text: text.to_owned(),
             style,
             baseline_shift_px: shift,
+            ruby_annotation: None,
         }
     }
 
@@ -620,6 +640,36 @@ mod tests {
             command.paint.measure().font.family,
             "Tinos, __RitoPinned_test"
         );
+    }
+
+    #[test]
+    fn ruby_bases_paint_their_annotation_above_the_run() {
+        let fixture = two_color_flow(|red, _| {
+            vec![InlineItem::Text {
+                text: "漢字".to_owned(),
+                style: red,
+                baseline_shift_px: 0.0,
+                ruby_annotation: Some("かんじ".to_owned()),
+            }]
+        });
+        let root = boxed_line(vec![text_run(0.0, 32.0, 0, 6)]);
+        let commands = paint(&fixture.tree, &root);
+        assert_eq!(commands.len(), 2);
+        let DisplayCommand::PaintRuby(annotation) = &commands[0] else {
+            panic!("annotation paints before its base, got {:?}", commands[0]);
+        };
+        assert_eq!(annotation.text, Value::String("かんじ".to_owned()));
+        // The base anchors at 26.2 (line top 26 + baseline 13 − 0.8 × 16);
+        // the 8px annotation sits one pixel above that anchor, spanning
+        // the base run's extent for centered rendering.
+        assert_eq!(annotation.rect, rect_value(14.0, 17.2, 32.0, 8.0));
+        assert_eq!(annotation.paint.measure().font.size_px, 8.0);
+        assert_eq!(annotation.paint.color(), "#ff0000");
+        let DisplayCommand::PaintText(base) = &commands[1] else {
+            panic!("expected the base text command, got {:?}", commands[1]);
+        };
+        assert_eq!(base.text, Value::String("漢字".to_owned()));
+        assert_eq!(base.rect, rect_value(14.0, 26.2, 32.0, 16.0));
     }
 
     #[test]
