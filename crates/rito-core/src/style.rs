@@ -132,7 +132,7 @@ center { text-align: center; }
 
 ul { margin-top: 1em; margin-bottom: 1em; padding-left: 40px; list-style-type: disc; }
 ol { margin-top: 1em; margin-bottom: 1em; padding-left: 40px; list-style-type: decimal; }
-li { margin-top: 0; margin-bottom: 0; }
+li { display: list-item; margin-top: 0; margin-bottom: 0; }
 dl { margin-top: 1em; margin-bottom: 1em; }
 dt { font-weight: bold; }
 dd { margin-left: 40px; }
