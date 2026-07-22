@@ -38,6 +38,9 @@ struct ProbeBook {
     backend: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     page_count: Option<usize>,
+    /// Why the book stayed retained, from the routing gate itself.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rejection: Option<String>,
     /// Chapters the fragment tree cannot represent, with reasons; empty
     /// for fragment-backed books.
     chapter_errors: Vec<ProbeChapterError>,
@@ -83,6 +86,7 @@ fn probe_book(epub_path: &str, policy: RuntimePinnedFontPolicyInput) -> ProbeBoo
         error: None,
         backend: None,
         page_count: None,
+        rejection: None,
         chapter_errors: Vec::new(),
     };
     let bytes = match std::fs::read(epub_path) {
@@ -129,6 +133,7 @@ fn probe_book(epub_path: &str, policy: RuntimePinnedFontPolicyInput) -> ProbeBoo
     if book.backend.as_deref() == Some("fragment") {
         return book;
     }
+    book.rejection = document.fragment_page_table_rejection_reason(&revision.revision_id);
     let idrefs: Vec<String> = document
         .publication_info()
         .chapters

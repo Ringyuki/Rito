@@ -172,7 +172,7 @@ impl RuntimeDocument {
     /// paginate leaves the retained page table (and the spread-frame
     /// bridge) in charge, so there is never a mixed page table.
     pub(super) fn try_attach_fragment_page_table(&mut self, revision_id: &str) {
-        let Some(layout) = self.build_fragment_page_table(revision_id) else {
+        let Ok(layout) = self.build_fragment_page_table(revision_id) else {
             return;
         };
         let page_count = layout.page_count();
@@ -198,24 +198,40 @@ impl RuntimeDocument {
         revision.final_extent = Some(revision.known_extent);
     }
 
-    fn build_fragment_page_table(&self, revision_id: &str) -> Option<FragmentBuiltLayout> {
+    /// Why a revision cannot hand pagination to the fragment engine, or
+    /// `None` when it can (or already has). Rebuilds the page table to
+    /// find out, so this is a diagnostic surface, not a hot path.
+    pub fn fragment_page_table_rejection_reason(&self, revision_id: &str) -> Option<String> {
+        self.build_fragment_page_table(revision_id).err()
+    }
+
+    fn build_fragment_page_table(&self, revision_id: &str) -> Result<FragmentBuiltLayout, String> {
         if !self.fragment_page_table_enabled {
-            return None;
+            return Err("the fragment page table lever is off".to_owned());
         }
-        let revision = self.any_revision(revision_id)?;
+        let revision = self
+            .any_revision(revision_id)
+            .ok_or_else(|| format!("unknown revision: {revision_id}"))?;
         if revision.status != RuntimeRevisionStatus::Complete
             || revision.coordinate_space != RuntimeRevisionCoordinateSpace::Absolute
         {
-            return None;
+            return Err("only completed whole-book revisions route".to_owned());
         }
-        let family_policy = self.fragment_paint_family_policy()?;
-        let engine = self.fragment_engine()?;
-        let prepared = self.prepared.as_ref()?;
+        let family_policy = self
+            .fragment_paint_family_policy()
+            .ok_or_else(|| "pinned-alias collision or no fragment engine".to_owned())?;
+        let engine = self
+            .fragment_engine()
+            .ok_or_else(|| "no fragment engine (no pinned faces)".to_owned())?;
+        let prepared = self
+            .prepared
+            .as_ref()
+            .ok_or_else(|| "document is not prepared".to_owned())?;
         let config = &revision.layout_config;
         let content_width = config.page_width - config.margin_left - config.margin_right;
         let content_height = config.page_height - config.margin_top - config.margin_bottom;
         if content_width <= 0.0 || content_height <= 0.0 {
-            return None;
+            return Err("page content box is empty".to_owned());
         }
         let mut chapters = Vec::with_capacity(prepared.chapters.len());
         let mut page_index = 0;
@@ -223,7 +239,9 @@ impl RuntimeDocument {
             let idref = chapter.source.idref.clone();
             // A prefix revision retains style tables only for its window,
             // so partial books fail here and stay retained.
-            let built = self.chapter_formatting_tree(revision_id, &idref).ok()?;
+            let built = self
+                .chapter_formatting_tree(revision_id, &idref)
+                .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
             let pages = paginate_chapter(
                 &engine.engine,
                 &built.tree,
@@ -237,7 +255,7 @@ impl RuntimeDocument {
                 },
                 &CancelFlag::new(),
             )
-            .ok()?;
+            .map_err(|error| format!("chapter {idref} pagination: {}", error.message()))?;
             let block_count = built.tree.node(built.tree.root()).children.len();
             let mut backend_pages = Vec::with_capacity(pages.len());
             for page in pages {
@@ -262,6 +280,6 @@ impl RuntimeDocument {
                 pages: backend_pages,
             });
         }
-        Some(FragmentBuiltLayout::new(chapters))
+        Ok(FragmentBuiltLayout::new(chapters))
     }
 }
