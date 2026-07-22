@@ -67,9 +67,9 @@ impl<'a> FragmentChapterEngineSession<'a> {
         }
         // Same frame skeleton as the retained producer: a viewport wash,
         // then each page translated into place, washed, and clipped
-        // around its content commands. Fragment-routed books have no
-        // block or page paint (the representability gate excludes them),
-        // so the page wash is plain white.
+        // around its content commands. The page wash is the chapter
+        // body's background when it declares one; block-level paint
+        // beyond that is excluded by the representability gate.
         let mut commands = Vec::new();
         commands.push(paint_rect_command(
             0.0,
@@ -79,7 +79,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
             "#ffffff",
         ));
         for (slot, page_index) in page_indexes.iter().enumerate() {
-            let page = self.layout.page(*page_index)?;
+            let (page, chapter) = self.layout.page_with_chapter(*page_index)?;
             let metadata = page.artifact.metadata();
             let offset_x = slot as f64 * (config.page_width + config.spread_gap);
             commands.push(DisplayCommand::push_state());
@@ -92,7 +92,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 0.0,
                 metadata.width,
                 metadata.height,
-                "#ffffff",
+                chapter.page_background.as_deref().unwrap_or("#ffffff"),
             ));
             commands.push(DisplayCommand::push_state());
             commands.push(DisplayCommand::clip_rect(

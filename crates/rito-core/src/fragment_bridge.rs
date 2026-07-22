@@ -44,6 +44,11 @@ pub struct ChapterFormattingTree {
     /// engine already sized, and a painter that does not understand an
     /// entry must fail closed rather than skip it.
     pub node_paints: BTreeMap<u32, NodePaint>,
+    /// The chapter body's own background color, when it has one. This is
+    /// the page background — the frame producer washes each page with it
+    /// — matching how the retained pipeline hoists a body background onto
+    /// the page rather than painting a content-box rectangle.
+    pub page_background: Option<String>,
 }
 
 /// One node's layout-inert paint requirement.
@@ -87,7 +92,7 @@ pub fn build_chapter_formatting_tree(
         checked_inline_styles: std::collections::HashMap::new(),
     };
     let body_style = builder.layout_style_id(body_source_node_index, "chapter body")?;
-    builder.require_box_paint_representable(body_source_node_index, "chapter body")?;
+    let page_background = builder.chapter_body_background(body_source_node_index)?;
     let body_inline_style = builder.inline_style_id(body_source_node_index, "chapter body")?;
     let children = builder.build_children(nodes, body_inline_style)?;
     let root = builder.push_node(
@@ -117,6 +122,7 @@ pub fn build_chapter_formatting_tree(
         tree,
         source_nodes,
         node_paints,
+        page_background,
     })
 }
 
@@ -519,6 +525,39 @@ impl TreeBuilder<'_> {
     /// else fails closed naming the field. The default is rejection: a
     /// property this list has never heard of can only over-reject (visible
     /// in the representability reports), never silently mis-lay.
+    /// The chapter body's background color for the page wash, `None`
+    /// when transparent. Body decoration beyond a plain background color
+    /// still fails closed like any other box.
+    fn chapter_body_background(&mut self, source_index: usize) -> EpubResult<Option<String>> {
+        let style = self.inline_style_id(source_index, "chapter body")?;
+        let resolved = self
+            .inline
+            .style(style)
+            .map_err(|error| EpubError::new(format!("chapter body style resolves: {error}")))?;
+        let background = match resolved.paint.background {
+            rito_style_contract::ComputedColorV1::Absolute(color) => {
+                if color.alpha().get() == 0.0 {
+                    None
+                } else {
+                    Some(crate::style::absolute_color(color).map_err(|error| {
+                        EpubError::new(format!("chapter body background: {error:?}"))
+                    })?)
+                }
+            }
+            other => {
+                return Err(EpubError::new(format!(
+                    "<chapter body> background {other:?} is not representable in fragment paint yet"
+                )))
+            }
+        };
+        if let Some(reason) = box_decoration_violation(resolved) {
+            return Err(EpubError::new(format!(
+                "<chapter body> {reason} is not representable in fragment paint yet"
+            )));
+        }
+        Ok(background)
+    }
+
     /// Fails closed on box paint the fragment painter cannot reproduce
     /// yet (backgrounds, borders, box shadows, transforms). The bridge
     /// used to catch these on the retained pages it swapped against; with
@@ -824,6 +863,16 @@ fn box_paint_violation(style: &rito_style_contract::InlineFormattingStyleV1) -> 
         c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => {}
         other => return Some(format!("background {other:?}")),
     }
+    box_decoration_violation(style)
+}
+
+/// Box decoration beyond the background color that the fragment painter
+/// cannot reproduce. The chapter body checks this alone because its plain
+/// background hoists onto the page wash instead of failing.
+fn box_decoration_violation(
+    style: &rito_style_contract::InlineFormattingStyleV1,
+) -> Option<String> {
+    use rito_style_contract as c;
     if style.paint.background_image.is_some() {
         return Some("background-image".to_owned());
     }

@@ -386,6 +386,7 @@ mod tests {
             tree,
             source_nodes: vec![None, None],
             node_paints: BTreeMap::new(),
+            page_background: None,
         }
     }
 

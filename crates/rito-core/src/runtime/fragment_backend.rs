@@ -28,6 +28,9 @@ pub(super) struct FragmentBackendChapter {
     /// ranges report this where the retained backend reports its block
     /// count.
     pub(super) block_count: usize,
+    /// The chapter body's background color, painted as this chapter's
+    /// page wash.
+    pub(super) page_background: Option<String>,
     pub(super) pages: Vec<FragmentBackendPage>,
 }
 
@@ -90,6 +93,13 @@ impl FragmentBuiltLayout {
     }
 
     pub(super) fn page(&self, page_index: usize) -> Option<&FragmentBackendPage> {
+        self.page_with_chapter(page_index).map(|(page, _)| page)
+    }
+
+    pub(super) fn page_with_chapter(
+        &self,
+        page_index: usize,
+    ) -> Option<(&FragmentBackendPage, &FragmentBackendChapter)> {
         let position = self
             .chapter_starts
             .partition_point(|start| *start <= page_index);
@@ -97,6 +107,7 @@ impl FragmentBuiltLayout {
         chapter
             .pages
             .get(page_index - self.chapter_starts[position - 1])
+            .map(|page| (page, chapter))
     }
 }
 
@@ -108,6 +119,7 @@ mod tests {
         FragmentBackendChapter {
             idref: idref.to_owned(),
             block_count: 1,
+            page_background: None,
             pages: (0..page_count)
                 .map(|_| FragmentBackendPage {
                     artifact: FragmentPageArtifact::empty_for_tests(0, 100.0, 200.0),
@@ -143,6 +155,17 @@ mod tests {
 }
 
 impl RuntimeDocument {
+    /// Which backend owns a revision's pagination: `"fragment"` when the
+    /// fragment page table attached, `"retained"` otherwise, `None` for
+    /// an unknown revision. Diagnostic surface for probes and hosts.
+    pub fn revision_pagination_backend(&self, revision_id: &str) -> Option<&'static str> {
+        let revision = self.any_revision(revision_id)?;
+        Some(match revision.fragment_layout {
+            Some(_) => "fragment",
+            None => "retained",
+        })
+    }
+
     /// Makes the fragment engine the pagination authority for a freshly
     /// completed whole-book revision, when it can represent every
     /// chapter. All-or-nothing: any chapter that fails to build or
@@ -235,6 +258,7 @@ impl RuntimeDocument {
             chapters.push(FragmentBackendChapter {
                 idref,
                 block_count,
+                page_background: built.page_background.clone(),
                 pages: backend_pages,
             });
         }
