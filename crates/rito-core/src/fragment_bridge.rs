@@ -194,6 +194,12 @@ impl TreeBuilder<'_> {
 
     /// Builds one block-level element. Returns `None` for `display: none`.
     fn build_block(&mut self, element: &ElementNode) -> EpubResult<Option<FormattingNodeId>> {
+        if element.tag == "hr" {
+            // A horizontal rule paints its box border as the visible line,
+            // and the fragment pipeline cannot paint block borders yet; an
+            // unpainted rule would silently disappear.
+            return Err(EpubError::new("horizontal rules are not representable yet"));
+        }
         let source_index = element_source_index(element)?;
         if self.is_display_none(source_index, &element.tag)? {
             return Ok(None);
@@ -281,6 +287,15 @@ impl TreeBuilder<'_> {
                 Ok(())
             }
             DocumentNode::Inline(element) => {
+                if element.tag == "ruby" || element.tag == "rt" || element.tag == "rp" {
+                    // Ruby annotations need their own line model (base text
+                    // with annotation runs above it); collecting children as
+                    // plain inline items would pour the annotation text into
+                    // the base flow as ordinary characters.
+                    return Err(EpubError::new(
+                        "ruby annotation layout is not representable yet",
+                    ));
+                }
                 let source_index = element_source_index(element)?;
                 if self.is_display_none(source_index, &element.tag)? {
                     return Ok(());
