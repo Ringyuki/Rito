@@ -31,14 +31,14 @@ function getThemeOptions(theme: 'light' | 'dark') {
 }
 
 /**
- * Cutover lever for the fragment pagination engine, opt-in via
- * `?fragmentPagination=1`. Off by default: layout fidelity against the
- * retained engine is not verified page-by-page yet, and the takeover
- * repaints the whole book mid-session.
+ * The fragment engine paginates every representable book (unsupported
+ * constructs degrade with a recorded approximation instead of blocking).
+ * `?fragmentPagination=0` is the kill switch back to the retained
+ * engine while it still exists.
  */
 const FRAGMENT_PAGINATION_ENABLED =
-  typeof window !== 'undefined' &&
-  new URLSearchParams(window.location.search).get('fragmentPagination') === '1';
+  typeof window === 'undefined' ||
+  new URLSearchParams(window.location.search).get('fragmentPagination') !== '0';
 
 export function useReader(
   theme: 'light' | 'dark',
