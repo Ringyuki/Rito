@@ -60,16 +60,29 @@ async function registerRequiredRevisionFonts(
     pending.map(async ({ face, key }) => {
       const source = sources.get(face.href);
       if (!source) throw new Error('Pinned reader required font source is unavailable');
-      const loaded = new FontFace(face.family, source, {
-        style: face.style,
-        weight: String(face.weight),
-      });
-      await loaded.load();
-      return { key, face: loaded };
+      // A face the canvas sanitizer rejects is skipped: paint falls
+      // through the family stack instead of the book failing to open.
+      try {
+        const loaded = new FontFace(face.family, source, {
+          style: face.style,
+          weight: String(face.weight),
+        });
+        await loaded.load();
+        return { key, face: loaded };
+      } catch (error) {
+        console.warn(
+          `[rito] required font could not be loaded, paint falls back: ${face.family} (${face.href}): ${String(error)}`,
+        );
+        return undefined;
+      }
     }),
   );
   if (!isCurrent()) return noopRollback;
-  return commitRequiredFontFaces(state, prepared, registry);
+  return commitRequiredFontFaces(
+    state,
+    prepared.filter((face) => face !== undefined),
+    registry,
+  );
 }
 
 function pendingRequiredFontFaces(
