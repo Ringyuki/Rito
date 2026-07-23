@@ -170,34 +170,29 @@ pub fn build_chapter_formatting_tree(
         },
         Some(body_source_node_index),
     );
-    // CSS propagates the body's background to the canvas, but the
-    // background positioning area stays the body's border box (measured
-    // against pinned Chromium: `center bottom` sits under the last line,
-    // percentage sizes resolve against the body box). Painting it on the
-    // body fragment reproduces that; color stays with the page wash so
-    // translucent colors never apply twice.
-    let page_background_image: Option<Value> = None;
-    if let Ok(resolved) = builder.inline.style(body_inline_style) {
-        let (plan, _) = block_box_paint(resolved);
-        if let Some((NodePaint::Box { paint, .. }, _)) = plan {
-            if let Some(background) = paint
+    // CSS propagates the body's background to the canvas. In the paged
+    // reader baseline (epub.js columns, and this engine's pages) the body
+    // box fills the page, so the positioning area is the page content
+    // box: the image paints at page level. Color stays with the page
+    // wash so translucent colors never apply twice.
+    let page_background_image = builder
+        .inline
+        .style(body_inline_style)
+        .ok()
+        .and_then(|resolved| {
+            let (plan, _) = block_box_paint(resolved);
+            let (NodePaint::Box { paint, .. }, _) = plan? else {
+                return None;
+            };
+            let background = paint
                 .as_object()
                 .and_then(|paint| paint.get("background"))
                 .and_then(Value::as_object)
-                .filter(|background| background.contains_key("image"))
-            {
-                let mut background = background.clone();
-                background.remove("color");
-                builder.node_paints.insert(
-                    root.0,
-                    NodePaint::Box {
-                        paint: serde_json::json!({ "background": background }),
-                        border_box: None,
-                    },
-                );
-            }
-        }
-    }
+                .filter(|background| background.contains_key("image"))?;
+            let mut background = background.clone();
+            background.remove("color");
+            Some(serde_json::json!({ "background": background }))
+        });
     let TreeBuilder {
         nodes: mut formatting_nodes,
         source_nodes,

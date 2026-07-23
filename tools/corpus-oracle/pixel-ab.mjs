@@ -89,8 +89,17 @@ for (const { idref, info } of chapterSpreads) {
   await oracle.goto(`file://${chapterEntry[1]}`, { timeout: 20000 }).catch(() => null);
   await oracle.evaluate(
     ({ serif, tinos }) => {
+      // Paginate the chapter the way a column reader does: the visible
+      // viewport is page one. Images fit the page box, the reader-UA
+      // convention this engine also applies.
       const reset = document.createElement('style');
-      reset.textContent = 'html { padding: 50px; box-sizing: border-box; } body { margin: 0; }';
+      reset.textContent = [
+        'html { width: 500px; height: 650px; padding: 50px; margin: 0;',
+        '  overflow: hidden; box-sizing: content-box; }',
+        'body { margin: 0; height: 650px; column-width: 500px;',
+        '  column-gap: 100px; column-fill: auto; }',
+        'img { max-width: 100%; max-height: 650px; }',
+      ].join('\n');
       document.head.prepend(reset);
       const declared = new Set();
       for (const face of document.fonts)
