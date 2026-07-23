@@ -60,17 +60,24 @@ async function openBook(file: File): Promise<void> {
   // splits the column gap into half-gap side paddings, so a 100px gap
   // yields the same 500px content column as rito's 50px margins; the
   // height drops the vertical margins to match rito's 650px content box.
-  epubBook = ePub(data.slice(0));
-  // `gap` is honoured by epub.js's layout but missing from its typings.
-  rendition = epubBook.renderTo(rightView, {
-    width: VIEW_WIDTH,
-    height: VIEW_HEIGHT - MARGIN * 2,
-    flow: 'paginated',
-    spread: 'none',
-    allowScriptedContent: false,
-    ...({ gap: MARGIN * 2 } as object),
-  });
-  await rendition.display();
+  try {
+    epubBook = ePub(data.slice(0));
+    // `gap` is honoured by epub.js's layout but missing from its typings.
+    rendition = epubBook.renderTo(rightView, {
+      width: VIEW_WIDTH,
+      height: VIEW_HEIGHT - MARGIN * 2,
+      flow: 'paginated',
+      spread: 'none',
+      allowScriptedContent: false,
+      ...({ gap: MARGIN * 2 } as object),
+    });
+    await rendition.display();
+  } catch (error) {
+    // The A side must render even when epub.js cannot open the book.
+    epubBook = undefined;
+    rendition = undefined;
+    rightView.textContent = `epub.js 打开失败：${String(error)}`;
+  }
 
   // Left: rito, same book, same metrics.
   const pinnedFontPolicy = await loadProductionPinnedFontPolicy();
