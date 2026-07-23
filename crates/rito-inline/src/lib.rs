@@ -231,6 +231,7 @@ impl ParleyInlineContext {
                 first_line_indent = resolved_text_indent(style);
             }
         }
+        push_cjk_punctuation_trims(&mut builder, &text, &runs);
         if first_line_indent > 0.0 {
             // Parley has no text-indent; an in-flow inline box at offset zero
             // occupies the same first-line space.
@@ -540,6 +541,104 @@ impl FormattingContext for ParleyInlineContext {
             min_content: f64::from(widths.min),
             max_content: f64::from(widths.max),
         })
+    }
+}
+
+/// Which glyph loses its blank half at a fullwidth-punctuation boundary.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum TrimmedGlyph {
+    Left,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PunctuationClass {
+    Open,
+    CloseOrStop,
+    Middle,
+    Other,
+}
+
+fn fullwidth_punctuation_class(character: char) -> PunctuationClass {
+    match character {
+        '「' | '『' | '（' | '【' | '〔' | '《' | '〈' | '〖' | '〘' | '〚' | '｛' | '［'
+        | '｟' => PunctuationClass::Open,
+        '」' | '』' | '）' | '】' | '〕' | '》' | '〉' | '〗' | '〙' | '〛' | '｝' | '］'
+        | '｠' | '。' | '、' | '，' | '．' | '：' | '；' => PunctuationClass::CloseOrStop,
+        '・' => PunctuationClass::Middle,
+        _ => PunctuationClass::Other,
+    }
+}
+
+/// The half-width trim at the boundary between `left` and `right`, if any.
+///
+/// Chromium ships `text-spacing-trim: normal` on by default for CJK text
+/// (Blink "Han kerning"): where two fullwidth punctuation glyphs meet, the
+/// blank half at the boundary collapses so the pair advances 1.5em instead
+/// of 2em. Characterized against pinned Chromium (scratchpad trim probes,
+/// 2026-07-23, 54-pair matrix): an opening bracket trims its blank left
+/// half after any fullwidth punctuation; a close/stop/colon trims its
+/// blank right half before any fullwidth punctuation; nothing trims
+/// against an ideograph or at a line edge, `！？・` never trim themselves,
+/// the trim applies with or without justification, and it crosses inline
+/// element boundaries.
+fn cjk_punctuation_trim(left: char, right: char) -> Option<TrimmedGlyph> {
+    let left_class = fullwidth_punctuation_class(left);
+    let right_class = fullwidth_punctuation_class(right);
+    if right_class == PunctuationClass::Open && left_class != PunctuationClass::Other {
+        return Some(TrimmedGlyph::Right);
+    }
+    if left_class == PunctuationClass::CloseOrStop && right_class != PunctuationClass::Other {
+        return Some(TrimmedGlyph::Left);
+    }
+    None
+}
+
+/// Applies the boundary trims as negative letter-spacing on the character
+/// left of each trimming boundary — geometrically identical to removing
+/// the blank half, and visible to shaping, line breaking, and run
+/// splitting alike (the distinct resolved style isolates the trimmed
+/// character in its own glyph run, so painted runs stay position-exact).
+fn push_cjk_punctuation_trims(
+    builder: &mut RangedBuilder<'_, [u8; 4]>,
+    text: &str,
+    runs: &[(std::ops::Range<usize>, &InlineFormattingStyleV1, usize)],
+) {
+    fn style_at<'a>(
+        cursor: &mut usize,
+        runs: &[(std::ops::Range<usize>, &'a InlineFormattingStyleV1, usize)],
+        byte: usize,
+    ) -> Option<&'a InlineFormattingStyleV1> {
+        while *cursor < runs.len() && runs[*cursor].0.end <= byte {
+            *cursor += 1;
+        }
+        runs.get(*cursor)
+            .filter(|(range, ..)| range.contains(&byte))
+            .map(|(_, style, _)| *style)
+    }
+    let mut cursor = 0usize;
+    let mut previous: Option<(usize, char)> = None;
+    for (byte, character) in text.char_indices() {
+        if let Some((left_byte, left)) = previous {
+            if let Some(trimmed) = cjk_punctuation_trim(left, character) {
+                let left_style = style_at(&mut cursor, runs, left_byte);
+                let trimmed_style = match trimmed {
+                    TrimmedGlyph::Left => left_style,
+                    TrimmedGlyph::Right => style_at(&mut cursor, runs, byte),
+                };
+                if let (Some(left_style), Some(trimmed_style)) = (left_style, trimmed_style) {
+                    let author = match left_style.text_flow.letter_spacing {
+                        LengthPercentage::Length(px) => px.get(),
+                        _ => 0.0,
+                    };
+                    builder.push(
+                        StyleProperty::LetterSpacing(author - 0.5 * trimmed_style.font.size.get()),
+                        left_byte..byte,
+                    );
+                }
+            }
+        }
+        previous = Some((byte, character));
     }
 }
 
@@ -1273,6 +1372,105 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (named - fallback).abs() > 1.0,
             "the named face must shape differently from the fallback: named {named}, fallback {fallback}"
+        );
+    }
+
+    /// Adjacent fullwidth punctuation loses the blank half at the
+    /// boundary, exactly as pinned Chromium's default
+    /// `text-spacing-trim: normal` measures: each trimming pair shortens
+    /// the line by half an em, and non-trimming neighbours stay full.
+    #[test]
+    fn cjk_punctuation_pairs_trim_half_an_em() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let shape_width = |text: &str| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(vec![FontFamily::Generic(
+                            rito_style_contract::GenericFontFamily::Serif,
+                        )])
+                        .expect("family list"),
+                        16.0,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            let outcome = context
+                .layout(
+                    &tree,
+                    FormattingNodeId(0),
+                    &ConstraintSpace::continuous(10_000.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("inline outcome root is a box fragment");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            line.children
+                .iter()
+                .map(|child| child.rect().width)
+                .sum::<f64>()
+        };
+        let plain = shape_width("春日春日春日");
+        assert!(
+            (plain - 96.0).abs() < 0.1,
+            "six ideographs at 16px: {plain}"
+        );
+        // close + open: the open's blank left half collapses.
+        let close_open = shape_width("春日。「春日");
+        assert!(
+            (close_open - (plain - 8.0)).abs() < 0.1,
+            "close+open trims half an em: {close_open}"
+        );
+        // close + close: the first close's blank right half collapses.
+        let close_close = shape_width("春日」。春日");
+        assert!(
+            (close_close - (plain - 8.0)).abs() < 0.1,
+            "close+close trims half an em: {close_close}"
+        );
+        // A close against an ideograph keeps its full advance.
+        let close_ideo = shape_width("春日。春日日");
+        assert!(
+            (close_ideo - plain).abs() < 0.1,
+            "close+ideograph must not trim: {close_ideo}"
+        );
+        // A middle dot never trims itself.
+        let middle = shape_width("春日・」春日");
+        assert!(
+            (middle - plain).abs() < 0.1,
+            "middle dot before a close must not trim: {middle}"
         );
     }
 
