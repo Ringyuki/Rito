@@ -80,6 +80,18 @@ Chromium on the books that exercise it — never when unit tests alone pass.
 - [ ] **Inline-box horizontal margin/padding/border** (the glyph-shifting
       kind) — ignored; inline vertical margins ignored.
 
+### Pixel-oracle findings (2026-07-23, konosuba summary page anatomy)
+
+- [ ] **Page wash must never be absent** — a rejected body projection
+      currently drops `page_paint` entirely and the canvas shows through
+      black; the fallback must paint the default white page.
+- [ ] **`background-size` arbitrary lengths/percentages** (`auto 40%`)
+      — contract supports only auto/cover/contain; the projection rejects
+      the node (which is what rejected the body above).
+- [ ] **`text-shadow` painting in the fragment path** — the canvas text
+      renderer has a textShadow channel; the fragment bridge drops it.
+      White-on-white designs (white glyphs + black halo) become invisible.
+
 ## Tier 3 — text and paint details
 
 - [ ] **`vertical-align` beyond baseline/sub/super** — length offsets and
