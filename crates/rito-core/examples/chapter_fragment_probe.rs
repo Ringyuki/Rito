@@ -34,6 +34,10 @@ struct ProbeRequest {
     named_fonts: Vec<ProbeNamedFont>,
     content_width_px: f64,
     chapter_idrefs: Vec<String>,
+    /// Keep footnote asides inline, matching a browser rendering the raw
+    /// chapter file. Defaults to the reader-filtered production flow.
+    #[serde(default)]
+    unfiltered_flow: bool,
 }
 
 #[derive(Deserialize)]
@@ -115,7 +119,11 @@ fn main() {
 
     let mut chapters = Vec::with_capacity(request.chapter_idrefs.len());
     for idref in &request.chapter_idrefs {
-        let built = match document.chapter_formatting_tree(&revision.revision_id, idref) {
+        let built = match if request.unfiltered_flow {
+            document.chapter_formatting_tree_unfiltered(&revision.revision_id, idref)
+        } else {
+            document.chapter_formatting_tree(&revision.revision_id, idref)
+        } {
             Ok(built) => built,
             Err(error) => {
                 chapters.push(ProbeChapter {

@@ -111,6 +111,27 @@ impl RuntimeDocument {
         revision_id: &str,
         idref: &str,
     ) -> EpubResult<ChapterFormattingTree> {
+        self.chapter_formatting_tree_with_flow(revision_id, idref, true)
+    }
+
+    /// Same seam with the raw document flow: footnote asides stay inline,
+    /// the way a browser renders the chapter file as-is. Oracles that diff
+    /// against native browser rendering read this; production pagination
+    /// never does.
+    pub fn chapter_formatting_tree_unfiltered(
+        &self,
+        revision_id: &str,
+        idref: &str,
+    ) -> EpubResult<ChapterFormattingTree> {
+        self.chapter_formatting_tree_with_flow(revision_id, idref, false)
+    }
+
+    fn chapter_formatting_tree_with_flow(
+        &self,
+        revision_id: &str,
+        idref: &str,
+        filter_footnotes: bool,
+    ) -> EpubResult<ChapterFormattingTree> {
         let revision = self.any_revision(revision_id).ok_or_else(|| {
             crate::epub::EpubError::new(format!("unknown revision: {revision_id}"))
         })?;
@@ -136,11 +157,15 @@ impl RuntimeDocument {
         };
         // The reader-semantic content flow: footnote asides leave the flow
         // before layout, the same selection production pagination uses.
-        let nodes = prepared
-            .filtered_footnote_nodes
-            .get(idref)
-            .map(Vec::as_slice)
-            .unwrap_or(&chapter.parsed.nodes);
+        let nodes = if filter_footnotes {
+            prepared
+                .filtered_footnote_nodes
+                .get(idref)
+                .map(Vec::as_slice)
+                .unwrap_or(&chapter.parsed.nodes)
+        } else {
+            &chapter.parsed.nodes
+        };
         let mut image_dimensions = BTreeMap::new();
         collect_image_dimensions(nodes, &self.document, &mut image_dimensions);
         build_chapter_formatting_tree(

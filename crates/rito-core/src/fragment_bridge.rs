@@ -167,7 +167,7 @@ pub fn build_chapter_formatting_tree(
         Some(body_source_node_index),
     );
     let TreeBuilder {
-        nodes: formatting_nodes,
+        nodes: mut formatting_nodes,
         source_nodes,
         node_paints,
         flow_item_sources,
@@ -176,6 +176,7 @@ pub fn build_chapter_formatting_tree(
         degradations,
         ..
     } = builder;
+    fold_through_collapsing_margins(&mut formatting_nodes, root, &mut layout)?;
     let tree = FormattingTree::with_styles(
         formatting_nodes,
         root,
@@ -1586,6 +1587,222 @@ pub(crate) fn tests_block_style() -> LayoutFormattingStyleV1 {
 
 /// A contentless chapter tree, for sources the parser found no body in:
 /// the chapter renders as one empty page instead of blocking the book.
+/// Folds CSS parent-child margin collapse into the tree statically.
+///
+/// The block engine collapses adjacent sibling margins but treats every
+/// container as a formatting-context root, so a paragraph's margin inside
+/// an undecorated wrapper `<div>` would stack with the wrapper's own
+/// margin where a browser collapses them through the boundary. Because
+/// the bridge tree is fully resolved, the through-collapse is a static
+/// property: an escaping child margin moves onto the parent (joined with
+/// the CSS collapse rule) and the child keeps zero. Runs bottom-up so a
+/// margin escapes any depth of plain wrappers, exactly like the cascade
+/// of adjoining margins in CSS 2 §8.3.1.
+///
+/// A boundary stops the escape when CSS says it must: padding (borders
+/// are already absorbed as padding by this bridge) on the meeting edge,
+/// a non-`visible` overflow (a new formatting context), or — for the
+/// bottom edge — a non-auto height or min-height.
+fn fold_through_collapsing_margins(
+    nodes: &mut [FormattingNode],
+    root: FormattingNodeId,
+    layout: &mut LayoutStyleTableV1,
+) -> EpubResult<()> {
+    fn resolved_px(value: LengthPercentageOrAuto) -> Option<f64> {
+        match value {
+            LengthPercentageOrAuto::Value(LengthPercentage::Length(px)) => {
+                Some(f64::from(px.get()))
+            }
+            LengthPercentageOrAuto::Auto => Some(0.0),
+            _ => None,
+        }
+    }
+    fn zero_padding(value: NonNegativeLengthPercentage) -> bool {
+        matches!(value.value(), LengthPercentage::Length(px) if px.get() == 0.0)
+            || matches!(value.value(), LengthPercentage::Percentage(pct) if pct.ratio() == 0.0)
+    }
+    /// CSS 2 §8.3.1 pairwise join: positives take the max, negatives the
+    /// most negative, mixed signs sum.
+    fn join(a: f64, b: f64) -> f64 {
+        a.max(0.0).max(b.max(0.0)) + a.min(0.0).min(b.min(0.0))
+    }
+    fn set_margin(
+        layout: &mut LayoutStyleTableV1,
+        nodes: &mut [FormattingNode],
+        node: FormattingNodeId,
+        top: Option<f64>,
+        bottom: Option<f64>,
+    ) -> EpubResult<()> {
+        let mut style = layout
+            .style(nodes[node.0 as usize].style)
+            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
+            .clone();
+        let as_length = |px: f64| -> EpubResult<LengthPercentageOrAuto> {
+            Ok(LengthPercentageOrAuto::Value(LengthPercentage::Length(
+                rito_style_contract::CssPx::new(px as f32)
+                    .map_err(|error| EpubError::new(format!("folded margin is finite: {error}")))?,
+            )))
+        };
+        if let Some(px) = top {
+            style.margin.top = as_length(px)?;
+        }
+        if let Some(px) = bottom {
+            style.margin.bottom = as_length(px)?;
+        }
+        nodes[node.0 as usize].style = layout
+            .intern(style)
+            .map_err(|error| EpubError::new(format!("folded style interns: {error}")))?;
+        Ok(())
+    }
+    fn fold(
+        nodes: &mut [FormattingNode],
+        node: FormattingNodeId,
+        layout: &mut LayoutStyleTableV1,
+        is_root: bool,
+    ) -> EpubResult<()> {
+        let children = nodes[node.0 as usize].children.clone();
+        for child in &children {
+            if matches!(
+                nodes[child.0 as usize].content,
+                FormattingNodeContent::BlockContainer
+            ) {
+                fold(nodes, *child, layout, false)?;
+            }
+        }
+        if children.is_empty() {
+            return Ok(());
+        }
+        let style = layout
+            .style(nodes[node.0 as usize].style)
+            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
+            .clone();
+        if style.overflow != OverflowV1::Visible {
+            return Ok(());
+        }
+        fn in_flow(
+            nodes: &[FormattingNode],
+            layout: &mut LayoutStyleTableV1,
+            id: FormattingNodeId,
+        ) -> bool {
+            layout
+                .style(nodes[id.0 as usize].style)
+                .map(|child| child.float == FloatV1::None)
+                .unwrap_or(false)
+        }
+        if zero_padding(style.padding.top) {
+            let first = children
+                .iter()
+                .copied()
+                .find(|id| in_flow(nodes, layout, *id));
+            if let Some(first) = first {
+                let first_style = layout
+                    .style(nodes[first.0 as usize].style)
+                    .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
+                let escape = resolved_px(first_style.margin.top);
+                let own = resolved_px(style.margin.top);
+                if let (Some(escape), Some(own)) = (escape, own) {
+                    if escape != 0.0 {
+                        set_margin(layout, nodes, first, Some(0.0), None)?;
+                        set_margin(layout, nodes, node, Some(join(own, escape)), None)?;
+                    }
+                }
+            }
+        }
+        let bottom_open = !is_root
+            && zero_padding(style.padding.bottom)
+            && style.height == PreferredSizeV1::Auto
+            && style.min_height == MinimumHeightV1::Auto;
+        if bottom_open {
+            let last = children
+                .iter()
+                .rev()
+                .copied()
+                .find(|id| in_flow(nodes, layout, *id));
+            if let Some(last) = last {
+                let last_style = layout
+                    .style(nodes[last.0 as usize].style)
+                    .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
+                let escape = resolved_px(last_style.margin.bottom);
+                let own = layout
+                    .style(nodes[node.0 as usize].style)
+                    .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
+                    .margin
+                    .bottom;
+                let own = resolved_px(own);
+                if let (Some(escape), Some(own)) = (escape, own) {
+                    if escape != 0.0 {
+                        set_margin(layout, nodes, last, None, Some(0.0))?;
+                        set_margin(layout, nodes, node, None, Some(join(own, escape)))?;
+                    }
+                }
+            }
+        }
+        if is_root {
+            root_margins_to_padding(nodes, node, layout)?;
+        }
+        Ok(())
+    }
+    /// The chapter body's margins — its own plus what collapsed into it —
+    /// become body padding: the browser offsets the whole flow by them
+    /// (horizontally too), and padding carries identical geometry through
+    /// this engine, applying on the first page only exactly like a margin
+    /// at an unforced fragmentainer start.
+    fn root_margins_to_padding(
+        nodes: &mut [FormattingNode],
+        root: FormattingNodeId,
+        layout: &mut LayoutStyleTableV1,
+    ) -> EpubResult<()> {
+        let mut style = layout
+            .style(nodes[root.0 as usize].style)
+            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
+            .clone();
+        let mut changed = false;
+        let mut absorb = |margin: &mut LengthPercentageOrAuto,
+                          padding: &mut NonNegativeLengthPercentage|
+         -> EpubResult<()> {
+            let Some(px) = resolved_px(*margin) else {
+                return Ok(());
+            };
+            if px <= 0.0 {
+                // Negative root margins would need clipping semantics the
+                // page does not have; leave them to the (dropped) default.
+                *margin = LengthPercentageOrAuto::Value(LengthPercentage::Length(
+                    rito_style_contract::CssPx::new(0.0).expect("zero is finite"),
+                ));
+                return Ok(());
+            }
+            let existing = match padding.value() {
+                LengthPercentage::Length(existing) => f64::from(existing.get()),
+                _ => return Ok(()),
+            };
+            *padding = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+                rito_style_contract::CssPx::new((existing + px) as f32)
+                    .map_err(|error| EpubError::new(format!("padding is finite: {error}")))?,
+            ));
+            *margin = LengthPercentageOrAuto::Value(LengthPercentage::Length(
+                rito_style_contract::CssPx::new(0.0).expect("zero is finite"),
+            ));
+            changed = true;
+            Ok(())
+        };
+        let mut margin = style.margin;
+        let mut padding = style.padding;
+        absorb(&mut margin.top, &mut padding.top)?;
+        absorb(&mut margin.bottom, &mut padding.bottom)?;
+        absorb(&mut margin.left, &mut padding.left)?;
+        absorb(&mut margin.right, &mut padding.right)?;
+        if changed {
+            style.margin = margin;
+            style.padding = padding;
+            nodes[root.0 as usize].style = layout
+                .intern(style)
+                .map_err(|error| EpubError::new(format!("folded style interns: {error}")))?;
+        }
+        Ok(())
+    }
+    fold(nodes, root, layout, true)
+}
+
 pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
     let mut layout = LayoutStyleTableV1::new(1);
     let style = layout
