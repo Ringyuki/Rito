@@ -111,6 +111,13 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 metadata.height,
                 chapter.page_background.as_deref().unwrap_or("#ffffff"),
             ));
+            if let Some(paint) = &chapter.page_background_image {
+                commands.push(DisplayCommand::paint_block(
+                    rect_value(0.0, 0.0, metadata.width, metadata.height),
+                    paint.clone(),
+                    None,
+                ));
+            }
             commands.push(DisplayCommand::push_state());
             commands.push(DisplayCommand::clip_rect(
                 rect_value(0.0, 0.0, metadata.width, metadata.height),

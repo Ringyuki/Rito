@@ -66,13 +66,22 @@ for (const { idref, info } of chapterSpreads) {
     (page) => globalThis.__ritoReader.findSpread(page),
     startPage,
   );
-  await engine.fill('#page', String(spread));
-  await engine.dispatchEvent('#page', 'change');
-  await engine
-    .waitForFunction((t) => globalThis.__ritoLastFrame?.spreadIndex === t, spread, {
-      timeout: 12000,
-    })
-    .catch(() => {});
+  // Drive the render until this spread's frame is confirmed on the
+  // canvas; a stale frame must never be diffed as this chapter.
+  let confirmed = false;
+  for (let attempt = 0; attempt < 30 && !confirmed; attempt += 1) {
+    await engine.evaluate((t) => globalThis.__ritoReader.renderSpread(t, 1), spread);
+    confirmed = await engine
+      .waitForFunction((t) => globalThis.__ritoLastFrame?.spreadIndex === t, spread, {
+        timeout: 1000,
+      })
+      .then(() => true)
+      .catch(() => false);
+  }
+  if (!confirmed) {
+    console.log(`  SKIP ${idref}: frame for spread ${spread} never confirmed`);
+    continue;
+  }
   await engine.waitForTimeout(400);
   const box = await engine.locator('#left-canvas').boundingBox();
   const aPng = await engine.screenshot({ clip: box });

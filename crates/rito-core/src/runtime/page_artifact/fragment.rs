@@ -703,6 +703,7 @@ mod tests {
             source_nodes: vec![None, None],
             node_paints: BTreeMap::new(),
             page_background: None,
+            page_background_image: None,
             flow_item_sources: BTreeMap::new(),
             node_anchors: BTreeMap::new(),
             node_tags: BTreeMap::new(),

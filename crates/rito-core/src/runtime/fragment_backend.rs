@@ -31,6 +31,8 @@ pub(super) struct FragmentBackendChapter {
     /// The chapter body's background color, painted as this chapter's
     /// page wash.
     pub(super) page_background: Option<String>,
+    /// The body's background image painted across the full page.
+    pub(super) page_background_image: Option<serde_json::Value>,
     pub(super) pages: Vec<FragmentBackendPage>,
 }
 
@@ -120,6 +122,7 @@ mod tests {
             idref: idref.to_owned(),
             block_count: 1,
             page_background: None,
+            page_background_image: None,
             pages: (0..page_count)
                 .map(|_| FragmentBackendPage {
                     artifact: FragmentPageArtifact::empty_for_tests(0, 100.0, 200.0),
@@ -292,6 +295,7 @@ impl RuntimeDocument {
                 idref,
                 block_count,
                 page_background: built.page_background.clone(),
+                page_background_image: built.page_background_image.clone(),
                 pages: backend_pages,
             });
         }

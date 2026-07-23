@@ -51,6 +51,10 @@ pub struct ChapterFormattingTree {
     /// — matching how the retained pipeline hoists a body background onto
     /// the page rather than painting a content-box rectangle.
     pub page_background: Option<String>,
+    /// The chapter body's background image, painted across the full page
+    /// like the CSS body-background canvas propagation. The `paintBlock`
+    /// paint object, color stripped (the wash owns it).
+    pub page_background_image: Option<Value>,
     /// Per inline-flow node: each item's interaction source, index-aligned
     /// with the flow's `InlineItem` list. Page artifacts join laid-out
     /// runs back to links, images, and source nodes through this table.
@@ -166,30 +170,28 @@ pub fn build_chapter_formatting_tree(
         },
         Some(body_source_node_index),
     );
-    // The body's own background image paints across the chapter root; its
-    // color stays with the page wash so translucent colors never apply
-    // twice.
-    if let Ok(resolved) = builder.inline.style(body_inline_style) {
-        let (plan, _) = block_box_paint(resolved);
-        if let Some((NodePaint::Box { paint, .. }, _)) = plan {
-            if let Some(background) = paint
+    // CSS propagates the body's background to the canvas: the body's
+    // background image paints across the whole page, not the body's
+    // content box. Color stays with the page wash so translucent colors
+    // never apply twice.
+    let page_background_image = builder
+        .inline
+        .style(body_inline_style)
+        .ok()
+        .and_then(|resolved| {
+            let (plan, _) = block_box_paint(resolved);
+            let (NodePaint::Box { paint, .. }, _) = plan? else {
+                return None;
+            };
+            let background = paint
                 .as_object()
                 .and_then(|paint| paint.get("background"))
                 .and_then(Value::as_object)
-                .filter(|background| background.contains_key("image"))
-            {
-                let mut background = background.clone();
-                background.remove("color");
-                builder.node_paints.insert(
-                    root.0,
-                    NodePaint::Box {
-                        paint: serde_json::json!({ "background": background }),
-                        border_box: None,
-                    },
-                );
-            }
-        }
-    }
+                .filter(|background| background.contains_key("image"))?;
+            let mut background = background.clone();
+            background.remove("color");
+            Some(serde_json::json!({ "background": background }))
+        });
     let TreeBuilder {
         nodes: mut formatting_nodes,
         source_nodes,
@@ -212,6 +214,7 @@ pub fn build_chapter_formatting_tree(
         source_nodes,
         node_paints,
         page_background,
+        page_background_image,
         flow_item_sources,
         node_anchors,
         node_tags,
@@ -2088,6 +2091,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         source_nodes: vec![None],
         node_paints: BTreeMap::new(),
         page_background: None,
+        page_background_image: None,
         flow_item_sources: BTreeMap::new(),
         node_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),

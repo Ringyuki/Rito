@@ -85,13 +85,26 @@ function validateBlockBackground(value, path) {
   const background = expectObject(value, path);
   validateOptionalField(background, 'color', path, expectString);
   validateOptionalField(background, 'image', path, expectString);
-  validateOptionalField(background, 'size', path, (field, fieldPath) =>
-    expectEnum(field, fieldPath, ['cover', 'contain', 'auto']),
-  );
+  validateOptionalField(background, 'size', path, validateBackgroundSize);
   validateOptionalField(background, 'repeat', path, (field, fieldPath) =>
     expectEnum(field, fieldPath, ['repeat', 'no-repeat']),
   );
   validateOptionalField(background, 'position', path, validateBackgroundPosition);
+}
+
+function validateBackgroundSize(value, path) {
+  if (typeof value === 'string') {
+    expectEnum(value, path, ['cover', 'contain', 'auto']);
+    return;
+  }
+  const size = expectObject(value, path);
+  validateBackgroundSizeAxis(requiredField(size, 'x', path), `${path}.x`);
+  validateBackgroundSizeAxis(requiredField(size, 'y', path), `${path}.y`);
+}
+
+function validateBackgroundSizeAxis(value, path) {
+  if (value === 'auto') return;
+  validateLengthPct(value, path);
 }
 
 function validateBackgroundPosition(value, path) {
