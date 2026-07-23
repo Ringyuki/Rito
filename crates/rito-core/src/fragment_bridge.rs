@@ -153,6 +153,7 @@ pub fn build_chapter_formatting_tree(
         flow_item_sources: BTreeMap::new(),
         node_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
+        strut_styles: BTreeMap::new(),
         degradations: Vec::new(),
         checked_block_styles: std::collections::HashMap::new(),
         checked_box_paints: std::collections::HashMap::new(),
@@ -200,16 +201,18 @@ pub fn build_chapter_formatting_tree(
         flow_item_sources,
         node_anchors,
         node_tags,
+        strut_styles,
         degradations,
         ..
     } = builder;
     fold_through_collapsing_margins(&mut formatting_nodes, root, &mut layout)?;
-    let tree = FormattingTree::with_styles(
+    let mut tree = FormattingTree::with_styles(
         formatting_nodes,
         root,
         FormattingTreeStyles { layout, inline },
     )
     .map_err(EpubError::new)?;
+    tree.set_strut_styles(strut_styles);
     Ok(ChapterFormattingTree {
         tree,
         source_nodes,
@@ -237,6 +240,8 @@ struct TreeBuilder<'a> {
     flow_item_sources: BTreeMap<u32, Vec<FlowItemSource>>,
     node_anchors: BTreeMap<u32, String>,
     node_tags: BTreeMap<u32, String>,
+    /// The container inline style per inline-flow node — the CSS strut.
+    strut_styles: BTreeMap<u32, StyleId>,
     degradations: Vec<String>,
     /// Capability verdict per interned style id, so each distinct style is
     /// checked once per chapter.
@@ -349,6 +354,7 @@ impl TreeBuilder<'_> {
             },
             None,
         );
+        self.strut_styles.insert(id.0, container_inline_style);
         self.flow_item_sources.insert(id.0, sources);
         built.push(id);
         Ok(())
@@ -418,6 +424,7 @@ impl TreeBuilder<'_> {
             } else {
                 (FormattingNodeContent::InlineFlow { items }, Some(sources))
             };
+            let is_flow = sources.is_some();
             let id = self.push_node(
                 FormattingNode {
                     style,
@@ -426,6 +433,9 @@ impl TreeBuilder<'_> {
                 },
                 Some(source_index),
             );
+            if is_flow {
+                self.strut_styles.insert(id.0, inline_style);
+            }
             if let Some(sources) = sources {
                 self.flow_item_sources.insert(id.0, sources);
             }

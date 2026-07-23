@@ -51,6 +51,10 @@ pub struct ParleyInlineContext {
     fonts: RefCell<FontContext>,
     layouts: RefCell<LayoutContext<[u8; 4]>>,
     registered_families: Vec<String>,
+    /// `line-height: normal` strut heights per inline style, measured by
+    /// shaping with the style's own resolved font (what a browser's strut
+    /// does), cached because struts repeat per paragraph.
+    normal_strut_cache: RefCell<std::collections::HashMap<u32, f64>>,
 }
 
 impl ParleyInlineContext {
@@ -96,6 +100,7 @@ impl ParleyInlineContext {
             fonts: RefCell::new(fonts),
             layouts: RefCell::new(LayoutContext::new()),
             registered_families,
+            normal_strut_cache: RefCell::new(std::collections::HashMap::new()),
         })
     }
 
@@ -133,6 +138,73 @@ impl ParleyInlineContext {
             self.registered_families.push(family_name.to_owned());
         }
         Ok(())
+    }
+
+    /// The paragraph's CSS strut height. Declared line-heights resolve
+    /// directly; `normal` is measured through the shaping engine with the
+    /// strut style's own resolved font — the same metrics a browser strut
+    /// uses — and cached per style.
+    fn resolved_strut_height(
+        &self,
+        tree: &FormattingTree,
+        node: FormattingNodeId,
+    ) -> Result<Option<f64>, LayoutError> {
+        let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
+            return Ok(None);
+        };
+        let Some(styles) = tree.styles() else {
+            return Ok(None);
+        };
+        let style_id = match tree.strut_style(node) {
+            Some(style) => style,
+            None => match items.first() {
+                Some(InlineItem::Text { style, .. }) | Some(InlineItem::Image { style, .. }) => {
+                    *style
+                }
+                None => return Ok(None),
+            },
+        };
+        let style = styles
+            .inline
+            .style(style_id)
+            .map_err(|error| LayoutError::Invalid(error.to_string()))?;
+        Ok(Some(match style.font.line_height {
+            LineHeight::Number(number) => {
+                f64::from(number.get()) * f64::from(style.font.size.get())
+            }
+            LineHeight::Length(px) => f64::from(px.get()),
+            LineHeight::Normal => {
+                if let Some(cached) = self.normal_strut_cache.borrow().get(&style_id.raw()) {
+                    return Ok(Some(*cached));
+                }
+                let measured = self.measure_normal_line_height(style)?;
+                self.normal_strut_cache
+                    .borrow_mut()
+                    .insert(style_id.raw(), measured);
+                measured
+            }
+        }))
+    }
+
+    /// Shapes a single space with the style to read the font's `normal`
+    /// line height from the engine itself.
+    fn measure_normal_line_height(
+        &self,
+        style: &InlineFormattingStyleV1,
+    ) -> Result<f64, LayoutError> {
+        let mut fonts = self.fonts.borrow_mut();
+        let mut layouts = self.layouts.borrow_mut();
+        let text = " ";
+        let mut builder = layouts.ranged_builder(&mut fonts, text, 1.0, true);
+        push_item_styles(&mut builder, style, 0..text.len());
+        let mut layout = builder.build(text);
+        layout.break_all_lines(None);
+        let height = layout
+            .lines()
+            .next()
+            .map(|line| f64::from(line.metrics().line_height))
+            .unwrap_or_else(|| 1.2 * f64::from(style.font.size.get()));
+        Ok(height)
     }
 
     fn build_layout(
@@ -323,7 +395,7 @@ impl FormattingContext for ParleyInlineContext {
         if !matches!(alignment, parley::Alignment::Start) {
             layout.align(alignment, parley::AlignmentOptions::default());
         }
-        let strut_height = paragraph_strut_height(tree, root)?;
+        let strut_height = self.resolved_strut_height(tree, root)?;
         let item_shifts: Vec<f64> = match &tree.node(root).content {
             FormattingNodeContent::InlineFlow { items } => items
                 .iter()
@@ -473,7 +545,9 @@ impl FormattingContext for ParleyInlineContext {
                 let envelope = f64::from(metrics.ascent) + f64::from(metrics.descent);
                 envelope.max(strut_height.unwrap_or(0.0))
             } else {
-                f64::from(metrics.line_height)
+                // Every line box includes the strut: the container's own
+                // line-height floors lines whose runs declare less.
+                f64::from(metrics.line_height).max(strut_height.unwrap_or(0.0))
             };
             let line_height = base_height + max_rise;
             running_top += line_height;
@@ -987,35 +1061,6 @@ pub fn plain_paragraph_style(
 /// The paragraph's CSS strut height: its specified line-height in px, or
 /// `None` for `normal` (where the content envelope wins). Inherited, so
 /// the first item's style carries the paragraph value.
-fn paragraph_strut_height(
-    tree: &FormattingTree,
-    node: FormattingNodeId,
-) -> Result<Option<f64>, LayoutError> {
-    let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
-        return Ok(None);
-    };
-    let Some(styles) = tree.styles() else {
-        return Ok(None);
-    };
-    let Some(item) = items.first() else {
-        return Ok(None);
-    };
-    let style_id = match item {
-        InlineItem::Text { style, .. } | InlineItem::Image { style, .. } => *style,
-    };
-    let style = styles
-        .inline
-        .style(style_id)
-        .map_err(|error| LayoutError::Invalid(error.to_string()))?;
-    Ok(match style.font.line_height {
-        LineHeight::Normal => None,
-        LineHeight::Number(number) => {
-            Some(f64::from(number.get()) * f64::from(style.font.size.get()))
-        }
-        LineHeight::Length(px) => Some(f64::from(px.get())),
-    })
-}
-
 /// Maps the computed `text-align` onto Parley's line alignment. The
 /// Servo-internal `-moz-*` values behave as their physical counterparts.
 fn paragraph_alignment(value: TextAlign) -> parley::Alignment {

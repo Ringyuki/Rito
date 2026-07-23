@@ -120,6 +120,10 @@ pub struct FormattingTree {
     nodes: Vec<FormattingNode>,
     root: FormattingNodeId,
     styles: Option<FormattingTreeStyles>,
+    /// CSS strut styles per inline-flow node: the block container's own
+    /// inline style, whose line-height floors every line box the flow
+    /// produces (CSS 2 §10.8.1).
+    strut_styles: std::collections::BTreeMap<u32, StyleId>,
     fingerprint: u64,
 }
 
@@ -143,6 +147,7 @@ impl FormattingTree {
             nodes,
             root,
             styles: None,
+            strut_styles: std::collections::BTreeMap::new(),
             fingerprint,
         })
     }
@@ -187,6 +192,7 @@ impl FormattingTree {
             nodes,
             root,
             styles: Some(styles),
+            strut_styles: std::collections::BTreeMap::new(),
             fingerprint,
         })
     }
@@ -198,6 +204,24 @@ impl FormattingTree {
     /// Trees are immutable, so an equal fingerprint means byte-equal layout
     /// input; the fragment cache uses it to reject entries recorded against
     /// a different tree that happens to reuse the same dense node ids.
+    /// Records the strut style for inline-flow nodes and folds the
+    /// mapping into the tree fingerprint (struts change layout).
+    pub fn set_strut_styles(&mut self, strut_styles: std::collections::BTreeMap<u32, StyleId>) {
+        let mut mixer = FnvMixer::new();
+        mixer.mix(&self.fingerprint.to_le_bytes());
+        for (node, style) in &strut_styles {
+            mixer.mix(&node.to_le_bytes());
+            mixer.mix(&style.raw().to_le_bytes());
+        }
+        self.fingerprint = mixer.finish();
+        self.strut_styles = strut_styles;
+    }
+
+    /// The strut style recorded for an inline-flow node, if any.
+    pub fn strut_style(&self, node: FormattingNodeId) -> Option<StyleId> {
+        self.strut_styles.get(&node.0).copied()
+    }
+
     pub fn fingerprint(&self) -> u64 {
         self.fingerprint
     }
