@@ -2099,14 +2099,25 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
 /// entry for it: an undecorated 16px generic-serif paragraph. Inherited
 /// context is lost, but the text renders.
 fn fallback_inline_formatting_style() -> rito_style_contract::InlineFormattingStyleV1 {
-    rito_inline::plain_paragraph_style(
+    let mut style = rito_inline::plain_paragraph_style(
         rito_style_contract::FontFamilies::new(vec![rito_style_contract::FontFamily::Generic(
             rito_style_contract::GenericFontFamily::Serif,
         )])
         .expect("one generic family is a valid stack"),
         16.0,
         0.0,
+    );
+    // The harness helper paints an opaque black background; a fallback
+    // node must inherit the page instead of washing it out.
+    style.paint.background = rito_style_contract::AbsoluteColor::new(
+        rito_style_contract::AbsoluteColorSpace::Srgb,
+        [0.0, 0.0, 0.0],
+        0.0,
+        rito_style_contract::ColorNoneFlags::new(false, false, false, false),
     )
+    .expect("transparent is finite")
+    .into();
+    style
 }
 
 fn anonymous_block_style() -> LayoutFormattingStyleV1 {
