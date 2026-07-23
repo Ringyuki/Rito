@@ -278,14 +278,19 @@ impl RuntimeDocument {
             for page in pages {
                 collect_page_anchors(&page.root, &built.node_anchors, page_index, &mut anchors);
                 backend_pages.push(FragmentBackendPage {
+                    // Artifact geometry is spread-content space (the
+                    // legacy backend's convention, which every consumer —
+                    // the selection mapper, tap targets, search bounds —
+                    // translates to the viewport). Page margins must not
+                    // be baked in here.
                     artifact: FragmentPageArtifact::build(
                         page_index,
                         config.page_width,
                         config.page_height,
                         &page.root,
                         &built,
-                        config.margin_left,
-                        config.margin_top,
+                        0.0,
+                        0.0,
                     ),
                     commands: page.commands,
                 });
