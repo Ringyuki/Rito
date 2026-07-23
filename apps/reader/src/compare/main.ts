@@ -101,6 +101,8 @@ async function openBook(file: File): Promise<void> {
   if (reader.pagination && !reader.pagination.complete) {
     await reader.pagination.ensureSpread(Number.MAX_SAFE_INTEGER).catch(() => undefined);
   }
+  // Pixel-oracle hook: tooling reads chapter starts and drives spreads.
+  (globalThis as { __ritoReader?: unknown }).__ritoReader = reader;
   drop.hidden = true;
   stage.hidden = false;
   totalLabel.textContent = `/ ${String(reader.totalSpreads - 1)}`;
