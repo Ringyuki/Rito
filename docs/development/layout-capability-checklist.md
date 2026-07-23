@@ -19,17 +19,33 @@ Chromium on the books that exercise it — never when unit tests alone pass.
       against pinned Chromium with a 54-pair matrix and locked by unit
       test; corpus break agreement moved 25% → 77% across this plus the
       oracle/margin work (`tools/corpus-oracle`).
+- [x] **Chromium line-break tailoring (CJK curly quotes, ASCII table)** —
+      2026-07-23: `“”‘’` reclassified as open/close brackets in CJK
+      context plus Parley's built-in Chromium ASCII table, via
+      `set_line_break_override`. Corpus break agreement 77% → 96%
+      (47/101 chapters break-perfect, worstDy median 1.59px).
+- [ ] **Line-end closing-bracket trim** — characterized 2026-07-23:
+      pinned Chromium fits a trailing closing bracket (`」』）》`, not
+      `。、！？`) into the line at half width. Needs manual
+      `BreakLines`/`break_next_with_length` driving in rito-inline;
+      accounts for a slice of the remaining 4% break misses (e.g. the
+      `《Zero》` line in Fate_Zero chapter7).
 - [ ] **Full margin-collapse semantics between blocks** — parent-child
       through-collapse and root (body) margins are now folded statically
-      into the tree (2026-07-23: perfect-break chapter worstDy median
-      4.0px → 2.5px, first-line offset ≈0 for most books). Remaining:
+      into the tree, including percentage body margins (2026-07-23:
+      perfect-break chapter worstDy median 4.0px → 1.59px, first-line
+      offset ≈0 for most books). Remaining:
       self-collapsing empty blocks and the residual dy tail (≤12px) on a
       few books.
 - [ ] **Line-height cascade details** — in progress (cascade provenance is
       already reported to the materializer). Residual 1–6px line drift in
       some books.
-- [ ] **Forced page breaks (`break-before/after: always`)** — ignored with
-      a degradation note. Common in real EPUBs; cheap high-value fix.
+- [x] **Forced page breaks (`break-before/after: always`)** — implemented
+      2026-07-23 in the block engine (a break at the top of a fresh
+      fragmentainer is already satisfied); unit-tested. Corpus books only
+      exercise `page-break-inside: avoid`, tracked below.
+- [ ] **`break-inside: avoid` / `page-break-inside: avoid`** — admitted as
+      a no-op; several corpus books declare it on illustration blocks.
 
 ## Tier 2 — whole feature classes, currently approximated
 
@@ -45,9 +61,10 @@ Chromium on the books that exercise it — never when unit tests alone pass.
       non-auto inset ignores the offset.
 - [ ] **Floated images (line-box wrapping)** — block floats with clearance
       are implemented; floated images degrade to in-flow.
-- [ ] **Preserved white space (`pre`, `pre-wrap`, `nowrap`)** — still a
-      fail path in the fragment tree build (one of the few remaining
-      non-fail-open sites; `<pre>`-heavy books will hit it).
+- [ ] **Preserved white space (`pre`, `pre-wrap`, `nowrap`)** — no longer
+      a fail path (2026-07-23: spaces are kept, wrapping still applies);
+      hard line breaks inside `pre` remain approximate until forced inline
+      breaks land.
 - [ ] **Sizing gaps** — `calc()` drops its percentage component;
       `max-content`/`min-content`/`fit-content`/`stretch` become auto;
       basis-less percentage heights become 0;
