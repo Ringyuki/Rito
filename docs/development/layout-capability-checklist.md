@@ -106,12 +106,14 @@ columns, reader-UA image fitting) — `tools/corpus-oracle/pixel-ab.mjs`.
 Konosuba chapter-first-page mismatch: 23.5% → 15.8% average across the
 paint fixes; summary 98.5% → 9.6%. Remaining top offenders:
 
-- [ ] **Full-bleed image pages** — `duokan-image-single`/`cover`-class
-      pages fill the whole 600×750 page in the browser baseline; the
-      engine letterboxes them inside the 500×650 content box
-      (cover/colorpages at 41–46% mismatch).
-- [ ] **Image-page fit parity** — residual scaling/centering differences
-      on Character_Profile/Houji2/Next pages (24–32%).
+- [ ] **Image sizing = browser semantics** (decision recorded
+      2026-07-24: the baseline is the browser's own behavior with the
+      book's CSS — natural/used CSS size, page clipping included; no
+      synthetic reader-fit rules on either side). The engine's inherited
+      fit-to-page policy (`image_display_size` contain/max-page) must be
+      replaced with spec sizing + page clip; the oracle no longer injects
+      image rules. Covers cover/colorpages/Character_Profile/Houji2/Next
+      (24–46% mismatch).
 
 ## Tier 3 — text and paint details
 

@@ -90,15 +90,14 @@ for (const { idref, info } of chapterSpreads) {
   await oracle.evaluate(
     ({ serif, tinos }) => {
       // Paginate the chapter the way a column reader does: the visible
-      // viewport is page one. Images fit the page box, the reader-UA
-      // convention this engine also applies.
+      // viewport is page one. No synthetic image rules — the baseline is
+      // the browser's own behavior with the book's CSS, clipping included.
       const reset = document.createElement('style');
       reset.textContent = [
         'html { width: 500px; height: 650px; padding: 50px; margin: 0;',
         '  overflow: hidden; box-sizing: content-box; }',
         'body { margin: 0; height: 650px; column-width: 500px;',
         '  column-gap: 100px; column-fill: auto; }',
-        'img { max-width: 100%; max-height: 650px; }',
       ].join('\n');
       document.head.prepend(reset);
       const declared = new Set();
