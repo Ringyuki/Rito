@@ -31,8 +31,8 @@ use super::{
         materialize_stylo_chapter, StyloMaterializeInput, StyloMaterializeRejection,
     },
     stylo_sources::{
-        select_stylo_sources, validate_stylo_source_arena, StyleCapabilityReport,
-        StyloSourceRejection,
+        select_stylo_sources, validate_stylo_source_arena, StyleCapabilityImpact,
+        StyleCapabilityReport, StyloSourceRejection,
     },
     ChapterStyleOptions, DEFAULT_UA_STYLESHEET,
 };
@@ -278,7 +278,9 @@ fn try_resolve_with_stylo(
         input.author_stylesheets,
     )
     .map_err(StyleBackendError::SourceSelection)?;
-    validate_stylo_source_arena(source_arena).map_err(StyleBackendError::SourceArena)?;
+    let mut capabilities = selection.capabilities;
+    validate_stylo_source_arena(source_arena, &mut capabilities)
+        .map_err(StyleBackendError::SourceArena)?;
     let viewport = stylo_viewport(viewport)?;
 
     // During migration this preserves Rito's established UA policy while
@@ -312,7 +314,6 @@ fn try_resolve_with_stylo(
     let projection = document
         .resolve_production_slice_v1()
         .map_err(StyleBackendError::CascadeOrProjection)?;
-    let capabilities = selection.capabilities;
     let (inline, layout) = projection.into_parts();
     drop(document);
     let resolved = materialize_stylo_chapter(StyloMaterializeInput {
@@ -325,6 +326,9 @@ fn try_resolve_with_stylo(
         options,
     })
     .map_err(StyleBackendError::Materialization)?;
+    for subject in &resolved.degradations {
+        capabilities.record(StyleCapabilityImpact::Degraded, 0, subject.clone());
+    }
     Ok(ResolvedPreparedChapterStyle {
         styled_nodes: resolved.styled_nodes,
         pagination_styled_nodes: resolved.pagination_styled_nodes,

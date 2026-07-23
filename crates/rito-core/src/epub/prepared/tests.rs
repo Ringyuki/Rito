@@ -254,7 +254,7 @@ fn page_break_aliases_materialize_from_stylo_without_legacy_css() {
 }
 
 #[test]
-fn unsupported_page_break_value_fails_closed_without_legacy_css() {
+fn unsupported_page_break_value_degrades_to_an_inherit_only_node() {
     let document = document_with_stylesheet("styles/main.css", "p { break-before: left; }");
     let base = prepare_loaded_document_base(&document);
     let chapter = parse_loaded_chapter_source(&chapter_with_href(
@@ -262,9 +262,12 @@ fn unsupported_page_break_value_fails_closed_without_legacy_css() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>text</p></body></html>"#,
     ));
 
-    let error = try_resolve_prepared_with_page_paint(&base.stylesheet_ledger, &chapter)
-        .expect_err("unsupported page-break semantics must fail closed");
-    assert!(error.to_string().contains("materialization rejected"));
+    // `left`/`right` page selection has no consumer slot; the paragraph
+    // renders with its defaults instead of refusing the chapter.
+    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
+    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
+    assert_eq!(paragraph.style["display"], json!("block"));
+    assert_eq!(paragraph.style["pageBreakBefore"], json!("auto"));
     assert!(base
         .stylesheet_ledger
         .legacy_artifacts_if_initialized()
@@ -321,7 +324,7 @@ fn bounded_single_image_flex_wrapper_retains_exact_centering_contract() {
 }
 
 #[test]
-fn bounded_single_image_flex_rejects_multiple_items_without_legacy_fallback() {
+fn bounded_single_image_flex_with_multiple_items_lays_out_as_block() {
     let document = document_with_stylesheet(
         "styles/main.css",
         ".duokan-image-single { display: flex; height: 93vh; \
@@ -333,9 +336,12 @@ fn bounded_single_image_flex_rejects_multiple_items_without_legacy_fallback() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><div class="illus duokan-image-single"><img class="w" src="one.jpg" /><img class="w" src="two.jpg" /></div></body></html>"#,
     ));
 
-    let error = try_resolve_prepared_with_page_paint(&base.stylesheet_ledger, &chapter)
-        .expect_err("multi-child flex must fail closed");
-    assert!(error.to_string().contains("materialization rejected"));
+    // Outside the bounded single-image subset, the flex container lays out
+    // as a block so both images still render in flow.
+    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
+    let wrapper = find_tag(&resolved, "div").expect("flex wrapper");
+    assert_eq!(wrapper.style["display"], json!("block"));
+    assert_eq!(wrapper.children.len(), 2);
     assert!(base
         .stylesheet_ledger
         .legacy_artifacts_if_initialized()
@@ -343,7 +349,7 @@ fn bounded_single_image_flex_rejects_multiple_items_without_legacy_fallback() {
 }
 
 #[test]
-fn bounded_single_image_flex_rejects_auto_item_margins_before_layout() {
+fn bounded_single_image_flex_with_auto_item_margins_degrades_to_flow() {
     let document = document_with_stylesheet(
         "styles/main.css",
         ".single { display: flex; height: 240px; justify-content: center; \
@@ -355,9 +361,11 @@ fn bounded_single_image_flex_rejects_auto_item_margins_before_layout() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><div class="single"><img src="one.jpg" /></div></body></html>"#,
     ));
 
-    let error = try_resolve_prepared_with_page_paint(&base.stylesheet_ledger, &chapter)
-        .expect_err("auto-margin flex item must fail before a StyledNode is emitted");
-    assert!(error.to_string().contains("materialization rejected"));
+    // An auto-margin item disqualifies the bounded flex mode; the container
+    // degrades to flow layout instead of refusing the chapter.
+    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
+    let wrapper = find_tag(&resolved, "div").expect("flex wrapper");
+    assert_eq!(wrapper.style["display"], json!("block"));
     assert!(base
         .stylesheet_ledger
         .legacy_artifacts_if_initialized()
@@ -445,7 +453,7 @@ fn border_radius_shorthand_uses_the_audited_first_component_contract() {
 }
 
 #[test]
-fn unsupported_transform_operation_returns_error_without_legacy_fallback() {
+fn unsupported_transform_operation_degrades_to_an_inherit_only_node() {
     let document = document_with_stylesheet("styles/main.css", ".badge { transform: scale(1.2); }");
     let base = prepare_loaded_document_base(&document);
     let chapter = parse_loaded_chapter_source(&chapter_with_href(
@@ -453,9 +461,12 @@ fn unsupported_transform_operation_returns_error_without_legacy_fallback() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><span class="badge">fallback</span></body></html>"#,
     ));
 
-    let error = try_resolve_prepared_with_page_paint(&base.stylesheet_ledger, &chapter)
-        .expect_err("unsupported transform must fail closed");
-    assert!(error.to_string().contains("materialization rejected"));
+    // The projection cannot represent scale(); the span falls back to an
+    // inherit-only style and — being semantically inline — stays inline.
+    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
+    let badge = find_tag(&resolved, "span").expect("styled span");
+    assert_eq!(badge.style["display"], json!("inline"));
+    assert_eq!(badge.style["transform"], json!([]));
     assert!(base
         .stylesheet_ledger
         .legacy_artifacts_if_initialized()
@@ -463,7 +474,7 @@ fn unsupported_transform_operation_returns_error_without_legacy_fallback() {
 }
 
 #[test]
-fn unsupported_background_value_returns_error_without_legacy_fallback() {
+fn unsupported_background_value_drops_the_background_paint() {
     let document = document_with_stylesheet(
         "styles/main.css",
         "p { background-image: linear-gradient(red, blue); }",
@@ -474,9 +485,11 @@ fn unsupported_background_value_returns_error_without_legacy_fallback() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>fallback</p></body></html>"#,
     ));
 
-    let error = try_resolve_prepared_with_page_paint(&base.stylesheet_ledger, &chapter)
-        .expect_err("unsupported background must fail closed");
-    assert!(error.to_string().contains("materialization rejected"));
+    // Gradients have no paint slot; the paragraph renders without its
+    // background instead of refusing the chapter.
+    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
+    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
+    assert!(!paragraph.style.contains_key("backgroundImage"));
     assert!(base
         .stylesheet_ledger
         .legacy_artifacts_if_initialized()

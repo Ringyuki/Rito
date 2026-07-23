@@ -16,23 +16,13 @@ use super::transform::materialize_transform;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MaterializeField {
-    Display,
     JustifyContent,
     AlignItems,
-    FontFamily,
     LetterSpacing,
     WordSpacing,
     TextIndent,
-    WhiteSpace,
-    LineBreak,
-    TextTransform,
-    Bidi,
     Margin,
-    FlexItemMargin,
     Padding,
-    BorderRadius,
-    VerticalAlign,
-    TextDecoration,
     Width,
     Height,
     MaxWidth,
@@ -42,11 +32,7 @@ pub(crate) enum MaterializeField {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MaterializeValueError {
     UnsupportedConsumerValue { field: MaterializeField },
-    LinearLengthNotSupported { field: MaterializeField },
-    PercentageNotSupported { field: MaterializeField },
     NonSrgbColor,
-    MissingColorComponent,
-    OutOfGamutSrgb,
     Background(BackgroundMaterializeError),
 }
 
@@ -137,7 +123,8 @@ fn materialize_font(
 
 pub(crate) fn serialize_font_families(style: &rito_style_contract::FontStyleV1) -> Result<String> {
     if style.families.as_slice().is_empty() {
-        return Err(unsupported(MaterializeField::FontFamily));
+        super::note_degradation("empty font-family stack: UA serif applied");
+        return Ok("serif".to_owned());
     }
     Ok(style
         .families
@@ -173,18 +160,18 @@ fn materialize_text_flow(
     output: &mut Map<String, Value>,
     style: &InlineFormattingStyleV1,
 ) -> Result<()> {
-    materialize_bidi(style)?;
+    materialize_bidi(style);
     let text = &style.text_flow;
     insert_string(output, "textAlign", text_align(text.text_align));
     insert_string(output, "textJustify", text_justify(text.text_justify));
-    insert_string(output, "textTransform", text_transform(text)?);
-    insert_string(output, "whiteSpace", white_space(text)?);
+    insert_string(output, "textTransform", text_transform(text));
+    insert_string(output, "whiteSpace", white_space(text));
     insert_string(
         output,
         "wordBreak",
         word_break(text.word_break, text.overflow_wrap),
     );
-    insert_string(output, "lineBreak", line_break(text.line_break)?);
+    insert_string(output, "lineBreak", line_break(text.line_break));
     insert_number(
         output,
         "letterSpacing",
@@ -196,7 +183,7 @@ fn materialize_text_flow(
         absolute_length(text.word_spacing, MaterializeField::WordSpacing)?,
     );
     if text.text_indent.hanging || text.text_indent.each_line {
-        return Err(unsupported(MaterializeField::TextIndent));
+        super::note_degradation("text-indent hanging/each-line ignored");
     }
     insert_number(
         output,
@@ -213,14 +200,16 @@ fn materialize_text_flow(
     Ok(())
 }
 
-fn materialize_bidi(style: &InlineFormattingStyleV1) -> Result<()> {
+fn materialize_bidi(style: &InlineFormattingStyleV1) {
+    // Bidi reordering and vertical writing modes are not implemented; the
+    // text lays out in horizontal left-to-right order, which keeps every
+    // glyph readable even where the author asked for another flow.
     if style.bidi.direction != Direction::LeftToRight
         || style.bidi.unicode_bidi != UnicodeBidi::Normal
         || style.bidi.writing_mode != WritingMode::HorizontalTopToBottom
     {
-        return Err(unsupported(MaterializeField::Bidi));
+        super::note_degradation("bidi/writing-mode: laid out horizontal left-to-right");
     }
-    Ok(())
 }
 
 fn text_align(value: TextAlign) -> &'static str {
@@ -241,26 +230,30 @@ fn text_justify(value: TextJustify) -> &'static str {
     }
 }
 
-fn text_transform(style: &rito_style_contract::InlineTextFlowV1) -> Result<&'static str> {
+fn text_transform(style: &rito_style_contract::InlineTextFlowV1) -> &'static str {
     if style.text_transform.full_width || style.text_transform.full_size_kana {
-        return Err(unsupported(MaterializeField::TextTransform));
+        super::note_degradation("text-transform full-width/full-size-kana ignored");
     }
-    Ok(match style.text_transform.case {
+    match style.text_transform.case {
         TextTransformCase::None => "none",
         TextTransformCase::Uppercase => "uppercase",
         TextTransformCase::Lowercase => "lowercase",
         TextTransformCase::Capitalize => "capitalize",
-    })
+    }
 }
 
-fn white_space(style: &rito_style_contract::InlineTextFlowV1) -> Result<&'static str> {
+fn white_space(style: &rito_style_contract::InlineTextFlowV1) -> &'static str {
     match (style.white_space_collapse, style.text_wrap_mode) {
-        (WhiteSpaceCollapse::Collapse, TextWrapMode::Wrap) => Ok("normal"),
-        (WhiteSpaceCollapse::Collapse, TextWrapMode::NoWrap) => Ok("nowrap"),
-        (WhiteSpaceCollapse::Preserve, TextWrapMode::NoWrap) => Ok("pre"),
-        (WhiteSpaceCollapse::Preserve, TextWrapMode::Wrap) => Ok("pre-wrap"),
+        (WhiteSpaceCollapse::Collapse, TextWrapMode::Wrap) => "normal",
+        (WhiteSpaceCollapse::Collapse, TextWrapMode::NoWrap) => "nowrap",
+        (WhiteSpaceCollapse::Preserve, TextWrapMode::NoWrap) => "pre",
+        (WhiteSpaceCollapse::Preserve, TextWrapMode::Wrap) => "pre-wrap",
+        // `pre-line` and `break-spaces` have no consumer slot. `pre-wrap`
+        // keeps the author's hard breaks — the property's usual intent —
+        // at the cost of also preserving runs of spaces.
         (WhiteSpaceCollapse::PreserveBreaks | WhiteSpaceCollapse::BreakSpaces, _) => {
-            Err(unsupported(MaterializeField::WhiteSpace))
+            super::note_degradation("white-space pre-line/break-spaces treated as pre-wrap");
+            "pre-wrap"
         }
     }
 }
@@ -277,12 +270,15 @@ fn word_break(value: WordBreak, overflow: OverflowWrap) -> &'static str {
     }
 }
 
-fn line_break(value: LineBreak) -> Result<&'static str> {
+fn line_break(value: LineBreak) -> &'static str {
     match value {
-        LineBreak::Auto => Ok("auto"),
-        LineBreak::Normal => Ok("normal"),
-        LineBreak::Strict => Ok("strict"),
-        LineBreak::Loose | LineBreak::Anywhere => Err(unsupported(MaterializeField::LineBreak)),
+        LineBreak::Auto => "auto",
+        LineBreak::Normal => "normal",
+        LineBreak::Strict => "strict",
+        LineBreak::Loose | LineBreak::Anywhere => {
+            super::note_degradation("line-break loose/anywhere treated as normal");
+            "normal"
+        }
     }
 }
 
@@ -294,7 +290,7 @@ fn materialize_fragment(
     materialize_non_negative_sides(output, "padding", style.fragment.padding)?;
     materialize_border(output, style)?;
     materialize_radius(output, style.fragment.border_radii)?;
-    insert_string(output, "verticalAlign", vertical_align(style)?);
+    insert_string(output, "verticalAlign", vertical_align(style));
     Ok(())
 }
 
@@ -414,38 +410,46 @@ fn materialize_radius(output: &mut Map<String, Value>, radii: BorderRadii) -> Re
         LengthPercentage::Percentage(value) => {
             insert_number(output, "borderRadiusPct", value.percent())
         }
-        LengthPercentage::Linear { .. } => {
-            return Err(MaterializeValueError::LinearLengthNotSupported {
-                field: MaterializeField::BorderRadius,
-            });
+        LengthPercentage::Linear { length, .. } => {
+            super::note_degradation("calc() border-radius: percentage component dropped");
+            insert_number(output, "borderRadius", length.get());
         }
     }
     Ok(())
 }
 
-fn vertical_align(style: &InlineFormattingStyleV1) -> Result<&'static str> {
+fn vertical_align(style: &InlineFormattingStyleV1) -> &'static str {
     let fragment = &style.fragment;
     if fragment.baseline_source != BaselineSource::Auto {
-        return Err(unsupported(MaterializeField::VerticalAlign));
+        super::note_degradation("vertical-align baseline-source treated as baseline");
+        return "baseline";
     }
     match fragment.baseline_shift {
-        BaselineShift::Sub => Ok("sub"),
-        BaselineShift::Super => Ok("super"),
-        BaselineShift::Top => Ok("top"),
-        BaselineShift::Center => Ok("middle"),
-        BaselineShift::Bottom => Ok("bottom"),
+        BaselineShift::Sub => "sub",
+        BaselineShift::Super => "super",
+        BaselineShift::Top => "top",
+        BaselineShift::Center => "middle",
+        BaselineShift::Bottom => "bottom",
         BaselineShift::Offset(value) if is_zero_length(value) => {
             match fragment.alignment_baseline {
-                AlignmentBaseline::Baseline | AlignmentBaseline::Alphabetic => Ok("baseline"),
-                AlignmentBaseline::TextBottom => Ok("text-bottom"),
-                AlignmentBaseline::Middle | AlignmentBaseline::Central => Ok("middle"),
-                AlignmentBaseline::TextTop => Ok("text-top"),
+                AlignmentBaseline::Baseline | AlignmentBaseline::Alphabetic => "baseline",
+                AlignmentBaseline::TextBottom => "text-bottom",
+                AlignmentBaseline::Middle | AlignmentBaseline::Central => "middle",
+                AlignmentBaseline::TextTop => "text-top",
                 AlignmentBaseline::Ideographic
                 | AlignmentBaseline::Mathematical
-                | AlignmentBaseline::Hanging => Err(unsupported(MaterializeField::VerticalAlign)),
+                | AlignmentBaseline::Hanging => {
+                    super::note_degradation(
+                        "vertical-align ideographic/mathematical/hanging treated as baseline",
+                    );
+                    "baseline"
+                }
             }
         }
-        BaselineShift::Offset(_) => Err(unsupported(MaterializeField::VerticalAlign)),
+        BaselineShift::Offset(_) => {
+            super::note_degradation("vertical-align length offset treated as baseline");
+            "baseline"
+        }
     }
 }
 
@@ -520,19 +524,24 @@ fn text_decoration(style: &InlineFormattingStyleV1) -> Result<&'static str> {
     if decoration.lines.is_empty() {
         return Ok("none");
     }
+    // The consumer draws one solid foreground-colored line. Non-solid
+    // styles, decoration colors, and extra lines collapse onto that slot so
+    // the author's emphasis stays visible in approximate form.
     if decoration.style != TextDecorationStyle::Solid
         || color(decoration.color, style.paint.foreground)?
             != absolute_color(style.paint.foreground)?
         || decoration.lines.blink
         || decoration.lines.overline
     {
-        return Err(unsupported(MaterializeField::TextDecoration));
+        super::note_degradation("text-decoration style/color/overline approximated");
     }
-    match (decoration.lines.underline, decoration.lines.line_through) {
-        (true, false) => Ok("underline"),
-        (false, true) => Ok("line-through"),
-        (true, true) | (false, false) => Err(unsupported(MaterializeField::TextDecoration)),
-    }
+    Ok(
+        match (decoration.lines.underline, decoration.lines.line_through) {
+            (true, _) => "underline",
+            (false, true) => "line-through",
+            (false, false) => "none",
+        },
+    )
 }
 
 fn materialize_layout(
@@ -640,10 +649,9 @@ fn materialize_max_width(output: &mut Map<String, Value>, value: MaximumSizeV1) 
             LengthPercentage::Percentage(value) => {
                 insert_number(output, "maxWidthPct", value.percent())
             }
-            LengthPercentage::Linear { .. } => {
-                return Err(MaterializeValueError::LinearLengthNotSupported {
-                    field: MaterializeField::MaxWidth,
-                });
+            LengthPercentage::Linear { length, .. } => {
+                super::note_degradation("calc() max-width: percentage component dropped");
+                insert_number(output, "maxWidth", length.get());
             }
         },
     }
@@ -695,8 +703,16 @@ fn display(
         {
             Ok("flex")
         }
-        (_, Inside::Contents | Inside::Flex | Inside::Grid) => {
-            Err(unsupported(MaterializeField::Display))
+        // `contents` removes the box; rendering it as an unstyled inline
+        // keeps the children in flow. Real flex/grid containers lay out as
+        // blocks, so their children still stack readably.
+        (Outside::Inline, Inside::Contents) | (_, Inside::Contents) => {
+            super::note_degradation("display contents treated as inline");
+            Ok("inline")
+        }
+        (_, Inside::Flex | Inside::Grid) => {
+            super::note_degradation("display flex/grid container laid out as block");
+            Ok("block")
         }
         (Outside::Inline, Inside::Flow) if !style.display.is_list_item => Ok("inline"),
         (Outside::Inline, Inside::FlowRoot) if !style.display.is_list_item => Ok("inline-block"),
@@ -712,7 +728,14 @@ fn display(
             | Inside::TableRow
             | Inside::TableCell,
         ) => Ok("block"),
-        _ => Err(unsupported(MaterializeField::Display)),
+        (Outside::Inline, _) => {
+            super::note_degradation("unsupported inline display treated as inline");
+            Ok("inline")
+        }
+        _ => {
+            super::note_degradation("unsupported display treated as block");
+            Ok("block")
+        }
     }
 }
 
@@ -743,10 +766,12 @@ fn materialize_size(
             }
             LengthPercentage::Length(value) => insert_number(output, key, value.get()),
             LengthPercentage::Percentage(_) => {
-                return Err(MaterializeValueError::PercentageNotSupported { field });
+                super::note_degradation("percentage size without a basis treated as auto");
+                insert_number(output, key, 0.0);
             }
             LengthPercentage::Linear { .. } => {
-                return Err(MaterializeValueError::LinearLengthNotSupported { field });
+                super::note_degradation("calc() size treated as auto");
+                insert_number(output, key, 0.0);
             }
         },
         PreferredSizeV1::MaxContent
@@ -754,7 +779,10 @@ fn materialize_size(
         | PreferredSizeV1::FitContent
         | PreferredSizeV1::WebkitFillAvailable
         | PreferredSizeV1::Stretch
-        | PreferredSizeV1::FitContentFunction(_) => return Err(unsupported(field)),
+        | PreferredSizeV1::FitContentFunction(_) => {
+            super::note_degradation("intrinsic size keyword treated as auto");
+            insert_number(output, key, 0.0);
+        }
     }
     Ok(())
 }
@@ -778,7 +806,7 @@ fn materialize_length_percentage(
     key: &str,
     pct_key: &str,
     value: LengthPercentage,
-    field: MaterializeField,
+    _field: MaterializeField,
 ) -> Result<()> {
     match value {
         LengthPercentage::Length(value) => insert_number(output, key, value.get()),
@@ -788,8 +816,9 @@ fn materialize_length_percentage(
             // percentage helper key.
             insert_number(output, key, 0.0);
         }
-        LengthPercentage::Linear { .. } => {
-            return Err(MaterializeValueError::LinearLengthNotSupported { field });
+        LengthPercentage::Linear { length, .. } => {
+            super::note_degradation("calc() length: percentage component dropped");
+            insert_number(output, key, length.get());
         }
     }
     Ok(())
@@ -800,10 +829,12 @@ fn absolute_length(value: LengthPercentage, field: MaterializeField) -> Result<f
         LengthPercentage::Length(value) => Ok(value.get()),
         LengthPercentage::Percentage(value) if value.ratio() == 0.0 => Ok(0.0),
         LengthPercentage::Percentage(_) => {
-            Err(MaterializeValueError::PercentageNotSupported { field })
+            super::note_degradation(format!("percentage {field:?} treated as zero"));
+            Ok(0.0)
         }
-        LengthPercentage::Linear { .. } => {
-            Err(MaterializeValueError::LinearLengthNotSupported { field })
+        LengthPercentage::Linear { length, .. } => {
+            super::note_degradation(format!("calc() {field:?}: percentage component dropped"));
+            Ok(length.get())
         }
     }
 }
@@ -828,17 +859,21 @@ pub(crate) fn absolute_color(value: AbsoluteColor) -> Result<String> {
     }
     let none = value.none();
     if none.component_0 || none.component_1 || none.component_2 || none.alpha {
-        return Err(MaterializeValueError::MissingColorComponent);
+        super::note_degradation("color `none` component treated as zero");
     }
-    let components = value.components().map(|component| component.get());
-    if components
-        .iter()
-        .any(|component| !(0.0..=1.0).contains(component))
-    {
-        return Err(MaterializeValueError::OutOfGamutSrgb);
+    let mut components = value.components().map(|component| component.get());
+    let none_flags = [none.component_0, none.component_1, none.component_2];
+    for (component, is_none) in components.iter_mut().zip(none_flags) {
+        if is_none {
+            *component = 0.0;
+        }
+        if !(0.0..=1.0).contains(component) {
+            super::note_degradation("out-of-gamut sRGB channel clamped");
+            *component = component.clamp(0.0, 1.0);
+        }
     }
     let [red, green, blue] = components.map(|component| (component * 255.0).round() as u8);
-    let alpha = value.alpha().get();
+    let alpha = if none.alpha { 0.0 } else { value.alpha().get() };
     if alpha == 1.0 {
         Ok(format!("#{red:02x}{green:02x}{blue:02x}"))
     } else {
@@ -895,19 +930,16 @@ mod tests {
     }
 
     #[test]
-    fn linear_max_width_fails_closed_at_the_consumer_boundary() {
+    fn linear_max_width_degrades_to_its_length_component() {
         let value =
             MaximumSizeV1::Value(NonNegativeLengthPercentage::new(LengthPercentage::linear(
                 CssPx::new(12.0).unwrap(),
                 Percentage::from_percent(25.0).unwrap(),
             )));
 
-        assert_eq!(
-            materialize_max_width(&mut Map::new(), value),
-            Err(MaterializeValueError::LinearLengthNotSupported {
-                field: MaterializeField::MaxWidth,
-            })
-        );
+        let mut output = Map::new();
+        materialize_max_width(&mut output, value).unwrap();
+        assert_eq!(output.get("maxWidth"), Some(&json!(12.0)));
     }
 
     #[test]

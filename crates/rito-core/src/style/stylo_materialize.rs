@@ -1,10 +1,16 @@
-//! Fail-closed bridge from Stylo's engine-neutral projections to the current
+//! Bridge from Stylo's engine-neutral projections to the current
 //! `StyledNode` consumer contract.
 //!
 //! This module never parses CSS and never completes a partial Stylo result
 //! with values from the legacy cascade. Both the principal tree and an
 //! optional filtered pagination tree are materialized from the same pair of
 //! projection tables.
+//!
+//! Values the consumer contract cannot represent fail open: the field (or,
+//! when the projection rejected the whole node, the node) falls back to a
+//! defined approximation and the divergence is recorded as a degradation.
+//! Failure is reserved for topology invariants whose violation means the
+//! engine itself is broken.
 
 mod background;
 mod transform;
@@ -44,6 +50,62 @@ pub(crate) struct StyloMaterializedChapter {
     pub(crate) styled_nodes: Vec<StyledNode>,
     pub(crate) pagination_styled_nodes: Option<Vec<StyledNode>>,
     pub(crate) page_paint: Option<Value>,
+    /// What this chapter asked for that materialization approximated instead
+    /// of representing exactly, deduplicated and bounded.
+    pub(crate) degradations: Vec<String>,
+}
+
+/// Chapter-scoped collector for materialization degradations.
+///
+/// The value materializers sit many calls below anything that owns a
+/// capability report, and threading a sink through every conversion helper
+/// would put plumbing ahead of the conversions themselves. Materialization is
+/// single-threaded per chapter, so a thread-local drained (and therefore
+/// reset) by [`materialize_stylo_chapter`] is safe and keeps recording a
+/// one-line affair at each approximation site.
+const MAX_DEGRADATION_NOTES: usize = 64;
+
+thread_local! {
+    static DEGRADATIONS: std::cell::RefCell<std::collections::BTreeSet<String>> =
+        std::cell::RefCell::new(std::collections::BTreeSet::new());
+}
+
+pub(super) fn note_degradation(subject: impl Into<String>) {
+    DEGRADATIONS.with(|notes| {
+        let mut notes = notes.borrow_mut();
+        if notes.len() < MAX_DEGRADATION_NOTES {
+            notes.insert(subject.into());
+        }
+    });
+}
+
+fn take_degradations() -> Vec<String> {
+    DEGRADATIONS.with(|notes| {
+        std::mem::take(&mut *notes.borrow_mut())
+            .into_iter()
+            .collect()
+    })
+}
+
+/// Describes a rejection this bridge can absorb with an approximation, or
+/// `None` when the rejection reveals a broken engine invariant and must
+/// propagate.
+fn recoverable_note(rejection: &StyloMaterializeRejection) -> Option<String> {
+    match rejection {
+        StyloMaterializeRejection::InlineProjectionRejected { field, reason, .. } => {
+            Some(format!("inline projection {field:?} ({reason:?})"))
+        }
+        StyloMaterializeRejection::LayoutProjectionRejected { field, reason, .. } => {
+            Some(format!("layout projection {field:?} ({reason:?})"))
+        }
+        StyloMaterializeRejection::UnsupportedValue(error) => Some(format!("value {error:?}")),
+        StyloMaterializeRejection::MissingSourceNodeId { .. }
+        | StyloMaterializeRejection::SourceNodeOutOfBounds { .. }
+        | StyloMaterializeRejection::SourceNodeKindMismatch { .. }
+        | StyloMaterializeRejection::SourceElementTagMismatch { .. }
+        | StyloMaterializeRejection::InlineTable(_)
+        | StyloMaterializeRejection::LayoutTable(_) => None,
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -93,14 +155,30 @@ impl From<MaterializeValueError> for StyloMaterializeRejection {
 pub(crate) fn materialize_stylo_chapter(
     input: StyloMaterializeInput<'_>,
 ) -> Result<StyloMaterializedChapter, StyloMaterializeRejection> {
+    // A failed prior chapter may have left notes behind; this chapter's
+    // report must start empty.
+    let _ = take_degradations();
     validate_body(input.source_arena, input.body_node_id)?;
-    let body = projected_style(input.inline, input.layout, input.body_node_id)?;
-    let body_style = materialize_style(
-        body.0,
-        body.1,
-        LayoutMaterializationMode::FlowOnly,
-        &Map::new(),
-    )?;
+    let body_style_result = projected_style(input.inline, input.layout, input.body_node_id)
+        .and_then(|body| {
+            let style = materialize_style(
+                body.0,
+                body.1,
+                LayoutMaterializationMode::FlowOnly,
+                &Map::new(),
+            )?;
+            Ok((style, Some(body.0)))
+        });
+    let (body_style, body_inline) = match body_style_result {
+        Ok(materialized) => materialized,
+        Err(rejection) => {
+            let Some(reason) = recoverable_note(&rejection) else {
+                return Err(rejection);
+            };
+            note_degradation(format!("style fallback <body>: {reason}"));
+            (Map::new(), None)
+        }
+    };
     let computed_override_line_height = input
         .options
         .line_height_override
@@ -112,7 +190,7 @@ pub(crate) fn materialize_stylo_chapter(
         .and_then(|_| body_style.get("fontFamily"))
         .and_then(Value::as_str)
         .map(str::to_owned);
-    let page_paint = page_paint(body.0, &body_style);
+    let page_paint = body_inline.and_then(|inline| page_paint(inline, &body_style));
     let mut styled_nodes = materialize_nodes(
         input.source_arena,
         input.inline,
@@ -160,6 +238,7 @@ pub(crate) fn materialize_stylo_chapter(
         styled_nodes,
         pagination_styled_nodes,
         page_paint,
+        degradations: take_degradations(),
     })
 }
 
@@ -235,22 +314,40 @@ fn materialize_element(
     options: ChapterStyleOptions<'_>,
 ) -> Result<Option<StyledNode>, StyloMaterializeRejection> {
     let node_id = element_node_id(source, element)?;
-    let (inline_style, layout_style) = projected_style(inline, layout, node_id)?;
-    if value::display_is_none(layout_style) {
-        return Ok(None);
-    }
-    let layout_mode =
-        layout_materialization_mode(source, inline, layout, semantic, element, layout_style)?;
-    #[cfg(feature = "bench-internals")]
-    if layout_mode == LayoutMaterializationMode::SingleImageCenteredFlex
-        && std::env::var_os("RITO_STYLO_FALLBACK_DIAGNOSTICS").is_some()
-    {
-        eprintln!(
-            "rito Stylo bounded layout [single-image-centered-flex]: node_id={}",
-            node_id.index()
-        );
-    }
-    let mut style = materialize_style(inline_style, layout_style, layout_mode, parent_style)?;
+    let mut style = match element_style(
+        source,
+        inline,
+        layout,
+        semantic,
+        element,
+        node_id,
+        parent_style,
+    ) {
+        Ok(None) => return Ok(None),
+        Ok(Some(style)) => style,
+        Err(rejection) => {
+            let Some(reason) = recoverable_note(&rejection) else {
+                return Err(rejection);
+            };
+            // The node renders as if it carried no declarations of its own:
+            // inherited text properties apply, box properties reset, and the
+            // display level follows the semantic tree so an inline never
+            // breaks its line.
+            note_degradation(format!("style fallback <{}>: {reason}", element.tag));
+            let mut fallback = super::inheritance::inheritable_style(parent_style);
+            fallback.insert(
+                "display".to_owned(),
+                Value::String(
+                    match semantic {
+                        DocumentNode::Inline(_) => "inline",
+                        _ => "block",
+                    }
+                    .to_owned(),
+                ),
+            );
+            fallback
+        }
+    };
     propagate_text_decoration(&mut style, parent_style);
     let children = materialize_nodes(source, inline, layout, &element.children, &style, options)?;
     Ok(Some(StyledNode {
@@ -280,6 +377,42 @@ fn materialize_element(
     }))
 }
 
+/// The per-node style materialization that may legitimately fail on values
+/// the consumer cannot represent; [`materialize_element`] absorbs those
+/// failures with an inherit-only fallback.
+#[allow(clippy::too_many_arguments)]
+fn element_style(
+    source: &SourceArena,
+    inline: &InlineStyleProjectionV1,
+    layout: &LayoutStyleProjectionV1,
+    semantic: &DocumentNode,
+    element: &ElementNode,
+    node_id: NodeId,
+    parent_style: &Map<String, Value>,
+) -> Result<Option<Map<String, Value>>, StyloMaterializeRejection> {
+    let (inline_style, layout_style) = projected_style(inline, layout, node_id)?;
+    if value::display_is_none(layout_style) {
+        return Ok(None);
+    }
+    let layout_mode =
+        layout_materialization_mode(source, inline, layout, semantic, element, layout_style)?;
+    #[cfg(feature = "bench-internals")]
+    if layout_mode == LayoutMaterializationMode::SingleImageCenteredFlex
+        && std::env::var_os("RITO_STYLO_FALLBACK_DIAGNOSTICS").is_some()
+    {
+        eprintln!(
+            "rito Stylo bounded layout [single-image-centered-flex]: node_id={}",
+            node_id.index()
+        );
+    }
+    Ok(Some(materialize_style(
+        inline_style,
+        layout_style,
+        layout_mode,
+        parent_style,
+    )?))
+}
+
 fn materialize_image(
     source: &SourceArena,
     inline: &InlineStyleProjectionV1,
@@ -288,16 +421,29 @@ fn materialize_image(
     parent_style: &Map<String, Value>,
 ) -> Result<Option<StyledNode>, StyloMaterializeRejection> {
     let node_id = source_element_id(source, &image.source_ref, SemanticNodeKind::Image)?;
-    let (inline_style, layout_style) = projected_style(inline, layout, node_id)?;
-    if value::display_is_none(layout_style) {
-        return Ok(None);
-    }
-    let mut style = materialize_style(
-        inline_style,
-        layout_style,
-        LayoutMaterializationMode::FlowOnly,
-        parent_style,
-    )?;
+    let image_style_result =
+        projected_style(inline, layout, node_id).and_then(|(inline_style, layout_style)| {
+            if value::display_is_none(layout_style) {
+                return Ok(None);
+            }
+            Ok(Some(materialize_style(
+                inline_style,
+                layout_style,
+                LayoutMaterializationMode::FlowOnly,
+                parent_style,
+            )?))
+        });
+    let mut style = match image_style_result {
+        Ok(None) => return Ok(None),
+        Ok(Some(style)) => style,
+        Err(rejection) => {
+            let Some(reason) = recoverable_note(&rejection) else {
+                return Err(rejection);
+            };
+            note_degradation(format!("style fallback <img>: {reason}"));
+            super::inheritance::inheritable_style(parent_style)
+        }
+    };
     // Replaced-element defaults are Rito layout policy, not author CSS.
     style.insert("objectFit".to_owned(), Value::String("contain".to_owned()));
     style.insert(
@@ -352,12 +498,14 @@ fn layout_materialization_mode(
         return Ok(LayoutMaterializationMode::FlowOnly);
     };
     let image_node_id = source_element_id(source, &image.source_ref, SemanticNodeKind::Image)?;
-    let (image_inline, _) = projected_style(inline, layout_projection, image_node_id)?;
+    let Ok((image_inline, _)) = projected_style(inline, layout_projection, image_node_id) else {
+        // The child's own materialization decides how to degrade; this
+        // detector merely declines the bounded flex mode.
+        return Ok(LayoutMaterializationMode::FlowOnly);
+    };
     if has_auto_margin(image_inline.fragment.margin) {
-        return Err(MaterializeValueError::UnsupportedConsumerValue {
-            field: value::MaterializeField::FlexItemMargin,
-        }
-        .into());
+        note_degradation("flex item auto margin: container laid out as flow");
+        return Ok(LayoutMaterializationMode::FlowOnly);
     }
     Ok(LayoutMaterializationMode::SingleImageCenteredFlex)
 }
