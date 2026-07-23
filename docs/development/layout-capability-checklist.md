@@ -82,15 +82,20 @@ Chromium on the books that exercise it — never when unit tests alone pass.
 
 ### Pixel-oracle findings (2026-07-23, konosuba summary page anatomy)
 
-- [ ] **Page wash must never be absent** — a rejected body projection
-      currently drops `page_paint` entirely and the canvas shows through
-      black; the fallback must paint the default white page.
-- [ ] **`background-size` arbitrary lengths/percentages** (`auto 40%`)
-      — contract supports only auto/cover/contain; the projection rejects
-      the node (which is what rejected the body above).
-- [ ] **`text-shadow` painting in the fragment path** — the canvas text
-      renderer has a textShadow channel; the fragment bridge drops it.
-      White-on-white designs (white glyphs + black halo) become invisible.
+- [x] **Black page wash** — root-caused 2026-07-23: the fail-open fallback
+      style (`plain_paragraph_style`) carried an opaque black background,
+      so any rejected body painted the page black. The fallback now keeps
+      a transparent background.
+- [x] **`background-size` explicit lengths/percentages** — contract
+      (`BackgroundImageSizeV1::Explicit`), projection, wire, validator,
+      and canvas renderer all landed 2026-07-23. The body's background
+      positioning area is the body border box (measured against pinned
+      Chromium), painted via the chapter root's node paint. Reader-v1
+      binary wire (Flutter) still decodes keyword sizes only — follow-up.
+- [x] **`text-shadow` painting** — already flowed end to end
+      (run_paint → canvas textShadow); confirmed painting white-on-white
+      designs correctly. Konosuba summary page: 98.5% → 9.9% pixel
+      mismatch across these three fixes.
 
 ## Tier 3 — text and paint details
 
