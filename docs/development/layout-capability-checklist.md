@@ -97,6 +97,20 @@ Chromium on the books that exercise it — never when unit tests alone pass.
       designs correctly. Konosuba summary page: 98.5% → 9.9% pixel
       mismatch across these three fixes.
 
+### Pixel-oracle status (2026-07-23, paginated baseline)
+
+The oracle's B side now paginates like a column reader (epub.js-style
+columns, reader-UA image fitting) — `tools/corpus-oracle/pixel-ab.mjs`.
+Konosuba chapter-first-page mismatch: 23.5% → 15.8% average across the
+paint fixes; summary 98.5% → 9.6%. Remaining top offenders:
+
+- [ ] **Full-bleed image pages** — `duokan-image-single`/`cover`-class
+      pages fill the whole 600×750 page in the browser baseline; the
+      engine letterboxes them inside the 500×650 content box
+      (cover/colorpages at 41–46% mismatch).
+- [ ] **Image-page fit parity** — residual scaling/centering differences
+      on Character_Profile/Houji2/Next pages (24–32%).
+
 ## Tier 3 — text and paint details
 
 - [ ] **`vertical-align` beyond baseline/sub/super** — length offsets and
