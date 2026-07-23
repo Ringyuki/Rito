@@ -141,9 +141,14 @@ pub(crate) fn detect_image_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
 pub(crate) fn detect_image_dimensions_from_reader(
     reader: &mut dyn Read,
 ) -> std::io::Result<Option<(u32, u32)>> {
-    let mut prefix = [0_u8; 24];
+    let mut prefix = [0_u8; 32];
     let prefix_length = read_available(reader, &mut prefix)?;
-    if let Some(dimensions) = png_dimensions(&prefix[..prefix_length]) {
+    let header = &prefix[..prefix_length];
+    if let Some(dimensions) = png_dimensions(header)
+        .or_else(|| gif_dimensions(header))
+        .or_else(|| webp_dimensions(header))
+        .or_else(|| bmp_dimensions(header))
+    {
         return Ok(Some((dimensions.width, dimensions.height)));
     }
     let mut stream = Cursor::new(&prefix[..prefix_length]).chain(reader);
@@ -158,7 +163,65 @@ struct ImageDimensions {
 }
 
 fn image_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
-    png_dimensions(bytes).or_else(|| jpeg_dimensions(bytes))
+    png_dimensions(bytes)
+        .or_else(|| gif_dimensions(bytes))
+        .or_else(|| webp_dimensions(bytes))
+        .or_else(|| bmp_dimensions(bytes))
+        .or_else(|| jpeg_dimensions(bytes))
+}
+
+fn gif_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
+    if bytes.len() < 10 || (&bytes[..6] != b"GIF87a" && &bytes[..6] != b"GIF89a") {
+        return None;
+    }
+    Some(ImageDimensions {
+        width: u32::from(u16::from_le_bytes([bytes[6], bytes[7]])),
+        height: u32::from(u16::from_le_bytes([bytes[8], bytes[9]])),
+    })
+}
+
+fn webp_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
+    if bytes.len() < 30 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WEBP" {
+        return None;
+    }
+    match &bytes[12..16] {
+        // Extended: 24-bit canvas width/height minus one.
+        b"VP8X" => Some(ImageDimensions {
+            width: u32::from(bytes[24]) | u32::from(bytes[25]) << 8 | u32::from(bytes[26]) << 16,
+            height: u32::from(bytes[27]) | u32::from(bytes[28]) << 8 | u32::from(bytes[29]) << 16,
+        })
+        .map(|dimensions| ImageDimensions {
+            width: dimensions.width + 1,
+            height: dimensions.height + 1,
+        }),
+        // Lossless: 14-bit fields packed after the one-byte signature.
+        b"VP8L" if bytes[20] == 0x2f => {
+            let packed = u32::from_le_bytes([bytes[21], bytes[22], bytes[23], bytes[24]]);
+            Some(ImageDimensions {
+                width: (packed & 0x3fff) + 1,
+                height: ((packed >> 14) & 0x3fff) + 1,
+            })
+        }
+        // Lossy: dimensions in the frame header past the start code.
+        b"VP8 " if bytes[23..26] == [0x9d, 0x01, 0x2a] => Some(ImageDimensions {
+            width: u32::from(u16::from_le_bytes([bytes[26], bytes[27]]) & 0x3fff),
+            height: u32::from(u16::from_le_bytes([bytes[28], bytes[29]]) & 0x3fff),
+        }),
+        _ => None,
+    }
+}
+
+fn bmp_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
+    if bytes.len() < 26 || &bytes[..2] != b"BM" {
+        return None;
+    }
+    let width = i32::from_le_bytes([bytes[18], bytes[19], bytes[20], bytes[21]]);
+    // A negative height encodes a top-down bitmap.
+    let height = i32::from_le_bytes([bytes[22], bytes[23], bytes[24], bytes[25]]).unsigned_abs();
+    (width > 0 && height > 0).then(|| ImageDimensions {
+        width: width as u32,
+        height,
+    })
 }
 
 fn png_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
