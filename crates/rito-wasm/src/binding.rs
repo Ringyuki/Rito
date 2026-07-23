@@ -37,6 +37,20 @@ impl RitoWasmDocument {
         self.inner.document.set_fragment_page_table_enabled(enabled);
     }
 
+    /// Fragment-engine representability of a revision's chapters, for
+    /// diagnostics: per chapter, whether a formatting tree built, its node
+    /// count, and the failure reason when it did not.
+    #[wasm_bindgen(js_name = chapterTreeReportJson)]
+    pub fn chapter_tree_report_json(&self, revision_id: &str) -> Result<String, JsValue> {
+        let report = self
+            .inner
+            .document
+            .chapter_tree_report(revision_id)
+            .map_err(|error| error_to_js_value(WasmRuntimeError::from_engine(error)))?;
+        serde_json::to_string(&report)
+            .map_err(|error| JsValue::from_str(&format!("report serialization failed: {error}")))
+    }
+
     /// Which backend owns a revision's pagination ("fragment" or
     /// "retained"), for diagnostics.
     #[wasm_bindgen(js_name = revisionPaginationBackend)]

@@ -58,10 +58,7 @@ pub struct RuntimeChapterTreeReport {
 }
 
 impl RuntimeDocument {
-    pub(super) fn chapter_tree_report(
-        &self,
-        revision_id: &str,
-    ) -> EpubResult<RuntimeChapterTreeReport> {
+    pub fn chapter_tree_report(&self, revision_id: &str) -> EpubResult<RuntimeChapterTreeReport> {
         let revision = self.revisions.get(revision_id).ok_or_else(|| {
             crate::epub::EpubError::new(format!("unknown revision: {revision_id}"))
         })?;
