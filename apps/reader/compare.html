@@ -73,12 +73,12 @@
         display: block;
         box-shadow: 0 2px 12px #0008;
       }
-      #right-frame {
+      #right-view {
         background: #fff;
         width: 600px;
         height: 750px;
-        border: 0;
-        display: block;
+        padding: 50px 0;
+        box-sizing: border-box;
         box-shadow: 0 2px 12px #0008;
       }
       #drop {
@@ -104,7 +104,8 @@
         <button id="next">下一页 ▶</button>
       </div>
       <div class="group">
-        <label>右侧章：<select id="chapter"></select></label>
+        <button id="right-prev">B ◀</button>
+        <button id="right-next">B ▶</button>
         <label><input id="sync" type="checkbox" checked /> 翻页自动对齐</label>
       </div>
       <span id="status">选择一本 epub 开始</span>
@@ -115,12 +116,16 @@
         <canvas id="left-canvas" width="600" height="750"></canvas>
       </figure>
       <figure>
-        <figcaption>B — 浏览器原生渲染（权威基线）</figcaption>
-        <iframe id="right-frame" sandbox="allow-same-origin"></iframe>
+        <figcaption>
+          B — epub.js（浏览器排版・分页・同参数：视口 600×750 / 内容 500×650 / 16px）
+        </figcaption>
+        <div id="right-view"></div>
       </figure>
     </main>
     <div id="drop">
-      拖入或选择一本 .epub<br /><small>左：rito 新引擎分页渲染　右：浏览器直接渲染同章</small>
+      拖入或选择一本 .epub<br /><small
+        >左：rito 新引擎分页渲染　右：epub.js 浏览器排版分页（同参数）</small
+      >
     </div>
     <script type="module" src="/src/compare/main.ts"></script>
   </body>

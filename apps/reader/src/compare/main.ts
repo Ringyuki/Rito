@@ -1,33 +1,34 @@
-// A/B comparison page: rito's fragment engine beside the browser's own
-// rendering of the same chapter, aligned by the visible page's first line.
-import { unzipSync } from 'fflate';
+// A/B comparison page: rito's fragment engine beside epub.js (the
+// browser's own layout in paginated form), pinned to the same metrics —
+// viewport 600×750, content box 500×650 (50px margins / column gap),
+// root font 16px, the book's own CSS and embedded fonts on both sides.
+import ePub, { type Book, type Rendition } from 'epubjs';
+import type Section from 'epubjs/types/section';
 import { createReader, type Reader } from '@ritojs/core';
 import { loadProductionPinnedFontPolicy } from '@/lib/production-pinned-font-policy';
+
+const VIEW_WIDTH = 600;
+const VIEW_HEIGHT = 750;
+const MARGIN = 50;
 
 const fileInput = document.getElementById('file') as HTMLInputElement;
 const prevButton = document.getElementById('prev') as HTMLButtonElement;
 const nextButton = document.getElementById('next') as HTMLButtonElement;
 const pageInput = document.getElementById('page') as HTMLInputElement;
 const totalLabel = document.getElementById('total') as HTMLSpanElement;
-const chapterSelect = document.getElementById('chapter') as HTMLSelectElement;
+const rightPrev = document.getElementById('right-prev') as HTMLButtonElement;
+const rightNext = document.getElementById('right-next') as HTMLButtonElement;
 const syncToggle = document.getElementById('sync') as HTMLInputElement;
 const status = document.getElementById('status') as HTMLSpanElement;
 const stage = document.getElementById('stage') as HTMLElement;
 const drop = document.getElementById('drop') as HTMLElement;
 const canvas = document.getElementById('left-canvas') as HTMLCanvasElement;
-const frame = document.getElementById('right-frame') as HTMLIFrameElement;
-
-interface UnpackedBook {
-  readonly files: Record<string, Uint8Array>;
-  readonly chapters: { href: string; label: string }[];
-  /** Chapter href -> plain text content, for locating a page's text. */
-  readonly texts: Map<string, string>;
-}
+const rightView = document.getElementById('right-view') as HTMLElement;
 
 let reader: Reader | undefined;
-let book: UnpackedBook | undefined;
+let epubBook: Book | undefined;
+let rendition: Rendition | undefined;
 let spreadIndex = 0;
-let loadedChapterHref: string | undefined;
 
 fileInput.addEventListener('change', () => {
   const file = fileInput.files?.[0];
@@ -44,30 +45,39 @@ document.body.addEventListener('drop', (event) => {
 prevButton.addEventListener('click', () => void showSpread(spreadIndex - 1));
 nextButton.addEventListener('click', () => void showSpread(spreadIndex + 1));
 pageInput.addEventListener('change', () => void showSpread(Number(pageInput.value)));
-chapterSelect.addEventListener('change', () => void loadChapter(chapterSelect.value));
+rightPrev.addEventListener('click', () => void rendition?.prev());
+rightNext.addEventListener('click', () => void rendition?.next());
 document.addEventListener('keydown', (event) => {
   if (event.key === 'ArrowRight') void showSpread(spreadIndex + 1);
   if (event.key === 'ArrowLeft') void showSpread(spreadIndex - 1);
 });
 
 async function openBook(file: File): Promise<void> {
-  status.textContent = '解析中…';
+  status.textContent = '排版中…';
   const data = await file.arrayBuffer();
-  book = unpack(new Uint8Array(data.slice(0)));
-  chapterSelect.replaceChildren(
-    ...book.chapters.map((chapter) => {
-      const option = document.createElement('option');
-      option.value = chapter.href;
-      option.textContent = chapter.label;
-      return option;
-    }),
-  );
-  status.textContent = 'rito 排版中…';
+
+  // Right: epub.js — browser layout, paginated, pinned metrics. epub.js
+  // splits the column gap into half-gap side paddings, so a 100px gap
+  // yields the same 500px content column as rito's 50px margins; the
+  // height drops the vertical margins to match rito's 650px content box.
+  epubBook = ePub(data.slice(0));
+  // `gap` is honoured by epub.js's layout but missing from its typings.
+  rendition = epubBook.renderTo(rightView, {
+    width: VIEW_WIDTH,
+    height: VIEW_HEIGHT - MARGIN * 2,
+    flow: 'paginated',
+    spread: 'none',
+    allowScriptedContent: false,
+    ...({ gap: MARGIN * 2 } as object),
+  });
+  await rendition.display();
+
+  // Left: rito, same book, same metrics.
   const pinnedFontPolicy = await loadProductionPinnedFontPolicy();
   reader = await createReader(data, canvas, {
-    width: 600,
-    height: 750,
-    margin: 50,
+    width: VIEW_WIDTH,
+    height: VIEW_HEIGHT,
+    margin: MARGIN,
     spread: 'single',
     pinnedFontPolicy,
     experimentalFragmentPagination: true,
@@ -78,15 +88,8 @@ async function openBook(file: File): Promise<void> {
   drop.hidden = true;
   stage.hidden = false;
   totalLabel.textContent = `/ ${String(reader.totalSpreads - 1)}`;
-  const firstText = book.chapters.find(
-    (chapter) => (book?.texts.get(chapter.href)?.trim().length ?? 0) > 200,
-  );
-  if (firstText) {
-    chapterSelect.value = firstText.href;
-    await loadChapter(firstText.href);
-  }
   await showSpread(0);
-  status.textContent = `${file.name} — ${String(reader.totalSpreads)} 页`;
+  status.textContent = `${file.name} — rito ${String(reader.totalSpreads)} 页`;
 }
 
 async function showSpread(index: number): Promise<void> {
@@ -101,10 +104,10 @@ async function showSpread(index: number): Promise<void> {
     if (painted === spreadIndex) break;
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
   }
-  if (syncToggle.checked) alignBrowserSide();
+  if (syncToggle.checked) await alignEpubJs();
 }
 
-/** The first substantial text run on the page just painted. */
+/** The first substantial text run on the page rito just painted. */
 function pageAnchorText(): string | undefined {
   const frameDiag = (globalThis as { __ritoLastFrame?: { textRuns?: { t: string }[] } })
     .__ritoLastFrame;
@@ -112,145 +115,44 @@ function pageAnchorText(): string | undefined {
   return runs.find((run) => run.t.trim().length >= 6)?.t.trim();
 }
 
-function alignBrowserSide(): void {
-  if (!book) return;
+/** Jumps epub.js to the page containing rito's current first line, via CFI. */
+async function alignEpubJs(): Promise<void> {
+  if (!epubBook || !rendition) return;
   const anchor = pageAnchorText();
   if (!anchor) return;
   const needle = anchor.slice(0, 12);
-  const holder = book.chapters.find((chapter) => book?.texts.get(chapter.href)?.includes(needle));
-  if (!holder) return;
-  const scroll = () => {
-    scrollFrameTo(needle);
-  };
-  if (holder.href !== loadedChapterHref) {
-    chapterSelect.value = holder.href;
-    void loadChapter(holder.href).then(scroll);
-  } else {
-    scroll();
-  }
-}
-
-function scrollFrameTo(needle: string): void {
-  const jump = () => {
-    const doc = frame.contentDocument;
-    if (!doc) return;
-    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      const node = walker.currentNode;
-      const offset = node.textContent?.indexOf(needle) ?? -1;
-      if (offset === -1) continue;
-      const range = doc.createRange();
-      range.setStart(node, offset);
-      range.setEnd(node, Math.min(offset + needle.length, node.textContent.length));
-      const rect = range.getBoundingClientRect();
-      frame.contentWindow?.scrollTo({ top: rect.top + (frame.contentWindow.scrollY || 0) - 50 });
+  const spine = (epubBook.spine as unknown as { spineItems: Section[] }).spineItems;
+  for (const section of spine) {
+    try {
+      // section.load's typings hide that it resolves to the parsed
+      // section document.
+      const loaded: unknown = await Promise.resolve(
+        section.load(epubBook.load.bind(epubBook) as (url: string) => Promise<unknown>),
+      );
+      const doc = loaded as Element;
+      const walker = document.createTreeWalker(doc, NodeFilter.SHOW_TEXT);
+      let found: { node: Node; offset: number } | undefined;
+      while (walker.nextNode()) {
+        const offset = walker.currentNode.textContent?.indexOf(needle) ?? -1;
+        if (offset !== -1) {
+          found = { node: walker.currentNode, offset };
+          break;
+        }
+      }
+      if (!found) continue;
+      const owner = found.node.ownerDocument;
+      if (!owner) continue;
+      const range = owner.createRange();
+      range.setStart(found.node, found.offset);
+      range.setEnd(
+        found.node,
+        Math.min(found.offset + needle.length, found.node.textContent?.length ?? found.offset),
+      );
+      const cfi = section.cfiFromRange(range);
+      await rendition.display(cfi);
       return;
+    } catch {
+      // Section failed to load or search; try the next one.
     }
-  };
-  jump();
-  // Font loading reflows the document after the first measurement; a
-  // second pass lands on the settled position.
-  setTimeout(jump, 350);
-}
-
-async function loadChapter(href: string): Promise<void> {
-  if (!book) return;
-  loadedChapterHref = href;
-  const bytes = book.files[href];
-  if (!bytes) return;
-  let html = new TextDecoder().decode(bytes);
-  // Inline stylesheets with rewritten font/image URLs so the browser
-  // renders with the book's own resources.
-  const dir = href.includes('/') ? href.slice(0, href.lastIndexOf('/') + 1) : '';
-  const resolve = (relative: string): string => {
-    const parts = (dir + relative).split('/');
-    const out: string[] = [];
-    for (const part of parts) {
-      if (part === '..') out.pop();
-      else if (part !== '.' && part !== '') out.push(part);
-    }
-    return out.join('/');
-  };
-  const blobUrl = (path: string, type: string): string | undefined => {
-    const data = book?.files[path];
-    return data ? URL.createObjectURL(new Blob([data.slice()], { type })) : undefined;
-  };
-  html = html.replace(
-    /<link[^>]*href="([^"]+\.css)"[^>]*\/?>(?:<\/link>)?/gi,
-    (_tag, cssHref: string) => {
-      const cssPath = resolve(cssHref);
-      const cssBytes = book?.files[cssPath];
-      if (!cssBytes) return '';
-      const cssDir = cssPath.includes('/') ? cssPath.slice(0, cssPath.lastIndexOf('/') + 1) : '';
-      const css = new TextDecoder()
-        .decode(cssBytes)
-        .replace(/url\(["']?([^)"']+)["']?\)/gi, (whole, target: string) => {
-          const parts = (cssDir + target).split('/');
-          const out: string[] = [];
-          for (const part of parts) {
-            if (part === '..') out.pop();
-            else if (part !== '.' && part !== '') out.push(part);
-          }
-          const url = blobUrl(out.join('/'), 'font/ttf');
-          return url ? `url("${url}")` : whole;
-        });
-      return `<style>${css}</style>`;
-    },
-  );
-  html = html.replace(
-    /(<img[^>]*src=")([^"]+)(")/gi,
-    (whole, before: string, src: string, after: string) => {
-      const url = blobUrl(resolve(src), 'image/png');
-      return url ? `${before}${url}${after}` : whole;
-    },
-  );
-  html = html.replace(
-    /(<image[^>]*(?:xlink:href|href)=")([^"]+)(")/gi,
-    (whole, before: string, src: string, after: string) => {
-      const url = blobUrl(resolve(src), 'image/png');
-      return url ? `${before}${url}${after}` : whole;
-    },
-  );
-  // Match rito's page box: 500px content behind 50px padding.
-  html = html.replace(
-    /<head([^>]*)>/i,
-    '<head$1><style>html{padding:50px;background:#fff;} body{margin:0;}</style>',
-  );
-  frame.srcdoc = html;
-  await new Promise<void>((resolveLoad) => {
-    frame.addEventListener(
-      'load',
-      () => {
-        resolveLoad();
-      },
-      { once: true },
-    );
-  });
-  await frame.contentDocument?.fonts.ready;
-}
-
-function unpack(data: Uint8Array): UnpackedBook {
-  const files = unzipSync(data);
-  const container = new TextDecoder().decode(files['META-INF/container.xml']);
-  const opfPath = /full-path="([^"]+)"/.exec(container)?.[1];
-  if (!opfPath) throw new Error('no OPF');
-  const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
-  const opf = new TextDecoder().decode(files[opfPath]);
-  const items = new Map<string, string>();
-  for (const tag of opf.match(/<item\b[^>]*>/g) ?? []) {
-    const id = /id="([^"]+)"/.exec(tag)?.[1];
-    const href = /href="([^"]+)"/.exec(tag)?.[1];
-    if (id && href) items.set(id, opfDir + href);
   }
-  const chapters: { href: string; label: string }[] = [];
-  const texts = new Map<string, string>();
-  for (const idref of opf.match(/<itemref[^>]*idref="([^"]+)"/g) ?? []) {
-    const id = /idref="([^"]+)"/.exec(idref)?.[1];
-    const href = id ? items.get(id) : undefined;
-    if (!href || !/\.x?html?$/i.test(href) || !files[href]) continue;
-    chapters.push({ href, label: href.split('/').pop() ?? href });
-    const html = new TextDecoder().decode(files[href]);
-    texts.set(href, html.replace(/<[^>]+>/g, ''));
-  }
-  return { files, chapters, texts };
 }
