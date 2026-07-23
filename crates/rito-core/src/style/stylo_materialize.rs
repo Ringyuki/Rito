@@ -33,6 +33,11 @@ use crate::xhtml::{DocumentNode, ElementNode, ImageNode, SourceRef, TextNode};
 
 use super::{ChapterStyleOptions, StyledNode, StyledNodeKind};
 use background::copy_materialized_background_image;
+pub(crate) use background::{
+    background_repeat as background_repeat_wire, background_size as background_size_wire,
+    position_axis as background_position_axis_wire,
+    publication_href as background_publication_href,
+};
 pub(crate) use value::{absolute_color, serialize_font_families};
 use value::{is_transparent, materialize_style, LayoutMaterializationMode, MaterializeValueError};
 

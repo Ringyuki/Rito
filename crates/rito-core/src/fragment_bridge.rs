@@ -166,6 +166,30 @@ pub fn build_chapter_formatting_tree(
         },
         Some(body_source_node_index),
     );
+    // The body's own background image paints across the chapter root; its
+    // color stays with the page wash so translucent colors never apply
+    // twice.
+    if let Ok(resolved) = builder.inline.style(body_inline_style) {
+        let (plan, _) = block_box_paint(resolved);
+        if let Some((NodePaint::Box { paint, .. }, _)) = plan {
+            if let Some(background) = paint
+                .as_object()
+                .and_then(|paint| paint.get("background"))
+                .and_then(Value::as_object)
+                .filter(|background| background.contains_key("image"))
+            {
+                let mut background = background.clone();
+                background.remove("color");
+                builder.node_paints.insert(
+                    root.0,
+                    NodePaint::Box {
+                        paint: serde_json::json!({ "background": background }),
+                        border_box: None,
+                    },
+                );
+            }
+        }
+    }
     let TreeBuilder {
         nodes: mut formatting_nodes,
         source_nodes,
@@ -1327,15 +1351,51 @@ fn block_box_paint(
             "leftWidth": widths[3],
         })
     });
-    if background.is_none() && border.is_empty() {
+    // The background-image cluster travels exactly as the render protocol
+    // consumes it; the canvas side implements cover/contain, tiling, and
+    // percentage positioning in full.
+    let background_image = style.paint.background_image.as_ref().and_then(|image| {
+        let href = match crate::style::background_publication_href(image.url.as_str()) {
+            Ok(href) => href.to_owned(),
+            Err(error) => {
+                degradations.push(format!("background-image dropped: {error:?}"));
+                return None;
+            }
+        };
+        let position_axis = |axis| match crate::style::background_position_axis_wire(axis) {
+            Ok(value) => Some(value),
+            Err(_) => None,
+        };
+        let (x, y) = (
+            position_axis(image.position.x),
+            position_axis(image.position.y),
+        );
+        if x.is_none() || y.is_none() {
+            degradations.push("background-position calc() treated as 0".to_owned());
+        }
+        Some(serde_json::json!({
+            "image": href,
+            "size": crate::style::background_size_wire(image.size),
+            "repeat": crate::style::background_repeat_wire(image.repeat),
+            "position": {
+                "x": x.unwrap_or(serde_json::json!({ "unit": "percent", "value": 0.0 })),
+                "y": y.unwrap_or(serde_json::json!({ "unit": "percent", "value": 0.0 })),
+            },
+        }))
+    });
+    if background.is_none() && background_image.is_none() && border.is_empty() {
         return (None, degradations);
     }
     let mut paint = serde_json::Map::new();
-    if let Some(color) = background {
-        paint.insert(
-            "background".to_owned(),
-            serde_json::json!({ "color": color }),
-        );
+    if background.is_some() || background_image.is_some() {
+        let mut object = serde_json::Map::new();
+        if let Some(color) = background {
+            object.insert("color".to_owned(), Value::String(color));
+        }
+        if let Some(Value::Object(image)) = background_image {
+            object.extend(image);
+        }
+        paint.insert("background".to_owned(), Value::Object(object));
     }
     if !border.is_empty() {
         paint.insert("border".to_owned(), Value::Object(border));
@@ -1359,9 +1419,6 @@ fn block_box_paint(
 fn box_decoration_violation(
     style: &rito_style_contract::InlineFormattingStyleV1,
 ) -> Option<String> {
-    if style.paint.background_image.is_some() {
-        return Some("background-image".to_owned());
-    }
     if !style.paint.box_shadows.is_empty() {
         return Some("box-shadow".to_owned());
     }

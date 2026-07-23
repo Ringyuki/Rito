@@ -5,7 +5,10 @@ mod backend;
 mod font_fallback;
 mod inheritance;
 mod stylo_materialize;
-pub(crate) use stylo_materialize::{absolute_color, serialize_font_families};
+pub(crate) use stylo_materialize::{
+    absolute_color, background_position_axis_wire, background_publication_href,
+    background_repeat_wire, background_size_wire, serialize_font_families,
+};
 mod stylo_sources;
 mod tree;
 

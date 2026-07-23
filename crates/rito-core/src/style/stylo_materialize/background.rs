@@ -66,7 +66,7 @@ pub(super) fn copy_materialized_background_image(
     }
 }
 
-fn publication_href(url: &str) -> Result<&str, BackgroundMaterializeError> {
+pub(crate) fn publication_href(url: &str) -> Result<&str, BackgroundMaterializeError> {
     let href = url
         .strip_prefix(PUBLICATION_URL_PREFIX)
         .ok_or(BackgroundMaterializeError::NonPublicationUrl)?;
@@ -76,14 +76,14 @@ fn publication_href(url: &str) -> Result<&str, BackgroundMaterializeError> {
     Ok(href)
 }
 
-fn background_repeat(value: BackgroundImageRepeatV1) -> &'static str {
+pub(crate) fn background_repeat(value: BackgroundImageRepeatV1) -> &'static str {
     match value {
         BackgroundImageRepeatV1::Repeat => "repeat",
         BackgroundImageRepeatV1::NoRepeat => "no-repeat",
     }
 }
 
-fn background_size(value: BackgroundImageSizeV1) -> &'static str {
+pub(crate) fn background_size(value: BackgroundImageSizeV1) -> &'static str {
     match value {
         BackgroundImageSizeV1::Auto => "auto",
         BackgroundImageSizeV1::Cover => "cover",
@@ -91,7 +91,7 @@ fn background_size(value: BackgroundImageSizeV1) -> &'static str {
     }
 }
 
-fn position_axis(value: LengthPercentage) -> Result<Value, BackgroundMaterializeError> {
+pub(crate) fn position_axis(value: LengthPercentage) -> Result<Value, BackgroundMaterializeError> {
     match value {
         LengthPercentage::Length(value) => Ok(json!({ "unit": "px", "value": value.get() })),
         LengthPercentage::Percentage(value) => {
