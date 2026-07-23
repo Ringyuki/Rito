@@ -151,10 +151,23 @@ export interface RitoCoreWasmBlockDecorationPaint {
 export interface RitoCoreWasmBlockBackgroundPaint {
   readonly color?: string;
   readonly image?: string;
-  readonly size?: 'cover' | 'contain' | 'auto';
+  readonly size?: RitoCoreWasmBackgroundSize;
   readonly repeat?: 'repeat' | 'no-repeat';
   readonly position?: RitoCoreWasmBackgroundPosition;
 }
+
+export type RitoCoreWasmBackgroundSize =
+  | 'cover'
+  | 'contain'
+  | 'auto'
+  | RitoCoreWasmExplicitBackgroundSize;
+
+export interface RitoCoreWasmExplicitBackgroundSize {
+  readonly x: RitoCoreWasmBackgroundSizeAxis;
+  readonly y: RitoCoreWasmBackgroundSizeAxis;
+}
+
+export type RitoCoreWasmBackgroundSizeAxis = 'auto' | RitoCoreWasmLengthPct;
 
 export interface RitoCoreWasmBackgroundPosition {
   readonly x: RitoCoreWasmLengthPct;

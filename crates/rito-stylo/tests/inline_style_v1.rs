@@ -308,11 +308,6 @@ fn unsupported_background_layer_values_fail_closed_by_field() {
             InlineStyleProjectionReasonV1::UnsupportedValue,
         ),
         (
-            "background-image: url(a.jpg); background-repeat: no-repeat; background-size: 10px auto",
-            InlineStyleFieldV1::BackgroundSize,
-            InlineStyleProjectionReasonV1::UnsupportedValue,
-        ),
-        (
             "background-image: url(a.jpg); background-repeat: no-repeat; background-position: calc(1px + 2%) 0",
             InlineStyleFieldV1::BackgroundPosition,
             InlineStyleProjectionReasonV1::OpaqueCalc,

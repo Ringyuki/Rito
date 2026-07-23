@@ -29,7 +29,20 @@ export interface BorderBox {
 export interface BlockBackgroundPaint {
   readonly color?: string;
   readonly image?: string;
-  readonly size?: 'cover' | 'contain' | 'auto';
+  readonly size?:
+    | 'cover'
+    | 'contain'
+    | 'auto'
+    | {
+        readonly x:
+          | 'auto'
+          | { readonly unit: 'px'; readonly value: number }
+          | { readonly unit: 'percent'; readonly value: number };
+        readonly y:
+          | 'auto'
+          | { readonly unit: 'px'; readonly value: number }
+          | { readonly unit: 'percent'; readonly value: number };
+      };
   readonly repeat?: 'repeat' | 'no-repeat';
   readonly position?: BackgroundPosition;
 }

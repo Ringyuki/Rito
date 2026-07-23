@@ -96,6 +96,21 @@ function resolveImageSize(
     const scale = Math.min(boxWidth / imageWidth, boxHeight / imageHeight);
     return { drawW: imageWidth * scale, drawH: imageHeight * scale };
   }
+  if (typeof size === 'object') {
+    // Explicit per-axis size: an auto axis derives from the other by the
+    // intrinsic aspect ratio, exactly as CSS resolves `background-size`.
+    const axis = (value: typeof size.x, containerSize: number): number | undefined => {
+      if (value === 'auto') return undefined;
+      return value.unit === 'percent' ? (containerSize * value.value) / 100 : value.value;
+    };
+    const explicitW = axis(size.x, boxWidth);
+    const explicitH = axis(size.y, boxHeight);
+    const drawW =
+      explicitW ?? (explicitH !== undefined ? (explicitH * imageWidth) / imageHeight : imageWidth);
+    const drawH =
+      explicitH ?? (explicitW !== undefined ? (explicitW * imageHeight) / imageWidth : imageHeight);
+    return { drawW, drawH };
+  }
   return { drawW: imageWidth, drawH: imageHeight };
 }
 

@@ -57,9 +57,9 @@ pub use layout::{
 pub use length::{LengthPercentage, LengthPercentageOrAuto, NonNegativeLengthPercentage};
 pub use paint::{
     BackgroundImagePaintV1, BackgroundImagePositionV1, BackgroundImageRepeatV1,
-    BackgroundImageSizeV1, BorderEdge, BorderEdges, BorderStyle, BoxShadow, InlinePaintStyleV1,
-    ResolvedUrlErrorV1, ResolvedUrlV1, TextDecoration, TextDecorationLines, TextDecorationStyle,
-    TextShadow,
+    BackgroundImageSizeV1, BackgroundSizeAxisV1, BorderEdge, BorderEdges, BorderStyle, BoxShadow,
+    InlinePaintStyleV1, ResolvedUrlErrorV1, ResolvedUrlV1, TextDecoration, TextDecorationLines,
+    TextDecorationStyle, TextShadow,
 };
 pub use scalar::{
     AngleDegrees, CssPx, FiniteF32, NonNegativeCssPx, NonNegativeNumber, NumericError, Percentage,

@@ -93,6 +93,21 @@ pub enum BackgroundImageSizeV1 {
     Cover,
     /// Fit inside the positioning area while preserving aspect ratio.
     Contain,
+    /// Explicit per-axis sizes (`<length-percentage | auto>{2}`); an auto
+    /// axis scales from the other by the intrinsic aspect ratio.
+    Explicit {
+        x: BackgroundSizeAxisV1,
+        y: BackgroundSizeAxisV1,
+    },
+}
+
+/// One axis of an explicit `background-size`.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BackgroundSizeAxisV1 {
+    /// Derive from the other axis by the intrinsic aspect ratio.
+    Auto,
+    /// Resolved length or percentage of the positioning area.
+    Value(LengthPercentage),
 }
 
 /// Supported computed `background-repeat` behavior for a URL image.

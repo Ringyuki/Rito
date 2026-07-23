@@ -31,10 +31,7 @@ pub(super) fn materialize_background_image(
         "backgroundRepeat".to_owned(),
         Value::String(background_repeat(image.repeat).to_owned()),
     );
-    output.insert(
-        "backgroundSize".to_owned(),
-        Value::String(background_size(image.size).to_owned()),
-    );
+    output.insert("backgroundSize".to_owned(), background_size(image.size));
     output.insert(
         "backgroundPosition".to_owned(),
         json!({
@@ -83,11 +80,33 @@ pub(crate) fn background_repeat(value: BackgroundImageRepeatV1) -> &'static str 
     }
 }
 
-pub(crate) fn background_size(value: BackgroundImageSizeV1) -> &'static str {
+pub(crate) fn background_size(value: BackgroundImageSizeV1) -> Value {
     match value {
-        BackgroundImageSizeV1::Auto => "auto",
-        BackgroundImageSizeV1::Cover => "cover",
-        BackgroundImageSizeV1::Contain => "contain",
+        BackgroundImageSizeV1::Auto => json!("auto"),
+        BackgroundImageSizeV1::Cover => json!("cover"),
+        BackgroundImageSizeV1::Contain => json!("contain"),
+        BackgroundImageSizeV1::Explicit { x, y } => json!({
+            "x": size_axis(x),
+            "y": size_axis(y),
+        }),
+    }
+}
+
+fn size_axis(axis: rito_style_contract::BackgroundSizeAxisV1) -> Value {
+    use rito_style_contract::BackgroundSizeAxisV1 as Axis;
+    match axis {
+        Axis::Auto => json!("auto"),
+        Axis::Value(LengthPercentage::Length(value)) => {
+            json!({ "unit": "px", "value": value.get() })
+        }
+        Axis::Value(LengthPercentage::Percentage(value)) => {
+            json!({ "unit": "percent", "value": value.percent() })
+        }
+        // calc() keeps the length component, mirroring the sizing policy
+        // elsewhere in the materializer.
+        Axis::Value(LengthPercentage::Linear { length, .. }) => {
+            json!({ "unit": "px", "value": length.get() })
+        }
     }
 }
 

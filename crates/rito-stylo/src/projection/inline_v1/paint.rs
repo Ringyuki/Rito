@@ -128,7 +128,26 @@ fn background_size(values: &[computed::BackgroundSize]) -> ProjectionResult<Back
     match value {
         computed::BackgroundSize::Cover => Ok(BackgroundImageSizeV1::Cover),
         computed::BackgroundSize::Contain => Ok(BackgroundImageSizeV1::Contain),
-        _ => Err(numeric::unsupported(InlineStyleFieldV1::BackgroundSize)),
+        computed::BackgroundSize::ExplicitSize { width, height } => {
+            Ok(BackgroundImageSizeV1::Explicit {
+                x: background_size_axis(width)?,
+                y: background_size_axis(height)?,
+            })
+        }
+    }
+}
+
+fn background_size_axis(
+    value: &style::values::computed::NonNegativeLengthPercentageOrAuto,
+) -> ProjectionResult<rito_style_contract::BackgroundSizeAxisV1> {
+    use style::values::generics::length::GenericLengthPercentageOrAuto;
+    match value {
+        GenericLengthPercentageOrAuto::Auto => Ok(rito_style_contract::BackgroundSizeAxisV1::Auto),
+        GenericLengthPercentageOrAuto::LengthPercentage(length) => {
+            Ok(rito_style_contract::BackgroundSizeAxisV1::Value(
+                numeric::length_percentage(&length.0, InlineStyleFieldV1::BackgroundSize)?,
+            ))
+        }
     }
 }
 
