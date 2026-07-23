@@ -32,6 +32,7 @@ export default defineConfig([
             'scripts/*.mjs',
             'packages/*/scripts/*.mjs',
             'packages/rito-core-wasm/src/*.js',
+            'tools/*/*.mjs',
           ],
         },
         tsconfigRootDir,
@@ -60,6 +61,7 @@ export default defineConfig([
       'scripts/**/*.mjs',
       'packages/*/scripts/**/*.mjs',
       'packages/*/tests/**/*.mjs',
+      'tools/**/*.mjs',
     ],
     languageOptions: {
       ...tseslint.configs.disableTypeChecked.languageOptions,
