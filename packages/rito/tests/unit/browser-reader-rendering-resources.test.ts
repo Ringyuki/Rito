@@ -498,7 +498,7 @@ describe('Browser reader resource-backed rendering', () => {
     ]);
   });
 
-  it('fails a referenced face once instead of publishing mismatched fallback geometry', async () => {
+  it('skips a face that cannot load, once, instead of failing the book', async () => {
     const addFont = vi.fn();
     class BrokenFontFace extends FakeFontFace {
       override load(): Promise<BrokenFontFace> {
@@ -522,9 +522,8 @@ describe('Browser reader resource-backed rendering', () => {
     });
     useFontFamilies(state, 'Broken');
 
-    const failure = 'Referenced publication font could not be loaded: Broken (fonts/broken.woff2)';
-    await expect(preloadReaderFonts(state)).rejects.toThrow(failure);
-    await expect(preloadReaderFonts(state)).rejects.toThrow(failure);
+    await expect(preloadReaderFonts(state)).resolves.not.toThrow();
+    await expect(preloadReaderFonts(state)).resolves.not.toThrow();
 
     expect(readResource).toHaveBeenCalledOnce();
     expect(addFont).not.toHaveBeenCalled();

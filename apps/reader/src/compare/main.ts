@@ -71,7 +71,16 @@ async function openBook(file: File): Promise<void> {
       allowScriptedContent: false,
       ...({ gap: MARGIN * 2 } as object),
     });
-    await rendition.display();
+    // epub.js can hang on books whose internal resources fail to resolve;
+    // the A side must not wait on it.
+    await Promise.race([
+      rendition.display(),
+      new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('epub.js display timed out'));
+        }, 15000);
+      }),
+    ]);
   } catch (error) {
     // The A side must render even when epub.js cannot open the book.
     epubBook = undefined;

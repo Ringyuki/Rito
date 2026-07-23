@@ -36,9 +36,9 @@ export async function prepareBrowserReaderRevisionFonts(
   const registry = browserFontFaceRegistry();
   if (typeof FontFace === 'undefined' || !registry) return inputs.length === 0;
   const unavailable = unavailableFontFaces(state);
-  const unavailableInput = inputs.find((input) => unavailable.has(fontFaceKey(input)));
-  if (unavailableInput) throw referencedFontUnavailable(unavailableInput);
-  const pending = inputs.filter((input) => !readerFontFaceIsRegistered(state, input));
+  const pending = inputs.filter(
+    (input) => !readerFontFaceIsRegistered(state, input) && !unavailable.has(fontFaceKey(input)),
+  );
   const attempts = await Promise.all(
     pending.map(async (input) => {
       try {
@@ -49,18 +49,19 @@ export async function prepareBrowserReaderRevisionFonts(
     }),
   );
   if (!isLive()) return false;
-  const failures = attempts.filter(isFailedReaderFontFace);
-  const firstFailure = failures[0];
-  if (firstFailure) {
-    for (const failure of failures) unavailable.add(fontFaceKey(failure.input));
-    throw referencedFontUnavailable(firstFailure.input);
+  // A face the canvas cannot decode is skipped, once: paint falls through
+  // the family stack to the next face or the generic tail. Glyph geometry
+  // for its runs degrades instead of the book failing to open.
+  for (const failure of attempts.filter(isFailedReaderFontFace)) {
+    unavailable.add(fontFaceKey(failure.input));
+    reportUnavailableFontFace(failure.input);
   }
   for (const attempt of attempts) {
     if (isFailedReaderFontFace(attempt)) continue;
     if (!commitReaderFontFace(state, attempt, registry)) {
       unavailable.add(attempt.key);
       const input = pending.find((candidate) => fontFaceKey(candidate) === attempt.key);
-      if (input) throw referencedFontUnavailable(input);
+      if (input) reportUnavailableFontFace(input);
     }
   }
   return true;
@@ -175,9 +176,9 @@ function isFailedReaderFontFace(
   return 'input' in attempt;
 }
 
-function referencedFontUnavailable(input: ReaderFontFaceInput): Error {
-  return new Error(
-    `Referenced publication font could not be loaded: ${input.family} (${input.href})`,
+function reportUnavailableFontFace(input: ReaderFontFaceInput): void {
+  console.warn(
+    `[rito] publication font could not be loaded, paint falls back: ${input.family} (${input.href})`,
   );
 }
 
