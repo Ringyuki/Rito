@@ -160,6 +160,10 @@ impl ParleyInlineContext {
         let mut runs = Vec::with_capacity(items.len());
         let mut shifted_ranges: Vec<(std::ops::Range<usize>, f64)> = Vec::new();
         let mut image_boxes = Vec::new();
+        // Blink consults its pair-preference table only under
+        // `word-break: normal`; `break-all`/`keep-all` change the break
+        // opportunities the table would otherwise veto.
+        let mut chromium_tailoring = true;
         for (item_index, item) in items.iter().enumerate() {
             match item {
                 InlineItem::Text {
@@ -177,6 +181,9 @@ impl ParleyInlineContext {
                         .inline
                         .style(*style)
                         .map_err(|error| LayoutError::Invalid(error.to_string()))?;
+                    if style.text_flow.word_break != rito_style_contract::WordBreak::Normal {
+                        chromium_tailoring = false;
+                    }
                     runs.push((start..text.len(), style, item_index));
                 }
                 InlineItem::Image {
@@ -212,7 +219,9 @@ impl ParleyInlineContext {
         let mut builder = layouts.ranged_builder(&mut fonts, &text, 1.0, true);
         // The pinned-browser baseline: Chromium's ASCII break tailoring plus
         // its CJK-context treatment of ambiguous curly quotes.
-        builder.set_line_break_override(Some(&cjk_aware_chromium_break_override));
+        if chromium_tailoring {
+            builder.set_line_break_override(Some(&cjk_aware_chromium_break_override));
+        }
         let mut first_line_indent = 0.0_f32;
         for (range, style, item_index) in &runs {
             if range.is_empty() {
