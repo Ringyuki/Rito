@@ -133,11 +133,16 @@ pub fn build_chapter_formatting_tree(
     let anonymous_style = layout
         .intern(anonymous_block_style())
         .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))?;
+    let mut inline = inline.clone();
+    let fallback_inline_style = inline
+        .intern(fallback_inline_formatting_style())
+        .map_err(|error| EpubError::new(format!("fallback inline style interns: {error}")))?;
     let mut builder = TreeBuilder {
         layout: &mut layout,
-        inline,
+        inline: &mut inline,
         image_dimensions,
         anonymous_style,
+        fallback_inline_style,
         nodes: Vec::new(),
         source_nodes: Vec::new(),
         node_paints: BTreeMap::new(),
@@ -149,9 +154,9 @@ pub fn build_chapter_formatting_tree(
         checked_box_paints: std::collections::HashMap::new(),
         checked_inline_styles: std::collections::HashMap::new(),
     };
-    let body_style = builder.layout_style_id(body_source_node_index, "chapter body")?;
+    let body_style = builder.layout_style_id(body_source_node_index, "chapter body");
     let page_background = builder.chapter_body_background(body_source_node_index)?;
-    let body_inline_style = builder.inline_style_id(body_source_node_index, "chapter body")?;
+    let body_inline_style = builder.inline_style_id(body_source_node_index, "chapter body");
     let children = builder.build_children(nodes, body_inline_style)?;
     let root = builder.push_node(
         FormattingNode {
@@ -174,10 +179,7 @@ pub fn build_chapter_formatting_tree(
     let tree = FormattingTree::with_styles(
         formatting_nodes,
         root,
-        FormattingTreeStyles {
-            layout,
-            inline: inline.clone(),
-        },
+        FormattingTreeStyles { layout, inline },
     )
     .map_err(EpubError::new)?;
     Ok(ChapterFormattingTree {
@@ -194,9 +196,12 @@ pub fn build_chapter_formatting_tree(
 
 struct TreeBuilder<'a> {
     layout: &'a mut LayoutStyleTableV1,
-    inline: &'a InlineStyleTableV1,
+    inline: &'a mut InlineStyleTableV1,
     image_dimensions: &'a BTreeMap<String, (u32, u32)>,
     anonymous_style: LayoutStyleId,
+    /// The style a node falls back to when the projection retained no
+    /// inline entry for it (its own declarations were unrepresentable).
+    fallback_inline_style: StyleId,
     nodes: Vec<FormattingNode>,
     source_nodes: Vec<Option<usize>>,
     node_paints: BTreeMap<u32, NodePaint>,
@@ -228,24 +233,38 @@ impl TreeBuilder<'_> {
         id
     }
 
-    fn layout_style_id(&self, source_index: usize, what: &str) -> EpubResult<LayoutStyleId> {
-        self.layout
-            .node_style_id(source_index)
-            .map_err(|error| EpubError::new(format!("{what} has no layout style: {error}")))
+    fn layout_style_id(&mut self, source_index: usize, what: &str) -> LayoutStyleId {
+        match self.layout.node_style_id(source_index) {
+            Ok(id) => id,
+            Err(_) => {
+                self.degrade(format!(
+                    "<{what}> layout style missing: block defaults applied"
+                ));
+                self.anonymous_style
+            }
+        }
     }
 
-    fn inline_style_id(&self, source_index: usize, what: &str) -> EpubResult<StyleId> {
-        self.inline
-            .node_style_id(source_index)
-            .map_err(|error| EpubError::new(format!("{what} has no inline style: {error}")))
+    fn inline_style_id(&mut self, source_index: usize, what: &str) -> StyleId {
+        match self.inline.node_style_id(source_index) {
+            Ok(id) => id,
+            Err(_) => {
+                self.degrade(format!(
+                    "<{what}> inline style missing: text defaults applied"
+                ));
+                self.fallback_inline_style
+            }
+        }
     }
 
-    fn is_display_none(&self, source_index: usize, what: &str) -> EpubResult<bool> {
-        let style = self
-            .layout
-            .style_for_node(source_index)
-            .map_err(|error| EpubError::new(format!("{what} has no layout style: {error}")))?;
-        Ok(style.display.outside == LayoutDisplayOutsideV1::None)
+    fn is_display_none(&mut self, source_index: usize, what: &str) -> bool {
+        match self.layout.style_for_node(source_index) {
+            Ok(style) => style.display.outside == LayoutDisplayOutsideV1::None,
+            Err(_) => {
+                self.degrade(format!("<{what}> layout style missing: treated as visible"));
+                false
+            }
+        }
     }
 
     /// Builds the formatting children of one block-level container from its
@@ -312,10 +331,10 @@ impl TreeBuilder<'_> {
             return self.build_hr(element);
         }
         let source_index = element_source_index(element)?;
-        if self.is_display_none(source_index, &element.tag)? {
+        if self.is_display_none(source_index, &element.tag) {
             return Ok(None);
         }
-        let style = self.layout_style_id(source_index, &element.tag)?;
+        let style = self.layout_style_id(source_index, &element.tag);
         self.require_block_capabilities(style, &element.tag)?;
         let tag = element.tag.clone();
         let plan = self.block_box_paint_plan(source_index, &tag)?;
@@ -336,7 +355,7 @@ impl TreeBuilder<'_> {
             .iter()
             .any(|child| matches!(child, DocumentNode::Block(_)));
         let id = if has_block_children {
-            let container_inline_style = self.inline_style_id(source_index, &element.tag)?;
+            let container_inline_style = self.inline_style_id(source_index, &element.tag);
             let children = self.build_children(&element.children, container_inline_style)?;
             self.push_node(
                 FormattingNode {
@@ -350,7 +369,7 @@ impl TreeBuilder<'_> {
             // A block whose children are all inline-level is one inline
             // flow; an empty block still occupies flow (its margins
             // apply), it just has no line boxes.
-            let inline_style = self.inline_style_id(source_index, &element.tag)?;
+            let inline_style = self.inline_style_id(source_index, &element.tag);
             let mut collector = InlineCollector::default();
             for child in &element.children {
                 self.collect_inline(child, inline_style, 0.0, &mut collector)?;
@@ -483,10 +502,10 @@ impl TreeBuilder<'_> {
                     ));
                 }
                 let source_index = element_source_index(element)?;
-                if self.is_display_none(source_index, &element.tag)? {
+                if self.is_display_none(source_index, &element.tag) {
                     return Ok(());
                 }
-                let style = self.inline_style_id(source_index, &element.tag)?;
+                let style = self.inline_style_id(source_index, &element.tag);
                 self.require_inline_capabilities(style, true, &element.tag)?;
                 let resolved = self
                     .inline
@@ -532,12 +551,12 @@ impl TreeBuilder<'_> {
     fn build_hr(&mut self, element: &ElementNode) -> EpubResult<Option<FormattingNodeId>> {
         use rito_style_contract::BorderStyle;
         let source_index = element_source_index(element)?;
-        if self.is_display_none(source_index, "hr")? {
+        if self.is_display_none(source_index, "hr") {
             return Ok(None);
         }
-        let style = self.layout_style_id(source_index, "hr")?;
+        let style = self.layout_style_id(source_index, "hr");
         self.require_block_capabilities(style, "hr")?;
-        let inline_style = self.inline_style_id(source_index, "hr")?;
+        let inline_style = self.inline_style_id(source_index, "hr");
         let resolved = self
             .inline
             .style(inline_style)
@@ -594,10 +613,10 @@ impl TreeBuilder<'_> {
         collector: &mut InlineCollector,
     ) -> EpubResult<()> {
         let source_index = element_source_index(element)?;
-        if self.is_display_none(source_index, "ruby")? {
+        if self.is_display_none(source_index, "ruby") {
             return Ok(());
         }
-        let style = self.inline_style_id(source_index, "ruby")?;
+        let style = self.inline_style_id(source_index, "ruby");
         self.require_inline_capabilities(style, true, "ruby")?;
         let collapse = self.white_space_collapse(style)?;
         let mut pending_base = String::new();
@@ -676,17 +695,24 @@ impl TreeBuilder<'_> {
             .ok_or_else(|| {
                 EpubError::new(format!("image {} carries no source identity", image.src))
             })?;
-        if self.is_display_none(source_index, "image")? {
+        if self.is_display_none(source_index, "image") {
             return Ok(());
         }
-        let Some((width, height)) = self.image_dimensions.get(&image.src) else {
-            return Err(EpubError::new(format!(
-                "image dimensions are unavailable: {}",
-                image.src
-            )));
+        let (width, height) = match self.image_dimensions.get(&image.src) {
+            Some(dimensions) => *dimensions,
+            None => {
+                // An undecodable or missing image renders as a minimal
+                // placeholder box, the way a browser shows its broken-image
+                // state, instead of refusing the chapter.
+                self.degrade(format!(
+                    "image dimensions unavailable, placeholder rendered: {}",
+                    image.src
+                ));
+                (1, 1)
+            }
         };
-        let style = self.inline_style_id(source_index, "image")?;
-        let layout_style = self.layout_style_id(source_index, "image")?;
+        let style = self.inline_style_id(source_index, "image");
+        let layout_style = self.layout_style_id(source_index, "image");
         self.require_image_capabilities(layout_style)?;
         self.require_inline_capabilities(style, true, "image")?;
         let resolved = self
@@ -696,8 +722,8 @@ impl TreeBuilder<'_> {
         collector.push_image(
             InlineItem::Image {
                 src: image.src.clone(),
-                intrinsic_width: f64::from(*width),
-                intrinsic_height: f64::from(*height),
+                intrinsic_width: f64::from(width),
+                intrinsic_height: f64::from(height),
                 style,
                 layout_style,
                 baseline_shift_px: ancestor_shift_px + resolved_baseline_shift(resolved),
@@ -718,7 +744,7 @@ impl TreeBuilder<'_> {
     /// when transparent. Body decoration beyond a plain background color
     /// still fails closed like any other box.
     fn chapter_body_background(&mut self, source_index: usize) -> EpubResult<Option<String>> {
-        let style = self.inline_style_id(source_index, "chapter body")?;
+        let style = self.inline_style_id(source_index, "chapter body");
         let (background, bordered, decoration) = {
             let resolved = self
                 .inline
@@ -773,7 +799,7 @@ impl TreeBuilder<'_> {
         source_index: usize,
         what: &str,
     ) -> EpubResult<Option<(NodePaint, [f64; 4])>> {
-        let style = self.inline_style_id(source_index, what)?;
+        let style = self.inline_style_id(source_index, what);
         let verdict = match self.checked_box_paints.get(&style.raw()) {
             Some(cached) => cached.clone(),
             None => {
@@ -1588,6 +1614,20 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         node_tags: BTreeMap::new(),
         degradations: vec!["chapter has no body source node; rendered empty".to_owned()],
     })
+}
+
+/// The inline style a node degrades to when the projection retained no
+/// entry for it: an undecorated 16px generic-serif paragraph. Inherited
+/// context is lost, but the text renders.
+fn fallback_inline_formatting_style() -> rito_style_contract::InlineFormattingStyleV1 {
+    rito_inline::plain_paragraph_style(
+        rito_style_contract::FontFamilies::new(vec![rito_style_contract::FontFamily::Generic(
+            rito_style_contract::GenericFontFamily::Serif,
+        )])
+        .expect("one generic family is a valid stack"),
+        16.0,
+        0.0,
+    )
 }
 
 fn anonymous_block_style() -> LayoutFormattingStyleV1 {
