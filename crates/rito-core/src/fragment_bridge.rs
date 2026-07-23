@@ -336,6 +336,15 @@ impl TreeBuilder<'_> {
             return Ok(None);
         }
         let style = self.layout_style_id(source_index, &element.tag);
+        {
+            let resolved = self
+                .layout
+                .style(style)
+                .map_err(|error| EpubError::new(format!("block style resolves: {error}")))?;
+            if resolved.display.inside == LayoutDisplayInsideV1::Table {
+                return self.build_table(element, source_index, style);
+            }
+        }
         self.require_block_capabilities(style, &element.tag)?;
         let tag = element.tag.clone();
         let plan = self.block_box_paint_plan(source_index, &tag)?;
@@ -734,6 +743,160 @@ impl TreeBuilder<'_> {
             &image.alt,
         );
         Ok(())
+    }
+
+    /// Builds a `display: table` element into the table grid the block
+    /// engine lays out: row groups flatten, rows collect cells, a cell's
+    /// content builds like a block container, and `colspan` spans grid
+    /// columns. Structure the CSS table model would wrap in anonymous
+    /// boxes degrades to plain rows/cells with a note.
+    fn build_table(
+        &mut self,
+        element: &ElementNode,
+        source_index: usize,
+        style: LayoutStyleId,
+    ) -> EpubResult<Option<FormattingNodeId>> {
+        let tag = element.tag.clone();
+        let plan = self.block_box_paint_plan(source_index, &tag)?;
+        let (style, decoration) = match plan {
+            Some((paint, widths)) if widths.iter().any(|width| *width > 0.0) => (
+                self.style_with_border_padding(style, widths, &tag)?,
+                Some(paint),
+            ),
+            Some((paint, _)) => (style, Some(paint)),
+            None => (style, None),
+        };
+        let mut rows = Vec::new();
+        self.collect_table_rows(&element.children, &mut rows)?;
+        let row_ids = rows
+            .into_iter()
+            .map(|row| self.build_table_row(row))
+            .collect::<EpubResult<Vec<_>>>()?;
+        let id = self.push_node(
+            FormattingNode {
+                style,
+                content: FormattingNodeContent::Table,
+                children: row_ids,
+            },
+            Some(source_index),
+        );
+        if let Some(anchor) = element
+            .attributes
+            .as_ref()
+            .and_then(|attributes| attributes.id.clone())
+        {
+            self.node_anchors.insert(id.0, anchor);
+        }
+        self.node_tags.insert(id.0, tag);
+        if let Some(paint) = decoration {
+            self.node_paints.insert(id.0, paint);
+        }
+        Ok(Some(id))
+    }
+
+    /// Flattens row groups and collects row elements in document order.
+    fn collect_table_rows<'n>(
+        &mut self,
+        children: &'n [DocumentNode],
+        rows: &mut Vec<&'n ElementNode>,
+    ) -> EpubResult<()> {
+        for child in children {
+            let DocumentNode::Block(inner) = child else {
+                continue;
+            };
+            let inner_index = element_source_index(inner)?;
+            if self.is_display_none(inner_index, &inner.tag) {
+                continue;
+            }
+            let inside = {
+                let style_id = self.layout_style_id(inner_index, &inner.tag);
+                self.layout
+                    .style(style_id)
+                    .map(|resolved| resolved.display.inside)
+                    .unwrap_or(LayoutDisplayInsideV1::Flow)
+            };
+            match inside {
+                LayoutDisplayInsideV1::TableRow => rows.push(inner),
+                LayoutDisplayInsideV1::TableRowGroup
+                | LayoutDisplayInsideV1::TableHeaderGroup
+                | LayoutDisplayInsideV1::TableFooterGroup => {
+                    self.collect_table_rows(&inner.children, rows)?;
+                }
+                LayoutDisplayInsideV1::TableColumn | LayoutDisplayInsideV1::TableColumnGroup => {}
+                _ => {
+                    self.degrade(format!(
+                        "<{}> inside a table is not a row; skipped",
+                        inner.tag
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn build_table_row(&mut self, row: &ElementNode) -> EpubResult<FormattingNodeId> {
+        let source_index = element_source_index(row)?;
+        let style = self.layout_style_id(source_index, &row.tag);
+        let mut cells = Vec::new();
+        for child in &row.children {
+            let DocumentNode::Block(cell) = child else {
+                continue;
+            };
+            let cell_index = element_source_index(cell)?;
+            if self.is_display_none(cell_index, &cell.tag) {
+                continue;
+            }
+            let cell_style = self.layout_style_id(cell_index, &cell.tag);
+            let cell_tag = cell.tag.clone();
+            let plan = self.block_box_paint_plan(cell_index, &cell_tag)?;
+            let (cell_style, decoration) = match plan {
+                Some((paint, widths)) if widths.iter().any(|width| *width > 0.0) => (
+                    self.style_with_border_padding(cell_style, widths, &cell_tag)?,
+                    Some(paint),
+                ),
+                Some((paint, _)) => (cell_style, Some(paint)),
+                None => (cell_style, None),
+            };
+            let col_span = cell
+                .attributes
+                .as_ref()
+                .and_then(|attributes| attributes.colspan)
+                .unwrap_or(1)
+                .max(1);
+            if cell
+                .attributes
+                .as_ref()
+                .and_then(|attributes| attributes.rowspan)
+                .is_some_and(|span| span > 1)
+            {
+                self.degrade("table rowspan laid out as a single row".to_owned());
+            }
+            let inline_style = self.inline_style_id(cell_index, &cell.tag);
+            let children = self.build_children(&cell.children, inline_style)?;
+            let id = self.push_node(
+                FormattingNode {
+                    style: cell_style,
+                    content: FormattingNodeContent::TableCell {
+                        col_span: col_span as u32,
+                    },
+                    children,
+                },
+                Some(cell_index),
+            );
+            self.node_tags.insert(id.0, cell_tag);
+            if let Some(paint) = decoration {
+                self.node_paints.insert(id.0, paint);
+            }
+            cells.push(id);
+        }
+        Ok(self.push_node(
+            FormattingNode {
+                style,
+                content: FormattingNodeContent::TableRow,
+                children: cells,
+            },
+            Some(source_index),
+        ))
     }
 
     /// Whitelist gate for a style used as a block-level box. Every field
@@ -1764,32 +1927,67 @@ fn fold_through_collapsing_margins(
             .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
             .clone();
         let mut changed = false;
+        let zero = || {
+            LengthPercentageOrAuto::Value(LengthPercentage::Length(
+                rito_style_contract::CssPx::new(0.0).expect("zero is finite"),
+            ))
+        };
+        // Margin and padding percentages share the inline-size basis in
+        // CSS, so a percentage margin folds into a percentage padding
+        // unchanged. Mixed length + percentage cannot sum statically and
+        // stays unfolded.
         let mut absorb = |margin: &mut LengthPercentageOrAuto,
                           padding: &mut NonNegativeLengthPercentage|
          -> EpubResult<()> {
-            let Some(px) = resolved_px(*margin) else {
-                return Ok(());
+            let folded = match (*margin, padding.value()) {
+                (LengthPercentageOrAuto::Auto, _) => None,
+                (
+                    LengthPercentageOrAuto::Value(LengthPercentage::Length(margin_px)),
+                    LengthPercentage::Length(existing),
+                ) => {
+                    let px = f64::from(margin_px.get());
+                    if px <= 0.0 {
+                        None
+                    } else {
+                        Some(LengthPercentage::Length(
+                            rito_style_contract::CssPx::new(
+                                (f64::from(existing.get()) + px) as f32,
+                            )
+                            .map_err(|error| {
+                                EpubError::new(format!("padding is finite: {error}"))
+                            })?,
+                        ))
+                    }
+                }
+                (
+                    LengthPercentageOrAuto::Value(LengthPercentage::Percentage(pct)),
+                    existing_padding,
+                ) if pct.ratio() > 0.0 => {
+                    let existing_ratio = match existing_padding {
+                        LengthPercentage::Length(existing) if existing.get() == 0.0 => 0.0,
+                        LengthPercentage::Percentage(existing) => f64::from(existing.ratio()),
+                        _ => return Ok(()),
+                    };
+                    Some(LengthPercentage::Percentage(
+                        rito_style_contract::Percentage::from_ratio(
+                            (existing_ratio + f64::from(pct.ratio())) as f32,
+                        )
+                        .map_err(|error| {
+                            EpubError::new(format!("padding ratio is finite: {error}"))
+                        })?,
+                    ))
+                }
+                _ => None,
             };
-            if px <= 0.0 {
-                // Negative root margins would need clipping semantics the
-                // page does not have; leave them to the (dropped) default.
-                *margin = LengthPercentageOrAuto::Value(LengthPercentage::Length(
-                    rito_style_contract::CssPx::new(0.0).expect("zero is finite"),
-                ));
-                return Ok(());
+            if let Some(next) = folded {
+                *padding = NonNegativeLengthPercentage::new(next);
+                changed = true;
             }
-            let existing = match padding.value() {
-                LengthPercentage::Length(existing) => f64::from(existing.get()),
-                _ => return Ok(()),
-            };
-            *padding = NonNegativeLengthPercentage::new(LengthPercentage::Length(
-                rito_style_contract::CssPx::new((existing + px) as f32)
-                    .map_err(|error| EpubError::new(format!("padding is finite: {error}")))?,
-            ));
-            *margin = LengthPercentageOrAuto::Value(LengthPercentage::Length(
-                rito_style_contract::CssPx::new(0.0).expect("zero is finite"),
-            ));
-            changed = true;
+            if !matches!(*margin, LengthPercentageOrAuto::Value(LengthPercentage::Length(px)) if px.get() == 0.0)
+            {
+                *margin = zero();
+                changed = true;
+            }
             Ok(())
         };
         let mut margin = style.margin;

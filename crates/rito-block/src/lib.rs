@@ -595,6 +595,46 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         },
                     ));
                 }
+                FormattingNodeContent::Table => {
+                    let child_style = container_layout_style(tree, *child_id)?;
+                    let hbox = resolve_horizontal_box(child_style, content_width)?;
+                    let table = self.layout_table(tree, *child_id, hbox.border_width, cancel)?;
+                    let table_height = table.rect.height;
+                    if table_height > available && !page_is_empty {
+                        return Ok(sealed_with_break(
+                            container,
+                            space.inline_size,
+                            seal_height(y, &floats),
+                            fragments,
+                            BreakToken {
+                                resume_path: vec![*child_id],
+                                stage: BreakTokenStage::Before,
+                                pending_floats: std::mem::take(&mut pending_float_breaks),
+                            },
+                        ));
+                    }
+                    y += gap;
+                    remaining -= gap;
+                    fragments.push(Fragment::Box(BoxFragment {
+                        source: *child_id,
+                        rect: FragmentRect {
+                            x: content_left + hbox.x,
+                            y,
+                            width: table.rect.width,
+                            height: table_height,
+                        },
+                        children: table.children,
+                    }));
+                    y += table_height;
+                    remaining -= table_height;
+                    pending_margin = bottom_margin;
+                    continue;
+                }
+                FormattingNodeContent::TableRow | FormattingNodeContent::TableCell { .. } => {
+                    return Err(LayoutError::Invalid(
+                        "table rows and cells appear only inside a table".to_owned(),
+                    ));
+                }
                 FormattingNodeContent::BlockContainer => {
                     let child_style = container_layout_style(tree, *child_id)?;
                     let hbox = resolve_horizontal_box(child_style, content_width)?;
@@ -855,6 +895,179 @@ fn set_fragment_y(fragment: &mut Fragment, y: f64) {
     }
 }
 
+impl<I: FormattingContext> BlockFormattingContext<I> {
+    /// Lays a table out whole: CSS automatic column sizing over the
+    /// cells' intrinsic widths (a spanning cell spreads its demand evenly),
+    /// shrink-to-fit table width, each row as tall as its tallest cell.
+    /// Fragmentation is at the table's granularity in this version — the
+    /// caller breaks before the table when it does not fit.
+    fn layout_table(
+        &self,
+        tree: &FormattingTree,
+        table: FormattingNodeId,
+        available_width: f64,
+        cancel: &CancelFlag,
+    ) -> Result<BoxFragment, LayoutError> {
+        struct GridCell {
+            node: FormattingNodeId,
+            column: usize,
+            span: usize,
+        }
+        let mut grid: Vec<Vec<GridCell>> = Vec::new();
+        let mut column_count = 0usize;
+        for row_id in &tree.node(table).children {
+            let FormattingNodeContent::TableRow = tree.node(*row_id).content else {
+                return Err(LayoutError::Invalid(
+                    "table children must be rows".to_owned(),
+                ));
+            };
+            let mut cells = Vec::new();
+            let mut column = 0usize;
+            for cell_id in &tree.node(*row_id).children {
+                let FormattingNodeContent::TableCell { col_span } = tree.node(*cell_id).content
+                else {
+                    return Err(LayoutError::Invalid(
+                        "table-row children must be cells".to_owned(),
+                    ));
+                };
+                let span = (col_span as usize).max(1);
+                cells.push(GridCell {
+                    node: *cell_id,
+                    column,
+                    span,
+                });
+                column += span;
+            }
+            column_count = column_count.max(column);
+            grid.push(cells);
+        }
+        if column_count == 0 {
+            return Ok(BoxFragment {
+                source: table,
+                rect: FragmentRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 0.0,
+                    height: 0.0,
+                },
+                children: Vec::new(),
+            });
+        }
+        let mut min_widths = vec![0.0_f64; column_count];
+        let mut max_widths = vec![0.0_f64; column_count];
+        for row in &grid {
+            for cell in row {
+                let sizes = self.cell_intrinsic_sizes(tree, cell.node)?;
+                let share = cell.span as f64;
+                for offset in 0..cell.span {
+                    let column = cell.column + offset;
+                    min_widths[column] = min_widths[column].max(sizes.min_content / share);
+                    max_widths[column] = max_widths[column].max(sizes.max_content / share);
+                }
+            }
+        }
+        let sum_min: f64 = min_widths.iter().sum();
+        let sum_max: f64 = max_widths.iter().sum();
+        let columns: Vec<f64> = if sum_max <= available_width {
+            max_widths.clone()
+        } else if sum_min >= available_width {
+            // Overflow: columns keep their minimums, like a browser table
+            // wider than its containing block.
+            min_widths.clone()
+        } else {
+            let scale = (available_width - sum_min) / (sum_max - sum_min).max(f64::EPSILON);
+            min_widths
+                .iter()
+                .zip(&max_widths)
+                .map(|(min, max)| min + (max - min) * scale)
+                .collect()
+        };
+        let mut offsets = vec![0.0_f64; column_count + 1];
+        for index in 0..column_count {
+            offsets[index + 1] = offsets[index] + columns[index];
+        }
+        let table_width = offsets[column_count];
+
+        let mut rows = Vec::with_capacity(grid.len());
+        let mut y = 0.0_f64;
+        for (row_index, row) in grid.iter().enumerate() {
+            if cancel.is_cancelled() {
+                return Err(LayoutError::Cancelled);
+            }
+            let row_id = tree.node(table).children[row_index];
+            let mut cell_fragments = Vec::with_capacity(row.len());
+            let mut row_height = 0.0_f64;
+            for cell in row {
+                let cell_width = offsets[cell.column + cell.span] - offsets[cell.column];
+                let outcome = self.layout_container(
+                    tree,
+                    cell.node,
+                    &ConstraintSpace::continuous(cell_width),
+                    None,
+                    cancel,
+                    false,
+                )?;
+                let Fragment::Box(mut cell_root) = outcome.fragments.root else {
+                    return Err(LayoutError::Invalid(
+                        "cell layout must produce a box fragment".to_owned(),
+                    ));
+                };
+                cell_root.source = cell.node;
+                cell_root.rect.x = offsets[cell.column];
+                cell_root.rect.width = cell_width;
+                row_height = row_height.max(cell_root.rect.height);
+                cell_fragments.push(cell_root);
+            }
+            // Cells stretch to the row height, matching the separate-border
+            // table model's uniform row boxes.
+            for cell_root in &mut cell_fragments {
+                cell_root.rect.height = row_height;
+                cell_root.rect.y = 0.0;
+            }
+            rows.push(Fragment::Box(BoxFragment {
+                source: row_id,
+                rect: FragmentRect {
+                    x: 0.0,
+                    y,
+                    width: table_width,
+                    height: row_height,
+                },
+                children: cell_fragments.into_iter().map(Fragment::Box).collect(),
+            }));
+            y += row_height;
+        }
+        Ok(BoxFragment {
+            source: table,
+            rect: FragmentRect {
+                x: 0.0,
+                y: 0.0,
+                width: table_width,
+                height: y,
+            },
+            children: rows,
+        })
+    }
+
+    /// A cell's intrinsic inline bounds including its own horizontal
+    /// padding (borders are absorbed as padding upstream).
+    fn cell_intrinsic_sizes(
+        &self,
+        tree: &FormattingTree,
+        cell: FormattingNodeId,
+    ) -> Result<IntrinsicInlineSizes, LayoutError> {
+        let mut sizes = self.intrinsic_inline_sizes(tree, cell)?;
+        let style = container_layout_style(tree, cell)?;
+        let pad = |side: rito_style_contract::NonNegativeLengthPercentage| match side.value() {
+            LengthPercentage::Length(px) => f64::from(px.get()),
+            _ => 0.0,
+        };
+        let padding = pad(style.padding.left) + pad(style.padding.right);
+        sizes.min_content += padding;
+        sizes.max_content += padding;
+        Ok(sizes)
+    }
+}
+
 impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
     fn layout(
         &self,
@@ -875,6 +1088,18 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 "a sized leaf has no formatting context of its own; lay out its container"
                     .to_owned(),
             )),
+            FormattingNodeContent::Table => {
+                let fragment = self.layout_table(tree, node, space.inline_size, cancel)?;
+                Ok(LayoutOutcome {
+                    fragments: FragmentTree {
+                        root: Fragment::Box(fragment),
+                    },
+                    continuation: None,
+                })
+            }
+            FormattingNodeContent::TableRow | FormattingNodeContent::TableCell { .. } => Err(
+                LayoutError::Invalid("table rows and cells lay out through their table".to_owned()),
+            ),
         }
     }
 
@@ -897,7 +1122,25 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
             FormattingNodeContent::InlineFlow { .. } => {
                 self.inline.intrinsic_inline_sizes(tree, node)
             }
-            FormattingNodeContent::BlockContainer => {
+            FormattingNodeContent::Table | FormattingNodeContent::TableRow => {
+                // A table is as wide as its widest row; a row sums its cells.
+                let mut sizes = IntrinsicInlineSizes {
+                    min_content: 0.0,
+                    max_content: 0.0,
+                };
+                for child in &tree.node(node).children {
+                    let child_sizes = self.intrinsic_inline_sizes(tree, *child)?;
+                    if matches!(tree.node(node).content, FormattingNodeContent::TableRow) {
+                        sizes.min_content += child_sizes.min_content;
+                        sizes.max_content += child_sizes.max_content;
+                    } else {
+                        sizes.min_content = sizes.min_content.max(child_sizes.min_content);
+                        sizes.max_content = sizes.max_content.max(child_sizes.max_content);
+                    }
+                }
+                Ok(sizes)
+            }
+            FormattingNodeContent::TableCell { .. } | FormattingNodeContent::BlockContainer => {
                 let mut sizes = IntrinsicInlineSizes {
                     min_content: 0.0,
                     max_content: 0.0,

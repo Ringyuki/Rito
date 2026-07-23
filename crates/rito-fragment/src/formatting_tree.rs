@@ -78,6 +78,16 @@ pub enum FormattingNodeContent {
         /// Items in content order.
         items: Vec<InlineItem>,
     },
+    /// A table grid: children are `TableRow` nodes in row order.
+    Table,
+    /// One table row: children are `TableCell` nodes in column order.
+    TableRow,
+    /// One table cell: lays out its children like a block container inside
+    /// the column width the table assigns.
+    TableCell {
+        /// Grid columns this cell spans (≥ 1).
+        col_span: u32,
+    },
 }
 
 /// One node of the formatting tree.
@@ -258,6 +268,12 @@ fn fingerprint(
             } => {
                 mixer.mix(&[1, u8::from(*breakable)]);
                 mixer.mix(&block_size.to_bits().to_le_bytes());
+            }
+            FormattingNodeContent::Table => mixer.mix(&[3]),
+            FormattingNodeContent::TableRow => mixer.mix(&[4]),
+            FormattingNodeContent::TableCell { col_span } => {
+                mixer.mix(&[5]);
+                mixer.mix(&col_span.to_le_bytes());
             }
             FormattingNodeContent::InlineFlow { items } => {
                 mixer.mix(&[2]);

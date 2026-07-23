@@ -135,6 +135,11 @@ impl FormattingContext for StubBlockContext {
             FormattingNodeContent::InlineFlow { .. } => Err(LayoutError::Invalid(
                 "stub block context cannot size inline flows".to_owned(),
             )),
+            FormattingNodeContent::Table
+            | FormattingNodeContent::TableRow
+            | FormattingNodeContent::TableCell { .. } => Err(LayoutError::Invalid(
+                "stub block context cannot size table content".to_owned(),
+            )),
             FormattingNodeContent::BlockContainer => {
                 let mut sizes = IntrinsicInlineSizes {
                     min_content: 0.0,
