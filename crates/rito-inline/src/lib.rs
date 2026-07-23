@@ -210,6 +210,9 @@ impl ParleyInlineContext {
         let mut fonts = self.fonts.borrow_mut();
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = layouts.ranged_builder(&mut fonts, &text, 1.0, true);
+        // The pinned-browser baseline: Chromium's ASCII break tailoring plus
+        // its CJK-context treatment of ambiguous curly quotes.
+        builder.set_line_break_override(Some(&cjk_aware_chromium_break_override));
         let mut first_line_indent = 0.0_f32;
         for (range, style, item_index) in &runs {
             if range.is_empty() {
@@ -542,6 +545,48 @@ impl FormattingContext for ParleyInlineContext {
             max_content: f64::from(widths.max),
         })
     }
+}
+
+/// Chromium's line-break tailoring, extended with its CJK quote classes.
+///
+/// UAX-14 gives the curly quotes class QU (no break on either side), but
+/// Blink reclassifies them in CJK context: an opening curly quote breaks
+/// like an opening bracket (opportunity before, none after) and a closing
+/// curly quote like a closing bracket (opportunity after, none before).
+/// CJK dialogue in translated novels hangs on this. Everything else
+/// defers to Parley's Chromium ASCII table.
+fn cjk_aware_chromium_break_override(context: parley::LineBreakContext) -> Option<bool> {
+    const OPEN_QUOTES: [char; 2] = ['\u{2018}', '\u{201C}'];
+    const CLOSE_QUOTES: [char; 2] = ['\u{2019}', '\u{201D}'];
+    if OPEN_QUOTES.contains(&context.after)
+        && is_cjk_context(context.before)
+        && fullwidth_punctuation_class(context.before) != PunctuationClass::Open
+        && !OPEN_QUOTES.contains(&context.before)
+    {
+        return Some(true);
+    }
+    if CLOSE_QUOTES.contains(&context.before)
+        && is_cjk_context(context.after)
+        && fullwidth_punctuation_class(context.after) != PunctuationClass::CloseOrStop
+        && !CLOSE_QUOTES.contains(&context.after)
+        && !OPEN_QUOTES.contains(&context.after)
+    {
+        return Some(true);
+    }
+    (parley::CHROMIUM_LINE_BREAK_OVERRIDE)(context)
+}
+
+/// Whether the character puts the boundary in CJK typographic context.
+fn is_cjk_context(character: char) -> bool {
+    matches!(u32::from(character),
+        0x2E80..=0x303F
+        | 0x3040..=0x312F
+        | 0x3130..=0x318F
+        | 0x31C0..=0x9FFF
+        | 0xAC00..=0xD7AF
+        | 0xF900..=0xFAFF
+        | 0xFF00..=0xFFEF
+        | 0x20000..=0x3FFFF)
 }
 
 /// Which glyph loses its blank half at a fullwidth-punctuation boundary.
