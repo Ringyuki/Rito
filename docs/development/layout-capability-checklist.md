@@ -57,8 +57,14 @@ Chromium on the books that exercise it — never when unit tests alone pass.
 - [ ] **Real flex/grid layout** — containers flatten to block flow (only
       the bounded single-image-centered-flex subset is real).
       `display: contents` renders as inline.
-- [ ] **Table layout** — table-family displays lay out as blocks;
-      colspan/rowspan pass through unused.
+- [ ] **Table layout** — real grid layout landed 2026-07-23: CSS auto
+      column sizing over cell intrinsic widths, colspan, row-group
+      flattening, shrink-to-fit width, cell backgrounds/borders through
+      the paint plan (`FormattingNodeContent::Table/TableRow/TableCell`).
+      Remaining before checking off: rowspan (degrades to one row),
+      row-granular pagination (tables break only before the whole table),
+      border-spacing/border-collapse, cell vertical-align, and oracle
+      calibration of a table-heavy page.
 - [ ] **Positioning** — `absolute` lays out in flow; `relative` with a
       non-auto inset ignores the offset.
 - [ ] **Floated images (line-box wrapping)** — block floats with clearance
