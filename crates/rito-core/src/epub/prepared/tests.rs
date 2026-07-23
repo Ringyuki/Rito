@@ -76,10 +76,21 @@ fn prepared_chapter_retains_the_canonical_arena_across_clones() {
 }
 
 #[test]
-fn invalid_chapter_keeps_the_existing_warning_fallback_without_an_arena() {
+fn undeclared_entity_chapter_parses_with_the_reference_rendered_literally() {
     let prepared = parse_loaded_chapter_source(&chapter(
         "<html><body><p>&not-a-declared-entity;</p></body></html>",
     ));
+
+    assert!(prepared.source_arena.is_some());
+    assert!(!prepared.parsed.nodes.is_empty());
+    assert!(prepared.parsed.warnings.is_empty());
+}
+
+#[test]
+fn unparseable_chapter_still_degrades_to_the_warning_fallback() {
+    // Structurally broken markup (an unclosed non-void element crossing
+    // the document end) is beyond character-level repair.
+    let prepared = parse_loaded_chapter_source(&chapter("<html><body><p>text"));
 
     assert!(prepared.source_arena.is_none());
     assert!(prepared.parsed.nodes.is_empty());

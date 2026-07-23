@@ -104,15 +104,18 @@ fn production_renders_unrepresentable_css_without_initializing_legacy_artifacts(
 }
 
 #[test]
-fn malformed_xhtml_empty_chapter_keeps_warning_without_legacy_css() {
+fn undeclared_entity_chapter_renders_literally_without_legacy_css() {
     let mut document = supported_document();
     document.chapters[0].xhtml_source =
         "<html><body><p>&not-a-declared-entity;</p></body></html>".to_owned();
     let prepared = prepare_loaded_document(&document);
     let chapter = &prepared.chapters[0];
-    assert!(chapter.source_arena.is_none());
-    assert!(chapter.parsed.nodes.is_empty());
-    assert_eq!(chapter.parsed.warnings.len(), 1);
+    // The reference the source repairs to `&amp;…;` renders literally,
+    // the way browsers render an undefined entity, instead of blanking
+    // the chapter.
+    assert!(chapter.source_arena.is_some());
+    assert!(!chapter.parsed.nodes.is_empty());
+    assert!(chapter.parsed.warnings.is_empty());
 
     let production = build_prepared_loaded_document_with_layout_and_line_breaking(
         &document,
@@ -121,10 +124,10 @@ fn malformed_xhtml_empty_chapter_keeps_warning_without_legacy_css() {
         LineBreaking::Greedy,
         PublicationDiagnosticsMode::None,
     )
-    .expect("warning-only malformed chapter remains a valid empty publication chapter");
+    .expect("repaired chapter builds");
 
-    assert_eq!(production.publication.xhtml.chapters[0].warning_count, 1);
-    assert_eq!(production.publication.xhtml.chapters[0].top_level_count, 0);
+    assert_eq!(production.publication.xhtml.chapters[0].warning_count, 0);
+    assert_eq!(production.publication.xhtml.chapters[0].top_level_count, 1);
     assert!(prepared
         .stylesheet_ledger
         .legacy_artifacts_if_initialized()

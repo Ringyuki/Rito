@@ -9,7 +9,8 @@ pub(crate) fn normalize_xhtml_source(source: &str) -> Cow<'_, str> {
     let normalized = normalize_xml_declaration(source);
     let normalized = strip_document_type(normalized);
     let normalized = normalize_legacy_void_elements(normalized);
-    replace_nbsp(normalized)
+    let normalized = replace_nbsp(normalized);
+    sanitize_character_data(normalized)
 }
 
 /// Removes XML document-type declarations before the XML parser sees them.
@@ -310,6 +311,202 @@ fn replace_nbsp(source: Cow<'_, str>) -> Cow<'_, str> {
         return source;
     }
     Cow::Owned(source.replace("&nbsp;", "&#160;"))
+}
+
+/// Repairs character data real publications get wrong the way an HTML
+/// parser would, so a stray byte never blanks a chapter:
+///
+/// - a bare `&` (or one starting a reference this engine cannot resolve)
+///   becomes `&amp;` and renders literally, exactly as browsers render an
+///   undefined entity reference;
+/// - a known HTML named entity becomes its character;
+/// - a character reference to an XML-invalid code point, and every raw
+///   control character XML forbids, is dropped — browsers keep such bytes
+///   in the DOM but render nothing for them.
+///
+/// Comments, CDATA sections, and processing instructions pass through
+/// untouched: `&` is legal there.
+fn sanitize_character_data(source: Cow<'_, str>) -> Cow<'_, str> {
+    let bytes = source.as_bytes();
+    let mut output: Option<String> = None;
+    let mut copied = 0;
+    let mut cursor = 0;
+    let mut edit = |output: &mut Option<String>, start: usize, end: usize, replacement: &str| {
+        let buffer = output.get_or_insert_with(|| String::with_capacity(source.len() + 16));
+        buffer.push_str(&source[copied..start]);
+        buffer.push_str(replacement);
+        copied = end;
+    };
+    while cursor < bytes.len() {
+        match bytes[cursor] {
+            b'<' => {
+                if let Some(end) = find_protected_section_end(source.as_ref(), cursor) {
+                    cursor = end;
+                } else {
+                    cursor += 1;
+                }
+            }
+            b'&' => {
+                let (end, replacement) = resolve_ampersand(source.as_ref(), cursor);
+                match replacement {
+                    AmpersandRepair::Keep => {}
+                    AmpersandRepair::Replace(text) => {
+                        edit(&mut output, cursor, end, &text);
+                    }
+                }
+                cursor = end;
+            }
+            byte if byte < 0x20 && !matches!(byte, b'\t' | b'\n' | b'\r') => {
+                edit(&mut output, cursor, cursor + 1, "");
+                cursor += 1;
+            }
+            _ => cursor += 1,
+        }
+    }
+    match output {
+        Some(mut buffer) => {
+            buffer.push_str(&source[copied..]);
+            Cow::Owned(buffer)
+        }
+        None => source,
+    }
+}
+
+enum AmpersandRepair {
+    Keep,
+    Replace(String),
+}
+
+/// Classifies the reference starting at `&`, returning the byte offset
+/// after the consumed input and how to repair it.
+fn resolve_ampersand(source: &str, start: usize) -> (usize, AmpersandRepair) {
+    let tail = &source[start + 1..];
+    let semicolon = tail
+        .char_indices()
+        .take(40)
+        .find(|(_, character)| *character == ';')
+        .map(|(offset, _)| offset);
+    let Some(semicolon) = semicolon else {
+        return (start + 1, AmpersandRepair::Replace("&amp;".to_owned()));
+    };
+    let name = &tail[..semicolon];
+    let end = start + 1 + semicolon + 1;
+    if let Some(digits) = name.strip_prefix('#') {
+        let code_point = if let Some(hex) = digits.strip_prefix(['x', 'X']) {
+            u32::from_str_radix(hex, 16).ok()
+        } else {
+            digits.parse::<u32>().ok()
+        };
+        return match code_point.and_then(char::from_u32) {
+            Some(character) if is_xml_character(character) => (end, AmpersandRepair::Keep),
+            // Numeric reference to a forbidden or unassigned code point:
+            // drop it, matching the invisible rendering browsers give it.
+            _ => (end, AmpersandRepair::Replace(String::new())),
+        };
+    }
+    if !name.is_empty()
+        && name
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric())
+    {
+        if matches!(name, "amp" | "lt" | "gt" | "quot" | "apos") {
+            return (end, AmpersandRepair::Keep);
+        }
+        if let Some(replacement) = html_named_entity(name) {
+            return (end, AmpersandRepair::Replace(replacement.to_owned()));
+        }
+    }
+    (start + 1, AmpersandRepair::Replace("&amp;".to_owned()))
+}
+
+/// XML 1.0 `Char` production.
+fn is_xml_character(character: char) -> bool {
+    matches!(character,
+        '\u{9}' | '\u{A}' | '\u{D}'
+        | '\u{20}'..='\u{D7FF}'
+        | '\u{E000}'..='\u{FFFD}'
+        | '\u{10000}'..='\u{10FFFF}')
+}
+
+/// The HTML named entities observed in real publications. An entity not
+/// listed here renders literally through the `&amp;` repair, which is also
+/// what browsers do for names HTML never defined.
+fn html_named_entity(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "hellip" => "\u{2026}",
+        "mdash" => "\u{2014}",
+        "ndash" => "\u{2013}",
+        "ldquo" => "\u{201C}",
+        "rdquo" => "\u{201D}",
+        "lsquo" => "\u{2018}",
+        "rsquo" => "\u{2019}",
+        "sbquo" => "\u{201A}",
+        "bdquo" => "\u{201E}",
+        "laquo" => "\u{AB}",
+        "raquo" => "\u{BB}",
+        "middot" => "\u{B7}",
+        "bull" => "\u{2022}",
+        "dagger" => "\u{2020}",
+        "Dagger" => "\u{2021}",
+        "permil" => "\u{2030}",
+        "prime" => "\u{2032}",
+        "Prime" => "\u{2033}",
+        "copy" => "\u{A9}",
+        "reg" => "\u{AE}",
+        "trade" => "\u{2122}",
+        "deg" => "\u{B0}",
+        "plusmn" => "\u{B1}",
+        "times" => "\u{D7}",
+        "divide" => "\u{F7}",
+        "minus" => "\u{2212}",
+        "sect" => "\u{A7}",
+        "para" => "\u{B6}",
+        "micro" => "\u{B5}",
+        "cent" => "\u{A2}",
+        "pound" => "\u{A3}",
+        "yen" => "\u{A5}",
+        "euro" => "\u{20AC}",
+        "curren" => "\u{A4}",
+        "iexcl" => "\u{A1}",
+        "iquest" => "\u{BF}",
+        "frac14" => "\u{BC}",
+        "frac12" => "\u{BD}",
+        "frac34" => "\u{BE}",
+        "sup1" => "\u{B9}",
+        "sup2" => "\u{B2}",
+        "sup3" => "\u{B3}",
+        "ordf" => "\u{AA}",
+        "ordm" => "\u{BA}",
+        "shy" => "\u{AD}",
+        "emsp" => "\u{2003}",
+        "ensp" => "\u{2002}",
+        "thinsp" => "\u{2009}",
+        "zwnj" => "\u{200C}",
+        "zwj" => "\u{200D}",
+        "lrm" => "\u{200E}",
+        "rlm" => "\u{200F}",
+        "larr" => "\u{2190}",
+        "uarr" => "\u{2191}",
+        "rarr" => "\u{2192}",
+        "darr" => "\u{2193}",
+        "harr" => "\u{2194}",
+        "infin" => "\u{221E}",
+        "ne" => "\u{2260}",
+        "le" => "\u{2264}",
+        "ge" => "\u{2265}",
+        "asymp" => "\u{2248}",
+        "equiv" => "\u{2261}",
+        "loz" => "\u{25CA}",
+        "spades" => "\u{2660}",
+        "clubs" => "\u{2663}",
+        "hearts" => "\u{2665}",
+        "diams" => "\u{2666}",
+        "oline" => "\u{203E}",
+        "frasl" => "\u{2044}",
+        "szlig" => "\u{DF}",
+        "star" => "\u{2606}",
+        _ => return None,
+    })
 }
 
 #[cfg(test)]

@@ -112,19 +112,38 @@ fn bounds_depth_before_the_recursive_xml_parser_runs() {
 }
 
 #[test]
-fn rejects_internal_dtd_entity_references_without_expanding_them() {
-    let result = SourceArena::from_xhtml(
+fn renders_internal_dtd_entity_references_literally_without_expanding_them() {
+    // The DTD is stripped and never expanded; the reference survives as
+    // literal text, the way browsers render an undefined entity.
+    let arena = SourceArena::from_xhtml(
         r#"<?xml version="1.0"?><!DOCTYPE html [<!ENTITY sample "expanded">]><html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">&sample;</p></body></html>"#,
-    );
-    assert!(matches!(result, Err(SourceError::InvalidXml(_))));
+    )
+    .unwrap();
+    let text: String = arena
+        .iter()
+        .filter_map(|(_, node)| match &node.kind {
+            SourceNodeKind::Text(text) => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(text, "&sample;");
+    assert!(!text.contains("expanded"));
 }
 
 #[test]
-fn rejects_recursive_dtd_entities() {
-    let result = SourceArena::from_xhtml(
+fn renders_recursive_dtd_entities_literally_without_expanding_them() {
+    let arena = SourceArena::from_xhtml(
         r#"<!DOCTYPE html [<!ENTITY loop "&loop;">]><html><body>&loop;</body></html>"#,
-    );
-    assert!(matches!(result, Err(SourceError::InvalidXml(_))));
+    )
+    .unwrap();
+    let text: String = arena
+        .iter()
+        .filter_map(|(_, node)| match &node.kind {
+            SourceNodeKind::Text(text) => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(text, "&loop;");
 }
 
 #[test]
