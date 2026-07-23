@@ -23,7 +23,9 @@ Chromium on the books that exercise it — never when unit tests alone pass.
       2026-07-23: `“”‘’` reclassified as open/close brackets in CJK
       context plus Parley's built-in Chromium ASCII table, via
       `set_line_break_override`. Corpus break agreement 77% → 96%
-      (47/101 chapters break-perfect, worstDy median 1.59px).
+      (50/101 chapters break-perfect, worstDy median 1.53px). The pair
+      table applies only under `word-break: normal` — under `break-all`
+      it would veto the mid-word opportunities Blink keeps.
 - [ ] **Line-end closing-bracket trim** — characterized 2026-07-23:
       pinned Chromium fits a trailing closing bracket (`」』）》`, not
       `。、！？`) into the line at half width. Needs manual
