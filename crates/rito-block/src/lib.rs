@@ -33,7 +33,7 @@ use rito_fragment::{
 };
 use rito_style_contract::{
     BoxSizingV1, ClearV1, FloatV1, LayoutFormattingStyleV1, LengthPercentage,
-    LengthPercentageOrAuto, MaximumSizeV1, PreferredSizeV1,
+    LengthPercentageOrAuto, MaximumSizeV1, PageBreakV1, PreferredSizeV1,
 };
 
 /// Byte budget for the internal inline-outcome cache. Sized for one
@@ -104,6 +104,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // The margin below the previous in-flow child, awaiting collapse
         // with the next child's top margin.
         let mut pending_margin = 0.0_f64;
+        // A `break-after: always` on the previous in-flow child forces a
+        // fragmentainer break before the next one.
+        let mut pending_forced_break = false;
         // Active floats: horizontal occupancy of the current float band and
         // the deepest bottom on each side, in flow coordinates. A float
         // that a fragmentainer edge splits records a pending break and
@@ -327,6 +330,31 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     }));
                     continue;
                 }
+                return Ok(sealed_with_break(
+                    container,
+                    space.inline_size,
+                    seal_height(y, &floats),
+                    fragments,
+                    BreakToken {
+                        resume_path: vec![*child_id],
+                        stage: BreakTokenStage::Before,
+                        pending_floats: std::mem::take(&mut pending_float_breaks),
+                    },
+                ));
+            }
+
+            // Forced breaks: `break-before: always` on this child (or a
+            // pending `break-after: always` from the previous one) seals the
+            // fragmentainer here. A break that lands at the top of a fresh
+            // fragmentainer is already satisfied, per CSS fragmentation.
+            let forces_break_before =
+                pending_forced_break || child_style.break_before == PageBreakV1::Always;
+            pending_forced_break = child_style.break_after == PageBreakV1::Always;
+            if forces_break_before
+                && space.fragmentainer_remaining.is_some()
+                && !child_resumed
+                && !(fragments.is_empty() && fragmentainer_is_fresh)
+            {
                 return Ok(sealed_with_break(
                     container,
                     space.inline_size,
@@ -1604,6 +1632,70 @@ mod tests {
             for (index, line) in paragraph.children.iter().enumerate() {
                 assert!((line.rect().y - 10.0 * index as f64).abs() < 1e-9);
             }
+        }
+    }
+
+    #[test]
+    fn forced_breaks_seal_the_fragmentainer_between_children() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        // Two 2-line paragraphs that would share one 100px fragmentainer;
+        // a forced break between them puts each on its own page. A break
+        // already satisfied at the top of a fresh fragmentainer never
+        // produces an empty page.
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut layout = LayoutStyleTableV1::new(0);
+        let plain = layout
+            .intern(block_style(margin_px(0.0), margin_px(0.0)))
+            .expect("style interns");
+        let mut breaking = block_style(margin_px(0.0), margin_px(0.0));
+        breaking.break_before = PageBreakV1::Always;
+        let breaking = layout.intern(breaking).expect("style interns");
+        let paragraph = |style: LayoutStyleId| FormattingNode {
+            style,
+            content: FormattingNodeContent::InlineFlow {
+                items: (0..2)
+                    .map(|line| InlineItem::Text {
+                        text: format!("line {line}"),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    })
+                    .collect(),
+            },
+            children: Vec::new(),
+        };
+        let nodes = vec![
+            // First child itself asks for a break-before: satisfied at the
+            // top, no empty page.
+            paragraph(breaking),
+            paragraph(breaking),
+            FormattingNode {
+                style: plain,
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 100.0));
+        assert_eq!(pages.len(), 2, "forced break splits the two paragraphs");
+        for page in &pages {
+            assert_eq!(box_children(page).len(), 1, "one paragraph per page");
         }
     }
 

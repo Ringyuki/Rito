@@ -904,16 +904,25 @@ impl TreeBuilder<'_> {
         Ok(())
     }
 
-    fn white_space_collapse(&self, style: StyleId) -> EpubResult<bool> {
-        let style = self
-            .inline
-            .style(style)
-            .map_err(|error| EpubError::new(format!("inline style resolves: {error}")))?;
-        match style.text_flow.white_space_collapse {
+    fn white_space_collapse(&mut self, style: StyleId) -> EpubResult<bool> {
+        let collapse = {
+            let style = self
+                .inline
+                .style(style)
+                .map_err(|error| EpubError::new(format!("inline style resolves: {error}")))?;
+            style.text_flow.white_space_collapse
+        };
+        match collapse {
             WhiteSpaceCollapse::Collapse => Ok(true),
-            other => Err(EpubError::new(format!(
-                "preserved white space is not representable in the fragment tree yet: {other:?}"
-            ))),
+            // Preserved white space keeps its spaces; the hard line
+            // structure of `pre` is approximated by the wrapping line
+            // breaker until forced inline breaks land.
+            other => {
+                self.degrade(format!(
+                    "preserved white space approximated (spaces kept, hard breaks wrap): {other:?}"
+                ));
+                Ok(false)
+            }
         }
     }
 }
@@ -983,9 +992,7 @@ fn shared_box_capability_violation(style: &LayoutFormattingStyleV1) -> Option<St
         }
         c::PositionV1::Absolute => return Some("absolute position".to_owned()),
     }
-    if style.break_before != c::PageBreakV1::Auto || style.break_after != c::PageBreakV1::Auto {
-        return Some("forced page break".to_owned());
-    }
+
     // justify-content / align-items only affect flex containers, which the
     // display gate rejects; overflow does not change layout geometry.
     None
