@@ -54,7 +54,8 @@ pub use bundle_wire::{
 };
 use chapter_text::runtime_chapter_text_index_entries;
 pub use chapter_tree_report::{
-    RuntimeChapterTreeChapter, RuntimeChapterTreeReport, RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
+    ChapterLayoutBox, ChapterLayoutGeometry, RuntimeChapterTreeChapter, RuntimeChapterTreeReport,
+    RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
 };
 use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
 use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};

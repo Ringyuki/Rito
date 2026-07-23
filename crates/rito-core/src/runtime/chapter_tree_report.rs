@@ -202,3 +202,104 @@ fn collect_image_dimensions(
         }
     }
 }
+
+/// One laid-out box in continuous flow coordinates, for differential
+/// conformance against a browser laying out the same chapter source.
+///
+/// Only boxes whose source element carries an `id` attribute are reported:
+/// the id is the join key that pairs an engine box with the same element's
+/// `getBoundingClientRect` in the reference browser. Conformance cases are
+/// generated with an id on every element, so coverage there is total.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChapterLayoutBox {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// A chapter laid out continuously (no fragmentation) for conformance.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChapterLayoutGeometry {
+    pub boxes: Vec<ChapterLayoutBox>,
+    /// Approximations the tree build applied; a conformance case with any
+    /// degradation is failed loudly rather than compared.
+    pub degradations: Vec<String>,
+}
+
+impl RuntimeDocument {
+    /// Lays one chapter out in a continuous (unfragmented) flow at
+    /// `content_width` and reports every id-carrying box's border-box
+    /// rectangle in flow coordinates. This is the engine side of the
+    /// geometry-differential harness: the reference side is a browser
+    /// rendering the same chapter file at the same width with no
+    /// pagination, so rectangles compare directly.
+    pub fn chapter_layout_geometry(
+        &self,
+        revision_id: &str,
+        idref: &str,
+        content_width: f64,
+    ) -> EpubResult<ChapterLayoutGeometry> {
+        use rito_fragment::{CancelFlag, ConstraintSpace, FormattingContext, Fragment};
+
+        let built = self.chapter_formatting_tree_unfiltered(revision_id, idref)?;
+        let engine = self.fragment_engine().ok_or_else(|| {
+            crate::epub::EpubError::new("no fragment engine (no pinned faces)")
+        })?;
+        let space = ConstraintSpace::continuous(content_width);
+        let outcome = engine
+            .engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &space,
+                None,
+                &CancelFlag::new(),
+            )
+            .map_err(|error| {
+                crate::epub::EpubError::new(format!("conformance layout failed: {error:?}"))
+            })?;
+
+        fn collect(
+            fragment: &Fragment,
+            origin_x: f64,
+            origin_y: f64,
+            built: &ChapterFormattingTree,
+            boxes: &mut Vec<ChapterLayoutBox>,
+        ) {
+            let rect = fragment.rect();
+            let (x, y) = (origin_x + rect.x, origin_y + rect.y);
+            if let Fragment::Box(box_fragment) = fragment {
+                if let Some(id) = built.node_anchors.get(&box_fragment.source.0) {
+                    boxes.push(ChapterLayoutBox {
+                        id: id.clone(),
+                        tag: built.node_tags.get(&box_fragment.source.0).cloned(),
+                        x,
+                        y,
+                        width: rect.width,
+                        height: rect.height,
+                    });
+                }
+                for child in &box_fragment.children {
+                    collect(child, x, y, built, boxes);
+                }
+            } else if let Fragment::Line(line) = fragment {
+                for child in &line.children {
+                    collect(child, x, y, built, boxes);
+                }
+            }
+        }
+
+        let mut boxes = Vec::new();
+        collect(&outcome.fragments.root, 0.0, 0.0, &built, &mut boxes);
+        Ok(ChapterLayoutGeometry {
+            boxes,
+            degradations: built.degradations,
+        })
+    }
+}
