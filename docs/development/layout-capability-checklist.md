@@ -13,12 +13,18 @@ Chromium on the books that exercise it — never when unit tests alone pass.
 
 ## Tier 1 — affects nearly every book (attack in this order)
 
-- [ ] **Justified CJK punctuation compression (JLREQ)** — unimplemented.
-      Browsers fit 1–2 more characters per line, so line breaks and page
-      breaks drift early book-wide. Root cause of 49 mismatched chapters in
-      the corpus line diff.
-- [ ] **Full margin-collapse semantics between blocks** — approximate.
-      Paragraph gaps render visibly larger than the browser's.
+- [x] **Justified CJK punctuation compression** — implemented 2026-07-23
+      as Chromium's default `text-spacing-trim: normal` (adjacent fullwidth
+      punctuation loses the blank half at the boundary), characterized
+      against pinned Chromium with a 54-pair matrix and locked by unit
+      test; corpus break agreement moved 25% → 77% across this plus the
+      oracle/margin work (`tools/corpus-oracle`).
+- [ ] **Full margin-collapse semantics between blocks** — parent-child
+      through-collapse and root (body) margins are now folded statically
+      into the tree (2026-07-23: perfect-break chapter worstDy median
+      4.0px → 2.5px, first-line offset ≈0 for most books). Remaining:
+      self-collapsing empty blocks and the residual dy tail (≤12px) on a
+      few books.
 - [ ] **Line-height cascade details** — in progress (cascade provenance is
       already reported to the materializer). Residual 1–6px line drift in
       some books.
