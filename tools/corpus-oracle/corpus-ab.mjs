@@ -1,4 +1,5 @@
-// Corpus line-break oracle: rito fragment layout vs pinned-font Chromium.
+// Corpus line-break-and-position oracle: rito fragment layout vs
+// pinned-font Chromium.
 //
 // Setup:
 //   node tools/corpus-oracle/unpack-corpus.mjs ~/Downloads /tmp/rito-corpus
@@ -38,9 +39,11 @@ const page = await browser.newPage({ viewport: { width: WIDTH, height: 6000 } })
 const normalize = (line) => line.replace(/\s+/g, '');
 
 // Break-point agreement between two line lists over (near-)identical text.
-function scoreLines(ritoLines, browserLines) {
-  const a = ritoLines.map(normalize).filter(Boolean);
-  const b = browserLines.map(normalize).filter(Boolean);
+function scoreLines(ritoRaw, browserRaw) {
+  const aFull = ritoRaw.map((l) => ({ t: normalize(l.t), y: l.y })).filter((l) => l.t);
+  const bFull = browserRaw.map((l) => ({ t: normalize(l.t), y: l.y })).filter((l) => l.t);
+  const a = aFull.map((l) => l.t);
+  const b = bFull.map((l) => l.t);
   const textA = a.join('');
   const textB = b.join('');
   if (textA !== textB) {
@@ -64,11 +67,26 @@ function scoreLines(ritoLines, browserLines) {
   const union = new Set([...breaksA, ...breaksB]);
   let both = 0;
   for (const offset of breaksA) if (breaksB.has(offset)) both += 1;
+  // Vertical agreement: with identical breaks the lines correspond 1:1;
+  // compare each line's offset from the first line, and the first line's
+  // absolute offset from the content-box top.
+  let worstDy;
+  let firstY;
+  if (both === union.size && aFull.length === bFull.length && aFull.length > 1) {
+    worstDy = 0;
+    for (let i = 1; i < aFull.length; i += 1) {
+      const dy = Math.abs(aFull[i].y - aFull[0].y - (bFull[i].y - bFull[0].y));
+      worstDy = Math.max(worstDy, Number(dy.toFixed(2)));
+    }
+    firstY = Number((aFull[0].y - bFull[0].y).toFixed(2));
+  }
   return {
     mode: 'breaks',
     contentEqual: true,
     lines: union.size,
     matched: both,
+    worstDy,
+    firstY,
     firstMiss: [...union].sort((x, y) => x - y).find((o) => !(breaksA.has(o) && breaksB.has(o))),
   };
 }
@@ -105,6 +123,31 @@ for (const book of manifest) {
     .filter((c, i, all) => all.indexOf(c) === i);
   if (picks.length === 0) continue;
 
+  // Vertical-writing books are a known missing capability; annotate so
+  // the horizontal average is not polluted by them.
+  const vertical = (() => {
+    try {
+      const [, samplePath] = contentChapters[Math.floor(contentChapters.length / 2)] ?? [];
+      if (!samplePath) return false;
+      const src = readFileSync(samplePath, 'utf8');
+      if (/vrtl|writing-mode\s*:\s*vertical/.test(src)) return true;
+      const dir = samplePath.slice(0, samplePath.lastIndexOf('/'));
+      for (const m of src.matchAll(/href="([^"]+\.css)"/g)) {
+        const cssPath = `${dir}/${m[1]}`.replace(/[^/]+\/\.\.\//g, '');
+        try {
+          if (/vertical-rl|-epub-writing-mode\s*:\s*vertical/.test(readFileSync(cssPath, 'utf8'))) {
+            return true;
+          }
+        } catch {
+          /* unreadable css */
+        }
+      }
+    } catch {
+      /* unreadable sample */
+    }
+    return false;
+  })();
+
   let probe;
   try {
     const request = JSON.stringify({
@@ -113,6 +156,7 @@ for (const book of manifest) {
       namedFonts: book.fonts,
       contentWidthPx: WIDTH,
       chapterIdrefs: picks.map(([idref]) => idref),
+      unfilteredFlow: true,
     });
     probe = JSON.parse(execFileSync(PROBE, { input: request, maxBuffer: 1 << 28 }).toString());
   } catch (error) {
@@ -121,7 +165,7 @@ for (const book of manifest) {
     continue;
   }
 
-  const bookResult = { book: book.epub, chapters: [] };
+  const bookResult = { book: book.epub, vertical, chapters: [] };
   for (let ci = 0; ci < picks.length; ci += 1) {
     const [idref, chapterPath] = picks[ci];
     const ritoChapter = probe.chapters[ci];
@@ -129,7 +173,7 @@ for (const book of manifest) {
       bookResult.chapters.push({ idref, error: ritoChapter?.error?.slice(0, 140) ?? 'missing' });
       continue;
     }
-    const ritoLines = ritoChapter.lines.slice(0, MAX_LINES).map((l) => l.text);
+    const ritoLines = ritoChapter.lines.slice(0, MAX_LINES).map((l) => ({ t: l.text, y: l.y }));
 
     let browserLines;
     try {
@@ -137,6 +181,14 @@ for (const book of manifest) {
       // Pin fonts: book-declared @font-face families keep their own bytes;
       // every other family (and the generics, via stack rewriting) maps to
       // Tinos (BMP latin) + SourceHanSerifCN, mirroring the engine.
+      // The engine's UA sheet has no body margin (the root container's
+      // margins are the page's business); align the browser's UA default
+      // the same way, below the book's own CSS in the cascade.
+      await page.evaluate(() => {
+        const reset = document.createElement('style');
+        reset.textContent = 'body { margin: 0; }';
+        document.head.prepend(reset);
+      });
       await page.evaluate(
         ({ serif, tinos }) => {
           const declared = new Set();
@@ -206,12 +258,12 @@ for (const book of manifest) {
             if (lastTop === null) {
               lastTop = rect.top;
             } else if (Math.abs(rect.top - lastTop) > 2) {
-              lines.push(text.slice(lineStart, i));
+              lines.push({ t: text.slice(lineStart, i), y: lastTop });
               lineStart = i;
               lastTop = rect.top;
             }
           }
-          if (lastTop !== null) lines.push(text.slice(lineStart));
+          if (lastTop !== null) lines.push({ t: text.slice(lineStart), y: lastTop });
         }
         return lines;
       }, MAX_LINES);
@@ -228,8 +280,11 @@ for (const book of manifest) {
     ? Math.round((scored.reduce((sum, c) => sum + c.matched / c.lines, 0) / scored.length) * 100)
     : 0;
   const eq = bookResult.chapters.filter((c) => c.contentEqual).length;
+  const tag = vertical ? 'V' : ' ';
+  const dys = bookResult.chapters.filter((c) => c.worstDy !== undefined).map((c) => c.worstDy);
+  const dyNote = dys.length ? `\tdy${Math.max(...dys)}` : '';
   console.log(
-    `${String(pct).padStart(3)}%\teq${eq}/${bookResult.chapters.length}\t${book.epub.split('/').pop().slice(0, 44)}`,
+    `${String(pct).padStart(3)}%\t${tag}\teq${eq}/${bookResult.chapters.length}${dyNote}\t${book.epub.split('/').pop().slice(0, 44)}`,
   );
 }
 writeFileSync(`${DIR}corpus-ab-report.json`, JSON.stringify(results, null, 1));
