@@ -39,9 +39,11 @@ Chromium on the books that exercise it — never when unit tests alone pass.
       offset ≈0 for most books). Remaining:
       self-collapsing empty blocks and the residual dy tail (≤12px) on a
       few books.
-- [ ] **Line-height cascade details** — in progress (cascade provenance is
-      already reported to the materializer). Residual 1–6px line drift in
-      some books.
+- [ ] **Line-height cascade details** — the CSS line-box strut landed
+      2026-07-24 (container style floors every line box; `normal` struts
+      measure through the shaping engine): corpus worstDy max 11.7px →
+      7.4px, breaks unchanged. Remaining: sub-pixel per-line drift and
+      the ~1px Chrome-vs-swash `normal` metric interpretation.
 - [x] **Forced page breaks (`break-before/after: always`)** — implemented
       2026-07-23 in the block engine (a break at the top of a fresh
       fragmentainer is already satisfied); unit-tested. Corpus books only
