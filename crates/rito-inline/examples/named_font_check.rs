@@ -61,21 +61,6 @@ fn width(context: &ParleyInlineContext, family: &str) -> f64 {
 
 fn main() {
     let kai = std::fs::read(std::env::args().nth(1).expect("font path")).expect("font reads");
-    // Raw advance straight from the font tables.
-    if let Some(font) = swash::FontRef::from_index(&kai, 0) {
-        let upem = font.metrics(&[]).units_per_em as f64;
-        let charmap = font.charmap();
-        for ch in ['在', '战', '，'] {
-            let gid = charmap.map(ch);
-            let advance = font.glyph_metrics(&[]).advance_width(gid) as f64;
-            println!(
-                "raw '{ch}': gid {gid} advance {advance} units / upem {upem} = {:.4}px at 16px",
-                advance / upem * 16.0
-            );
-        }
-    } else {
-        println!("swash could not read the font");
-    }
     let source_han = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"

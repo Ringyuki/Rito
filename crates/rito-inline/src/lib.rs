@@ -56,16 +56,30 @@ pub struct ParleyInlineContext {
 impl ParleyInlineContext {
     /// Creates a context that resolves families against exactly these font
     /// blobs. Fails closed if a blob registers no usable font face.
+    ///
+    /// The blobs are the resolution universe: they serve every generic
+    /// family and every script's fallback, in construction order. Nothing
+    /// else exists — the platform font database is explicitly excluded, so
+    /// a family the blobs cannot serve resolves the same way on native and
+    /// wasm hosts instead of silently borrowing a platform font.
     pub fn new(font_blobs: Vec<Vec<u8>>) -> Result<Self, String> {
-        let mut fonts = FontContext::new();
+        use parley::fontique::{Collection, CollectionOptions, SourceCache, SourceCacheOptions};
+        let mut collection = Collection::new(CollectionOptions {
+            shared: false,
+            system_fonts: false,
+        });
         let mut registered_families = Vec::new();
+        let mut fallback_ids = Vec::new();
         for (index, bytes) in font_blobs.into_iter().enumerate() {
-            let registered = fonts.collection.register_fonts(bytes.into(), None);
+            let registered = collection.register_fonts(bytes.into(), None);
             if registered.is_empty() {
                 return Err(format!("font blob {index} registered no font face"));
             }
             for (family_id, _) in registered {
-                if let Some(name) = fonts.collection.family_name(family_id) {
+                if !fallback_ids.contains(&family_id) {
+                    fallback_ids.push(family_id);
+                }
+                if let Some(name) = collection.family_name(family_id) {
                     let name = name.to_string();
                     if !registered_families.contains(&name) {
                         registered_families.push(name);
@@ -73,6 +87,11 @@ impl ParleyInlineContext {
                 }
             }
         }
+        install_universal_fallbacks(&mut collection, &fallback_ids);
+        let fonts = FontContext {
+            collection,
+            source_cache: SourceCache::new(SourceCacheOptions::default()),
+        };
         Ok(Self {
             fonts: RefCell::new(fonts),
             layouts: RefCell::new(LayoutContext::new()),
@@ -644,6 +663,47 @@ fn generic_source(generic: GenericFontFamily) -> &'static str {
         GenericFontFamily::Cursive => "cursive",
         GenericFontFamily::Fantasy => "fantasy",
         GenericFontFamily::SystemUi => "system-ui",
+    }
+}
+
+/// Points every generic family and every script's fallback at the given
+/// registered families, in order.
+///
+/// With the platform font database excluded, the collection starts with no
+/// generic mappings and no fallback entries at all; a stack ending in
+/// `serif`, or a run of text no stack family covers, would otherwise
+/// resolve to nothing and silently drop its glyphs. Han gets its tracked
+/// locale-specific entries too, so `ja`/`ko`/regional-Chinese content
+/// falls back the same way default Chinese does.
+fn install_universal_fallbacks(
+    collection: &mut parley::fontique::Collection,
+    families: &[parley::fontique::FamilyId],
+) {
+    use parley::fontique::{FallbackKey, GenericFamily, Script, ScriptExt as _};
+    const GENERICS: &[GenericFamily] = &[
+        GenericFamily::Serif,
+        GenericFamily::SansSerif,
+        GenericFamily::Monospace,
+        GenericFamily::Cursive,
+        GenericFamily::Fantasy,
+        GenericFamily::SystemUi,
+        GenericFamily::UiSerif,
+        GenericFamily::UiSansSerif,
+        GenericFamily::UiMonospace,
+        GenericFamily::UiRounded,
+        GenericFamily::Emoji,
+        GenericFamily::Math,
+        GenericFamily::FangSong,
+    ];
+    for generic in GENERICS {
+        collection.set_generic_families(*generic, families.iter().copied());
+    }
+    for (script, _) in Script::all_samples() {
+        collection.set_fallbacks(FallbackKey::new(*script, None), families.iter().copied());
+    }
+    let han = Script::from_str_unchecked("Hani");
+    for locale in ["ja", "ko", "zh-TW", "zh-HK", "zh-MO", "zh-SG"] {
+        collection.set_fallbacks((han, locale), families.iter().copied());
     }
 }
 
