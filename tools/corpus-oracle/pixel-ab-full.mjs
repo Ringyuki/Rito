@@ -41,6 +41,16 @@ const MAX_PAGES_PER_CHAPTER = 80;
 
 const browser = await chromium.launch();
 const engine = await browser.newPage({ viewport: { width: 1400, height: 980 } });
+// Reader warnings are part of the measurement: a silently failed metric
+// sync or reflow invalidates the run's numbers.
+engine.on('console', (message) => {
+  if (message.type() === 'warning' || message.type() === 'error') {
+    console.log(`[page-${message.type()}] ${message.text().slice(0, 200)}`);
+  }
+});
+engine.on('pageerror', (error) => {
+  console.log(`[pageerror] ${String(error).slice(0, 200)}`);
+});
 await engine.goto('http://localhost:5199/compare.html');
 await engine.waitForSelector('#file');
 await engine.evaluate(() => {
@@ -50,7 +60,18 @@ await engine.setInputFiles('#file', book.epub);
 await engine.waitForFunction(() => !document.getElementById('stage').hidden, null, {
   timeout: 180000,
 });
-await engine.waitForTimeout(2500);
+// Pagination settles in waves: the fragment completion runs in the
+// background and host line-metric injection forces one more reflow.
+// Read the chapter map only after the page count holds still.
+let stablePages = -1;
+for (let settle = 0; settle < 40; settle += 1) {
+  await engine.waitForTimeout(1500);
+  const now = await engine.evaluate(
+    () => globalThis.__ritoReader.pageCount ?? globalThis.__ritoReader.spreadCount ?? -1,
+  );
+  if (now === stablePages && now > 0) break;
+  stablePages = now;
+}
 const { chapters: chapterSpreads, totalPages } = await engine.evaluate(() => {
   const reader = globalThis.__ritoReader;
   const map = reader.chapterMap;
