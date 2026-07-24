@@ -22,6 +22,7 @@ import { createBrowserReaderResourceState, preloadCurrentReaderFonts } from '../
 import { buildBrowserReaderMethods } from './reader-methods';
 import { disposeBrowserReaderState } from './reader-dispose';
 import { completeBrowserReaderBoundedSession } from '../bounded-session-runtime';
+import { syncBrowserHostLineMetrics } from '../host-line-metrics';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { createHostFontMetrics } from '../font-metrics';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
@@ -81,7 +82,7 @@ export async function createReader(
       options,
     );
     await startInitialReflow(state, options);
-    scheduleFragmentPaginationCompletion(state);
+    scheduleFragmentPaginationCompletion(state, readerLayoutOptions(options));
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
     defineBrowserReaderAccessors(reader, state);
     installBrowserReaderChapterLocalPresentation(reader, state);
@@ -112,14 +113,51 @@ export async function createReader(
  * in the background shortly after the first layout so the takeover
  * happens while the reader is still near the front of the book.
  */
-function scheduleFragmentPaginationCompletion(state: BrowserReaderState): void {
+function scheduleFragmentPaginationCompletion(
+  state: BrowserReaderState,
+  options: ReaderOptions,
+): void {
   if (!state.fragmentPagination) return;
   setTimeout(() => {
     if (state.disposed) return;
-    completeBrowserReaderBoundedSession(state).catch((error: unknown) => {
+    completeWithHostLineMetrics(state, options).catch((error: unknown) => {
       state.logger.warn('rito: background fragment-pagination completion failed', error);
     });
   }, 1_000);
+}
+
+/**
+ * Completes the book, then converges on host line metrics: the completed
+ * layout is the first to have visited every chapter, so it has recorded
+ * every (family, size) pair layout needed. Measure, inject, force one
+ * reflow, and complete again — the second round drains nothing and the
+ * loop ends with a fully repaginated, metric-faithful page table.
+ */
+async function completeWithHostLineMetrics(
+  state: BrowserReaderState,
+  options: ReaderOptions,
+): Promise<void> {
+  for (let round = 0; round < 3; round += 1) {
+    if ((await completeBrowserReaderBoundedSession(state)) !== true) return;
+    const changed = await syncBrowserHostLineMetrics(state.worker).catch((error: unknown) => {
+      state.logger.warn('rito: host line metric sync failed', error);
+      return false;
+    });
+    if (!changed || state.disposed) return;
+    const spreadMode = options.spread ?? state.spreadMode;
+    const lineBreaking = options.lineBreaking ?? state.lineBreaking;
+    await new Promise<void>((resolve) => {
+      const scheduled = scheduleBrowserReaderReflow(
+        state,
+        options,
+        spreadMode,
+        lineBreaking,
+        resolve,
+        true,
+      );
+      if (!scheduled) resolve();
+    });
+  }
 }
 
 export async function preloadReaderRuntime(): Promise<void> {
