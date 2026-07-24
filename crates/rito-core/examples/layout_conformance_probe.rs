@@ -27,6 +27,19 @@ struct ProbeRequest {
     serif_font_path: String,
     serif_language: Option<String>,
     content_width: f64,
+    /// Host-measured `line-height: normal` metrics, recorded by the same
+    /// browser that recorded the geometry truth.
+    #[serde(default)]
+    host_line_metrics: Vec<HostMetricEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HostMetricEntry {
+    family: String,
+    size: f64,
+    strut: f64,
+    cjk: f64,
 }
 
 #[derive(Serialize)]
@@ -80,6 +93,12 @@ fn main() {
     let revision = document
         .create_revision(&layout_config)
         .expect("revision builds");
+    // After the revision: the fragment engine initializes lazily from the
+    // publication's resolved @font-face sources, which only exist once a
+    // revision prepared the book.
+    for entry in &request.host_line_metrics {
+        document.set_host_line_metric(&entry.family, entry.size, entry.strut, entry.cjk);
+    }
 
     let chapters: Vec<ProbeChapter> = document
         .publication_info()

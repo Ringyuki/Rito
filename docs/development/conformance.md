@@ -42,13 +42,19 @@ self-referential:
 
 ## Current baseline (2026-07-24, first run, seed 20260724)
 
-| cluster         | within 0.5px | max delta | notes                         |
-| --------------- | ------------ | --------- | ----------------------------- |
-| vertical-rhythm | 20.9%        | 43.8px    | paragraph spacing/line height |
-| tables          | 0.0%         | 418.1px   | td/tr laid at full flow width |
-| floats          | 63.8%        | 80.0px    | no line-box exclusion         |
-| margin-box      | 0.0%         | 22.9px    | auto centering / offsets      |
+| cluster         | within 0.5px | max delta | notes                            |
+| --------------- | ------------ | --------- | -------------------------------- |
+| vertical-rhythm | **100.0%** ✓ | 0.2px     | certified; host-injected metrics |
+| tables          | 0.0%         | 418.1px   | td/tr laid at full flow width    |
+| floats          | 63.8%        | 80.0px    | no line-box exclusion            |
+| margin-box      | 78.6%        | 16.0px    | auto centering / offsets         |
 
-No cluster is certified yet. The numbers above are the work queue, in
-fix order: vertical-rhythm (drives whole-book pagination drift), tables,
-floats, margin-box.
+vertical-rhythm was fixed by host-injected `line-height: normal` metrics
+(`rito_inline::HostNormalLineMetric`): the rendering host measures its
+own two-level normal line heights — plain strut, and the lifted height
+any line containing a CJK glyph gets — because those integers come from
+the host font scaler (grid-fitted per size) and are not derivable from
+font tables. The engine records (family, size) misses for the host to
+measure and inject (`take_host_line_metric_requests`); the wasm binding
+two-pass wiring is the open follow-up. Work queue: tables, floats,
+margin-box.

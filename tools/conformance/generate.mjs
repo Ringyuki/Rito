@@ -254,7 +254,35 @@ for (const c of cases) {
     return boxes;
   });
 }
+// Host normal-line metrics for every font size the cases use: the plain
+// strut (latin/empty lines) and the CJK-lifted height, measured from the
+// same browser that recorded the geometry truth. The engine consumes
+// these verbatim — the numbers come from the host font scaler and are
+// not derivable from font tables.
+const hostMetrics = await page.evaluate(
+  (sizes) => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const measure = (size, html) => {
+      const p = document.createElement('p');
+      p.setAttribute('style', `margin:0;font-size:${size}px;`);
+      p.innerHTML = html;
+      host.appendChild(p);
+      return p.getBoundingClientRect().height;
+    };
+    return sizes.map((size) => ({
+      family: '__conf',
+      size,
+      strut: measure(size, 'x'),
+      cjk: measure(size, '试'),
+    }));
+  },
+  [12.8, 16, 19.2],
+);
 await browser.close();
 
-writeFileSync(path.join(outDir, 'truth.json'), JSON.stringify({ seed, cases, truth }, null, 1));
+writeFileSync(
+  path.join(outDir, 'truth.json'),
+  JSON.stringify({ seed, cases, truth, hostMetrics }, null, 1),
+);
 console.log(`generated ${cases.length} cases → ${epubPath}; truth recorded`);

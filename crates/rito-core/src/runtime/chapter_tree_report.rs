@@ -303,3 +303,27 @@ impl RuntimeDocument {
         })
     }
 }
+
+impl RuntimeDocument {
+    /// Injects one host-measured `line-height: normal` metric pair into
+    /// the fragment engine (see `rito_inline::HostNormalLineMetric`).
+    /// The host measures with its own text stack; the engine treats the
+    /// values as authoritative for normal-line heights.
+    pub fn set_host_line_metric(&self, family_key: &str, size: f64, strut: f64, cjk: f64) {
+        if let Some(engine) = self.fragment_engine() {
+            engine.engine.inline().set_host_line_metric(
+                family_key,
+                size,
+                rito_inline::HostNormalLineMetric { strut, cjk },
+            );
+        }
+    }
+
+    /// Drains the (family key, size) pairs layout needed but no host
+    /// metric covered; the host measures them, injects, and relayouts.
+    pub fn take_host_line_metric_requests(&self) -> Vec<(String, f64)> {
+        self.fragment_engine()
+            .map(|engine| engine.engine.inline().take_host_metric_requests())
+            .unwrap_or_default()
+    }
+}

@@ -55,6 +55,70 @@ pub struct ParleyInlineContext {
     /// shaping with the style's own resolved font (what a browser's strut
     /// does), cached because struts repeat per paragraph.
     normal_strut_cache: RefCell<std::collections::HashMap<u32, f64>>,
+    /// Host-measured `line-height: normal` metrics per (family key, size):
+    /// the rendering host measures its own two-level normal line heights
+    /// (plain strut, and the lifted height a line containing CJK glyphs
+    /// gets) because those integers come from the host's font scaler and
+    /// are not derivable from font tables. Keyed by [`host_size_key`].
+    host_line_metrics: RefCell<std::collections::HashMap<(String, u64), HostNormalLineMetric>>,
+    /// Pairs a layout needed but the host has not measured yet; the host
+    /// drains these, measures, injects, and relayouts.
+    host_metric_requests: RefCell<std::collections::BTreeSet<(String, u64)>>,
+}
+
+/// Host-measured `line-height: normal` heights for one (font, size).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HostNormalLineMetric {
+    /// Line height of a line with no CJK glyphs (also the empty-line strut).
+    pub strut: f64,
+    /// Line height of a line containing at least one CJK glyph.
+    pub cjk: f64,
+}
+
+/// Quantizes a font size to a stable host-metric key (millipixels).
+fn host_size_key(size: f64) -> u64 {
+    (size * 1000.0).round() as u64
+}
+
+/// Whether a character lifts a `line-height: normal` line to the host's
+/// CJK metric, mirroring the observed Chromium trigger: any Han/Kana/
+/// Hangul/fullwidth glyph on the line, punctuation included.
+fn is_cjk_line_char(c: char) -> bool {
+    matches!(
+        c as u32,
+        0x1100..=0x11FF
+            | 0x2E80..=0x303F
+            | 0x3040..=0x33FF
+            | 0x3400..=0x4DBF
+            | 0x4E00..=0x9FFF
+            | 0xAC00..=0xD7AF
+            | 0xF900..=0xFAFF
+            | 0xFE30..=0xFE4F
+            | 0xFF00..=0xFFEF
+            | 0x20000..=0x3FFFF
+    )
+}
+
+/// Serializes a computed family list into the key the host measures with.
+fn host_family_key(style: &InlineFormattingStyleV1) -> String {
+    style
+        .font
+        .families
+        .as_slice()
+        .iter()
+        .map(|family| match family {
+            rito_style_contract::FontFamily::Named(name) => name.as_str(),
+            rito_style_contract::FontFamily::Generic(generic) => match generic {
+                rito_style_contract::GenericFontFamily::Serif => "serif",
+                rito_style_contract::GenericFontFamily::SansSerif => "sans-serif",
+                rito_style_contract::GenericFontFamily::Monospace => "monospace",
+                rito_style_contract::GenericFontFamily::Cursive => "cursive",
+                rito_style_contract::GenericFontFamily::Fantasy => "fantasy",
+                rito_style_contract::GenericFontFamily::SystemUi => "system-ui",
+            },
+        })
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 impl ParleyInlineContext {
@@ -101,7 +165,39 @@ impl ParleyInlineContext {
             layouts: RefCell::new(LayoutContext::new()),
             registered_families,
             normal_strut_cache: RefCell::new(std::collections::HashMap::new()),
+            host_line_metrics: RefCell::new(std::collections::HashMap::new()),
+            host_metric_requests: RefCell::new(std::collections::BTreeSet::new()),
         })
+    }
+
+    /// Injects one host-measured `line-height: normal` metric pair.
+    pub fn set_host_line_metric(&self, family_key: &str, size: f64, metric: HostNormalLineMetric) {
+        self.host_line_metrics
+            .borrow_mut()
+            .insert((family_key.to_owned(), host_size_key(size)), metric);
+    }
+
+    /// Drains the (family key, size) pairs layouts needed but the host has
+    /// not measured yet. The host measures each, injects the metrics, and
+    /// relayouts; a steady-state layout drains nothing.
+    pub fn take_host_metric_requests(&self) -> Vec<(String, f64)> {
+        std::mem::take(&mut *self.host_metric_requests.borrow_mut())
+            .into_iter()
+            .map(|(family, key)| (family, key as f64 / 1000.0))
+            .collect()
+    }
+
+    /// Host normal-line height for a (style, CJK-content) pair, recording
+    /// a measurement request on a miss so the host can fill it in.
+    fn host_normal_height(&self, style: &InlineFormattingStyleV1, has_cjk: bool) -> Option<f64> {
+        let family = host_family_key(style);
+        let size = f64::from(style.font.size.get());
+        let key = (family, host_size_key(size));
+        if let Some(metric) = self.host_line_metrics.borrow().get(&key) {
+            return Some(if has_cjk { metric.cjk } else { metric.strut });
+        }
+        self.host_metric_requests.borrow_mut().insert(key);
+        None
     }
 
     /// Family names the constructor registered, in first-seen order.
@@ -174,6 +270,11 @@ impl ParleyInlineContext {
             }
             LineHeight::Length(px) => f64::from(px.get()),
             LineHeight::Normal => {
+                // The host's measured strut is authoritative; the shaped
+                // fallback only covers hosts that never inject metrics.
+                if let Some(host) = self.host_normal_height(style, false) {
+                    return Ok(Some(host));
+                }
                 if let Some(cached) = self.normal_strut_cache.borrow().get(&style_id.raw()) {
                     return Ok(Some(*cached));
                 }
@@ -432,6 +533,45 @@ impl FormattingContext for ParleyInlineContext {
             }
             _ => Vec::new(),
         };
+        // Per item: a declared line-height resolves to a fixed height; a
+        // `normal` item defers to host-measured metrics chosen per line by
+        // CJK content. Indexed like `item_text_ranges`.
+        enum ItemLineHeight {
+            Declared(f64),
+            Normal(rito_style_contract::StyleId),
+        }
+        let style_tables = tree.styles();
+        let flow_text: String = match &tree.node(root).content {
+            FormattingNodeContent::InlineFlow { items } => items
+                .iter()
+                .map(|item| match item {
+                    InlineItem::Text { text, .. } => text.as_str(),
+                    InlineItem::Image { .. } => "",
+                })
+                .collect(),
+            _ => String::new(),
+        };
+        let item_line_heights: Vec<Option<ItemLineHeight>> = match &tree.node(root).content {
+            FormattingNodeContent::InlineFlow { items } => items
+                .iter()
+                .map(|item| match item {
+                    InlineItem::Text { style, .. } => {
+                        let resolved = style_tables?.inline.style(*style).ok()?;
+                        Some(match resolved.font.line_height {
+                            LineHeight::Number(number) => ItemLineHeight::Declared(
+                                f64::from(number.get()) * f64::from(resolved.font.size.get()),
+                            ),
+                            LineHeight::Length(px) => {
+                                ItemLineHeight::Declared(f64::from(px.get()))
+                            }
+                            LineHeight::Normal => ItemLineHeight::Normal(*style),
+                        })
+                    }
+                    InlineItem::Image { .. } => None,
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
         let shift_for_range = |range: &std::ops::Range<usize>| -> f64 {
             shifted_ranges
                 .iter()
@@ -541,9 +681,66 @@ impl FormattingContext for ParleyInlineContext {
             // smaller than the strut — Parley's own line height inflates
             // beyond what a browser gives such lines. Risen content grows
             // the box above the strut by its overflow.
+            // Host-measured normal line height: the line's `normal` runs
+            // contribute the host's strut or CJK-lifted metric (chosen by
+            // whether the line carries any CJK glyph), declared runs keep
+            // their fixed heights, and the line takes the max — the model
+            // the reference browser was observed to follow.
+            let line_text_range = children
+                .iter()
+                .filter_map(|(fragment, _)| match fragment {
+                    Fragment::Text(text) => {
+                        Some((text.text_start as usize, text.text_end as usize))
+                    }
+                    _ => None,
+                })
+                .fold(None::<(usize, usize)>, |acc, (start, end)| {
+                    Some(match acc {
+                        Some((lo, hi)) => (lo.min(start), hi.max(end)),
+                        None => (start, end),
+                    })
+                });
+            let host_line_height = line_text_range.and_then(|(start, end)| {
+                let mut max_declared = 0.0_f64;
+                let mut normal_style: Option<(f64, rito_style_contract::StyleId)> = None;
+                for (index, range) in item_text_ranges.iter().enumerate() {
+                    if range.start >= end || start >= range.end {
+                        continue;
+                    }
+                    match item_line_heights.get(index) {
+                        Some(Some(ItemLineHeight::Declared(height))) => {
+                            max_declared = max_declared.max(*height);
+                        }
+                        Some(Some(ItemLineHeight::Normal(style_id))) => {
+                            let size = style_tables
+                                .and_then(|tables| tables.inline.style(*style_id).ok())
+                                .map(|resolved| f64::from(resolved.font.size.get()))
+                                .unwrap_or(0.0);
+                            if normal_style.is_none_or(|(best, _)| size > best) {
+                                normal_style = Some((size, *style_id));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                let (_, style_id) = normal_style?;
+                let resolved = style_tables?.inline.style(style_id).ok()?;
+                let has_cjk = flow_text
+                    .get(start..end)
+                    .is_some_and(|slice| slice.chars().any(is_cjk_line_char));
+                let host = self.host_normal_height(resolved, has_cjk)?;
+                Some(host.max(max_declared))
+            });
             let base_height = if has_inline_box {
                 let envelope = f64::from(metrics.ascent) + f64::from(metrics.descent);
                 envelope.max(strut_height.unwrap_or(0.0))
+            } else if let Some(host) = host_line_height {
+                host.max(strut_height.unwrap_or(0.0))
+            } else if children.is_empty() {
+                // An empty line (a forced break with no content) is sized
+                // by the strut alone; the shaped fallback metric only
+                // covers flows whose strut could not resolve.
+                strut_height.unwrap_or(f64::from(metrics.line_height))
             } else {
                 // Every line box includes the strut: the container's own
                 // line-height floors lines whose runs declare less.

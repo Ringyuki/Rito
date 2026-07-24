@@ -17,9 +17,15 @@ const outDir = outDirArg ?? '/tmp/rito-conformance';
 const TOLERANCE_PX = 0.5;
 // Thresholds a certified cluster must hold. Uncertified clusters report
 // numbers without failing the run — they are the work queue.
-const CERTIFIED = {};
+const CERTIFIED = {
+  // Certified 2026-07-24 at 100.0% / max 0.2px (host-injected normal
+  // line metrics). Regressing below this fails the run.
+  'vertical-rhythm': { minRate: 0.99, maxDelta: 0.5 },
+};
 
-const { cases, truth } = JSON.parse(readFileSync(path.join(outDir, 'truth.json'), 'utf8'));
+const { cases, truth, hostMetrics } = JSON.parse(
+  readFileSync(path.join(outDir, 'truth.json'), 'utf8'),
+);
 
 execSync('cargo build --release --example layout_conformance_probe -p rito-core', {
   cwd: REPO,
@@ -30,6 +36,7 @@ const request = JSON.stringify({
   serifFontPath: path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf'),
   serifLanguage: 'zh',
   contentWidth: 500,
+  hostLineMetrics: hostMetrics ?? [],
 });
 const probeOut = execFileSync(
   path.join(REPO, 'target/release/examples/layout_conformance_probe'),
