@@ -262,6 +262,14 @@ function createRitoCoreWasmReaderClient(
       result(request, { kind: 'resolveLocator', revisionId, locator }, 'resolveLocator'),
     search: (revisionId, searchRequest) =>
       result(request, { kind: 'search', revisionId, request: searchRequest }, 'search'),
+    takeHostLineMetricRequests: () =>
+      result(request, { kind: 'takeHostLineMetricRequests' }, 'takeHostLineMetricRequests'),
+    setHostLineMetrics: async (entries) => {
+      const payload = await request({ kind: 'setHostLineMetrics', entries });
+      if (payload.kind !== 'setHostLineMetrics') {
+        throw new Error(`Rito reader worker returned ${payload.kind} for setHostLineMetrics`);
+      }
+    },
     releaseRevisionTransfers: async (revisionId) => {
       const payload = await request({ kind: 'releaseRevisionTransfers', revisionId });
       if (payload.kind !== 'releaseRevisionTransfers') {

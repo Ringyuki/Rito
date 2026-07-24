@@ -36,6 +36,22 @@ import type {
   RitoCoreWasmViewRevisionResponse,
 } from './revision';
 
+/** One (family, size) pair whose normal-line metrics the host must measure. */
+export interface RitoCoreWasmHostLineMetricRequest {
+  readonly family: string;
+  readonly size: number;
+}
+
+/** Host-measured `line-height: normal` heights for one (family, size). */
+export interface RitoCoreWasmHostLineMetric {
+  readonly family: string;
+  readonly size: number;
+  /** Line height of a line with no CJK glyphs (also the empty-line strut). */
+  readonly strut: number;
+  /** Line height of a line containing at least one CJK glyph. */
+  readonly cjk: number;
+}
+
 export interface RitoCoreWasmReaderWorkerClient
   extends RitoCoreWasmReaderVersionedClient, RitoCoreWasmReaderChapterLocalClient {
   /** Stable identity for this client's sole worker or in-process publication session. */
@@ -71,6 +87,15 @@ export interface RitoCoreWasmReaderWorkerClient
   ): Promise<RitoCoreWasmSearchResponse>;
   releaseRevisionTransfers(revisionId: string): Promise<void>;
   releaseRevision(revisionId: string): Promise<void>;
+  /**
+   * Drains the (family, size) pairs layout needed but no host-measured
+   * `line-height: normal` metric covered. The host measures each with its
+   * own text stack, injects via {@link setHostLineMetrics}, and relayouts;
+   * a steady-state layout drains nothing.
+   */
+  takeHostLineMetricRequests(): Promise<readonly RitoCoreWasmHostLineMetricRequest[]>;
+  /** Injects host-measured `line-height: normal` metrics. */
+  setHostLineMetrics(entries: readonly RitoCoreWasmHostLineMetric[]): Promise<void>;
   dispose(): void;
   /** Resolves after in-process release or Worker acknowledgement/forced termination. */
   whenDisposed(): Promise<void>;

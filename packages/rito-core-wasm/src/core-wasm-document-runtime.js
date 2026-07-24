@@ -72,6 +72,24 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       );
     }
 
+    // Host-measured `line-height: normal` metrics: the surrounding browser
+    // measures its own two-level normal line heights (plain strut, and the
+    // lifted height a line containing CJK glyphs gets) because those
+    // integers come from the host font scaler and are not derivable from
+    // font tables. The engine records (family, size) misses; the host
+    // drains them, measures, injects, and relayouts.
+    takeHostLineMetricRequests() {
+      return callRitoCoreWasm('takeHostLineMetricRequests', () =>
+        JSON.parse(this._inner.takeHostLineMetricRequestsJson()),
+      );
+    }
+
+    setHostLineMetrics(entries) {
+      return callRitoCoreWasm('setHostLineMetrics', () => {
+        this._inner.setHostLineMetricsJson(JSON.stringify(entries));
+      });
+    }
+
     createInitialPreviewRevisionBundle(request) {
       return jsonMethod('createInitialPreviewRevisionBundle', () =>
         this._inner.createInitialPreviewRevisionBundleJson(
@@ -278,6 +296,14 @@ function readerWorkerPayload(document, request) {
     case 'releaseRevision':
       document.releaseRevision(request.revisionId);
       return { kind: 'releaseRevision' };
+    case 'takeHostLineMetricRequests':
+      return {
+        kind: 'takeHostLineMetricRequests',
+        result: document.takeHostLineMetricRequests(),
+      };
+    case 'setHostLineMetrics':
+      document.setHostLineMetrics(request.entries);
+      return { kind: 'setHostLineMetrics' };
     default: {
       const chapterLocal = chapterLocalReaderWorkerPayload(document, request);
       if (chapterLocal !== undefined) return chapterLocal;
