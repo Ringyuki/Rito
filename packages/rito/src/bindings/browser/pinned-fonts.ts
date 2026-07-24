@@ -8,6 +8,7 @@ import type {
   CorePinnedFontPolicySummary,
 } from './core-contracts';
 import { browserFontFaceRegistry, type BrowserFontFaceRegistry } from './resources';
+import { cachedHostLineMetricEntries } from './host-line-metrics';
 
 export type BrowserReaderOwnedPinnedFontPolicy = BrowserReaderWorkerPinnedFontPolicyInput;
 
@@ -56,6 +57,11 @@ export async function openBrowserReaderWorker(
   const result = options === undefined ? await worker.open(data) : await worker.open(data, options);
   if (expectedSummary !== undefined)
     requireMatchingPinnedFontSummary(expectedSummary, result.pinnedFontPolicy);
+  // Metrics measured for earlier documents in this session apply to any
+  // document sharing the (family, size) pairs; injecting them up front
+  // lets a steady-state open paginate once instead of relayouting.
+  const cached = cachedHostLineMetricEntries();
+  if (cached.length > 0) await worker.setHostLineMetrics(cached);
   return result;
 }
 

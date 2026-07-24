@@ -60,7 +60,9 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
 // reopens its gate must be retired, not waited on forever.
 // Raised again for the fragment page-table lever: open threading, the
 // backend-change frame-cache guard, and background completion.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3110;
+// Raised for host line-metric sync: post-reflow drain/measure/inject of
+// browser-measured `line-height: normal` metrics with a forced reflow.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3125;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.

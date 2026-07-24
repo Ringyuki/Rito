@@ -3,6 +3,7 @@ import type { CoreSearchResponse } from '../core-contracts';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { scheduleBrowserReaderReflow } from './pipeline/bounded-reflow';
 import { getImageObjectUrl, preloadReaderFonts } from '../resources';
+import { syncBrowserHostLineMetrics } from '../host-line-metrics';
 import { browserReaderSpreads } from '../reader-layout';
 import {
   findRitoCoreWasmReaderActiveTocEntry,
@@ -59,8 +60,17 @@ export function buildBrowserReaderMethods(
         void trackBrowserReaderHostTask(
           state,
           preloadReaderFonts(state)
-            .then((metricsChanged) => {
-              if (metricsChanged) reflow(layoutOptions, true);
+            .then(async (metricsChanged) => {
+              // Host-measured normal line metrics discovered by this
+              // layout: measure, inject, and force one reflow so the
+              // committed pagination was built with them.
+              const hostMetricsChanged = await syncBrowserHostLineMetrics(state.worker).catch(
+                (error: unknown) => {
+                  state.logger.warn('reader host line metric sync failed', error);
+                  return false;
+                },
+              );
+              if (metricsChanged || hostMetricsChanged) reflow(layoutOptions, true);
               return warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
             })
             .catch((error: unknown) => {
