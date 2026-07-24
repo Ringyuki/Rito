@@ -310,20 +310,42 @@ impl RuntimeDocument {
     /// The host measures with its own text stack; the engine treats the
     /// values as authoritative for normal-line heights.
     pub fn set_host_line_metric(&self, family_key: &str, size: f64, strut: f64, cjk: f64) {
-        if let Some(engine) = self.fragment_engine() {
+        self.pending_host_line_metrics
+            .borrow_mut()
+            .push((family_key.to_owned(), size, strut, cjk));
+        // Never force engine initialization here: the engine builds
+        // lazily from resolved @font-face sources, and forcing it before
+        // a revision resolved them would cache a font-less engine.
+        self.apply_pending_host_line_metrics();
+    }
+
+    /// Applies recorded metrics to the fragment engine if (and only if)
+    /// it already initialized; called again from engine initialization.
+    pub(super) fn apply_pending_host_line_metrics(&self) {
+        let Some(Some(engine)) = self.fragment_engine.get() else {
+            return;
+        };
+        let pending = self.pending_host_line_metrics.borrow();
+        for (family, size, strut, cjk) in pending.iter().skip(self.applied_host_line_metrics.get())
+        {
             engine.engine.inline().set_host_line_metric(
-                family_key,
-                size,
-                rito_inline::HostNormalLineMetric { strut, cjk },
+                family,
+                *size,
+                rito_inline::HostNormalLineMetric {
+                    strut: *strut,
+                    cjk: *cjk,
+                },
             );
         }
+        self.applied_host_line_metrics.set(pending.len());
     }
 
     /// Drains the (family key, size) pairs layout needed but no host
     /// metric covered; the host measures them, injects, and relayouts.
     pub fn take_host_line_metric_requests(&self) -> Vec<(String, f64)> {
-        self.fragment_engine()
-            .map(|engine| engine.engine.inline().take_host_metric_requests())
-            .unwrap_or_default()
+        match self.fragment_engine.get() {
+            Some(Some(engine)) => engine.engine.inline().take_host_metric_requests(),
+            _ => Vec::new(),
+        }
     }
 }

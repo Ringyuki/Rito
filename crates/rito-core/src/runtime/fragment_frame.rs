@@ -74,6 +74,10 @@ impl RuntimeDocument {
                 })
             })
             .as_ref()
+            .inspect(|_| {
+                // Metrics injected before the engine existed apply now.
+                self.apply_pending_host_line_metrics();
+            })
     }
 
     /// Decides and caches fragment frames for every chapter the given

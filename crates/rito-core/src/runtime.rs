@@ -122,6 +122,12 @@ pub struct RuntimeDocument {
     parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
     font_face_sources: OnceCell<Vec<crate::epub::ResolvedFontFaceSource>>,
     fragment_engine: OnceCell<Option<fragment_frame::RuntimeFragmentEngine>>,
+    /// Host-measured normal line metrics recorded before the fragment
+    /// engine exists; applied on engine initialization. The engine
+    /// initializes lazily from resolved @font-face sources, so metric
+    /// injection must never force it early.
+    pending_host_line_metrics: std::cell::RefCell<Vec<(String, f64, f64, f64)>>,
+    applied_host_line_metrics: std::cell::Cell<usize>,
     text_measurement_cache: TextMeasurementCache,
     pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
     next_revision_index: usize,
@@ -174,6 +180,8 @@ impl RuntimeDocument {
             parsed_chapters: BTreeMap::new(),
             font_face_sources: OnceCell::new(),
             fragment_engine: OnceCell::new(),
+            pending_host_line_metrics: std::cell::RefCell::new(Vec::new()),
+            applied_host_line_metrics: std::cell::Cell::new(0),
             text_measurement_cache: TextMeasurementCache::default(),
             pinned_font_policy,
             next_revision_index: 1,
