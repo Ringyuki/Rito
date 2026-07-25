@@ -116,8 +116,14 @@ async function captureEnginePage(page) {
   }
   if (!confirmed) return null;
   await engine.waitForTimeout(350);
-  const box = await engine.locator('#left-canvas').boundingBox();
-  return engine.screenshot({ clip: box });
+  // Read the canvas bitmap itself. Screenshotting the page region instead
+  // would sample through layout and compositing: the canvas sits at a
+  // fractional page offset, and the clip rounds it into a whole-pixel
+  // shift that reads as a total glyph mismatch. The bitmap is exact.
+  const dataUrl = await engine.evaluate(() =>
+    document.getElementById('left-canvas').toDataURL('image/png'),
+  );
+  return Buffer.from(dataUrl.split(',')[1], 'base64');
 }
 
 async function openChapterInOracle(chapterFile) {
