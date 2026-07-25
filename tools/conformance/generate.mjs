@@ -418,9 +418,25 @@ const page = await browser.newPage({
   deviceScaleFactor: 1,
 });
 const truth = {};
+const intrinsic = {};
 for (const c of cases) {
   await page.goto(`file://${path.join(buildDir, 'OEBPS', 'Text', `${c.name}.xhtml`)}`);
   await page.evaluate(() => document.fonts.ready);
+  // A table's own intrinsic widths, the inputs the column algorithm is
+  // defined over. Recording them turns "the columns came out wrong" into
+  // "the engine's grid minimum disagrees with the browser's".
+  intrinsic[c.name] = await page.evaluate(() => {
+    const table = document.querySelector('table');
+    if (!table) return null;
+    const previous = table.style.width;
+    const measure = (value) => {
+      table.style.width = value;
+      return table.getBoundingClientRect().width;
+    };
+    const sizes = { minContent: measure('min-content'), maxContent: measure('max-content') };
+    table.style.width = previous;
+    return sizes;
+  });
   truth[c.name] = await page.evaluate(() => {
     const boxes = {};
     for (const el of document.querySelectorAll('[id]')) {
@@ -475,6 +491,6 @@ await browser.close();
 
 writeFileSync(
   path.join(outDir, 'truth.json'),
-  JSON.stringify({ seed, cases, truth, hostMetrics }, null, 1),
+  JSON.stringify({ seed, cases, truth, intrinsic, hostMetrics }, null, 1),
 );
 console.log(`generated ${cases.length} cases → ${epubPath}; truth recorded`);

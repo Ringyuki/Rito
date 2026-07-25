@@ -1049,127 +1049,19 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         );
         let spacing_total = spacing_x * (column_count as f64 + 1.0);
         let content_available = (available_width - spacing_total).max(0.0);
-        let sum_min: f64 = min_widths.iter().sum();
-        let sum_max: f64 = max_widths.iter().sum();
-        let mut columns: Vec<f64> = if sum_max <= content_available {
-            max_widths.clone()
-        } else if sum_min >= content_available {
-            // Overflow: columns keep their minimums, like a browser table
-            // wider than its containing block.
-            min_widths.clone()
-        } else {
-            // Squeezed: a column that specified a width keeps it (floored
-            // by its own minimum) and the columns sized by content share
-            // what is left — a browser narrows the text, not the column
-            // the author fixed.
-            let mut widths = vec![0.0_f64; column_count];
-            let mut fixed_total = 0.0;
-            for column in 0..column_count {
-                if let Some(specified) = specified_widths[column] {
-                    widths[column] = specified.max(min_widths[column]).min(content_available);
-                    fixed_total += widths[column];
-                }
-            }
-            let flexible: Vec<usize> = (0..column_count)
-                .filter(|column| specified_widths[*column].is_none())
-                .collect();
-            let flexible_min: f64 = flexible.iter().map(|column| min_widths[*column]).sum();
-            let flexible_max: f64 = flexible.iter().map(|column| max_widths[*column]).sum();
-            let budget = (content_available - fixed_total).max(flexible_min);
-            for column in &flexible {
-                widths[*column] = if flexible_max <= budget {
-                    max_widths[*column]
-                } else if flexible_max > flexible_min {
-                    let scale = (budget - flexible_min) / (flexible_max - flexible_min);
-                    min_widths[*column]
-                        + (max_widths[*column] - min_widths[*column]) * scale
-                } else {
-                    min_widths[*column]
-                };
-            }
-            widths
-        };
-        // A percentage column asks for a share of the table itself, so it
-        // sizes the table rather than being sized by it: the table grows
-        // until the column's content fits inside its share, bounded by the
-        // space available. The remaining columns then split what is left.
-        if column_percentages.iter().any(Option::is_some) {
-            let mut demanded: f64 = columns.iter().sum();
-            for (column, percentage) in column_percentages.iter().enumerate() {
-                if let Some(percentage) = percentage {
-                    demanded = demanded.max(max_widths[column] / percentage);
-                }
-            }
-            let content_width = demanded.min(content_available).max(sum_min);
-            let plain: Vec<usize> = (0..column_count)
-                .filter(|column| column_percentages[*column].is_none())
-                .collect();
-            // Every other column keeps at least its minimum content, so a
-            // percentage column only ever claims the space those leave —
-            // a share of the table, not a claim over its neighbours.
-            let plain_minimum: f64 = plain.iter().map(|column| min_widths[*column]).sum();
-            let percentage_budget = (content_width - plain_minimum).max(0.0);
-            // Percentage columns share the budget in proportion to what
-            // they asked for, except that none may fall under its own
-            // minimum content: those settle at their minimum and the rest
-            // divide what is left, until every column fits.
-            let mut pending: Vec<usize> = (0..column_count)
-                .filter(|column| column_percentages[*column].is_some())
-                .collect();
-            let want = |column: usize| {
-                column_percentages[column].unwrap_or_default() * content_width
-            };
-            let mut budget = percentage_budget;
-            loop {
-                let want_total: f64 = pending.iter().map(|column| want(*column)).sum();
-                if pending.is_empty() || want_total <= 0.0 {
-                    break;
-                }
-                let scale = budget / want_total;
-                let pinned: Vec<usize> = pending
-                    .iter()
-                    .copied()
-                    .filter(|column| want(*column) * scale < min_widths[*column])
-                    .collect();
-                if pinned.is_empty() {
-                    for column in &pending {
-                        columns[*column] = want(*column) * scale.min(1.0);
-                    }
-                    break;
-                }
-                for column in pinned {
-                    columns[column] = min_widths[column];
-                    budget -= min_widths[column];
-                    pending.retain(|pending| *pending != column);
-                }
-            }
-            let mut leftover = content_width;
-            for (column, percentage) in column_percentages.iter().enumerate() {
-                if percentage.is_some() {
-                    leftover -= columns[column];
-                }
-            }
-            if plain.is_empty() {
-                // Nothing else to absorb the table's width: the percentage
-                // columns share it in proportion to their own demand.
-                let total: f64 = columns.iter().sum();
-                if total > 0.0 {
-                    for width in columns.iter_mut() {
-                        *width += leftover * (*width / total);
-                    }
-                }
-            } else if leftover > 0.0 {
-                let total: f64 = plain.iter().map(|column| max_widths[*column]).sum();
-                for column in plain {
-                    let share = if total > 0.0 {
-                        max_widths[column] / total
-                    } else {
-                        1.0 / column_count as f64
-                    };
-                    columns[column] = leftover * share;
-                }
-            }
-        }
+        // Column sizing follows the CSS tables algorithm: an assignable
+        // width from the grid's constraints, then distribution through
+        // the four guesses.
+        let constraints: Vec<ColumnConstraint> = (0..column_count)
+            .map(|column| ColumnConstraint {
+                min: min_widths[column],
+                max: max_widths[column].max(min_widths[column]),
+                specified: specified_widths[column],
+                percentage: column_percentages[column],
+            })
+            .collect();
+        let assignable = assignable_table_width(&constraints, content_available);
+        let mut columns = distribute_columns(&constraints, assignable);
         // Separate-borders spacing sits between every pair of cells and
         // around the grid, so a column's offset carries one gap per
         // preceding column plus the leading edge.
@@ -1846,6 +1738,135 @@ fn translate_fragment(fragment: &mut Fragment, dx: f64, dy: f64) {
             image.rect.y += dy;
         }
     }
+}
+
+/// One column's sizing constraints, the input to the width distribution.
+struct ColumnConstraint {
+    min: f64,
+    max: f64,
+    /// A definite authored width, already including the cell's padding.
+    specified: Option<f64>,
+    /// An authored percentage width, as a ratio of the table.
+    percentage: Option<f64>,
+}
+
+/// The width a table's columns divide between them. Beyond fitting its
+/// own content, a percentage column constrains the table twice: its own
+/// content must fit inside its share, and everything else must fit in
+/// what the shares leave. Whichever demand is largest wins, bounded by
+/// the space available — CSS sizes an `auto` table to fit, not to fill.
+fn assignable_table_width(constraints: &[ColumnConstraint], available: f64) -> f64 {
+    let grid_min: f64 = constraints.iter().map(|column| column.min).sum();
+    let grid_max: f64 = constraints.iter().map(|column| column.max).sum();
+    let percentage_sum: f64 = constraints
+        .iter()
+        .filter_map(|column| column.percentage)
+        .sum::<f64>()
+        .min(1.0);
+    let mut demand = grid_max;
+    for column in constraints {
+        if let Some(share) = column.percentage {
+            if share > 0.0 {
+                demand = demand.max(column.max / share);
+            }
+        }
+    }
+    if percentage_sum > 0.0 && percentage_sum < 1.0 {
+        let plain_max: f64 = constraints
+            .iter()
+            .filter(|column| column.percentage.is_none())
+            .map(|column| column.max)
+            .sum();
+        demand = demand.max(plain_max / (1.0 - percentage_sum));
+    }
+    grid_min.max(demand.min(available))
+}
+
+/// Distributes the assignable width over the columns through the four
+/// guesses of the CSS tables algorithm — every column at its minimum,
+/// then percentage columns at their share, then authored widths, then
+/// content maxima — settling between the two guesses that bracket the
+/// assignable width, and spreading anything beyond the last guess.
+fn distribute_columns(constraints: &[ColumnConstraint], assignable: f64) -> Vec<f64> {
+    let count = constraints.len();
+    let minimum: Vec<f64> = constraints.iter().map(|column| column.min).collect();
+    let percentage: Vec<f64> = constraints
+        .iter()
+        .map(|column| match column.percentage {
+            Some(share) => (share * assignable).max(column.min),
+            None => column.min,
+        })
+        .collect();
+    let specified: Vec<f64> = constraints
+        .iter()
+        .enumerate()
+        .map(|(index, column)| match (column.percentage, column.specified) {
+            (Some(_), _) => percentage[index],
+            (None, Some(width)) => width.max(column.min),
+            (None, None) => column.min,
+        })
+        .collect();
+    let maximum: Vec<f64> = constraints
+        .iter()
+        .enumerate()
+        .map(|(index, column)| match (column.percentage, column.specified) {
+            (Some(_), _) => percentage[index].max(column.max),
+            (None, Some(_)) => specified[index].max(column.max),
+            (None, None) => column.max,
+        })
+        .collect();
+
+    let total = |guess: &[f64]| guess.iter().sum::<f64>();
+    for (lower, upper) in [
+        (&minimum, &percentage),
+        (&percentage, &specified),
+        (&specified, &maximum),
+    ] {
+        let lower_total = total(lower);
+        let upper_total = total(upper);
+        if assignable <= lower_total {
+            return lower.clone();
+        }
+        if assignable <= upper_total {
+            let span = upper_total - lower_total;
+            if span <= f64::EPSILON {
+                return upper.clone();
+            }
+            let ratio = (assignable - lower_total) / span;
+            return (0..count)
+                .map(|index| lower[index] + (upper[index] - lower[index]) * ratio)
+                .collect();
+        }
+    }
+
+    // Beyond every guess: the surplus goes to the columns sized by their
+    // content, then to authored widths, then to percentage columns.
+    let mut widths = maximum;
+    let surplus = assignable - total(&widths);
+    if surplus <= 0.0 {
+        return widths;
+    }
+    let pick = |filter: &dyn Fn(&ColumnConstraint) -> bool| -> Vec<usize> {
+        (0..count).filter(|index| filter(&constraints[*index])).collect()
+    };
+    let auto = pick(&|column| column.percentage.is_none() && column.specified.is_none());
+    let fixed = pick(&|column| column.percentage.is_none() && column.specified.is_some());
+    let shares: Vec<(usize, f64)> = if !auto.is_empty() {
+        auto.iter().map(|index| (*index, constraints[*index].max.max(1.0))).collect()
+    } else if !fixed.is_empty() {
+        fixed.iter().map(|index| (*index, widths[*index].max(1.0))).collect()
+    } else {
+        (0..count)
+            .map(|index| (index, constraints[index].percentage.unwrap_or(0.0).max(f64::EPSILON)))
+            .collect()
+    };
+    let share_total: f64 = shares.iter().map(|(_, share)| share).sum();
+    if share_total > 0.0 {
+        for (index, share) in shares {
+            widths[index] += surplus * (share / share_total);
+        }
+    }
+    widths
 }
 
 /// A table cell's inline sizing inputs: its content bounds plus the width
