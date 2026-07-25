@@ -29,6 +29,9 @@ const CERTIFIED = {
   // Certified 2026-07-25 at 100.0% / max 0.0px (CSS sizing plus the
   // strut space an atomic inline reserves below the baseline).
   images: { minRate: 0.99, maxDelta: 0.5 },
+  // Certified 2026-07-25 at 100.0% / max 0.0px (CSS tables width
+  // distribution: both percentage constraints, then the four guesses).
+  'table-percent': { minRate: 0.99, maxDelta: 0.5 },
 };
 
 const { cases, truth, hostMetrics } = JSON.parse(

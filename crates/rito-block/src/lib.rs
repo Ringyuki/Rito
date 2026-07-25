@@ -1400,8 +1400,11 @@ fn own_width_contribution(
         }
         BoxSizingV1::BorderBox => f64::from(px.get()),
     };
-    sizes.min_content = sizes.min_content.max(outer);
-    sizes.max_content = sizes.max_content.max(outer);
+    // A definite width fixes the box: it neither shrinks below nor grows
+    // beyond it, so both intrinsic contributions are that width however
+    // long its content runs.
+    sizes.min_content = outer;
+    sizes.max_content = outer;
     Ok(sizes)
 }
 
