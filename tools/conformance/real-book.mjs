@@ -79,6 +79,11 @@ const page = await browser.newPage({
 });
 
 const truth = {};
+// Chapters the browser resolved to a writing mode the engine does not
+// implement. A vertical-rl book is not a book with ten thousand geometry
+// defects; it is a book in a mode nothing here supports yet, and saying
+// so is the only honest reading of its numbers.
+const unsupportedMode = new Map();
 const metricRequests = new Map();
 for (const chapter of chapters) {
   const pinnedSerif = path.relative(
@@ -165,9 +170,23 @@ for (const chapter of chapters) {
       const style = getComputedStyle(element);
       families.add(`${style.fontFamily} ${style.fontSize}`);
     }
-    return { boxes, families: [...families] };
+    return {
+      boxes,
+      families: [...families],
+      // A book can put the mode on `html`, on `body`, or on a wrapper it
+      // lays its whole chapter inside; any vertical box makes the chapter
+      // unmeasurable against a horizontal engine.
+      writingMode:
+        [document.documentElement, document.body, ...document.querySelectorAll('body *')]
+          .map((element) => getComputedStyle(element).writingMode)
+          .find((mode) => mode && !mode.startsWith('horizontal')) ??
+        getComputedStyle(document.body).writingMode,
+    };
   });
   truth[chapter.href] = recorded.boxes;
+  if (recorded.writingMode && !recorded.writingMode.startsWith('horizontal')) {
+    unsupportedMode.set(chapter.href, recorded.writingMode);
+  }
   for (const key of recorded.families) metricRequests.set(key, chapter.file);
 }
 
@@ -338,6 +357,12 @@ for (const chapter of chapters) {
     engineByChapter.get(chapterKey(chapter.id)) ?? engineByChapter.get(chapterKey(chapter.href));
   const truthBoxes = truth[chapter.href] ?? {};
   const stats = { chapter: chapter.href, boxes: 0, matched: 0, within: 0, missing: 0, maxDelta: 0 };
+  const mode = unsupportedMode.get(chapter.href);
+  if (mode !== undefined) {
+    stats.unsupportedMode = mode;
+    perChapter.push(stats);
+    continue;
+  }
   if (!engine || engine.error) {
     stats.error = engine?.error ?? 'no dump';
     perChapter.push(stats);
@@ -416,9 +441,17 @@ for (const s of perChapter) {
       `max ${s.maxDelta.toFixed(1)}px)${s.error ? ` ERROR ${s.error}` : ''}`,
   );
 }
+const unsupported = perChapter.filter((entry) => entry.unsupportedMode !== undefined);
 lines.splice(
   3,
   0,
+  ...(unsupported.length > 0
+    ? [
+        `unsupported writing mode: ${unsupported.length}/${perChapter.length} chapters ` +
+          `(${[...new Set(unsupported.map((entry) => entry.unsupportedMode))].join(', ')}) — ` +
+          'excluded from the rate; the engine lays these out horizontally',
+      ]
+    : []),
   `overall: ${totalBoxes > 0 ? ((totalWithin / totalBoxes) * 100).toFixed(1) : 'n/a'}% ` +
     `within ${TOLERANCE_PX}px (${totalWithin}/${totalBoxes} boxes)`,
   '',
