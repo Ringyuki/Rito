@@ -1296,7 +1296,8 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 max_content: 0.0,
             }),
             FormattingNodeContent::InlineFlow { .. } => {
-                self.inline.intrinsic_inline_sizes(tree, node)
+                let sizes = self.inline.intrinsic_inline_sizes(tree, node)?;
+                Ok(own_width_contribution(tree, node, sizes)?)
             }
             FormattingNodeContent::Table | FormattingNodeContent::TableRow => {
                 // A table is as wide as its widest row; a row sums its cells.
@@ -1326,40 +1327,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     sizes.min_content = sizes.min_content.max(child_sizes.min_content);
                     sizes.max_content = sizes.max_content.max(child_sizes.max_content);
                 }
-                // A definite width makes the box that wide whatever its
-                // content asks for, so that is what it contributes to an
-                // ancestor sizing itself around it. A table cell is the
-                // exception: its own width belongs to the column
-                // algorithm, which reads it separately.
-                let is_cell = matches!(
-                    tree.node(node).content,
-                    FormattingNodeContent::TableCell { .. }
-                );
-                let style = container_layout_style(tree, node)?;
-                let own_width = if is_cell {
-                    rito_style_contract::PreferredSizeV1::Auto
-                } else {
-                    style.width
-                };
-                if let rito_style_contract::PreferredSizeV1::Value(width) = own_width {
-                    if let LengthPercentage::Length(px) = width.value() {
-                        let pad = |side: rito_style_contract::NonNegativeLengthPercentage| {
-                            match side.value() {
-                                LengthPercentage::Length(px) => f64::from(px.get()),
-                                _ => 0.0,
-                            }
-                        };
-                        let outer = match style.box_sizing {
-                            BoxSizingV1::ContentBox => {
-                                f64::from(px.get()) + pad(style.padding.left) + pad(style.padding.right)
-                            }
-                            BoxSizingV1::BorderBox => f64::from(px.get()),
-                        };
-                        sizes.min_content = sizes.min_content.max(outer);
-                        sizes.max_content = sizes.max_content.max(outer);
-                    }
-                }
-                Ok(sizes)
+                own_width_contribution(tree, node, sizes)
             }
         }
     }
@@ -1443,6 +1411,44 @@ fn resume_point(
             consumed_block_size,
         } => Ok((index, consumed_block_size)),
     }
+}
+
+/// Raises a box's intrinsic contribution to its own definite width: a
+/// fixed-width box is that wide whatever its content asks for, so that is
+/// what an ancestor must size itself around. A table cell is the
+/// exception — its width belongs to the column algorithm, which reads it
+/// separately and would otherwise count it twice.
+fn own_width_contribution(
+    tree: &FormattingTree,
+    node: FormattingNodeId,
+    mut sizes: IntrinsicInlineSizes,
+) -> Result<IntrinsicInlineSizes, LayoutError> {
+    if matches!(
+        tree.node(node).content,
+        FormattingNodeContent::TableCell { .. }
+    ) {
+        return Ok(sizes);
+    }
+    let style = container_layout_style(tree, node)?;
+    let rito_style_contract::PreferredSizeV1::Value(width) = style.width else {
+        return Ok(sizes);
+    };
+    let LengthPercentage::Length(px) = width.value() else {
+        return Ok(sizes);
+    };
+    let pad = |side: rito_style_contract::NonNegativeLengthPercentage| match side.value() {
+        LengthPercentage::Length(px) => f64::from(px.get()),
+        _ => 0.0,
+    };
+    let outer = match style.box_sizing {
+        BoxSizingV1::ContentBox => {
+            f64::from(px.get()) + pad(style.padding.left) + pad(style.padding.right)
+        }
+        BoxSizingV1::BorderBox => f64::from(px.get()),
+    };
+    sizes.min_content = sizes.min_content.max(outer);
+    sizes.max_content = sizes.max_content.max(outer);
+    Ok(sizes)
 }
 
 /// Whether a container establishes a formatting context, which is what
