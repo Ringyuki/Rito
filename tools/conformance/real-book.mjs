@@ -13,7 +13,7 @@
 
 import { createRequire } from 'node:module';
 import { execFileSync, execSync, spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
@@ -28,6 +28,12 @@ rmSync(outDir, { recursive: true, force: true });
 const buildDir = path.join(outDir, 'build');
 mkdirSync(buildDir, { recursive: true });
 execFileSync('unzip', ['-q', path.resolve(bookArg), '-d', buildDir]);
+// The engine resolves every generic family to its pinned serif. The truth
+// browser must do the same, or text the book leaves unstyled is measured in
+// the browser's own default face — a different font with different metrics,
+// which reads as a one-pixel layout defect on every line it touches.
+const PINNED_SERIF = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf');
+copyFileSync(PINNED_SERIF, path.join(buildDir, '__rito_pinned_serif.otf'));
 
 // ---- Spine order, straight from the OPF ---------------------------------
 
@@ -61,6 +67,10 @@ const page = await browser.newPage({
 const truth = {};
 const metricRequests = new Map();
 for (const chapter of chapters) {
+  const pinnedSerif = path.relative(
+    path.dirname(chapter.file),
+    path.join(buildDir, '__rito_pinned_serif.otf'),
+  );
   await page.goto(`file://${chapter.file}`, { timeout: 30000 }).catch(() => null);
   await page.evaluate(() => document.fonts.ready);
   // Serialize the stamped DOM back over the source so the engine parses
@@ -81,8 +91,8 @@ for (const chapter of chapters) {
   // not from a DOM that only exists in this tab.
   await page.goto(`file://${chapter.file}`, { timeout: 30000 }).catch(() => null);
   await page.evaluate(() => document.fonts.ready);
-  const recorded = await page.evaluate(
-    ({ width }) => {
+  await page.evaluate(
+    async ({ width, pinnedSerif }) => {
       const normalize = document.createElement('style');
       // The flow the engine lays out: one continuous column at the content
       // width. No page exists in this pass, so the reader's page-fit image
@@ -90,37 +100,44 @@ for (const chapter of chapters) {
       // and the pixel oracle is what measures it. Injecting it on one side
       // only would report every full-page image as a 100px defect.
       normalize.textContent =
-        `html { margin: 0; padding: 0; width: ${width}px; }\n` +
+        `@font-face { font-family: "__rito_serif"; src: url("${pinnedSerif}"); }\n` +
+        `html { margin: 0; padding: 0; width: ${width}px; font-family: "__rito_serif"; }\n` +
         `body { margin: 0; padding: 0; width: ${width}px; }`;
       document.head.appendChild(normalize);
-      const boxes = {};
-      const families = new Set();
-      // Elements that generate no box at all: they would count as
-      // "missing" forever and drag every rate down without naming a defect.
-      const boxless = new Set(['HEAD', 'META', 'LINK', 'TITLE', 'STYLE', 'SCRIPT', 'BASE']);
-      for (const element of document.querySelectorAll('[id]')) {
-        if (boxless.has(element.tagName)) continue;
-        const rect = element.getBoundingClientRect();
-        boxes[element.id] = {
-          tag: element.tagName.toLowerCase(),
-          // Anchors for local geometry. Block advance is measured from the
-          // previous sibling's bottom (or the parent's top for a first
-          // child), so one early mistake is reported where it happens
-          // instead of repainting every box below it as broken.
-          parent: element.parentElement?.closest('[id]')?.id ?? null,
-          prev: element.previousElementSibling?.id || null,
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-        };
-        const style = getComputedStyle(element);
-        families.add(`${style.fontFamily} ${style.fontSize}`);
-      }
-      return { boxes, families: [...families] };
+      // The face has to be resolved before anything is measured: rects read
+      // while it is still loading come from the browser's default font.
+      await document.fonts.load('16px "__rito_serif"', '试');
+      await document.fonts.ready;
     },
-    { width: FLOW_WIDTH },
+    { width: FLOW_WIDTH, pinnedSerif },
   );
+  const recorded = await page.evaluate(() => {
+    const boxes = {};
+    const families = new Set();
+    // Elements that generate no box at all: they would count as
+    // "missing" forever and drag every rate down without naming a defect.
+    const boxless = new Set(['HEAD', 'META', 'LINK', 'TITLE', 'STYLE', 'SCRIPT', 'BASE']);
+    for (const element of document.querySelectorAll('[id]')) {
+      if (boxless.has(element.tagName)) continue;
+      const rect = element.getBoundingClientRect();
+      boxes[element.id] = {
+        tag: element.tagName.toLowerCase(),
+        // Anchors for local geometry. Block advance is measured from the
+        // previous sibling's bottom (or the parent's top for a first
+        // child), so one early mistake is reported where it happens
+        // instead of repainting every box below it as broken.
+        parent: element.parentElement?.closest('[id]')?.id ?? null,
+        prev: element.previousElementSibling?.id || null,
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      };
+      const style = getComputedStyle(element);
+      families.add(`${style.fontFamily} ${style.fontSize}`);
+    }
+    return { boxes, families: [...families] };
+  });
   truth[chapter.href] = recorded.boxes;
   for (const key of recorded.families) metricRequests.set(key, chapter.file);
 }
@@ -219,7 +236,10 @@ async function measureHostMetrics(pairs) {
         .split(',')
         .map((name) => name.trim())
         .filter((name) => name.length > 0)
-        .map((name) => (generic.has(name) ? name : `"${name.replaceAll('"', '\\"')}"`))
+        // The engine serves every generic family from its pinned serif;
+        // measuring `serif` against the browser's default face would hand
+        // the engine one font's numbers for another font's glyphs.
+        .map((name) => (generic.has(name) ? '"__rito_serif"' : `"${name.replaceAll('"', '\\"')}"`))
         .join(', ');
     const measured = requests.map(({ family, size, sample }) => {
       const p = document.createElement('p');
