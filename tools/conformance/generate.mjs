@@ -86,7 +86,13 @@ function verticalRhythmCase(rand) {
 function tableCase(rand) {
   const rows = 1 + Math.floor(rand() * 3);
   const cols = 1 + Math.floor(rand() * 3);
-  const tableStyle = pick(rand, ['', 'margin:0 auto;', 'margin:1em 0;']);
+  const tableStyle = pick(rand, [
+    '',
+    'margin:0 auto;',
+    'margin:1em 0;',
+    'font-size:0.8em;',
+    'font-size:1.2em;margin:0 auto;',
+  ]);
   const parts = [`<table id="${id()}" style="${tableStyle}">`];
   for (let r = 0; r < rows; r += 1) {
     parts.push(`<tr id="${id()}">`);
@@ -96,6 +102,14 @@ function tableCase(rand) {
       if (rand() < 0.3) {
         parts.push(
           `<td id="${id()}" style="${width}${valign}"><div id="${id()}" style="width:12em;border:1px solid #000;">${text(rand, 8, 30)}</div></td>`,
+        );
+      } else if (rand() < 0.4) {
+        // Mixed font sizes on one line: each run contributes its own
+        // ascent and descent to the line box.
+        const inner = pick(rand, ['0.7em', '0.8em', '1.3em']);
+        parts.push(
+          `<td id="${id()}" style="${width}${valign}">${text(rand, 2, 8)}` +
+            `<span style="font-size:${inner};">${text(rand, 2, 6)}</span></td>`,
         );
       } else {
         parts.push(`<td id="${id()}" style="${width}${valign}">${text(rand, 2, 25)}</td>`);
