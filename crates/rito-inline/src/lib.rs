@@ -526,7 +526,39 @@ impl FormattingContext for ParleyInlineContext {
             PercentageImageSizing::Intrinsic,
             cancel,
         )?;
-        layout.break_all_lines(Some(space.inline_size as f32));
+        // Float exclusion: lines inside the band are broken at the reduced
+        // width and shifted past the left inset; the flow returns to the
+        // full inline size below the band. CSS shortens line boxes around
+        // a float rather than moving the block box.
+        let band = space.float_band.filter(|band| {
+            band.bottom > 0.0 && (band.left_inset > 0.0 || band.right_inset > 0.0)
+        });
+        match band {
+            None => layout.break_all_lines(Some(space.inline_size as f32)),
+            Some(band) => {
+                let band_inline_size =
+                    (space.inline_size - band.left_inset - band.right_inset).max(0.0);
+                let mut breaker = layout.break_lines();
+                breaker
+                    .state_mut()
+                    .set_layout_max_advance(space.inline_size as f32);
+                loop {
+                    let inside = f64::from(breaker.committed_y() as f32) < band.bottom;
+                    let (advance, offset) = if inside {
+                        (band_inline_size, band.left_inset)
+                    } else {
+                        (space.inline_size, 0.0)
+                    };
+                    let state = breaker.state_mut();
+                    state.set_line_max_advance(advance as f32);
+                    state.set_line_x(offset as f32);
+                    if breaker.break_next().is_none() {
+                        break;
+                    }
+                }
+                breaker.finish();
+            }
+        }
         if !matches!(alignment, parley::Alignment::Start) {
             layout.align(alignment, parley::AlignmentOptions::default());
         }

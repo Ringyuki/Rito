@@ -22,7 +22,7 @@ mod serialize;
 
 pub use break_token::{BreakToken, BreakTokenStage, FloatBreak};
 pub use cache::{CachedLayout, FragmentCache};
-pub use constraint_space::ConstraintSpace;
+pub use constraint_space::{ConstraintSpace, FloatBand};
 pub use context::{
     CancelFlag, FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
 };

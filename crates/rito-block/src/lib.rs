@@ -146,6 +146,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     inline_size: hbox.border_width,
                     fragmentainer_remaining: Some(available),
                     fragmentainer_size: space.fragmentainer_size,
+                    float_band: None,
                 };
                 let outcome =
                     self.layout(tree, child_id, &sub_space, Some(&float_break.token), cancel)?;
@@ -280,6 +281,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         inline_size: hbox.border_width,
                         fragmentainer_remaining: Some(head_available),
                         fragmentainer_size: space.fragmentainer_size,
+                        float_band: None,
                     };
                     let outcome = self.layout(tree, *child_id, &sub_space, None, cancel)?;
                     let Fragment::Box(head_root) = outcome.fragments.root else {
@@ -386,19 +388,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 remaining = (page_bottom - y).max(0.0);
                 pending_margin = 0.0;
             }
-            // In-flow content beside an active float needs line boxes
-            // that shorten around it. Until float wrapping lands, push
-            // the content below the floats instead — content stays
-            // readable and never overlaps, at the cost of the wrap.
-            if floats.has_active(y) {
-                let clear_all = floats.bottom_for(ClearV1::Both);
-                if clear_all > y {
-                    let page_bottom = y + remaining.max(0.0);
-                    y = clear_all;
-                    remaining = (page_bottom - y).max(0.0);
-                    pending_margin = 0.0;
-                }
-            }
+
             // A margin that meets an unforced break is truncated to zero,
             // so a resumed child starts flush at the fragmentainer top.
             // At a collapsing root edge the first child's top margin
@@ -510,11 +500,16 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 FormattingNodeContent::InlineFlow { .. } => {
                     let child_style = container_layout_style(tree, *child_id)?;
                     let hbox = resolve_horizontal_box(child_style, content_width)?;
+                    // Floats beside this paragraph shorten its line boxes
+                    // instead of pushing it down, which is what a browser
+                    // does; the paragraph box itself keeps its position.
+                    let band = floats.band_at(y, content_width);
                     let lines = self.inline_lines(
                         tree,
                         *child_id,
                         hbox.content_width,
                         space.fragmentainer_size,
+                        band,
                         cancel,
                     )?;
                     // The paragraph's own top padding rides its first
@@ -659,6 +654,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         inline_size: hbox.border_width,
                         fragmentainer_remaining: space.fragmentainer_remaining.map(|_| available),
                         fragmentainer_size: space.fragmentainer_size,
+                        float_band: None,
                     };
                     let outcome = self.layout_container(
                         tree,
@@ -823,6 +819,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         node: FormattingNodeId,
         inline_size: f64,
         page_block_size: Option<f64>,
+        float_band: Option<rito_fragment::FloatBand>,
         cancel: &CancelFlag,
     ) -> Result<Vec<Fragment>, LayoutError> {
         // Paragraphs lay out continuously — line-level slicing into pages
@@ -833,6 +830,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             inline_size,
             fragmentainer_remaining: None,
             fragmentainer_size: page_block_size,
+            float_band,
         };
         let outcome = self
             .inline_cache
@@ -1348,6 +1346,34 @@ impl FloatBands {
 
     fn has_active(&self, flow_y: f64) -> bool {
         self.left_bottom > flow_y || self.right_bottom > flow_y
+    }
+
+    /// The exclusion an in-flow paragraph starting at `flow_y` sees: how
+    /// much inline space each side withholds, and how far down the band
+    /// reaches. `None` once no float overlaps that position.
+    fn band_at(&self, flow_y: f64, content_width: f64) -> Option<rito_fragment::FloatBand> {
+        let bottom = self.left_bottom.max(self.right_bottom);
+        if bottom <= flow_y + 1e-6 {
+            return None;
+        }
+        let left_inset = if self.left_bottom > flow_y + 1e-6 {
+            self.left_occupied
+        } else {
+            0.0
+        };
+        let right_inset = if self.right_bottom > flow_y + 1e-6 {
+            self.right_occupied
+        } else {
+            0.0
+        };
+        if left_inset + right_inset <= 0.0 || left_inset + right_inset >= content_width {
+            return None;
+        }
+        Some(rito_fragment::FloatBand {
+            left_inset,
+            right_inset,
+            bottom: bottom - flow_y,
+        })
     }
 
     fn bottom_for(&self, clear: ClearV1) -> f64 {

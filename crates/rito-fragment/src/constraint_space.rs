@@ -17,6 +17,22 @@ pub struct ConstraintSpace {
     /// will slice, which reader semantics (such as scaling a replaced
     /// image down to one page) need to know about.
     pub fragmentainer_size: Option<f64>,
+    /// Inline space floats withhold from the top of this layout. Line
+    /// boxes inside the band are narrowed and offset; content below it
+    /// uses the full inline size, exactly as CSS floats shorten line
+    /// boxes rather than displacing the block box.
+    pub float_band: Option<FloatBand>,
+}
+
+/// One band of float exclusion at the top of a layout's block axis.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FloatBand {
+    /// Inline space withheld on the line-left side.
+    pub left_inset: f64,
+    /// Inline space withheld on the line-right side.
+    pub right_inset: f64,
+    /// Block-axis extent of the band, measured from this layout's origin.
+    pub bottom: f64,
 }
 
 impl ConstraintSpace {
@@ -26,6 +42,7 @@ impl ConstraintSpace {
             inline_size,
             fragmentainer_remaining: None,
             fragmentainer_size: None,
+            float_band: None,
         }
     }
 
@@ -35,6 +52,7 @@ impl ConstraintSpace {
             inline_size,
             fragmentainer_remaining: Some(fragmentainer_size),
             fragmentainer_size: Some(fragmentainer_size),
+            float_band: None,
         }
     }
 }
