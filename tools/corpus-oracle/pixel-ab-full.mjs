@@ -1,11 +1,13 @@
 // Full-book pixel oracle: every page of every chapter, engine canvas vs
 // Chromium laying out the same chapter HTML untouched.
 //
-// Controlled variables — set identically on both sides, and the ONLY
-// things this harness is allowed to impose: page geometry (600x750 page,
-// 50px margin, 500px column, 100px gap), the pinned font mapping, and
-// nothing else. The book's own CSS is never amended. Chromium's multicol
-// fragmentation is the pagination baseline.
+// Controlled variables — set identically on both sides: page geometry
+// (600x750 page, 50px margin, 500px column, 100px gap), the pinned font
+// mapping, and the reader's declared UA image policy (an image never
+// exceeds one page — the engine states it, so the baseline must too, or
+// the sides would run under different UA stylesheets). The book's own CSS
+// is never amended. Chromium's multicol fragmentation is the pagination
+// baseline.
 //
 // Two first-class signals, never allowed to mask each other:
 //   1. Pagination drift: per-chapter page counts, engine vs Chromium.
@@ -136,6 +138,10 @@ async function openChapterInOracle(chapterFile) {
         '  overflow: hidden; box-sizing: content-box; }',
         'body { margin: 0; height: 650px; column-width: 500px;',
         '  column-gap: 100px; column-fill: auto; }',
+        // The reader UA policy the engine declares, applied to the
+        // baseline too: an image never exceeds one page. Without it the
+        // two sides would be compared under different UA stylesheets.
+        'img { max-width: 100%; max-height: 650px; }',
       ].join('\n');
       document.head.prepend(reset);
       const declared = new Set();

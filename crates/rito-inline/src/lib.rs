@@ -1455,11 +1455,27 @@ fn image_display_size(
             }
         }
     }
-    // No reader-specific page fitting: the baseline is the browser, which
-    // paints a replaced element at its CSS size and lets the page clip it.
-    // A `max-width`/`width` percentage is how publications actually bound
-    // their images, and those resolve above.
-    let _ = available_block_size;
+    // Reader UA policy, declared rather than implicit: a replaced element
+    // never exceeds one page. Every paginated reader applies some form of
+    // it (epub.js injects `max-width`/`max-height: 100%`), because a
+    // browser's own answer — paint at CSS size and let the viewport clip —
+    // loses content the reader can never scroll to. The browser baseline
+    // is measured with the same rule injected, so the comparison stays
+    // like for like.
+    if let Some(page_height) = available_block_size {
+        if height > page_height && height > 0.0 && page_height > 0.0 {
+            let scale = page_height / height;
+            height = page_height;
+            width *= scale;
+        }
+        if let Some(page_width) = available_inline_size {
+            if width > page_width && width > 0.0 && page_width > 0.0 {
+                let scale = page_width / width;
+                width = page_width;
+                height *= scale;
+            }
+        }
+    }
     Ok((width as f32, height as f32))
 }
 
