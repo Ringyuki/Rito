@@ -95,7 +95,11 @@ for (const chapter of chapters) {
       document.head.appendChild(normalize);
       const boxes = {};
       const families = new Set();
+      // Elements that generate no box at all: they would count as
+      // "missing" forever and drag every rate down without naming a defect.
+      const boxless = new Set(['HEAD', 'META', 'LINK', 'TITLE', 'STYLE', 'SCRIPT', 'BASE']);
       for (const element of document.querySelectorAll('[id]')) {
+        if (boxless.has(element.tagName)) continue;
         const rect = element.getBoundingClientRect();
         boxes[element.id] = {
           tag: element.tagName.toLowerCase(),
@@ -247,18 +251,18 @@ await browser.close();
 
 // ---- Join ---------------------------------------------------------------
 
-const engineByChapter = new Map(
-  engineChapters.map((c) => [path.basename(decodeURIComponent(c.idref)), c]),
-);
+// The engine sanitizes separators out of chapter ids (a space becomes an
+// underscore), so join on a basename with every separator canonicalized
+// rather than on the raw href.
+const chapterKey = (href) =>
+  path.basename(decodeURIComponent(href)).replaceAll(/[^A-Za-z0-9.-]/g, '_');
+const engineByChapter = new Map(engineChapters.map((c) => [chapterKey(c.idref), c]));
 const perChapter = [];
 const offenders = [];
 for (const chapter of chapters) {
-  // The OPF percent-encodes hrefs; spine hrefs here are decoded. Match on
-  // the decoded basename so chapters like "Character Profile1.xhtml" join
-  // instead of silently reporting "no dump".
-  const engine = engineByChapter.get(path.basename(chapter.href));
+  const engine = engineByChapter.get(chapterKey(chapter.href));
   const truthBoxes = truth[chapter.href] ?? {};
-  const stats = { chapter: chapter.href, boxes: 0, within: 0, missing: 0, maxDelta: 0 };
+  const stats = { chapter: chapter.href, boxes: 0, matched: 0, within: 0, missing: 0, maxDelta: 0 };
   if (!engine || engine.error) {
     stats.error = engine?.error ?? 'no dump';
     perChapter.push(stats);
@@ -272,6 +276,7 @@ for (const chapter of chapters) {
       stats.missing += 1;
       continue;
     }
+    stats.matched += 1;
     // Local geometry: horizontal offset from the containing box, vertical
     // advance from the previous sibling's bottom edge, plus the box's own
     // size. Absolute coordinates would report one early mistake once per
@@ -321,16 +326,18 @@ for (const chapter of chapters) {
   perChapter.push(stats);
 }
 
-perChapter.sort((a, b) => a.within / (a.boxes || 1) - b.within / (b.boxes || 1));
+perChapter.sort((a, b) => a.within / (a.matched || 1) - b.within / (b.matched || 1));
 const lines = ['# Real-book geometry conformance', '', `book: ${path.basename(bookArg)}`, ''];
 let totalBoxes = 0;
 let totalWithin = 0;
 for (const s of perChapter) {
-  totalBoxes += s.boxes;
+  totalBoxes += s.matched;
   totalWithin += s.within;
-  const rate = s.boxes > 0 ? ((s.within / s.boxes) * 100).toFixed(1) : 'n/a';
+  // Rate over boxes the engine actually produced: a box it never emitted is
+  // a different defect (reported as `missing`) than one it placed wrongly.
+  const rate = s.matched > 0 ? ((s.within / s.matched) * 100).toFixed(1) : 'n/a';
   lines.push(
-    `- ${s.chapter}: ${rate}% (${s.within}/${s.boxes}, ${s.missing} missing, ` +
+    `- ${s.chapter}: ${rate}% (${s.within}/${s.matched}, ${s.missing} missing, ` +
       `max ${s.maxDelta.toFixed(1)}px)${s.error ? ` ERROR ${s.error}` : ''}`,
   );
 }
