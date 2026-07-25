@@ -358,6 +358,10 @@ impl RuntimeDocument {
                 .set_host_line_metric(family, *size, *metric);
         }
         self.applied_host_line_metrics.set(pending.len());
+        // Fragments cached before these metrics arrived were laid out with
+        // shaped fallbacks; dropping them is what makes an injection take
+        // effect on a relayout.
+        engine.engine.clear_inline_cache();
     }
 
     /// Drains the (family key, size) pairs layout needed but no host

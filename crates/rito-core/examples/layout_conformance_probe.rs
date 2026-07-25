@@ -111,6 +111,11 @@ fn main() {
         );
     }
 
+    // Requests recorded while the revision paginated (before injection)
+    // are stale; drain them so what remains names metrics the geometry
+    // pass itself could not satisfy.
+    let _ = document.take_host_line_metric_requests();
+
     let chapters: Vec<ProbeChapter> = document
         .publication_info()
         .chapters
@@ -136,5 +141,15 @@ fn main() {
             }
         })
         .collect();
+    // Metric pairs layout needed but no injection covered: a non-empty
+    // list means the geometry below was laid out with fallback metrics,
+    // which invalidates any comparison against the host's own rendering.
+    let unmet = document.take_host_line_metric_requests();
+    if !unmet.is_empty() {
+        eprintln!(
+            "[conformance] unmet host line metrics: {}",
+            serde_json::to_string(&unmet).unwrap_or_default()
+        );
+    }
     println!("{}", serde_json::to_string(&chapters).expect("report encodes"));
 }

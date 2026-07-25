@@ -66,6 +66,14 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         &self.inline
     }
 
+    /// Drops every cached inline fragment. Layout inputs the cache cannot
+    /// see — host-measured font metrics, for one — make its entries stale,
+    /// and a stale entry would silently outlive the change that
+    /// invalidated it.
+    pub fn clear_inline_cache(&self) {
+        self.inline_cache.borrow_mut().clear();
+    }
+
     fn layout_container(
         &self,
         tree: &FormattingTree,

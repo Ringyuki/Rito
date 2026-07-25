@@ -64,6 +64,7 @@ pub struct ParleyInlineContext {
     /// Pairs a layout needed but the host has not measured yet; the host
     /// drains these, measures, injects, and relayouts.
     host_metric_requests: RefCell<std::collections::BTreeSet<(String, u64)>>,
+    metrics_generation: std::cell::Cell<u64>,
 }
 
 /// Host-measured `line-height: normal` geometry for one (font, size).
@@ -176,6 +177,7 @@ impl ParleyInlineContext {
             normal_strut_cache: RefCell::new(std::collections::HashMap::new()),
             host_line_metrics: RefCell::new(std::collections::HashMap::new()),
             host_metric_requests: RefCell::new(std::collections::BTreeSet::new()),
+            metrics_generation: std::cell::Cell::new(0),
         })
     }
 
@@ -184,6 +186,17 @@ impl ParleyInlineContext {
         self.host_line_metrics
             .borrow_mut()
             .insert((family_key.to_owned(), host_size_key(size)), metric);
+        // Struts measured by shaping before this metric arrived are now
+        // stale: a layout that ran without host metrics must not survive
+        // into one that has them.
+        self.normal_strut_cache.borrow_mut().clear();
+        self.metrics_generation.set(self.metrics_generation.get() + 1);
+    }
+
+    /// Bumped whenever injected metrics change, so cached fragments laid
+    /// out under older metrics can be discarded.
+    pub fn metrics_generation(&self) -> u64 {
+        self.metrics_generation.get()
     }
 
     /// Drains the (family key, size) pairs layouts needed but the host has
