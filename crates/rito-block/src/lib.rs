@@ -599,6 +599,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     let child_style = container_layout_style(tree, *child_id)?;
                     let hbox = resolve_horizontal_box(child_style, content_width)?;
                     let table = self.layout_table(tree, *child_id, hbox.border_width, cancel)?;
+                    // A table shrinks to fit, so its auto margins resolve
+                    // against the used width, not the available one: this
+                    // is what centers `margin: 0 auto` tables.
+                    let table_x = shrink_to_fit_offset(child_style, content_width, table.rect.width);
                     let table_height = table.rect.height;
                     if table_height > available && !page_is_empty {
                         return Ok(sealed_with_break(
@@ -618,7 +622,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     fragments.push(Fragment::Box(BoxFragment {
                         source: *child_id,
                         rect: FragmentRect {
-                            x: content_left + hbox.x,
+                            x: content_left + table_x,
                             y,
                             width: table.rect.width,
                             height: table_height,
@@ -1490,6 +1494,30 @@ fn resolve_horizontal_box(
                 padding_bottom,
             })
         }
+    }
+}
+
+/// Inline offset for a shrink-to-fit box (a table) inside its containing
+/// block: auto margins share the free space the used width leaves, the
+/// same distribution `resolve_horizontal_box` applies to a definite width.
+fn shrink_to_fit_offset(
+    style: &LayoutFormattingStyleV1,
+    containing_width: f64,
+    used_width: f64,
+) -> f64 {
+    let margin = |side: LengthPercentageOrAuto| -> Option<f64> {
+        match side {
+            LengthPercentageOrAuto::Auto => None,
+            LengthPercentageOrAuto::Value(value) => {
+                Some(resolve_length_percentage(value, containing_width))
+            }
+        }
+    };
+    let free = containing_width - used_width;
+    match (margin(style.margin.left), margin(style.margin.right)) {
+        (None, None) => (free / 2.0).max(0.0),
+        (None, Some(right)) => (free - right).max(0.0),
+        (Some(left), _) => left,
     }
 }
 
