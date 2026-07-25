@@ -1077,16 +1077,35 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 }
             }
             let content_width = demanded.min(content_available).max(sum_min);
-            let mut leftover = content_width;
-            for (column, percentage) in column_percentages.iter().enumerate() {
-                if let Some(percentage) = percentage {
-                    columns[column] = (percentage * content_width).max(min_widths[column]);
-                    leftover -= columns[column];
-                }
-            }
             let plain: Vec<usize> = (0..column_count)
                 .filter(|column| column_percentages[*column].is_none())
                 .collect();
+            // Every other column keeps at least its minimum content, so a
+            // percentage column only ever claims the space those leave —
+            // a share of the table, not a claim over its neighbours.
+            let plain_minimum: f64 = plain.iter().map(|column| min_widths[*column]).sum();
+            let percentage_budget = (content_width - plain_minimum).max(0.0);
+            let mut percentage_total = 0.0;
+            for (column, percentage) in column_percentages.iter().enumerate() {
+                if let Some(percentage) = percentage {
+                    columns[column] = (percentage * content_width).max(min_widths[column]);
+                    percentage_total += columns[column];
+                }
+            }
+            if percentage_total > percentage_budget && percentage_total > 0.0 {
+                let scale = percentage_budget / percentage_total;
+                for (column, percentage) in column_percentages.iter().enumerate() {
+                    if percentage.is_some() {
+                        columns[column] = (columns[column] * scale).max(min_widths[column]);
+                    }
+                }
+            }
+            let mut leftover = content_width;
+            for (column, percentage) in column_percentages.iter().enumerate() {
+                if percentage.is_some() {
+                    leftover -= columns[column];
+                }
+            }
             if plain.is_empty() {
                 // Nothing else to absorb the table's width: the percentage
                 // columns share it in proportion to their own demand.
