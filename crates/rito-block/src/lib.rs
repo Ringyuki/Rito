@@ -1058,12 +1058,36 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // wider than its containing block.
             min_widths.clone()
         } else {
-            let scale = (content_available - sum_min) / (sum_max - sum_min).max(f64::EPSILON);
-            min_widths
-                .iter()
-                .zip(&max_widths)
-                .map(|(min, max)| min + (max - min) * scale)
-                .collect()
+            // Squeezed: a column that specified a width keeps it (floored
+            // by its own minimum) and the columns sized by content share
+            // what is left — a browser narrows the text, not the column
+            // the author fixed.
+            let mut widths = vec![0.0_f64; column_count];
+            let mut fixed_total = 0.0;
+            for column in 0..column_count {
+                if let Some(specified) = specified_widths[column] {
+                    widths[column] = specified.max(min_widths[column]).min(content_available);
+                    fixed_total += widths[column];
+                }
+            }
+            let flexible: Vec<usize> = (0..column_count)
+                .filter(|column| specified_widths[*column].is_none())
+                .collect();
+            let flexible_min: f64 = flexible.iter().map(|column| min_widths[*column]).sum();
+            let flexible_max: f64 = flexible.iter().map(|column| max_widths[*column]).sum();
+            let budget = (content_available - fixed_total).max(flexible_min);
+            for column in &flexible {
+                widths[*column] = if flexible_max <= budget {
+                    max_widths[*column]
+                } else if flexible_max > flexible_min {
+                    let scale = (budget - flexible_min) / (flexible_max - flexible_min);
+                    min_widths[*column]
+                        + (max_widths[*column] - min_widths[*column]) * scale
+                } else {
+                    min_widths[*column]
+                };
+            }
+            widths
         };
         // A percentage column asks for a share of the table itself, so it
         // sizes the table rather than being sized by it: the table grows
