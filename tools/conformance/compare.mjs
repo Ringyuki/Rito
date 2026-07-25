@@ -7,11 +7,13 @@
 //   <outDir> is generate.mjs's output dir (cases.epub + truth.json);
 //   the engine dump is produced here by running the native probe.
 
-import { execFileSync, execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { execSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
+const { chromium } = createRequire(`${REPO}package.json`)('@playwright/test');
 const [, , outDirArg] = process.argv;
 const outDir = outDirArg ?? '/tmp/rito-conformance';
 const TOLERANCE_PX = 0.5;
@@ -44,12 +46,71 @@ const request = JSON.stringify({
   contentWidth: 500,
   hostLineMetrics: hostMetrics ?? [],
 });
-const probeOut = execFileSync(
-  path.join(REPO, 'target/release/examples/layout_conformance_probe'),
-  [],
-  { input: request, maxBuffer: 256 * 1024 * 1024 },
-);
-const engineChapters = JSON.parse(probeOut.toString());
+// Host metrics are demand-driven, exactly as the browser binding drives
+// them: run the engine, measure whatever (family, size) pairs it asked for
+// and could not find, inject, run again. A fixed list of sizes would leave
+// derived sizes (`font-size: 0.7em` inside a smaller table) measured by
+// nothing, and the engine would silently fall back to shaped metrics.
+let metrics = hostMetrics ?? [];
+let engineChapters;
+for (let round = 0; ; round += 1) {
+  const probe = runProbe(metrics);
+  engineChapters = JSON.parse(probe.stdout.toString());
+  const unmet = parseUnmetMetrics(probe.stderr.toString());
+  if (unmet.length === 0 || round >= 3) break;
+  metrics = [...metrics, ...(await measureHostMetrics(unmet))];
+}
+
+function runProbe(hostLineMetrics) {
+  const input = JSON.stringify({ ...JSON.parse(request), hostLineMetrics });
+  return spawnSync(path.join(REPO, 'target/release/examples/layout_conformance_probe'), [], {
+    input,
+    maxBuffer: 256 * 1024 * 1024,
+  });
+}
+
+function parseUnmetMetrics(stderr) {
+  const match = /unmet host line metrics: (\[.*\])/.exec(stderr);
+  if (!match) return [];
+  return JSON.parse(match[1]).map(([family, size]) => ({ family, size }));
+}
+
+async function measureHostMetrics(pairs) {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 600, height: 800 } });
+  await page.goto(`file://${path.join(outDir, 'build/OEBPS/Text', `${cases[0].name}.xhtml`)}`);
+  await page.evaluate(() => document.fonts.ready);
+  const measured = await page.evaluate((requests) => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const measure = (family, size, probe) => {
+      const p = document.createElement('p');
+      p.setAttribute(
+        'style',
+        `margin:0;line-height:normal;font-family:"${family}";font-size:${size}px;`,
+      );
+      p.innerHTML = `${probe}<span style="display:inline-block;width:0;height:0"></span>`;
+      host.appendChild(p);
+      const box = p.getBoundingClientRect();
+      const marker = p.querySelector('span').getBoundingClientRect();
+      return { height: box.height, baseline: marker.top - box.top };
+    };
+    return requests.map(({ family, size }) => {
+      const plain = measure(family, size, 'x');
+      const lifted = measure(family, size, '试');
+      return {
+        family,
+        size,
+        strut: plain.height,
+        cjk: lifted.height,
+        strutBaseline: plain.baseline,
+        cjkBaseline: lifted.baseline,
+      };
+    });
+  }, pairs);
+  await browser.close();
+  return measured;
+}
 const engineByCase = new Map(engineChapters.map((c) => [c.idref.replace(/\.xhtml$/, ''), c]));
 
 const clusters = {};
