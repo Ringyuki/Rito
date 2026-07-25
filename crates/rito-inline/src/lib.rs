@@ -603,9 +603,10 @@ impl FormattingContext for ParleyInlineContext {
                 breaker.finish();
             }
         }
-        if !matches!(alignment, parley::Alignment::Start) {
-            layout.align(alignment, parley::AlignmentOptions::default());
-        }
+        // Always align, `Start` included: alignment is where Parley applies
+        // the first-line indent's start-edge offset, so skipping it for the
+        // default alignment would leave indented lines flush.
+        layout.align(alignment, parley::AlignmentOptions::default());
         let strut_height = self.resolved_strut_height(tree, root)?;
         let item_shifts: Vec<f64> = match &tree.node(root).content {
             FormattingNodeContent::InlineFlow { items } => items
@@ -2567,17 +2568,25 @@ running through the quiet forest until the morning light returns.";
             let Some(Fragment::Text(first_run)) = line.children.first() else {
                 panic!("lines carry text fragments");
             };
+            // The indent is a start-edge margin on the line box, so it
+            // lands on the line's own x; run positions stay relative to
+            // the line they sit on.
+            assert!(
+                first_run.rect.x.abs() < 0.01,
+                "runs are positioned inside their line, got x = {}",
+                first_run.rect.x
+            );
             if line_index == 0 {
                 assert!(
-                    (first_run.rect.x - 32.0).abs() < 0.01,
+                    (line.rect.x - 32.0).abs() < 0.01,
                     "first line starts after the indent, got x = {}",
-                    first_run.rect.x
+                    line.rect.x
                 );
             } else {
                 assert!(
-                    first_run.rect.x.abs() < 0.01,
+                    line.rect.x.abs() < 0.01,
                     "continuation lines start at zero, got x = {}",
-                    first_run.rect.x
+                    line.rect.x
                 );
             }
         }
