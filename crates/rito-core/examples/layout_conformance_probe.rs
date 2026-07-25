@@ -38,10 +38,10 @@ struct ProbeRequest {
 struct HostMetricEntry {
     family: String,
     size: f64,
-    strut: f64,
-    cjk: f64,
-    strut_baseline: f64,
-    cjk_baseline: f64,
+    #[serde(default)]
+    sample: String,
+    height: f64,
+    baseline: f64,
 }
 
 #[derive(Serialize)]
@@ -102,11 +102,10 @@ fn main() {
         document.set_host_line_metric(
             &entry.family,
             entry.size,
+            &entry.sample,
             rito_inline::HostNormalLineMetric {
-                strut: entry.strut,
-                cjk: entry.cjk,
-                strut_baseline: entry.strut_baseline,
-                cjk_baseline: entry.cjk_baseline,
+                height: entry.height,
+                baseline: entry.baseline,
             },
         );
     }

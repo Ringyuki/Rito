@@ -39,9 +39,12 @@ impl RitoWasmDocument {
 
     /// Injects host-measured `line-height: normal` metrics: a JSON array
     /// of `{family, size, strut, cjk}`. The host (the surrounding
-    /// browser) measures its own two-level normal line heights — plain
-    /// strut and the CJK-lifted height — because those integers come from
-    /// the host font scaler and are not derivable from font tables.
+    /// browser) measures normal line heights per (family, size, sample)
+    /// because those integers come from the host font scaler and are not
+    /// derivable from font tables. An empty sample is an inline box's own
+    /// strut; a one-character sample measures the font the host resolves
+    /// for that character, so runs served by a fallback font are sized by
+    /// that font rather than by the declared family.
     #[wasm_bindgen(js_name = setHostLineMetricsJson)]
     pub fn set_host_line_metrics_json(&self, entries_json: &str) -> Result<(), JsValue> {
         #[derive(serde::Deserialize)]
@@ -49,10 +52,10 @@ impl RitoWasmDocument {
         struct Entry {
             family: String,
             size: f64,
-            strut: f64,
-            cjk: f64,
-            strut_baseline: f64,
-            cjk_baseline: f64,
+            #[serde(default)]
+            sample: String,
+            height: f64,
+            baseline: f64,
         }
         let entries: Vec<Entry> = serde_json::from_str(entries_json)
             .map_err(|error| JsValue::from_str(&format!("host metrics parse: {error}")))?;
@@ -60,19 +63,19 @@ impl RitoWasmDocument {
             self.inner.document.set_host_line_metric(
                 &entry.family,
                 entry.size,
+                &entry.sample,
                 rito_inline::HostNormalLineMetric {
-                    strut: entry.strut,
-                    cjk: entry.cjk,
-                    strut_baseline: entry.strut_baseline,
-                    cjk_baseline: entry.cjk_baseline,
+                    height: entry.height,
+                    baseline: entry.baseline,
                 },
             );
         }
         Ok(())
     }
 
-    /// Drains the (family, size) pairs layout needed but no host metric
-    /// covered, as a JSON array of `{family, size}`. The host measures
+    /// Drains the (family, size, sample) keys layout needed but no host
+    /// metric covered, as a JSON array of `{family, size, sample}`. The
+    /// host measures
     /// each, injects via `setHostLineMetricsJson`, and relayouts; a
     /// steady-state layout drains nothing.
     #[wasm_bindgen(js_name = takeHostLineMetricRequestsJson)]
@@ -81,13 +84,18 @@ impl RitoWasmDocument {
         struct Entry {
             family: String,
             size: f64,
+            sample: String,
         }
         let entries: Vec<Entry> = self
             .inner
             .document
             .take_host_line_metric_requests()
             .into_iter()
-            .map(|(family, size)| Entry { family, size })
+            .map(|(family, size, sample)| Entry {
+                family,
+                size,
+                sample,
+            })
             .collect();
         serde_json::to_string(&entries).unwrap_or_else(|_| "[]".to_owned())
     }

@@ -333,11 +333,15 @@ impl RuntimeDocument {
         &self,
         family_key: &str,
         size: f64,
+        sample: &str,
         metric: rito_inline::HostNormalLineMetric,
     ) {
-        self.pending_host_line_metrics
-            .borrow_mut()
-            .push((family_key.to_owned(), size, metric));
+        self.pending_host_line_metrics.borrow_mut().push((
+            family_key.to_owned(),
+            size,
+            sample.to_owned(),
+            metric,
+        ));
         // Never force engine initialization here: the engine builds
         // lazily from resolved @font-face sources, and forcing it before
         // a revision resolved them would cache a font-less engine.
@@ -351,11 +355,13 @@ impl RuntimeDocument {
             return;
         };
         let pending = self.pending_host_line_metrics.borrow();
-        for (family, size, metric) in pending.iter().skip(self.applied_host_line_metrics.get()) {
+        for (family, size, sample, metric) in
+            pending.iter().skip(self.applied_host_line_metrics.get())
+        {
             engine
                 .engine
                 .inline()
-                .set_host_line_metric(family, *size, *metric);
+                .set_host_line_metric(family, *size, sample, *metric);
         }
         self.applied_host_line_metrics.set(pending.len());
         // Fragments cached before these metrics arrived were laid out with
@@ -364,9 +370,9 @@ impl RuntimeDocument {
         engine.engine.clear_inline_cache();
     }
 
-    /// Drains the (family key, size) pairs layout needed but no host
-    /// metric covered; the host measures them, injects, and relayouts.
-    pub fn take_host_line_metric_requests(&self) -> Vec<(String, f64)> {
+    /// Drains the (family key, size, sample) keys layout needed but no
+    /// host metric covered; the host measures them, injects, and relayouts.
+    pub fn take_host_line_metric_requests(&self) -> Vec<(String, f64, String)> {
         match self.fragment_engine.get() {
             Some(Some(engine)) => engine.engine.inline().take_host_metric_requests(),
             _ => Vec::new(),

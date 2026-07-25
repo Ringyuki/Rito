@@ -40,20 +40,23 @@ import type {
 export interface RitoCoreWasmHostLineMetricRequest {
   readonly family: string;
   readonly size: number;
+  /**
+   * What to put on the measured line: empty for an inline box's own strut,
+   * or one character whose resolved font (the declared family or whatever
+   * fallback covers it) sizes the run.
+   */
+  readonly sample: string;
 }
 
-/** Host-measured `line-height: normal` heights for one (family, size). */
+/** Host-measured `line-height: normal` geometry for one metric key. */
 export interface RitoCoreWasmHostLineMetric {
   readonly family: string;
   readonly size: number;
-  /** Line height of a line with no CJK glyphs (also the empty-line strut). */
-  readonly strut: number;
-  /** Line height of a line containing at least one CJK glyph. */
-  readonly cjk: number;
-  /** Baseline offset from the line box top, no-CJK case. */
-  readonly strutBaseline: number;
-  /** Baseline offset from the line box top, CJK case. */
-  readonly cjkBaseline: number;
+  readonly sample: string;
+  /** Line box height the host measures for this sample. */
+  readonly height: number;
+  /** Baseline offset from the line box top. */
+  readonly baseline: number;
 }
 
 export interface RitoCoreWasmReaderWorkerClient

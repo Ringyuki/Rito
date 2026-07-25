@@ -127,7 +127,7 @@ pub struct RuntimeDocument {
     /// initializes lazily from resolved @font-face sources, so metric
     /// injection must never force it early.
     pending_host_line_metrics:
-        std::cell::RefCell<Vec<(String, f64, rito_inline::HostNormalLineMetric)>>,
+        std::cell::RefCell<Vec<(String, f64, String, rito_inline::HostNormalLineMetric)>>,
     applied_host_line_metrics: std::cell::Cell<usize>,
     text_measurement_cache: TextMeasurementCache,
     pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,

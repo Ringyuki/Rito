@@ -2111,16 +2111,16 @@ mod tests {
             list_style_type: ListMarkerStyleV1::None,
             position: PositionV1::Static,
             inset: PhysicalSides {
-            vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
-            border_spacing: (
-                rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
-                rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
-            ),
                 top: LengthPercentageOrAuto::Auto,
                 right: LengthPercentageOrAuto::Auto,
                 bottom: LengthPercentageOrAuto::Auto,
                 left: LengthPercentageOrAuto::Auto,
             },
+            vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+            border_spacing: (
+                rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+            ),
         }
     }
 
@@ -3494,16 +3494,16 @@ mod tests {
             children[1].rect().y
         );
 
-        // Un-cleared content beside the float degrades to clearing below
-        // it (float wrapping is unimplemented): readable, never
-        // overlapping, at the cost of the wrap.
+        // Un-cleared content sits beside the float: CSS shortens the line
+        // boxes inside the float's band rather than moving the block box,
+        // so the block itself still starts at the float's top.
         let beside_tree = build(block_style(margin_px(0.0), margin_px(0.0)));
         let pages = paginate(&context, &beside_tree, ConstraintSpace::continuous(200.0));
         let children = box_children(&pages[0]);
         assert_eq!(children.len(), 2);
         assert!(
-            (children[1].rect().y - 40.0).abs() < 1e-6,
-            "un-cleared content pushes below the float, got {}",
+            children[1].rect().y.abs() < 1e-6,
+            "un-cleared content stays beside the float, got {}",
             children[1].rect().y
         );
     }

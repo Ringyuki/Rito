@@ -55,58 +55,55 @@ pub struct ParleyInlineContext {
     /// shaping with the style's own resolved font (what a browser's strut
     /// does), cached because struts repeat per paragraph.
     normal_strut_cache: RefCell<std::collections::HashMap<u32, f64>>,
-    /// Host-measured `line-height: normal` metrics per (family key, size):
-    /// the rendering host measures its own two-level normal line heights
-    /// (plain strut, and the lifted height a line containing CJK glyphs
-    /// gets) because those integers come from the host's font scaler and
-    /// are not derivable from font tables. Keyed by [`host_size_key`].
-    host_line_metrics: RefCell<std::collections::HashMap<(String, u64), HostNormalLineMetric>>,
-    /// Pairs a layout needed but the host has not measured yet; the host
+    /// Host-measured `line-height: normal` metrics per (family key, size,
+    /// sample): the rendering host measures them because its font scaler
+    /// grid-fits ascent and descent to integers per size, which font
+    /// tables do not predict. The sample is what the host puts on the
+    /// measured line — empty for an inline box's own strut, or one
+    /// character for a text run, so the host resolves the same fallback
+    /// font for it that shaping did. Keyed by [`host_size_key`].
+    host_line_metrics:
+        RefCell<std::collections::HashMap<(String, u64, String), HostNormalLineMetric>>,
+    /// Keys a layout needed but the host has not measured yet; the host
     /// drains these, measures, injects, and relayouts.
-    host_metric_requests: RefCell<std::collections::BTreeSet<(String, u64)>>,
+    host_metric_requests: RefCell<std::collections::BTreeSet<(String, u64, String)>>,
+    /// Sample character already requested for a (family, size, resolved
+    /// font) triple. One sample per physical font is enough — every
+    /// character that resolves to the same font measures the same — and
+    /// this is what keeps the request set bounded by fonts rather than by
+    /// the book's character inventory.
+    host_metric_samples: RefCell<std::collections::HashMap<(String, u64, u64, u32), String>>,
     metrics_generation: std::cell::Cell<u64>,
 }
 
-/// Host-measured `line-height: normal` geometry for one (font, size).
+/// Host-measured `line-height: normal` geometry for one (font, size,
+/// sample).
 ///
-/// Heights and baselines both come from the host: its font scaler
-/// grid-fits ascent and descent to integers per size, and the split of a
-/// CJK line's extra height above and below the baseline follows no
-/// formula derivable from the font tables.
+/// A line box is built from these the way CSS builds one: every inline
+/// box on the line contributes its own font's metrics, every text run
+/// contributes the metrics of the font shaping actually resolved for it,
+/// and the line takes the maximum ascent and the maximum descent.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HostNormalLineMetric {
-    /// Line height of a line with no CJK glyphs (also the empty-line strut).
-    pub strut: f64,
-    /// Line height of a line containing at least one CJK glyph.
-    pub cjk: f64,
-    /// Baseline offset from the line box top, no-CJK case.
-    pub strut_baseline: f64,
-    /// Baseline offset from the line box top, CJK case.
-    pub cjk_baseline: f64,
+    /// Line box height the host measures for this sample.
+    pub height: f64,
+    /// Baseline offset from the line box top.
+    pub baseline: f64,
+}
+
+impl HostNormalLineMetric {
+    fn ascent(&self) -> f64 {
+        self.baseline
+    }
+
+    fn descent(&self) -> f64 {
+        self.height - self.baseline
+    }
 }
 
 /// Quantizes a font size to a stable host-metric key (millipixels).
 fn host_size_key(size: f64) -> u64 {
     (size * 1000.0).round() as u64
-}
-
-/// Whether a character lifts a `line-height: normal` line to the host's
-/// CJK metric, mirroring the observed Chromium trigger: any Han/Kana/
-/// Hangul/fullwidth glyph on the line, punctuation included.
-fn is_cjk_line_char(c: char) -> bool {
-    matches!(
-        c as u32,
-        0x1100..=0x11FF
-            | 0x2E80..=0x303F
-            | 0x3040..=0x33FF
-            | 0x3400..=0x4DBF
-            | 0x4E00..=0x9FFF
-            | 0xAC00..=0xD7AF
-            | 0xF900..=0xFAFF
-            | 0xFE30..=0xFE4F
-            | 0xFF00..=0xFFEF
-            | 0x20000..=0x3FFFF
-    )
 }
 
 /// Serializes a computed family list into the key the host measures with.
@@ -177,15 +174,23 @@ impl ParleyInlineContext {
             normal_strut_cache: RefCell::new(std::collections::HashMap::new()),
             host_line_metrics: RefCell::new(std::collections::HashMap::new()),
             host_metric_requests: RefCell::new(std::collections::BTreeSet::new()),
+            host_metric_samples: RefCell::new(std::collections::HashMap::new()),
             metrics_generation: std::cell::Cell::new(0),
         })
     }
 
-    /// Injects one host-measured `line-height: normal` metric pair.
-    pub fn set_host_line_metric(&self, family_key: &str, size: f64, metric: HostNormalLineMetric) {
-        self.host_line_metrics
-            .borrow_mut()
-            .insert((family_key.to_owned(), host_size_key(size)), metric);
+    /// Injects one host-measured `line-height: normal` metric.
+    pub fn set_host_line_metric(
+        &self,
+        family_key: &str,
+        size: f64,
+        sample: &str,
+        metric: HostNormalLineMetric,
+    ) {
+        self.host_line_metrics.borrow_mut().insert(
+            (family_key.to_owned(), host_size_key(size), sample.to_owned()),
+            metric,
+        );
         // Struts measured by shaping before this metric arrived are now
         // stale: a layout that ran without host metrics must not survive
         // into one that has them.
@@ -199,36 +204,57 @@ impl ParleyInlineContext {
         self.metrics_generation.get()
     }
 
-    /// Drains the (family key, size) pairs layouts needed but the host has
-    /// not measured yet. The host measures each, injects the metrics, and
-    /// relayouts; a steady-state layout drains nothing.
-    pub fn take_host_metric_requests(&self) -> Vec<(String, f64)> {
+    /// Drains the (family key, size, sample) keys layouts needed but the
+    /// host has not measured yet. The host measures each, injects the
+    /// metrics, and relayouts; a steady-state layout drains nothing.
+    pub fn take_host_metric_requests(&self) -> Vec<(String, f64, String)> {
         std::mem::take(&mut *self.host_metric_requests.borrow_mut())
             .into_iter()
-            .map(|(family, key)| (family, key as f64 / 1000.0))
+            .map(|(family, key, sample)| (family, key as f64 / 1000.0, sample))
             .collect()
     }
 
-    /// Host normal-line height and baseline for a (style, CJK-content)
-    /// pair, recording a measurement request on a miss so the host can
-    /// fill it in.
+    /// Host normal-line metric for a style and sample, recording a
+    /// measurement request on a miss so the host can fill it in. An empty
+    /// sample is the inline box's own strut; a one-character sample is a
+    /// text run, measured through the host's own font fallback.
     fn host_normal_line(
         &self,
         style: &InlineFormattingStyleV1,
-        has_cjk: bool,
-    ) -> Option<(f64, f64)> {
+        sample: &str,
+    ) -> Option<HostNormalLineMetric> {
         let family = host_family_key(style);
         let size = f64::from(style.font.size.get());
-        let key = (family, host_size_key(size));
+        let key = (family, host_size_key(size), sample.to_owned());
         if let Some(metric) = self.host_line_metrics.borrow().get(&key) {
-            return Some(if has_cjk {
-                (metric.cjk, metric.cjk_baseline)
-            } else {
-                (metric.strut, metric.strut_baseline)
-            });
+            return Some(*metric);
         }
         self.host_metric_requests.borrow_mut().insert(key);
         None
+    }
+
+    /// The sample character to measure a text run's resolved font with.
+    ///
+    /// Runs that resolved to the same physical font share one sample: the
+    /// first character seen for it. Without this the request set would
+    /// grow with the book's character inventory instead of its fonts.
+    fn run_sample(
+        &self,
+        style: &InlineFormattingStyleV1,
+        font: &parley::FontData,
+        first_char: char,
+    ) -> String {
+        let key = (
+            host_family_key(style),
+            host_size_key(f64::from(style.font.size.get())),
+            font.data.id(),
+            font.index,
+        );
+        self.host_metric_samples
+            .borrow_mut()
+            .entry(key)
+            .or_insert_with(|| first_char.to_string())
+            .clone()
     }
 
     /// Family names the constructor registered, in first-seen order.
@@ -303,8 +329,8 @@ impl ParleyInlineContext {
             LineHeight::Normal => {
                 // The host's measured strut is authoritative; the shaped
                 // fallback only covers hosts that never inject metrics.
-                if let Some((host, _)) = self.host_normal_line(style, false) {
-                    return Ok(Some(host));
+                if let Some(host) = self.host_normal_line(style, "") {
+                    return Ok(Some(host.height));
                 }
                 if let Some(cached) = self.normal_strut_cache.borrow().get(&style_id.raw()) {
                     return Ok(Some(*cached));
@@ -681,6 +707,12 @@ impl FormattingContext for ParleyInlineContext {
             // finalized (a browser's line box contains its risen content).
             let mut children: Vec<(Fragment, f64)> = Vec::new();
             let mut max_rise = 0.0_f64;
+            // Every text run on this line, as (inline item, sample
+            // character for the font shaping resolved). A run whose
+            // characters the declared family cannot serve resolves to a
+            // fallback font with its own metrics, and the host must be
+            // asked about that font — not about the declared family.
+            let mut line_run_samples: Vec<(usize, String)> = Vec::new();
             for item in line.items() {
                 match item {
                     PositionedLayoutItem::GlyphRun(glyph_run) => {
@@ -703,6 +735,24 @@ impl FormattingContext for ParleyInlineContext {
                                 "glyph run range {shaping_range:?} does not intersect its \
                                  item's range {item_range:?}"
                             )));
+                        }
+                        if let Some(style) = style_tables.and_then(|tables| {
+                            item_line_heights
+                                .get(item_index)
+                                .and_then(|entry| entry.as_ref())
+                                .and_then(|entry| tables.inline.style(entry.style).ok())
+                        }) {
+                            if let Some(first) =
+                                flow_text.get(run_range.clone()).and_then(|s| s.chars().next())
+                            {
+                                let sample = self.run_sample(&style, glyph_run.run().font(), first);
+                                if !line_run_samples
+                                    .iter()
+                                    .any(|(index, seen)| *index == item_index && *seen == sample)
+                                {
+                                    line_run_samples.push((item_index, sample));
+                                }
+                            }
                         }
                         let shift = shift_for_range(&run_range);
                         max_rise = max_rise.max(shift);
@@ -794,45 +844,61 @@ impl FormattingContext for ParleyInlineContext {
                     _ => None,
                 })
                 .collect();
-            let host_line = line_text_range
-                .or(if line_image_items.is_empty() {
-                    None
-                } else {
-                    Some((usize::MAX, usize::MAX))
-                })
-                .and_then(|(start, end)| {
-                let mut dominant: Option<(f64, rito_style_contract::StyleId)> = None;
-                for (index, range) in item_text_ranges.iter().enumerate() {
-                    let on_line = line_image_items.contains(&index)
-                        || (end != usize::MAX && range.start < end && start < range.end);
-                    if !on_line {
-                        continue;
-                    }
-                    let Some(Some(item)) = item_line_heights.get(index) else {
-                        continue;
-                    };
-                    if let Some(declared) = item.declared {
-                        line_declared_height =
-                            Some(line_declared_height.map_or(declared, |best: f64| best.max(declared)));
-                    }
-                    let size = style_tables
-                        .and_then(|tables| tables.inline.style(item.style).ok())
-                        .map(|resolved| f64::from(resolved.font.size.get()))
-                        .unwrap_or(0.0);
-                    if dominant.is_none_or(|(best, _)| size > best) {
-                        dominant = Some((size, item.style));
+            // The line box, built the way CSS builds one: every inline box
+            // on the line contributes its own font's metrics, every text
+            // run contributes the metrics of the font shaping resolved for
+            // it, and the line takes the greatest ascent and the greatest
+            // descent among them. `None` means at least one contributor is
+            // still unmeasured — the host is asked, and the shaped
+            // fallback covers this pass.
+            let mut contributors: Vec<(rito_style_contract::StyleId, &str)> = Vec::new();
+            for (index, range) in item_text_ranges.iter().enumerate() {
+                let on_line = line_image_items.contains(&index)
+                    || line_text_range.is_some_and(|(start, end)| {
+                        range.start < end && start < range.end
+                    });
+                if !on_line {
+                    continue;
+                }
+                let Some(Some(item)) = item_line_heights.get(index) else {
+                    continue;
+                };
+                if let Some(declared) = item.declared {
+                    line_declared_height =
+                        Some(line_declared_height.map_or(declared, |best: f64| best.max(declared)));
+                    continue;
+                }
+                // The inline box's own strut, then each of its runs' fonts.
+                contributors.push((item.style, ""));
+                for (run_item, sample) in &line_run_samples {
+                    if *run_item == index {
+                        contributors.push((item.style, sample.as_str()));
                     }
                 }
-                let (_, style_id) = dominant?;
-                let resolved = style_tables?.inline.style(style_id).ok()?;
-                let has_cjk = end != usize::MAX
-                    && flow_text
-                        .get(start..end)
-                        .is_some_and(|slice| slice.chars().any(is_cjk_line_char));
-                // Heights and baselines the host measured are exactly
-                // (ascent + descent) and ascent for that script case.
-                self.host_normal_line(resolved, has_cjk)
-            });
+            }
+            let host_line = if contributors.is_empty() {
+                None
+            } else {
+                let mut ascent = 0.0_f64;
+                let mut descent = 0.0_f64;
+                let mut complete = true;
+                for (style_id, sample) in contributors {
+                    let Some(resolved) =
+                        style_tables.and_then(|tables| tables.inline.style(style_id).ok())
+                    else {
+                        complete = false;
+                        continue;
+                    };
+                    match self.host_normal_line(resolved, sample) {
+                        Some(metric) => {
+                            ascent = ascent.max(metric.ascent());
+                            descent = descent.max(metric.descent());
+                        }
+                        None => complete = false,
+                    }
+                }
+                (complete && ascent + descent > 0.0).then_some((ascent + descent, ascent))
+            };
             let base_height = if has_inline_box {
                 // An atomic inline sits on the baseline, so the line still
                 // reserves the strut's space below it — a browser's line
@@ -2281,16 +2347,16 @@ running through the quiet forest until the morning light returns.";
                     list_style_type: ListMarkerStyleV1::None,
                     position: PositionV1::Static,
                     inset: PhysicalSides {
-                    vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
-                    border_spacing: (
-                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
-                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
-                    ),
                         top: auto,
                         right: auto,
                         bottom: auto,
                         left: auto,
                     },
+                    vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+                    border_spacing: (
+                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                    ),
                 },
             )
             .expect("layout style interns");

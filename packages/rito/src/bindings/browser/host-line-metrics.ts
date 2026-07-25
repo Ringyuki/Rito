@@ -9,18 +9,23 @@ import type { BrowserReaderWorkerClient } from './core-contracts';
  * Host-measured `line-height: normal` metrics.
  *
  * The engine cannot derive normal line heights from font tables: the
- * browser's font scaler grid-fits ascent/descent to integers per size,
- * and lines containing CJK glyphs get a separately grid-fitted lifted
- * height. So the host measures its own two-level heights with the DOM
- * and injects them; the engine records (family, size) misses for the
- * next sync. The cache is module-level: pairs measured once serve every
- * document in the session, so a steady-state open paginates once.
+ * browser's font scaler grid-fits ascent/descent to integers per size.
+ * So the host measures them with the DOM and injects them; the engine
+ * records (family, size, sample) misses for the next sync.
+ *
+ * The sample is what goes on the measured line. Empty is an inline box's
+ * own strut — the first available font of the family list, whatever it
+ * covers. A one-character sample measures whichever font the browser
+ * resolves for that character, so a run the declared family cannot serve
+ * is sized by the fallback font that actually paints it, exactly as the
+ * browser sizes its own line boxes.
+ *
+ * The cache is module-level: keys measured once serve every document in
+ * the session, so a steady-state open paginates once.
  */
 type MeasuredMetric = {
-  strut: number;
-  cjk: number;
-  strutBaseline: number;
-  cjkBaseline: number;
+  height: number;
+  baseline: number;
 };
 
 const measuredCache = new Map<string, MeasuredMetric>();
@@ -34,13 +39,19 @@ const GENERIC_FAMILIES = new Set([
   'system-ui',
 ]);
 
-const cacheKey = (family: string, size: number) => `${family}@@${size.toFixed(3)}`;
+const cacheKey = (family: string, size: number, sample: string) =>
+  `${family}@@${size.toFixed(3)}@@${sample}`;
 
 /** Every metric measured so far, for injection right after a session opens. */
 export function cachedHostLineMetricEntries(): RitoCoreWasmHostLineMetric[] {
   return [...measuredCache.entries()].map(([key, metric]) => {
-    const at = key.lastIndexOf('@@');
-    return { family: key.slice(0, at), size: Number(key.slice(at + 2)), ...metric };
+    const parts = key.split('@@');
+    return {
+      family: parts.slice(0, -2).join('@@'),
+      size: Number(parts.at(-2)),
+      sample: parts.at(-1) ?? '',
+      ...metric,
+    };
   });
 }
 
@@ -58,8 +69,9 @@ export async function syncBrowserHostLineMetrics(
   const entries: RitoCoreWasmHostLineMetric[] = [];
   const missing: RitoCoreWasmHostLineMetricRequest[] = [];
   for (const request of requests) {
-    const hit = measuredCache.get(cacheKey(request.family, request.size));
-    if (hit) entries.push({ family: request.family, size: request.size, ...hit });
+    const { sample } = request;
+    const hit = measuredCache.get(cacheKey(request.family, request.size, sample));
+    if (hit) entries.push({ family: request.family, size: request.size, sample, ...hit });
     else missing.push(request);
   }
   entries.push(...(await measureBrowserHostLineMetrics(missing)));
@@ -73,37 +85,45 @@ async function measureBrowserHostLineMetrics(
 ): Promise<RitoCoreWasmHostLineMetric[]> {
   if (requests.length === 0 || typeof document === 'undefined') return [];
   await document.fonts.ready;
+  // A registered face the document has not painted yet stays `unloaded`;
+  // measuring it without loading it first silently returns the fallback
+  // font's metrics, which is how a book font's own line heights get
+  // replaced by the system font's.
+  await Promise.all(
+    requests.map((request) =>
+      document.fonts
+        .load(
+          `${String(request.size)}px ${cssFamilyList(request.family)}`,
+          request.sample.length > 0 ? request.sample : 'x',
+        )
+        .catch(() => undefined),
+    ),
+  );
   const host = document.createElement('div');
   host.style.cssText = 'position:absolute;left:-99999px;top:0;width:1000px;visibility:hidden;';
   document.body.appendChild(host);
   try {
     return requests.map((request) => {
-      const measure = (probe: string) => {
-        const paragraph = document.createElement('p');
-        paragraph.style.cssText =
-          `margin:0;padding:0;border:0;line-height:normal;` +
-          `font-family:${cssFamilyList(request.family)};font-size:${String(request.size)}px;`;
-        // A zero-sized inline-block sits on the baseline, so its top is
-        // the baseline offset from the line box top.
-        paragraph.innerHTML = `${probe}<span style="display:inline-block;width:0;height:0"></span>`;
-        host.appendChild(paragraph);
-        const box = paragraph.getBoundingClientRect();
-        const marker = paragraph.querySelector('span')?.getBoundingClientRect();
-        return { height: box.height, baseline: (marker?.top ?? box.top) - box.top };
-      };
-      // 'x' sizes the plain strut (identical to an empty line's height);
-      // one CJK glyph sizes the lifted line. Mirrors the engine's
-      // per-line two-level rule.
-      const plain = measure('x');
-      const lifted = measure('试');
+      const { sample } = request;
+      const paragraph = document.createElement('p');
+      paragraph.style.cssText =
+        `margin:0;padding:0;border:0;line-height:normal;white-space:pre;` +
+        `font-family:${cssFamilyList(request.family)};font-size:${String(request.size)}px;`;
+      // A zero-sized inline-block sits on the baseline, so its top is the
+      // baseline offset from the line box top. An empty sample leaves the
+      // line with nothing but the strut.
+      paragraph.textContent = sample;
+      const marker = document.createElement('span');
+      marker.style.cssText = 'display:inline-block;width:0;height:0';
+      paragraph.appendChild(marker);
+      host.appendChild(paragraph);
+      const box = paragraph.getBoundingClientRect();
       const metric = {
-        strut: plain.height,
-        cjk: lifted.height,
-        strutBaseline: plain.baseline,
-        cjkBaseline: lifted.baseline,
+        height: box.height,
+        baseline: marker.getBoundingClientRect().top - box.top,
       };
-      measuredCache.set(cacheKey(request.family, request.size), metric);
-      return { family: request.family, size: request.size, ...metric };
+      measuredCache.set(cacheKey(request.family, request.size, sample), metric);
+      return { family: request.family, size: request.size, sample, ...metric };
     });
   } finally {
     host.remove();
