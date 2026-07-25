@@ -637,7 +637,13 @@ impl FormattingContext for ParleyInlineContext {
                             },
                         })
                     }
-                    InlineItem::Image { .. } => None,
+                    // An image carries its own style so a line holding
+                    // only images can still find the host metrics that
+                    // size the space around it.
+                    InlineItem::Image { style, .. } => Some(ItemLineHeight {
+                        style: *style,
+                        declared: None,
+                    }),
                 })
                 .collect(),
             _ => Vec::new(),
@@ -778,10 +784,28 @@ impl FormattingContext for ParleyInlineContext {
             // The line's dominant style (largest font) and the tallest
             // declared line-height among the runs on it.
             let mut line_declared_height: Option<f64> = None;
-            let host_line = line_text_range.and_then(|(start, end)| {
+            // Items on this line: text runs by byte range, atomic inlines
+            // by item index. Either can carry the style whose host metrics
+            // size the line.
+            let line_image_items: Vec<usize> = children
+                .iter()
+                .filter_map(|(fragment, _)| match fragment {
+                    Fragment::Image(image) => Some(image.item_index as usize),
+                    _ => None,
+                })
+                .collect();
+            let host_line = line_text_range
+                .or(if line_image_items.is_empty() {
+                    None
+                } else {
+                    Some((usize::MAX, usize::MAX))
+                })
+                .and_then(|(start, end)| {
                 let mut dominant: Option<(f64, rito_style_contract::StyleId)> = None;
                 for (index, range) in item_text_ranges.iter().enumerate() {
-                    if range.start >= end || start >= range.end {
+                    let on_line = line_image_items.contains(&index)
+                        || (end != usize::MAX && range.start < end && start < range.end);
+                    if !on_line {
                         continue;
                     }
                     let Some(Some(item)) = item_line_heights.get(index) else {
@@ -801,15 +825,26 @@ impl FormattingContext for ParleyInlineContext {
                 }
                 let (_, style_id) = dominant?;
                 let resolved = style_tables?.inline.style(style_id).ok()?;
-                let has_cjk = flow_text
-                    .get(start..end)
-                    .is_some_and(|slice| slice.chars().any(is_cjk_line_char));
+                let has_cjk = end != usize::MAX
+                    && flow_text
+                        .get(start..end)
+                        .is_some_and(|slice| slice.chars().any(is_cjk_line_char));
                 // Heights and baselines the host measured are exactly
                 // (ascent + descent) and ascent for that script case.
                 self.host_normal_line(resolved, has_cjk)
             });
             let base_height = if has_inline_box {
-                let envelope = f64::from(metrics.ascent) + f64::from(metrics.descent);
+                // An atomic inline sits on the baseline, so the line still
+                // reserves the strut's space below it — a browser's line
+                // box around an image is the image plus that descent, not
+                // the image alone. Above the baseline the taller of the
+                // two wins.
+                let (above, below) = match host_line {
+                    Some((content_height, ascent)) => (ascent, content_height - ascent),
+                    None => (0.0, 0.0),
+                };
+                let envelope = f64::from(metrics.ascent).max(above)
+                    + f64::from(metrics.descent).max(below);
                 envelope.max(strut_height.unwrap_or(0.0))
             } else if let Some(declared) = line_declared_height {
                 declared.max(strut_height.unwrap_or(0.0))
