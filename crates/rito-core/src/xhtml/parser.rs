@@ -440,10 +440,56 @@ fn convert_svg_image(
         DocumentNode::Image(ImageNode {
             src,
             alt: String::new(),
-            attributes: None,
+            // `width` and `height` on `<svg>` are presentation attributes
+            // that map to the CSS properties (SVG 2 §7.2), and they are
+            // what sizes the SVG-wrapped image idiom: `width="100%"` fits
+            // the flow and the intrinsic ratio gives the height. Dropping
+            // them left the page at the raster's own pixel height.
+            attributes: svg_presentation_attributes(element),
             source_ref,
         })
     })
+}
+
+/// The `<svg>` element's attributes with its geometry presentation
+/// attributes folded into the inline style, so the CSS sizing that follows
+/// sees the width and height the author declared on the SVG.
+fn svg_presentation_attributes(element: Node<'_>) -> Option<ElementAttributes> {
+    let mut declarations = String::new();
+    for property in ["width", "height"] {
+        let Some(value) = element.attribute(property).map(str::trim) else {
+            continue;
+        };
+        if value.is_empty() {
+            continue;
+        }
+        // A bare number on an SVG geometry attribute is a user-unit length.
+        let value = if value.chars().all(|c| c.is_ascii_digit() || c == '.') {
+            format!("{value}px")
+        } else {
+            value.to_owned()
+        };
+        declarations.push_str(&format!("{property}:{value};"));
+    }
+    let mut attributes = extract_attributes(element).unwrap_or(ElementAttributes {
+        all_attributes: None,
+        class: None,
+        colspan: None,
+        href: None,
+        id: None,
+        language: None,
+        rowspan: None,
+        style: None,
+    });
+    if !declarations.is_empty() {
+        attributes.style = Some(match attributes.style {
+            // The inline style wins over a presentation attribute, so the
+            // author's own declarations come last.
+            Some(style) => format!("{declarations}{style}"),
+            None => declarations,
+        });
+    }
+    has_any_attribute(&attributes).then_some(attributes)
 }
 
 fn image_node_from_element(

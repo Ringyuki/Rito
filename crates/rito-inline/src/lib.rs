@@ -1591,10 +1591,31 @@ fn image_display_size(
             },
         }
     };
-    let preferred = |value: PreferredSizeV1, axis: &str| -> Result<Option<f64>, LayoutError> {
+    // A percentage height resolves against the containing block's height,
+    // not its width, and computes to `auto` when that height is indefinite
+    // (CSS 2.1 §10.5) — which is the usual case in a continuous flow. Only
+    // a length is definite here.
+    let resolve_block = |value: LengthPercentage| -> Option<f64> {
+        match value {
+            LengthPercentage::Length(px) => Some(f64::from(px.get())),
+            LengthPercentage::Percentage(ratio) => {
+                available_block_size.map(|basis| f64::from(ratio.ratio()) * basis)
+            }
+            LengthPercentage::Linear { length, percentage } => available_block_size
+                .map(|basis| f64::from(length.get()) + f64::from(percentage.ratio()) * basis),
+        }
+    };
+    let preferred = |value: PreferredSizeV1,
+                     axis: &str,
+                     block: bool|
+     -> Result<Option<f64>, LayoutError> {
         match value {
             PreferredSizeV1::Auto => Ok(None),
-            PreferredSizeV1::Value(value) => Ok(resolve(value.value())),
+            PreferredSizeV1::Value(value) => Ok(if block {
+                resolve_block(value.value())
+            } else {
+                resolve(value.value())
+            }),
             other => Err(LayoutError::Invalid(format!(
                 "image {axis} sizing {other:?} is not representable yet"
             ))),
@@ -1605,8 +1626,8 @@ fn image_display_size(
     } else {
         1.0
     };
-    let preferred_width = preferred(layout_style.width, "width")?;
-    let preferred_height = preferred(layout_style.height, "height")?;
+    let preferred_width = preferred(layout_style.width, "width", false)?;
+    let preferred_height = preferred(layout_style.height, "height", true)?;
     // A percentage `max-width` makes the element just as shrinkable as a
     // percentage `width` does, so it collapses the same way when there is
     // no basis to resolve against.
