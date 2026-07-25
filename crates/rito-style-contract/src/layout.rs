@@ -196,6 +196,10 @@ pub struct LayoutFormattingStyleV1 {
     pub position: PositionV1,
     /// Physical box offsets, meaningful only for a positioned box.
     pub inset: PhysicalSides<LengthPercentageOrAuto>,
+    /// Used horizontal/vertical separation between table cells, already
+    /// accounting for `border-collapse`: a collapsed table reports zero.
+    /// Inherited like its CSS source, and meaningful only on a table box.
+    pub border_spacing: (NonNegativeCssPx, NonNegativeCssPx),
 }
 
 /// Computed `box-sizing`: how `width`/`height` map onto the box model.

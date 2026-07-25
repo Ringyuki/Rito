@@ -959,6 +959,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         }
         let mut min_widths = vec![0.0_f64; column_count];
         let mut max_widths = vec![0.0_f64; column_count];
+        // A column whose cells specify a width takes that width as its
+        // preferred size; the other cells in the column wrap to it rather
+        // than widening the column with their own content maximum.
+        let mut specified_widths = vec![None::<f64>; column_count];
         for row in &grid {
             for cell in row {
                 let sizes = self.cell_intrinsic_sizes(tree, cell.node)?;
@@ -967,7 +971,18 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     let column = cell.column + offset;
                     min_widths[column] = min_widths[column].max(sizes.min_content / share);
                     max_widths[column] = max_widths[column].max(sizes.max_content / share);
+                    if let Some(specified) = sizes.specified {
+                        let share = specified / share;
+                        specified_widths[column] = Some(
+                            specified_widths[column].map_or(share, |best: f64| best.max(share)),
+                        );
+                    }
                 }
+            }
+        }
+        for column in 0..column_count {
+            if let Some(specified) = specified_widths[column] {
+                max_widths[column] = specified.max(min_widths[column]);
             }
         }
         let sum_min: f64 = min_widths.iter().sum();
@@ -986,14 +1001,23 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 .map(|(min, max)| min + (max - min) * scale)
                 .collect()
         };
+        // Separate-borders spacing sits between every pair of cells and
+        // around the grid, so a column's offset carries one gap per
+        // preceding column plus the leading edge.
+        let table_style = container_layout_style(tree, table)?;
+        let (spacing_x, spacing_y) = (
+            f64::from(table_style.border_spacing.0.get()),
+            f64::from(table_style.border_spacing.1.get()),
+        );
         let mut offsets = vec![0.0_f64; column_count + 1];
+        offsets[0] = spacing_x;
         for index in 0..column_count {
-            offsets[index + 1] = offsets[index] + columns[index];
+            offsets[index + 1] = offsets[index] + columns[index] + spacing_x;
         }
         let table_width = offsets[column_count];
 
         let mut rows = Vec::with_capacity(grid.len());
-        let mut y = 0.0_f64;
+        let mut y = spacing_y;
         for (row_index, row) in grid.iter().enumerate() {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
@@ -1002,7 +1026,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let mut cell_fragments = Vec::with_capacity(row.len());
             let mut row_height = 0.0_f64;
             for cell in row {
-                let cell_width = offsets[cell.column + cell.span] - offsets[cell.column];
+                    let cell_width = offsets[cell.column + cell.span]
+                    - offsets[cell.column]
+                    - spacing_x;
                 let outcome = self.layout_container(
                     tree,
                     cell.node,
@@ -1017,7 +1043,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     ));
                 };
                 cell_root.source = cell.node;
-                cell_root.rect.x = offsets[cell.column];
+                cell_root.rect.x = offsets[cell.column] - spacing_x;
                 cell_root.rect.width = cell_width;
                 row_height = row_height.max(cell_root.rect.height);
                 cell_fragments.push(cell_root);
@@ -1031,14 +1057,14 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             rows.push(Fragment::Box(BoxFragment {
                 source: row_id,
                 rect: FragmentRect {
-                    x: 0.0,
+                    x: spacing_x,
                     y,
-                    width: table_width,
+                    width: (table_width - 2.0 * spacing_x).max(0.0),
                     height: row_height,
                 },
                 children: cell_fragments.into_iter().map(Fragment::Box).collect(),
             }));
-            y += row_height;
+            y += row_height + spacing_y;
         }
         Ok(BoxFragment {
             source: table,
@@ -1063,7 +1089,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         &self,
         tree: &FormattingTree,
         cell: FormattingNodeId,
-    ) -> Result<IntrinsicInlineSizes, LayoutError> {
+    ) -> Result<CellIntrinsicSizes, LayoutError> {
         let mut sizes = self.intrinsic_inline_sizes(tree, cell)?;
         let style = container_layout_style(tree, cell)?;
         let pad = |side: rito_style_contract::NonNegativeLengthPercentage| match side.value() {
@@ -1074,16 +1100,19 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // Percentages resolve against the table width, which the column
         // algorithm has not established yet; only definite lengths take
         // part here, and content sizing covers the rest.
+        let mut specified = None;
         if let rito_style_contract::PreferredSizeV1::Value(width) = style.width {
             if let LengthPercentage::Length(px) = width.value() {
-                let specified = f64::from(px.get());
-                sizes.max_content = specified.max(sizes.min_content);
-                sizes.min_content = sizes.min_content.max(specified);
+                specified = Some(f64::from(px.get()) + padding);
             }
         }
         sizes.min_content += padding;
         sizes.max_content += padding;
-        Ok(sizes)
+        Ok(CellIntrinsicSizes {
+            min_content: sizes.min_content,
+            max_content: sizes.max_content,
+            specified,
+        })
     }
 }
 
@@ -1497,6 +1526,14 @@ fn resolve_horizontal_box(
     }
 }
 
+/// A table cell's inline sizing inputs: its content bounds plus the width
+/// it specified, which drives its column independently of content.
+struct CellIntrinsicSizes {
+    min_content: f64,
+    max_content: f64,
+    specified: Option<f64>,
+}
+
 /// Inline offset for a shrink-to-fit box (a table) inside its containing
 /// block: auto margins share the free space the used width leaves, the
 /// same distribution `resolve_horizontal_box` applies to a definite width.
@@ -1724,6 +1761,10 @@ mod tests {
             list_style_type: ListMarkerStyleV1::None,
             position: PositionV1::Static,
             inset: PhysicalSides {
+            border_spacing: (
+                rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+            ),
                 top: LengthPercentageOrAuto::Auto,
                 right: LengthPercentageOrAuto::Auto,
                 bottom: LengthPercentageOrAuto::Auto,

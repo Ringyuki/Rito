@@ -292,6 +292,26 @@ impl RuntimeDocument {
                 for child in &line.children {
                     collect(child, x, y, built, boxes);
                 }
+            } else if let Fragment::Image(image) = fragment {
+                // Images lay out as inline atoms, so their box lives in a
+                // line rather than the block tree: their id comes from the
+                // flow's item-source table.
+                let anchor = built
+                    .flow_item_sources
+                    .get(&image.source.0)
+                    .and_then(|items| items.get(image.item_index as usize))
+                    .and_then(|item| item.source_index)
+                    .and_then(|index| built.source_anchors.get(&index));
+                if let Some(anchor) = anchor {
+                    boxes.push(ChapterLayoutBox {
+                        id: anchor.clone(),
+                        tag: Some("img".to_owned()),
+                        x,
+                        y,
+                        width: rect.width,
+                        height: rect.height,
+                    });
+                }
             }
         }
 

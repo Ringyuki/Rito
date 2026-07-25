@@ -200,6 +200,16 @@ fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingSty
         list_style_type: list_style_type(styles.clone_list_style_type())?,
         position: position(styles.get_box().clone_position())?,
         inset: inset(styles)?,
+        border_spacing: {
+            // Non-finite or negative separations cannot occur: the
+            // registered custom property only accepts lengths, and the
+            // parser floors them at zero.
+            let (horizontal, vertical) = crate::break_properties::project_border_spacing(styles);
+            (
+                non_negative_px(horizontal),
+                non_negative_px(vertical),
+            )
+        },
         margin: margin(styles)?,
         padding: padding(styles)?,
         box_sizing: box_sizing(styles),
@@ -250,6 +260,12 @@ fn align_items(
     } else {
         Err(unsupported(LayoutStyleFieldV1::AlignItems))
     }
+}
+
+/// A finite, non-negative CSS pixel length, defaulting to zero.
+fn non_negative_px(value: f32) -> NonNegativeCssPx {
+    NonNegativeCssPx::new(value.max(0.0))
+        .unwrap_or_else(|_| NonNegativeCssPx::new(0.0).expect("zero is a valid length"))
 }
 
 fn display(value: style::values::computed::Display) -> LayoutDisplayV1 {

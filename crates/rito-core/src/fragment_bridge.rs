@@ -61,6 +61,10 @@ pub struct ChapterFormattingTree {
     pub flow_item_sources: BTreeMap<u32, Vec<FlowItemSource>>,
     /// Anchor `id` attributes per formatting node, for jump navigation.
     pub node_anchors: BTreeMap<u32, String>,
+    /// Anchor `id` attributes for source nodes that produce no formatting
+    /// node of their own — images, which lay out as inline atoms. Keyed by
+    /// source-arena index, the coordinate `flow_item_sources` reports.
+    pub source_anchors: BTreeMap<usize, String>,
     /// Source tag per block-level formatting node, for semantic roles.
     pub node_tags: BTreeMap<u32, String>,
     /// Constructs the tree could not represent exactly and rendered with
@@ -152,6 +156,7 @@ pub fn build_chapter_formatting_tree(
         node_paints: BTreeMap::new(),
         flow_item_sources: BTreeMap::new(),
         node_anchors: BTreeMap::new(),
+        source_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
         strut_styles: BTreeMap::new(),
         degradations: Vec::new(),
@@ -200,6 +205,7 @@ pub fn build_chapter_formatting_tree(
         node_paints,
         flow_item_sources,
         node_anchors,
+        source_anchors,
         node_tags,
         strut_styles,
         degradations,
@@ -221,6 +227,7 @@ pub fn build_chapter_formatting_tree(
         page_background_image,
         flow_item_sources,
         node_anchors,
+        source_anchors,
         node_tags,
         degradations,
     })
@@ -239,6 +246,7 @@ struct TreeBuilder<'a> {
     node_paints: BTreeMap<u32, NodePaint>,
     flow_item_sources: BTreeMap<u32, Vec<FlowItemSource>>,
     node_anchors: BTreeMap<u32, String>,
+    source_anchors: BTreeMap<usize, String>,
     node_tags: BTreeMap<u32, String>,
     /// The container inline style per inline-flow node — the CSS strut.
     strut_styles: BTreeMap<u32, StyleId>,
@@ -767,6 +775,13 @@ impl TreeBuilder<'_> {
             .inline
             .style(style)
             .map_err(|error| EpubError::new(format!("image style: {error}")))?;
+        if let Some(anchor) = image
+            .attributes
+            .as_ref()
+            .and_then(|attributes| attributes.id.clone())
+        {
+            self.source_anchors.insert(source_index, anchor);
+        }
         collector.push_image(
             InlineItem::Image {
                 src: image.src.clone(),
@@ -2125,6 +2140,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         page_background_image: None,
         flow_item_sources: BTreeMap::new(),
         node_anchors: BTreeMap::new(),
+        source_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
         degradations: vec!["chapter has no body source node; rendered empty".to_owned()],
     })
@@ -2201,6 +2217,10 @@ fn anonymous_block_style() -> LayoutFormattingStyleV1 {
             bottom: LengthPercentageOrAuto::Auto,
             left: LengthPercentageOrAuto::Auto,
         },
+        border_spacing: (
+            rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+            rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+        ),
     }
 }
 

@@ -15,10 +15,26 @@ pub(crate) const REGISTRATION_STYLESHEET: &str = r#"
   inherits: false;
   initial-value: auto;
 }
+@property --rito-internal-border-collapse-v1 {
+  syntax: "separate | collapse";
+  inherits: true;
+  initial-value: separate;
+}
+@property --rito-internal-border-spacing-v1 {
+  syntax: "<length>+";
+  inherits: true;
+  initial-value: 0px;
+}
 "#;
 
 const BEFORE_CSS_NAME: &str = "--rito-internal-break-before-v1";
 const AFTER_CSS_NAME: &str = "--rito-internal-break-after-v1";
+// Stylo's Servo profile implements neither table border property, so they
+// travel as registered custom properties exactly like the break controls.
+const BORDER_COLLAPSE_CSS_NAME: &str = "--rito-internal-border-collapse-v1";
+const BORDER_SPACING_CSS_NAME: &str = "--rito-internal-border-spacing-v1";
+const BORDER_COLLAPSE_ATOM_NAME: &str = "rito-internal-border-collapse-v1";
+const BORDER_SPACING_ATOM_NAME: &str = "rito-internal-border-spacing-v1";
 const BEFORE_ATOM_NAME: &str = "rito-internal-break-before-v1";
 const AFTER_ATOM_NAME: &str = "rito-internal-break-after-v1";
 
@@ -154,9 +170,46 @@ fn replacement_name(name: &str) -> Option<&'static str> {
         || name.eq_ignore_ascii_case("page-break-after")
     {
         Some(AFTER_CSS_NAME)
+    } else if name.eq_ignore_ascii_case("border-collapse") {
+        Some(BORDER_COLLAPSE_CSS_NAME)
+    } else if name.eq_ignore_ascii_case("border-spacing") {
+        Some(BORDER_SPACING_CSS_NAME)
     } else {
         None
     }
+}
+
+/// The used table cell separation: `border-collapse: collapse` removes it,
+/// otherwise `border-spacing`'s one or two lengths apply horizontally and
+/// vertically. Values that are not plain pixel lengths resolve to zero,
+/// the CSS initial.
+pub(crate) fn project_border_spacing(styles: &ComputedValues) -> (f32, f32) {
+    let custom = styles.custom_properties();
+    let read = |name: &str| -> Option<String> {
+        custom
+            .inherited
+            .get(&Atom::from(name))
+            .or_else(|| custom.non_inherited.get(&Atom::from(name)))
+            .map(|value| value.to_css_string())
+    };
+    let collapsed = read(BORDER_COLLAPSE_ATOM_NAME)
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("collapse"));
+    if collapsed {
+        return (0.0, 0.0);
+    }
+    let Some(value) = read(BORDER_SPACING_ATOM_NAME) else {
+        return (0.0, 0.0);
+    };
+    let mut lengths = value.split_whitespace().map(parse_px);
+    let horizontal = lengths.next().flatten().unwrap_or(0.0);
+    let vertical = lengths.next().flatten().unwrap_or(horizontal);
+    (horizontal, vertical)
+}
+
+fn parse_px(token: &str) -> Option<f32> {
+    let token = token.trim();
+    let digits = token.strip_suffix("px").unwrap_or(token);
+    digits.parse::<f32>().ok().filter(|value| *value >= 0.0)
 }
 
 fn is_name_start(byte: u8) -> bool {

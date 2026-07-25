@@ -1417,8 +1417,13 @@ fn image_display_size(
     };
     let preferred_width = preferred(layout_style.width, "width")?;
     let preferred_height = preferred(layout_style.height, "height")?;
-    let width_percentage_without_basis =
-        percentage_without_basis.get() && matches!(layout_style.width, PreferredSizeV1::Value(_));
+    // A percentage `max-width` makes the element just as shrinkable as a
+    // percentage `width` does, so it collapses the same way when there is
+    // no basis to resolve against.
+    if let MaximumSizeV1::Value(cap) = layout_style.max_width {
+        let _ = resolve(cap.value());
+    }
+    let width_percentage_without_basis = percentage_without_basis.get();
     let (mut width, mut height) = match (preferred_width, preferred_height) {
         (Some(width), Some(height)) => (width, height),
         (Some(width), None) => (width, width * ratio),
@@ -2194,6 +2199,10 @@ running through the quiet forest until the morning light returns.";
                     list_style_type: ListMarkerStyleV1::None,
                     position: PositionV1::Static,
                     inset: PhysicalSides {
+                    border_spacing: (
+                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                    ),
                         top: auto,
                         right: auto,
                         bottom: auto,
