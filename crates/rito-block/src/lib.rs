@@ -1328,9 +1328,20 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 }
                 // A definite width makes the box that wide whatever its
                 // content asks for, so that is what it contributes to an
-                // ancestor sizing itself around it.
+                // ancestor sizing itself around it. A table cell is the
+                // exception: its own width belongs to the column
+                // algorithm, which reads it separately.
+                let is_cell = matches!(
+                    tree.node(node).content,
+                    FormattingNodeContent::TableCell { .. }
+                );
                 let style = container_layout_style(tree, node)?;
-                if let rito_style_contract::PreferredSizeV1::Value(width) = style.width {
+                let own_width = if is_cell {
+                    rito_style_contract::PreferredSizeV1::Auto
+                } else {
+                    style.width
+                };
+                if let rito_style_contract::PreferredSizeV1::Value(width) = own_width {
                     if let LengthPercentage::Length(px) = width.value() {
                         let pad = |side: rito_style_contract::NonNegativeLengthPercentage| {
                             match side.value() {
