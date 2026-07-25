@@ -1085,19 +1085,38 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // a share of the table, not a claim over its neighbours.
             let plain_minimum: f64 = plain.iter().map(|column| min_widths[*column]).sum();
             let percentage_budget = (content_width - plain_minimum).max(0.0);
-            let mut percentage_total = 0.0;
-            for (column, percentage) in column_percentages.iter().enumerate() {
-                if let Some(percentage) = percentage {
-                    columns[column] = (percentage * content_width).max(min_widths[column]);
-                    percentage_total += columns[column];
+            // Percentage columns share the budget in proportion to what
+            // they asked for, except that none may fall under its own
+            // minimum content: those settle at their minimum and the rest
+            // divide what is left, until every column fits.
+            let mut pending: Vec<usize> = (0..column_count)
+                .filter(|column| column_percentages[*column].is_some())
+                .collect();
+            let want = |column: usize| {
+                column_percentages[column].unwrap_or_default() * content_width
+            };
+            let mut budget = percentage_budget;
+            loop {
+                let want_total: f64 = pending.iter().map(|column| want(*column)).sum();
+                if pending.is_empty() || want_total <= 0.0 {
+                    break;
                 }
-            }
-            if percentage_total > percentage_budget && percentage_total > 0.0 {
-                let scale = percentage_budget / percentage_total;
-                for (column, percentage) in column_percentages.iter().enumerate() {
-                    if percentage.is_some() {
-                        columns[column] = (columns[column] * scale).max(min_widths[column]);
+                let scale = budget / want_total;
+                let pinned: Vec<usize> = pending
+                    .iter()
+                    .copied()
+                    .filter(|column| want(*column) * scale < min_widths[*column])
+                    .collect();
+                if pinned.is_empty() {
+                    for column in &pending {
+                        columns[*column] = want(*column) * scale.min(1.0);
                     }
+                    break;
+                }
+                for column in pinned {
+                    columns[column] = min_widths[column];
+                    budget -= min_widths[column];
+                    pending.retain(|pending| *pending != column);
                 }
             }
             let mut leftover = content_width;
