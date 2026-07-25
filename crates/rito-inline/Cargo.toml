@@ -7,5 +7,9 @@ publish = false
 
 [dependencies]
 parley = "0.11"
+# Script property, for keying host line-metric samples the way a browser
+# keys font fallback. Already in the graph through parley, so this adds no
+# weight to the wasm binary.
+icu_properties = { version = "2.1.2", features = ["compiled_data"], default-features = false }
 rito-fragment = { path = "../rito-fragment" }
 rito-style-contract = { path = "../rito-style-contract" }

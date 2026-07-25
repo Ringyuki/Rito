@@ -68,11 +68,14 @@ pub struct ParleyInlineContext {
     /// drains these, measures, injects, and relayouts.
     host_metric_requests: RefCell<std::collections::BTreeSet<(String, u64, String)>>,
     /// Sample character already requested for a (family, size, resolved
-    /// font) triple. One sample per physical font is enough — every
-    /// character that resolves to the same font measures the same — and
-    /// this is what keeps the request set bounded by fonts rather than by
-    /// the book's character inventory.
-    host_metric_samples: RefCell<std::collections::HashMap<(String, u64, u64, u32), String>>,
+    /// font, script) key. Every character that resolves to the same font
+    /// measures the same, so one sample per font is enough to bound the
+    /// request set by fonts rather than by the book's character inventory
+    /// — but the script has to be part of the key too: the engine's font
+    /// universe is the book's, so it may serve two scripts from one font
+    /// where the host picks a different fallback per script, and a single
+    /// sample would then hide one of the host's two metrics.
+    host_metric_samples: RefCell<std::collections::HashMap<(String, u64, u64, u32, u16), String>>,
     metrics_generation: std::cell::Cell<u64>,
 }
 
@@ -99,6 +102,16 @@ impl HostNormalLineMetric {
     fn descent(&self) -> f64 {
         self.height - self.baseline
     }
+}
+
+/// The character's Unicode script, as the integer a metric key uses.
+///
+/// Font fallback is keyed by script in every browser, so this is the axis
+/// along which one run can end up drawn by two fonts.
+fn char_script(character: char) -> u16 {
+    icu_properties::CodePointMapData::<icu_properties::props::Script>::new()
+        .get(character)
+        .to_icu4c_value()
 }
 
 /// Quantizes a font size to a stable host-metric key (millipixels).
@@ -249,6 +262,7 @@ impl ParleyInlineContext {
             host_size_key(f64::from(style.font.size.get())),
             font.data.id(),
             font.index,
+            char_script(first_char),
         );
         self.host_metric_samples
             .borrow_mut()
@@ -742,10 +756,24 @@ impl FormattingContext for ParleyInlineContext {
                                 .and_then(|entry| entry.as_ref())
                                 .and_then(|entry| tables.inline.style(entry.style).ok())
                         }) {
-                            if let Some(first) =
-                                flow_text.get(run_range.clone()).and_then(|s| s.chars().next())
+                            // One sample per script inside the run, not just
+                            // the run's first character: the host resolves
+                            // fallback per character, so a run the engine
+                            // shapes with one font can be two fonts there.
+                            let mut seen_scripts: Vec<u16> = Vec::new();
+                            for character in flow_text
+                                .get(run_range.clone())
+                                .unwrap_or_default()
+                                .chars()
+                                .filter(|c| !c.is_whitespace())
                             {
-                                let sample = self.run_sample(&style, glyph_run.run().font(), first);
+                                let script = char_script(character);
+                                if seen_scripts.contains(&script) {
+                                    continue;
+                                }
+                                seen_scripts.push(script);
+                                let sample =
+                                    self.run_sample(&style, glyph_run.run().font(), character);
                                 if !line_run_samples
                                     .iter()
                                     .any(|(index, seen)| *index == item_index && *seen == sample)
