@@ -108,6 +108,13 @@ for (const chapter of chapters) {
       // while it is still loading come from the browser's default font.
       await document.fonts.load('16px "__rito_serif"', '试');
       await document.fonts.ready;
+      // Assert the face actually resolved. A 404'd pin silently leaves the
+      // truth browser measuring its own default font, which is exactly how
+      // a broken page once scored 100%.
+      const pinned = [...document.fonts].find((face) => face.family === '__rito_serif');
+      if (pinned?.status !== 'loaded') {
+        throw new Error(`pinned serif did not load (status ${pinned?.status ?? 'absent'})`);
+      }
     },
     { width: FLOW_WIDTH, pinnedSerif },
   );
@@ -169,6 +176,9 @@ for (let round = 0; ; round += 1) {
   if (unmet.length === 0 || round >= 4) break;
   metrics = [...metrics, ...(await measureHostMetrics(unmet))];
 }
+// The metrics this run converged on, so a failing chapter can be re-run
+// against exactly the numbers the comparison used.
+writeFileSync(path.join(outDir, 'metrics.json'), JSON.stringify(metrics, null, 1));
 
 function runProbe(hostLineMetrics) {
   const input = JSON.stringify({
@@ -203,6 +213,25 @@ function parseUnmetMetrics(stderr) {
 async function measureHostMetrics(pairs) {
   await page.goto(`file://${chapters[0].file}`, { timeout: 30000 }).catch(() => null);
   await page.evaluate(() => document.fonts.ready);
+  // The same pinned serif the geometry was recorded through: `familyList`
+  // maps every generic family onto it, so the face has to exist here too or
+  // every generic key silently measures the browser's default font.
+  await page.evaluate(
+    async (pinnedSerif) => {
+      const face = document.createElement('style');
+      face.textContent = `@font-face { font-family: "__rito_serif"; src: url("${pinnedSerif}"); }`;
+      document.head.appendChild(face);
+      await document.fonts.load('16px "__rito_serif"', '试');
+      await document.fonts.ready;
+      const pinned = [...document.fonts].find((entry) => entry.family === '__rito_serif');
+      if (pinned?.status !== 'loaded') {
+        throw new Error(
+          `pinned serif did not load for measurement (${pinned?.status ?? 'absent'})`,
+        );
+      }
+    },
+    path.relative(path.dirname(chapters[0].file), path.join(buildDir, '__rito_pinned_serif.otf')),
+  );
   // Faces the document has not painted yet are `unloaded`; measuring one
   // without loading it first silently returns fallback metrics.
   await page.evaluate(

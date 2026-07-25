@@ -63,6 +63,9 @@ for (let round = 0; ; round += 1) {
   if (unmet.length === 0 || round >= 3) break;
   metrics = [...metrics, ...(await measureHostMetrics(unmet))];
 }
+// The metrics this run converged on, so a failing case can be re-run
+// against exactly the numbers the comparison used.
+writeFileSync(path.join(outDir, 'metrics.json'), JSON.stringify(metrics, null, 1));
 
 function runProbe(hostLineMetrics) {
   const input = JSON.stringify({ ...JSON.parse(request), hostLineMetrics });

@@ -965,7 +965,13 @@ impl FormattingContext for ParleyInlineContext {
             // baseline. The host floors that half-leading (its scaler
             // works in whole pixels), which is what places glyphs on the
             // same rows the reference browser uses.
-            let baseline = match host_line {
+            let baseline = if has_inline_box {
+                // The envelope of an atomic-inline line is already exactly
+                // ascent + descent, so its baseline sits at that ascent —
+                // there is no leading to redistribute around it.
+                max_rise + f64::from(metrics.ascent).max(host_line.map_or(0.0, |(_, a)| a))
+            } else {
+                match host_line {
                 Some((content_height, ascent)) => {
                     max_rise + ((base_height - content_height) / 2.0).floor() + ascent
                 }
@@ -975,6 +981,7 @@ impl FormattingContext for ParleyInlineContext {
                         - f64::from(metrics.descent))
                         / 2.0;
                     max_rise + half_leading + f64::from(metrics.ascent)
+                }
                 }
             };
             let children: Vec<Fragment> = children
@@ -986,7 +993,15 @@ impl FormattingContext for ParleyInlineContext {
                             text.rect.y = adjust;
                             text.rect.height = base_height;
                         }
-                        Fragment::Image(image) => image.rect.y += adjust,
+                        // An atomic inline sits on the line's baseline:
+                        // its bottom margin edge rests there, however tall
+                        // the line's own strut is. Parley's ink-relative
+                        // position only agrees while the image is the
+                        // tallest thing on the line; whenever the strut
+                        // reaches higher, the image has to come down.
+                        Fragment::Image(image) => {
+                            image.rect.y = baseline - shift - image.rect.height;
+                        }
                         _ => {}
                     }
                     fragment
