@@ -38,9 +38,6 @@ struct ParagraphLayout {
     shifted_ranges: Vec<(std::ops::Range<usize>, f64)>,
 }
 
-/// Marker id for the inline box that reserves first-line indent space.
-const INDENT_INLINE_BOX_ID: u64 = u64::MAX;
-
 /// Inline formatting context backed by Parley shaping and line breaking.
 ///
 /// Holds its font and layout scratch state behind `RefCell`: layout is a
@@ -468,7 +465,19 @@ impl ParleyInlineContext {
         if chromium_tailoring {
             builder.set_line_break_override(Some(&cjk_aware_chromium_break_override));
         }
-        let mut first_line_indent = 0.0_f32;
+        // `text-indent` is the block container's own inherited property and
+        // indents its first line whatever sits on it — a line holding only
+        // an image included. Reading it off whichever text run happens to
+        // start at byte zero would skip every image-only first line.
+        let first_line_indent = tree
+            .strut_style(node)
+            .or_else(|| {
+                items.first().and_then(|item| match item {
+                    InlineItem::Text { style, .. } | InlineItem::Image { style, .. } => Some(*style),
+                })
+            })
+            .and_then(|style_id| styles.inline.style(style_id).ok())
+            .map_or(0.0_f32, |style| resolved_text_indent(&style));
         for (range, style, item_index) in &runs {
             if range.is_empty() {
                 continue;
@@ -485,22 +494,8 @@ impl ParleyInlineContext {
                 StyleProperty::Brush((*item_index as u32).to_le_bytes()),
                 range.clone(),
             );
-            if range.start == 0 {
-                first_line_indent = resolved_text_indent(style);
-            }
         }
         push_cjk_punctuation_trims(&mut builder, &text, &runs);
-        if first_line_indent > 0.0 {
-            // Parley has no text-indent; an in-flow inline box at offset zero
-            // occupies the same first-line space.
-            builder.push_inline_box(InlineBox {
-                id: INDENT_INLINE_BOX_ID,
-                kind: InlineBoxKind::InFlow,
-                index: 0,
-                width: first_line_indent,
-                height: 0.1,
-            });
-        }
         for image_box in image_boxes {
             builder.push_inline_box(image_box);
         }
@@ -523,8 +518,17 @@ impl ParleyInlineContext {
             })
             .transpose()?
             .unwrap_or(parley::Alignment::Start);
+        let mut layout = builder.build(&text);
+        // Parley's own first-line indent: a start-edge margin on the
+        // indented line. Reserving the space with an inline box instead
+        // would invent a break opportunity that CSS does not have, and an
+        // atomic inline too wide for the rest of the line would wrap to a
+        // line of its own rather than overflow beside the indent.
+        if first_line_indent != 0.0 {
+            layout.set_text_indent(first_line_indent, parley::IndentOptions::default());
+        }
         Ok(ParagraphLayout {
-            layout: builder.build(&text),
+            layout,
             text,
             alignment,
             shifted_ranges,
@@ -709,10 +713,9 @@ impl FormattingContext for ParleyInlineContext {
         for line in layout.lines() {
             let metrics = line.metrics();
             let line_top = running_top;
-            let has_inline_box = line.items().any(|item| {
-                matches!(&item, PositionedLayoutItem::InlineBox(inline_box)
-                    if inline_box.id != INDENT_INLINE_BOX_ID)
-            });
+            let has_inline_box = line
+                .items()
+                .any(|item| matches!(&item, PositionedLayoutItem::InlineBox(_)));
             let ink_top = f64::from(metrics.block_min_coord);
             let line_x = f64::from(metrics.offset);
             // Collect the line's content first, remembering each child's
@@ -800,14 +803,10 @@ impl FormattingContext for ParleyInlineContext {
                         ));
                     }
                     PositionedLayoutItem::InlineBox(inline_box) => {
-                        // The first-line indent box reserves space but
-                        // paints nothing; every other inline box is an
-                        // atomic image item. Its vertical position is
-                        // measured in Parley's ink coordinates, so it maps
-                        // into the line box through the ink top.
-                        if inline_box.id == INDENT_INLINE_BOX_ID {
-                            continue;
-                        }
+                        // Every inline box is an atomic image item. Its
+                        // vertical position is measured in Parley's ink
+                        // coordinates, so it maps into the line box through
+                        // the ink top.
                         let shift = item_shifts
                             .get(inline_box.id as usize)
                             .copied()
