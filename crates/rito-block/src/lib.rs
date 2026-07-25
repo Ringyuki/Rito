@@ -1050,6 +1050,11 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
 
     /// A cell's intrinsic inline bounds including its own horizontal
     /// padding (borders are absorbed as padding upstream).
+    ///
+    /// A cell with a definite `width` contributes that width rather than
+    /// its content's maximum: CSS's automatic table layout treats a
+    /// specified cell width as the column's preferred width, floored by
+    /// the content minimum.
     fn cell_intrinsic_sizes(
         &self,
         tree: &FormattingTree,
@@ -1062,6 +1067,16 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             _ => 0.0,
         };
         let padding = pad(style.padding.left) + pad(style.padding.right);
+        // Percentages resolve against the table width, which the column
+        // algorithm has not established yet; only definite lengths take
+        // part here, and content sizing covers the rest.
+        if let rito_style_contract::PreferredSizeV1::Value(width) = style.width {
+            if let LengthPercentage::Length(px) = width.value() {
+                let specified = f64::from(px.get());
+                sizes.max_content = specified.max(sizes.min_content);
+                sizes.min_content = sizes.min_content.max(specified);
+            }
+        }
         sizes.min_content += padding;
         sizes.max_content += padding;
         Ok(sizes)

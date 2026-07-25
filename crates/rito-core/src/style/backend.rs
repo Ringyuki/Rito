@@ -34,17 +34,8 @@ use super::{
         select_stylo_sources, validate_stylo_source_arena, StyleCapabilityImpact,
         StyleCapabilityReport, StyloSourceRejection,
     },
-    ChapterStyleOptions, DEFAULT_UA_STYLESHEET,
+    ChapterStyleOptions,
 };
-
-/// Display defaults for the migration UA profile.
-///
-/// The legacy resolver's computed-style map defaulted `display` to `block`
-/// for every element and let only author CSS override it; box classification
-/// for layout comes from the parser, not this value. The Stylo cascade needs
-/// the same default as user-agent CSS to keep the materialized maps
-/// identical.
-const MIGRATION_DISPLAY_UA_STYLESHEET: &str = "* { display: block; }";
 
 #[derive(Clone, Copy)]
 pub(crate) struct PreparedStyleChapterInput<'a> {
@@ -283,17 +274,14 @@ fn try_resolve_with_stylo(
         .map_err(StyleBackendError::SourceArena)?;
     let viewport = stylo_viewport(viewport)?;
 
-    // During migration this preserves Rito's established UA policy while
-    // replacing the parser and cascade. The richer EPUB UA profile can be
-    // enabled once its bidi fields have an exact downstream representation.
+    // The EPUB support profile is the UA policy: it supplies the HTML
+    // box-generation defaults publication content assumes, including table
+    // box generation. The legacy pair it replaced (a minimal sheet plus
+    // `* { display: block }`) could not generate a table box at all, so
+    // every `<table>` laid out as a plain block.
     let mut stylesheets = Vec::with_capacity(selection.stylesheets.len() + 3);
     stylesheets.push(StylesheetInput::new(
-        DEFAULT_UA_STYLESHEET,
-        selection.document_url.clone(),
-        StyleOrigin::UserAgent,
-    ));
-    stylesheets.push(StylesheetInput::new(
-        MIGRATION_DISPLAY_UA_STYLESHEET,
+        rito_stylo::epub_ua_stylesheet(),
         selection.document_url.clone(),
         StyleOrigin::UserAgent,
     ));

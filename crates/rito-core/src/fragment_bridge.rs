@@ -922,19 +922,35 @@ impl TreeBuilder<'_> {
                 Some(cell_index),
             );
             self.node_tags.insert(id.0, cell_tag);
+            if let Some(anchor) = cell
+                .attributes
+                .as_ref()
+                .and_then(|attributes| attributes.id.clone())
+            {
+                self.node_anchors.insert(id.0, anchor);
+            }
             if let Some(paint) = decoration {
                 self.node_paints.insert(id.0, paint);
             }
             cells.push(id);
         }
-        Ok(self.push_node(
+        let row_id = self.push_node(
             FormattingNode {
                 style,
                 content: FormattingNodeContent::TableRow,
                 children: cells,
             },
             Some(source_index),
-        ))
+        );
+        self.node_tags.insert(row_id.0, row.tag.clone());
+        if let Some(anchor) = row
+            .attributes
+            .as_ref()
+            .and_then(|attributes| attributes.id.clone())
+        {
+            self.node_anchors.insert(row_id.0, anchor);
+        }
+        Ok(row_id)
     }
 
     /// Whitelist gate for a style used as a block-level box. Every field
@@ -1284,9 +1300,13 @@ fn inline_text_capability_violation(
         style.bidi.unicode_bidi,
         style.bidi.writing_mode,
     ) {
+        // `isolate` is HTML's UA default on flow content and on any
+        // `dir` element. The engine performs no bidi reordering at all
+        // (a listed capability gap), so isolation is inert here rather
+        // than a per-element approximation worth noting.
         (
             c::Direction::LeftToRight,
-            c::UnicodeBidi::Normal,
+            c::UnicodeBidi::Normal | c::UnicodeBidi::Isolate,
             c::WritingMode::HorizontalTopToBottom,
         ) => {}
         other => return Some(format!("bidi/writing-mode {other:?}")),

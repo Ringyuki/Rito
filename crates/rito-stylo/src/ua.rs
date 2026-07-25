@@ -69,8 +69,11 @@ hr { margin-block: 0.5em; }
 sup { vertical-align: super; font-size: smaller; }
 sub { vertical-align: sub; font-size: smaller; }
 
-address, blockquote, center, div, figure, figcaption, footer, form, header, hr,
-legend, listing, main, p, plaintext, pre, summary, xmp, article, aside,
+/* HTML's bidi isolation defaults. The engine implements no bidi
+   reordering yet (a listed capability gap), so these compute and are
+   accepted as inert rather than noted per element. */
+address, blockquote, center, div, figure, figcaption, footer, form, header,
+hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside,
 h1, h2, h3, h4, h5, h6, hgroup, nav, search, section,
 table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th,
 dir, dd, dl, dt, menu, ol, ul, li, bdi, output,
