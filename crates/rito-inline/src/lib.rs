@@ -1455,26 +1455,11 @@ fn image_display_size(
             }
         }
     }
-    // A page-bound reader never shows a replaced image larger than one
-    // page: the retained pipeline scales oversized images down to the page
-    // content box on both axes, and this provider mirrors that reader
-    // semantic whenever a page context is present. Continuous layout
-    // without a page context leaves the image at its CSS size, exactly as
-    // a scrolling browser does.
-    if let Some(page_height) = available_block_size {
-        if height > page_height && height > 0.0 && page_height > 0.0 {
-            let scale = page_height / height;
-            height = page_height;
-            width *= scale;
-        }
-        if let Some(page_width) = available_inline_size {
-            if width > page_width && width > 0.0 && page_width > 0.0 {
-                let scale = page_width / width;
-                width = page_width;
-                height *= scale;
-            }
-        }
-    }
+    // No reader-specific page fitting: the baseline is the browser, which
+    // paints a replaced element at its CSS size and lets the page clip it.
+    // A `max-width`/`width` percentage is how publications actually bound
+    // their images, and those resolve above.
+    let _ = available_block_size;
     Ok((width as f32, height as f32))
 }
 
