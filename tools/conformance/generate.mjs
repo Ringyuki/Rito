@@ -332,7 +332,11 @@ for (const [name, bytes] of Object.entries(PNGS)) {
 }
 
 const caseCss = [
-  '@font-face { font-family: "__conf"; src: url(../Fonts/conf.otf); }',
+  // Resolved relative to this stylesheet, which sits in OEBPS/ next to
+  // Fonts/. A `../Fonts/` href would 404 and leave the truth browser
+  // measuring system fallbacks while the engine shapes with the real
+  // font — the two sides would agree on nothing but each other.
+  '@font-face { font-family: "__conf"; src: url(Fonts/conf.otf); }',
   `body { margin: 0; width: ${FLOW_WIDTH}px; font-family: "__conf"; font-size: 16px; }`,
 ].join('\n');
 writeFileSync(path.join(buildDir, 'OEBPS', 'case.css'), caseCss);
@@ -452,41 +456,13 @@ for (const c of cases) {
     return boxes;
   });
 }
-// Host normal-line metrics for every font size the cases use: the plain
-// strut (latin/empty lines) and the CJK-lifted height, measured from the
-// same browser that recorded the geometry truth. The engine consumes
-// these verbatim — the numbers come from the host font scaler and are
-// not derivable from font tables.
-const hostMetrics = await page.evaluate(
-  (sizes) => {
-    const host = document.createElement('div');
-    document.body.appendChild(host);
-    const measure = (size, probe) => {
-      const p = document.createElement('p');
-      p.setAttribute('style', `margin:0;font-size:${size}px;`);
-      // The zero-sized inline-block sits on the baseline, so its top is
-      // the baseline offset from the line box top.
-      p.innerHTML = `${probe}<span style="display:inline-block;width:0;height:0"></span>`;
-      host.appendChild(p);
-      const box = p.getBoundingClientRect();
-      const marker = p.querySelector('span').getBoundingClientRect();
-      return { height: box.height, baseline: marker.top - box.top };
-    };
-    return sizes.map((size) => {
-      const plain = measure(size, 'x');
-      const lifted = measure(size, '试');
-      return {
-        family: '__conf',
-        size,
-        strut: plain.height,
-        cjk: lifted.height,
-        strutBaseline: plain.baseline,
-        cjkBaseline: lifted.baseline,
-      };
-    });
-  },
-  [12.8, 16, 19.2],
-);
+// Host normal-line metrics are demand-driven: the comparator runs the
+// engine, sees which (family, size, sample) keys it could not satisfy,
+// measures exactly those in the same browser that recorded the geometry
+// truth, and re-runs. A pre-seeded list of sizes would leave derived
+// sizes measured by nothing and fallback-served runs measured against
+// the wrong font.
+const hostMetrics = [];
 await browser.close();
 
 writeFileSync(

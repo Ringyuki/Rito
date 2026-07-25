@@ -75,7 +75,7 @@ function runProbe(hostLineMetrics) {
 function parseUnmetMetrics(stderr) {
   const match = /unmet host line metrics: (\[.*\])/.exec(stderr);
   if (!match) return [];
-  return JSON.parse(match[1]).map(([family, size]) => ({ family, size }));
+  return JSON.parse(match[1]).map(([family, size, sample]) => ({ family, size, sample }));
 }
 
 async function measureHostMetrics(pairs) {
@@ -83,31 +83,47 @@ async function measureHostMetrics(pairs) {
   const page = await browser.newPage({ viewport: { width: 600, height: 800 } });
   await page.goto(`file://${path.join(outDir, 'build/OEBPS/Text', `${cases[0].name}.xhtml`)}`);
   await page.evaluate(() => document.fonts.ready);
+  // Faces the document has not painted yet are `unloaded`; measuring one
+  // without loading it first silently returns fallback metrics.
+  await page.evaluate(
+    (requests) =>
+      Promise.all(
+        requests.map((request) =>
+          document.fonts
+            .load(
+              `${request.size}px "${request.family.split(',')[0].trim()}"`,
+              request.sample || 'x',
+            )
+            .catch(() => undefined),
+        ),
+      ),
+    pairs,
+  );
   const measured = await page.evaluate((requests) => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-    const measure = (family, size, probe) => {
+    // Empty sample: the inline box's own strut. One character: whichever
+    // font the host resolves for it, which is what sizes a run the
+    // declared family cannot serve.
+    return requests.map(({ family, size, sample }) => {
       const p = document.createElement('p');
       p.setAttribute(
         'style',
-        `margin:0;line-height:normal;font-family:"${family}";font-size:${size}px;`,
+        `margin:0;line-height:normal;white-space:pre;` +
+          `font-family:"${family}";font-size:${size}px;`,
       );
-      p.innerHTML = `${probe}<span style="display:inline-block;width:0;height:0"></span>`;
+      p.textContent = sample ?? '';
+      const marker = document.createElement('span');
+      marker.style.cssText = 'display:inline-block;width:0;height:0';
+      p.appendChild(marker);
       host.appendChild(p);
       const box = p.getBoundingClientRect();
-      const marker = p.querySelector('span').getBoundingClientRect();
-      return { height: box.height, baseline: marker.top - box.top };
-    };
-    return requests.map(({ family, size }) => {
-      const plain = measure(family, size, 'x');
-      const lifted = measure(family, size, '试');
       return {
         family,
         size,
-        strut: plain.height,
-        cjk: lifted.height,
-        strutBaseline: plain.baseline,
-        cjkBaseline: lifted.baseline,
+        sample: sample ?? '',
+        height: box.height,
+        baseline: marker.getBoundingClientRect().top - box.top,
       };
     });
   }, pairs);
