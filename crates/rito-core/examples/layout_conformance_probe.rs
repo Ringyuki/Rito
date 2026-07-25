@@ -40,6 +40,8 @@ struct HostMetricEntry {
     size: f64,
     strut: f64,
     cjk: f64,
+    strut_baseline: f64,
+    cjk_baseline: f64,
 }
 
 #[derive(Serialize)]
@@ -97,7 +99,16 @@ fn main() {
     // publication's resolved @font-face sources, which only exist once a
     // revision prepared the book.
     for entry in &request.host_line_metrics {
-        document.set_host_line_metric(&entry.family, entry.size, entry.strut, entry.cjk);
+        document.set_host_line_metric(
+            &entry.family,
+            entry.size,
+            rito_inline::HostNormalLineMetric {
+                strut: entry.strut,
+                cjk: entry.cjk,
+                strut_baseline: entry.strut_baseline,
+                cjk_baseline: entry.cjk_baseline,
+            },
+        );
     }
 
     let chapters: Vec<ProbeChapter> = document

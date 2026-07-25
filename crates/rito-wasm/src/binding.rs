@@ -45,18 +45,28 @@ impl RitoWasmDocument {
     #[wasm_bindgen(js_name = setHostLineMetricsJson)]
     pub fn set_host_line_metrics_json(&self, entries_json: &str) -> Result<(), JsValue> {
         #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase")]
         struct Entry {
             family: String,
             size: f64,
             strut: f64,
             cjk: f64,
+            strut_baseline: f64,
+            cjk_baseline: f64,
         }
         let entries: Vec<Entry> = serde_json::from_str(entries_json)
             .map_err(|error| JsValue::from_str(&format!("host metrics parse: {error}")))?;
         for entry in entries {
-            self.inner
-                .document
-                .set_host_line_metric(&entry.family, entry.size, entry.strut, entry.cjk);
+            self.inner.document.set_host_line_metric(
+                &entry.family,
+                entry.size,
+                rito_inline::HostNormalLineMetric {
+                    strut: entry.strut,
+                    cjk: entry.cjk,
+                    strut_baseline: entry.strut_baseline,
+                    cjk_baseline: entry.cjk_baseline,
+                },
+            );
         }
         Ok(())
     }

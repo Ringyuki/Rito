@@ -16,7 +16,14 @@ import type { BrowserReaderWorkerClient } from './core-contracts';
  * next sync. The cache is module-level: pairs measured once serve every
  * document in the session, so a steady-state open paginates once.
  */
-const measuredCache = new Map<string, { strut: number; cjk: number }>();
+type MeasuredMetric = {
+  strut: number;
+  cjk: number;
+  strutBaseline: number;
+  cjkBaseline: number;
+};
+
+const measuredCache = new Map<string, MeasuredMetric>();
 
 const GENERIC_FAMILIES = new Set([
   'serif',
@@ -33,12 +40,7 @@ const cacheKey = (family: string, size: number) => `${family}@@${size.toFixed(3)
 export function cachedHostLineMetricEntries(): RitoCoreWasmHostLineMetric[] {
   return [...measuredCache.entries()].map(([key, metric]) => {
     const at = key.lastIndexOf('@@');
-    return {
-      family: key.slice(0, at),
-      size: Number(key.slice(at + 2)),
-      strut: metric.strut,
-      cjk: metric.cjk,
-    };
+    return { family: key.slice(0, at), size: Number(key.slice(at + 2)), ...metric };
   });
 }
 
@@ -81,17 +83,27 @@ async function measureBrowserHostLineMetrics(
         paragraph.style.cssText =
           `margin:0;padding:0;border:0;line-height:normal;` +
           `font-family:${cssFamilyList(request.family)};font-size:${String(request.size)}px;`;
-        paragraph.textContent = probe;
+        // A zero-sized inline-block sits on the baseline, so its top is
+        // the baseline offset from the line box top.
+        paragraph.innerHTML = `${probe}<span style="display:inline-block;width:0;height:0"></span>`;
         host.appendChild(paragraph);
-        return paragraph.getBoundingClientRect().height;
+        const box = paragraph.getBoundingClientRect();
+        const marker = paragraph.querySelector('span')?.getBoundingClientRect();
+        return { height: box.height, baseline: (marker?.top ?? box.top) - box.top };
       };
       // 'x' sizes the plain strut (identical to an empty line's height);
       // one CJK glyph sizes the lifted line. Mirrors the engine's
       // per-line two-level rule.
-      const strut = measure('x');
-      const cjk = measure('试');
-      measuredCache.set(cacheKey(request.family, request.size), { strut, cjk });
-      return { family: request.family, size: request.size, strut, cjk };
+      const plain = measure('x');
+      const lifted = measure('试');
+      const metric = {
+        strut: plain.height,
+        cjk: lifted.height,
+        strutBaseline: plain.baseline,
+        cjkBaseline: lifted.baseline,
+      };
+      measuredCache.set(cacheKey(request.family, request.size), metric);
+      return { family: request.family, size: request.size, ...metric };
     });
   } finally {
     host.remove();

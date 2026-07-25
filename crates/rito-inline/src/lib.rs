@@ -66,13 +66,22 @@ pub struct ParleyInlineContext {
     host_metric_requests: RefCell<std::collections::BTreeSet<(String, u64)>>,
 }
 
-/// Host-measured `line-height: normal` heights for one (font, size).
+/// Host-measured `line-height: normal` geometry for one (font, size).
+///
+/// Heights and baselines both come from the host: its font scaler
+/// grid-fits ascent and descent to integers per size, and the split of a
+/// CJK line's extra height above and below the baseline follows no
+/// formula derivable from the font tables.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HostNormalLineMetric {
     /// Line height of a line with no CJK glyphs (also the empty-line strut).
     pub strut: f64,
     /// Line height of a line containing at least one CJK glyph.
     pub cjk: f64,
+    /// Baseline offset from the line box top, no-CJK case.
+    pub strut_baseline: f64,
+    /// Baseline offset from the line box top, CJK case.
+    pub cjk_baseline: f64,
 }
 
 /// Quantizes a font size to a stable host-metric key (millipixels).
@@ -187,14 +196,23 @@ impl ParleyInlineContext {
             .collect()
     }
 
-    /// Host normal-line height for a (style, CJK-content) pair, recording
-    /// a measurement request on a miss so the host can fill it in.
-    fn host_normal_height(&self, style: &InlineFormattingStyleV1, has_cjk: bool) -> Option<f64> {
+    /// Host normal-line height and baseline for a (style, CJK-content)
+    /// pair, recording a measurement request on a miss so the host can
+    /// fill it in.
+    fn host_normal_line(
+        &self,
+        style: &InlineFormattingStyleV1,
+        has_cjk: bool,
+    ) -> Option<(f64, f64)> {
         let family = host_family_key(style);
         let size = f64::from(style.font.size.get());
         let key = (family, host_size_key(size));
         if let Some(metric) = self.host_line_metrics.borrow().get(&key) {
-            return Some(if has_cjk { metric.cjk } else { metric.strut });
+            return Some(if has_cjk {
+                (metric.cjk, metric.cjk_baseline)
+            } else {
+                (metric.strut, metric.strut_baseline)
+            });
         }
         self.host_metric_requests.borrow_mut().insert(key);
         None
@@ -272,7 +290,7 @@ impl ParleyInlineContext {
             LineHeight::Normal => {
                 // The host's measured strut is authoritative; the shaped
                 // fallback only covers hosts that never inject metrics.
-                if let Some(host) = self.host_normal_height(style, false) {
+                if let Some((host, _)) = self.host_normal_line(style, false) {
                     return Ok(Some(host));
                 }
                 if let Some(cached) = self.normal_strut_cache.borrow().get(&style_id.raw()) {
@@ -536,9 +554,12 @@ impl FormattingContext for ParleyInlineContext {
         // Per item: a declared line-height resolves to a fixed height; a
         // `normal` item defers to host-measured metrics chosen per line by
         // CJK content. Indexed like `item_text_ranges`.
-        enum ItemLineHeight {
-            Declared(f64),
-            Normal(rito_style_contract::StyleId),
+        /// One text item's line-height inputs: the style whose host
+        /// metrics size its content area, and its declared line-height
+        /// when it has one (`None` for `normal`).
+        struct ItemLineHeight {
+            style: rito_style_contract::StyleId,
+            declared: Option<f64>,
         }
         let style_tables = tree.styles();
         let flow_text: String = match &tree.node(root).content {
@@ -557,14 +578,15 @@ impl FormattingContext for ParleyInlineContext {
                 .map(|item| match item {
                     InlineItem::Text { style, .. } => {
                         let resolved = style_tables?.inline.style(*style).ok()?;
-                        Some(match resolved.font.line_height {
-                            LineHeight::Number(number) => ItemLineHeight::Declared(
-                                f64::from(number.get()) * f64::from(resolved.font.size.get()),
-                            ),
-                            LineHeight::Length(px) => {
-                                ItemLineHeight::Declared(f64::from(px.get()))
-                            }
-                            LineHeight::Normal => ItemLineHeight::Normal(*style),
+                        Some(ItemLineHeight {
+                            style: *style,
+                            declared: match resolved.font.line_height {
+                                LineHeight::Number(number) => Some(
+                                    f64::from(number.get()) * f64::from(resolved.font.size.get()),
+                                ),
+                                LineHeight::Length(px) => Some(f64::from(px.get())),
+                                LineHeight::Normal => None,
+                            },
                         })
                     }
                     InlineItem::Image { .. } => None,
@@ -700,41 +722,50 @@ impl FormattingContext for ParleyInlineContext {
                         None => (start, end),
                     })
                 });
-            let host_line_height = line_text_range.and_then(|(start, end)| {
-                let mut max_declared = 0.0_f64;
-                let mut normal_style: Option<(f64, rito_style_contract::StyleId)> = None;
+            // Host font metrics for this line: the content height
+            // (ascent + descent) and ascent the host's scaler grid-fits
+            // for the line's dominant style, in the script case the line
+            // falls into. Both `normal` and declared line-heights derive
+            // from this pair, exactly as CSS computes leading.
+            // The line's dominant style (largest font) and the tallest
+            // declared line-height among the runs on it.
+            let mut line_declared_height: Option<f64> = None;
+            let host_line = line_text_range.and_then(|(start, end)| {
+                let mut dominant: Option<(f64, rito_style_contract::StyleId)> = None;
                 for (index, range) in item_text_ranges.iter().enumerate() {
                     if range.start >= end || start >= range.end {
                         continue;
                     }
-                    match item_line_heights.get(index) {
-                        Some(Some(ItemLineHeight::Declared(height))) => {
-                            max_declared = max_declared.max(*height);
-                        }
-                        Some(Some(ItemLineHeight::Normal(style_id))) => {
-                            let size = style_tables
-                                .and_then(|tables| tables.inline.style(*style_id).ok())
-                                .map(|resolved| f64::from(resolved.font.size.get()))
-                                .unwrap_or(0.0);
-                            if normal_style.is_none_or(|(best, _)| size > best) {
-                                normal_style = Some((size, *style_id));
-                            }
-                        }
-                        _ => {}
+                    let Some(Some(item)) = item_line_heights.get(index) else {
+                        continue;
+                    };
+                    if let Some(declared) = item.declared {
+                        line_declared_height =
+                            Some(line_declared_height.map_or(declared, |best: f64| best.max(declared)));
+                    }
+                    let size = style_tables
+                        .and_then(|tables| tables.inline.style(item.style).ok())
+                        .map(|resolved| f64::from(resolved.font.size.get()))
+                        .unwrap_or(0.0);
+                    if dominant.is_none_or(|(best, _)| size > best) {
+                        dominant = Some((size, item.style));
                     }
                 }
-                let (_, style_id) = normal_style?;
+                let (_, style_id) = dominant?;
                 let resolved = style_tables?.inline.style(style_id).ok()?;
                 let has_cjk = flow_text
                     .get(start..end)
                     .is_some_and(|slice| slice.chars().any(is_cjk_line_char));
-                let host = self.host_normal_height(resolved, has_cjk)?;
-                Some(host.max(max_declared))
+                // Heights and baselines the host measured are exactly
+                // (ascent + descent) and ascent for that script case.
+                self.host_normal_line(resolved, has_cjk)
             });
             let base_height = if has_inline_box {
                 let envelope = f64::from(metrics.ascent) + f64::from(metrics.descent);
                 envelope.max(strut_height.unwrap_or(0.0))
-            } else if let Some(host) = host_line_height {
+            } else if let Some(declared) = line_declared_height {
+                declared.max(strut_height.unwrap_or(0.0))
+            } else if let Some((host, _)) = host_line {
                 host.max(strut_height.unwrap_or(0.0))
             } else if children.is_empty() {
                 // An empty line (a forced break with no content) is sized
@@ -748,9 +779,27 @@ impl FormattingContext for ParleyInlineContext {
             };
             let line_height = base_height + max_rise;
             running_top += line_height;
-            let half_leading =
-                (base_height - f64::from(metrics.ascent) - f64::from(metrics.descent)) / 2.0;
-            let baseline = max_rise + half_leading + f64::from(metrics.ascent);
+            // The host's measured baseline wins whenever its metric sized
+            // the line: where the baseline sits inside a `normal` line is
+            // grid-fitted by the host's scaler, not derivable from the
+            // shaped ascent. Shaped half-leading covers every other line.
+            // CSS leading, over host-fitted metrics: half the difference
+            // between the line box and the content area sits above the
+            // baseline. The host floors that half-leading (its scaler
+            // works in whole pixels), which is what places glyphs on the
+            // same rows the reference browser uses.
+            let baseline = match host_line {
+                Some((content_height, ascent)) => {
+                    max_rise + ((base_height - content_height) / 2.0).floor() + ascent
+                }
+                None => {
+                    let half_leading = (base_height
+                        - f64::from(metrics.ascent)
+                        - f64::from(metrics.descent))
+                        / 2.0;
+                    max_rise + half_leading + f64::from(metrics.ascent)
+                }
+            };
             let children: Vec<Fragment> = children
                 .into_iter()
                 .map(|(mut fragment, shift)| {

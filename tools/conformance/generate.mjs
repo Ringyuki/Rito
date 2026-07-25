@@ -263,19 +263,29 @@ const hostMetrics = await page.evaluate(
   (sizes) => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-    const measure = (size, html) => {
+    const measure = (size, probe) => {
       const p = document.createElement('p');
       p.setAttribute('style', `margin:0;font-size:${size}px;`);
-      p.innerHTML = html;
+      // The zero-sized inline-block sits on the baseline, so its top is
+      // the baseline offset from the line box top.
+      p.innerHTML = `${probe}<span style="display:inline-block;width:0;height:0"></span>`;
       host.appendChild(p);
-      return p.getBoundingClientRect().height;
+      const box = p.getBoundingClientRect();
+      const marker = p.querySelector('span').getBoundingClientRect();
+      return { height: box.height, baseline: marker.top - box.top };
     };
-    return sizes.map((size) => ({
-      family: '__conf',
-      size,
-      strut: measure(size, 'x'),
-      cjk: measure(size, '试'),
-    }));
+    return sizes.map((size) => {
+      const plain = measure(size, 'x');
+      const lifted = measure(size, '试');
+      return {
+        family: '__conf',
+        size,
+        strut: plain.height,
+        cjk: lifted.height,
+        strutBaseline: plain.baseline,
+        cjkBaseline: lifted.baseline,
+      };
+    });
   },
   [12.8, 16, 19.2],
 );

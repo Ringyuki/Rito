@@ -309,10 +309,15 @@ impl RuntimeDocument {
     /// the fragment engine (see `rito_inline::HostNormalLineMetric`).
     /// The host measures with its own text stack; the engine treats the
     /// values as authoritative for normal-line heights.
-    pub fn set_host_line_metric(&self, family_key: &str, size: f64, strut: f64, cjk: f64) {
+    pub fn set_host_line_metric(
+        &self,
+        family_key: &str,
+        size: f64,
+        metric: rito_inline::HostNormalLineMetric,
+    ) {
         self.pending_host_line_metrics
             .borrow_mut()
-            .push((family_key.to_owned(), size, strut, cjk));
+            .push((family_key.to_owned(), size, metric));
         // Never force engine initialization here: the engine builds
         // lazily from resolved @font-face sources, and forcing it before
         // a revision resolved them would cache a font-less engine.
@@ -326,16 +331,11 @@ impl RuntimeDocument {
             return;
         };
         let pending = self.pending_host_line_metrics.borrow();
-        for (family, size, strut, cjk) in pending.iter().skip(self.applied_host_line_metrics.get())
-        {
-            engine.engine.inline().set_host_line_metric(
-                family,
-                *size,
-                rito_inline::HostNormalLineMetric {
-                    strut: *strut,
-                    cjk: *cjk,
-                },
-            );
+        for (family, size, metric) in pending.iter().skip(self.applied_host_line_metrics.get()) {
+            engine
+                .engine
+                .inline()
+                .set_host_line_metric(family, *size, *metric);
         }
         self.applied_host_line_metrics.set(pending.len());
     }

@@ -50,6 +50,10 @@ export interface RitoCoreWasmHostLineMetric {
   readonly strut: number;
   /** Line height of a line containing at least one CJK glyph. */
   readonly cjk: number;
+  /** Baseline offset from the line box top, no-CJK case. */
+  readonly strutBaseline: number;
+  /** Baseline offset from the line box top, CJK case. */
+  readonly cjkBaseline: number;
 }
 
 export interface RitoCoreWasmReaderWorkerClient
