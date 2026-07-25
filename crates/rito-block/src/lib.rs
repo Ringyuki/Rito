@@ -403,10 +403,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
 
             // A margin that meets an unforced break is truncated to zero,
             // so a resumed child starts flush at the fragmentainer top.
-            // At a collapsing root edge the first child's top margin
-            // escapes the container (a plain block box in CSS), so content
-            // starts flush at the top exactly like a browser chapter body.
-            let gap = if child_resumed || (collapse_root_edges && index == start_child) {
+            // A first child's escaping top margin is folded onto its
+            // container by the bridge, which is where the CSS cascade of
+            // adjoining margins belongs; whatever the fold could not
+            // resolve there (a percentage has no basis until layout) is
+            // still a real margin and is applied here, as a browser does.
+            let gap = if child_resumed {
                 0.0
             } else {
                 collapse_margins(pending_margin, top_margin)
