@@ -46,15 +46,29 @@ const manifest = new Map(
   [...opf.matchAll(/<item\b[^>]*>/g)].flatMap((match) => {
     const id = /\bid="([^"]+)"/.exec(match[0])?.[1];
     const href = /\bhref="([^"]+)"/.exec(match[0])?.[1];
-    return id && href ? [[id, decodeURIComponent(href)]] : [];
+    const mediaType = /\bmedia-type="([^"]+)"/.exec(match[0])?.[1] ?? '';
+    return id && href ? [[id, { href: decodeURIComponent(href), mediaType }]] : [];
   }),
 );
+// Content documents are what the manifest says they are. Selecting by file
+// extension instead drops every book whose chapters are named without one
+// (or with `.html5`, or with a fragment), and a book with no chapters
+// scores zero without naming a single defect.
+const CONTENT_TYPES = new Set(['application/xhtml+xml', 'text/html', 'application/xhtml']);
 const spine = [...opf.matchAll(/<itemref\b[^>]*idref="([^"]+)"[^>]*>/g)]
-  .map((match) => manifest.get(match[1]))
-  .filter((href) => href !== undefined && /\.x?html?$/i.test(href));
+  .map((match) => ({ id: match[1], ...manifest.get(match[1]) }))
+  .filter(
+    (item) =>
+      item.href !== undefined &&
+      (CONTENT_TYPES.has(item.mediaType) || /\.x?html?$/i.test(item.href)),
+  );
 
 const opfDir = path.dirname(opfPath);
-const chapters = spine.map((href) => ({ href, file: path.join(opfDir, href) }));
+const chapters = spine.map((item) => ({
+  id: item.id,
+  href: item.href,
+  file: path.join(opfDir, item.href),
+}));
 
 // ---- Stamp ids, then record Chromium truth on the stamped documents -----
 
@@ -317,7 +331,11 @@ const engineByChapter = new Map(engineChapters.map((c) => [chapterKey(c.idref), 
 const perChapter = [];
 const offenders = [];
 for (const chapter of chapters) {
-  const engine = engineByChapter.get(chapterKey(chapter.href));
+  // The engine names a chapter by its OPF manifest id, which is only
+  // sometimes the file name; try both rather than scoring a whole book
+  // "no dump" because the two conventions differ.
+  const engine =
+    engineByChapter.get(chapterKey(chapter.id)) ?? engineByChapter.get(chapterKey(chapter.href));
   const truthBoxes = truth[chapter.href] ?? {};
   const stats = { chapter: chapter.href, boxes: 0, matched: 0, within: 0, missing: 0, maxDelta: 0 };
   if (!engine || engine.error) {
