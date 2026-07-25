@@ -1013,6 +1013,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // preferred size; the other cells in the column wrap to it rather
         // than widening the column with their own content maximum.
         let mut specified_widths = vec![None::<f64>; column_count];
+        let mut column_percentages = vec![None::<f64>; column_count];
         for row in &grid {
             for cell in row {
                 let sizes = self.cell_intrinsic_sizes(tree, cell.node)?;
@@ -1027,6 +1028,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             specified_widths[column].map_or(share, |best: f64| best.max(share)),
                         );
                     }
+                    if let Some(percentage) = sizes.percentage {
+                        column_percentages[column] = Some(
+                            column_percentages[column]
+                                .map_or(percentage, |best: f64| best.max(percentage)),
+                        );
+                    }
                 }
             }
         }
@@ -1035,30 +1042,75 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 max_widths[column] = specified.max(min_widths[column]);
             }
         }
+        let table_style = container_layout_style(tree, table)?;
+        let (spacing_x, spacing_y) = (
+            f64::from(table_style.border_spacing.0.get()),
+            f64::from(table_style.border_spacing.1.get()),
+        );
+        let spacing_total = spacing_x * (column_count as f64 + 1.0);
+        let content_available = (available_width - spacing_total).max(0.0);
         let sum_min: f64 = min_widths.iter().sum();
         let sum_max: f64 = max_widths.iter().sum();
-        let columns: Vec<f64> = if sum_max <= available_width {
+        let mut columns: Vec<f64> = if sum_max <= content_available {
             max_widths.clone()
-        } else if sum_min >= available_width {
+        } else if sum_min >= content_available {
             // Overflow: columns keep their minimums, like a browser table
             // wider than its containing block.
             min_widths.clone()
         } else {
-            let scale = (available_width - sum_min) / (sum_max - sum_min).max(f64::EPSILON);
+            let scale = (content_available - sum_min) / (sum_max - sum_min).max(f64::EPSILON);
             min_widths
                 .iter()
                 .zip(&max_widths)
                 .map(|(min, max)| min + (max - min) * scale)
                 .collect()
         };
+        // A percentage column asks for a share of the table itself, so it
+        // sizes the table rather than being sized by it: the table grows
+        // until the column's content fits inside its share, bounded by the
+        // space available. The remaining columns then split what is left.
+        if column_percentages.iter().any(Option::is_some) {
+            let mut demanded: f64 = columns.iter().sum();
+            for (column, percentage) in column_percentages.iter().enumerate() {
+                if let Some(percentage) = percentage {
+                    demanded = demanded.max(max_widths[column] / percentage);
+                }
+            }
+            let content_width = demanded.min(content_available).max(sum_min);
+            let mut leftover = content_width;
+            for (column, percentage) in column_percentages.iter().enumerate() {
+                if let Some(percentage) = percentage {
+                    columns[column] = (percentage * content_width).max(min_widths[column]);
+                    leftover -= columns[column];
+                }
+            }
+            let plain: Vec<usize> = (0..column_count)
+                .filter(|column| column_percentages[*column].is_none())
+                .collect();
+            if plain.is_empty() {
+                // Nothing else to absorb the table's width: the percentage
+                // columns share it in proportion to their own demand.
+                let total: f64 = columns.iter().sum();
+                if total > 0.0 {
+                    for width in columns.iter_mut() {
+                        *width += leftover * (*width / total);
+                    }
+                }
+            } else if leftover > 0.0 {
+                let total: f64 = plain.iter().map(|column| max_widths[*column]).sum();
+                for column in plain {
+                    let share = if total > 0.0 {
+                        max_widths[column] / total
+                    } else {
+                        1.0 / column_count as f64
+                    };
+                    columns[column] = leftover * share;
+                }
+            }
+        }
         // Separate-borders spacing sits between every pair of cells and
         // around the grid, so a column's offset carries one gap per
         // preceding column plus the leading edge.
-        let table_style = container_layout_style(tree, table)?;
-        let (spacing_x, spacing_y) = (
-            f64::from(table_style.border_spacing.0.get()),
-            f64::from(table_style.border_spacing.1.get()),
-        );
         let mut offsets = vec![0.0_f64; column_count + 1];
         offsets[0] = spacing_x;
         for index in 0..column_count {
@@ -1167,9 +1219,17 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // algorithm has not established yet; only definite lengths take
         // part here, and content sizing covers the rest.
         let mut specified = None;
+        let mut percentage = None;
         if let rito_style_contract::PreferredSizeV1::Value(width) = style.width {
-            if let LengthPercentage::Length(px) = width.value() {
-                specified = Some(f64::from(px.get()) + padding);
+            match width.value() {
+                LengthPercentage::Length(px) => specified = Some(f64::from(px.get()) + padding),
+                LengthPercentage::Percentage(ratio) => {
+                    let ratio = f64::from(ratio.ratio());
+                    if ratio > 0.0 {
+                        percentage = Some(ratio);
+                    }
+                }
+                LengthPercentage::Linear { .. } => {}
             }
         }
         sizes.min_content += padding;
@@ -1178,6 +1238,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             min_content: sizes.min_content,
             max_content: sizes.max_content,
             specified,
+            percentage,
         })
     }
 }
@@ -1264,6 +1325,28 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     let child_sizes = self.intrinsic_inline_sizes(tree, *child)?;
                     sizes.min_content = sizes.min_content.max(child_sizes.min_content);
                     sizes.max_content = sizes.max_content.max(child_sizes.max_content);
+                }
+                // A definite width makes the box that wide whatever its
+                // content asks for, so that is what it contributes to an
+                // ancestor sizing itself around it.
+                let style = container_layout_style(tree, node)?;
+                if let rito_style_contract::PreferredSizeV1::Value(width) = style.width {
+                    if let LengthPercentage::Length(px) = width.value() {
+                        let pad = |side: rito_style_contract::NonNegativeLengthPercentage| {
+                            match side.value() {
+                                LengthPercentage::Length(px) => f64::from(px.get()),
+                                _ => 0.0,
+                            }
+                        };
+                        let outer = match style.box_sizing {
+                            BoxSizingV1::ContentBox => {
+                                f64::from(px.get()) + pad(style.padding.left) + pad(style.padding.right)
+                            }
+                            BoxSizingV1::BorderBox => f64::from(px.get()),
+                        };
+                        sizes.min_content = sizes.min_content.max(outer);
+                        sizes.max_content = sizes.max_content.max(outer);
+                    }
                 }
                 Ok(sizes)
             }
@@ -1692,6 +1775,9 @@ struct CellIntrinsicSizes {
     min_content: f64,
     max_content: f64,
     specified: Option<f64>,
+    /// A percentage `width`, as a ratio. It constrains the table itself:
+    /// the column must end up at least this share of the table's width.
+    percentage: Option<f64>,
 }
 
 /// Inline offset for a shrink-to-fit box (a table) inside its containing
