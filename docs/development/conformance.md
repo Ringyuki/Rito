@@ -40,6 +40,28 @@ self-referential:
   deterministic; Chromium truth is re-recorded only deliberately (a
   Chromium upgrade is a truth change and gets its own commit).
 
+## Table column sizing: use the published algorithm
+
+Column widths follow CSS Tables 3 §3.9 (what Blink implements): an
+assignable width from the grid's constraints — including that a
+percentage column's share leaves the rest to fit in `M / (1 - T%)`,
+bounded by the space available — then distribution through four guesses
+(every column at its minimum, percentage columns at their share,
+authored widths, content maxima), settling between the two guesses that
+bracket the assignable width.
+
+Three reverse-engineered variants were tried and reverted before reading
+the algorithm; each fixed one case family and broke the other. When an
+engine behaviour has a published algorithm, read it first — sampling the
+reference browser only shows what a rule produces, never the rule.
+
+The algorithm is implemented but not landed: driven by the engine's
+current column min/max it scores worse than the ad-hoc distribution it
+would replace (tables 85.5% → 73.8%, table-percent 25.9% → 81.2%), which
+says the inputs are wrong, not the algorithm. Next step is to verify each
+column's min-content and max-content against the browser's own before
+switching the distribution over.
+
 ## Current baseline (2026-07-24, first run, seed 20260724)
 
 | cluster         | within 0.5px | max delta | notes                            |
