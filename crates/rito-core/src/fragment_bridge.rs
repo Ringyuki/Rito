@@ -1432,6 +1432,36 @@ fn block_box_paint(
             },
         }))
     });
+    // Corner radii round the background, the border stroke, and the clip
+    // the box paints inside. The render protocol carries one radius, so a
+    // box whose corners disagree reports the mismatch instead of silently
+    // rounding them all alike.
+    let radii = style.fragment.border_radii;
+    let corners = [
+        radii.top_left,
+        radii.top_right,
+        radii.bottom_right,
+        radii.bottom_left,
+    ];
+    let uniform = corners
+        .iter()
+        .all(|corner| *corner == radii.top_left && corner.horizontal == corner.vertical);
+    let radius = match radii.top_left.horizontal.value() {
+        c::LengthPercentage::Length(px) if px.get() > 0.0 => {
+            Some(serde_json::json!({ "px": f64::from(px.get()) }))
+        }
+        c::LengthPercentage::Percentage(ratio) if ratio.percent() > 0.0 => {
+            Some(serde_json::json!({ "pct": f64::from(ratio.percent()) }))
+        }
+        c::LengthPercentage::Linear { length, .. } => {
+            degradations.push("calc() border-radius: percentage component dropped".to_owned());
+            Some(serde_json::json!({ "px": f64::from(length.get()) }))
+        }
+        _ => None,
+    };
+    if radius.is_some() && !uniform {
+        degradations.push("border-radius corners differ; the first corner applies".to_owned());
+    }
     if background.is_none() && background_image.is_none() && border.is_empty() {
         return (None, degradations);
     }
@@ -1448,6 +1478,9 @@ fn block_box_paint(
     }
     if !border.is_empty() {
         paint.insert("border".to_owned(), Value::Object(border));
+    }
+    if let Some(radius) = radius {
+        paint.insert("radius".to_owned(), radius);
     }
     (
         Some((
