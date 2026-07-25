@@ -119,7 +119,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // the deepest bottom on each side, in flow coordinates. A float
         // that a fragmentainer edge splits records a pending break and
         // resumes in its own band at the top of the next fragmentainer.
-        let mut floats = FloatBands::new();
+        // An incoming band is an ancestor's float still excluding content
+        // at this container's origin: its own floats stack beside it.
+        let mut floats = FloatBands::from_incoming(space.float_band);
+        // Floats this container placed, reported outward when it is not a
+        // formatting-context root: CSS keeps them excluding content in the
+        // ancestor root, not at this box's edge.
+        let mut placed_floats: Vec<rito_fragment::EscapedFloat> = Vec::new();
         let mut pending_float_breaks: Vec<FloatBreak> = Vec::new();
         if let Some(token) = token {
             // Only depth-0 floats belong to this container; deeper ones
@@ -255,6 +261,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         y,
                         content_width,
                     );
+                    placed_floats.push(rito_fragment::EscapedFloat {
+                        right_side: matches!(child_style.float, FloatV1::Right),
+                        width: occupy_width,
+                        top: fy,
+                        bottom: fy + occupy_height,
+                    });
                     fragments.push(Fragment::Box(BoxFragment {
                         source: *child_id,
                         rect: FragmentRect {
@@ -495,7 +507,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     return Ok(LayoutOutcome {
                         fragments: sealed(container, space.inline_size, y, fragments),
                         continuation,
-                    });
+                escaped_floats: Vec::new(),
+});
                 }
                 FormattingNodeContent::InlineFlow { .. } => {
                     let child_style = container_layout_style(tree, *child_id)?;
@@ -654,7 +667,14 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         inline_size: hbox.border_width,
                         fragmentainer_remaining: space.fragmentainer_remaining.map(|_| available),
                         fragmentainer_size: space.fragmentainer_size,
-                        float_band: None,
+                        // Floats active here keep excluding inside the
+                        // child unless the child is its own formatting
+                        // root, so its own floats stack beside them.
+                        float_band: if is_flow_root(child_style) {
+                            None
+                        } else {
+                            floats.band_at(y + gap, content_width)
+                        },
                     };
                     let outcome = self.layout_container(
                         tree,
@@ -673,6 +693,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         y += gap;
                         remaining -= gap;
                         let child_height = child_root.rect.height;
+                        let child_top = y;
                         fragments.push(Fragment::Box(BoxFragment {
                             source: *child_id,
                             rect: FragmentRect {
@@ -685,6 +706,18 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         }));
                         y += child_height;
                         remaining -= child_height;
+                        // Floats the child could not contain keep excluding
+                        // content here, translated into this container's
+                        // coordinates.
+                        for escaped in outcome.escaped_floats {
+                            let adopted = rito_fragment::EscapedFloat {
+                                top: escaped.top + child_top,
+                                bottom: escaped.bottom + child_top,
+                                ..escaped
+                            };
+                            floats.adopt(adopted, content_width);
+                            placed_floats.push(adopted);
+                        }
                     }
                     match outcome.continuation {
                         None => {
@@ -722,9 +755,19 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 }
             }
         }
-        // The container is a flow root here: it contains its floats, so
-        // its final height reaches the deepest float bottom.
-        y = seal_height(y, &floats);
+        // Only a formatting-context root contains its floats: its height
+        // reaches the deepest float bottom, and nothing escapes. Anywhere
+        // else the floats overflow the box and travel outward, exactly as
+        // CSS keeps them in the nearest ancestor root.
+        let escaped_floats = if is_flow_root(container_style) || collapse_root_edges {
+            y = seal_height(y, &floats);
+            Vec::new()
+        } else {
+            placed_floats
+                .into_iter()
+                .filter(|float| float.bottom > y + 1e-6)
+                .collect()
+        };
         // At a collapsing root edge the last child's bottom margin escapes
         // the container, like a browser chapter body. Nested containers keep
         // it inside their height (formatting-context-root semantics until
@@ -761,6 +804,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         Ok(LayoutOutcome {
             fragments: sealed(container, space.inline_size, y, fragments),
             continuation,
+            escaped_floats,
         })
     }
 
@@ -1165,6 +1209,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                         root: Fragment::Box(fragment),
                     },
                     continuation: None,
+                    escaped_floats: Vec::new(),
                 })
             }
             FormattingNodeContent::TableRow | FormattingNodeContent::TableCell { .. } => Err(
@@ -1306,6 +1351,18 @@ fn resume_point(
     }
 }
 
+/// Whether a container establishes a formatting context, which is what
+/// makes it contain its own floats. Floats and non-visible overflow do it
+/// in CSS, as does `display: flow-root`.
+fn is_flow_root(style: &LayoutFormattingStyleV1) -> bool {
+    style.float != FloatV1::None
+        || style.overflow != rito_style_contract::OverflowV1::Visible
+        || matches!(
+            style.display.inside,
+            rito_style_contract::LayoutDisplayInsideV1::FlowRoot
+        )
+}
+
 /// A container's sealed height: the flow position or the deepest float
 /// bottom, whichever is lower (the container is a flow root and contains
 /// its floats).
@@ -1346,6 +1403,37 @@ impl FloatBands {
 
     fn has_active(&self, flow_y: f64) -> bool {
         self.left_bottom > flow_y || self.right_bottom > flow_y
+    }
+
+    /// Seeds the bands with an ancestor's exclusion at this container's
+    /// origin, so floats placed here stack beside it instead of on top.
+    fn from_incoming(band: Option<rito_fragment::FloatBand>) -> Self {
+        let mut bands = Self::new();
+        if let Some(band) = band {
+            bands.left_occupied = band.left_inset;
+            bands.right_occupied = band.right_inset;
+            if band.left_inset > 0.0 {
+                bands.left_bottom = band.bottom;
+            }
+            if band.right_inset > 0.0 {
+                bands.right_bottom = band.bottom;
+            }
+        }
+        bands
+    }
+
+    /// Registers a float that escaped a descendant container so it keeps
+    /// excluding content in this one.
+    fn adopt(&mut self, float: rito_fragment::EscapedFloat, content_width: f64) {
+        let _ = content_width;
+        if float.right_side {
+            self.right_occupied = self.right_occupied.max(float.width);
+            self.right_bottom = self.right_bottom.max(float.bottom);
+        } else {
+            self.left_occupied = self.left_occupied.max(float.width);
+            self.left_bottom = self.left_bottom.max(float.bottom);
+        }
+        self.band_top = self.band_top.max(float.top);
     }
 
     /// The exclusion an in-flow paragraph starting at `flow_y` sees: how
@@ -1746,6 +1834,7 @@ fn sealed_with_break(
     LayoutOutcome {
         fragments: sealed(container, inline_size, used_block_size, fragments),
         continuation: Some(token),
+        escaped_floats: Vec::new(),
     }
 }
 
@@ -1914,6 +2003,7 @@ mod tests {
                     }),
                 },
                 continuation: None,
+                escaped_floats: Vec::new(),
             })
         }
 

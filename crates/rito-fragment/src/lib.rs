@@ -24,6 +24,7 @@ pub use break_token::{BreakToken, BreakTokenStage, FloatBreak};
 pub use cache::{CachedLayout, FragmentCache};
 pub use constraint_space::{ConstraintSpace, FloatBand};
 pub use context::{
+    EscapedFloat,
     CancelFlag, FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
 };
 pub use formatting_tree::{

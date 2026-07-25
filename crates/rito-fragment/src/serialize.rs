@@ -55,6 +55,7 @@ pub fn decode_layout_outcome(bytes: &[u8]) -> Result<LayoutOutcome, String> {
     Ok(LayoutOutcome {
         fragments: FragmentTree { root },
         continuation,
+        escaped_floats: Vec::new(),
     })
 }
 
@@ -387,6 +388,7 @@ mod tests {
                 }),
             },
             continuation: None,
+            escaped_floats: Vec::new(),
         }
     }
 

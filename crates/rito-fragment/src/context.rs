@@ -13,6 +13,25 @@ pub struct LayoutOutcome {
     pub fragments: FragmentTree,
     /// Where to resume, or `None` when the content is exhausted.
     pub continuation: Option<BreakToken>,
+    /// Floats this layout did not contain, in its own coordinates. Only a
+    /// formatting-context root contains its floats; anywhere else they
+    /// keep excluding content in the ancestor that does, which is why they
+    /// travel back out instead of ending at the container's edge.
+    pub escaped_floats: Vec<EscapedFloat>,
+}
+
+/// One float that escaped a non-root container, in that container's
+/// coordinate space.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EscapedFloat {
+    /// Whether the float occupies the line-left or line-right side.
+    pub right_side: bool,
+    /// Inline space the float withholds.
+    pub width: f64,
+    /// Block-axis top edge, relative to the container's origin.
+    pub top: f64,
+    /// Block-axis bottom edge, relative to the container's origin.
+    pub bottom: f64,
 }
 
 /// Why a layout invocation produced no outcome.

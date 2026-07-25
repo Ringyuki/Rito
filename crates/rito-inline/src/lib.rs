@@ -901,6 +901,7 @@ impl FormattingContext for ParleyInlineContext {
                 }),
             },
             continuation: None,
+            escaped_floats: Vec::new(),
         })
     }
 

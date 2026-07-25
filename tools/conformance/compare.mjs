@@ -21,6 +21,9 @@ const CERTIFIED = {
   // Certified 2026-07-24 at 100.0% / max 0.2px (host-injected normal
   // line metrics). Regressing below this fails the run.
   'vertical-rhythm': { minRate: 0.99, maxDelta: 0.5 },
+  // Certified 2026-07-25 at 100.0% / max 0.0px (line-box exclusion,
+  // float escape out of non-root containers, and inward stacking).
+  floats: { minRate: 0.99, maxDelta: 0.5 },
 };
 
 const { cases, truth, hostMetrics } = JSON.parse(
