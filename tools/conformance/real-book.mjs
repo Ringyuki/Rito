@@ -102,8 +102,16 @@ for (const chapter of chapters) {
       normalize.textContent =
         `@font-face { font-family: "__rito_serif"; src: url("${pinnedSerif}"); }\n` +
         `html { margin: 0; padding: 0; width: ${width}px; font-family: "__rito_serif"; }\n` +
-        `body { margin: 0; padding: 0; width: ${width}px; }`;
-      document.head.appendChild(normalize);
+        // No width on the body: it must shrink inside its own margins the
+        // way the engine's does. Pinning it to the flow width would push a
+        // book's `body { margin: 0 1% }` outside the box instead.
+        `body { margin: 0; padding: 0; }`;
+      // Inserted before the book's own stylesheets so it acts as a UA
+      // default the author can override: the engine's UA zeroes the body
+      // margin, but a book that sets `body { margin: 0% 1% }` must still
+      // get its 1% — appending this last would silently erase it and read
+      // as a ten-pixel engine defect on every paragraph.
+      document.head.insertBefore(normalize, document.head.firstChild);
       // The face has to be resolved before anything is measured: rects read
       // while it is still loading come from the browser's default font.
       await document.fonts.load('16px "__rito_serif"', '试');
