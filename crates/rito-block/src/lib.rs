@@ -1384,27 +1384,38 @@ fn own_width_contribution(
         return Ok(sizes);
     }
     let style = container_layout_style(tree, node)?;
-    let rito_style_contract::PreferredSizeV1::Value(width) = style.width else {
-        return Ok(sizes);
-    };
-    let LengthPercentage::Length(px) = width.value() else {
-        return Ok(sizes);
-    };
     let pad = |side: rito_style_contract::NonNegativeLengthPercentage| match side.value() {
         LengthPercentage::Length(px) => f64::from(px.get()),
         _ => 0.0,
     };
-    let outer = match style.box_sizing {
-        BoxSizingV1::ContentBox => {
-            f64::from(px.get()) + pad(style.padding.left) + pad(style.padding.right)
+    if let rito_style_contract::PreferredSizeV1::Value(width) = style.width {
+        if let LengthPercentage::Length(px) = width.value() {
+            let outer = match style.box_sizing {
+                BoxSizingV1::ContentBox => {
+                    f64::from(px.get()) + pad(style.padding.left) + pad(style.padding.right)
+                }
+                BoxSizingV1::BorderBox => f64::from(px.get()),
+            };
+            // A definite width fixes the box: it neither shrinks below nor
+            // grows beyond it, so both intrinsic contributions are that
+            // width however long its content runs.
+            sizes.min_content = outer;
+            sizes.max_content = outer;
         }
-        BoxSizingV1::BorderBox => f64::from(px.get()),
+    }
+    // What a box contributes to its container's intrinsic width is its
+    // margin box (css-sizing-3 §5.2), so horizontal margins count — a
+    // negative one included, which narrows the contribution. `auto`
+    // resolves to zero here: it has no width to give until layout runs.
+    let margin = |side: rito_style_contract::LengthPercentageOrAuto| match side {
+        rito_style_contract::LengthPercentageOrAuto::Value(LengthPercentage::Length(px)) => {
+            f64::from(px.get())
+        }
+        _ => 0.0,
     };
-    // A definite width fixes the box: it neither shrinks below nor grows
-    // beyond it, so both intrinsic contributions are that width however
-    // long its content runs.
-    sizes.min_content = outer;
-    sizes.max_content = outer;
+    let margins = margin(style.margin.left) + margin(style.margin.right);
+    sizes.min_content += margins;
+    sizes.max_content += margins;
     Ok(sizes)
 }
 
