@@ -268,9 +268,17 @@ fn align_items(
 /// cell can act on are distinguished; every other `vertical-align` value
 /// (sub/super/lengths, which belong to inline layout) aligns baselines.
 fn cell_vertical_align(styles: &ComputedValues) -> CellVerticalAlignV1 {
+    use style::values::computed::box_::AlignmentBaseline;
     use style::values::generics::box_::{BaselineShiftKeyword, GenericBaselineShift};
 
-    match styles.get_box().baseline_shift {
+    // `vertical-align` expands into three longhands, and its keywords land
+    // in different ones: `middle` is an alignment baseline, while
+    // `top`/`bottom` are baseline shifts.
+    let box_style = styles.get_box();
+    if matches!(box_style.alignment_baseline, AlignmentBaseline::Middle) {
+        return CellVerticalAlignV1::Middle;
+    }
+    match box_style.baseline_shift {
         GenericBaselineShift::Keyword(BaselineShiftKeyword::Top) => CellVerticalAlignV1::Top,
         GenericBaselineShift::Keyword(BaselineShiftKeyword::Center) => CellVerticalAlignV1::Middle,
         GenericBaselineShift::Keyword(BaselineShiftKeyword::Bottom) => CellVerticalAlignV1::Bottom,
