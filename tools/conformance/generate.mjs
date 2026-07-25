@@ -190,12 +190,43 @@ function marginBoxCase(rand) {
   return parts.join('\n');
 }
 
+/// Percentage table columns, with content widths pinned by fixed-width
+/// divs so the reference numbers determine the distribution rule instead
+/// of merely illustrating it.
+function tablePercentCase(rand) {
+  const layouts = [
+    [{ px: 100 }, { pct: 40 }],
+    [{ px: 100 }, { pct: 50 }],
+    [{ px: 200 }, { pct: 40 }],
+    [{ px: 100 }, { pct: 40 }, { px: 50 }],
+    [{ px: 100 }, { pct: 40 }, { pct: 30 }],
+    [{ pct: 40 }, { pct: 40 }],
+    [{ px: 60 }, { pct: 25 }, { px: 60 }],
+    [{ px: 300 }, { pct: 40 }],
+    [{ pct: 100 }, { px: 80 }],
+    [{ px: 100, wide: true }, { pct: 40 }],
+  ];
+  const layout = layouts[Math.floor(rand() * layouts.length)];
+  const cells = layout
+    .map((column) => {
+      const style = column.pct === undefined ? '' : `width:${column.pct}%;`;
+      const body =
+        column.px === undefined
+          ? text(rand, 2, 4)
+          : `<div style="width:${column.px}px;">${column.wide ? text(rand, 20, 30) : ''}</div>`;
+      return `<td id="${id()}" style="${style}">${body}</td>`;
+    })
+    .join('');
+  return `<table id="${id()}"><tr id="${id()}">${cells}</tr></table>`;
+}
+
 const CLUSTERS = [
   { name: 'vertical-rhythm', generate: verticalRhythmCase, cases: 40 },
   { name: 'tables', generate: tableCase, cases: 40 },
   { name: 'floats', generate: floatCase, cases: 30 },
   { name: 'margin-box', generate: marginBoxCase, cases: 30 },
   { name: 'images', generate: imageCase, cases: 30 },
+  { name: 'table-percent', generate: tablePercentCase, cases: 20 },
 ];
 
 /// Encodes a solid RGB PNG without external dependencies: raw deflate
