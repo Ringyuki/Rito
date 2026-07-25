@@ -40,7 +40,7 @@ colgroup { display: table-column-group; }
 tbody { display: table-row-group; vertical-align: middle; }
 thead { display: table-header-group; vertical-align: middle; }
 tfoot { display: table-footer-group; vertical-align: middle; }
-tr { display: table-row; vertical-align: inherit; }
+tr { display: table-row; vertical-align: middle; }
 td, th { display: table-cell; vertical-align: inherit; padding: 1px; }
 
 body { margin: 0; }

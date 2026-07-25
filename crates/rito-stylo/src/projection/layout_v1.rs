@@ -4,7 +4,8 @@ use rito_source::NodeId;
 use rito_style_contract::{
     AlignItemsV1, ClearV1, CssPx, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
     LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleId,
-    LayoutStyleTableError, LayoutStyleTableV1, LengthPercentage, LengthPercentageOrAuto,
+    CellVerticalAlignV1, LayoutStyleTableError, LayoutStyleTableV1, LengthPercentage,
+    LengthPercentageOrAuto,
     ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, NonNegativeCssPx,
     NonNegativeLengthPercentage, NumericError, OverflowV1, PageBreakV1, Percentage, PhysicalSides,
     PositionV1, PreferredSizeV1,
@@ -200,6 +201,7 @@ fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingSty
         list_style_type: list_style_type(styles.clone_list_style_type())?,
         position: position(styles.get_box().clone_position())?,
         inset: inset(styles)?,
+        vertical_align: cell_vertical_align(styles),
         border_spacing: {
             // Non-finite or negative separations cannot occur: the
             // registered custom property only accepts lengths, and the
@@ -259,6 +261,20 @@ fn align_items(
         Ok(AlignItemsV1::Center)
     } else {
         Err(unsupported(LayoutStyleFieldV1::AlignItems))
+    }
+}
+
+/// The row-box alignment a table cell asks for. Only the keywords a table
+/// cell can act on are distinguished; every other `vertical-align` value
+/// (sub/super/lengths, which belong to inline layout) aligns baselines.
+fn cell_vertical_align(styles: &ComputedValues) -> CellVerticalAlignV1 {
+    use style::values::generics::box_::{BaselineShiftKeyword, GenericBaselineShift};
+
+    match styles.get_box().baseline_shift {
+        GenericBaselineShift::Keyword(BaselineShiftKeyword::Top) => CellVerticalAlignV1::Top,
+        GenericBaselineShift::Keyword(BaselineShiftKeyword::Center) => CellVerticalAlignV1::Middle,
+        GenericBaselineShift::Keyword(BaselineShiftKeyword::Bottom) => CellVerticalAlignV1::Bottom,
+        _ => CellVerticalAlignV1::Baseline,
     }
 }
 

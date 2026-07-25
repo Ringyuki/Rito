@@ -2217,6 +2217,7 @@ fn anonymous_block_style() -> LayoutFormattingStyleV1 {
             bottom: LengthPercentageOrAuto::Auto,
             left: LengthPercentageOrAuto::Auto,
         },
+        vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
         border_spacing: (
             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),

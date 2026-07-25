@@ -2197,6 +2197,7 @@ running through the quiet forest until the morning light returns.";
                     list_style_type: ListMarkerStyleV1::None,
                     position: PositionV1::Static,
                     inset: PhysicalSides {
+                    vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
                     border_spacing: (
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),

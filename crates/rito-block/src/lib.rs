@@ -1032,6 +1032,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             }
             let row_id = tree.node(table).children[row_index];
             let mut cell_fragments = Vec::with_capacity(row.len());
+            let mut cell_heights = Vec::with_capacity(row.len());
             let mut row_height = 0.0_f64;
             for cell in row {
                     let cell_width = offsets[cell.column + cell.span]
@@ -1054,11 +1055,26 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 cell_root.rect.x = offsets[cell.column] - spacing_x;
                 cell_root.rect.width = cell_width;
                 row_height = row_height.max(cell_root.rect.height);
+                cell_heights.push(cell_root.rect.height);
                 cell_fragments.push(cell_root);
             }
             // Cells stretch to the row height, matching the separate-border
-            // table model's uniform row boxes.
-            for cell_root in &mut cell_fragments {
+            // table model's uniform row boxes, and align their content
+            // inside that box per `vertical-align`. Baseline alignment
+            // falls back to the top edge until cell baselines are tracked.
+            for (cell_root, content_height) in cell_fragments.iter_mut().zip(&cell_heights) {
+                let free = (row_height - content_height).max(0.0);
+                let shift = match container_layout_style(tree, cell_root.source)?.vertical_align {
+                    rito_style_contract::CellVerticalAlignV1::Middle => free / 2.0,
+                    rito_style_contract::CellVerticalAlignV1::Bottom => free,
+                    rito_style_contract::CellVerticalAlignV1::Top
+                    | rito_style_contract::CellVerticalAlignV1::Baseline => 0.0,
+                };
+                if shift > 0.0 {
+                    for child in &mut cell_root.children {
+                        translate_fragment(child, 0.0, shift);
+                    }
+                }
                 cell_root.rect.height = row_height;
                 cell_root.rect.y = 0.0;
             }
@@ -1534,6 +1550,28 @@ fn resolve_horizontal_box(
     }
 }
 
+/// Moves a fragment and its descendants by a physical offset.
+fn translate_fragment(fragment: &mut Fragment, dx: f64, dy: f64) {
+    match fragment {
+        Fragment::Box(box_fragment) => {
+            box_fragment.rect.x += dx;
+            box_fragment.rect.y += dy;
+        }
+        Fragment::Line(line) => {
+            line.rect.x += dx;
+            line.rect.y += dy;
+        }
+        Fragment::Text(text) => {
+            text.rect.x += dx;
+            text.rect.y += dy;
+        }
+        Fragment::Image(image) => {
+            image.rect.x += dx;
+            image.rect.y += dy;
+        }
+    }
+}
+
 /// A table cell's inline sizing inputs: its content bounds plus the width
 /// it specified, which drives its column independently of content.
 struct CellIntrinsicSizes {
@@ -1769,6 +1807,7 @@ mod tests {
             list_style_type: ListMarkerStyleV1::None,
             position: PositionV1::Static,
             inset: PhysicalSides {
+            vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
             border_spacing: (
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),

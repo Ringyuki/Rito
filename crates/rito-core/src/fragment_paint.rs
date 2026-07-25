@@ -844,6 +844,7 @@ mod tests {
                     list_style_type: ListMarkerStyleV1::None,
                     position: PositionV1::Static,
                     inset: sides(LengthPercentageOrAuto::Auto),
+                    vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
                     border_spacing: (
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),

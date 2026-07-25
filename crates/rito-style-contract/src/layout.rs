@@ -196,10 +196,26 @@ pub struct LayoutFormattingStyleV1 {
     pub position: PositionV1,
     /// Physical box offsets, meaningful only for a positioned box.
     pub inset: PhysicalSides<LengthPercentageOrAuto>,
+    /// Computed `vertical-align` reduced to the alignments a table cell
+    /// applies to its content box inside the row.
+    pub vertical_align: CellVerticalAlignV1,
     /// Used horizontal/vertical separation between table cells, already
     /// accounting for `border-collapse`: a collapsed table reports zero.
     /// Inherited like its CSS source, and meaningful only on a table box.
     pub border_spacing: (NonNegativeCssPx, NonNegativeCssPx),
+}
+
+/// How a table cell aligns its content box within the row box.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum CellVerticalAlignV1 {
+    /// Align cell baselines across the row (the CSS initial value).
+    Baseline,
+    /// Align with the row's top edge.
+    Top,
+    /// Center in the row box.
+    Middle,
+    /// Align with the row's bottom edge.
+    Bottom,
 }
 
 /// Computed `box-sizing`: how `width`/`height` map onto the box model.
