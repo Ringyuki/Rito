@@ -332,6 +332,7 @@ impl ParleyInlineContext {
         node: FormattingNodeId,
         available_inline_size: Option<f64>,
         available_block_size: Option<f64>,
+        percentage_images: PercentageImageSizing,
         cancel: &CancelFlag,
     ) -> Result<ParagraphLayout, LayoutError> {
         let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
@@ -393,6 +394,7 @@ impl ParleyInlineContext {
                         layout_style,
                         available_inline_size,
                         available_block_size,
+                        percentage_images,
                     )?;
                     image_boxes.push(InlineBox {
                         id: item_index as u64,
@@ -508,6 +510,7 @@ impl FormattingContext for ParleyInlineContext {
             root,
             Some(space.inline_size),
             space.fragmentainer_size,
+            PercentageImageSizing::Intrinsic,
             cancel,
         )?;
         layout.break_all_lines(Some(space.inline_size as f32));
@@ -867,11 +870,31 @@ impl FormattingContext for ParleyInlineContext {
                 node.0
             )));
         }
-        let built = self.build_layout(tree, node, None, None, &CancelFlag::new())?;
-        let widths = built.layout.calculate_content_widths();
+        // A percentage-sized replaced element can shrink to anything, so
+        // it contributes nothing to the minimum, while the maximum keeps
+        // its intrinsic size — the two passes below are exactly that
+        // distinction, and it is what lets a table cell with a specified
+        // width hold a `width: 100%` image without the column inflating
+        // to the image's natural width.
+        let shrunk = self.build_layout(
+            tree,
+            node,
+            None,
+            None,
+            PercentageImageSizing::Shrunk,
+            &CancelFlag::new(),
+        )?;
+        let intrinsic = self.build_layout(
+            tree,
+            node,
+            None,
+            None,
+            PercentageImageSizing::Intrinsic,
+            &CancelFlag::new(),
+        )?;
         Ok(IntrinsicInlineSizes {
-            min_content: f64::from(widths.min),
-            max_content: f64::from(widths.max),
+            min_content: f64::from(shrunk.layout.calculate_content_widths().min),
+            max_content: f64::from(intrinsic.layout.calculate_content_widths().max),
         })
     }
 }
@@ -1320,6 +1343,18 @@ fn paragraph_alignment(value: TextAlign) -> parley::Alignment {
     }
 }
 
+/// How a percentage-sized replaced element behaves in a sizing pass with
+/// no percentage basis, i.e. intrinsic (min/max-content) sizing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PercentageImageSizing {
+    /// Contributes its intrinsic size (the max-content contribution, and
+    /// the only sensible behavior once a real basis exists).
+    Intrinsic,
+    /// Contributes nothing: the element can shrink to any size, which is
+    /// its min-content contribution.
+    Shrunk,
+}
+
 /// Resolves an image's display size from its intrinsic dimensions and the
 /// CSS sizing fields of its layout style.
 ///
@@ -1336,15 +1371,34 @@ fn image_display_size(
     layout_style: &LayoutFormattingStyleV1,
     available_inline_size: Option<f64>,
     available_block_size: Option<f64>,
+    percentage_images: PercentageImageSizing,
 ) -> Result<(f32, f32), LayoutError> {
+    // A percentage with no basis appears only in intrinsic (min/max-
+    // content) sizing, where resolving it would be circular. CSS makes
+    // such a replaced element contribute nothing to its container's
+    // intrinsic size, which is how a percentage-sized image lets a table
+    // cell keep its own specified width instead of being forced to the
+    // image's natural width.
+    let percentage_without_basis = std::cell::Cell::new(false);
     let resolve = |value: LengthPercentage| -> Option<f64> {
         match value {
             LengthPercentage::Length(px) => Some(f64::from(px.get())),
-            LengthPercentage::Percentage(ratio) => {
-                available_inline_size.map(|basis| f64::from(ratio.ratio()) * basis)
-            }
-            LengthPercentage::Linear { length, percentage } => available_inline_size
-                .map(|basis| f64::from(length.get()) + f64::from(percentage.ratio()) * basis),
+            LengthPercentage::Percentage(ratio) => match available_inline_size {
+                Some(basis) => Some(f64::from(ratio.ratio()) * basis),
+                None => {
+                    percentage_without_basis.set(true);
+                    None
+                }
+            },
+            LengthPercentage::Linear { length, percentage } => match available_inline_size {
+                Some(basis) => {
+                    Some(f64::from(length.get()) + f64::from(percentage.ratio()) * basis)
+                }
+                None => {
+                    percentage_without_basis.set(true);
+                    None
+                }
+            },
         }
     };
     let preferred = |value: PreferredSizeV1, axis: &str| -> Result<Option<f64>, LayoutError> {
@@ -1361,15 +1415,19 @@ fn image_display_size(
     } else {
         1.0
     };
-    let (mut width, mut height) = match (
-        preferred(layout_style.width, "width")?,
-        preferred(layout_style.height, "height")?,
-    ) {
+    let preferred_width = preferred(layout_style.width, "width")?;
+    let preferred_height = preferred(layout_style.height, "height")?;
+    let width_percentage_without_basis =
+        percentage_without_basis.get() && matches!(layout_style.width, PreferredSizeV1::Value(_));
+    let (mut width, mut height) = match (preferred_width, preferred_height) {
         (Some(width), Some(height)) => (width, height),
         (Some(width), None) => (width, width * ratio),
         (None, Some(height)) => (height / ratio.max(f64::EPSILON), height),
         (None, None) => (intrinsic_width, intrinsic_height),
     };
+    if width_percentage_without_basis && percentage_images == PercentageImageSizing::Shrunk {
+        return Ok((0.0, 0.0));
+    }
     if let MaximumSizeV1::Value(cap) = layout_style.max_width {
         if let Some(cap) = resolve(cap.value()) {
             if width > cap && width > 0.0 {

@@ -123,6 +123,42 @@ function floatCase(rand) {
   return parts.join('\n');
 }
 
+function imageCase(rand) {
+  const parts = [];
+  const blocks = 2 + Math.floor(rand() * 3);
+  for (let i = 0; i < blocks; i += 1) {
+    const src = pick(rand, ['sq.png', 'wide.png']);
+    const sizing = pick(rand, [
+      'width:100%;',
+      'width:5em;',
+      'max-width:100%;',
+      'width:50%;',
+      'height:3em;',
+      '',
+    ]);
+    const kind = rand();
+    if (kind < 0.35) {
+      // In a table cell whose width constrains the image.
+      const cellWidth = pick(rand, ['width:4em;', 'width:8em;', '']);
+      parts.push(
+        `<table id="${id()}"><tr id="${id()}"><td id="${id()}" style="${cellWidth}">` +
+          `<img id="${id()}" style="${sizing}" src="../Images/${src}" alt="i"/></td>` +
+          `<td id="${id()}">${text(rand, 3, 12)}</td></tr></table>`,
+      );
+    } else if (kind < 0.7) {
+      parts.push(
+        `<div id="${id()}" style="width:${pick(rand, ['10em', '20em', '100%'])};">` +
+          `<img id="${id()}" style="${sizing}" src="../Images/${src}" alt="i"/></div>`,
+      );
+    } else {
+      parts.push(
+        `<p id="${id()}"><img id="${id()}" style="${sizing}" src="../Images/${src}" alt="i"/></p>`,
+      );
+    }
+  }
+  return parts.join('\n');
+}
+
 function marginBoxCase(rand) {
   const parts = [];
   const blocks = 2 + Math.floor(rand() * 4);
@@ -145,7 +181,86 @@ const CLUSTERS = [
   { name: 'tables', generate: tableCase, cases: 40 },
   { name: 'floats', generate: floatCase, cases: 30 },
   { name: 'margin-box', generate: marginBoxCase, cases: 30 },
+  { name: 'images', generate: imageCase, cases: 30 },
 ];
+
+/// Encodes a solid RGB PNG without external dependencies: raw deflate
+/// stored blocks keep the encoder to a few lines, and conformance images
+/// only need exact intrinsic dimensions.
+function solidPng(width, height, rgb) {
+  const raw = Buffer.alloc((width * 3 + 1) * height);
+  for (let y = 0; y < height; y += 1) {
+    const row = y * (width * 3 + 1);
+    raw[row] = 0;
+    for (let x = 0; x < width; x += 1) {
+      raw[row + 1 + x * 3] = rgb[0];
+      raw[row + 2 + x * 3] = rgb[1];
+      raw[row + 3 + x * 3] = rgb[2];
+    }
+  }
+  const chunk = (type, data) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body) >>> 0);
+    return Buffer.concat([length, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlibStore(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+function zlibStore(data) {
+  const blocks = [Buffer.from([0x78, 0x01])];
+  for (let offset = 0; offset < data.length; offset += 65535) {
+    const slice = data.subarray(offset, offset + 65535);
+    const last = offset + 65535 >= data.length ? 1 : 0;
+    const header = Buffer.alloc(5);
+    header[0] = last;
+    header.writeUInt16LE(slice.length, 1);
+    header.writeUInt16LE(~slice.length & 0xffff, 3);
+    blocks.push(header, slice);
+  }
+  const adler = Buffer.alloc(4);
+  adler.writeUInt32BE(adler32(data) >>> 0);
+  blocks.push(adler);
+  return Buffer.concat(blocks);
+}
+
+function adler32(data) {
+  let a = 1;
+  let b = 0;
+  for (const byte of data) {
+    a = (a + byte) % 65521;
+    b = (b + a) % 65521;
+  }
+  return ((b << 16) | a) >>> 0;
+}
+
+const CRC_TABLE = (() => {
+  const table = new Int32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c;
+  }
+  return table;
+})();
+
+function crc32(buffer) {
+  let c = 0xffffffff;
+  for (const byte of buffer) c = CRC_TABLE[(c ^ byte) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
 
 // ---- epub packing ------------------------------------------------------
 
@@ -160,6 +275,16 @@ cpSync(
   path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf'),
   path.join(buildDir, 'OEBPS', 'Fonts', 'conf.otf'),
 );
+
+mkdirSync(path.join(buildDir, 'OEBPS', 'Images'), { recursive: true });
+// Two solid PNGs with distinct intrinsic ratios: 100x100 and 300x150.
+const PNGS = {
+  'sq.png': solidPng(100, 100, [0x30, 0x60, 0xc0]),
+  'wide.png': solidPng(300, 150, [0xc0, 0x50, 0x30]),
+};
+for (const [name, bytes] of Object.entries(PNGS)) {
+  writeFileSync(path.join(buildDir, 'OEBPS', 'Images', name), bytes);
+}
 
 const caseCss = [
   '@font-face { font-family: "__conf"; src: url(../Fonts/conf.otf); }',
@@ -187,6 +312,12 @@ for (const cluster of CLUSTERS) {
   }
 }
 
+const imageItems = Object.keys(PNGS)
+  .map(
+    (name) =>
+      `<item id="img-${name.replace('.', '-')}" href="Images/${name}" media-type="image/png"/>`,
+  )
+  .join('\n    ');
 const manifestItems = cases
   .map(
     (c) => `<item id="${c.name}" href="Text/${c.name}.xhtml" media-type="application/xhtml+xml"/>`,
@@ -206,6 +337,7 @@ writeFileSync(
   <manifest>
     <item id="css" href="case.css" media-type="text/css"/>
     <item id="font" href="Fonts/conf.otf" media-type="font/otf"/>
+    ${imageItems}
     ${manifestItems}
   </manifest>
   <spine>
@@ -226,7 +358,12 @@ writeFileSync(path.join(buildDir, 'mimetype'), 'application/epub+zip');
 
 const epubPath = path.join(outDir, 'cases.epub');
 execFileSync('zip', ['-X', '-0', epubPath, 'mimetype'], { cwd: buildDir });
-execFileSync('zip', ['-rq', epubPath, 'META-INF', 'OEBPS'], { cwd: buildDir });
+execFileSync('zip', ['-rq', epubPath, 'META-INF', 'OEBPS', '-x', 'OEBPS/Images/*'], {
+  cwd: buildDir,
+});
+// Images enter stored: these solid PNGs deflate so well that a compressed
+// entry trips the reader's zip-bomb ratio guard.
+execFileSync('zip', ['-rq0', epubPath, 'OEBPS/Images'], { cwd: buildDir });
 
 // ---- Chromium ground truth --------------------------------------------
 
