@@ -139,25 +139,40 @@ async function completeWithHostLineMetrics(
 ): Promise<void> {
   for (let round = 0; round < 3; round += 1) {
     if ((await completeBrowserReaderBoundedSession(state)) !== true) return;
-    const changed = await syncBrowserHostLineMetrics(state.worker).catch((error: unknown) => {
-      state.logger.warn('rito: host line metric sync failed', error);
-      return false;
-    });
-    if (!changed || state.disposed) return;
     const spreadMode = options.spread ?? state.spreadMode;
     const lineBreaking = options.lineBreaking ?? state.lineBreaking;
-    await new Promise<void>((resolve) => {
-      const scheduled = scheduleBrowserReaderReflow(
-        state,
-        options,
-        spreadMode,
-        lineBreaking,
-        resolve,
-        true,
-      );
-      if (!scheduled) resolve();
-    });
+    if (!(await convergeHostLineMetrics(state, options, spreadMode, lineBreaking))) return;
   }
+}
+
+/**
+ * Measures whatever metric keys the last layout could not satisfy, injects
+ * them, and waits out one forced reflow so the committed layout was built
+ * with them. Reports whether anything changed.
+ */
+async function convergeHostLineMetrics(
+  state: BrowserReaderState,
+  options: ReaderOptions,
+  spreadMode: BrowserReaderState['spreadMode'],
+  lineBreaking: BrowserReaderState['lineBreaking'],
+): Promise<boolean> {
+  const changed = await syncBrowserHostLineMetrics(state.worker).catch((error: unknown) => {
+    state.logger.warn('rito: host line metric sync failed', error);
+    return false;
+  });
+  if (!changed || state.disposed) return false;
+  await new Promise<void>((resolve) => {
+    const scheduled = scheduleBrowserReaderReflow(
+      state,
+      options,
+      spreadMode,
+      lineBreaking,
+      resolve,
+      true,
+    );
+    if (!scheduled) resolve();
+  });
+  return true;
 }
 
 export async function preloadReaderRuntime(): Promise<void> {
@@ -275,25 +290,23 @@ async function startInitialReflow(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): Promise<void> {
-  await startBrowserReaderInitialReflow(
-    state,
-    options,
-    options.spread ?? 'single',
-    options.lineBreaking ?? 'greedy',
-  );
+  const spreadMode = options.spread ?? 'single';
+  const lineBreaking = options.lineBreaking ?? 'greedy';
+  await startBrowserReaderInitialReflow(state, options, spreadMode, lineBreaking);
+  // The first layout is what discovers which (family, size, sample) metric
+  // keys this book needs, so converge on them before returning: createReader
+  // has not resolved yet and the host is still showing its loading state, so
+  // the corrected layout is the first one the reader ever sees. Leaving it to
+  // the background completion pass instead would repaginate the page under
+  // the reader's eyes a second after it appeared. The metric cache is
+  // session-wide, so only a book introducing new keys pays this pass.
+  await convergeHostLineMetrics(state, options, spreadMode, lineBreaking);
   void trackBrowserReaderHostTask(
     state,
     warmInitialResources(state)
       .then((metricsChanged) => {
         if (metricsChanged) {
-          scheduleBrowserReaderReflow(
-            state,
-            options,
-            options.spread ?? 'single',
-            options.lineBreaking ?? 'greedy',
-            undefined,
-            true,
-          );
+          scheduleBrowserReaderReflow(state, options, spreadMode, lineBreaking, undefined, true);
         }
       })
       .catch((error: unknown) => {

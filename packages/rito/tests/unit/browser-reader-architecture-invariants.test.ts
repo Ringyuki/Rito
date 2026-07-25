@@ -63,7 +63,11 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
 // Raised for host line-metric sync: post-reflow and post-completion
 // drain/measure/inject of browser-measured `line-height: normal` metrics
 // with a forced reflow converging on a metric-faithful page table.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3160;
+// Raised again to converge those metrics before the first paint instead of
+// a second after it: the page the reader first sees must not be laid out
+// with metrics the next pass is going to correct. The drain/measure/reflow
+// step is shared with the background completion loop rather than copied.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3169;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.
