@@ -49,12 +49,30 @@ self-referential:
 | floats          | 63.8%        | 80.0px    | no line-box exclusion            |
 | margin-box      | 78.6%        | 16.0px    | auto centering / offsets         |
 
+### Pixel results (Konosuba vol. 1, 252 pages, full-book oracle)
+
+| run                             | clean (<4%) | byte-identical | body-page median |
+| ------------------------------- | ----------- | -------------- | ---------------- |
+| before host metrics             | 0           | 0              | 75.8%            |
+| host line metrics + CSS leading | 91          | 90             | 44.1%            |
+
+Two measurement rules were learned the hard way and are now binding:
+**capture must be bit-exact** (the oracle reads the engine canvas bitmap;
+screenshotting the page region rounded a fractional canvas offset into a
+whole-pixel glyph shift that looked like a total mismatch), and **silent
+failure invalidates a run** (a run that quietly reverted to the old
+layout produced plausible numbers; the oracle now surfaces page console
+warnings).
+
 vertical-rhythm was fixed by host-injected `line-height: normal` metrics
 (`rito_inline::HostNormalLineMetric`): the rendering host measures its
 own two-level normal line heights — plain strut, and the lifted height
 any line containing a CJK glyph gets — because those integers come from
 the host font scaler (grid-fitted per size) and are not derivable from
 font tables. The engine records (family, size) misses for the host to
-measure and inject (`take_host_line_metric_requests`); the wasm binding
-two-pass wiring is the open follow-up. Work queue: tables, floats,
-margin-box.
+measure and inject (`take_host_line_metric_requests`), and the browser
+binding converges in two passes (measure → inject → forced reflow →
+re-complete). Baselines follow the same host-fitted metrics: CSS leading
+with the host's floored half-leading, `floor((lineHeight - (asc + desc))
+/ 2) + asc`, which applies to declared line-heights just as much as to
+`normal`. Work queue: tables, floats, margin-box.
