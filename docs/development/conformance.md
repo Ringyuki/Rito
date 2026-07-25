@@ -98,3 +98,33 @@ re-complete). Baselines follow the same host-fitted metrics: CSS leading
 with the host's floored half-leading, `floor((lineHeight - (asc + desc))
 / 2) + asc`, which applies to declared line-heights just as much as to
 `normal`. Work queue: tables, floats, margin-box.
+
+## Real-book and real-corpus conformance
+
+`tools/conformance/real-book.mjs <book.epub>` turns any EPUB into a
+conformance corpus: every element is stamped with an id, Chromium records
+its border box at the engine's flow width, the engine lays the same
+(stamped) book out continuously, and the two are joined element by element.
+Deltas are **local** — horizontal offset from the containing box, vertical
+advance from the previous sibling's bottom — so one early mistake is
+reported where it happens instead of repainting every box below it.
+
+`tools/conformance/real-corpus.mjs <dir>` runs that over a directory of
+books and ranks them worst-first with each book's dominant defect classes.
+A class that costs 0.3% in one book and 8% in nine others is the one to
+take next; a single book cannot tell you that.
+
+Both sides must run the same fonts. The truth page pins the engine's serif
+for rendering _and_ for metric measurement, and asserts the face reached
+`loaded` — a 404'd pin silently measures the browser's default font, which
+is exactly how a visibly broken page once scored 100%.
+
+### Known gap: line-end punctuation hanging
+
+Chromium trims an adjacent CJK punctuation pair (`。」` costs 8 + 16, not 32) — the engine does this — and additionally lets the **trailing** closing
+punctuation's right half hang past the content edge, so a line may advance
+past its available width without breaking. Measured on a real paragraph:
+32px indent + 29 glyphs + a half-width `。` reaches x=504 in a 500px box and
+still holds one line. The engine breaks instead, which costs one extra line
+on long paragraphs — the dominant remaining defect class in the corpus
+(97 of 98 `p height` offenders in one book are exactly one line too tall).
