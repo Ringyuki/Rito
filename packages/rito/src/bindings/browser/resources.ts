@@ -1,4 +1,9 @@
-import { evictColdBrowserReaderDecodedImages } from './decoded-image-cache';
+import {
+  type BrowserReaderDecodedImage,
+  closeBrowserReaderDecodedImage,
+  evictColdBrowserReaderDecodedImages,
+  registerDecodedImageObjectUrl,
+} from './decoded-image-cache';
 import type { BrowserReaderRevisionHandle, BrowserReaderState } from './reader/types';
 import type {
   BrowserReaderResourceBytes,
@@ -230,23 +235,71 @@ async function preloadImageBytes(
   });
 }
 
+/**
+ * Element-sourced decode where a DOM exists (bit-parity with the browser
+ * raster), natural-size ImageBitmap elsewhere. Deliberately NOT an async
+ * function: the bitmap path must add no extra microtask over a direct
+ * `createImageBitmap` call — decode completion notifications are awaited
+ * with exact tick counts by callers.
+ */
+function decodeReaderImage(
+  bytes: Uint8Array,
+  mediaType: string,
+): Promise<BrowserReaderDecodedImage> | undefined {
+  if (typeof Blob !== 'function') return undefined;
+  const blob = new Blob([ownedArrayBuffer(bytes)], { type: mediaType });
+  const bitmapFallback =
+    typeof createImageBitmap === 'function' ? () => createImageBitmap(blob) : undefined;
+  if (
+    typeof Image === 'function' &&
+    typeof URL !== 'undefined' &&
+    typeof URL.createObjectURL === 'function'
+  ) {
+    return decodeReaderImageElement(blob).then((element) => {
+      if (element) return element;
+      if (!bitmapFallback) throw new Error('image element decode failed without a bitmap path');
+      return bitmapFallback();
+    });
+  }
+  return bitmapFallback?.();
+}
+
+async function decodeReaderImageElement(blob: Blob): Promise<HTMLImageElement | undefined> {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const element = new Image();
+    element.src = objectUrl;
+    await element.decode();
+    // A decode that reports no raster (a stub DOM, a broken image) falls
+    // back to the bitmap path instead of caching a blank.
+    if (element.naturalWidth > 0 && element.naturalHeight > 0) {
+      registerDecodedImageObjectUrl(element, objectUrl);
+      return element;
+    }
+  } catch {
+    // An element decode that fails (a DOM stub without a loader, a codec
+    // gap) is not fatal; the caller's bitmap path still decodes.
+  }
+  URL.revokeObjectURL(objectUrl);
+  return undefined;
+}
+
 async function loadImageBytes(
   state: BrowserReaderState,
   href: string,
   mediaType: string,
   bytes: Uint8Array,
 ): Promise<BrowserReaderImageLoadOutcome> {
-  if (typeof createImageBitmap === 'undefined') {
-    return { status: 'failed', reason: 'unsupported-runtime' };
-  }
+  const decoding = decodeReaderImage(bytes, mediaType);
+  if (decoding === undefined) return { status: 'failed', reason: 'unsupported-runtime' };
   try {
-    const image = await createImageBitmap(new Blob([ownedArrayBuffer(bytes)], { type: mediaType }));
+    const image = await decoding;
     if (state.disposed) {
-      image.close();
+      closeBrowserReaderDecodedImage(image);
       return { status: 'failed', reason: 'decode-failed' };
     }
     const previous = state.images.get(href);
-    previous?.close();
+    if (previous) closeBrowserReaderDecodedImage(previous);
     state.images.set(href, image);
     evictColdBrowserReaderImages(state);
     return { status: 'ready' };

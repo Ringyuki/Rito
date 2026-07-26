@@ -9,7 +9,9 @@ import {
   imageCacheKeyV1,
   imageDeclarationsV1,
   imageSourceKeyV1,
+  type BrowserReaderCanvasDecodedImageV1,
   type BrowserReaderCanvasImageEntryV1,
+  closeDecodedImageV1,
 } from './reader-v1-canvas-image-cache-support';
 import {
   BROWSER_READER_CANVAS_IMAGE_LIMITS_V1,
@@ -76,7 +78,7 @@ export class BrowserReaderCanvasImageCacheV1 {
     }
   }
 
-  resolve(key: string): ImageBitmap | undefined {
+  resolve(key: string): BrowserReaderCanvasDecodedImageV1 | undefined {
     this.assertOpen();
     const entry = this.entries.get(key);
     if (!entry || entry.references <= 0) return undefined;
@@ -89,7 +91,7 @@ export class BrowserReaderCanvasImageCacheV1 {
     entry.references -= 1;
     if (entry.references !== 0 || this.entries.get(key) !== entry) return;
     this.entries.delete(key);
-    entry.bitmap.close();
+    closeDecodedImageV1(entry);
   }
 
   dispose(): void {
@@ -98,7 +100,7 @@ export class BrowserReaderCanvasImageCacheV1 {
     const failures: unknown[] = [];
     for (const entry of this.entries.values()) {
       try {
-        entry.bitmap.close();
+        closeDecodedImageV1(entry);
       } catch (error: unknown) {
         failures.push(error);
       }
@@ -161,9 +163,10 @@ export class BrowserReaderCanvasImageCacheV1 {
     assertStableImageSourceV1(expected, source, href);
     const target = this.decodeTargetFor(plan, href, source.width, source.height);
     budget.reserveTarget(target.width * target.height, href);
-    const bitmap = target.natural
-      ? await decodeImage(resource.bytes, source)
-      : await decodeImage(resource.bytes, source, target.width, target.height);
+    const decoded = target.natural
+      ? await decodeNaturalImage(resource.bytes, source)
+      : { image: await decodeImage(resource.bytes, source, target.width, target.height) };
+    const bitmap = decoded.image;
     try {
       this.assertOpen();
       assertDecodedImageV1(bitmap, source, target.width, target.height, href);
@@ -172,6 +175,7 @@ export class BrowserReaderCanvasImageCacheV1 {
         key,
         href,
         bitmap,
+        ...(decoded.objectUrl !== undefined ? { objectUrl: decoded.objectUrl } : {}),
         source,
         references: 0,
       };
@@ -179,7 +183,10 @@ export class BrowserReaderCanvasImageCacheV1 {
       return entry;
     } catch (error: unknown) {
       try {
-        bitmap.close();
+        closeDecodedImageV1({
+          bitmap,
+          ...(decoded.objectUrl !== undefined ? { objectUrl: decoded.objectUrl } : {}),
+        });
       } catch (cleanupError: unknown) {
         throw new AggregateError([error, cleanupError], 'Reader v1 image rollback failed.', {
           cause: cleanupError,
@@ -232,22 +239,53 @@ export class BrowserReaderCanvasImageCacheV1 {
 async function decodeImage(
   bytes: Uint8Array,
   source: BrowserReaderCanvasImageSourceV1,
-  targetWidth?: number,
-  targetHeight?: number,
+  targetWidth: number,
+  targetHeight: number,
 ): Promise<ImageBitmap> {
   if (typeof createImageBitmap !== 'function') {
     throw new BrowserReaderCanvasUnsupportedErrorV1('createImageBitmap');
   }
   if (typeof Blob !== 'function') throw new BrowserReaderCanvasUnsupportedErrorV1('Blob');
   const blob = new Blob([ownedArrayBuffer(bytes)], { type: source.mediaType });
-  if (targetWidth === undefined || targetHeight === undefined) {
-    return createImageBitmap(blob);
-  }
   return createImageBitmap(blob, {
     resizeWidth: targetWidth,
     resizeHeight: targetHeight,
     resizeQuality: 'high',
   });
+}
+
+/**
+ * Natural-size decode. An HTMLImageElement source scales through the same
+ * decode cache DOM <img> painting uses — the only drawImage source that
+ * reproduces the browser raster bit for bit. DOM-less hosts (workers,
+ * node tests) fall back to a natural-size ImageBitmap.
+ */
+async function decodeNaturalImage(
+  bytes: Uint8Array,
+  source: BrowserReaderCanvasImageSourceV1,
+): Promise<{ image: BrowserReaderCanvasDecodedImageV1; objectUrl?: string }> {
+  if (typeof Blob !== 'function') throw new BrowserReaderCanvasUnsupportedErrorV1('Blob');
+  const blob = new Blob([ownedArrayBuffer(bytes)], { type: source.mediaType });
+  if (
+    typeof Image === 'function' &&
+    typeof URL !== 'undefined' &&
+    typeof URL.createObjectURL === 'function'
+  ) {
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const element = new Image();
+      element.src = objectUrl;
+      await element.decode();
+      return { image: element, objectUrl };
+    } catch (error: unknown) {
+      URL.revokeObjectURL(objectUrl);
+      throw error;
+    }
+  }
+  if (typeof createImageBitmap !== 'function') {
+    throw new BrowserReaderCanvasUnsupportedErrorV1('createImageBitmap');
+  }
+  return { image: await createImageBitmap(blob) };
 }
 
 function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {

@@ -9,6 +9,7 @@ import type { BrowserReaderState } from './types';
 import { drainBrowserReaderHostTasks } from './host-tasks';
 import { resetBrowserReaderLayoutViewCache } from '../reader-layout';
 import { disposeBrowserReaderChapterLocalPreview } from '../chapter-local-preview/coordinator';
+import { closeBrowserReaderDecodedImage } from '../decoded-image-cache';
 
 export function disposeBrowserReaderState(state: BrowserReaderState): void {
   if (state.disposed) return;
@@ -72,7 +73,7 @@ function releaseRetainedReaderData(state: BrowserReaderState): void {
 function releaseReaderImages(state: BrowserReaderState): void {
   for (const image of state.images.values()) {
     try {
-      image.close();
+      closeBrowserReaderDecodedImage(image);
     } catch {
       // Continue closing the remaining reader-owned images.
     }

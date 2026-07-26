@@ -27,6 +27,7 @@ import type {
   BrowserReaderBoundedSessionSlots,
 } from '../reader-session-host';
 import type { BrowserReaderChapterLocalPreviewState } from '../chapter-local-preview/types';
+import type { BrowserReaderDecodedImage } from '../decoded-image-cache';
 import type {
   BrowserReaderImageLoadOutcome,
   BrowserReaderImageResourceError,
@@ -157,7 +158,7 @@ export interface BrowserReaderState {
   chapterTextIndices: BrowserReaderChapterTextIndexMap;
   tocTargets: readonly TocTarget[];
   activeSpreadIndex: number;
-  images: Map<string, ImageBitmap>;
+  images: Map<string, BrowserReaderDecodedImage>;
   registeredFontFaces: Map<string, FontFace>;
   spreadRenderedListeners: Set<(spreadIndex: number, spread: Spread) => void>;
   spreadContentInvalidatedListeners: Set<(spreadIndex: number) => void>;

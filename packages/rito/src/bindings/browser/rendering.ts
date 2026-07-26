@@ -1,5 +1,8 @@
 import { renderFrameCommandsToCanvas, type CanvasRenderingTarget } from './frame-command-renderer';
-import { touchBrowserReaderDecodedImages } from './decoded-image-cache';
+import {
+  touchBrowserReaderDecodedImages,
+  type BrowserReaderDecodedImage,
+} from './decoded-image-cache';
 import { createCanvasImageResolver } from './image-href-resolver';
 import { throwIfBrowserReaderImageResourceFailed } from './resources';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
@@ -65,7 +68,7 @@ function prepareSpreadRender(
 export function renderBrowserReaderChapterLocalFrameToContext(
   state: BrowserReaderState,
   frame: BrowserReaderFrame,
-  images: ReadonlyMap<string, ImageBitmap>,
+  images: ReadonlyMap<string, BrowserReaderDecodedImage>,
   ctx: CanvasRenderingTarget,
 ): boolean {
   const localImage = createCanvasImageResolver(images);

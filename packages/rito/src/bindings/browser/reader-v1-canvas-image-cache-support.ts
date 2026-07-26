@@ -1,16 +1,36 @@
 import type { BrowserReaderArtifactV1, BrowserReaderV1Session } from './reader-v1';
 import type { BrowserReaderCanvasImageSourceV1 } from './reader-v1-canvas-image-metadata';
 
+/**
+ * A decoded image ready for drawImage. Natural-size decodes prefer an
+ * HTMLImageElement source: Chrome scales it through the same decode
+ * cache DOM <img> painting uses, which is the only drawImage source that
+ * reproduces the browser's raster bit for bit (probed — an ImageBitmap
+ * source diverges on some images at every smoothing quality). Bucketed
+ * decodes and DOM-less hosts keep ImageBitmap.
+ */
+export type BrowserReaderCanvasDecodedImageV1 = ImageBitmap | HTMLImageElement;
+
 export interface BrowserReaderCanvasImageEntryV1 {
   readonly key: string;
   readonly href: string;
-  readonly bitmap: ImageBitmap;
+  readonly bitmap: BrowserReaderCanvasDecodedImageV1;
+  /** Blob URL backing an element-sourced decode; revoked on release. */
+  readonly objectUrl?: string;
   readonly source: BrowserReaderCanvasImageSourceV1;
   references: number;
 }
 
+export function closeDecodedImageV1(entry: {
+  readonly bitmap: BrowserReaderCanvasDecodedImageV1;
+  readonly objectUrl?: string;
+}): void {
+  if ('close' in entry.bitmap) entry.bitmap.close();
+  if (entry.objectUrl !== undefined) URL.revokeObjectURL(entry.objectUrl);
+}
+
 export function assertDecodedImageV1(
-  bitmap: ImageBitmap,
+  bitmap: BrowserReaderCanvasDecodedImageV1,
   source: BrowserReaderCanvasImageSourceV1,
   targetWidth: number,
   targetHeight: number,

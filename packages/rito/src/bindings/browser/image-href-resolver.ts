@@ -1,26 +1,27 @@
 interface ImageHrefIndex {
-  readonly rawExact: ReadonlyMap<string, ImageBitmap>;
+  readonly rawExact: ReadonlyMap<string, BrowserReaderDecodedImage>;
   readonly paths: ImageHrefLookupIndex;
   readonly aliases: ImageHrefLookupIndex;
 }
 
 interface ImageHrefLookupIndex {
-  readonly byHref: ReadonlyMap<string, ImageBitmap | null>;
-  readonly bySuffix: ReadonlyMap<string, ImageBitmap | null>;
-  readonly byBasename: ReadonlyMap<string, ImageBitmap | null>;
+  readonly byHref: ReadonlyMap<string, BrowserReaderDecodedImage | null>;
+  readonly bySuffix: ReadonlyMap<string, BrowserReaderDecodedImage | null>;
+  readonly byBasename: ReadonlyMap<string, BrowserReaderDecodedImage | null>;
 }
+import type { BrowserReaderDecodedImage } from './decoded-image-cache';
 
 interface MutableImageHrefLookupIndex {
-  readonly byHref: Map<string, ImageBitmap | null>;
-  readonly bySuffix: Map<string, ImageBitmap | null>;
-  readonly byBasename: Map<string, ImageBitmap | null>;
+  readonly byHref: Map<string, BrowserReaderDecodedImage | null>;
+  readonly bySuffix: Map<string, BrowserReaderDecodedImage | null>;
+  readonly byBasename: Map<string, BrowserReaderDecodedImage | null>;
 }
 
 const AMBIGUOUS_HREF = Symbol('ambiguous image href');
 
 /** Resolve frame image hrefs against the manifest-keyed browser bitmap cache. */
 export function createCanvasImageResolver(
-  images: ReadonlyMap<string, ImageBitmap>,
+  images: ReadonlyMap<string, BrowserReaderDecodedImage>,
 ): (src: string) => ImageBitmap | undefined {
   const index = buildImageHrefIndex(images);
   return (src) => {
@@ -36,7 +37,9 @@ export function createCanvasImageResolver(
   };
 }
 
-function buildImageHrefIndex(images: ReadonlyMap<string, ImageBitmap>): ImageHrefIndex {
+function buildImageHrefIndex(
+  images: ReadonlyMap<string, BrowserReaderDecodedImage>,
+): ImageHrefIndex {
   const rawExact = new Map<string, ImageBitmap>();
   const paths = emptyLookupIndex();
   const aliases = emptyLookupIndex();
@@ -68,7 +71,7 @@ function insertHref(index: MutableImageHrefLookupIndex, href: string, image: Ima
 }
 
 function insertUnique(
-  values: Map<string, ImageBitmap | null>,
+  values: Map<string, BrowserReaderDecodedImage | null>,
   key: string,
   image: ImageBitmap,
 ): void {
@@ -105,7 +108,7 @@ function resolveAgainstIndex(
 }
 
 function lookupCandidate(
-  values: ReadonlyMap<string, ImageBitmap | null>,
+  values: ReadonlyMap<string, BrowserReaderDecodedImage | null>,
   key: string,
   stopOnAmbiguous: boolean,
 ): ImageBitmap | typeof AMBIGUOUS_HREF | undefined {
