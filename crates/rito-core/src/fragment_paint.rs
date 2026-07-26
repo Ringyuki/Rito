@@ -329,6 +329,23 @@ fn append_image_command(
     // preserveAspectRatio `meet`); only `none` stretches. The layout box
     // is untouched — this is a paint-rect adjustment.
     let mut draw = image.rect;
+    if !*fit_contain {
+        // Blink pixel-snaps a plain replaced image's paint rect (probed:
+        // an <img> at x=22.25 rasters at 22, at 22.5 at 23, bit-identical
+        // to a canvas draw at the same integers). SVG-folded content is
+        // NOT snapped: it paints through the svg's own transform, and the
+        // reference renders it at the fractional position.
+        let left = (line_x + draw.x).round();
+        let top = (line_y + draw.y).round();
+        let right = (line_x + draw.x + draw.width).round();
+        let bottom = (line_y + draw.y + draw.height).round();
+        draw = rito_fragment::FragmentRect {
+            x: left - line_x,
+            y: top - line_y,
+            width: right - left,
+            height: bottom - top,
+        };
+    }
     if *fit_contain && *intrinsic_width > 0.0 && *intrinsic_height > 0.0 {
         let scale = (draw.width / intrinsic_width)
             .min(draw.height / intrinsic_height)

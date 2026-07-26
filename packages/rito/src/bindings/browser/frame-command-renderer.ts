@@ -187,6 +187,9 @@ function paintImage(
   const bitmap = resolveImage(command.src);
   if (!bitmap) return;
   const { rect } = command;
+  // The rect arrives pre-snapped where Blink snaps (plain replaced
+  // images; SVG-folded content stays fractional) — see the engine's
+  // append_image_command.
   ctx.drawImage(bitmap, rect.x, rect.y, rect.width, rect.height);
 }
 
