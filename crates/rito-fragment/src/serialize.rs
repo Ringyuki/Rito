@@ -267,6 +267,7 @@ mod tests {
 
     fn sample_outcome() -> LayoutOutcome {
         LayoutOutcome {
+            escaped_floats: Vec::new(),
             fragments: FragmentTree {
                 root: Fragment::Box(BoxFragment {
                     source: FormattingNodeId(7),

@@ -799,6 +799,7 @@ impl TreeBuilder<'_> {
                 intrinsic_height: f64::from(height),
                 style,
                 layout_style,
+                fit_contain: image.svg_contain,
                 baseline_shift_px: ancestor_shift_px
                     + resolved_baseline_shift(
                         resolved,

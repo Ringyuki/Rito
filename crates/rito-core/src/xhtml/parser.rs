@@ -447,6 +447,14 @@ fn convert_svg_image(
             // them left the page at the raster's own pixel height.
             attributes: svg_presentation_attributes(element),
             source_ref,
+            // SVG 2 §8.6: the viewport sizes from width/height, and the
+            // content fits per preserveAspectRatio — the default
+            // `xMidYMid meet` letterboxes; only `none` stretches with the
+            // viewport.
+            svg_contain: element
+                .attribute("preserveAspectRatio")
+                .map(|value| !value.trim().eq_ignore_ascii_case("none"))
+                .unwrap_or(true),
         })
     })
 }
@@ -503,6 +511,7 @@ fn image_node_from_element(
             alt: image_alt(element),
             attributes: extract_attributes(element),
             source_ref,
+            svg_contain: false,
         })
     })
 }

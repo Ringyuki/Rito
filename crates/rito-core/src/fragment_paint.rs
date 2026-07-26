@@ -311,22 +311,42 @@ fn append_image_command(
     line_x: f64,
     line_y: f64,
 ) -> EpubResult<()> {
-    let Some(InlineItem::Image { src, .. }) = items.get(image.item_index as usize) else {
+    let Some(InlineItem::Image {
+        src,
+        intrinsic_width,
+        intrinsic_height,
+        fit_contain,
+        ..
+    }) = items.get(image.item_index as usize)
+    else {
         return Err(EpubError::new(format!(
             "image fragment item index {} does not name an image item",
             image.item_index
         )));
     };
+    // A folded SVG viewport keeps its resolved box, and the content
+    // letterboxes inside it preserving the intrinsic ratio (SVG 2 §8.6,
+    // preserveAspectRatio `meet`); only `none` stretches. The layout box
+    // is untouched — this is a paint-rect adjustment.
+    let mut draw = image.rect;
+    if *fit_contain && *intrinsic_width > 0.0 && *intrinsic_height > 0.0 {
+        let scale = (draw.width / intrinsic_width)
+            .min(draw.height / intrinsic_height)
+            .max(0.0);
+        let width = intrinsic_width * scale;
+        let height = intrinsic_height * scale;
+        draw = rito_fragment::FragmentRect {
+            x: draw.x + (draw.width - width) / 2.0,
+            y: draw.y + (draw.height - height) / 2.0,
+            width,
+            height,
+        };
+    }
     // Alt text and link targets travel with the interaction layer, which
     // the fragment contract does not carry yet.
     commands.push(DisplayCommand::paint_image(
         src.clone(),
-        rect_value(
-            line_x + image.rect.x,
-            line_y + image.rect.y,
-            image.rect.width,
-            image.rect.height,
-        ),
+        rect_value(line_x + draw.x, line_y + draw.y, draw.width, draw.height),
         None,
         None,
     ));
@@ -869,7 +889,8 @@ mod tests {
                     intrinsic_height: 30.0,
                     style: text_style,
                     layout_style: image_layout,
-                    baseline_shift_px: 0.0,
+                    fit_contain: false,
+                        baseline_shift_px: 0.0,
                 }],
             },
             children: Vec::new(),

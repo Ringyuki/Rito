@@ -2910,6 +2910,7 @@ running through the quiet forest until the morning light returns.";
                         intrinsic_height: 30.0,
                         style: text_style,
                         layout_style: image_layout,
+                        fit_contain: false,
                         baseline_shift_px: 0.0,
                     },
                     InlineItem::Text {

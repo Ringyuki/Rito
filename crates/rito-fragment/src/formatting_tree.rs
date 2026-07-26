@@ -48,6 +48,13 @@ pub enum InlineItem {
         /// Accumulated baseline shift from `vertical-align` on this box
         /// and its ancestor inline boxes, CSS px; positive raises it.
         baseline_shift_px: f64,
+        /// Whether the drawn content letterboxes inside the resolved box
+        /// preserving its intrinsic ratio. The SVG-wrapped image idiom
+        /// (`<svg width="100%" height="100%" viewBox><image/></svg>`) pins
+        /// both axes on the fold, and SVG 2 `preserveAspectRatio` (default
+        /// `xMidYMid meet`) makes the content contain-fit the viewport —
+        /// only `none` stretches. The box itself stays the resolved size.
+        fit_contain: bool,
     },
 }
 
@@ -331,6 +338,7 @@ fn fingerprint(
                             style,
                             layout_style,
                             baseline_shift_px,
+                            fit_contain,
                         } => {
                             mixer.mix(&[1]);
                             mixer.mix(&(src.len() as u32).to_le_bytes());
@@ -340,6 +348,7 @@ fn fingerprint(
                             mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&layout_style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
+                            mixer.mix(&[u8::from(*fit_contain)]);
                         }
                     }
                 }
@@ -485,12 +494,12 @@ mod tests {
             overflow: OverflowV1::Visible,
             list_style_type: ListMarkerStyleV1::None,
             position: PositionV1::Static,
-            inset: PhysicalSides {
             vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
             border_spacing: (
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
+            inset: PhysicalSides {
                 top: LengthPercentageOrAuto::Auto,
                 right: LengthPercentageOrAuto::Auto,
                 bottom: LengthPercentageOrAuto::Auto,

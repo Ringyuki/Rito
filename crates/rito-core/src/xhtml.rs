@@ -155,6 +155,11 @@ pub struct ImageNode {
     pub alt: String,
     pub attributes: Option<ElementAttributes>,
     pub source_ref: SourceRef,
+    /// The node came from folding an `<svg>` wrapper whose
+    /// `preserveAspectRatio` (SVG 2 §8.6, default `xMidYMid meet`) makes
+    /// the content contain-fit the declared viewport instead of stretching
+    /// with it; only `none` stretches.
+    pub svg_contain: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
