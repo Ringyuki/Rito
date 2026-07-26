@@ -940,43 +940,76 @@ struct LinePlacement {
     exhausted: bool,
 }
 
+/// The UA default line constraints at a fragmentation break inside a
+/// paragraph (css-break-3 §3.3, Chromium's defaults): at least `orphans`
+/// line boxes stay before the break and at least `widows` carry over
+/// after it. A break that cannot honor them moves — before the paragraph
+/// entirely for orphans, one line earlier for widows — exactly as the
+/// browser does (measured: a lone first line that fit at a column bottom
+/// is pushed to the next column by Blink).
+const DEFAULT_ORPHANS: usize = 2;
+const DEFAULT_WIDOWS: usize = 2;
+
 fn place_lines(
     lines: &[Fragment],
     consumed: f64,
     remaining: f64,
     fragmentainer_is_empty: bool,
 ) -> LinePlacement {
+    // Resumed lines: skip everything a previous fragmentainer consumed.
+    let pending: Vec<&Fragment> = lines
+        .iter()
+        .filter(|line| {
+            let rect = line.rect();
+            rect.y + rect.height > consumed + f64::EPSILON
+        })
+        .collect();
+    let total = pending.len();
+    let mut fit_count = 0;
+    let mut used = 0.0_f64;
+    for line in &pending {
+        let height = line.rect().height;
+        if used + height <= remaining + f64::EPSILON {
+            fit_count += 1;
+            used += height;
+        } else {
+            break;
+        }
+    }
+    let mut take = fit_count;
+    if take < total {
+        // The paragraph breaks here: honor widows first (enough lines
+        // must land after the break), then orphans (enough must stay).
+        if total - take < DEFAULT_WIDOWS {
+            take = total.saturating_sub(DEFAULT_WIDOWS);
+        }
+        if take < DEFAULT_ORPHANS {
+            take = 0;
+        }
+        if take == 0 && fragmentainer_is_empty {
+            // An empty fragmentainer must make progress: the constraints
+            // yield rather than loop (and a line taller than the page
+            // still overflows in place, as before).
+            take = fit_count.max(1);
+        }
+    }
     let mut placed = Vec::new();
     let mut consumed_end = consumed;
-    let mut used = 0.0_f64;
-    for line in lines {
+    let mut y = 0.0_f64;
+    for line in pending.into_iter().take(take) {
         let rect = line.rect();
-        let bottom = rect.y + rect.height;
-        // Resumed lines: skip everything a previous fragmentainer consumed.
-        if bottom <= consumed + f64::EPSILON {
-            continue;
-        }
-        let fits = used + rect.height <= remaining + f64::EPSILON;
-        let force_first = placed.is_empty() && fragmentainer_is_empty;
-        if !fits && !force_first {
-            return LinePlacement {
-                lines: placed,
-                consumed_end,
-                exhausted: false,
-            };
-        }
         // The line's fragment-local top is the block distance consumed so
         // far inside this fragmentainer's paragraph chunk.
         let mut shifted = line.clone();
-        set_fragment_y(&mut shifted, used);
+        set_fragment_y(&mut shifted, y);
         placed.push(shifted);
-        used += rect.height;
-        consumed_end = bottom;
+        y += rect.height;
+        consumed_end = rect.y + rect.height;
     }
     LinePlacement {
         lines: placed,
         consumed_end,
-        exhausted: true,
+        exhausted: take == total,
     }
 }
 
@@ -2551,20 +2584,20 @@ mod tests {
         )
         .expect("tree builds");
         let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 30.0));
+        // Only one 10px line fits under the 12px leaf in a 30px
+        // fragmentainer — fewer than `orphans` (2), so the break moves
+        // before the paragraph and the whole 3-line block lands on page 2,
+        // exactly as the browser breaks it.
         assert_eq!(pages.len(), 2);
         let first_children = box_children(&pages[0]);
-        assert_eq!(first_children.len(), 2, "leaf and paragraph share page 1");
-        let Fragment::Box(paragraph) = &first_children[1] else {
-            panic!("paragraph fragment is a box");
-        };
-        assert_eq!(paragraph.children.len(), 1);
-        assert!((paragraph.rect.y - 12.0).abs() < 1e-9);
+        assert_eq!(first_children.len(), 1, "the orphan rule leaves page 1 to the leaf");
         let second_children = box_children(&pages[1]);
         assert_eq!(second_children.len(), 1);
         let Fragment::Box(rest) = &second_children[0] else {
             panic!("paragraph fragment is a box");
         };
-        assert_eq!(rest.children.len(), 2);
+        assert_eq!(rest.children.len(), 3);
+        assert!((rest.rect.y).abs() < 1e-9);
     }
 
     #[test]
