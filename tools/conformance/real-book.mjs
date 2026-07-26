@@ -142,6 +142,45 @@ for (const chapter of chapters) {
       if (pinned?.status !== 'loaded') {
         throw new Error(`pinned serif did not load (status ${pinned?.status ?? 'absent'})`);
       }
+      // The engine serves every generic family — and its ultimate fallback —
+      // from the pinned serif. An author list like `cnepub, serif` whose
+      // custom face cannot load must therefore resolve to the pinned face
+      // here too, not to the browser's own default serif: Times's
+      // proportional “ ” against SourceHan's fullwidth ones is a one-glyph
+      // width error that breaks a line earlier and reads as a paragraph
+      // height defect (77 one-line-off paragraphs in one book). The metric
+      // measurement below already maps generics onto the pin; geometry has
+      // to render through the same map. Computed font-family is the
+      // as-specified list, so substituting the generic keywords per element
+      // (important beats any author rule; the value is derived from that
+      // element's own cascade outcome, so nothing else changes) and pinning
+      // the tail mirrors the engine exactly.
+      const generic = new Set([
+        'serif',
+        'sans-serif',
+        'monospace',
+        'cursive',
+        'fantasy',
+        'system-ui',
+        'ui-serif',
+        'ui-sans-serif',
+        'ui-monospace',
+        'ui-rounded',
+        'math',
+      ]);
+      for (const element of [document.documentElement, ...document.querySelectorAll('*')]) {
+        const list = getComputedStyle(element).fontFamily;
+        const names = list
+          .split(',')
+          .map((name) => name.trim())
+          .filter((name) => name.length > 0)
+          .map((name) =>
+            generic.has(name.replaceAll('"', '').toLowerCase()) ? '"__rito_serif"' : name,
+          );
+        if (names.at(-1) !== '"__rito_serif"') names.push('"__rito_serif"');
+        element.style.setProperty('font-family', names.join(', '), 'important');
+      }
+      await document.fonts.ready;
     },
     { width: FLOW_WIDTH, pinnedSerif },
   );
