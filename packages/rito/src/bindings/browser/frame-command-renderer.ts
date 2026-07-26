@@ -38,11 +38,16 @@ export function renderFrameCommandsToCanvas(
 ): void {
   const canvasCtx = ctx as CanvasRenderingContext2D;
   const state = createRenderState(options);
+  // Session-scoped tap for paint-parity instruments (pixel-walk probes):
+  // observes the exact command stream without altering rendering.
+  const paintTap = (globalThis as { __ritoPaintTap?: (c: CoreFrameCommand) => void })
+    .__ritoPaintTap;
   let rendered = 0;
   canvasCtx.save();
   try {
     canvasCtx.scale(options.pixelRatio ?? 1, options.pixelRatio ?? 1);
     for (const command of commands) {
+      paintTap?.(command);
       renderCommand(canvasCtx, command, state);
       rendered += 1;
     }
