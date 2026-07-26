@@ -15,10 +15,6 @@ import {
 import { DEFAULT_SETTINGS, type ReaderLineBreaking } from '@/components/settings-panel';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
-const ZOOM_SCALE_STEP = 0.1;
-const ZOOM_SCALE_MIN = 0.5;
-const ZOOM_SCALE_MAX = 2.0;
-
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
 const annotationStorage = createLocalStorageAnnotationAdapter('rito-annotations');
 let demoEpubBlobPromise: Promise<Blob> | undefined;
@@ -49,7 +45,6 @@ export function useReader(
   const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>(
     DEFAULT_SETTINGS.spreadMode,
   );
-  const [zoomScale, setZoomScale] = useState(DEFAULT_SETTINGS.zoomScale);
   const [fontSize, setFontSizeState] = useState(DEFAULT_SETTINGS.fontSize);
   const [lineHeight, setLineHeightState] = useState(DEFAULT_SETTINGS.lineHeight);
   const [lineHeightActive, setLineHeightActive] = useState(DEFAULT_SETTINGS.lineHeightActive);
@@ -57,8 +52,8 @@ export function useReader(
   const [fontFamily, setFontFamilyState] = useState(DEFAULT_SETTINGS.fontFamily);
   const [lineBreaking, setLineBreakingState] = useState(DEFAULT_SETTINGS.lineBreaking);
 
-  const vpWidth = containerWidth > 0 ? Math.round(containerWidth / zoomScale) : 0;
-  const vpHeight = containerHeight > 0 ? Math.round(containerHeight / zoomScale) : 0;
+  const vpWidth = containerWidth > 0 ? Math.round(containerWidth) : 0;
+  const vpHeight = containerHeight > 0 ? Math.round(containerHeight) : 0;
   const margin = readerViewportMargin(containerWidth);
 
   const rito = useRitoReader({
@@ -74,7 +69,6 @@ export function useReader(
     },
     controller: {
       transition: { stiffness: 180, damping: 22 },
-      renderScale: zoomScale,
       positionStorage,
       annotationStorage,
       a11y: {
@@ -197,18 +191,6 @@ export function useReader(
     [rito],
   );
 
-  const increaseZoom = useCallback(() => {
-    setZoomScale((s) => Math.min(s + ZOOM_SCALE_STEP, ZOOM_SCALE_MAX));
-  }, []);
-
-  const decreaseZoom = useCallback(() => {
-    setZoomScale((s) => Math.max(s - ZOOM_SCALE_STEP, ZOOM_SCALE_MIN));
-  }, []);
-
-  const setZoomScaleClamped = useCallback((v: number) => {
-    setZoomScale(Math.max(ZOOM_SCALE_MIN, Math.min(v, ZOOM_SCALE_MAX)));
-  }, []);
-
   // Moving the slider activates the override (a no-op slider would be confusing).
   const setLineHeight = useCallback((v: number) => {
     setLineHeightState(v);
@@ -254,7 +236,6 @@ export function useReader(
     search,
     annotations,
     spreadMode,
-    zoomScale,
     fontSize,
     setFontSize: setFontSizeState,
     lineHeight,
@@ -271,9 +252,6 @@ export function useReader(
     toggleSpreadMode,
     setSpreadMode,
     setLineBreaking,
-    increaseZoom,
-    decreaseZoom,
-    setZoomScale: setZoomScaleClamped,
     setLineHeight,
     setLineHeightForce,
     useBookLineHeight,

@@ -61,7 +61,6 @@ export function Reader({
       data-selection-rect-count={reader.selection.viewportRects.length}
       data-selection-first-rect-y={reader.selection.viewportRects[0]?.y ?? ''}
       data-selection-first-rect-height={reader.selection.viewportRects[0]?.height ?? ''}
-      data-render-scale={reader.zoomScale}
       className="relative flex flex-1 bg-muted/30 select-none"
     >
       <EngineBadge />
@@ -130,7 +129,6 @@ export function Reader({
         selection={reader.selection}
         annotations={reader.annotations}
         controller={reader.controller}
-        zoomScale={reader.zoomScale}
       />
 
       <AnnotationTooltip hover={reader.annotations.hover} />
