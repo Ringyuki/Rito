@@ -127,8 +127,18 @@ function layoutMethods(
       return false;
     },
     setTheme(theme) {
+      const background = state.bgColor;
+      const foreground = state.fgColor;
       if (theme.backgroundColor !== undefined) state.bgColor = theme.backgroundColor ?? '#ffffff';
       if (theme.foregroundColor !== undefined) state.fgColor = theme.foregroundColor ?? undefined;
+      if (state.bgColor === background && state.fgColor === foreground) return;
+      // Theme colours are read fresh at paint time, so the committed layout
+      // and every cached frame stay valid — but nothing repaints on its own.
+      // Signalling invalidation is what makes a theme switch visible, and it
+      // leaves the scale to the host, which is the only side that knows it.
+      for (const listener of state.spreadContentInvalidatedListeners) {
+        listener(state.activeSpreadIndex);
+      }
     },
     setTypography(typography) {
       if (typography.fontSize !== undefined)

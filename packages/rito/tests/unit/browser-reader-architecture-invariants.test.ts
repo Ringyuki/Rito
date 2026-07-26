@@ -67,7 +67,11 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
 // a second after it: the page the reader first sees must not be laid out
 // with metrics the next pass is going to correct. The drain/measure/reflow
 // step is shared with the background completion loop rather than copied.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3169;
+// Raised for the theme-invalidation signal: `setTheme` changed state and
+// told nobody, so a dark-mode switch never reached the screen. The binding
+// cannot repaint for the host (it knows neither the target nor the scale),
+// so it reports the invalidation the host already listens for.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3179;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.
