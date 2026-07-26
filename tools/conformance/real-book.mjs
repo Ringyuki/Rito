@@ -120,6 +120,13 @@ for (const chapter of chapters) {
       // only would report every full-page image as a 100px defect.
       normalize.textContent =
         `@font-face { font-family: "__rito_serif"; src: url("${pinnedSerif}"); }\n` +
+        // CSS transforms never move the layout box, but
+        // getBoundingClientRect reflects them: a rotated TOC card reads
+        // as its rotated AABB and every comparison against the engine's
+        // (untransformed) layout box misreports. Geometry truth compares
+        // layout to layout. (`!important` in this earlier sheet still
+        // beats the book's normal declarations.)
+        `* { transform: none !important; }\n` +
         `html { margin: 0; padding: 0; width: ${width}px; font-family: "__rito_serif"; }\n` +
         // No width on the body: it must shrink inside its own margins the
         // way the engine's does. Pinning it to the flow width would push a
@@ -340,16 +347,22 @@ async function measureHostMetrics(pairs) {
       'fantasy',
       'system-ui',
     ]);
-    const familyList = (key) =>
-      key
+    const familyList = (key) => {
+      const names = key
         .split(',')
         .map((name) => name.trim())
         .filter((name) => name.length > 0)
         // The engine serves every generic family from its pinned serif;
         // measuring `serif` against the browser's default face would hand
         // the engine one font's numbers for another font's glyphs.
-        .map((name) => (generic.has(name) ? '"__rito_serif"' : `"${name.replaceAll('"', '\\"')}"`))
-        .join(', ');
+        .map((name) => (generic.has(name) ? '"__rito_serif"' : `"${name.replaceAll('"', '\\"')}"`));
+      // The engine's ultimate fallback is the pinned serif too, so a named
+      // family that fails to load (a res:/// device font) must fall to the
+      // pin here — not to the browser default, whose grid-fitted line
+      // heights differ by a pixel and shift every list item under it.
+      if (names.at(-1) !== '"__rito_serif"') names.push('"__rito_serif"');
+      return names.join(', ');
+    };
     const measured = requests.map(({ family, size, sample }) => {
       const p = document.createElement('p');
       p.setAttribute(
