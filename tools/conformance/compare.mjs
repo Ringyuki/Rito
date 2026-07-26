@@ -35,6 +35,11 @@ const CERTIFIED = {
   // Certified 2026-07-26 at 100.0% / max 0.0px (conditional line-end
   // closer trim per Blink ShapeLine, incl. the curly-quote classes).
   'line-end-trim': { minRate: 0.99, maxDelta: 0.5 },
+  // Certified 2026-07-26 at 100.0% / max 0.0px (content-box line
+  // alignment in padded flows, float hypothetical position under pending
+  // margins, shrink-to-fit without own margins, self-collapsing empty
+  // blocks emitting zero-height boxes).
+  'inline-align': { minRate: 0.99, maxDelta: 0.5 },
 };
 
 const { cases, truth, hostMetrics } = JSON.parse(

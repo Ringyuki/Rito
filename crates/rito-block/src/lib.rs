@@ -237,7 +237,14 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 // swallows the whole box.
                 let occupy_height = (top_margin + content_height + bottom_margin.max(0.0)).max(0.0);
                 let page_bottom = y + remaining.max(0.0);
-                let fy_probe = floats.probe_y(occupy_width, y, content_width);
+                // The float's top sits at its hypothetical in-flow
+                // position (CSS 2.1 §9.5.1 rule 4), which lies below the
+                // preceding sibling's still-pending bottom margin — float
+                // margins never collapse with siblings (§8.3.1). The
+                // pending margin is NOT consumed: in-flow margins keep
+                // collapsing straight through the float.
+                let flow_y = y + pending_margin.max(0.0);
+                let fy_probe = floats.probe_y(occupy_width, flow_y, content_width);
                 let fits = space.fragmentainer_remaining.is_none()
                     || fy_probe + occupy_height <= page_bottom + 1e-6;
                 if fits {
@@ -245,7 +252,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         child_style.float,
                         occupy_width,
                         occupy_height,
-                        y,
+                        flow_y,
                         content_width,
                     );
                     placed_floats.push(rito_fragment::EscapedFloat {
@@ -293,8 +300,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     } else {
                         top_margin.max(0.0) + head_root.rect.height + bottom_margin.max(0.0)
                     };
-                    let (fx, fy) =
-                        floats.place(child_style.float, occupy_width, occupy, y, content_width);
+                    let (fx, fy) = floats.place(
+                        child_style.float,
+                        occupy_width,
+                        occupy,
+                        flow_y,
+                        content_width,
+                    );
                     fragments.push(Fragment::Box(BoxFragment {
                         source: *child_id,
                         rect: FragmentRect {
@@ -678,7 +690,35 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             "container layout must produce a box fragment root".to_owned(),
                         ));
                     };
-                    if !child_root.children.is_empty() {
+                    if child_root.children.is_empty()
+                        && child_root.rect.height <= 0.0
+                        && outcome.continuation.is_none()
+                    {
+                        // A self-collapsing empty block (CSS 8.3.1): its
+                        // margins collapse through it and it advances no
+                        // flow — but the box exists. Chromium reports a
+                        // zero-height rect at the collapsed position (a
+                        // `<div style="clear:both"></div>` divider sits at
+                        // the cleared flow position), the differential
+                        // joins on it, and dropping the fragment read as a
+                        // missing-box defect on every such divider. A
+                        // childless head that carries a continuation is
+                        // NOT that: it is a break-before, and the break
+                        // must propagate.
+                        fragments.push(Fragment::Box(BoxFragment {
+                            source: *child_id,
+                            rect: FragmentRect {
+                                x: content_left + hbox.x,
+                                y: y + gap,
+                                width: hbox.border_width,
+                                height: 0.0,
+                            },
+                            children: Vec::new(),
+                        }));
+                        pending_margin = collapse_margins(gap, bottom_margin);
+                        continue;
+                    }
+                    {
                         y += gap;
                         remaining -= gap;
                         let child_height = child_root.rect.height;
@@ -815,7 +855,18 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         {
             return Ok(hbox);
         }
-        let sizes = self.intrinsic_inline_sizes(tree, child_id)?;
+        // Shrink-to-fit sizes the float's own content box (CSS 2.1
+        // §10.3.5). The dispatchable intrinsics answer a different
+        // question — what the box hands its PARENT, a margin-box
+        // contribution (css-sizing-3 §5.2) — so an inline flow's raw
+        // content sizes are taken directly, before its own margins are
+        // folded in.
+        let sizes = match tree.node(child_id).content {
+            FormattingNodeContent::InlineFlow { .. } => {
+                self.inline.intrinsic_inline_sizes(tree, child_id)?
+            }
+            _ => self.intrinsic_inline_sizes(tree, child_id)?,
+        };
         let resolve = |value| resolve_length_percentage(value, content_width);
         let margin_used = [child_style.margin.left, child_style.margin.right]
             .iter()
@@ -3780,6 +3831,260 @@ single line across page boundaries.";
             (float_box.rect.height - 22.0).abs() < 0.01,
             "the float closes with its vertical padding (3 + 10 + 9): {}",
             float_box.rect.height
+        );
+    }
+
+    /// Shrink-to-fit sizes a float's own content box (CSS 2.1 §10.3.5);
+    /// the margin-box contribution intrinsics answer what the box hands
+    /// its PARENT (css-sizing-3 §5.2). Leaking the float's own margins
+    /// into its border width is how a 72px icon float measured 104px wide
+    /// with `margin: -6em 2em 0 0` in a real TOC page.
+    #[test]
+    fn float_shrink_to_fit_excludes_the_floats_own_margins() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
+        float_style.float = FloatV1::Right;
+        float_style.margin.right = margin_px(32.0);
+        let layout = layout_table_with(2, |index| {
+            if index == 0 {
+                float_style.clone()
+            } else {
+                block_style(margin_px(0.0), margin_px(0.0))
+            }
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "icon".to_owned(),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(1),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Box(float_box) = &root.children[0] else {
+            panic!("float child is a box");
+        };
+        // FixedLineInline reports max-content 100; the float's own 32px
+        // margin must not widen its border box past that.
+        assert!(
+            (float_box.rect.width - 100.0).abs() < 0.01,
+            "shrink-to-fit border width is the content fit, not fit + own margins: {}",
+            float_box.rect.width
+        );
+        // The margin still positions the box: right margin insets it from
+        // the right content edge.
+        assert!(
+            (float_box.rect.x - (500.0 - 100.0 - 32.0)).abs() < 0.01,
+            "the right margin insets the float from the right edge: {}",
+            float_box.rect.x
+        );
+    }
+
+    /// Clearance places the cleared content below the float's bottom
+    /// MARGIN edge (CSS 2.1 §9.5.2: "below the bottom outer edge"), not
+    /// its border bottom. Measured on the speech-bubble idiom: content
+    /// after `clear:both` sat exactly one `margin-bottom` too high.
+    #[test]
+    fn clearance_clears_the_floats_margin_edge() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut float_style = block_style(margin_px(0.0), margin_px(8.0));
+        float_style.float = FloatV1::Left;
+        let mut clear_style = block_style(margin_px(0.0), margin_px(0.0));
+        clear_style.clear = ClearV1::Both;
+        let layout = layout_table_with(4, |index| match index {
+            0 => float_style.clone(),
+            1 => clear_style.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let flow = |style_index: usize| FormattingNode {
+            style: node_style_id(&layout, style_index),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: "line".to_owned(),
+                    style: text_style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        };
+        let nodes = vec![
+            flow(0), // float, one 10px line, margin-bottom 8
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: Vec::new(),
+            }, // <div clear:both></div>
+            flow(2), // following paragraph
+            FormattingNode {
+                style: node_style_id(&layout, 3),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1), FormattingNodeId(2)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(3),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let following = root
+            .children
+            .iter()
+            .find_map(|fragment| match fragment {
+                Fragment::Box(inner) if inner.source == FormattingNodeId(2) => Some(inner),
+                _ => None,
+            })
+            .expect("following paragraph fragment");
+        assert!(
+            (following.rect.y - 18.0).abs() < 0.01,
+            "cleared content starts below the float's margin edge (10 + 8): {}",
+            following.rect.y
+        );
+    }
+
+    /// A float's top sits at its hypothetical in-flow position (CSS 2.1
+    /// §9.5.1 rule 4), which lies below the preceding sibling's bottom
+    /// margin — float margins never collapse with siblings (§8.3.1).
+    /// Measured on the speech-bubble idiom: every float following a
+    /// margined paragraph sat exactly that margin too high.
+    #[test]
+    fn a_float_respects_the_preceding_siblings_bottom_margin() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
+        float_style.float = FloatV1::Left;
+        let layout = layout_table_with(3, |index| match index {
+            0 => block_style(margin_px(0.0), margin_px(8.0)),
+            1 => float_style.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let flow = |style_index: usize| FormattingNode {
+            style: node_style_id(&layout, style_index),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: "line".to_owned(),
+                    style: text_style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        };
+        let nodes = vec![
+            flow(0), // one 10px line, margin-bottom 8
+            flow(1), // float:left
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let float_box = root
+            .children
+            .iter()
+            .find_map(|fragment| match fragment {
+                Fragment::Box(inner) if inner.source == FormattingNodeId(1) => Some(inner),
+                _ => None,
+            })
+            .expect("float fragment");
+        assert!(
+            (float_box.rect.y - 18.0).abs() < 0.01,
+            "the float starts below the sibling's margin edge (10 + 8): {}",
+            float_box.rect.y
         );
     }
 }
