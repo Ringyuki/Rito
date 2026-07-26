@@ -260,7 +260,15 @@ fn append_text_run_command(
     // the paint rect starts one canvas-'top' ascent above it and spans the
     // em box. The line box height travels separately so consumers can
     // reconstruct line geometry.
-    let baseline = line_y + line.baseline - baseline_shift_px;
+    //
+    // The painted baseline is FLOORED to a whole pixel: Blink places every
+    // painted baseline at floor(exact block offset + ascent + half-leading)
+    // (probed per line-height and per size, Chromium 147 — fractional line
+    // heights produce the 27/27/28 alternating ink pitch this reproduces),
+    // while the layout boxes keep their fractional heights. Painting at
+    // the exact fractional y instead shifted every glyph's antialiasing by
+    // up to a pixel against the browser's rows.
+    let baseline = (line_y + line.baseline).floor() - baseline_shift_px;
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
     if let Some(annotation) = ruby_annotation {
         // The reader's ruby convention (shared with the retained engine):
