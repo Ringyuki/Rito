@@ -261,14 +261,15 @@ fn append_text_run_command(
     // em box. The line box height travels separately so consumers can
     // reconstruct line geometry.
     //
-    // The painted baseline is FLOORED to a whole pixel: Blink places every
-    // painted baseline at floor(exact block offset + ascent + half-leading)
-    // (probed per line-height and per size, Chromium 147 — fractional line
-    // heights produce the 27/27/28 alternating ink pitch this reproduces),
-    // while the layout boxes keep their fractional heights. Painting at
-    // the exact fractional y instead shifted every glyph's antialiasing by
-    // up to a pixel against the browser's rows.
-    let baseline = (line_y + line.baseline).floor() - baseline_shift_px;
+    // The baseline stays FRACTIONAL here: Blink's layout keeps fractional
+    // block offsets (LayoutUnit) under an integer within-line baseline,
+    // and its raster snaps the absolute baseline to a row by rounding —
+    // which is exactly what canvas 'alphabetic' fillText does with a
+    // fractional y (bit-identical to DOM text, probed). Handing the exact
+    // value through reproduces the browser's 27/27/28 alternating ink
+    // pitch for fractional line heights; flooring here instead dropped
+    // every .5+ fraction one row low.
+    let baseline = (line_y + line.baseline) - baseline_shift_px;
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
     if let Some(annotation) = ruby_annotation {
         // The reader's ruby convention (shared with the retained engine):
@@ -467,6 +468,55 @@ fn spacing_px(spacing: LengthPercentage) -> EpubResult<Option<f64>> {
 
 /// The `font-family` string painted for a run: the computed stack as-is
 /// without a policy, or the policy's rewrite of it (see
+/// Applies the paint family rewrite to a host-metric family key (the
+/// comma-joined computed list rito-inline requests metrics under): named
+/// families the engine cannot resolve are dropped, the pinned aliases
+/// ride ahead of the first generic keyword, and the stack keeps a generic
+/// tail. The host must measure line metrics through exactly the faces
+/// paint resolves to, or the strut is sized by one font while the glyphs
+/// come from another (measured: `serif` struts sized by the browser's
+/// Times while SourceHan painted — every body baseline one pixel off).
+pub(crate) fn measure_family_stack(family_key: &str, policy: &PaintFamilyPolicy) -> String {
+    let is_generic = |name: &str| {
+        matches!(
+            name,
+            "serif" | "sans-serif" | "monospace" | "cursive" | "fantasy" | "system-ui"
+        )
+    };
+    let quoted = |name: &str| {
+        format!(
+            "\"{}\"",
+            name.replace('\\', "\\\\").replace('"', "\\\"")
+        )
+    };
+    let mut parts: Vec<String> = Vec::new();
+    let mut aliases_added = false;
+    for raw in family_key.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+        let bare = raw.trim_matches('"');
+        let lower = bare.to_ascii_lowercase();
+        if is_generic(lower.as_str()) {
+            if !aliases_added {
+                parts.extend(policy.aliases.iter().map(|alias| quoted(alias)));
+                aliases_added = true;
+            }
+            parts.push(lower);
+            continue;
+        }
+        if !policy.available.contains(&lower) {
+            continue;
+        }
+        parts.push(quoted(bare));
+    }
+    if !aliases_added {
+        parts.extend(policy.aliases.iter().map(|alias| quoted(alias)));
+    }
+    let has_generic_tail = parts.last().is_some_and(|part| is_generic(part.as_str()));
+    if !has_generic_tail {
+        parts.push("serif".to_owned());
+    }
+    parts.join(", ")
+}
+
 /// [`PaintFamilyPolicy`]).
 fn paint_family_stack(
     style: &InlineFormattingStyleV1,

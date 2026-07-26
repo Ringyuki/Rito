@@ -13,14 +13,23 @@ import type { BrowserReaderWorkerClient } from './core-contracts';
  * So the host measures them with the DOM and injects them; the engine
  * records (family, size, sample) misses for the next sync.
  *
+ * Each request carries the `measureFamily` the engine derived by applying
+ * its paint family rewrite to the raw key — unresolvable names dropped,
+ * pinned aliases ahead of the first generic, generic tail kept — so the
+ * measured strut comes from exactly the faces paint resolves to. The
+ * engine's availability set is fixed at session open, which is what makes
+ * these measurements stable per key. (Measuring the raw key instead once
+ * sized `serif` struts with the browser's Times while SourceHan painted:
+ * every body baseline sat one pixel low.)
+ *
  * The sample is what goes on the measured line. Empty is an inline box's
- * own strut — the first available font of the family list, whatever it
+ * own strut — the first available font of the measured list, whatever it
  * covers. A one-character sample measures whichever font the browser
  * resolves for that character, so a run the declared family cannot serve
  * is sized by the fallback font that actually paints it, exactly as the
  * browser sizes its own line boxes.
  *
- * The cache is module-level: keys measured once serve every document in
+ * The caches are module-level: keys measured once serve every document in
  * the session, so a steady-state open paginates once.
  */
 type MeasuredMetric = {
@@ -28,7 +37,14 @@ type MeasuredMetric = {
   baseline: number;
 };
 
+/** Keyed by the MEASURED family list — what the DOM actually sized. */
 const measuredCache = new Map<string, MeasuredMetric>();
+/**
+ * Keyed by the raw (engine-request) family list — replayed verbatim into
+ * new sessions. Two raw lists that rewrite to the same measured list
+ * share one measurement but need separate replay keys.
+ */
+const rawKeyCache = new Map<string, MeasuredMetric>();
 
 const GENERIC_FAMILIES = new Set([
   'serif',
@@ -44,7 +60,7 @@ const cacheKey = (family: string, size: number, sample: string) =>
 
 /** Every metric measured so far, for injection right after a session opens. */
 export function cachedHostLineMetricEntries(): RitoCoreWasmHostLineMetric[] {
-  return [...measuredCache.entries()].map(([key, metric]) => {
+  return [...rawKeyCache.entries()].map(([key, metric]) => {
     const parts = key.split('@@');
     return {
       family: parts.slice(0, -2).join('@@'),
@@ -70,9 +86,13 @@ export async function syncBrowserHostLineMetrics(
   const missing: RitoCoreWasmHostLineMetricRequest[] = [];
   for (const request of requests) {
     const { sample } = request;
-    const hit = measuredCache.get(cacheKey(request.family, request.size, sample));
-    if (hit) entries.push({ family: request.family, size: request.size, sample, ...hit });
-    else missing.push(request);
+    const hit = measuredCache.get(cacheKey(measuredFamilyList(request), request.size, sample));
+    if (hit) {
+      rawKeyCache.set(cacheKey(request.family, request.size, sample), hit);
+      entries.push({ family: request.family, size: request.size, sample, ...hit });
+    } else {
+      missing.push(request);
+    }
   }
   entries.push(...(await measureBrowserHostLineMetrics(missing)));
   if (entries.length === 0) return false;
@@ -93,7 +113,7 @@ async function measureBrowserHostLineMetrics(
     requests.map((request) =>
       document.fonts
         .load(
-          `${String(request.size)}px ${cssFamilyList(request.family)}`,
+          `${String(request.size)}px ${measuredFamilyList(request)}`,
           request.sample.length > 0 ? request.sample : 'x',
         )
         .catch(() => undefined),
@@ -105,10 +125,11 @@ async function measureBrowserHostLineMetrics(
   try {
     return requests.map((request) => {
       const { sample } = request;
+      const measured = measuredFamilyList(request);
       const paragraph = document.createElement('p');
       paragraph.style.cssText =
         `margin:0;padding:0;border:0;line-height:normal;white-space:pre;` +
-        `font-family:${cssFamilyList(request.family)};font-size:${String(request.size)}px;`;
+        `font-family:${measured};font-size:${String(request.size)}px;`;
       // A zero-sized inline-block sits on the baseline, so its top is the
       // baseline offset from the line box top. An empty sample leaves the
       // line with nothing but the strut.
@@ -122,12 +143,20 @@ async function measureBrowserHostLineMetrics(
         height: box.height,
         baseline: marker.getBoundingClientRect().top - box.top,
       };
-      measuredCache.set(cacheKey(request.family, request.size, sample), metric);
+      measuredCache.set(cacheKey(measured, request.size, sample), metric);
+      rawKeyCache.set(cacheKey(request.family, request.size, sample), metric);
       return { family: request.family, size: request.size, sample, ...metric };
     });
   } finally {
     host.remove();
   }
+}
+
+/** The engine-provided measure list, or the raw key for engines without one. */
+function measuredFamilyList(request: RitoCoreWasmHostLineMetricRequest): string {
+  return request.measureFamily !== undefined && request.measureFamily.length > 0
+    ? request.measureFamily
+    : cssFamilyList(request.family);
 }
 
 function cssFamilyList(familyKey: string): string {

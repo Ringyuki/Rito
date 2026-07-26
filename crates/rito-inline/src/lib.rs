@@ -103,6 +103,23 @@ impl HostNormalLineMetric {
     }
 }
 
+/// Quantizes a CSS length the way Blink's LayoutUnit stores it (1/64 px,
+/// nearest). A declared `line-height: 1.2em` at 16px is 19.2 in CSS
+/// arithmetic but 19.203125 in every Blink layout position; without this
+/// the engine's block stacking drifts a fraction per line against the
+/// browser.
+fn layout_unit(value: f64) -> f64 {
+    (value * 64.0).round() / 64.0
+}
+
+/// The half-leaded baseline offset inside a fixed-height line box, the way
+/// Blink places it: the strut font's integer ascent plus half the leading,
+/// rounded to a whole pixel (measured: Tinos 14/4 under 19.2px lands the
+/// baseline at 15 — round(14.6) — and SourceHan 18/5 at 16 — round(16.1)).
+fn fixed_line_baseline(height: f64, ascent: f64, descent: f64) -> f64 {
+    (ascent + (height - (ascent + descent)) / 2.0).round()
+}
+
 /// The character's Unicode script, as the integer a metric key uses.
 ///
 /// Font fallback is keyed by script in every browser, so this is the axis
@@ -741,10 +758,10 @@ impl FormattingContext for ParleyInlineContext {
                         Some(ItemLineHeight {
                             style: *style,
                             declared: match resolved.font.line_height {
-                                LineHeight::Number(number) => Some(
+                                LineHeight::Number(number) => Some(layout_unit(
                                     f64::from(number.get()) * f64::from(resolved.font.size.get()),
-                                ),
-                                LineHeight::Length(px) => Some(f64::from(px.get())),
+                                )),
+                                LineHeight::Length(px) => Some(layout_unit(f64::from(px.get()))),
                                 LineHeight::Normal => None,
                             },
                         })
@@ -1009,12 +1026,18 @@ impl FormattingContext for ParleyInlineContext {
             // every corpus shape measured. Any unmeasured host metric
             // falls back to the envelope path below, keeping the
             // measure → inject → reflow loop converging.
-            let contributions = if has_inline_box {
+            let contributions = if has_inline_box || line_declared_height.is_some() {
                 let mut complete = true;
                 // (resolved style, sample, shift) per text-strut
                 // contributor: the container's strut, then every on-line
                 // text item's declared-family strut plus each font its
-                // runs actually resolved to.
+                // runs actually resolved to — the latter only under
+                // `line-height: normal`, where the browser lets the
+                // fallback font grow the line. Under a fixed line-height
+                // the browser sizes and places the line from the strut
+                // font alone (measured: 19.2px over Tinos+SourceHan puts
+                // the baseline at 15 for empty, Latin and CJK samples
+                // alike).
                 let mut entries: Vec<(&InlineFormattingStyleV1, &str, f64)> = Vec::new();
                 match tree.strut_style(root).or_else(|| {
                     item_line_heights
@@ -1048,9 +1071,11 @@ impl FormattingContext for ParleyInlineContext {
                     };
                     let shift = item_shifts.get(index).copied().unwrap_or(0.0);
                     entries.push((resolved, "", shift));
-                    for (run_item, sample) in &line_run_samples {
-                        if *run_item == index {
-                            entries.push((resolved, sample.as_str(), shift));
+                    if matches!(resolved.font.line_height, LineHeight::Normal) {
+                        for (run_item, sample) in &line_run_samples {
+                            if *run_item == index {
+                                entries.push((resolved, sample.as_str(), shift));
+                            }
                         }
                     }
                 }
@@ -1065,14 +1090,15 @@ impl FormattingContext for ParleyInlineContext {
                     let (item_above, item_below) = match resolved.font.line_height {
                         LineHeight::Normal => (asc, desc),
                         LineHeight::Number(number) => {
-                            let height =
-                                f64::from(number.get()) * f64::from(resolved.font.size.get());
-                            let a = ((height - (asc + desc)) / 2.0).floor() + asc;
+                            let height = layout_unit(
+                                f64::from(number.get()) * f64::from(resolved.font.size.get()),
+                            );
+                            let a = fixed_line_baseline(height, asc, desc);
                             (a, height - a)
                         }
                         LineHeight::Length(px) => {
-                            let height = f64::from(px.get());
-                            let a = ((height - (asc + desc)) / 2.0).floor() + asc;
+                            let height = layout_unit(f64::from(px.get()));
+                            let a = fixed_line_baseline(height, asc, desc);
                             (a, height - a)
                         }
                     };

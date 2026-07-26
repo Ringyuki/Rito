@@ -370,12 +370,31 @@ impl RuntimeDocument {
         engine.engine.clear_inline_cache();
     }
 
-    /// Drains the (family key, size, sample) keys layout needed but no
-    /// host metric covered; the host measures them, injects, and relayouts.
-    pub fn take_host_line_metric_requests(&self) -> Vec<(String, f64, String)> {
-        match self.fragment_engine.get() {
+    /// Drains the (family key, measure family, size, sample) keys layout
+    /// needed but no host metric covered; the host measures each through
+    /// the measure family — the paint rewrite applied engine-side, so the
+    /// struts are sized by the exact faces paint resolves to — injects
+    /// under the family key, and relayouts.
+    pub fn take_host_line_metric_requests(&self) -> Vec<(String, String, f64, String)> {
+        let requests = match self.fragment_engine.get() {
             Some(Some(engine)) => engine.engine.inline().take_host_metric_requests(),
             _ => Vec::new(),
+        };
+        if requests.is_empty() {
+            return Vec::new();
         }
+        let policy = self.fragment_paint_family_policy();
+        requests
+            .into_iter()
+            .map(|(family, size, sample)| {
+                let measure = match &policy {
+                    Some(policy) => {
+                        crate::fragment_paint::measure_family_stack(&family, policy)
+                    }
+                    None => family.clone(),
+                };
+                (family, measure, size, sample)
+            })
+            .collect()
     }
 }

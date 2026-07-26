@@ -39,6 +39,14 @@ import type {
 /** One (family, size) pair whose normal-line metrics the host must measure. */
 export interface RitoCoreWasmHostLineMetricRequest {
   readonly family: string;
+  /**
+   * The font-family list to measure through: the engine's paint family
+   * rewrite applied to `family` (unresolvable names dropped, pinned
+   * aliases ahead of the first generic, generic tail kept), so the strut
+   * is sized by exactly the faces paint resolves to. Absent on sessions
+   * without a fragment engine — measure `family` as-is then.
+   */
+  readonly measureFamily?: string;
   readonly size: number;
   /**
    * What to put on the measured line: empty for an inline box's own strut,

@@ -83,6 +83,10 @@ impl RitoWasmDocument {
         #[derive(serde::Serialize)]
         struct Entry {
             family: String,
+            /// The font-family list the host must measure through: the
+            /// engine's paint rewrite applied to `family`.
+            #[serde(rename = "measureFamily")]
+            measure_family: String,
             size: f64,
             sample: String,
         }
@@ -91,8 +95,9 @@ impl RitoWasmDocument {
             .document
             .take_host_line_metric_requests()
             .into_iter()
-            .map(|(family, size, sample)| Entry {
+            .map(|(family, measure_family, size, sample)| Entry {
                 family,
+                measure_family,
                 size,
                 sample,
             })
