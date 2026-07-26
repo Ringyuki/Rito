@@ -342,10 +342,28 @@ fn typography_override_stylesheet(
     options: ChapterStyleOptions<'_>,
     document_url: &str,
 ) -> Result<Option<StylesheetInput>, StyleBackendError> {
+    // The selector is `*`, not `body`: `line-height` and `font-family` are
+    // inherited, and inheritance loses to any declaration on the element
+    // itself whatever its origin. A rule on `body` alone is therefore
+    // invisible in every book that styles its own paragraphs — which is
+    // nearly all of them.
+    //
+    // Importance is what separates the two intents:
+    //
+    // * unforced (user origin, normal) loses to the book's own explicit
+    //   declarations, so a decorative title or an icon-font span keeps the
+    //   face its author chose, while body text — which merely inherits —
+    //   takes the reader's. That is "respect the book's own fonts".
+    // * forced (user origin, `!important`) outranks even author
+    //   `!important`, so the reader's value wins everywhere.
     let mut declarations = Vec::with_capacity(2);
+    let important = |forced: bool| if forced { " !important" } else { "" };
     if let Some(line_height) = options.line_height_override {
         let line_height = configured_line_height(line_height)?;
-        declarations.push(format!("line-height: {line_height} !important"));
+        declarations.push(format!(
+            "line-height: {line_height}{}",
+            important(options.line_height_force)
+        ));
     }
     if let Some(font_family) = options.font_family_override {
         let canonical = canonicalize_font_family_value(font_family).ok_or(
@@ -353,13 +371,16 @@ fn typography_override_stylesheet(
                 "font family override must be a valid CSS font-family list",
             ),
         )?;
-        declarations.push(format!("font-family: {canonical} !important"));
+        declarations.push(format!(
+            "font-family: {canonical}{}",
+            important(options.font_family_force)
+        ));
     }
     if declarations.is_empty() {
         return Ok(None);
     }
     Ok(Some(StylesheetInput::new(
-        format!("body {{ {}; }}", declarations.join("; ")),
+        format!("* {{ {}; }}", declarations.join("; ")),
         document_url,
         StyleOrigin::User,
     )))
