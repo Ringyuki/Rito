@@ -94,12 +94,9 @@ fn validate_layout(value: &ReaderLayoutV1) -> Result<(), ReaderErrorV1> {
 pub(super) fn runtime_locator(
     value: ReaderLocatorV1,
 ) -> Result<RuntimeSourceLocator, ReaderErrorV1> {
-    if value.href.is_empty() {
-        return Err(ReaderErrorV1::new(
-            ReaderErrorKindV1::InvalidLocator,
-            "locator href must not be empty",
-        ));
-    }
+    // An empty href is the start-of-book locator. A host opening a
+    // publication for the first time holds no href: the spine only becomes
+    // readable once a session exists, and a session only exists after open.
     Ok(RuntimeSourceLocator {
         href: value.href,
         anchor_id: value.anchor_id,

@@ -43,6 +43,33 @@ fn session_exposes_one_static_publication_snapshot() {
 }
 
 #[test]
+fn an_empty_href_opens_the_book_at_its_first_linear_chapter() {
+    let mut session = ReaderSessionV1::open_owned(53, multi_chapter_fixture_epub())
+        .expect("reader session opens");
+    let first_spine_href = session.publication_v1().spine[0].href.clone();
+
+    let artifact = session
+        .request_artifact(request(53, 1, ""))
+        .expect("a start-of-book locator resolves");
+
+    assert_eq!(artifact.locator.href, first_spine_href);
+    assert_eq!(artifact.local_page_index, 0);
+}
+
+#[test]
+fn a_fragment_without_a_path_is_not_a_start_of_book_locator() {
+    let mut session = ReaderSessionV1::open_owned(54, multi_chapter_fixture_epub())
+        .expect("reader session opens");
+
+    assert!(
+        session
+            .request_artifact(request(54, 1, "#point-47"))
+            .is_err(),
+        "a path-less fragment names no chapter"
+    );
+}
+
+#[test]
 fn exact_nonzero_locator_owns_first_artifact_and_lifecycle() {
     let mut session = ReaderSessionV1::open_owned(41, source_locator_fixture_epub())
         .expect("reader session opens");

@@ -62,13 +62,16 @@ impl RuntimeSourceLocatorCanonicalizer {
         }
 
         let (href_path, legacy_anchor) = split_href_fragment(&locator.href);
-        if href_path.is_empty() {
-            return Err(RuntimeSourceLocatorError::href_not_found(&locator.href));
+        let chapter_index = if locator.href.is_empty() {
+            start_of_book(document)
+        } else if href_path.is_empty() {
+            // A fragment with no path ("#anchor") names no chapter. Only a
+            // wholly empty href means the beginning of the book.
+            None
+        } else {
+            self.href_index.resolve(href_path)
         }
-        let chapter_index = self
-            .href_index
-            .resolve(href_path)
-            .ok_or_else(|| RuntimeSourceLocatorError::href_not_found(&locator.href))?;
+        .ok_or_else(|| RuntimeSourceLocatorError::href_not_found(&locator.href))?;
         let chapter = &document.chapters[chapter_index];
         let legacy_anchor = legacy_anchor
             .filter(|anchor| !anchor.is_empty())
@@ -93,6 +96,16 @@ impl RuntimeSourceLocatorCanonicalizer {
             },
         })
     }
+}
+
+/// Where a book begins: its first linear spine item, or its first item at all
+/// when a publication marks every chapter non-linear.
+fn start_of_book(document: &LoadedEpubDocument) -> Option<usize> {
+    document
+        .chapters
+        .iter()
+        .position(|chapter| chapter.linear)
+        .or_else(|| (!document.chapters.is_empty()).then_some(0))
 }
 
 fn split_href_fragment(href: &str) -> (&str, Option<&str>) {
