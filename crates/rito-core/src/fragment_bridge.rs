@@ -567,7 +567,14 @@ impl TreeBuilder<'_> {
                     .inline
                     .style(style)
                     .map_err(|error| EpubError::new(format!("{} style: {error}", element.tag)))?;
-                let shift = ancestor_shift_px + resolved_baseline_shift(resolved);
+                let parent_font_size = self
+                    .inline
+                    .style(inherited)
+                    .map(|parent| f64::from(parent.font.size.get()))
+                    .map_err(|error| {
+                        EpubError::new(format!("{} parent style: {error}", element.tag))
+                    })?;
+                let shift = ancestor_shift_px + resolved_baseline_shift(resolved, parent_font_size);
                 // An <a href> scopes its destination over everything it
                 // contains; nested links (invalid HTML) keep the inner.
                 let link = (element.tag == "a")
@@ -590,7 +597,9 @@ impl TreeBuilder<'_> {
                 }
                 Ok(())
             }
-            DocumentNode::Image(image) => self.collect_image(image, ancestor_shift_px, collector),
+            DocumentNode::Image(image) => {
+                self.collect_image(image, inherited, ancestor_shift_px, collector)
+            }
             DocumentNode::Block(element) => Err(EpubError::new(format!(
                 "block-level <{}> inside an inline run; anonymous box grouping missed it",
                 element.tag
@@ -741,6 +750,7 @@ impl TreeBuilder<'_> {
     fn collect_image(
         &mut self,
         image: &ImageNode,
+        inherited: StyleId,
         ancestor_shift_px: f64,
         collector: &mut InlineCollector,
     ) -> EpubResult<()> {
@@ -789,7 +799,16 @@ impl TreeBuilder<'_> {
                 intrinsic_height: f64::from(height),
                 style,
                 layout_style,
-                baseline_shift_px: ancestor_shift_px + resolved_baseline_shift(resolved),
+                baseline_shift_px: ancestor_shift_px
+                    + resolved_baseline_shift(
+                        resolved,
+                        self.inline
+                            .style(inherited)
+                            .map(|parent| f64::from(parent.font.size.get()))
+                            .map_err(|error| {
+                                EpubError::new(format!("image parent style: {error}"))
+                            })?,
+                    ),
             },
             source_index,
             image.source_ref.node_path.clone(),
@@ -1562,16 +1581,25 @@ fn inline_box_capability_violation(
 }
 
 /// The baseline shift one inline box asks for, CSS px; positive raises
-/// content above the baseline. `super`/`sub` use the box's own computed
-/// font size with the conventional browser ratios; the exact values are
-/// calibrated against the pinned-browser oracle.
-fn resolved_baseline_shift(style: &rito_style_contract::InlineFormattingStyleV1) -> f64 {
-    const SUPER_RATIO: f64 = 0.34;
-    const SUB_RATIO: f64 = 0.20;
-    let font_size = f64::from(style.font.size.get());
+/// content above the baseline. `super`/`sub` shift by the PARENT's font
+/// (CSS 2.1 §10.8.1: "the proper position for superscripts of the
+/// parent's box"), measured per size against the pinned browser
+/// (sup/sub marker probes, 2026-07-26, Chromium 147): super raises by
+/// `floor64(parent_em / 3) + 1`, sub drops by `floor64(parent_em / 5)
+/// + 1`, where floor64 is Blink's LayoutUnit (1/64 px) floor. The
+/// offsets do not depend on the shifted box's own font size.
+fn resolved_baseline_shift(
+    style: &rito_style_contract::InlineFormattingStyleV1,
+    parent_font_size_px: f64,
+) -> f64 {
+    let layout_unit_floor = |value: f64| (value * 64.0).floor() / 64.0;
     match style.fragment.baseline_shift {
-        rito_style_contract::BaselineShift::Super => SUPER_RATIO * font_size,
-        rito_style_contract::BaselineShift::Sub => -(SUB_RATIO * font_size),
+        rito_style_contract::BaselineShift::Super => {
+            layout_unit_floor(parent_font_size_px / 3.0) + 1.0
+        }
+        rito_style_contract::BaselineShift::Sub => {
+            -(layout_unit_floor(parent_font_size_px / 5.0) + 1.0)
+        }
         // Zero offsets pass the whitelist; every other value is rejected
         // there before reaching this resolver.
         _ => 0.0,
