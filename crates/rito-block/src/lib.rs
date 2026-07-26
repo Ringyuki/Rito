@@ -224,24 +224,11 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         "float layout must produce a box fragment root".to_owned(),
                     ));
                 };
-                let mut inner_children = child_root.children;
-                let mut content_height = child_root.rect.height;
-                if matches!(
-                    tree.node(*child_id).content,
-                    FormattingNodeContent::InlineFlow { .. }
-                ) {
-                    // A floated paragraph's own padding is applied here;
-                    // nested containers already applied theirs.
-                    for fragment in &mut inner_children {
-                        let rect = fragment.rect();
-                        set_fragment_position(
-                            fragment,
-                            rect.x + hbox.padding_left,
-                            rect.y + hbox.padding_top,
-                        );
-                    }
-                    content_height += hbox.padding_top + hbox.padding_bottom;
-                }
+                // An inline-flow float's own padding is applied by the
+                // dispatch in `layout` (content width, offsets, height);
+                // nested containers apply theirs in `layout_container`.
+                let inner_children = child_root.children;
+                let content_height = child_root.rect.height;
                 let occupy_width = hbox.x + hbox.border_width + margin_right;
                 // A negative top margin pulls the float's border box above
                 // its flow position (how title pages hoist a volume badge
@@ -1213,7 +1200,55 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 self.layout_container(tree, node, space, token, cancel, true)
             }
             FormattingNodeContent::InlineFlow { .. } => {
-                self.inline.layout(tree, node, space, token, cancel)
+                // `space.inline_size` is the border-box width by contract
+                // (layout_container upholds it for block children), so an
+                // inline flow with its own padding must hand the provider
+                // its CONTENT width — line boxes fill the containing
+                // block's content area (CSS 2.1 §9.4.2) — and carry its
+                // lines inside the padding. Handing the border width
+                // through made every aligned line overshoot by exactly the
+                // horizontal padding sum (the floated speech-bubble idiom).
+                let style = container_layout_style(tree, node)?;
+                let pad = |side: rito_style_contract::NonNegativeLengthPercentage| {
+                    resolve_length_percentage(side.value(), space.inline_size).max(0.0)
+                };
+                let padding_left = pad(style.padding.left);
+                let padding_right = pad(style.padding.right);
+                let padding_top = pad(style.padding.top);
+                let padding_bottom = pad(style.padding.bottom);
+                if padding_left + padding_right + padding_top + padding_bottom == 0.0 {
+                    return self.inline.layout(tree, node, space, token, cancel);
+                }
+                // A resumed paragraph left its top padding on its first
+                // fragment, exactly like a resumed block container.
+                let leading = if token.is_some() { 0.0 } else { padding_top };
+                let sub_space = ConstraintSpace {
+                    inline_size: (space.inline_size - padding_left - padding_right).max(0.0),
+                    fragmentainer_remaining: space
+                        .fragmentainer_remaining
+                        .map(|remaining| (remaining - leading).max(0.0)),
+                    fragmentainer_size: space.fragmentainer_size,
+                    float_band: space.float_band,
+                };
+                let mut outcome = self.inline.layout(tree, node, &sub_space, token, cancel)?;
+                // Bottom padding rides the last fragment only.
+                let trailing = if outcome.continuation.is_some() {
+                    0.0
+                } else {
+                    padding_bottom
+                };
+                let Fragment::Box(root) = &mut outcome.fragments.root else {
+                    return Err(LayoutError::Invalid(
+                        "inline provider must produce a box fragment root".to_owned(),
+                    ));
+                };
+                for child in &mut root.children {
+                    let rect = child.rect();
+                    set_fragment_position(child, rect.x + padding_left, rect.y + leading);
+                }
+                root.rect.width = space.inline_size;
+                root.rect.height += leading + trailing;
+                Ok(outcome)
             }
             FormattingNodeContent::SizedLeaf { .. } => Err(LayoutError::Invalid(
                 "a sized leaf has no formatting context of its own; lay out its container"
@@ -3629,5 +3664,122 @@ single line across page boundaries.";
         // The cache makes the second pagination replay-fast and identical.
         let repeat = paginate(&context, &tree, ConstraintSpace::fragmented(160.0, 60.0));
         assert_eq!(pages, repeat);
+    }
+
+    /// A floated inline flow with its own padding: `space.inline_size` is
+    /// the border-box width by contract, so the inline provider must be
+    /// handed the CONTENT width (CSS 2.1 §9.4.2 — line boxes fill the
+    /// containing block's content area) and its lines must sit inside the
+    /// padding. Measured on the speech-bubble idiom (float + width% +
+    /// asymmetric padding + text-align:right) the engine's aligned lines
+    /// overshot Chromium's by exactly the horizontal padding sum.
+    #[test]
+    fn padded_float_inline_flow_lays_lines_in_the_content_box() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let pad = |px: f32| {
+            NonNegativeLengthPercentage::new(LengthPercentage::Length(
+                CssPx::new(px).expect("padding length"),
+            ))
+        };
+        let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
+        float_style.float = FloatV1::Left;
+        float_style.width = PreferredSizeV1::Value(
+            rito_style_contract::NonNegativeLengthPercentage::new(LengthPercentage::Length(
+                CssPx::new(400.0).expect("width length"),
+            )),
+        );
+        float_style.padding = PhysicalSides {
+            top: pad(3.0),
+            right: pad(16.0),
+            bottom: pad(9.0),
+            left: pad(5.0),
+        };
+        let layout = layout_table_with(2, |index| {
+            if index == 0 {
+                float_style.clone()
+            } else {
+                block_style(margin_px(0.0), margin_px(0.0))
+            }
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "bubble".to_owned(),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(1),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Box(float_box) = &root.children[0] else {
+            panic!("float child is a box");
+        };
+        assert!(
+            (float_box.rect.width - 421.0).abs() < 0.01,
+            "float border box is content 400 + padding 21: {}",
+            float_box.rect.width
+        );
+        let Fragment::Line(line) = &float_box.children[0] else {
+            panic!("float content is lines, got {:?}", float_box.children[0]);
+        };
+        assert!(
+            (line.rect.width - 400.0).abs() < 0.01,
+            "the inline provider is handed the content width: {}",
+            line.rect.width
+        );
+        assert!(
+            (line.rect.x - 5.0).abs() < 0.01,
+            "lines start after padding-left: {}",
+            line.rect.x
+        );
+        assert!(
+            (line.rect.y - 3.0).abs() < 0.01,
+            "the first line sits below padding-top: {}",
+            line.rect.y
+        );
+        assert!(
+            (float_box.rect.height - 22.0).abs() < 0.01,
+            "the float closes with its vertical padding (3 + 10 + 9): {}",
+            float_box.rect.height
+        );
     }
 }
