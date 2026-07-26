@@ -13,7 +13,11 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
-const [, , dirArg, outDirArg, widthArg] = process.argv;
+const [, , dirArg, outDirArg, widthArg, reuseArg] = process.argv;
+// `reuse` re-aggregates from per-book reports already on disk. The
+// leaderboard shape changes far more often than the measurements do, and a
+// full sweep costs hours.
+const reuse = reuseArg === 'reuse';
 if (!dirArg) throw new Error('usage: real-corpus.mjs <dir-with-epubs> [outDir] [flowWidth]');
 const outDir = outDirArg ?? '/tmp/rito-real-corpus';
 const flowWidth = widthArg ?? '500';
@@ -28,12 +32,15 @@ const results = [];
 for (const [index, book] of books.entries()) {
   const bookOut = path.join(outDir, `book-${String(index).padStart(2, '0')}`);
   process.stdout.write(`[${index + 1}/${books.length}] ${book.name}\n`);
-  const run = spawnSync(
-    'node',
-    [path.join(REPO, 'tools/conformance/real-book.mjs'), book.file, bookOut, flowWidth],
-    { maxBuffer: 256 * 1024 * 1024, timeout: 20 * 60 * 1000 },
-  );
   const reportPath = path.join(bookOut, 'report.json');
+  const run =
+    reuse && existsSync(reportPath)
+      ? { stderr: Buffer.from('') }
+      : spawnSync(
+          'node',
+          [path.join(REPO, 'tools/conformance/real-book.mjs'), book.file, bookOut, flowWidth],
+          { maxBuffer: 256 * 1024 * 1024, timeout: 20 * 60 * 1000 },
+        );
   if (!existsSync(reportPath)) {
     const why = (run.stderr?.toString() ?? '').trim().split('\n').at(-1) ?? 'no report';
     results.push({ book: book.name, error: why.slice(0, 200) });
@@ -54,8 +61,23 @@ for (const [index, book] of books.entries()) {
     const key = `${offender.tag} ${offender.axis}`;
     classes[key] = (classes[key] ?? 0) + 1;
   }
+  // The worst measured chapter. A book-level average buries a page that
+  // came out a total ruin: one broken chapter among forty reads as 97.8%,
+  // and the reader opens exactly that page. Chapters too small to be
+  // meaningful (a cover with two boxes) are excluded from the pick.
+  const MEANINGFUL_BOXES = 8;
+  const worstChapter = report.perChapter
+    .filter((c) => (c.matched ?? 0) >= MEANINGFUL_BOXES && c.unsupportedMode === undefined)
+    .map((c) => ({
+      chapter: c.chapter,
+      within: c.within,
+      matched: c.matched,
+      rate: c.within / c.matched,
+    }))
+    .sort((a, b) => a.rate - b.rate)[0];
   const entry = {
     book: book.name,
+    worstChapter,
     rate: matched > 0 ? within / matched : 0,
     within,
     matched,
@@ -102,12 +124,25 @@ const lines = [
     .slice(0, 12)
     .map(([key, count]) => `- ${key}: ${count}`),
   '',
-  '## Books, worst first',
+  '## Broken pages (chapters under 50%)',
+  '',
+  'A book-level rate cannot show these: the reader opens one page, not an average.',
   '',
 ];
+const broken = scored
+  .filter((r) => r.worstChapter !== undefined && r.worstChapter.rate < 0.5)
+  .sort((a, b) => a.worstChapter.rate - b.worstChapter.rate);
+for (const r of broken) {
+  lines.push(
+    `- ${(r.worstChapter.rate * 100).toFixed(0)}% ${r.book} → ${r.worstChapter.chapter} ` +
+      `(${r.worstChapter.within}/${r.worstChapter.matched} boxes) — book reads ${(r.rate * 100).toFixed(1)}%`,
+  );
+}
+lines.push('', '## Books, worst first', '');
 for (const r of scored) {
   lines.push(
     `- ${(r.rate * 100).toFixed(1)}% ${r.book} (${r.within}/${r.matched}, ${r.missing} missing) ` +
+      `— worst page ${r.worstChapter ? `${(r.worstChapter.rate * 100).toFixed(0)}% ${r.worstChapter.chapter}` : 'n/a'} ` +
       `— ${r.classes.map(([key, count]) => `${key}×${count}`).join(', ')}`,
   );
 }
