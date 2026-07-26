@@ -63,6 +63,17 @@ const browser = await chromium.launch();
 // ---- Engine side: load the book, read the chapter map, walk and shoot --
 const reader = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
 await reader.goto(BASE);
+// A dist rebuild right before the walk makes vite re-optimize deps and
+// hard-reload the page once via HMR. If that reload lands after the book
+// was loaded, the book state is dropped, the canvas leaves the DOM, and
+// every screenshot times out. Let the reload storm finish first: proceed
+// only after 2s with no navigation.
+let lastNav = Date.now();
+reader.on('load', () => {
+  lastNav = Date.now();
+});
+await reader.waitForSelector('input[type=file]', { state: 'attached', timeout: 60000 });
+while (Date.now() - lastNav < 2000) await reader.waitForTimeout(250);
 await reader.waitForSelector('input[type=file]', { state: 'attached', timeout: 60000 });
 await reader.setInputFiles('input[type=file]', path.resolve(bookPath));
 await reader.waitForSelector('[data-testid=reader-shell][data-loaded=true]', {
@@ -112,9 +123,19 @@ const enginePages = new Map();
 const shootSpread = async (spreadIndex) => {
   // The first paint after a dist/wasm rebuild can stall while vite
   // re-optimizes; one long-timeout retry absorbs it.
-  const shot = await canvas
-    .screenshot({ timeout: 90000 })
-    .catch(() => canvas.screenshot({ timeout: 90000 }));
+  const shot = await canvas.screenshot({ timeout: 90000 }).catch(async () => {
+    const loaded = await reader
+      .locator('[data-testid=reader-shell]')
+      .getAttribute('data-loaded')
+      .catch(() => null);
+    if (loaded !== 'true') {
+      throw new Error(
+        `book state lost before spread ${spreadIndex} (data-loaded=${loaded}); ` +
+          'a vite dep re-optimize reload probably dropped it',
+      );
+    }
+    return canvas.screenshot({ timeout: 90000 });
+  });
   const png = PNG.sync.read(shot);
   const rightX = png.width - pageW;
   for (const side of ['left', 'right']) {
@@ -135,7 +156,16 @@ const shootSpread = async (spreadIndex) => {
 const totalSpreads = Math.max(...plan.pages.map((p) => p.spread)) + 1;
 for (let s = 0; s < totalSpreads; s += 1) {
   if (Math.min(...[...pageAt.keys()].filter((p) => !enginePages.has(p))) > MAX_PAGES) break;
-  await reader.waitForTimeout(s === 0 ? 800 : 260);
+  // A screenshot during the page-turn slide reads as a horizontal shift
+  // of the whole page (image spreads settle latest — their frames land
+  // after async decodes). Wait out the transition, then settle.
+  await reader
+    .waitForFunction(
+      () => document.querySelector('[data-testid=reader-shell]')?.dataset.transitioning === 'false',
+      { timeout: 15000 },
+    )
+    .catch(() => undefined);
+  await reader.waitForTimeout(s === 0 ? 800 : 320);
   await shootSpread(s);
   if (s < totalSpreads - 1) {
     await reader.keyboard.press('ArrowRight');
