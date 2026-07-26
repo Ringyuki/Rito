@@ -792,6 +792,15 @@ impl TreeBuilder<'_> {
         {
             self.source_anchors.insert(source_index, anchor);
         }
+        // NOTE: an SVG-folded image's LAYOUT ratio should come from the
+        // SVG's viewBox (image.svg_viewport), not the embedded raster —
+        // but in the paged reader both cover dimensions are definite
+        // (100%×100% of the page) and the ratio never applies, while the
+        // paint letterbox DOES consume these intrinsics for the raster
+        // fit. Swapping them to the viewBox regressed the cover 10.6k →
+        // 226k. The viewport is parsed and carried for the future
+        // two-stage model (viewport sizes the box, raster letterboxes
+        // inside the image-element rect).
         collector.push_image(
             InlineItem::Image {
                 src: image.src.clone(),

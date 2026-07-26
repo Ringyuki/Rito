@@ -82,7 +82,7 @@ pub struct ElementAttributes {
     pub style: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ParseResult {
     pub nodes: Vec<DocumentNode>,
     pub warnings: Vec<String>,
@@ -98,7 +98,7 @@ pub struct ParseResult {
 ///
 /// Production chapter preparation retains this pair so later style engines
 /// can consume the exact source topology without reparsing XHTML.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ParsedXhtmlSource {
     pub(crate) source_arena: Arc<SourceArena>,
     pub(crate) parsed: ParseResult,
@@ -126,7 +126,7 @@ pub(crate) enum AuthorStylesheetSource {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DocumentNode {
     Block(ElementNode),
     Inline(ElementNode),
@@ -134,7 +134,7 @@ pub enum DocumentNode {
     Image(ImageNode),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ElementNode {
     pub tag: String,
     pub attributes: Option<ElementAttributes>,
@@ -149,7 +149,7 @@ pub struct TextNode {
     pub source_ref: SourceRef,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ImageNode {
     pub src: String,
     pub alt: String,
@@ -160,6 +160,12 @@ pub struct ImageNode {
     /// the content contain-fit the declared viewport instead of stretching
     /// with it; only `none` stretches.
     pub svg_contain: bool,
+    /// The folded `<svg>`'s own intrinsic dimensions (its `viewBox` size,
+    /// or absolute `width`/`height` attributes). An SVG's intrinsic ratio
+    /// comes from these, never from the raster it happens to embed
+    /// (measured: a 1434×2048 viewBox around a 1119×1600 JPEG sizes at
+    /// the viewBox ratio in Chromium — 914.03px at 640 wide, not 915.10).
+    pub svg_viewport: Option<(f64, f64)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -455,8 +455,37 @@ fn convert_svg_image(
                 .attribute("preserveAspectRatio")
                 .map(|value| !value.trim().eq_ignore_ascii_case("none"))
                 .unwrap_or(true),
+            svg_viewport: svg_intrinsic_viewport(element),
         })
     })
+}
+
+/// The SVG's intrinsic dimensions: the `viewBox` size when present, else
+/// absolute (unit-less or px) `width`/`height` attributes. Percentages
+/// carry no intrinsic size.
+fn svg_intrinsic_viewport(element: Node<'_>) -> Option<(f64, f64)> {
+    if let Some(view_box) = element.attribute("viewBox") {
+        let numbers: Vec<f64> = view_box
+            .split(|c: char| c.is_whitespace() || c == ',')
+            .filter(|part| !part.is_empty())
+            .filter_map(|part| part.parse::<f64>().ok())
+            .collect();
+        if let [_, _, width, height] = numbers.as_slice() {
+            if *width > 0.0 && *height > 0.0 {
+                return Some((*width, *height));
+            }
+        }
+    }
+    let absolute = |name: &str| -> Option<f64> {
+        let value = element.attribute(name)?.trim();
+        let value = value.strip_suffix("px").unwrap_or(value);
+        let parsed = value.parse::<f64>().ok()?;
+        (parsed > 0.0).then_some(parsed)
+    };
+    match (absolute("width"), absolute("height")) {
+        (Some(width), Some(height)) => Some((width, height)),
+        _ => None,
+    }
 }
 
 /// The `<svg>` element's attributes with its geometry presentation
@@ -512,6 +541,7 @@ fn image_node_from_element(
             attributes: extract_attributes(element),
             source_ref,
             svg_contain: false,
+            svg_viewport: None,
         })
     })
 }
