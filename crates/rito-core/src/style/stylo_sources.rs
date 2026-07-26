@@ -384,6 +384,33 @@ pub(crate) fn validate_stylo_source_arena(
                 }
             }
         }
+        // `width`/`height` on `<svg>` are presentation attributes (SVG 2
+        // §7.2) that the Stylo adapter synthesizes as hints. An invalid
+        // value is ignored by browsers just as it is here, and outside the
+        // SVG namespace neither side applies the attribute, so the only
+        // divergence worth recording is an in-namespace, non-empty value
+        // the adapter cannot represent while a browser's own grammar might.
+        if element.name.local_name == "svg" {
+            const SVG_NAMESPACE: &str = "http://www.w3.org/2000/svg";
+            if element.name.namespace.as_deref() == Some(SVG_NAMESPACE) {
+                for (name, subject) in
+                    [("width", "attribute svg@width"), ("height", "attribute svg@height")]
+                {
+                    let Some(value) = element.attribute(name) else {
+                        continue;
+                    };
+                    if !value.trim().is_empty()
+                        && !rito_stylo::supports_svg_geometry_presentational_hint(value)
+                    {
+                        capabilities.record(
+                            StyleCapabilityImpact::Degraded,
+                            node_id.index(),
+                            subject,
+                        );
+                    }
+                }
+            }
+        }
     }
     Ok(())
 }

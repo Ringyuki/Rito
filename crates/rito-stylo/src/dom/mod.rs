@@ -28,7 +28,11 @@ use style_dom::ElementState;
 
 use crate::{
     break_properties::rewrite_declaration_list,
-    presentational_hints::parse_body_bgcolor_presentational_hint, session::StyleError,
+    presentational_hints::{
+        parse_body_bgcolor_presentational_hint, parse_svg_geometry_presentational_hint,
+        SvgGeometryAxis,
+    },
+    session::StyleError,
 };
 
 use self::data::ElementStyleSlot;
@@ -62,6 +66,10 @@ struct ElementMetadata {
     id: Option<style::Atom>,
     style_attribute: Option<Arc<Locked<style::properties::PropertyDeclarationBlock>>>,
     body_bgcolor_presentational_hint: Option<AbsoluteColor>,
+    /// `width`/`height` on `<svg>` as typed declarations (SVG 2 §7.2).
+    /// Empty for every other element, and for attribute values the CSS
+    /// grammar rejects — browsers ignore an invalid presentation attribute.
+    svg_geometry_presentational_hints: Box<[style::properties::PropertyDeclaration]>,
     state: ElementState,
 }
 
@@ -218,6 +226,8 @@ impl ElementMetadata {
         let local_name = LocalName::from(element.name.local_name.as_str());
         let body_bgcolor_presentational_hint =
             body_bgcolor_presentational_hint(source_index, &namespace, &local_name, &attributes)?;
+        let svg_geometry_presentational_hints =
+            svg_geometry_presentational_hints(&namespace, &local_name, &attributes);
         let state = element_state(&namespace, &local_name, &attributes);
         Ok(Self {
             local_name,
@@ -226,6 +236,7 @@ impl ElementMetadata {
             id,
             style_attribute,
             body_bgcolor_presentational_hint,
+            svg_geometry_presentational_hints,
             state,
         })
     }
@@ -255,6 +266,35 @@ fn body_bgcolor_presentational_hint(
             name: "body@bgcolor",
             value: value.to_owned(),
         })
+}
+
+/// `width`/`height` on the `<svg>` element parsed into presentational-hint
+/// declarations (SVG 2 §7.2). The EPUB parser folds an SVG-wrapped image
+/// into an image node, but the fragment engine styles that node through
+/// Stylo keyed by the source `<svg>` element, so the geometry must reach
+/// Stylo here — as a hint, which cascades below author styles — rather
+/// than through a style string synthesized outside the cascade.
+fn svg_geometry_presentational_hints(
+    namespace: &Namespace,
+    local_name: &LocalName,
+    attributes: &[DomAttribute],
+) -> Box<[style::properties::PropertyDeclaration]> {
+    if &**namespace != SVG_NAMESPACE || &**local_name != "svg" {
+        return Box::default();
+    }
+    let mut hints = Vec::new();
+    for (axis, name) in [
+        (SvgGeometryAxis::Width, "width"),
+        (SvgGeometryAxis::Height, "height"),
+    ] {
+        let Some(value) = find_attribute(attributes, "", name) else {
+            continue;
+        };
+        if let Some(declaration) = parse_svg_geometry_presentational_hint(axis, value) {
+            hints.push(declaration);
+        }
+    }
+    hints.into_boxed_slice()
 }
 
 fn element(node: &SourceNode) -> Option<&SourceElement> {
@@ -364,6 +404,11 @@ impl<'a> DomNode<'a> {
 
     fn body_bgcolor_presentational_hint(self) -> Option<AbsoluteColor> {
         self.metadata()?.body_bgcolor_presentational_hint
+    }
+
+    fn svg_geometry_presentational_hints(self) -> &'a [style::properties::PropertyDeclaration] {
+        self.metadata()
+            .map_or(&[], |metadata| &*metadata.svg_geometry_presentational_hints)
     }
 
     pub(crate) fn inherited_language(self) -> Option<&'a str> {

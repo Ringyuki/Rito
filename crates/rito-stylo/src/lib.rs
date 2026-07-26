@@ -19,7 +19,9 @@ mod traversal;
 mod ua;
 
 pub use font_faces::{parse_font_faces_v1, FontFaceRuleV1, FontFaceStylesheetInputV1};
-pub use presentational_hints::supports_body_bgcolor_presentational_hint;
+pub use presentational_hints::{
+    supports_body_bgcolor_presentational_hint, supports_svg_geometry_presentational_hint,
+};
 pub use projection::{
     BoxSizingV2, ComputedDisplayV1, ComputedElementStyleV0, ComputedElementStyleV1,
     ComputedElementStyleV2, ComputedLineHeightV1, DirectionV2, DisplayCategory, DisplayInsideV1,

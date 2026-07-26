@@ -395,6 +395,16 @@ impl<'a> TElement for DomNode<'a> {
     ) where
         V: Push<ApplicableDeclarationBlock>,
     {
+        if self.is_svg_element() {
+            // `width`/`height` on `<svg>` are presentation attributes
+            // (SVG 2 §7.2): author-level declarations below every author
+            // stylesheet rule, which is exactly the pres-hints cascade
+            // origin.
+            for declaration in (*self).svg_geometry_presentational_hints() {
+                push_presentational_hint(*self, hints, declaration.clone());
+            }
+            return;
+        }
         if !self.is_html_element() {
             return;
         }
