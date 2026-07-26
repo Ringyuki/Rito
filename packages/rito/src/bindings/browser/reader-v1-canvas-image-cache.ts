@@ -118,12 +118,7 @@ export class BrowserReaderCanvasImageCacheV1 {
       this.assertOpen();
       const known = this.knownEntry(sourceKey);
       if (known) {
-        const target = plan.targetFor(
-          href,
-          known.source.width,
-          known.source.height,
-          this.limits.targetBucketSize,
-        );
+        const target = this.decodeTargetFor(plan, href, known.source.width, known.source.height);
         const key = imageCacheKeyV1(sourceKey, target.width, target.height);
         const existing = this.entries.get(key);
         if (existing) {
@@ -164,9 +159,11 @@ export class BrowserReaderCanvasImageCacheV1 {
     budget.reserveEncoded(resource.bytes.byteLength, href);
     const source = inspectBrowserReaderCanvasImageV1(resource, this.limits);
     assertStableImageSourceV1(expected, source, href);
-    const target = plan.targetFor(href, source.width, source.height, this.limits.targetBucketSize);
+    const target = this.decodeTargetFor(plan, href, source.width, source.height);
     budget.reserveTarget(target.width * target.height, href);
-    const bitmap = await decodeImage(resource.bytes, source, target.width, target.height);
+    const bitmap = target.natural
+      ? await decodeImage(resource.bytes, source)
+      : await decodeImage(resource.bytes, source, target.width, target.height);
     try {
       this.assertOpen();
       assertDecodedImageV1(bitmap, source, target.width, target.height, href);
@@ -199,6 +196,32 @@ export class BrowserReaderCanvasImageCacheV1 {
     return undefined;
   }
 
+  /**
+   * Natural-size decode is the default: a one-step drawImage scale from
+   * the natural raster is bit-identical to Blink's own <img> painting
+   * (probed), while any pre-resized bitmap never matches. Sources past
+   * `maxNaturalDecodePixels` keep the bucketed decode as a memory safety
+   * valve — a recorded exemption from the pixel-parity standard, not a
+   * silent one.
+   */
+  private decodeTargetFor(
+    plan: BrowserReaderCanvasImageTargetPlanV1,
+    href: string,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): { readonly width: number; readonly height: number; readonly natural: boolean } {
+    if (sourceWidth * sourceHeight <= this.limits.maxNaturalDecodePixels) {
+      return { width: sourceWidth, height: sourceHeight, natural: true };
+    }
+    const bucketed = plan.targetFor(href, sourceWidth, sourceHeight, this.limits.targetBucketSize);
+    const scope = globalThis as { __ritoImageDecodeExemptions?: unknown[] };
+    scope.__ritoImageDecodeExemptions = [
+      ...(scope.__ritoImageDecodeExemptions ?? []).slice(-15),
+      { href, sourceWidth, sourceHeight, target: bucketed },
+    ];
+    return { ...bucketed, natural: false };
+  }
+
   private assertOpen(): void {
     if (this.disposed) {
       throw new Error('Browser Reader v1 Canvas presenter was disposed during preparation.');
@@ -209,14 +232,18 @@ export class BrowserReaderCanvasImageCacheV1 {
 async function decodeImage(
   bytes: Uint8Array,
   source: BrowserReaderCanvasImageSourceV1,
-  targetWidth: number,
-  targetHeight: number,
+  targetWidth?: number,
+  targetHeight?: number,
 ): Promise<ImageBitmap> {
   if (typeof createImageBitmap !== 'function') {
     throw new BrowserReaderCanvasUnsupportedErrorV1('createImageBitmap');
   }
   if (typeof Blob !== 'function') throw new BrowserReaderCanvasUnsupportedErrorV1('Blob');
-  return createImageBitmap(new Blob([ownedArrayBuffer(bytes)], { type: source.mediaType }), {
+  const blob = new Blob([ownedArrayBuffer(bytes)], { type: source.mediaType });
+  if (targetWidth === undefined || targetHeight === undefined) {
+    return createImageBitmap(blob);
+  }
+  return createImageBitmap(blob, {
     resizeWidth: targetWidth,
     resizeHeight: targetHeight,
     resizeQuality: 'high',

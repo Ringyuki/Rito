@@ -3,6 +3,15 @@ export interface BrowserReaderCanvasImageLimitsV1 {
   readonly maxEncodedBytesPerLease: number;
   readonly maxSourceDimension: number;
   readonly maxSourcePixels: number;
+  /**
+   * Sources at or under this pixel count decode at their NATURAL size and
+   * scale in one step at draw time — the only path whose raster is
+   * bit-identical to Blink's own <img> painting (probed). Larger sources
+   * fall back to the bucketed decode, recorded as an exemption. Corpus
+   * ground truth (2313 images, 123 books): P99 is 5.67 MP; only 7 images
+   * exceed 8 MiP, the largest 26.2 MP (105 MB RGBA).
+   */
+  readonly maxNaturalDecodePixels: number;
   readonly maxTargetPixelsPerLease: number;
   readonly targetBucketSize: number;
 }
@@ -18,7 +27,10 @@ export const BROWSER_READER_CANVAS_IMAGE_LIMITS_V1: BrowserReaderCanvasImageLimi
     maxEncodedBytesPerLease: 64 * 1024 * 1024,
     maxSourceDimension: 16_384,
     maxSourcePixels: 64 * 1024 * 1024,
-    maxTargetPixelsPerLease: 16 * 1024 * 1024,
+    maxNaturalDecodePixels: 8 * 1024 * 1024,
+    // Natural rasters are larger than bucketed ones; a spread holding two
+    // cap-sized naturals plus companions must fit one lease.
+    maxTargetPixelsPerLease: 32 * 1024 * 1024,
     targetBucketSize: 64,
   });
 
@@ -63,6 +75,7 @@ function validateBrowserReaderCanvasImageLimitsV1(limits: BrowserReaderCanvasIma
     ['maxEncodedBytesPerLease', limits.maxEncodedBytesPerLease],
     ['maxSourceDimension', limits.maxSourceDimension],
     ['maxSourcePixels', limits.maxSourcePixels],
+    ['maxNaturalDecodePixels', limits.maxNaturalDecodePixels],
     ['maxTargetPixelsPerLease', limits.maxTargetPixelsPerLease],
     ['targetBucketSize', limits.targetBucketSize],
   ];

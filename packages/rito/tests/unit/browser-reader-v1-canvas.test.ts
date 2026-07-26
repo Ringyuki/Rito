@@ -124,15 +124,22 @@ describe('Browser Reader v1 Canvas presenter', () => {
     ];
     const first = artifactWithCommands(base, 31n, commands, [href]);
     const second = { ...first, artifactId: 32n, requestId: 32n };
+    // Past the natural-decode cap (4200x2100 = 8.8 MP), so the bucketed
+    // decode still applies and is recorded as a parity exemption.
     readResource.mockImplementation((artifactId, _kind, href) =>
-      Promise.resolve(imageResource(artifactId, href, 1000, 500)),
+      Promise.resolve(imageResource(artifactId, href, 4200, 2100)),
     );
+    (globalThis as { __ritoImageDecodeExemptions?: unknown[] }).__ritoImageDecodeExemptions = [];
     const presenter = createBrowserReaderV1CanvasPresenter(readerSession(first));
 
     const current = await presenter.prepare(first, { pixelRatio: 1 });
     const incoming = await presenter.prepare(second, { pixelRatio: 2 });
 
     expect(readResource).toHaveBeenCalledTimes(2);
+    expect(
+      (globalThis as { __ritoImageDecodeExemptions?: unknown[] }).__ritoImageDecodeExemptions
+        ?.length,
+    ).toBeGreaterThan(0);
     expect(createImageBitmap).toHaveBeenNthCalledWith(
       1,
       expect.any(Blob),
@@ -173,7 +180,7 @@ describe('Browser Reader v1 Canvas presenter', () => {
     ];
     const artifact = artifactWithCommands(base, 21n, commands, ['Images/large.png']);
     readResource.mockResolvedValue(
-      imageResource(artifact.artifactId, 'Images/large.png', 1000, 500),
+      imageResource(artifact.artifactId, 'Images/large.png', 4200, 2100),
     );
     const presenter = createBrowserReaderV1CanvasPresenter(readerSession(artifact));
 
@@ -208,7 +215,7 @@ describe('Browser Reader v1 Canvas presenter', () => {
     ];
     const artifact = artifactWithCommands(base, 22n, commands, ['Images/background.png']);
     readResource.mockResolvedValue(
-      imageResource(artifact.artifactId, 'Images/background.png', 1200, 800),
+      imageResource(artifact.artifactId, 'Images/background.png', 4200, 2800),
     );
     const presenter = createBrowserReaderV1CanvasPresenter(readerSession(artifact));
 
@@ -223,7 +230,7 @@ describe('Browser Reader v1 Canvas presenter', () => {
   });
 
   it('parses bounded PNG dimensions when Core metadata is absent', async () => {
-    const createBitmap = bitmapFactoryFromResizeOptions();
+    const createBitmap = bitmapFactoryFromResizeOptions(1000, 500);
     vi.stubGlobal('createImageBitmap', createBitmap);
     const base = readerArtifact();
     const artifact = imageOnlyArtifact(base, 23n, 'metadata-free', 1);
@@ -233,16 +240,15 @@ describe('Browser Reader v1 Canvas presenter', () => {
 
     const prepared = await presenter.prepare(artifact);
 
-    expect(createBitmap).toHaveBeenCalledWith(
-      expect.any(Blob),
-      expect.objectContaining({ resizeWidth: 64, resizeHeight: 32 }),
-    );
+    // Under the natural cap: no resize options — the parsed header still
+    // gates the decode through the natural-dimension assertion.
+    expect(createBitmap).toHaveBeenCalledWith(expect.any(Blob));
     prepared.dispose();
     presenter.dispose();
   });
 
   it('parses a bounded JPEG header before requesting browser decode', async () => {
-    const createBitmap = bitmapFactoryFromResizeOptions();
+    const createBitmap = bitmapFactoryFromResizeOptions(1000, 500);
     vi.stubGlobal('createImageBitmap', createBitmap);
     const artifact = imageOnlyArtifact(readerArtifact(), 27n, 'jpeg', 1);
     const href = artifact.resources[0]?.href ?? '';
@@ -257,10 +263,7 @@ describe('Browser Reader v1 Canvas presenter', () => {
 
     const prepared = await presenter.prepare(artifact);
 
-    expect(createBitmap).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'image/jpeg' }),
-      expect.objectContaining({ resizeWidth: 64, resizeHeight: 32 }),
-    );
+    expect(createBitmap).toHaveBeenCalledWith(expect.objectContaining({ type: 'image/jpeg' }));
     prepared.dispose();
     presenter.dispose();
   });
@@ -736,11 +739,11 @@ function artifactWithCommands(
   };
 }
 
-function bitmapFactoryFromResizeOptions() {
-  return vi.fn((_source: Blob, options: ImageBitmapOptions) =>
+function bitmapFactoryFromResizeOptions(naturalWidth = 1, naturalHeight = 1) {
+  return vi.fn((_source: Blob, options?: ImageBitmapOptions) =>
     Promise.resolve({
-      width: options.resizeWidth ?? 1,
-      height: options.resizeHeight ?? 1,
+      width: options?.resizeWidth ?? naturalWidth,
+      height: options?.resizeHeight ?? naturalHeight,
       close: closeImage,
     } as unknown as ImageBitmap),
   );
