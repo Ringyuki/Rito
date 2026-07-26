@@ -2028,21 +2028,78 @@ fn fold_through_collapsing_margins(
                 .unwrap_or(false)
         }
         if zero_padding(style.padding.top) {
-            let first = children
+            // The escaping set at the container top: the first in-flow
+            // child's top margin — and, when that child is a
+            // self-collapsing empty block (CSS 2 §8.3.1: no lines, no
+            // children, auto heights, no padding), its bottom margin and
+            // the NEXT sibling's top margin join the same set. Folding
+            // only the top while the bottom stayed behind split the pair:
+            // an empty `<h4>` with margins 30/25 read as 30 + 25 = 55
+            // where the browser collapses the whole set to 30.
+            fn is_self_collapsing_empty(
+                nodes: &[FormattingNode],
+                layout: &mut LayoutStyleTableV1,
+                id: FormattingNodeId,
+                zero_padding: &impl Fn(NonNegativeLengthPercentage) -> bool,
+            ) -> bool {
+                let node = &nodes[id.0 as usize];
+                if !matches!(node.content, FormattingNodeContent::BlockContainer)
+                    || !node.children.is_empty()
+                {
+                    return false;
+                }
+                layout
+                    .style(node.style)
+                    .map(|style| {
+                        zero_padding(style.padding.top)
+                            && zero_padding(style.padding.bottom)
+                            && style.height == PreferredSizeV1::Auto
+                            && style.min_height == MinimumHeightV1::Auto
+                    })
+                    .unwrap_or(false)
+            }
+            let mut accumulated: Option<f64> = None;
+            let in_flow_children: Vec<FormattingNodeId> = children
                 .iter()
                 .copied()
-                .find(|id| in_flow(nodes, layout, *id));
-            if let Some(first) = first {
-                let first_style = layout
-                    .style(nodes[first.0 as usize].style)
+                .filter(|id| in_flow(nodes, layout, *id))
+                .collect();
+            for child in in_flow_children {
+                let child_style = layout
+                    .style(nodes[child.0 as usize].style)
                     .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
-                let escape = resolved_px(first_style.margin.top);
-                let own = resolved_px(style.margin.top);
-                if let (Some(escape), Some(own)) = (escape, own) {
-                    if escape != 0.0 {
-                        set_margin(layout, nodes, first, Some(0.0), None)?;
-                        set_margin(layout, nodes, node, Some(join(own, escape)), None)?;
-                    }
+                let Some(top) = resolved_px(child_style.margin.top) else {
+                    break;
+                };
+                let empty = is_self_collapsing_empty(nodes, layout, child, &zero_padding);
+                let bottom = if empty {
+                    resolved_px(
+                        layout
+                            .style(nodes[child.0 as usize].style)
+                            .map_err(|error| {
+                                EpubError::new(format!("fold style resolves: {error}"))
+                            })?
+                            .margin
+                            .bottom,
+                    )
+                } else {
+                    None
+                };
+                accumulated = Some(join(accumulated.unwrap_or(0.0), top));
+                set_margin(layout, nodes, child, Some(0.0), None)?;
+                if !empty {
+                    break;
+                }
+                let Some(bottom) = bottom else {
+                    break;
+                };
+                accumulated = Some(join(accumulated.unwrap_or(0.0), bottom));
+                set_margin(layout, nodes, child, None, Some(0.0))?;
+            }
+            let own = resolved_px(style.margin.top);
+            if let (Some(escape), Some(own)) = (accumulated, own) {
+                if escape != 0.0 {
+                    set_margin(layout, nodes, node, Some(join(own, escape)), None)?;
                 }
             }
         }

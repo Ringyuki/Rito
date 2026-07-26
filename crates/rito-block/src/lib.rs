@@ -511,9 +511,34 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 escaped_floats: Vec::new(),
 });
                 }
-                FormattingNodeContent::InlineFlow { .. } => {
+                FormattingNodeContent::InlineFlow { items } => {
                     let child_style = container_layout_style(tree, *child_id)?;
                     let hbox = resolve_horizontal_box(child_style, content_width)?;
+                    if items.is_empty()
+                        && hbox.padding_top == 0.0
+                        && hbox.padding_bottom == 0.0
+                        && !child_resumed
+                    {
+                        // A block container with no inline content
+                        // generates no line boxes (CSS 2.1 §9.4.2) — an
+                        // empty `<h4></h4>` is a self-collapsing box whose
+                        // margins collapse through (§8.3.1), not a strut
+                        // line. The zero-height box still exists at the
+                        // collapsed position, like the empty-container
+                        // branch below.
+                        fragments.push(Fragment::Box(BoxFragment {
+                            source: *child_id,
+                            rect: FragmentRect {
+                                x: content_left + hbox.x,
+                                y: y + gap,
+                                width: hbox.border_width,
+                                height: 0.0,
+                            },
+                            children: Vec::new(),
+                        }));
+                        pending_margin = collapse_margins(gap, bottom_margin);
+                        continue;
+                    }
                     // Floats beside this paragraph shorten its line boxes
                     // instead of pushing it down, which is what a browser
                     // does; the paragraph box itself keeps its position.
@@ -2954,6 +2979,152 @@ mod tests {
             FormattingTreeStyles { layout, inline },
         )
         .expect("tree builds")
+    }
+
+    #[test]
+    fn an_empty_paragraph_self_collapses_its_margins() {
+        // `<h4></h4>` before a paragraph: no inline content means no line
+        // boxes (CSS 2.1 §9.4.2), the 30/25 margins collapse through the
+        // empty box (§8.3.1), and the paragraph sits at max(30, 25) = 30
+        // — not 55 (measured: Blink places the first line at 30).
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let layout = layout_table_with(3, |index| match index {
+            0 => block_style(margin_px(30.0), margin_px(25.0)),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow { items: Vec::new() },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::InlineFlow {
+                    items: (0..2)
+                        .map(|line| InlineItem::Text {
+                            text: format!("line {line}"),
+                            style,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: None,
+                        })
+                        .collect(),
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let space = ConstraintSpace::continuous(100.0);
+        let cancel = CancelFlag::new();
+        let outcome = context
+            .layout(&tree, tree.root(), &space, None, &cancel)
+            .expect("lays out");
+        let children = box_children(&outcome);
+        assert_eq!(children.len(), 2);
+        let Fragment::Box(empty) = &children[0] else {
+            panic!("empty paragraph fragment is a box");
+        };
+        assert!((empty.rect.height).abs() < 1e-9, "empty block is zero-height");
+        let Fragment::Box(paragraph) = &children[1] else {
+            panic!("paragraph fragment is a box");
+        };
+        assert!(
+            (paragraph.rect.y - 30.0).abs() < 1e-9,
+            "paragraph sits at the collapsed margin, got {}",
+            paragraph.rect.y
+        );
+    }
+
+    #[test]
+    fn a_childless_container_self_collapses_its_margins() {
+        // The bridge lowers an empty `<h4></h4>` to a childless
+        // BlockContainer; it must collapse exactly like the empty flow.
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let layout = layout_table_with(3, |index| match index {
+            0 => block_style(margin_px(30.0), margin_px(25.0)),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::BlockContainer,
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::InlineFlow {
+                    items: (0..2)
+                        .map(|line| InlineItem::Text {
+                            text: format!("line {line}"),
+                            style,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: None,
+                        })
+                        .collect(),
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let space = ConstraintSpace::continuous(100.0);
+        let cancel = CancelFlag::new();
+        let outcome = context
+            .layout(&tree, tree.root(), &space, None, &cancel)
+            .expect("lays out");
+        let children = box_children(&outcome);
+        assert_eq!(children.len(), 2);
+        let Fragment::Box(paragraph) = &children[1] else {
+            panic!("paragraph fragment is a box");
+        };
+        assert!(
+            (paragraph.rect.y - 30.0).abs() < 1e-9,
+            "paragraph sits at the collapsed margin, got {}",
+            paragraph.rect.y
+        );
     }
 
     #[test]
