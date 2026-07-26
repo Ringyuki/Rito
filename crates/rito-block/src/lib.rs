@@ -978,10 +978,17 @@ fn place_lines(
     }
     let mut take = fit_count;
     if take < total {
-        // The paragraph breaks here: honor widows first (enough lines
-        // must land after the break), then orphans (enough must stay).
+        // The paragraph breaks here. Widows pulls lines over to the next
+        // fragment only while orphans still holds; when the pair cannot
+        // both be satisfied the natural break stays and widows yields
+        // (measured: Blink splits a 3-line paragraph 2+1 at a column
+        // bottom rather than deferring it). An orphans violation moves
+        // the break before the paragraph instead.
         if total - take < DEFAULT_WIDOWS {
-            take = total.saturating_sub(DEFAULT_WIDOWS);
+            let candidate = total.saturating_sub(DEFAULT_WIDOWS);
+            if candidate >= DEFAULT_ORPHANS {
+                take = candidate;
+            }
         }
         if take < DEFAULT_ORPHANS {
             take = 0;
