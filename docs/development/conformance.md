@@ -128,3 +128,23 @@ past its available width without breaking. Measured on a real paragraph:
 still holds one line. The engine breaks instead, which costs one extra line
 on long paragraphs — the dominant remaining defect class in the corpus
 (97 of 98 `p height` offenders in one book are exactly one line too tall).
+
+### Known gap: SVG geometry presentation attributes
+
+The SVG-wrapped image idiom — `<figure><svg width="100%" viewBox="0 0 W H">
+<image .../></svg></figure>` — is how most Japanese EPUBs ship full-page
+illustrations. The parser already folds such an `<svg>` into an image node,
+but the fragment engine styles that node through Stylo, keyed by the source
+`<svg>` element, so a `style` string synthesized in the parser never reaches
+it. `width`/`height` on `<svg>` are presentation attributes (SVG 2 §7.2),
+and Stylo must be told about them the way it is told about `body@bgcolor`:
+a presentational hint, which cascades below author styles.
+
+Where: `crates/rito-stylo/src/dom/mod.rs` builds
+`body_bgcolor_presentational_hint`; the SVG geometry hint belongs beside it
+and is consumed through `synthesize_presentational_hints_for_legacy_attributes`
+in `dom/traits.rs`.
+
+Cost, measured over the 126-book corpus: 464 `svg height` + 101 `svg width`
+offending boxes, the whole of `chapter0.xhtml` in thirteen volumes of one
+series (0 of 15 boxes within tolerance), and every SVG cover in the corpus.
