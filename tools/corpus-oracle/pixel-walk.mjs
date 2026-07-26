@@ -40,6 +40,7 @@ const MARGIN = 50; // readerViewportMargin at this viewport
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(path.join(outDir, 'gallery'), { recursive: true });
 mkdirSync(path.join(outDir, 'engine'), { recursive: true });
+mkdirSync(path.join(outDir, 'truth'), { recursive: true });
 
 // ---- Unpack the pristine book for the truth side ------------------------
 const unpackDir = path.join(outDir, 'book');
@@ -57,6 +58,43 @@ for (const m of readFileSync(opfPath, 'utf8').matchAll(/<item\b[^>]*>/g)) {
   const href = /\bhref="([^"]+)"/.exec(m[0])?.[1];
   if (id && href) manifestHref.set(id, decodeURIComponent(href));
 }
+
+// Rito's intentional divergence (the user-sanctioned exemption): footnote
+// bodies do not enter the layout flow — the reader pulls a referenced
+// note (block element, epub:type footnote/endnote/rearnote/note, with an
+// id some noteref points at) out of the chapter and serves it from the
+// footnote drawer. The truth must mirror that or every note-bearing
+// chapter reads as a giant defect (measured: +12px per note, whole-page
+// shifts after each, +1/+2 column drift per chapter).
+// Discovery is publication-wide, like the engine's: a noteref anywhere
+// targets `href#id`.
+const footnoteTargets = new Set();
+for (const href of manifestHref.values()) {
+  if (!/\.x?html?$/i.test(href)) continue;
+  let text;
+  try {
+    text = readFileSync(path.join(opfDir, href), 'utf8');
+  } catch {
+    continue;
+  }
+  for (const tag of text.matchAll(/<[^>]*epub:type="[^"]*\bnoteref\b[^"]*"[^>]*>/g)) {
+    const target = /\bhref="([^"]+)"/.exec(tag[0])?.[1];
+    if (!target) continue;
+    const [file, id] = target.split('#');
+    if (!id) continue;
+    const resolved =
+      file === '' ? href : decodeURIComponent(new URL(file, `file:///${href}`).pathname.slice(1));
+    footnoteTargets.add(`${resolved}#${id}`);
+  }
+}
+
+// The engine paints through the reader's pinned faces (Tinos for Latin,
+// SourceHan Serif for CJK) — the truth browser must render through the
+// same faces or every glyph differs and the count measures typefaces,
+// not the engine (measured: a full text page read ~150k px of pure
+// font-substitution noise).
+const PIN_LATIN = path.join(REPO, 'apps/reader/src/assets/fonts/Tinos-Regular.ttf');
+const PIN_CJK = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf');
 
 const browser = await chromium.launch();
 
@@ -90,6 +128,28 @@ await reader.addStyleTag({
   content: '[data-testid=engine-badge] { display: none !important; }',
 });
 await reader.waitForTimeout(1500);
+// A vite reload can also land between load and planning — reload the book
+// once if the controller vanished.
+await reader
+  .waitForFunction(() => Boolean(window.__ritoController?.reader), { timeout: 10000 })
+  .catch(async () => {
+    lastNav = Date.now();
+    await reader.waitForSelector('input[type=file]', { state: 'attached', timeout: 60000 });
+    while (Date.now() - lastNav < 2000) await reader.waitForTimeout(250);
+    await reader.setInputFiles('input[type=file]', path.resolve(bookPath));
+    await reader.waitForSelector('[data-testid=reader-shell][data-loaded=true]', {
+      timeout: 300000,
+    });
+    await reader.waitForFunction(
+      () =>
+        document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
+      { timeout: 300000 },
+    );
+    await reader.addStyleTag({
+      content: '[data-testid=engine-badge] { display: none !important; }',
+    });
+    await reader.waitForTimeout(1500);
+  });
 const plan = await reader.evaluate(() => {
   const r = window.__ritoController.reader;
   const chapters = [...r.chapterMap.entries()].map(([href, range]) => ({ href, ...range }));
@@ -153,6 +213,33 @@ const shootSpread = async (spreadIndex) => {
     enginePages.set(at.page, out);
   }
 };
+// A vite dep re-optimize can hard-reload the page at any point of the
+// walk, dropping the book. Recover in place: reload the book (pagination
+// is deterministic, so the plan still holds) and page forward to where
+// the walk was.
+const recoverToSpread = async (spreadIndex) => {
+  await reader.goto(BASE);
+  lastNav = Date.now();
+  await reader.waitForSelector('input[type=file]', { state: 'attached', timeout: 60000 });
+  while (Date.now() - lastNav < 2000) await reader.waitForTimeout(250);
+  await reader.setInputFiles('input[type=file]', path.resolve(bookPath));
+  await reader.waitForSelector('[data-testid=reader-shell][data-loaded=true]', {
+    timeout: 300000,
+  });
+  await reader.waitForFunction(
+    () =>
+      document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
+    { timeout: 300000 },
+  );
+  await reader.addStyleTag({
+    content: '[data-testid=engine-badge] { display: none !important; }',
+  });
+  await reader.waitForTimeout(1200);
+  for (let step = 0; step < spreadIndex; step += 1) {
+    await reader.keyboard.press('ArrowRight');
+    await reader.waitForTimeout(60);
+  }
+};
 const totalSpreads = Math.max(...plan.pages.map((p) => p.spread)) + 1;
 for (let s = 0; s < totalSpreads; s += 1) {
   if (Math.min(...[...pageAt.keys()].filter((p) => !enginePages.has(p))) > MAX_PAGES) break;
@@ -166,7 +253,15 @@ for (let s = 0; s < totalSpreads; s += 1) {
     )
     .catch(() => undefined);
   await reader.waitForTimeout(s === 0 ? 800 : 320);
-  await shootSpread(s);
+  try {
+    await shootSpread(s);
+  } catch (error) {
+    if (!String(error).includes('book state lost')) throw error;
+    console.log(`[recover] ${String(error).split('\n')[0]} — reloading and resuming`);
+    await recoverToSpread(s);
+    await reader.waitForTimeout(500);
+    await shootSpread(s);
+  }
   if (s < totalSpreads - 1) {
     await reader.keyboard.press('ArrowRight');
   }
@@ -186,8 +281,11 @@ for (const chapter of plan.chapters) {
   const expected = chapter.endPage - chapter.startPage + 1;
   try {
     await truth.goto(`file://${file}`, { timeout: 30000 });
+    const noteIds = [...footnoteTargets]
+      .filter((target) => target.startsWith(`${href}#`))
+      .map((target) => target.slice(href.length + 1));
     await truth.evaluate(
-      async ({ contentW, contentH }) => {
+      async ({ contentW, contentH, pinLatin, pinCjk, noteIds }) => {
         const s = document.createElement('style');
         // The multicol pagination baseline, plus the reader's image policy
         // mirrored exactly (rito-inline image_display_size): the clamp to
@@ -201,13 +299,80 @@ for (const chapter of plan.chapters) {
         // container would silently widen every column past the engine's
         // content width. Overflow columns grow to the right at the same
         // exact width (the paginated-reader idiom).
-        s.textContent = `html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:100px; column-fill:auto; }
+        s.textContent = `@font-face { font-family: "__rito_pin_latin"; src: url("${pinLatin}"); }
+@font-face { font-family: "__rito_pin_cjk"; src: url("${pinCjk}"); }
+html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:100px; column-fill:auto; }
 body { margin:0; padding:0; }
 img, svg { max-height: ${contentH}px !important; max-width: ${contentW}px !important; }`;
         document.head.insertBefore(s, document.head.firstChild);
+        // A 404'd pin silently falls back to the browser's own font and
+        // the whole page reads as a defect — assert both faces resolved.
+        await document.fonts.load('16px "__rito_pin_latin"', 'H');
+        await document.fonts.load('16px "__rito_pin_cjk"', '试');
+        await document.fonts.ready;
+        for (const name of ['__rito_pin_latin', '__rito_pin_cjk']) {
+          const face = [...document.fonts].find((f) => f.family === name);
+          if (face?.status !== 'loaded') {
+            throw new Error(`pinned face ${name} did not load (${face?.status ?? 'absent'})`);
+          }
+        }
+        // Mirror the engine's paint family rewrite exactly
+        // (PaintFamilyPolicy): named families the engine cannot resolve
+        // are DROPPED (the browser's UA default "Times" included — the
+        // engine's default is the generic, which its policy maps to the
+        // pins), the pin aliases ride ahead of the first generic keyword,
+        // and the stack keeps a generic tail.
+        const generic = new Set([
+          'serif',
+          'sans-serif',
+          'monospace',
+          'cursive',
+          'fantasy',
+          'system-ui',
+        ]);
+        const bookFaces = new Set(
+          [...document.fonts]
+            .map((face) => face.family.replaceAll('"', '').toLowerCase())
+            .filter((name) => !name.startsWith('__rito_pin')),
+        );
+        const pins = ['"__rito_pin_latin"', '"__rito_pin_cjk"'];
+        for (const element of [document.documentElement, ...document.querySelectorAll('*')]) {
+          const list = getComputedStyle(element).fontFamily;
+          const parts = [];
+          let pinsAdded = false;
+          for (const raw of list
+            .split(',')
+            .map((name) => name.trim())
+            .filter((name) => name.length > 0)) {
+            const lower = raw.replaceAll('"', '').toLowerCase();
+            if (generic.has(lower)) {
+              if (!pinsAdded) {
+                parts.push(...pins);
+                pinsAdded = true;
+              }
+              parts.push(lower);
+              continue;
+            }
+            if (!bookFaces.has(lower)) continue;
+            parts.push(raw);
+          }
+          if (!pinsAdded) parts.push(...pins);
+          const tail = parts.at(-1);
+          if (tail === undefined || !generic.has(tail)) parts.push('serif');
+          element.style.setProperty('font-family', parts.join(', '), 'important');
+        }
+        // Rito feature mirror: referenced footnote bodies leave the flow.
+        for (const id of noteIds) {
+          const el = document.getElementById(id);
+          if (!el) continue;
+          const type = el.getAttribute('epub:type') ?? '';
+          if (!/\b(footnote|endnote|rearnote|note)\b/.test(type)) continue;
+          if (getComputedStyle(el).display !== 'block') continue;
+          el.style.setProperty('display', 'none', 'important');
+        }
         await document.fonts.ready;
       },
-      { contentW, contentH },
+      { contentW, contentH, pinLatin: PIN_LATIN, pinCjk: PIN_CJK, noteIds },
     );
     await truth.waitForTimeout(250);
     // One screenshot per column, scrolled into view — no viewport-width
@@ -307,6 +472,11 @@ for (const chapter of plan.chapters) {
       engine,
       truthPage,
     });
+    // Persist both sides for offline drill-down (probing a divergence
+    // must not require another full walk).
+    const stem = `p${String(pageIndex).padStart(3, '0')}.png`;
+    writeFileSync(path.join(outDir, 'engine', stem), PNG.sync.write(engine));
+    writeFileSync(path.join(outDir, 'truth', stem), PNG.sync.write(truthPage));
   }
 }
 results.sort((a, b) => b.diff - a.diff);
