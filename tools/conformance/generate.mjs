@@ -269,6 +269,47 @@ function lineEndTrimCase(rand) {
   return parts.join('\n');
 }
 
+/// Inline alignment inside padded boxes: text-align must distribute the
+/// line's slack over the CONTENT box (CSS 2.1 §9.4.2 — line boxes fill the
+/// containing block's content area), which a real corpus exercises through
+/// the speech-bubble idiom: a floated width-% div with asymmetric padding,
+/// text-align right, and a 3em inline image ending the line. Measured on
+/// that idiom the engine's aligned line overshot by exactly the horizontal
+/// padding sum.
+function inlineAlignCase(rand) {
+  const parts = [];
+  const blocks = 2 + Math.floor(rand() * 3);
+  for (let i = 0; i < blocks; i += 1) {
+    const padLeft = pick(rand, [0, 5, 12]);
+    const padRight = pick(rand, [0, 8, 16]);
+    const align = pick(rand, ['left', 'right', 'center']);
+    const style =
+      `padding:0 ${padRight}px 0 ${padLeft}px;text-align:${align};` +
+      `text-indent:0;background:#eef;margin:0 0 8px 0;`;
+    const kind = rand();
+    if (kind < 0.4) {
+      // The speech bubble: floated, width %, image at line end.
+      const side = pick(rand, ['left', 'right']);
+      parts.push(
+        `<div id="${id()}" style="float:${side};width:90%;${style}">` +
+          `${text(rand, 3, 12)}<img id="${id()}" src="sq.png" style="width:3em;height:3em;vertical-align:baseline;"/>` +
+          `</div><div id="${id()}" style="clear:both;"></div>`,
+      );
+    } else if (kind < 0.7) {
+      // Plain padded block, aligned text only.
+      parts.push(
+        `<div id="${id()}" style="${style}"><p id="${id()}" style="margin:0;text-indent:0;">${text(rand, 6, 24)}</p></div>`,
+      );
+    } else {
+      // Padded paragraph itself carrying the alignment.
+      parts.push(
+        `<p id="${id()}" style="${style}">${text(rand, 6, 20)}<img id="${id()}" src="sq.png" style="width:2em;height:2em;"/></p>`,
+      );
+    }
+  }
+  return parts.join('\n');
+}
+
 const CLUSTERS = [
   { name: 'vertical-rhythm', generate: verticalRhythmCase, cases: 40 },
   { name: 'tables', generate: tableCase, cases: 40 },
@@ -277,6 +318,7 @@ const CLUSTERS = [
   { name: 'images', generate: imageCase, cases: 30 },
   { name: 'table-percent', generate: tablePercentCase, cases: 20 },
   { name: 'line-end-trim', generate: lineEndTrimCase, cases: 24 },
+  { name: 'inline-align', generate: inlineAlignCase, cases: 24 },
 ];
 
 /// Encodes a solid RGB PNG without external dependencies: raw deflate
