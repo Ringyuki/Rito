@@ -119,17 +119,31 @@ for rendering _and_ for metric measurement, and asserts the face reached
 `loaded` — a 404'd pin silently measures the browser's default font, which
 is exactly how a visibly broken page once scored 100%.
 
-### Known gap: line-end punctuation hanging
+### Line-end fullwidth closer trimming (probed, implemented)
 
-Chromium trims an adjacent CJK punctuation pair (`。」` costs 8 + 16, not 32) — the engine does this — and additionally lets the **trailing** closing
-punctuation's right half hang past the content edge, so a line may advance
-past its available width without breaking. Measured on a real paragraph:
-32px indent + 29 glyphs + a half-width `。` reaches x=504 in a 500px box and
-still holds one line. The engine breaks instead, which costs one extra line
-on long paragraphs — the dominant remaining defect class in the corpus
-(97 of 98 `p height` offenders in one book are exactly one line too tall).
+Chromium trims an adjacent CJK punctuation pair (`。」` costs 8 + 16, not 32)
+— the engine does this — and additionally trims the **trailing** closing
+punctuation's blank right half at a line end, so a line whose first
+overflowing character is a fullwidth closer keeps it when the trimmed half
+fits. An earlier paragraph measurement was read as a half-width `。` hanging
+past the content edge; a per-character probe against the pinned Chromium
+(`tools/conformance/line-end-trim-probe.mjs`, 147.0.7727.15) refuted that:
 
-### Known gap: SVG geometry presentation attributes
+- Eligible: fullwidth closing brackets (Unicode `Pe`, Blink `kClose`) and
+  closing quotes `’ ”` (`kCloseQuote`). Trimmed advance is 8 at 16px.
+- Excluded: `。 、 ， ． ： ；` (`kDot`/`kColon`/`kSemicolon`) and
+  `！ ？ ・` — these never trim at a line end.
+- The trimmed line must still **fit** — nothing hangs past the content
+  edge; if even the half width overflows, the line breaks.
+- A break opportunity must exist after the candidate (`」」` refuses).
+- Pair trim and line-end trim compose (`。」` at a line end: 8 + 8).
+
+This matches Blink main's `ShapingLineBreaker::ShapeLine` exactly. Before
+the fix the engine always broke instead, costing one extra line on long
+paragraphs — the dominant defect class in the corpus (97 of 98 `p height`
+offenders in one book were exactly one line too tall).
+
+### SVG geometry presentation attributes (implemented)
 
 The SVG-wrapped image idiom — `<figure><svg width="100%" viewBox="0 0 W H">
 <image .../></svg></figure>` — is how most Japanese EPUBs ship full-page
@@ -137,14 +151,27 @@ illustrations. The parser already folds such an `<svg>` into an image node,
 but the fragment engine styles that node through Stylo, keyed by the source
 `<svg>` element, so a `style` string synthesized in the parser never reaches
 it. `width`/`height` on `<svg>` are presentation attributes (SVG 2 §7.2),
-and Stylo must be told about them the way it is told about `body@bgcolor`:
-a presentational hint, which cascades below author styles.
+and Stylo is told about them the way it is told about `body@bgcolor`: a
+presentational hint (`crates/rito-stylo/src/dom/mod.rs`, consumed through
+`synthesize_presentational_hints_for_legacy_attributes` in `dom/traits.rs`),
+which cascades below author styles. Bare numbers are user units (px);
+values a browser would accept but the hint cannot express are recorded as
+degradations, not silently dropped.
 
-Where: `crates/rito-stylo/src/dom/mod.rs` builds
-`body_bgcolor_presentational_hint`; the SVG geometry hint belongs beside it
-and is consumed through `synthesize_presentational_hints_for_legacy_attributes`
-in `dom/traits.rs`.
+Before the fix, over the 126-book corpus: 464 `svg height` + 101
+`svg width` offending boxes, the whole of `chapter0.xhtml` in thirteen
+volumes of one series (0 of 15 boxes within tolerance), and every SVG
+cover. After: that chapter0 measures 14/15, and the `svg` defect classes
+are gone from the per-book reports.
 
-Cost, measured over the 126-book corpus: 464 `svg height` + 101 `svg width`
-offending boxes, the whole of `chapter0.xhtml` in thirteen volumes of one
-series (0 of 15 boxes within tolerance), and every SVG cover in the corpus.
+### Truth must resolve generic families to the pinned face
+
+The geometry recording pass rewrites every element's `font-family` so
+generic keywords (and the end-of-list fallback) resolve to the pinned
+serif — exactly how the engine serves them. A book that declares
+`font-family: cnepub, serif` whose custom face cannot load (a `res:///`
+device font) would otherwise render the truth through the browser's
+default serif: Times's proportional `“ ”` against the pin's fullwidth
+ones is a one-glyph width difference per line that breaks a line earlier
+and reads as a paragraph-height defect — 77 of one book's 98 one-line-off
+paragraphs disappeared when the truth was re-recorded through the pin.
