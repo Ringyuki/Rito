@@ -32,6 +32,9 @@ const CERTIFIED = {
   // Certified 2026-07-25 at 100.0% / max 0.0px (CSS tables width
   // distribution: both percentage constraints, then the four guesses).
   'table-percent': { minRate: 0.99, maxDelta: 0.5 },
+  // Certified 2026-07-26 at 100.0% / max 0.0px (conditional line-end
+  // closer trim per Blink ShapeLine, incl. the curly-quote classes).
+  'line-end-trim': { minRate: 0.99, maxDelta: 0.5 },
 };
 
 const { cases, truth, hostMetrics } = JSON.parse(

@@ -220,6 +220,55 @@ function tablePercentCase(rand) {
   return `<table id="${id()}"><tr id="${id()}">${cells}</tr></table>`;
 }
 
+/// Line-end fullwidth punctuation: css-text-4 `text-spacing-trim: normal`
+/// sets a closing glyph half-width at the end of a line when it does not
+/// otherwise fit (Blink extends the line past the first overflowing
+/// character for closing brackets/quotes when the trimmed advance fits).
+/// Two flavours: a targeted shape whose first line ends exactly at a
+/// chosen punctuation glyph at a chosen slack, and a flowing dialogue
+/// paragraph whose later lines meet punctuation organically. The dots
+/// `。、，` and colon/bang are included deliberately: Blink's line-end
+/// gate excludes them (`kDot`/`kColon`), and the truth recording is what
+/// certifies that distinction for the pinned browser.
+function lineEndTrimCase(rand) {
+  const punctuation = ['」', '』', '）', '】', '》', '’', '”', '。', '、', '，', '：', '！'];
+  const parts = [];
+  const paragraphs = 3 + Math.floor(rand() * 3);
+  for (let i = 0; i < paragraphs; i += 1) {
+    if (rand() < 0.45) {
+      // Flowing dialogue: sentence chunks with brackets and stops, narrow
+      // enough that several lines end at or next to punctuation.
+      const width = 240 + Math.floor(rand() * 6) * 8;
+      const sentences = [];
+      const count = 3 + Math.floor(rand() * 4);
+      for (let s = 0; s < count; s += 1) {
+        sentences.push(
+          `「${text(rand, 6, 18)}${pick(rand, ['。」', '」', '！」', '。」'])}${text(rand, 0, 10)}`,
+        );
+      }
+      const indent = rand() < 0.4 ? 'text-indent:2em;' : '';
+      parts.push(
+        `<div id="${id()}" style="width:${width}px;"><p id="${id()}" style="${indent}margin:0;">${sentences.join('')}</p></div>`,
+      );
+    } else {
+      // Targeted: k ideographs fill k*16px, the punctuation glyph is the
+      // first overflow, and `off` sets how much of it fits: 4|6 not even
+      // the half, 8|10|12 the trimmed half, 18 the full glyph.
+      const glyph = pick(rand, punctuation);
+      const k = 6 + Math.floor(rand() * 8);
+      const off = pick(rand, [4, 6, 8, 10, 12, 14, 18]);
+      const indent = rand() < 0.3;
+      const width = k * 16 + off + (indent ? 32 : 0);
+      const prefix = text(rand, k, k);
+      const tail = text(rand, 10, 22);
+      parts.push(
+        `<div id="${id()}" style="width:${width}px;"><p id="${id()}" style="${indent ? 'text-indent:2em;' : ''}margin:0;">${prefix}${glyph}${tail}</p></div>`,
+      );
+    }
+  }
+  return parts.join('\n');
+}
+
 const CLUSTERS = [
   { name: 'vertical-rhythm', generate: verticalRhythmCase, cases: 40 },
   { name: 'tables', generate: tableCase, cases: 40 },
@@ -227,6 +276,7 @@ const CLUSTERS = [
   { name: 'margin-box', generate: marginBoxCase, cases: 30 },
   { name: 'images', generate: imageCase, cases: 30 },
   { name: 'table-percent', generate: tablePercentCase, cases: 20 },
+  { name: 'line-end-trim', generate: lineEndTrimCase, cases: 24 },
 ];
 
 /// Encodes a solid RGB PNG without external dependencies: raw deflate

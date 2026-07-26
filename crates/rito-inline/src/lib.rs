@@ -30,12 +30,14 @@ use rito_style_contract::{
 /// assembly needs.
 struct ParagraphLayout {
     layout: parley::Layout<[u8; 4]>,
-    #[allow(dead_code)]
     text: String,
     alignment: parley::Alignment,
     /// Byte ranges of the flow text whose runs carry a baseline shift
     /// (positive raises), in content order.
     shifted_ranges: Vec<(std::ops::Range<usize>, f64)>,
+    /// The `text-indent` margin Parley reserves on the first line, which
+    /// narrows that line's available advance for fit decisions.
+    first_line_indent: f32,
 }
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -383,6 +385,7 @@ impl ParleyInlineContext {
         available_inline_size: Option<f64>,
         available_block_size: Option<f64>,
         percentage_images: PercentageImageSizing,
+        end_trims: &[usize],
         cancel: &CancelFlag,
     ) -> Result<ParagraphLayout, LayoutError> {
         let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
@@ -496,6 +499,7 @@ impl ParleyInlineContext {
             );
         }
         push_cjk_punctuation_trims(&mut builder, &text, &runs);
+        push_line_end_trims(&mut builder, &text, &runs, end_trims);
         for image_box in image_boxes {
             builder.push_inline_box(image_box);
         }
@@ -532,6 +536,7 @@ impl ParleyInlineContext {
             text,
             alignment,
             shifted_ranges,
+            first_line_indent,
         })
     }
 }
@@ -557,19 +562,6 @@ impl FormattingContext for ParleyInlineContext {
             ));
         }
         let root = node;
-        let ParagraphLayout {
-            mut layout,
-            alignment,
-            shifted_ranges,
-            ..
-        } = self.build_layout(
-            tree,
-            root,
-            Some(space.inline_size),
-            space.fragmentainer_size,
-            PercentageImageSizing::Intrinsic,
-            cancel,
-        )?;
         // Float exclusion: lines inside the band are broken at the reduced
         // width and shifted past the left inset; the flow returns to the
         // full inline size below the band. CSS shortens line boxes around
@@ -577,7 +569,7 @@ impl FormattingContext for ParleyInlineContext {
         let band = space.float_band.filter(|band| {
             band.bottom > 0.0 && (band.left_inset > 0.0 || band.right_inset > 0.0)
         });
-        match band {
+        let break_lines = |layout: &mut parley::Layout<[u8; 4]>| match band {
             None => layout.break_all_lines(Some(space.inline_size as f32)),
             Some(band) => {
                 let band_inline_size =
@@ -602,7 +594,82 @@ impl FormattingContext for ParleyInlineContext {
                 }
                 breaker.finish();
             }
-        }
+        };
+        // The max advance the breaker gave a line, reconstructed from the
+        // same rule the loop above applied: band width while the line's top
+        // sits inside the band, the full inline size below it.
+        let line_max_advance = |line_top: f64| match band {
+            Some(band) if line_top < band.bottom => {
+                (space.inline_size - band.left_inset - band.right_inset).max(0.0) as f32
+            }
+            _ => space.inline_size as f32,
+        };
+        // Conditional line-end trim, to a fixpoint: find the first soft
+        // break Chromium would have extended past a trimmed closing glyph,
+        // apply that trim, re-lay, and keep it only if the line then breaks
+        // exactly after the trimmed closer — parley's own fitting and break
+        // rules stay the authority over what an accepted trim produces.
+        // Each accepted trim finalizes one more line, so the loop is
+        // bounded by the line count (plus one rebuild per rejection).
+        let mut end_trims: Vec<usize> = Vec::new();
+        let mut rejected_trims: Vec<usize> = Vec::new();
+        let mut pending_trim: Option<usize> = None;
+        let (layout, alignment, shifted_ranges) = loop {
+            if cancel.is_cancelled() {
+                return Err(LayoutError::Cancelled);
+            }
+            let ParagraphLayout {
+                mut layout,
+                alignment,
+                shifted_ranges,
+                text,
+                first_line_indent,
+            } = self.build_layout(
+                tree,
+                root,
+                Some(space.inline_size),
+                space.fragmentainer_size,
+                PercentageImageSizing::Intrinsic,
+                &end_trims,
+                cancel,
+            )?;
+            break_lines(&mut layout);
+            if let Some(byte) = pending_trim.take() {
+                let trimmed_end = byte + text[byte..].chars().next().map_or(1, char::len_utf8);
+                let confirmed = layout.lines().any(|line| line.text_range().end == trimmed_end);
+                if !confirmed {
+                    end_trims.retain(|&trim| trim != byte);
+                    rejected_trims.push(byte);
+                    continue;
+                }
+            }
+            let mut line_top = 0.0_f64;
+            let candidate = (0..layout.len().saturating_sub(1)).find_map(|index| {
+                // The text-indent margin narrows the first line's
+                // available advance exactly as it narrowed Parley's fit.
+                let indent = if index == 0 { first_line_indent } else { 0.0 };
+                let max_advance = line_max_advance(line_top) - indent;
+                line_top += layout
+                    .get(index)
+                    .map_or(0.0, |line| f64::from(line.metrics().line_height));
+                line_end_trim_candidate(
+                    &layout,
+                    &text,
+                    index,
+                    max_advance,
+                    &end_trims,
+                    &rejected_trims,
+                )
+            });
+            match candidate {
+                Some(byte) => {
+                    end_trims.push(byte);
+                    pending_trim = Some(byte);
+                }
+                None => break (layout, alignment, shifted_ranges),
+            }
+        };
+        let mut layout = layout;
         // Always align, `Start` included: alignment is where Parley applies
         // the first-line indent's start-edge offset, so skipping it for the
         // default alignment would leave indented lines flush.
@@ -1072,6 +1139,7 @@ impl FormattingContext for ParleyInlineContext {
             None,
             None,
             PercentageImageSizing::Shrunk,
+            &[],
             &CancelFlag::new(),
         )?;
         let intrinsic = self.build_layout(
@@ -1080,6 +1148,7 @@ impl FormattingContext for ParleyInlineContext {
             None,
             None,
             PercentageImageSizing::Intrinsic,
+            &[],
             &CancelFlag::new(),
         )?;
         Ok(IntrinsicInlineSizes {
@@ -1148,10 +1217,19 @@ enum PunctuationClass {
 
 fn fullwidth_punctuation_class(character: char) -> PunctuationClass {
     match character {
+        // The curly quotes are ambiguous-width, but in the CJK faces this
+        // engine shapes with they are fullwidth, and the pinned Chromium
+        // trims them exactly like brackets (pair probe, 2026-07-26,
+        // 17-pair matrix incl. quotes): `。”` costs 8+16, `”。` costs
+        // 8+16, `「“` costs 16+8, and none of them trim against an
+        // ideograph. Blink types them kOpenQuote/kCloseQuote, which its
+        // Han kerning treats as kOpen/kClose.
         '「' | '『' | '（' | '【' | '〔' | '《' | '〈' | '〖' | '〘' | '〚' | '｛' | '［'
-        | '｟' => PunctuationClass::Open,
+        | '｟' | '‘' | '“' => PunctuationClass::Open,
         '」' | '』' | '）' | '】' | '〕' | '》' | '〉' | '〗' | '〙' | '〛' | '｝' | '］'
-        | '｠' | '。' | '、' | '，' | '．' | '：' | '；' => PunctuationClass::CloseOrStop,
+        | '｠' | '。' | '、' | '，' | '．' | '：' | '；' | '’' | '”' => {
+            PunctuationClass::CloseOrStop
+        }
         '・' => PunctuationClass::Middle,
         _ => PunctuationClass::Other,
     }
@@ -1226,6 +1304,133 @@ fn push_cjk_punctuation_trims(
             }
         }
         previous = Some((byte, character));
+    }
+}
+
+/// Layout-unit epsilon for line-fit comparisons, Chromium's `LayoutUnit`
+/// quantum (1/64 px).
+const LINE_FIT_EPS: f32 = 1.0 / 64.0;
+
+/// How many glyphs past a soft break the candidate scan follows. Break
+/// prohibitions drag at most a couple of characters down with an
+/// overflowing closer; anything longer is not the pattern this models.
+const LINE_END_TRIM_SCAN: usize = 8;
+
+/// The first character after `line_index`'s soft break that did not fit,
+/// if extending the line by exactly that character with its blank right
+/// half trimmed could keep it on the line.
+///
+/// This reconstructs Blink's `ShapingLineBreaker::ShapeLine` extension:
+/// the candidate is the first character past the break that exceeds the
+/// available advance (characters before it fit and were only dragged down
+/// by break prohibitions), it must be an eligible closing glyph, and its
+/// half-width advance must fit. The decision is a pre-filter only — the
+/// caller re-lays the paragraph with the trim applied and keeps it only
+/// if the line then breaks exactly after the trimmed closer, so parley's
+/// own fitting (and its break rules) remain the authority.
+fn line_end_trim_candidate(
+    layout: &parley::Layout<[u8; 4]>,
+    text: &str,
+    line_index: usize,
+    max_advance: f32,
+    accepted: &[usize],
+    rejected: &[usize],
+) -> Option<usize> {
+    let line = layout.get(line_index)?;
+    let next = layout.get(line_index + 1)?;
+    // Only a fit-driven soft break can be extended; a forced break is not
+    // a fit decision.
+    if line.break_reason() != parley::layout::BreakReason::Regular {
+        return None;
+    }
+    let metrics = line.metrics();
+    // Hung trailing whitespace is not measured against the available
+    // advance; content is.
+    let mut advance = metrics.advance - metrics.trailing_whitespace;
+    let next_range = next.text_range();
+    let mut cluster = parley::layout::Cluster::from_byte_index(layout, next_range.start)?;
+    for _ in 0..LINE_END_TRIM_SCAN {
+        let byte = cluster.text_range().start;
+        if byte >= next_range.end {
+            return None;
+        }
+        let character = text[byte..].chars().next()?;
+        let cluster_advance = cluster.advance();
+        if advance + cluster_advance <= max_advance + LINE_FIT_EPS {
+            // Fits, so it only moved down under a break prohibition; the
+            // overflowing character is further along.
+            advance += cluster_advance;
+            cluster = cluster.next_logical()?;
+            continue;
+        }
+        // The first character that does not fit is the only one Blink
+        // considers for the line-end trim.
+        if !line_end_trim_eligible(character) {
+            return None;
+        }
+        if accepted.contains(&byte) || rejected.contains(&byte) {
+            return None;
+        }
+        let trimmed = cluster_advance - 0.5 * cluster.run().font_size();
+        if advance + trimmed > max_advance + LINE_FIT_EPS {
+            return None;
+        }
+        return Some(byte);
+    }
+    None
+}
+
+/// Whether a fullwidth closing glyph is eligible for the conditional
+/// line-end trim.
+///
+/// Blink (`ShapingLineBreaker::ShapeLine`, gated by
+/// `Character::MaybeHanKerningClose`) extends a line past its first
+/// overflowing character only when that character has static
+/// `HanKerningCharType` `kClose` — fullwidth closing punctuation, Unicode
+/// `Pe` within the CJK block or East Asian Fullwidth — or `kCloseQuote`
+/// (`’` `”`). The dots and commas `。、，．` are `kDot` and the colons
+/// `：；` are `kColon`/`kSemicolon`; both classes are excluded from the
+/// line-end path even though they pair-trim mid-line. css-text-4
+/// `text-spacing-trim: normal` words the same conditionality: closing
+/// punctuation is set half-width at the end of the line only "if it does
+/// not otherwise fit prior to justification".
+fn line_end_trim_eligible(character: char) -> bool {
+    matches!(
+        character,
+        '」' | '』' | '）' | '】' | '〕' | '》' | '〉' | '〗' | '〙' | '〛' | '｝' | '］'
+            | '｠' | '’' | '”'
+    )
+}
+
+/// Applies accepted line-end trims as negative letter-spacing on the
+/// closing glyph itself — the same mechanism as the pair trims, so the
+/// trimmed character is isolated in its own glyph run and the paint stays
+/// position-exact. The blank right half collapses; the ink does not move.
+fn push_line_end_trims(
+    builder: &mut RangedBuilder<'_, [u8; 4]>,
+    text: &str,
+    runs: &[(std::ops::Range<usize>, &InlineFormattingStyleV1, usize)],
+    end_trims: &[usize],
+) {
+    for &byte in end_trims {
+        let Some(character) = text[byte..].chars().next() else {
+            continue;
+        };
+        let Some(style) = runs
+            .iter()
+            .find(|(range, ..)| range.contains(&byte))
+            .map(|(_, style, _)| *style)
+        else {
+            continue;
+        };
+        let author = match style.text_flow.letter_spacing {
+            LengthPercentage::Length(px) => px.get(),
+            _ => 0.0,
+        };
+        builder.push(
+            StyleProperty::LetterSpacing(author - 0.5 * style.font.size.get()),
+            byte..byte + character.len_utf8(),
+        );
     }
 }
 
@@ -2091,6 +2296,163 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (middle - plain).abs() < 0.1,
             "middle dot before a close must not trim: {middle}"
+        );
+    }
+
+    /// Line-end conditional trim, the Blink `ShapeLine` extension: a
+    /// fullwidth closing bracket that is the first glyph past a soft break
+    /// to overflow stays on the line with its blank right half trimmed —
+    /// but only when the trimmed advance fits, only for the closing-bracket
+    /// and closing-quote classes, and only when a break is allowed after
+    /// it. css-text-4 `text-spacing-trim: normal`: closing punctuation is
+    /// set half-width at the end of the line "if it does not otherwise fit
+    /// prior to justification".
+    #[test]
+    fn line_end_closing_punctuation_trims_only_when_the_half_width_fits() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let lay_indent = |text: &str, width: f64, indent: f32| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(vec![FontFamily::Generic(
+                            rito_style_contract::GenericFontFamily::Serif,
+                        )])
+                        .expect("family list"),
+                        16.0,
+                        indent,
+                    ),
+                )
+                .expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            context
+                .layout(
+                    &tree,
+                    FormattingNodeId(0),
+                    &ConstraintSpace::continuous(width),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds")
+        };
+        let lay = |text: &str, width: f64| lay_indent(text, width, 0.0);
+        let ten = "永".repeat(10);
+
+        // Ten ideographs fill 160px; the closer needs 176 full, 168
+        // trimmed. At 170 the trimmed closer fits: the line keeps it.
+        let text = format!("{ten}」永永永永永永");
+        let outcome = lay(&text, 170.0);
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(lines[0], format!("{ten}」"), "trimmed closer stays");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(first) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        let first_width: f64 = first
+            .children
+            .iter()
+            .map(|child| child.rect().width)
+            .sum();
+        assert!(
+            (first_width - 168.0).abs() < 0.1,
+            "the kept closer advances half an em: {first_width}"
+        );
+
+        // At 167 even the trimmed closer overflows: the line must break
+        // early, dragging the kinsoku-chained ideograph down with it.
+        let outcome = lay(&text, 167.0);
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(lines[0], "永".repeat(9), "no trim when the half does not fit");
+
+        // At 176 the full-width closer fits: nothing is trimmed.
+        let outcome = lay(&text, 176.0);
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(lines[0], format!("{ten}」"));
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(first) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        let first_width: f64 = first
+            .children
+            .iter()
+            .map(|child| child.rect().width)
+            .sum();
+        assert!(
+            (first_width - 176.0).abs() < 0.1,
+            "a closer that fits keeps its full advance: {first_width}"
+        );
+
+        // The ideographic full stop is HanKerningCharType kDot, which
+        // Blink's line-end gate excludes: no trim, the line breaks early.
+        let text = format!("{ten}。永永永永永永");
+        let outcome = lay(&text, 170.0);
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(lines[0], "永".repeat(9), "kDot must not line-end trim");
+
+        // A second closer forbids the break after the first: the extension
+        // is rejected and the whole chain wraps.
+        let text = format!("{ten}」」永永永永");
+        let outcome = lay(&text, 170.0);
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(
+            lines[0],
+            "永".repeat(9),
+            "no extension without a break opportunity after the closer"
+        );
+
+        // With a text-indent (the long-paragraph shape that motivated
+        // this), the first line's available advance shrinks by the indent
+        // and the trim still applies within what remains.
+        let text = format!("{ten}」永永永永永永");
+        let outcome = lay_indent(&text, 202.0, 32.0);
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(
+            lines[0],
+            format!("{ten}」"),
+            "indent narrows the first line before the trim decision"
+        );
+
+        // A mixed-script dialogue line (real corpus paragraph): the Latin
+        // run splits the shaping, the sentence ends in a pair-trimmed 。
+        // followed by the line-end closing quote. Chromium holds this in
+        // one line at 490px with a 32px indent; the trimmed ” must too.
+        let text = "\u{201C}那是切嗣的本来面目的话．那我似乎惹得Master相当不快呢。\u{201D}";
+        let outcome = lay_indent(text, 490.0, 32.0);
+        let lines = line_texts(&outcome, text);
+        assert_eq!(
+            lines.len(),
+            1,
+            "mixed-script line with a trailing pair holds one line: {lines:?}"
         );
     }
 
