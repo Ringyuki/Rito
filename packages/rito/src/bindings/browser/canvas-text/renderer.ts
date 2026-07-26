@@ -15,7 +15,7 @@ export function drawCanvasTextFragment(
   ctx.font = buildFontString(paint.font);
   const color = effectiveTextColor(paint.color, colorOverride);
   ctx.fillStyle = color;
-  ctx.textBaseline = 'top';
+  ctx.textBaseline = 'alphabetic';
   ctx.wordSpacing = canvasSpacingValue(paint.wordSpacingPx);
   ctx.letterSpacing = canvasSpacingValue(paint.letterSpacingPx);
 
@@ -25,7 +25,11 @@ export function drawCanvasTextFragment(
   if (paint.textShadow && paint.textShadow.length > 0) {
     drawTextShadows(ctx, fragment, x, y, color);
   }
-  ctx.fillText(fragment.text, x, y);
+  // Probed: canvas 'alphabetic' snaps the baseline to the nearest device
+  // row and is then BIT-IDENTICAL to Blink's DOM text raster; 'top' never
+  // matches at any sub-pixel phase. The rect's em-top encodes
+  // baseline - 0.8*size (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
+  ctx.fillText(fragment.text, x, y + 0.8 * paint.font.sizePx);
 
   const { decoration } = paint;
   if (decoration) {

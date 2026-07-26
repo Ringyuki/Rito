@@ -76,9 +76,9 @@ describe('renderPage', () => {
 
       const fillTextCalls = mock.getCalls('fillText');
       // x = marginLeft(20) + block.x(0) + lineBox.x(0) + run.x(0) = 20
-      // y = marginTop(20) + block.y(0) + lineBox.y(0) + run.y(0) = 20
+      // y = em-top 20 anchored at the baseline: + 0.8 * fontSize(16) = 32.8
       expect(fillTextCalls[0]?.args[1]).toBe(20);
-      expect(fillTextCalls[0]?.args[2]).toBe(20);
+      expect(fillTextCalls[0]?.args[2]).toBe(32.8);
     });
   });
 
@@ -104,13 +104,13 @@ describe('renderPage', () => {
       expect(fillStyleSets.some((f) => f.value === '#000000')).toBe(true);
     });
 
-    it('sets textBaseline to top', () => {
+    it('sets textBaseline to alphabetic', () => {
       const mock = createMockCanvasContext();
       const page = makeSimplePage(['Hello']);
       renderPage(page, mock.ctx, CONFIG);
 
       const baselineSets = mock.getPropertySets('textBaseline');
-      expect(baselineSets.some((f) => f.value === 'top')).toBe(true);
+      expect(baselineSets.some((f) => f.value === 'alphabetic')).toBe(true);
     });
 
     it('uses bold font for bold styled runs', () => {

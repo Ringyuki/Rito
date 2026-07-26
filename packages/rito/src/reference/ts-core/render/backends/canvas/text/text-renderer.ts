@@ -31,12 +31,13 @@ export function drawTextFragment(
     : paint.color;
 
   ctx.fillStyle = color;
-  ctx.textBaseline = 'top';
+  ctx.textBaseline = 'alphabetic';
   ctx.wordSpacing = canvasSpacingValue(paint.wordSpacingPx);
   ctx.letterSpacing = canvasSpacingValue(paint.letterSpacingPx);
 
   const x = fragment.rect.x;
   const y = fragment.rect.y;
+  const mainBaseline = y + 0.8 * paint.font.sizePx;
 
   drawInlineBackground(ctx, fragment);
   drawInlineBorders(ctx, fragment);
@@ -45,7 +46,7 @@ export function drawTextFragment(
     drawTextShadows(ctx, fragment, x, y, color);
   }
 
-  ctx.fillText(fragment.text, x, y);
+  ctx.fillText(fragment.text, x, mainBaseline);
 
   // Pre-computed decoration geometry — render just strokes the line.
   const decoration = paint.decoration;

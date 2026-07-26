@@ -34,7 +34,7 @@ describe('canvas display-list backend', () => {
     expect(mock.getCalls('fillRect')[0]?.args).toEqual([0, 0, 400, 600]);
     expect(mock.getCalls('rect')[0]?.args).toEqual([0, 0, 400, 600]);
     expect(mock.getCalls('clip')).toHaveLength(1);
-    expect(mock.getCalls('fillText')[0]?.args).toEqual(['Hello', 20, 30]);
+    expect(mock.getCalls('fillText')[0]?.args).toEqual(['Hello', 20, 42.8]);
   });
 
   it('resolves image hrefs before drawing', () => {

@@ -71,7 +71,7 @@ describe('Browser Reader v1 Canvas presenter', () => {
 
     expect(mock.getCalls('clearRect')[0]?.args).toEqual([0, 0, 800, 600]);
     expect(mock.getCalls('scale')[0]?.args).toEqual([2, 2]);
-    expect(mock.getCalls('fillText')[0]?.args).toEqual(['target', 20, 30]);
+    expect(mock.getCalls('fillText')[0]?.args).toEqual(['target', 20, 42.8]);
     expect(mock.getCalls('drawImage')[0]?.args.slice(1)).toEqual([0, 0, 40, 60]);
 
     presenter.paint(prepared, mock.ctx, {
