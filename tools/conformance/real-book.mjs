@@ -285,11 +285,14 @@ function parseUnmetMetrics(stderr) {
   const seen = new Set();
   const pairs = [];
   for (const match of stderr.matchAll(/unmet host line metrics: (\[.*\])/g)) {
-    for (const [family, size, sample] of JSON.parse(match[1])) {
+    // The engine drains (family, measureFamily, size, sample): the second
+    // entry is the paint-family rewrite the metrics must be measured
+    // through (its pinned aliases map onto this harness's single pin).
+    for (const [family, measureFamily, size, sample] of JSON.parse(match[1])) {
       const key = `${family} ${size} ${sample}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      pairs.push({ family, size, sample });
+      pairs.push({ family, measureFamily, size, sample });
     }
   }
   return pairs;
@@ -324,14 +327,14 @@ async function measureHostMetrics(pairs) {
   await page.evaluate(
     (requests) =>
       Promise.all(
-        requests.map((request) =>
-          document.fonts
-            .load(
-              `${request.size}px "${request.family.split(',')[0].trim()}"`,
-              request.sample || 'x',
-            )
-            .catch(() => undefined),
-        ),
+        requests.map((request) => {
+          const list = request.measureFamily
+            ? request.measureFamily.replaceAll(/"__RitoPinned_[0-9a-f]+"/g, '"__rito_serif"')
+            : `"${request.family.split(',')[0].trim()}"`;
+          return document.fonts
+            .load(`${request.size}px ${list}`, request.sample || 'x')
+            .catch(() => undefined);
+        }),
       ),
     pairs,
   );
@@ -363,12 +366,17 @@ async function measureHostMetrics(pairs) {
       if (names.at(-1) !== '"__rito_serif"') names.push('"__rito_serif"');
       return names.join(', ');
     };
-    const measured = requests.map(({ family, size, sample }) => {
+    const measured = requests.map(({ family, measureFamily, size, sample }) => {
+      // Prefer the engine-computed measure list, its pinned aliases
+      // rewritten onto this harness's pin registration.
+      const list = measureFamily
+        ? measureFamily.replaceAll(/"__RitoPinned_[0-9a-f]+"/g, '"__rito_serif"')
+        : familyList(family);
       const p = document.createElement('p');
       p.setAttribute(
         'style',
         `margin:0;padding:0;border:0;line-height:normal;white-space:pre;` +
-          `font-family:${familyList(family)};font-size:${size}px;`,
+          `font-family:${list};font-size:${size}px;`,
       );
       p.textContent = sample ?? '';
       const marker = document.createElement('span');
