@@ -50,6 +50,7 @@ export function useReader(
     DEFAULT_SETTINGS.spreadMode,
   );
   const [zoomScale, setZoomScale] = useState(DEFAULT_SETTINGS.zoomScale);
+  const [fontSize, setFontSizeState] = useState(DEFAULT_SETTINGS.fontSize);
   const [lineHeight, setLineHeightState] = useState(DEFAULT_SETTINGS.lineHeight);
   const [lineHeightActive, setLineHeightActive] = useState(DEFAULT_SETTINGS.lineHeightActive);
   const [lineHeightForce, setLineHeightForceState] = useState(DEFAULT_SETTINGS.lineHeightForce);
@@ -139,11 +140,20 @@ export function useReader(
   useEffect(() => {
     if (!rito.controller || !rito.isLoaded) return;
     rito.setTypography({
+      fontSize,
       lineHeight: lineHeightActive ? lineHeight : null,
       lineHeightForce: lineHeightActive && lineHeightForce,
       fontFamily,
     });
-  }, [lineHeight, lineHeightActive, lineHeightForce, fontFamily, rito.controller, rito.isLoaded]);
+  }, [
+    fontSize,
+    lineHeight,
+    lineHeightActive,
+    lineHeightForce,
+    fontFamily,
+    rito.controller,
+    rito.isLoaded,
+  ]);
 
   // Actions
   const loadFromArrayBuffer = useCallback(
@@ -212,6 +222,7 @@ export function useReader(
 
   // Restore initial state: slider snaps back to default, override cleared, force off.
   const useBookLineHeight = useCallback(() => {
+    setFontSizeState(DEFAULT_SETTINGS.fontSize);
     setLineHeightState(DEFAULT_SETTINGS.lineHeight);
     setLineHeightActive(false);
     setLineHeightForceState(false);
@@ -244,6 +255,8 @@ export function useReader(
     annotations,
     spreadMode,
     zoomScale,
+    fontSize,
+    setFontSize: setFontSizeState,
     lineHeight,
     lineHeightActive,
     lineHeightForce,

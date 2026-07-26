@@ -38,6 +38,7 @@ export function App({ pinnedFontPolicy }: AppProps) {
 
   const handleRestoreDefaults = useCallback(() => {
     reader.setZoomScale(DEFAULT_SETTINGS.zoomScale);
+    reader.setFontSize(DEFAULT_SETTINGS.fontSize);
     // useBookLineHeight resets slider + deactivates override + clears force in one call.
     reader.useBookLineHeight();
     reader.setFontFamily(DEFAULT_SETTINGS.fontFamily);
@@ -100,6 +101,7 @@ export function App({ pinnedFontPolicy }: AppProps) {
         onOpenChange={setSettingsOpen}
         settings={{
           zoomScale: reader.zoomScale,
+          fontSize: reader.fontSize,
           lineHeight: reader.lineHeight,
           lineHeightActive: reader.lineHeightActive,
           lineHeightForce: reader.lineHeightForce,
@@ -109,6 +111,7 @@ export function App({ pinnedFontPolicy }: AppProps) {
           theme,
         }}
         onZoomScaleChange={reader.setZoomScale}
+        onFontSizeChange={reader.setFontSize}
         onLineHeightChange={reader.setLineHeight}
         onLineHeightForceChange={reader.setLineHeightForce}
         onUseBookLineHeight={reader.useBookLineHeight}

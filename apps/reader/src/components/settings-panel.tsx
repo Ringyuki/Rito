@@ -19,6 +19,12 @@ export type ReaderLineBreaking = 'greedy' | 'optimal';
 
 export interface ReaderSettings {
   zoomScale: number;
+  /**
+   * Root font size in px, passed to `setTypography`. Unlike zoom, which
+   * scales an already-laid-out page, this re-lays the text: the number of
+   * characters that fit on a line actually changes.
+   */
+  fontSize: number;
   lineHeight: number;
   /** Whether the lineHeight slider value is applied at all. False = use book's own line-height. */
   lineHeightActive: boolean;
@@ -33,6 +39,7 @@ export interface ReaderSettings {
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
   zoomScale: 1.2,
+  fontSize: 16,
   lineHeight: 1.2,
   lineHeightActive: false,
   lineHeightForce: false,
@@ -47,6 +54,7 @@ interface SettingsPanelProps {
   onOpenChange: (open: boolean) => void;
   settings: ReaderSettings;
   onZoomScaleChange: (value: number) => void;
+  onFontSizeChange: (value: number) => void;
   onLineHeightChange: (value: number) => void;
   onLineHeightForceChange: (value: boolean) => void;
   onUseBookLineHeight: () => void;
@@ -62,6 +70,7 @@ export function SettingsPanel({
   onOpenChange,
   settings,
   onZoomScaleChange,
+  onFontSizeChange,
   onLineHeightChange,
   onLineHeightForceChange,
   onUseBookLineHeight,
@@ -88,6 +97,18 @@ export function SettingsPanel({
               value={[settings.zoomScale]}
               onValueChange={([v]) => {
                 if (v !== undefined) onZoomScaleChange(v);
+              }}
+            />
+          </Section>
+
+          <Section label="Font Size" value={`${String(settings.fontSize)}px`}>
+            <Slider
+              min={12}
+              max={28}
+              step={1}
+              value={[settings.fontSize]}
+              onValueChange={([v]) => {
+                if (v !== undefined) onFontSizeChange(v);
               }}
             />
           </Section>
