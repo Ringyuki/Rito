@@ -994,7 +994,106 @@ impl FormattingContext for ParleyInlineContext {
                 }
                 (complete && ascent + descent > 0.0).then_some((ascent + descent, ascent))
             };
-            let base_height = if has_inline_box {
+            // CSS 2.1 §10.8 for a line holding an atomic inline: every
+            // inline-level contributor sets its own (above, below) around
+            // the shared baseline — a text run its half-leaded strut
+            // (floored half-leading over its declared-or-normal line
+            // height, shifted by its vertical-align), an atomic inline its
+            // box over the baseline plus its raise — and the line box is
+            // max(above) + max(below), baseline at max(above). Measured on
+            // the footnote-marker idiom (16px/19.2px text, a 14.4px sup
+            // image raised 6.33): Chromium sizes the line img-above 20.72
+            // + strut-below 3.2 = 23.92, not the normal-metric envelope.
+            // A flattened empty inline (a <sup> holding only the image)
+            // loses its own strut here; the atomic box dominates it in
+            // every corpus shape measured. Any unmeasured host metric
+            // falls back to the envelope path below, keeping the
+            // measure → inject → reflow loop converging.
+            let contributions = if has_inline_box {
+                let mut complete = true;
+                // (resolved style, sample, shift) per text-strut
+                // contributor: the container's strut, then every on-line
+                // text item's declared-family strut plus each font its
+                // runs actually resolved to.
+                let mut entries: Vec<(&InlineFormattingStyleV1, &str, f64)> = Vec::new();
+                match tree.strut_style(root).or_else(|| {
+                    item_line_heights
+                        .iter()
+                        .flatten()
+                        .next()
+                        .map(|item| item.style)
+                }) {
+                    Some(strut_style_id) => match style_tables
+                        .and_then(|tables| tables.inline.style(strut_style_id).ok())
+                    {
+                        Some(resolved) => entries.push((resolved, "", 0.0)),
+                        None => complete = false,
+                    },
+                    None => complete = false,
+                }
+                for (index, range) in item_text_ranges.iter().enumerate() {
+                    let on_line = line_text_range
+                        .is_some_and(|(start, end)| range.start < end && start < range.end);
+                    if !on_line || range.is_empty() {
+                        continue;
+                    }
+                    let Some(Some(item)) = item_line_heights.get(index) else {
+                        continue;
+                    };
+                    let Some(resolved) =
+                        style_tables.and_then(|tables| tables.inline.style(item.style).ok())
+                    else {
+                        complete = false;
+                        continue;
+                    };
+                    let shift = item_shifts.get(index).copied().unwrap_or(0.0);
+                    entries.push((resolved, "", shift));
+                    for (run_item, sample) in &line_run_samples {
+                        if *run_item == index {
+                            entries.push((resolved, sample.as_str(), shift));
+                        }
+                    }
+                }
+                let mut above = 0.0_f64;
+                let mut below = 0.0_f64;
+                for (resolved, sample, shift) in entries {
+                    let Some(metric) = self.host_normal_line(resolved, sample) else {
+                        complete = false;
+                        continue;
+                    };
+                    let (asc, desc) = (metric.ascent(), metric.descent());
+                    let (item_above, item_below) = match resolved.font.line_height {
+                        LineHeight::Normal => (asc, desc),
+                        LineHeight::Number(number) => {
+                            let height =
+                                f64::from(number.get()) * f64::from(resolved.font.size.get());
+                            let a = ((height - (asc + desc)) / 2.0).floor() + asc;
+                            (a, height - a)
+                        }
+                        LineHeight::Length(px) => {
+                            let height = f64::from(px.get());
+                            let a = ((height - (asc + desc)) / 2.0).floor() + asc;
+                            (a, height - a)
+                        }
+                    };
+                    above = above.max(item_above + shift);
+                    below = below.max(item_below - shift);
+                }
+                // Every atomic inline: its box above the baseline plus its
+                // raise; a sub-shifted box hangs below by its drop.
+                for (fragment, shift) in &children {
+                    if let Fragment::Image(image) = fragment {
+                        above = above.max(image.rect.height + shift);
+                        below = below.max(-shift);
+                    }
+                }
+                (complete && above + below > 0.0).then_some((above, below))
+            } else {
+                None
+            };
+            let base_height = if let Some((above, below)) = contributions {
+                above + below
+            } else if has_inline_box {
                 // An atomic inline sits on the baseline, so the line still
                 // reserves the strut's space below it — a browser's line
                 // box around an image is the image plus that descent, not
@@ -1021,7 +1120,14 @@ impl FormattingContext for ParleyInlineContext {
                 // line-height floors lines whose runs declare less.
                 f64::from(metrics.line_height).max(strut_height.unwrap_or(0.0))
             };
-            let line_height = base_height + max_rise;
+            // A contributions-sized line already contains every raise
+            // inside its (above, below); adding max_rise on top of it
+            // again is exactly the overshoot the model replaced.
+            let line_height = if contributions.is_some() {
+                base_height
+            } else {
+                base_height + max_rise
+            };
             running_top += line_height;
             // The host's measured baseline wins whenever its metric sized
             // the line: where the baseline sits inside a `normal` line is
@@ -1032,7 +1138,9 @@ impl FormattingContext for ParleyInlineContext {
             // baseline. The host floors that half-leading (its scaler
             // works in whole pixels), which is what places glyphs on the
             // same rows the reference browser uses.
-            let baseline = if has_inline_box {
+            let baseline = if let Some((above, _)) = contributions {
+                above
+            } else if has_inline_box {
                 // The envelope of an atomic-inline line is already exactly
                 // ascent + descent, so its baseline sits at that ascent —
                 // there is no leading to redistribute around it.
