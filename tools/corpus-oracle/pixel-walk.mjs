@@ -110,7 +110,12 @@ const pageAt = new Map(plan.pages.map((p) => [p.page, p]));
 const canvas = reader.locator('[data-testid=reader-shell] canvas').first();
 const enginePages = new Map();
 const shootSpread = async (spreadIndex) => {
-  const png = PNG.sync.read(await canvas.screenshot());
+  // The first paint after a dist/wasm rebuild can stall while vite
+  // re-optimizes; one long-timeout retry absorbs it.
+  const shot = await canvas
+    .screenshot({ timeout: 90000 })
+    .catch(() => canvas.screenshot({ timeout: 90000 }));
+  const png = PNG.sync.read(shot);
   const rightX = png.width - pageW;
   for (const side of ['left', 'right']) {
     const at = plan.pages.find((p) => p.spread === spreadIndex && p.side === side);
