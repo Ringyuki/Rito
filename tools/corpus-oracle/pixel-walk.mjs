@@ -150,6 +150,26 @@ await reader
     });
     await reader.waitForTimeout(1500);
   });
+// Book fonts register lazily as spreads first paint, each registration
+// possibly reflowing and moving page boundaries. Traverse the whole book
+// once BEFORE reading the plan so every face is registered and the
+// pagination has settled; the shoot pass then walks a stable book.
+{
+  const total = await reader.evaluate(() => window.__ritoController.reader.spreads.length);
+  for (let s = 0; s < total; s += 1) {
+    await reader.keyboard.press('ArrowRight');
+    await reader.waitForTimeout(45);
+  }
+  await reader.waitForTimeout(1500);
+  const settledTotal = await reader.evaluate(() => window.__ritoController.reader.spreads.length);
+  for (let s = 0; s < Math.max(total, settledTotal); s += 1) {
+    await reader.keyboard.press('ArrowLeft');
+    await reader.waitForTimeout(30);
+  }
+  await reader.waitForTimeout(1200);
+  console.log(`warmup traversal done (${settledTotal} spreads settled)`);
+}
+
 const readPlan = () =>
   reader.evaluate(() => {
     const r = window.__ritoController.reader;
