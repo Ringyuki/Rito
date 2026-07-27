@@ -75,6 +75,9 @@ pub struct ParleyInlineContext {
     /// where the host picks a different fallback per script, and a single
     /// sample would then hide one of the host's two metrics.
     host_metric_samples: RefCell<std::collections::HashMap<(String, u64, u64, u32, u16), String>>,
+    /// Per-face `halt` feature presence, keyed by (blob id, face index) —
+    /// the Han-kerning trim gate consults it for every trimmed character.
+    halt_feature_cache: RefCell<std::collections::HashMap<(u64, u32), bool>>,
     metrics_generation: std::cell::Cell<u64>,
 }
 
@@ -221,6 +224,7 @@ impl ParleyInlineContext {
             host_line_metrics: RefCell::new(std::collections::HashMap::new()),
             host_metric_requests: RefCell::new(std::collections::BTreeSet::new()),
             host_metric_samples: RefCell::new(std::collections::HashMap::new()),
+            halt_feature_cache: RefCell::new(std::collections::HashMap::new()),
             metrics_generation: std::cell::Cell::new(0),
         })
     }
@@ -495,6 +499,15 @@ impl ParleyInlineContext {
         }
 
         let mut fonts = self.fonts.borrow_mut();
+        // Computed before the builder takes the font borrow: the trim
+        // gate resolves each trimmed character's font to check `halt`.
+        let punctuation_trims = compute_cjk_punctuation_trims(
+            &mut fonts,
+            &self.registered_families,
+            &mut self.halt_feature_cache.borrow_mut(),
+            &text,
+            &runs,
+        );
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = layouts.ranged_builder(&mut fonts, &text, 1.0, true);
         // The pinned-browser baseline: Chromium's ASCII break tailoring plus
@@ -532,7 +545,9 @@ impl ParleyInlineContext {
                 range.clone(),
             );
         }
-        push_cjk_punctuation_trims(&mut builder, &text, &runs);
+        for (range, spacing) in punctuation_trims {
+            builder.push(StyleProperty::LetterSpacing(spacing), range);
+        }
         push_line_end_trims(&mut builder, &text, &runs, end_trims);
         for image_box in image_boxes {
             builder.push_inline_box(image_box);
@@ -1501,11 +1516,19 @@ fn cjk_punctuation_trim(left: char, right: char) -> Option<TrimmedGlyph> {
 /// the blank half, and visible to shaping, line breaking, and run
 /// splitting alike (the distinct resolved style isolates the trimmed
 /// character in its own glyph run, so painted runs stay position-exact).
-fn push_cjk_punctuation_trims(
-    builder: &mut RangedBuilder<'_, [u8; 4]>,
+/// The boundary trims as (range, letter-spacing) edits, computed before
+/// the shaping builder exists so the trim gate can consult the font
+/// collection. Blink's Han kerning only adjusts glyphs whose resolved
+/// font carries the OpenType `halt` feature (measured: a book-embedded
+/// face without it keeps `。」` at two full advances while the pinned
+/// SourceHan trims), so each trimmed character resolves its font first.
+fn compute_cjk_punctuation_trims(
+    fonts: &mut FontContext,
+    registered_families: &[String],
+    halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
     text: &str,
     runs: &[(std::ops::Range<usize>, &InlineFormattingStyleV1, usize)],
-) {
+) -> Vec<(std::ops::Range<usize>, f32)> {
     fn style_at<'a>(
         cursor: &mut usize,
         runs: &[(std::ops::Range<usize>, &'a InlineFormattingStyleV1, usize)],
@@ -1518,30 +1541,108 @@ fn push_cjk_punctuation_trims(
             .filter(|(range, ..)| range.contains(&byte))
             .map(|(_, style, _)| *style)
     }
+    let mut trims = Vec::new();
     let mut cursor = 0usize;
     let mut previous: Option<(usize, char)> = None;
     for (byte, character) in text.char_indices() {
         if let Some((left_byte, left)) = previous {
             if let Some(trimmed) = cjk_punctuation_trim(left, character) {
                 let left_style = style_at(&mut cursor, runs, left_byte);
-                let trimmed_style = match trimmed {
-                    TrimmedGlyph::Left => left_style,
-                    TrimmedGlyph::Right => style_at(&mut cursor, runs, byte),
+                let (trimmed_style, trimmed_char) = match trimmed {
+                    TrimmedGlyph::Left => (left_style, left),
+                    TrimmedGlyph::Right => (style_at(&mut cursor, runs, byte), character),
                 };
                 if let (Some(left_style), Some(trimmed_style)) = (left_style, trimmed_style) {
+                    if !resolved_font_has_halt(
+                        fonts,
+                        registered_families,
+                        halt_cache,
+                        trimmed_style,
+                        trimmed_char,
+                    ) {
+                        previous = Some((byte, character));
+                        continue;
+                    }
                     let author = match left_style.text_flow.letter_spacing {
                         LengthPercentage::Length(px) => px.get(),
                         _ => 0.0,
                     };
-                    builder.push(
-                        StyleProperty::LetterSpacing(author - 0.5 * trimmed_style.font.size.get()),
+                    trims.push((
                         left_byte..byte,
-                    );
+                        author - 0.5 * trimmed_style.font.size.get(),
+                    ));
                 }
             }
         }
         previous = Some((byte, character));
     }
+    trims
+}
+
+/// Whether the font the style resolves for `character` carries the
+/// OpenType `halt` feature. Resolution mirrors CSS font matching: the
+/// first stack family whose matched face covers the character wins, and
+/// the registered families (the engine's installed fallback order) stand
+/// in for script fallback. An unresolvable character trims nothing.
+fn resolved_font_has_halt(
+    fonts: &mut FontContext,
+    registered_families: &[String],
+    halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
+    style: &InlineFormattingStyleV1,
+    character: char,
+) -> bool {
+    use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};
+    use skrifa::MetadataProvider as _;
+    let weight = FontWeight::new(style.font.weight.get());
+    let stack = style
+        .font
+        .families
+        .as_slice()
+        .iter()
+        .filter_map(|family| match family {
+            rito_style_contract::FontFamily::Named(name) => Some(name.as_str()),
+            rito_style_contract::FontFamily::Generic(_) => None,
+        });
+    for name in stack.chain(registered_families.iter().map(String::as_str)) {
+        let Some(family) = fonts.collection.family_by_name(name) else {
+            continue;
+        };
+        let Some(font) = family.match_font(FontWidth::NORMAL, FontStyle::Normal, weight, true)
+        else {
+            continue;
+        };
+        let SourceKind::Memory(blob) = font.source().kind() else {
+            continue;
+        };
+        let Ok(font_ref) = skrifa::FontRef::from_index(blob.as_ref(), font.index()) else {
+            continue;
+        };
+        if font_ref.charmap().map(character).is_none() {
+            continue;
+        }
+        let key = (blob.id(), font.index());
+        return *halt_cache
+            .entry(key)
+            .or_insert_with(|| font_ref_has_halt(&font_ref));
+    }
+    false
+}
+
+/// Whether the face declares the OpenType `halt` feature in GSUB or GPOS.
+fn font_ref_has_halt(font: &skrifa::FontRef) -> bool {
+    use skrifa::raw::TableProvider as _;
+    let tag = skrifa::raw::types::Tag::new(b"halt");
+    let gsub = font.gsub().ok().and_then(|table| table.feature_list().ok());
+    let gpos = font.gpos().ok().and_then(|table| table.feature_list().ok());
+    gsub.is_some_and(|list| {
+        list.feature_records()
+            .iter()
+            .any(|record| record.feature_tag() == tag)
+    }) || gpos.is_some_and(|list| {
+        list.feature_records()
+            .iter()
+            .any(|record| record.feature_tag() == tag)
+    })
 }
 
 /// Layout-unit epsilon for line-fit comparisons, Chromium's `LayoutUnit`
