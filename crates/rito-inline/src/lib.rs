@@ -91,6 +91,12 @@ pub struct HostNormalLineMetric {
     pub height: f64,
     /// Baseline offset from the line box top.
     pub baseline: f64,
+    /// The font's grid-fit (ascent, descent) — canvas
+    /// `fontBoundingBoxAscent/Descent` — the basis the browser places
+    /// FIXED line-height baselines with. It differs from the normal-line
+    /// envelope whenever the font carries a line gap; `None` falls back
+    /// to that envelope, which keeps un-upgraded hosts converging.
+    pub grid: Option<(f64, f64)>,
 }
 
 impl HostNormalLineMetric {
@@ -100,6 +106,17 @@ impl HostNormalLineMetric {
 
     fn descent(&self) -> f64 {
         self.height - self.baseline
+    }
+
+    /// Baseline of a fixed-height line under this metric. Measured
+    /// (five discriminating anchors, three fonts): the browser FLOORS
+    /// the grid-fit half-leading sum; the normal-envelope fallback keeps
+    /// the historical rounding, which coincides on gap-free fonts.
+    fn fixed_baseline(&self, height: f64) -> f64 {
+        match self.grid {
+            Some((ascent, descent)) => (ascent + (height - (ascent + descent)) / 2.0).floor(),
+            None => fixed_line_baseline(height, self.ascent(), self.descent()),
+        }
     }
 }
 
@@ -1122,12 +1139,12 @@ impl FormattingContext for ParleyInlineContext {
                             let height = layout_unit(
                                 f64::from(number.get()) * f64::from(resolved.font.size.get()),
                             );
-                            let a = fixed_line_baseline(height, asc, desc);
+                            let a = metric.fixed_baseline(height);
                             (a, height - a)
                         }
                         LineHeight::Length(px) => {
                             let height = layout_unit(f64::from(px.get()));
-                            let a = fixed_line_baseline(height, asc, desc);
+                            let a = metric.fixed_baseline(height);
                             (a, height - a)
                         }
                     };
@@ -1179,12 +1196,12 @@ impl FormattingContext for ParleyInlineContext {
                                 let height = layout_unit(
                                     f64::from(number.get()) * f64::from(resolved.font.size.get()),
                                 );
-                                let a = fixed_line_baseline(height, asc, desc);
+                                let a = metric.fixed_baseline(height);
                                 (a, height - a)
                             }
                             LineHeight::Length(px) => {
                                 let height = layout_unit(f64::from(px.get()));
-                                let a = fixed_line_baseline(height, asc, desc);
+                                let a = metric.fixed_baseline(height);
                                 (a, height - a)
                             }
                         };
@@ -2984,6 +3001,7 @@ running through the quiet forest until the morning light returns.";
             HostNormalLineMetric {
                 height: 23.0,
                 baseline: 18.0,
+                grid: None,
             },
         );
         context.set_host_line_metric(
@@ -2993,6 +3011,7 @@ running through the quiet forest until the morning light returns.";
             HostNormalLineMetric {
                 height: 18.0,
                 baseline: 14.0,
+                grid: None,
             },
         );
         let mut layout = LayoutStyleTableV1::new(1);

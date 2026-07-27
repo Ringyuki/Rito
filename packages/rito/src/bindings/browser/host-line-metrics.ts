@@ -35,6 +35,14 @@ import type { BrowserReaderWorkerClient } from './core-contracts';
 type MeasuredMetric = {
   height: number;
   baseline: number;
+  /**
+   * Grid-fit (canvas `fontBoundingBox`) ascent/descent of the measured
+   * list's first resolved font — the browser's basis for FIXED
+   * line-height baselines, distinct from the normal-line envelope
+   * whenever the font carries a line gap.
+   */
+  gridAscent?: number;
+  gridDescent?: number;
 };
 
 /** Keyed by the MEASURED family list — what the DOM actually sized. */
@@ -122,6 +130,7 @@ async function measureBrowserHostLineMetrics(
   const host = document.createElement('div');
   host.style.cssText = 'position:absolute;left:-99999px;top:0;width:1000px;visibility:hidden;';
   document.body.appendChild(host);
+  const gridContext = document.createElement('canvas').getContext('2d');
   try {
     return requests.map((request) => {
       const { sample } = request;
@@ -142,6 +151,7 @@ async function measureBrowserHostLineMetrics(
       const metric = {
         height: box.height,
         baseline: marker.getBoundingClientRect().top - box.top,
+        ...measureGridMetric(gridContext, request.size, measured, sample),
       };
       measuredCache.set(cacheKey(measured, request.size, sample), metric);
       rawKeyCache.set(cacheKey(request.family, request.size, sample), metric);
@@ -150,6 +160,27 @@ async function measureBrowserHostLineMetrics(
   } finally {
     host.remove();
   }
+}
+
+/**
+ * Grid-fit ascent/descent of the font the measured list resolves for the
+ * sample, via canvas `fontBoundingBox`. Distinct from the normal-line
+ * measurement above: fixed line-heights center on this envelope, floored,
+ * while normal lines distribute the font's line gap.
+ */
+function measureGridMetric(
+  gridContext: CanvasRenderingContext2D | null,
+  size: number,
+  measured: string,
+  sample: string,
+): { gridAscent: number; gridDescent: number } | undefined {
+  if (!gridContext) return undefined;
+  gridContext.font = `${String(size)}px ${measured}`;
+  const text = gridContext.measureText(sample.length > 0 ? sample : 'x');
+  const gridAscent = text.fontBoundingBoxAscent;
+  const gridDescent = text.fontBoundingBoxDescent;
+  if (!Number.isFinite(gridAscent) || !Number.isFinite(gridDescent)) return undefined;
+  return { gridAscent, gridDescent };
 }
 
 /** The engine-provided measure list, or the raw key for engines without one. */

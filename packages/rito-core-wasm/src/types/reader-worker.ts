@@ -65,6 +65,15 @@ export interface RitoCoreWasmHostLineMetric {
   readonly height: number;
   /** Baseline offset from the line box top. */
   readonly baseline: number;
+  /**
+   * The font's grid-fit ascent (canvas `fontBoundingBoxAscent`) — the
+   * basis the browser places FIXED line-height baselines with, which
+   * differs from the normal-line envelope when the font carries a line
+   * gap. Optional so cached un-upgraded entries stay valid.
+   */
+  readonly gridAscent?: number;
+  /** Grid-fit descent (canvas `fontBoundingBoxDescent`). */
+  readonly gridDescent?: number;
 }
 
 export interface RitoCoreWasmReaderWorkerClient

@@ -56,6 +56,10 @@ impl RitoWasmDocument {
             sample: String,
             height: f64,
             baseline: f64,
+            #[serde(default)]
+            grid_ascent: Option<f64>,
+            #[serde(default)]
+            grid_descent: Option<f64>,
         }
         let entries: Vec<Entry> = serde_json::from_str(entries_json)
             .map_err(|error| JsValue::from_str(&format!("host metrics parse: {error}")))?;
@@ -67,6 +71,10 @@ impl RitoWasmDocument {
                 rito_inline::HostNormalLineMetric {
                     height: entry.height,
                     baseline: entry.baseline,
+                    grid: match (entry.grid_ascent, entry.grid_descent) {
+                        (Some(ascent), Some(descent)) => Some((ascent, descent)),
+                        _ => None,
+                    },
                 },
             );
         }

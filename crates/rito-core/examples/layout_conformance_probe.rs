@@ -53,6 +53,10 @@ struct HostMetricEntry {
     sample: String,
     height: f64,
     baseline: f64,
+    #[serde(default)]
+    grid_ascent: Option<f64>,
+    #[serde(default)]
+    grid_descent: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -125,6 +129,10 @@ fn main() {
             rito_inline::HostNormalLineMetric {
                 height: entry.height,
                 baseline: entry.baseline,
+                grid: match (entry.grid_ascent, entry.grid_descent) {
+                    (Some(ascent), Some(descent)) => Some((ascent, descent)),
+                    _ => None,
+                },
             },
         );
     }
