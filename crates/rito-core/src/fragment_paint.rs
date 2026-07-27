@@ -301,15 +301,19 @@ fn append_text_run_command(
     // em box. The line box height travels separately so consumers can
     // reconstruct line geometry.
     //
-    // The baseline stays FRACTIONAL here: Blink's layout keeps fractional
-    // block offsets (LayoutUnit) under an integer within-line baseline,
-    // and its raster snaps the absolute baseline to a row by rounding —
-    // which is exactly what canvas 'alphabetic' fillText does with a
-    // fractional y (bit-identical to DOM text, probed). Handing the exact
-    // value through reproduces the browser's 27/27/28 alternating ink
-    // pitch for fractional line heights; flooring here instead dropped
-    // every .5+ fraction one row low.
-    let baseline = (line_y + line.baseline) - baseline_shift_px;
+    // Blink's raster snap is TWO-STAGE (probed, 16/16 discriminating
+    // matrix): the line box top rounds to a device row, and the run's
+    // within-line baseline rounds on top of it. Canvas 'alphabetic'
+    // fillText rounds the value it is handed once, so the two stages are
+    // pre-composed here. For the common integer within-line baseline the
+    // integer commutes with the round and this equals rounding the sum —
+    // which is why handing the fractional sum through reproduced the
+    // browser's 27/27/28 alternating ink pitch. A raised marker image
+    // gives the line a FRACTIONAL within-line baseline, and there the
+    // stages disagree with the summed round by one row (a footnote
+    // marker line at line top .609375 with baseline 20.71875 paints at
+    // 132 + 21, not round(152.328125) = 152).
+    let baseline = line_y.round() + (line.baseline - baseline_shift_px).round();
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
     if let Some(annotation) = ruby_annotation {
         // The reader's ruby convention (shared with the retained engine):
