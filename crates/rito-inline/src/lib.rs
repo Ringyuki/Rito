@@ -1026,6 +1026,10 @@ impl FormattingContext for ParleyInlineContext {
             // every corpus shape measured. Any unmeasured host metric
             // falls back to the envelope path below, keeping the
             // measure → inject → reflow loop converging.
+            let tree_items: &[InlineItem] = match &tree.node(root).content {
+                FormattingNodeContent::InlineFlow { items } => items,
+                _ => &[],
+            };
             let contributions = if has_inline_box || line_declared_height.is_some() {
                 let mut complete = true;
                 // (resolved style, sample, shift) per text-strut
@@ -1106,11 +1110,51 @@ impl FormattingContext for ParleyInlineContext {
                     below = below.max(item_below - shift);
                 }
                 // Every atomic inline: its box above the baseline plus its
-                // raise; a sub-shifted box hangs below by its drop.
+                // raise; a sub-shifted box hangs below by its drop. The
+                // atom's INHERITED strut contributes too — CSS 2.1 §10.8
+                // gives every enclosing inline box its leading, and the
+                // atom's inherited style carries exactly that box's font
+                // (measured: a footnote marker image alone inside a
+                // 12px <sup> still grows the line by the sup strut raised
+                // with it, 0.6px above what the image box alone gives).
                 for (fragment, shift) in &children {
                     if let Fragment::Image(image) = fragment {
                         above = above.max(image.rect.height + shift);
                         below = below.max(-shift);
+                        let item = tree_items
+                            .get(image.item_index as usize)
+                            .and_then(|item| match item {
+                                InlineItem::Image { style, .. } => Some(*style),
+                                _ => None,
+                            });
+                        let resolved = item.and_then(|style_id| {
+                            style_tables.and_then(|tables| tables.inline.style(style_id).ok())
+                        });
+                        let Some(resolved) = resolved else {
+                            continue;
+                        };
+                        let Some(metric) = self.host_normal_line(resolved, "") else {
+                            complete = false;
+                            continue;
+                        };
+                        let (asc, desc) = (metric.ascent(), metric.descent());
+                        let (item_above, item_below) = match resolved.font.line_height {
+                            LineHeight::Normal => (asc, desc),
+                            LineHeight::Number(number) => {
+                                let height = layout_unit(
+                                    f64::from(number.get()) * f64::from(resolved.font.size.get()),
+                                );
+                                let a = fixed_line_baseline(height, asc, desc);
+                                (a, height - a)
+                            }
+                            LineHeight::Length(px) => {
+                                let height = layout_unit(f64::from(px.get()));
+                                let a = fixed_line_baseline(height, asc, desc);
+                                (a, height - a)
+                            }
+                        };
+                        above = above.max(item_above + shift);
+                        below = below.max(item_below - shift);
                     }
                 }
                 (complete && above + below > 0.0).then_some((above, below))
@@ -2861,9 +2905,6 @@ running through the quiet forest until the morning light returns.";
     }
 
     #[test]
-    #[ignore = "encodes the BOOK-context Blink numbers (A = h + 7.328125); the isolated \
-                construct measures A = h + 6.328125 — one ingredient of the book CSS adds \
-                exactly 1px and is not yet identified (see task #13 dossier)"]
     fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
         // The duokan footnote-marker construct, numbers from the pixel
         // oracle (book 4, Section001 p11): fixed 19.2px strut over a
@@ -2877,13 +2918,20 @@ running through the quiet forest until the morning light returns.";
             MinimumHeightV1, OverflowV1, PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
         };
         let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTableV1::new(2);
         let mut style_1922 = tinos_style(0.0);
         style_1922.font.line_height = LineHeight::Length(
             rito_style_contract::NonNegativeCssPx::new(19.2).expect("finite line height"),
         );
         let text_style = inline
             .intern_for_node(0, style_1922.clone())
+            .expect("style interns");
+        // The marker image inherits the sup's 12px font; its strut is the
+        // sup box's strut (CSS 2.1 §10.8) and rides the same raise.
+        let mut sup_style = style_1922.clone();
+        sup_style.font.size = rito_style_contract::NonNegativeCssPx::new(12.0).expect("finite");
+        let image_inline_style = inline
+            .intern_for_node(1, sup_style.clone())
             .expect("style interns");
         context.set_host_line_metric(
             &host_family_key(&style_1922),
@@ -2892,6 +2940,15 @@ running through the quiet forest until the morning light returns.";
             HostNormalLineMetric {
                 height: 23.0,
                 baseline: 18.0,
+            },
+        );
+        context.set_host_line_metric(
+            &host_family_key(&sup_style),
+            12.0,
+            "",
+            HostNormalLineMetric {
+                height: 18.0,
+                baseline: 14.0,
             },
         );
         let mut layout = LayoutStyleTableV1::new(1);
@@ -2965,7 +3022,7 @@ running through the quiet forest until the morning light returns.";
                         src: "images/note.png".to_owned(),
                         intrinsic_width: 500.0,
                         intrinsic_height: 500.0,
-                        style: text_style,
+                        style: image_inline_style,
                         layout_style: image_layout,
                         fit_contain: false,
                         baseline_shift_px: 6.328125,
@@ -3001,14 +3058,18 @@ running through the quiet forest until the morning light returns.";
         let Some(Fragment::Line(line)) = root.children.first() else {
             panic!("first child is a line");
         };
+        // Pinned-truth Blink (walk recipe, pinned fonts): the sup strut
+        // (fixed 19.203125 at 12px, baseline 15) raised 6.328125 wins
+        // over the image box (14.390625 + 6.328125): A = 21.328125,
+        // height = A + strut descent 3.203125 = 24.53125.
         assert!(
-            (line.rect.height - 24.921875).abs() < 1e-9,
-            "line height matches Blink, got {}",
+            (line.rect.height - 24.53125).abs() < 1e-9,
+            "line height matches pinned Blink, got {}",
             line.rect.height
         );
         assert!(
-            (line.baseline - 21.71875).abs() < 1e-9,
-            "baseline == above (Blink 21.71875), got {}",
+            (line.baseline - 21.328125).abs() < 1e-9,
+            "baseline == above (pinned Blink 21.328125), got {}",
             line.baseline
         );
     }

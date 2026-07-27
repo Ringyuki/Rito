@@ -137,7 +137,11 @@ async function completeWithHostLineMetrics(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): Promise<void> {
-  for (let round = 0; round < 3; round += 1) {
+  // Each round can surface a new generation of metric keys (the strut
+  // fonts first, then run samples, then atom struts introduced by the
+  // metrics of the previous round); the loop already exits on the first
+  // quiet round, so the bound only caps pathological churn.
+  for (let round = 0; round < 6; round += 1) {
     if ((await completeBrowserReaderBoundedSession(state)) !== true) return;
     const spreadMode = options.spread ?? state.spreadMode;
     const lineBreaking = options.lineBreaking ?? state.lineBreaking;
