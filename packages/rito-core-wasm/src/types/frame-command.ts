@@ -189,6 +189,11 @@ export interface RitoCoreWasmBorderPaintEdge {
 export interface RitoCoreWasmBlockRadius {
   readonly px?: number;
   readonly pct?: number;
+  /**
+   * Circular corner radii in CSS order (top-left, top-right,
+   * bottom-right, bottom-left) for boxes whose corners disagree.
+   */
+  readonly corners?: readonly [number, number, number, number];
 }
 
 export interface RitoCoreWasmBoxShadow {

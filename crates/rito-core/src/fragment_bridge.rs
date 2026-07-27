@@ -1510,9 +1510,11 @@ fn block_box_paint(
         }))
     });
     // Corner radii round the background, the border stroke, and the clip
-    // the box paints inside. The render protocol carries one radius, so a
-    // box whose corners disagree reports the mismatch instead of silently
-    // rounding them all alike.
+    // the box paints inside. A uniform box rides the protocol's single
+    // radius; corners that disagree ship as four circular radii in CSS
+    // order (a chat bubble rounds one edge only: 0 20px 20px 0), taking
+    // each corner's horizontal length. Elliptical or percentage corners
+    // inside a non-uniform set flatten to that length and say so.
     let radii = style.fragment.border_radii;
     let corners = [
         radii.top_left,
@@ -1523,22 +1525,51 @@ fn block_box_paint(
     let uniform = corners
         .iter()
         .all(|corner| *corner == radii.top_left && corner.horizontal == corner.vertical);
-    let radius = match radii.top_left.horizontal.value() {
-        c::LengthPercentage::Length(px) if px.get() > 0.0 => {
-            Some(serde_json::json!({ "px": f64::from(px.get()) }))
+    let radius = if uniform {
+        match radii.top_left.horizontal.value() {
+            c::LengthPercentage::Length(px) if px.get() > 0.0 => {
+                Some(serde_json::json!({ "px": f64::from(px.get()) }))
+            }
+            c::LengthPercentage::Percentage(ratio) if ratio.percent() > 0.0 => {
+                Some(serde_json::json!({ "pct": f64::from(ratio.percent()) }))
+            }
+            c::LengthPercentage::Linear { length, .. } => {
+                degradations
+                    .push("calc() border-radius: percentage component dropped".to_owned());
+                Some(serde_json::json!({ "px": f64::from(length.get()) }))
+            }
+            _ => None,
         }
-        c::LengthPercentage::Percentage(ratio) if ratio.percent() > 0.0 => {
-            Some(serde_json::json!({ "pct": f64::from(ratio.percent()) }))
+    } else {
+        let mut lossy = false;
+        let px_corners: Vec<f64> = corners
+            .iter()
+            .map(|corner| {
+                if corner.horizontal != corner.vertical {
+                    lossy = true;
+                }
+                match corner.horizontal.value() {
+                    c::LengthPercentage::Length(px) => f64::from(px.get()),
+                    c::LengthPercentage::Percentage(_) => {
+                        lossy = true;
+                        0.0
+                    }
+                    c::LengthPercentage::Linear { length, .. } => {
+                        lossy = true;
+                        f64::from(length.get())
+                    }
+                }
+            })
+            .collect();
+        if lossy {
+            degradations.push(
+                "border-radius: elliptical or percentage corner flattened to its length"
+                    .to_owned(),
+            );
         }
-        c::LengthPercentage::Linear { length, .. } => {
-            degradations.push("calc() border-radius: percentage component dropped".to_owned());
-            Some(serde_json::json!({ "px": f64::from(length.get()) }))
-        }
-        _ => None,
+        (px_corners.iter().any(|px| *px > 0.0))
+            .then(|| serde_json::json!({ "corners": px_corners }))
     };
-    if radius.is_some() && !uniform {
-        degradations.push("border-radius corners differ; the first corner applies".to_owned());
-    }
     let transform = (!style.paint.transform.is_none()).then(|| {
         Value::Array(
             style

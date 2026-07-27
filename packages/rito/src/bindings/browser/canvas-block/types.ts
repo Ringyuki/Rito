@@ -12,6 +12,8 @@ export type CanvasBlockBorderPaintEdge = NonNullable<CanvasBlockBorderPaint['top
 export interface CanvasBlockResolvedRadius {
   readonly rx: CanvasBlockRect['width'];
   readonly ry: CanvasBlockRect['height'];
+  /** Per-corner circular radii (CSS order) when the corners disagree. */
+  readonly corners?: readonly [number, number, number, number];
 }
 
 export type CanvasBlockImageResolver = (

@@ -16,6 +16,49 @@ export function traceRoundedRect(
   ctx.closePath();
 }
 
+/**
+ * Trace a clockwise rounded rectangle whose corners disagree — circular
+ * radii in CSS order (top-left, top-right, bottom-right, bottom-left),
+ * overlap-scaled per CSS Backgrounds §5.5 so adjacent corners never
+ * cross on a short edge.
+ */
+export function traceCornerRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  corners: readonly [number, number, number, number],
+): void {
+  const [tl, tr, br, bl] = scaleCornerOverlap(corners, width, height);
+  ctx.beginPath();
+  ctx.moveTo(x + tl, y);
+  ctx.arcTo(x + width, y, x + width, y + height, tr);
+  ctx.arcTo(x + width, y + height, x, y + height, br);
+  ctx.arcTo(x, y + height, x, y, bl);
+  ctx.arcTo(x, y, x + width, y, tl);
+  ctx.closePath();
+}
+
+function scaleCornerOverlap(
+  corners: readonly [number, number, number, number],
+  width: number,
+  height: number,
+): [number, number, number, number] {
+  const tl = Math.max(0, corners[0]);
+  const tr = Math.max(0, corners[1]);
+  const br = Math.max(0, corners[2]);
+  const bl = Math.max(0, corners[3]);
+  const factor = Math.min(
+    1,
+    width / Math.max(1e-6, tl + tr),
+    width / Math.max(1e-6, bl + br),
+    height / Math.max(1e-6, tl + bl),
+    height / Math.max(1e-6, tr + br),
+  );
+  return [tl * factor, tr * factor, br * factor, bl * factor];
+}
+
 /** Trace a box path counter-clockwise for even-odd subtraction. */
 export function traceBoxPathCCW(
   ctx: CanvasRenderingContext2D,

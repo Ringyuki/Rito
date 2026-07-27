@@ -56,6 +56,15 @@ export interface RitoReaderLengthV1 {
   readonly value: number;
 }
 
+/**
+ * Circular corner radii in CSS order (top-left, top-right, bottom-right,
+ * bottom-left) for boxes whose corners disagree.
+ */
+export interface RitoReaderCornerRadiiV1 {
+  readonly unit: 'corners';
+  readonly corners: readonly [number, number, number, number];
+}
+
 export interface RitoReaderBackgroundPaintV1 {
   readonly color?: RitoReaderColorV1 | undefined;
   readonly image?: string | undefined;
@@ -83,7 +92,7 @@ export interface RitoReaderBlockPaintV1 {
         readonly left?: RitoReaderBorderEdgePaintV1 | undefined;
       }
     | undefined;
-  readonly radius?: RitoReaderLengthV1 | undefined;
+  readonly radius?: RitoReaderLengthV1 | RitoReaderCornerRadiiV1 | undefined;
   readonly boxShadows: readonly {
     readonly offsetX: number;
     readonly offsetY: number;

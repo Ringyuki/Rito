@@ -30,7 +30,18 @@ pub(super) fn write_block_paint(
     })?;
     write_optional(output, paint.radius.as_ref(), |output, radius| {
         output.push(radius.tag());
-        write_finite_f64(output, radius.value())
+        match radius {
+            super::super::contract::ReaderBlockRadiusV1::Px(value)
+            | super::super::contract::ReaderBlockRadiusV1::Percent(value) => {
+                write_finite_f64(output, *value)
+            }
+            super::super::contract::ReaderBlockRadiusV1::Corners(corners) => {
+                for corner in corners {
+                    write_finite_f64(output, *corner)?;
+                }
+                Ok(())
+            }
+        }
     })?;
     write_length(output, paint.box_shadows.len(), "box shadow")?;
     for shadow in &paint.box_shadows {

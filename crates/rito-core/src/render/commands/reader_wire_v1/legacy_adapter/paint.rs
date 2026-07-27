@@ -160,16 +160,28 @@ fn adapt_block_radius(value: &Value) -> Result<ReaderBlockRadiusV1, ReaderDispla
         .ok_or(ReaderDisplayListWireError::InvalidLegacyField(
             "paintBlock.radius",
         ))?;
-    ensure_fields(object, &["px", "pct"], "paintBlock.radius")?;
-    match (object.get("px"), object.get("pct")) {
-        (Some(value), None) => Ok(ReaderBlockRadiusV1::Px(super::value::finite_number(
+    ensure_fields(object, &["px", "pct", "corners"], "paintBlock.radius")?;
+    match (object.get("px"), object.get("pct"), object.get("corners")) {
+        (Some(value), None, None) => Ok(ReaderBlockRadiusV1::Px(super::value::finite_number(
             value,
             "paintBlock.radius.px",
         )?)),
-        (None, Some(value)) => Ok(ReaderBlockRadiusV1::Percent(super::value::finite_number(
-            value,
-            "paintBlock.radius.pct",
-        )?)),
+        (None, Some(value), None) => Ok(ReaderBlockRadiusV1::Percent(
+            super::value::finite_number(value, "paintBlock.radius.pct")?,
+        )),
+        (None, None, Some(value)) => {
+            let entries = value
+                .as_array()
+                .filter(|entries| entries.len() == 4)
+                .ok_or(ReaderDisplayListWireError::InvalidLegacyField(
+                    "paintBlock.radius.corners",
+                ))?;
+            let mut corners = [0.0_f64; 4];
+            for (slot, entry) in corners.iter_mut().zip(entries) {
+                *slot = super::value::finite_number(entry, "paintBlock.radius.corners")?;
+            }
+            Ok(ReaderBlockRadiusV1::Corners(corners))
+        }
         _ => Err(ReaderDisplayListWireError::InvalidLegacyField(
             "paintBlock.radius",
         )),

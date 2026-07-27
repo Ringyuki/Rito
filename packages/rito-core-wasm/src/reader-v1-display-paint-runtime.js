@@ -133,6 +133,19 @@ function readRadius(reader) {
   const tag = reader.u8('block radius tag');
   if (tag === 1) return { unit: 'px', value: reader.f64('block radius') };
   if (tag === 2) return { unit: 'percent', value: reader.f64('block radius') };
+  if (tag === 3) {
+    // Circular corner radii in CSS order (top-left, top-right,
+    // bottom-right, bottom-left) for boxes whose corners disagree.
+    return {
+      unit: 'corners',
+      corners: [
+        reader.f64('block radius top-left'),
+        reader.f64('block radius top-right'),
+        reader.f64('block radius bottom-right'),
+        reader.f64('block radius bottom-left'),
+      ],
+    };
+  }
   reader.fail(`unknown block radius tag: ${String(tag)}`);
 }
 

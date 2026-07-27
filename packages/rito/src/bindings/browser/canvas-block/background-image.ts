@@ -1,4 +1,4 @@
-import { traceRoundedRect } from '../canvas-path';
+import { traceCornerRoundedRect, traceRoundedRect } from '../canvas-path';
 import type {
   CanvasBlockBackgroundPaint,
   CanvasBlockImageResolver,
@@ -33,6 +33,7 @@ export function renderBackgroundImage(
   rx: number,
   ry: number,
   imageResolver: CanvasBlockImageResolver,
+  corners?: readonly [number, number, number, number],
 ): void {
   if (!background.image) return;
   const bitmap = resolveCanvasImage(imageResolver, background.image);
@@ -43,7 +44,7 @@ export function renderBackgroundImage(
   const image = resolveImageGeometry(bitmap, background, rect.x, rect.y, boxW, boxH);
   ctx.save();
   try {
-    clipBackgroundBox(ctx, rect.x, rect.y, boxW, boxH, rx, ry);
+    clipBackgroundBox(ctx, rect.x, rect.y, boxW, boxH, rx, ry, corners);
     if (background.repeat !== 'no-repeat' && image.drawW > 0 && image.drawH > 0) {
       drawRepeatedImage(ctx, image, rect.x, rect.y, boxW, boxH);
     } else {
@@ -122,8 +123,11 @@ function clipBackgroundBox(
   height: number,
   radiusX: number,
   radiusY: number,
+  corners?: readonly [number, number, number, number],
 ): void {
-  if (radiusX > 0 || radiusY > 0) {
+  if (corners) {
+    traceCornerRoundedRect(ctx, x, y, width, height, corners);
+  } else if (radiusX > 0 || radiusY > 0) {
     traceRoundedRect(ctx, x, y, width, height, radiusX, radiusY);
   } else {
     ctx.beginPath();

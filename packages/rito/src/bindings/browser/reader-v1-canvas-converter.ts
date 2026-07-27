@@ -142,17 +142,19 @@ function convertBlockPaint(paint: RitoReaderBlockPaintV1): CoreBlock['paint'] {
   return {
     ...(background === undefined ? {} : { background }),
     ...(border === undefined ? {} : { border }),
-    ...(paint.radius === undefined
-      ? {}
-      : {
-          radius:
-            paint.radius.unit === 'px' ? { px: paint.radius.value } : { pct: paint.radius.value },
-        }),
+    ...(paint.radius === undefined ? {} : { radius: convertBlockRadius(paint.radius) }),
     boxShadow: paint.boxShadows.map((shadow) => ({
       ...shadow,
       color: toCanvasColorV1(shadow.color),
     })),
   };
+}
+
+function convertBlockRadius(
+  radius: NonNullable<RitoReaderBlockPaintV1['radius']>,
+): NonNullable<CoreBlock['paint']['radius']> {
+  if (radius.unit === 'corners') return { corners: radius.corners };
+  return radius.unit === 'px' ? { px: radius.value } : { pct: radius.value };
 }
 
 function convertBackground(

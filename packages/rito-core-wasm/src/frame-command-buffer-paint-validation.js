@@ -130,6 +130,14 @@ function validateBlockRadius(value, path) {
   const radius = expectObject(value, path);
   validateOptionalField(radius, 'px', path, expectFiniteNumber);
   validateOptionalField(radius, 'pct', path, expectFiniteNumber);
+  // Non-uniform boxes carry four circular corner radii in CSS order
+  // (top-left, top-right, bottom-right, bottom-left).
+  validateOptionalField(radius, 'corners', path, (cornersValue, cornersPath) => {
+    validateArrayItems(cornersValue, cornersPath, expectFiniteNumber);
+    if (!Array.isArray(cornersValue) || cornersValue.length !== 4) {
+      throw new Error(`${cornersPath} must hold exactly four corner radii`);
+    }
+  });
 }
 
 function validateBoxShadows(value, path) {

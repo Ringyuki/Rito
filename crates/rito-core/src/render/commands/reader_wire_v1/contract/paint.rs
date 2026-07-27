@@ -204,6 +204,9 @@ pub(crate) struct ReaderBlockBorderV1 {
 pub(crate) enum ReaderBlockRadiusV1 {
     Px(f64),
     Percent(f64),
+    /// Circular corner radii in CSS order (top-left, top-right,
+    /// bottom-right, bottom-left) for boxes whose corners disagree.
+    Corners([f64; 4]),
 }
 
 impl ReaderBlockRadiusV1 {
@@ -211,12 +214,7 @@ impl ReaderBlockRadiusV1 {
         match self {
             Self::Px(_) => 1,
             Self::Percent(_) => 2,
-        }
-    }
-
-    pub(crate) const fn value(self) -> f64 {
-        match self {
-            Self::Px(value) | Self::Percent(value) => value,
+            Self::Corners(_) => 3,
         }
     }
 }
