@@ -122,16 +122,39 @@ pub(crate) fn append_fragment_display_commands(
             }) = node_paint
             {
                 commands.push(DisplayCommand::push_state());
+                // The browser snaps a transformed subtree's LAYER to the
+                // device grid: a rotated card at a fractional block
+                // offset renders bit-identically to the same card at the
+                // rounded offset (probed — DOM output at y .0 and y .48
+                // matched column for column). The rigid device-space
+                // shift to that rounded position is a translate composed
+                // BEFORE the author transforms, in the un-rotated frame.
+                let box_x = origin_x + fragment.rect.x;
+                let box_y = origin_y + fragment.rect.y;
+                let (snap_dx, snap_dy) = (box_x.round() - box_x, box_y.round() - box_y);
+                let ops = if snap_dx == 0.0 && snap_dy == 0.0 {
+                    transforms.clone()
+                } else {
+                    let mut ops = vec![serde_json::json!({
+                        "kind": "translate",
+                        "x": { "unit": "px", "value": number_value(snap_dx) },
+                        "y": { "unit": "px", "value": number_value(snap_dy) },
+                    })];
+                    if let serde_json::Value::Array(entries) = transforms {
+                        ops.extend(entries.iter().cloned());
+                    }
+                    serde_json::Value::Array(ops)
+                };
                 commands.push(DisplayCommand::transform(
                     serde_json::json!({
-                        "x": number_value(origin_x + fragment.rect.x + fragment.rect.width / 2.0),
-                        "y": number_value(origin_y + fragment.rect.y + fragment.rect.height / 2.0),
+                        "x": number_value(box_x + fragment.rect.width / 2.0),
+                        "y": number_value(box_y + fragment.rect.height / 2.0),
                     }),
                     serde_json::json!({
                         "width": number_value(fragment.rect.width),
                         "height": number_value(fragment.rect.height),
                     }),
-                    transforms.clone(),
+                    ops,
                 ));
             }
             if let Some(paint) = node_paint {
