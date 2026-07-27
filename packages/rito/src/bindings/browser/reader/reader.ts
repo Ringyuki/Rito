@@ -140,12 +140,31 @@ async function completeWithHostLineMetrics(
   // Each round can surface a new generation of metric keys (the strut
   // fonts first, then run samples, then atom struts introduced by the
   // metrics of the previous round); the loop already exits on the first
-  // quiet round, so the bound only caps pathological churn.
-  for (let round = 0; round < 6; round += 1) {
-    if ((await completeBrowserReaderBoundedSession(state)) !== true) return;
+  // quiet round, so the bound only caps pathological churn. The final
+  // completed page table must be built AFTER the last injection — a table
+  // completed with an unmet metric lays affected lines with the shaped
+  // fallback and paints their baselines one row off.
+  let refreshHostLineMetrics = false;
+  for (let round = 0; round < 12; round += 1) {
+    if (
+      (await completeBrowserReaderBoundedSession(state, undefined, {
+        refreshHostLineMetrics,
+      })) !== true
+    )
+      return;
     const spreadMode = options.spread ?? state.spreadMode;
     const lineBreaking = options.lineBreaking ?? state.lineBreaking;
-    if (!(await convergeHostLineMetrics(state, options, spreadMode, lineBreaking))) return;
+    refreshHostLineMetrics = true;
+    if (!(await convergeHostLineMetrics(state, options, spreadMode, lineBreaking))) {
+      const unmet = await state.worker.takeHostLineMetricRequests().catch(() => []);
+      if (unmet.length > 0) {
+        state.logger.warn(
+          'rito: page table completed with unmet host line metrics',
+          unmet.map((entry) => `${entry.family}@${String(entry.size)}"${entry.sample}"`),
+        );
+      }
+      return;
+    }
   }
 }
 

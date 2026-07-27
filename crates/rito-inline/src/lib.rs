@@ -801,6 +801,10 @@ impl FormattingContext for ParleyInlineContext {
             let has_inline_box = line
                 .items()
                 .any(|item| matches!(&item, PositionedLayoutItem::InlineBox(_)));
+            // Env-gated line forensics for the native probe binary (wasm
+            // has no env; the flag simply never sets there).
+            let line_debug = std::env::var_os("RITO_LINE_DEBUG").is_some();
+            let mut debug_misses: Vec<String> = Vec::new();
             let ink_top = f64::from(metrics.block_min_coord);
             let line_x = f64::from(metrics.offset);
             // Collect the line's content first, remembering each child's
@@ -1054,9 +1058,19 @@ impl FormattingContext for ParleyInlineContext {
                         .and_then(|tables| tables.inline.style(strut_style_id).ok())
                     {
                         Some(resolved) => entries.push((resolved, "", 0.0)),
-                        None => complete = false,
+                        None => {
+                            complete = false;
+                            if line_debug {
+                                debug_misses.push("strut style resolve".to_owned());
+                            }
+                        }
                     },
-                    None => complete = false,
+                    None => {
+                        complete = false;
+                        if line_debug {
+                            debug_misses.push("no strut style".to_owned());
+                        }
+                    }
                 }
                 for (index, range) in item_text_ranges.iter().enumerate() {
                     let on_line = line_text_range
@@ -1071,6 +1085,9 @@ impl FormattingContext for ParleyInlineContext {
                         style_tables.and_then(|tables| tables.inline.style(item.style).ok())
                     else {
                         complete = false;
+                        if line_debug {
+                            debug_misses.push(format!("item {index} style resolve"));
+                        }
                         continue;
                     };
                     let shift = item_shifts.get(index).copied().unwrap_or(0.0);
@@ -1088,6 +1105,14 @@ impl FormattingContext for ParleyInlineContext {
                 for (resolved, sample, shift) in entries {
                     let Some(metric) = self.host_normal_line(resolved, sample) else {
                         complete = false;
+                        if line_debug {
+                            debug_misses.push(format!(
+                                "entry metric {}@{}\"{}\"",
+                                host_family_key(resolved),
+                                resolved.font.size.get(),
+                                sample
+                            ));
+                        }
                         continue;
                     };
                     let (asc, desc) = (metric.ascent(), metric.descent());
@@ -1131,10 +1156,20 @@ impl FormattingContext for ParleyInlineContext {
                             style_tables.and_then(|tables| tables.inline.style(style_id).ok())
                         });
                         let Some(resolved) = resolved else {
+                            if line_debug {
+                                debug_misses.push("atom style resolve".to_owned());
+                            }
                             continue;
                         };
                         let Some(metric) = self.host_normal_line(resolved, "") else {
                             complete = false;
+                            if line_debug {
+                                debug_misses.push(format!(
+                                    "atom metric {}@{}",
+                                    host_family_key(resolved),
+                                    resolved.font.size.get()
+                                ));
+                            }
                             continue;
                         };
                         let (asc, desc) = (metric.ascent(), metric.descent());
@@ -1229,6 +1264,13 @@ impl FormattingContext for ParleyInlineContext {
                 }
                 }
             };
+            if line_debug && has_inline_box {
+                eprintln!(
+                    "[line-debug] contributions={contributions:?} host_line={host_line:?} \
+                     baseline={baseline} height={line_height} max_rise={max_rise} \
+                     misses={debug_misses:?}"
+                );
+            }
             let children: Vec<Fragment> = children
                 .into_iter()
                 .map(|(mut fragment, shift)| {

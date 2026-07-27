@@ -1,5 +1,6 @@
 import type { LayoutConfig, ReaderLocator, ReaderLocatorResolution } from '../../reader';
 import { commitBrowserReaderBoundedSnapshot } from './bounded-revision-commit';
+import { cachedHostLineMetricEntries } from './host-line-metrics';
 import { ensureCoalescedBrowserReaderBoundedLocator } from './bounded-locator-mutation';
 import type { BrowserReaderBoundedSnapshot } from './core-contracts';
 import {
@@ -226,13 +227,27 @@ export function ensureBrowserReaderBoundedLocator(
 export function completeBrowserReaderBoundedSession(
   state: BrowserReaderState,
   signal?: AbortSignal,
+  options?: { readonly refreshHostLineMetrics?: boolean },
 ): Promise<boolean | undefined> {
   return enqueueBrowserReaderCurrentMutation(state, async () => {
     if (signal?.aborted || state.disposed) return undefined;
-    if (state.revisionBundle.revision.status === 'complete') return true;
+    // A completed table normally stands — but host line metrics measured
+    // AFTER the bounded worker opened never reached it, so a refresh
+    // pushes the full metric cache into that worker and re-completes:
+    // without this, lines whose metrics arrived late stay laid out with
+    // the shaped fallback forever (a footnote-marker line painted its
+    // baseline one row high).
+    const refresh = options?.refreshHostLineMetrics === true;
+    if (!refresh && state.revisionBundle.revision.status === 'complete') return true;
     const snapshot = await mutateCurrent(
       state,
-      (owner) => owner.controller.complete(),
+      async (owner) => {
+        if (refresh) {
+          const cached = cachedHostLineMetricEntries();
+          if (cached.length > 0) await owner.worker.setHostLineMetrics(cached);
+        }
+        return owner.controller.complete();
+      },
       true,
       () => ({ targetSpreadIndex: state.activeSpreadIndex, complete: true }),
     );
