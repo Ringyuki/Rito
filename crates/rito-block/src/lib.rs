@@ -3152,6 +3152,132 @@ mod tests {
     }
 
     #[test]
+    fn a_snug_last_paragraph_keeps_its_full_margin() {
+        // The p169 tail state: a page whose last one-line paragraph fits
+        // with a fraction of a pixel to spare must sit at the full
+        // collapsed margin below its predecessor — not creep upward.
+        struct FractionalLineInline;
+        impl FormattingContext for FractionalLineInline {
+            fn layout(
+                &self,
+                tree: &FormattingTree,
+                node: FormattingNodeId,
+                space: &ConstraintSpace,
+                _token: Option<&BreakToken>,
+                _cancel: &CancelFlag,
+            ) -> Result<LayoutOutcome, LayoutError> {
+                let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
+                    return Err(LayoutError::Invalid("not an inline flow".to_owned()));
+                };
+                const LINE: f64 = 19.203125;
+                let lines = (0..items.len())
+                    .map(|index| {
+                        Fragment::Line(LineFragment {
+                            source: node,
+                            rect: FragmentRect {
+                                x: 0.0,
+                                y: LINE * index as f64,
+                                width: space.inline_size,
+                                height: LINE,
+                            },
+                            baseline: 16.0,
+                            trailing_whitespace: 0.0,
+                            children: Vec::new(),
+                        })
+                    })
+                    .collect();
+                Ok(LayoutOutcome {
+                    fragments: FragmentTree {
+                        root: Fragment::Box(BoxFragment {
+                            source: node,
+                            rect: FragmentRect {
+                                x: 0.0,
+                                y: 0.0,
+                                width: space.inline_size,
+                                height: LINE * items.len() as f64,
+                            },
+                            children: lines,
+                        }),
+                    },
+                    continuation: None,
+                    escaped_floats: Vec::new(),
+                })
+            }
+            fn intrinsic_inline_sizes(
+                &self,
+                _tree: &FormattingTree,
+                _node: FormattingNodeId,
+            ) -> Result<IntrinsicInlineSizes, LayoutError> {
+                Ok(IntrinsicInlineSizes {
+                    min_content: 10.0,
+                    max_content: 100.0,
+                })
+            }
+        }
+        let context = BlockFormattingContext::new(FractionalLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let layout = layout_table_with(4, |_| block_style(margin_px(0.0), margin_px(8.0)));
+        let paragraph = |node_index: usize, line_count: usize| FormattingNode {
+            style: node_style_id(&layout, node_index),
+            content: FormattingNodeContent::InlineFlow {
+                items: (0..line_count)
+                    .map(|line| InlineItem::Text {
+                        text: format!("line {line}"),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    })
+                    .collect(),
+            },
+            children: Vec::new(),
+        };
+        let nodes = vec![
+            paragraph(0, 40), // 768.125
+            paragraph(1, 2),  // top 776.125+8? -> gap 8 => 776.125; bottom 814.53
+            paragraph(2, 1),  // top 822.53; bottom 841.73
+            FormattingNode {
+                style: node_style_id(&layout, 3),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1), FormattingNodeId(2)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(3),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        // Fragmentainer sized so the final paragraph fits by ~0.3px.
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 842.0));
+        assert_eq!(pages.len(), 1, "everything fits on one page");
+        let children = box_children(&pages[0]);
+        assert_eq!(children.len(), 3);
+        let Fragment::Box(second) = &children[1] else {
+            panic!("second paragraph is a box");
+        };
+        let Fragment::Box(last) = &children[2] else {
+            panic!("last paragraph is a box");
+        };
+        let gap = last.rect.y - (second.rect.y + second.rect.height);
+        assert!(
+            (gap - 8.0).abs() < 1e-9,
+            "snug last paragraph keeps margin 8, got gap {gap} (last at {})",
+            last.rect.y
+        );
+    }
+
+    #[test]
     fn adjacent_margins_collapse_to_the_larger_one() {
         let context = BlockFormattingContext::new(FixedLineInline);
         let tree = margined_paragraphs_tree(&[
