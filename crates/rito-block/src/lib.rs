@@ -607,7 +607,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         ));
                     }
                     if !placement.lines.is_empty() {
-                        y += gap;
+                        y = layout_unit(y + gap);
                         remaining -= gap;
                         let trailing_padding = if placement.exhausted {
                             hbox.padding_bottom
@@ -640,7 +640,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             children,
                         }));
-                        y += paragraph_height;
+                        y = layout_unit(y + paragraph_height);
                         remaining -= paragraph_height;
                     }
                     if placement.exhausted {
@@ -768,7 +768,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         continue;
                     }
                     {
-                        y += gap;
+                        y = layout_unit(y + gap);
                         remaining -= gap;
                         let child_height = child_root.rect.height;
                         let child_top = y;
@@ -2159,6 +2159,15 @@ fn resolve_length_percentage(value: LengthPercentage, basis: f64) -> f64 {
             f64::from(length.get()) + f64::from(percentage.ratio()) * basis
         }
     }
+}
+
+/// Snaps a block-axis position to the LayoutUnit grid (1/64 CSS px).
+/// Blink performs every block advance in LayoutUnit, so all its line and
+/// box positions are exact 1/64 multiples; float debris here (measured:
+/// a page whose every line sat 0.003px low) flips baseline row-rounding
+/// against the browser exactly when Blink's value lands on x.5.
+fn layout_unit(value: f64) -> f64 {
+    (value * 64.0).round() / 64.0
 }
 
 /// CSS margin collapsing for two adjoining margins: the maximum of the
