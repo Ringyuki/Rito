@@ -100,6 +100,21 @@ pub(crate) fn append_fragment_display_commands(
     origin_y: f64,
     context: FragmentPaintContext<'_>,
 ) -> EpubResult<()> {
+    append_fragment_display_commands_inner(
+        commands, tree, fragment, origin_x, origin_y, context, 0.0,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn append_fragment_display_commands_inner(
+    commands: &mut Vec<DisplayCommand>,
+    tree: &FormattingTree,
+    fragment: &Fragment,
+    origin_x: f64,
+    origin_y: f64,
+    context: FragmentPaintContext<'_>,
+    snap_origin_y: f64,
+) -> EpubResult<()> {
     match fragment {
         Fragment::Box(fragment) => {
             let node_paint = context
@@ -192,14 +207,27 @@ pub(crate) fn append_fragment_display_commands(
                     }
                 }
             }
+            // Text inside a transformed subtree snaps its rows in the
+            // LAYER's coordinate space: the layer-origin translate above
+            // shifts the whole subtree to the device grid, so a line
+            // snapped relative to the box lands exactly where the
+            // browser's quantized layer rasterizes it. Page-space
+            // snapping would be shifted by the same translate and double
+            // count the fraction.
+            let child_snap_origin_y = if transformed {
+                origin_y + fragment.rect.y
+            } else {
+                snap_origin_y
+            };
             for child in &fragment.children {
-                append_fragment_display_commands(
+                append_fragment_display_commands_inner(
                     commands,
                     tree,
                     child,
                     origin_x + fragment.rect.x,
                     origin_y + fragment.rect.y,
                     context,
+                    child_snap_origin_y,
                 )?;
             }
             if transformed {
@@ -214,6 +242,7 @@ pub(crate) fn append_fragment_display_commands(
             origin_x,
             origin_y,
             context.family_policy,
+            snap_origin_y,
         ),
         Fragment::Text(_) | Fragment::Image(_) => Err(EpubError::new(
             "text and image fragments paint through their line box, not standalone",
@@ -221,6 +250,7 @@ pub(crate) fn append_fragment_display_commands(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn append_line_commands(
     commands: &mut Vec<DisplayCommand>,
     tree: &FormattingTree,
@@ -228,6 +258,7 @@ fn append_line_commands(
     origin_x: f64,
     origin_y: f64,
     family_policy: Option<&PaintFamilyPolicy>,
+    snap_origin_y: f64,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
         return Err(EpubError::new("line fragment source is not an inline flow"));
@@ -263,6 +294,7 @@ fn append_line_commands(
                     line_x,
                     line_y,
                     family_policy,
+                    snap_origin_y,
                 )?;
             }
             Fragment::Image(image) => {
@@ -290,6 +322,7 @@ fn append_text_run_command(
     line_x: f64,
     line_y: f64,
     family_policy: Option<&PaintFamilyPolicy>,
+    snap_origin_y: f64,
 ) -> EpubResult<()> {
     let start = run.text_start as usize;
     let end = run.text_end as usize;
@@ -336,7 +369,14 @@ fn append_text_run_command(
     // stages disagree with the summed round by one row (a footnote
     // marker line at line top .609375 with baseline 20.71875 paints at
     // 132 + 21, not round(152.328125) = 152).
-    let baseline = line_y.round() + (line.baseline - baseline_shift_px).round();
+    // The line-top round happens in the snap origin's space: absolute
+    // outside transforms (origin 0), border-box-relative inside one —
+    // composed with the transform command's layer-origin translate this
+    // reproduces round(box) + round(local), the browser's quantized
+    // layer raster.
+    let baseline = snap_origin_y
+        + (line_y - snap_origin_y).round()
+        + (line.baseline - baseline_shift_px).round();
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
     if let Some(annotation) = ruby_annotation {
         // The reader's ruby convention (shared with the retained engine):
