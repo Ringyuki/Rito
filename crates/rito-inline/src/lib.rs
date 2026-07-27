@@ -2948,11 +2948,13 @@ running through the quiet forest until the morning light returns.";
 
     #[test]
     fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
-        // The duokan footnote-marker construct, numbers from the pixel
-        // oracle (book 4, Section001 p11): fixed 19.2px strut over a
-        // host metric (asc 18, desc 5), one image 14.390625px tall raised
-        // 6.328125px (the sup rule at a 16px parent). Blink's line:
-        // height 24.921875, baseline 21.71875 — A == baseline, always.
+        // The duokan footnote-marker construct (book 4, Section001 p11):
+        // fixed 19.2px strut over a host metric (asc 18, desc 5), one
+        // image 14.390625px tall raised 6.328125px (the sup rule at a
+        // 16px parent). The expectations are the CSS 2.1 §10.8
+        // contributions model over exactly these injected metrics; the
+        // pixel oracle validates the same model end-to-end against Blink
+        // with the production metric set (the page diffs to zero).
         use rito_style_contract::{
             AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
             LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
@@ -3100,10 +3102,10 @@ running through the quiet forest until the morning light returns.";
         let Some(Fragment::Line(line)) = root.children.first() else {
             panic!("first child is a line");
         };
-        // Pinned-truth Blink (walk recipe, pinned fonts): the sup strut
-        // (fixed 19.203125 at 12px, baseline 15) raised 6.328125 wins
-        // over the image box (14.390625 + 6.328125): A = 21.328125,
-        // height = A + strut descent 3.203125 = 24.53125.
+        // Contributions over the injected metrics: the sup strut (fixed
+        // 19.203125 at 12px, baseline 15) raised 6.328125 wins over the
+        // image box (14.390625 + 6.328125): A = 21.328125, height =
+        // A + strut descent 3.203125 = 24.53125.
         assert!(
             (line.rect.height - 24.53125).abs() < 1e-9,
             "line height matches pinned Blink, got {}",
