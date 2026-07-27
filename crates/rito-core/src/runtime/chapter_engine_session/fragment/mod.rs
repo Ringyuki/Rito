@@ -95,6 +95,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
             config.viewport_height,
             "#ffffff",
         ));
+        let dual = page_indexes.len() == 2;
         for (slot, page_index) in page_indexes.iter().enumerate() {
             let (page, chapter) = self.layout.page_with_chapter(*page_index)?;
             let metadata = page.artifact.metadata();
@@ -104,10 +105,25 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 number_value(offset_x),
                 number_value(0.0),
             ));
+            // The spread gap belongs to the sheet, not the backdrop: each
+            // page's background wash extends to the middle of the gap so a
+            // full-bleed chapter reads as one continuous spread instead of
+            // two sheets with a slit between them. Content stays clipped
+            // to the page box below.
+            let (wash_x, wash_width) = if dual {
+                let half_gap = config.spread_gap / 2.0;
+                if slot == 0 {
+                    (0.0, metadata.width + half_gap)
+                } else {
+                    (-half_gap, metadata.width + half_gap)
+                }
+            } else {
+                (0.0, metadata.width)
+            };
             commands.push(paint_rect_command(
+                wash_x,
                 0.0,
-                0.0,
-                metadata.width,
+                wash_width,
                 metadata.height,
                 chapter.page_background.as_deref().unwrap_or("#ffffff"),
             ));
