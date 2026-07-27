@@ -122,6 +122,10 @@ pub enum NodePaint {
     Box {
         paint: Value,
         border_box: Option<Value>,
+        /// The box's computed transform list in wire order, painted as a
+        /// stacking wrapper around the box and its whole subtree (origin =
+        /// border-box center, CSS transform-origin default).
+        transform: Option<Value>,
     },
 }
 
@@ -1491,7 +1495,27 @@ fn block_box_paint(
     if radius.is_some() && !uniform {
         degradations.push("border-radius corners differ; the first corner applies".to_owned());
     }
-    if background.is_none() && background_image.is_none() && border.is_empty() {
+    let transform = (!style.paint.transform.is_none()).then(|| {
+        Value::Array(
+            style
+                .paint
+                .transform
+                .as_slice()
+                .iter()
+                .map(|operation| match operation {
+                    c::TransformOperationV1::Rotate { radians } => serde_json::json!({
+                        "kind": "rotate",
+                        "rad": f64::from(radians.get()),
+                    }),
+                })
+                .collect(),
+        )
+    });
+    if background.is_none()
+        && background_image.is_none()
+        && border.is_empty()
+        && transform.is_none()
+    {
         return (None, degradations);
     }
     let mut paint = serde_json::Map::new();
@@ -1516,6 +1540,7 @@ fn block_box_paint(
             NodePaint::Box {
                 paint: Value::Object(paint),
                 border_box,
+                transform,
             },
             widths,
         )),
@@ -1533,9 +1558,6 @@ fn box_decoration_violation(
     if !style.paint.box_shadows.is_empty() {
         return Some("box-shadow".to_owned());
     }
-    if !style.paint.transform.is_none() {
-        return Some("transform".to_owned());
-    }
     None
 }
 
@@ -1552,6 +1574,11 @@ fn inline_box_capability_violation(
     }
     if let Some(reason) = box_decoration_violation(style) {
         return Some(format!("inline {reason}"));
+    }
+    // Transforms paint as a block-box wrapper; an inline box carrying one
+    // has no border-box the wrapper could rotate about.
+    if !style.paint.transform.is_none() {
+        return Some("inline transform".to_owned());
     }
     // Inline fragment boxes: margins/padding/borders displace glyphs.
     if let Some(reason) =
@@ -2671,7 +2698,9 @@ p { margin: 8px 0; }\n\
                 "padding absorbs the border"
             );
         }
-        let Some(NodePaint::Box { paint, border_box }) = built.node_paints.get(&card_id.0) else {
+        let Some(NodePaint::Box {
+            paint, border_box, ..
+        }) = built.node_paints.get(&card_id.0) else {
             panic!(
                 "card carries box paint, got {:?}",
                 built.node_paints.get(&card_id.0)

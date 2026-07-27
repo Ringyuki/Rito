@@ -102,10 +102,39 @@ pub(crate) fn append_fragment_display_commands(
 ) -> EpubResult<()> {
     match fragment {
         Fragment::Box(fragment) => {
-            if let Some(paint) = context
+            let node_paint = context
                 .node_paints
-                .and_then(|paints| paints.get(&fragment.source.0))
+                .and_then(|paints| paints.get(&fragment.source.0));
+            // A transformed box is a stacking wrapper: the transform maps
+            // the box AND its whole subtree about the border-box center
+            // (the CSS transform-origin default), exactly as the browser
+            // rotates a card together with its text.
+            let transformed = matches!(
+                node_paint,
+                Some(NodePaint::Box {
+                    transform: Some(_),
+                    ..
+                })
+            );
+            if let Some(NodePaint::Box {
+                transform: Some(transforms),
+                ..
+            }) = node_paint
             {
+                commands.push(DisplayCommand::push_state());
+                commands.push(DisplayCommand::transform(
+                    serde_json::json!({
+                        "x": number_value(origin_x + fragment.rect.x + fragment.rect.width / 2.0),
+                        "y": number_value(origin_y + fragment.rect.y + fragment.rect.height / 2.0),
+                    }),
+                    serde_json::json!({
+                        "width": number_value(fragment.rect.width),
+                        "height": number_value(fragment.rect.height),
+                    }),
+                    transforms.clone(),
+                ));
+            }
+            if let Some(paint) = node_paint {
                 match paint {
                     NodePaint::Rule { color, style } => {
                         commands.push(DisplayCommand::paint_horizontal_rule(
@@ -118,17 +147,25 @@ pub(crate) fn append_fragment_display_commands(
                             serde_json::json!({ "color": color, "style": style }),
                         ));
                     }
-                    NodePaint::Box { paint, border_box } => {
-                        commands.push(DisplayCommand::paint_block(
-                            rect_value(
-                                origin_x + fragment.rect.x,
-                                origin_y + fragment.rect.y,
-                                fragment.rect.width,
-                                fragment.rect.height,
-                            ),
-                            paint.clone(),
-                            border_box.clone(),
-                        ));
+                    NodePaint::Box {
+                        paint, border_box, ..
+                    } => {
+                        // A transform-only box carries an empty paint
+                        // object; there is nothing to stroke or fill.
+                        let has_decoration =
+                            paint.as_object().is_none_or(|object| !object.is_empty());
+                        if has_decoration {
+                            commands.push(DisplayCommand::paint_block(
+                                rect_value(
+                                    origin_x + fragment.rect.x,
+                                    origin_y + fragment.rect.y,
+                                    fragment.rect.width,
+                                    fragment.rect.height,
+                                ),
+                                paint.clone(),
+                                border_box.clone(),
+                            ));
+                        }
                     }
                 }
             }
@@ -141,6 +178,9 @@ pub(crate) fn append_fragment_display_commands(
                     origin_y + fragment.rect.y,
                     context,
                 )?;
+            }
+            if transformed {
+                commands.push(DisplayCommand::pop_state());
             }
             Ok(())
         }
@@ -728,6 +768,57 @@ mod tests {
         )
         .expect("fragments paint");
         commands
+    }
+
+    #[test]
+    fn a_transformed_box_wraps_its_subtree_in_a_transform_state() {
+        // The rotate wraps the whole subtree: pushState + transform about
+        // the border-box center, the content, then popState.
+        let fixture = two_color_flow(|red, _| vec![text_item("card", red, 0.0)]);
+        let root = boxed_line(vec![text_run(0.0, 30.0, 0, 4)]);
+        let mut node_paints = BTreeMap::new();
+        node_paints.insert(
+            0,
+            NodePaint::Box {
+                paint: Value::Object(serde_json::Map::new()),
+                border_box: None,
+                transform: Some(serde_json::json!([{ "kind": "rotate", "rad": 0.05 }])),
+            },
+        );
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &fixture.tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                family_policy: None,
+                node_paints: Some(&node_paints),
+            },
+        )
+        .expect("fragments paint");
+        assert!(matches!(commands.first(), Some(DisplayCommand::PushState)));
+        let Some(DisplayCommand::Transform {
+            origin, transforms, ..
+        }) = commands.get(1)
+        else {
+            panic!("expected a transform command, got {:?}", commands.get(1));
+        };
+        // Box rect is (10, 20, 100, 20): center (60, 30).
+        assert_eq!(origin, &serde_json::json!({ "x": 60, "y": 30 }));
+        assert_eq!(
+            transforms,
+            &serde_json::json!([{ "kind": "rotate", "rad": 0.05 }])
+        );
+        assert!(matches!(commands.last(), Some(DisplayCommand::PopState)));
+        // The empty paint object strokes nothing: no paintBlock between.
+        assert!(commands
+            .iter()
+            .all(|command| !matches!(command, DisplayCommand::PaintBlock { .. })));
+        assert!(commands
+            .iter()
+            .any(|command| matches!(command, DisplayCommand::PaintText(_))));
     }
 
     #[test]
