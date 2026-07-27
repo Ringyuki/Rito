@@ -202,6 +202,50 @@ let pageAt = new Map(plan.pages.map((p) => [p.page, p]));
 // Walk every spread once, screenshot the canvas, crop out both pages.
 const canvas = reader.locator('[data-testid=reader-shell] canvas').first();
 const enginePages = new Map();
+const TAP_PAGE = process.env.RITO_WALK_TAP ? Number(process.env.RITO_WALK_TAP) : undefined;
+if (TAP_PAGE !== undefined) {
+  // Record the organic paint pass of each spread as the walk reaches it:
+  // a full-canvas paintPage opens a pass and resets the log, so after a
+  // spread settles the log holds exactly its last complete paint.
+  await reader.evaluate(() => {
+    const scope = globalThis;
+    scope.__ritoTapLog = [];
+    let dx = 0;
+    scope.__ritoPaintTap = (c, onScreen) => {
+      if (!onScreen) return;
+      if (c.kind === 'paintPage' && (c.rect?.width ?? 0) > 1400) {
+        scope.__ritoTapLog.length = 0;
+        dx = 0;
+      }
+      if (c.kind === 'transform') {
+        for (const t of c.transforms ?? []) if (t.kind === 'translate') dx = t.dx;
+      } else if (c.rect) {
+        scope.__ritoTapLog.push({
+          dx,
+          kind: c.kind,
+          x: c.rect.x,
+          y: c.rect.y,
+          w: c.rect.width,
+          h: c.rect.height,
+          text: (c.text ?? '').slice(0, 12),
+        });
+      }
+    };
+  });
+}
+const tapSpread = async (spreadIndex) => {
+  const at = plan.pages.find((p) => p.page === TAP_PAGE && p.spread === spreadIndex);
+  if (!at) return;
+  const log = await reader.evaluate(
+    (want) => (globalThis.__ritoTapLog ?? []).filter((t) => t.dx === want),
+    at.side === 'left' ? 0 : 760,
+  );
+  writeFileSync(
+    path.join(outDir, `tap-p${String(TAP_PAGE).padStart(3, '0')}.json`),
+    JSON.stringify(log, null, 1),
+  );
+  console.log(`[tap] page ${TAP_PAGE}: ${log.length} commands (organic pass)`);
+};
 const shootSpread = async (spreadIndex) => {
   // The first paint after a dist/wasm rebuild can stall while vite
   // re-optimizes; one long-timeout retry absorbs it.
@@ -292,6 +336,7 @@ for (let attempt = 0; attempt < 2; attempt += 1) {
     await reader.waitForTimeout(s === 0 ? 800 : 320);
     try {
       await shootSpread(s);
+      if (TAP_PAGE !== undefined) await tapSpread(s);
     } catch (error) {
       if (!String(error).includes('book state lost')) throw error;
       console.log(`[recover] ${String(error).split('\n')[0]} — reloading and resuming`);

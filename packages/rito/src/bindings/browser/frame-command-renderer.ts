@@ -39,15 +39,24 @@ export function renderFrameCommandsToCanvas(
   const canvasCtx = ctx as CanvasRenderingContext2D;
   const state = createRenderState(options);
   // Session-scoped tap for paint-parity instruments (pixel-walk probes):
-  // observes the exact command stream without altering rendering.
-  const paintTap = (globalThis as { __ritoPaintTap?: (c: CoreFrameCommand) => void })
-    .__ritoPaintTap;
+  // observes the exact command stream without altering rendering. The
+  // second argument tells probes whether this canvas is the on-screen one
+  // — spread pre-renders replay the same commands into offscreen
+  // canvases, and a probe that cannot tell them apart records the wrong
+  // spread.
+  const paintTap = (
+    globalThis as { __ritoPaintTap?: (c: CoreFrameCommand, onScreen: boolean) => void }
+  ).__ritoPaintTap;
+  const onScreen =
+    typeof (canvasCtx.canvas as { isConnected?: boolean }).isConnected === 'boolean'
+      ? (canvasCtx.canvas as unknown as { isConnected: boolean }).isConnected
+      : false;
   let rendered = 0;
   canvasCtx.save();
   try {
     canvasCtx.scale(options.pixelRatio ?? 1, options.pixelRatio ?? 1);
     for (const command of commands) {
-      paintTap?.(command);
+      paintTap?.(command, onScreen);
       renderCommand(canvasCtx, command, state);
       rendered += 1;
     }
