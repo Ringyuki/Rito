@@ -7,7 +7,7 @@ export function drawInlineBackground(
   const color = fragment.paint.backgroundColor;
   if (!color) return;
 
-  const rect = computeInlineBoxRect(fragment);
+  const rect = computeInlineBoxRect(fragment, ctx);
   const radius = fragment.paint.backgroundRadius ?? 0;
   ctx.save();
   ctx.fillStyle = color;

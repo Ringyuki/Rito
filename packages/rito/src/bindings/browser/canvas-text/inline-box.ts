@@ -3,8 +3,20 @@ import type { CanvasTextFragment } from './types';
 type InlineFragment = Pick<CanvasTextFragment, 'rect' | 'paint'>;
 type InlineBoxRect = CanvasTextFragment['rect'];
 
-/** Compute the content-height box used by inline backgrounds and borders. */
-export function computeInlineBoxRect({ rect, paint }: InlineFragment): InlineBoxRect {
+/**
+ * Compute the content-height box used by inline backgrounds and borders.
+ *
+ * The browser covers an inline box's background from the run font's
+ * grid-fit ascent to its descent around the baseline (canvas
+ * `fontBoundingBox`), not the em box — a highlighted 20px chapter title
+ * paints a 24px band. The context arrives with the run's font already
+ * set, so the envelope is measured right off it; without a context (or
+ * the metrics), the em box stands in.
+ */
+export function computeInlineBoxRect(
+  { rect, paint }: InlineFragment,
+  ctx?: CanvasRenderingContext2D,
+): InlineBoxRect {
   const padding = paint.padding;
   const border = paint.border;
   const paddingLeft = padding?.left ?? 0;
@@ -16,11 +28,23 @@ export function computeInlineBoxRect({ rect, paint }: InlineFragment): InlineBox
   const borderTop = border?.top?.widthPx ?? 0;
   const borderBottom = border?.bottom?.widthPx ?? 0;
 
+  const size = paint.font.sizePx;
+  let contentTop = rect.y;
+  let contentHeight = size;
+  const metrics = ctx?.measureText('x');
+  if (
+    metrics &&
+    Number.isFinite(metrics.fontBoundingBoxAscent) &&
+    Number.isFinite(metrics.fontBoundingBoxDescent)
+  ) {
+    contentTop = rect.y + 0.8 * size - metrics.fontBoundingBoxAscent;
+    contentHeight = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
+  }
   return {
     x: rect.x - paddingLeft - borderLeft,
-    y: rect.y - paddingTop - borderTop,
+    y: contentTop - paddingTop - borderTop,
     width: rect.width + paddingLeft + paddingRight + borderLeft + borderRight,
-    height: paint.font.sizePx + paddingTop + paddingBottom + borderTop + borderBottom,
+    height: contentHeight + paddingTop + paddingBottom + borderTop + borderBottom,
   };
 }
 
