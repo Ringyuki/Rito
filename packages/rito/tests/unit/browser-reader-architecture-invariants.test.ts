@@ -55,7 +55,9 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // atomic reflow, locator navigation, and
 // exact-version frame/resource/search ownership, failure-isolated disposal, and
 // host-task disposal barriers are required orchestration capabilities.
-const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
+// Raised for the conformance diagnostics surface: the pixel oracle reads
+// the live metric world and committed frames through one debug module.
+const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 25;
 // Raised for the exact-read reclaim path: a suspended session that never
 // reopens its gate must be retired, not waited on forever.
 // Raised again for the fragment page-table lever: open threading, the
@@ -73,7 +75,7 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
 // so it reports the invalidation the host already listens for.
 // +12 lines (2026-07-27): element-sourced natural image decode — the only
 // drawImage source that reproduces the browser raster bit for bit.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3220;
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3240;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.

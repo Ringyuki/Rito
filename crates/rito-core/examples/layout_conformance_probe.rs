@@ -26,11 +26,22 @@ struct ProbeRequest {
     epub_path: String,
     serif_font_path: String,
     serif_language: Option<String>,
+    /// Extra pinned faces AHEAD of the serif face, mirroring a production
+    /// policy that pins a Latin face before the CJK serif.
+    #[serde(default)]
+    leading_pinned_faces: Vec<ProbePinnedFace>,
     content_width: f64,
     /// Host-measured `line-height: normal` metrics, recorded by the same
     /// browser that recorded the geometry truth.
     #[serde(default)]
     host_line_metrics: Vec<HostMetricEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProbePinnedFace {
+    path: String,
+    language: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -62,16 +73,27 @@ fn main() {
     let request: ProbeRequest = serde_json::from_str(&input).expect("probe request parses");
 
     let serif_bytes = std::fs::read(&request.serif_font_path).expect("serif font reads");
-    let policy = RuntimePinnedFontPolicyInput {
-        faces: vec![RuntimePinnedFontFaceInput {
-            expected_sha256: format!("{:x}", Sha256::digest(&serif_bytes)),
-            bytes: serif_bytes,
+    let mut faces = Vec::new();
+    for face in &request.leading_pinned_faces {
+        let bytes = std::fs::read(&face.path).expect("leading pinned face reads");
+        faces.push(RuntimePinnedFontFaceInput {
+            expected_sha256: format!("{:x}", Sha256::digest(&bytes)),
+            bytes,
             generic_role: RuntimePinnedFontGenericRole::Serif,
-            language: request.serif_language.as_deref().map(|value| {
+            language: face.language.as_deref().map(|value| {
                 RuntimePinnedFontLanguageTag::parse(value).expect("language tag parses")
             }),
-        }],
-    };
+        });
+    }
+    faces.push(RuntimePinnedFontFaceInput {
+        expected_sha256: format!("{:x}", Sha256::digest(&serif_bytes)),
+        bytes: serif_bytes,
+        generic_role: RuntimePinnedFontGenericRole::Serif,
+        language: request.serif_language.as_deref().map(|value| {
+            RuntimePinnedFontLanguageTag::parse(value).expect("language tag parses")
+        }),
+    });
+    let policy = RuntimePinnedFontPolicyInput { faces };
 
     let bytes = std::fs::read(&request.epub_path).expect("cases epub reads");
     let mut document = RuntimeDocument::open_with_pinned_font_policy(&bytes, policy)
@@ -92,12 +114,9 @@ fn main() {
         pagination_policy: None,
         text_measurement: Some(TextMeasurementMode::FontAware),
     });
-    let revision = document
-        .create_revision(&layout_config)
-        .expect("revision builds");
-    // After the revision: the fragment engine initializes lazily from the
-    // publication's resolved @font-face sources, which only exist once a
-    // revision prepared the book.
+    // Inject before the revision: the metrics pend until the fragment
+    // engine initializes, so the paginated pass itself lays out with them
+    // — the same world a steady-state reader session paginates in.
     for entry in &request.host_line_metrics {
         document.set_host_line_metric(
             &entry.family,
@@ -109,6 +128,9 @@ fn main() {
             },
         );
     }
+    let revision = document
+        .create_revision(&layout_config)
+        .expect("revision builds");
 
     // Requests recorded while the revision paginated (before injection)
     // are stale; drain them so what remains names metrics the geometry

@@ -49,6 +49,7 @@ import {
 } from './pipeline/initial-state';
 import { createBrowserReaderChapterLocalPreviewState } from '../chapter-local-preview/state';
 import { installBrowserReaderChapterLocalPresentation } from '../chapter-local-preview/presentation';
+import { installBrowserReaderDiagnostics } from './diagnostics';
 
 export async function createReader(
   data: ArrayBuffer,
@@ -81,6 +82,7 @@ export async function createReader(
       ctx,
       options,
     );
+    installBrowserReaderDiagnostics(state);
     await startInitialReflow(state, options);
     scheduleFragmentPaginationCompletion(state, readerLayoutOptions(options));
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
