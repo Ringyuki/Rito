@@ -70,6 +70,7 @@ export function buildBrowserReaderMethods(
                   return false;
                 },
               );
+              if (hostMetricsChanged) state.hostLineMetricsEpoch += 1;
               if (metricsChanged || hostMetricsChanged) reflow(layoutOptions, true);
               return warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
             })

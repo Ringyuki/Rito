@@ -158,6 +158,10 @@ export interface BrowserReaderState {
   chapterTextIndices: BrowserReaderChapterTextIndexMap;
   tocTargets: readonly TocTarget[];
   activeSpreadIndex: number;
+  /** Bumped whenever host line metrics reach the worker after open. */
+  hostLineMetricsEpoch: number;
+  /** The epoch the currently published revision was laid out under. */
+  publishedHostLineMetricsEpoch: number;
   images: Map<string, BrowserReaderDecodedImage>;
   registeredFontFaces: Map<string, FontFace>;
   spreadRenderedListeners: Set<(spreadIndex: number, spread: Spread) => void>;

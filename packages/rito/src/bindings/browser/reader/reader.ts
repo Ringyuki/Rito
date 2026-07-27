@@ -184,6 +184,7 @@ async function convergeHostLineMetrics(
     return false;
   });
   if (!changed || state.disposed) return false;
+  state.hostLineMetricsEpoch += 1;
   await new Promise<void>((resolve) => {
     const scheduled = scheduleBrowserReaderReflow(
       state,
@@ -265,6 +266,8 @@ function createInitialState(
     chapterTextIndices: new Map(),
     tocTargets: [],
     activeSpreadIndex: 0,
+    hostLineMetricsEpoch: 0,
+    publishedHostLineMetricsEpoch: 0,
     ...emptyListenerSets(),
     ...initialTypographyOverrides(options),
     pendingFrameLoads: new Map(),

@@ -194,6 +194,7 @@ function publishBoundedCommit(
     : undefined;
   if (candidate) {
     state.boundedSessions.current = input.owner;
+    state.publishedHostLineMetricsEpoch = state.hostLineMetricsEpoch;
     state.boundedSessions.candidate = undefined;
     input.owner.readsSuspended = false;
   }
