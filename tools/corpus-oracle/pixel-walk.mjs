@@ -150,24 +150,26 @@ await reader
     });
     await reader.waitForTimeout(1500);
   });
-const plan = await reader.evaluate(() => {
-  const r = window.__ritoController.reader;
-  const chapters = [...r.chapterMap.entries()].map(([href, range]) => ({ href, ...range }));
-  chapters.sort((a, b) => a.startPage - b.startPage);
-  const spreadOfPage = new Map();
-  r.spreads.forEach((s, i) => {
-    for (const side of ['left', 'right']) {
-      const p = s[side]?.index;
-      if (p !== undefined && p !== null) spreadOfPage.set(p, { spread: i, side });
-    }
+const readPlan = () =>
+  reader.evaluate(() => {
+    const r = window.__ritoController.reader;
+    const chapters = [...r.chapterMap.entries()].map(([href, range]) => ({ href, ...range }));
+    chapters.sort((a, b) => a.startPage - b.startPage);
+    const spreadOfPage = new Map();
+    r.spreads.forEach((s, i) => {
+      for (const side of ['left', 'right']) {
+        const p = s[side]?.index;
+        if (p !== undefined && p !== null) spreadOfPage.set(p, { spread: i, side });
+      }
+    });
+    return {
+      pageCount: r.pages.length,
+      pageBounds: r.pages[0]?.bounds,
+      chapters,
+      pages: [...spreadOfPage.entries()].map(([page, at]) => ({ page, ...at })),
+    };
   });
-  return {
-    pageCount: r.pages.length,
-    pageBounds: r.pages[0]?.bounds,
-    chapters,
-    pages: [...spreadOfPage.entries()].map(([page, at]) => ({ page, ...at })),
-  };
-});
+let plan = await readPlan();
 const pageW = Math.round(plan.pageBounds.width);
 const pageH = Math.round(plan.pageBounds.height);
 const contentW = pageW - 2 * MARGIN;
@@ -175,7 +177,7 @@ const contentH = pageH - 2 * MARGIN;
 console.log(
   `pages ${plan.pageCount}, page ${pageW}x${pageH}, content ${contentW}x${contentH}, chapters ${plan.chapters.length}`,
 );
-const pageAt = new Map(plan.pages.map((p) => [p.page, p]));
+let pageAt = new Map(plan.pages.map((p) => [p.page, p]));
 
 // Walk every spread once, screenshot the canvas, crop out both pages.
 const canvas = reader.locator('[data-testid=reader-shell] canvas').first();
@@ -240,31 +242,59 @@ const recoverToSpread = async (spreadIndex) => {
     await reader.waitForTimeout(60);
   }
 };
-const totalSpreads = Math.max(...plan.pages.map((p) => p.spread)) + 1;
-for (let s = 0; s < totalSpreads; s += 1) {
-  if (Math.min(...[...pageAt.keys()].filter((p) => !enginePages.has(p))) > MAX_PAGES) break;
-  // A screenshot during the page-turn slide reads as a horizontal shift
-  // of the whole page (image spreads settle latest — their frames land
-  // after async decodes). Wait out the transition, then settle.
-  await reader
-    .waitForFunction(
-      () => document.querySelector('[data-testid=reader-shell]')?.dataset.transitioning === 'false',
-      { timeout: 15000 },
-    )
-    .catch(() => undefined);
-  await reader.waitForTimeout(s === 0 ? 800 : 320);
-  try {
-    await shootSpread(s);
-  } catch (error) {
-    if (!String(error).includes('book state lost')) throw error;
-    console.log(`[recover] ${String(error).split('\n')[0]} — reloading and resuming`);
-    await recoverToSpread(s);
-    await reader.waitForTimeout(500);
-    await shootSpread(s);
+// Lazily registered book fonts can trigger a reflow AFTER the plan was
+// read, shifting every later page boundary mid-walk (measured: a whole
+// book compared against off-by-two columns). Shoot, then verify the
+// pagination still matches the plan; a shifted run re-walks once — by
+// then every font is registered and the pagination is stable.
+const paginationSignature = () =>
+  reader.evaluate(() => {
+    const r = window.__ritoController.reader;
+    return `${r.pages.length}|${[...r.chapterMap.entries()]
+      .map(([href, range]) => `${href}:${range.startPage}`)
+      .join(',')}`;
+  });
+let planSignature = await paginationSignature();
+for (let attempt = 0; attempt < 2; attempt += 1) {
+  const totalSpreads = Math.max(...plan.pages.map((p) => p.spread)) + 1;
+  for (let s = 0; s < totalSpreads; s += 1) {
+    if (Math.min(...[...pageAt.keys()].filter((p) => !enginePages.has(p))) > MAX_PAGES) break;
+    // A screenshot during the page-turn slide reads as a horizontal shift
+    // of the whole page (image spreads settle latest — their frames land
+    // after async decodes). Wait out the transition, then settle.
+    await reader
+      .waitForFunction(
+        () =>
+          document.querySelector('[data-testid=reader-shell]')?.dataset.transitioning === 'false',
+        { timeout: 15000 },
+      )
+      .catch(() => undefined);
+    await reader.waitForTimeout(s === 0 ? 800 : 320);
+    try {
+      await shootSpread(s);
+    } catch (error) {
+      if (!String(error).includes('book state lost')) throw error;
+      console.log(`[recover] ${String(error).split('\n')[0]} — reloading and resuming`);
+      await recoverToSpread(s);
+      await reader.waitForTimeout(500);
+      await shootSpread(s);
+    }
+    if (s < totalSpreads - 1) {
+      await reader.keyboard.press('ArrowRight');
+    }
   }
-  if (s < totalSpreads - 1) {
-    await reader.keyboard.press('ArrowRight');
+  const settled = await paginationSignature();
+  if (settled === planSignature) break;
+  if (attempt === 1) {
+    throw new Error('pagination still shifting after a full re-walk');
   }
+  console.log('[re-walk] pagination shifted mid-run; re-shooting with settled pagination');
+  enginePages.clear();
+  plan = await readPlan();
+  pageAt = new Map(plan.pages.map((p) => [p.page, p]));
+  planSignature = await paginationSignature();
+  await recoverToSpread(0);
+  await reader.waitForTimeout(800);
 }
 await reader.close();
 console.log(`engine pages captured: ${enginePages.size}`);
