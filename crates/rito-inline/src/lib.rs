@@ -2013,7 +2013,15 @@ fn image_display_size(
             }
         }
     }
-    Ok((width as f32, height as f32))
+    // Blink stores used lengths as LayoutUnits: the resolved size floors
+    // to the 1/64 grid (measured: `height: 1.2em` at a 12px font is
+    // 14.390625 used, not 14.4 — the un-floored height left a footnote
+    // marker's line 0.009px tall and flipped its baseline rounding).
+    let layout_unit_floor = |value: f64| (value * 64.0).floor() / 64.0;
+    Ok((
+        layout_unit_floor(width) as f32,
+        layout_unit_floor(height) as f32,
+    ))
 }
 
 /// The first-line indent this style asks for, in CSS px. Percentages need a
