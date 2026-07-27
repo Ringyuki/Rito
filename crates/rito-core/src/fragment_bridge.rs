@@ -61,6 +61,11 @@ pub struct ChapterFormattingTree {
     pub flow_item_sources: BTreeMap<u32, Vec<FlowItemSource>>,
     /// Anchor `id` attributes per formatting node, for jump navigation.
     pub node_anchors: BTreeMap<u32, String>,
+    /// Link destinations carried by block-level boxes (an `<a href>`
+    /// around block children scopes the link over the block's whole
+    /// border box, padding included, exactly as the browser hit-tests
+    /// it). Keyed by formatting node id.
+    pub node_links: BTreeMap<u32, String>,
     /// Anchor `id` attributes for source nodes that produce no formatting
     /// node of their own — images, which lay out as inline atoms. Keyed by
     /// source-arena index, the coordinate `flow_item_sources` reports.
@@ -162,7 +167,8 @@ pub fn build_chapter_formatting_tree(
         node_anchors: BTreeMap::new(),
         source_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
-            block_link: None,
+        block_link: None,
+        node_links: BTreeMap::new(),
         strut_styles: BTreeMap::new(),
         degradations: Vec::new(),
         checked_block_styles: std::collections::HashMap::new(),
@@ -210,6 +216,7 @@ pub fn build_chapter_formatting_tree(
         node_paints,
         flow_item_sources,
         node_anchors,
+        node_links,
         source_anchors,
         node_tags,
         strut_styles,
@@ -232,6 +239,7 @@ pub fn build_chapter_formatting_tree(
         page_background_image,
         flow_item_sources,
         node_anchors,
+        node_links,
         source_anchors,
         node_tags,
         degradations,
@@ -253,6 +261,8 @@ struct TreeBuilder<'a> {
     node_anchors: BTreeMap<u32, String>,
     source_anchors: BTreeMap<usize, String>,
     node_tags: BTreeMap<u32, String>,
+    /// Link destinations recorded per block node for whole-box hit areas.
+    node_links: BTreeMap<u32, String>,
     /// The nearest enclosing block-level `<a href>` destination: an `<a>`
     /// containing block children scopes its link over the whole subtree
     /// (the TOC-card idiom `<a><div>card</div></a>`), so inline runs
@@ -429,6 +439,7 @@ impl TreeBuilder<'_> {
             .attributes
             .as_ref()
             .and_then(|attributes| attributes.href.clone());
+        let own_link = block_link.clone();
         let saved_block_link = match block_link {
             Some(href) => Some(self.block_link.replace(href)),
             None => None,
@@ -482,6 +493,9 @@ impl TreeBuilder<'_> {
         };
         if let Some(saved) = saved_block_link {
             self.block_link = saved;
+        }
+        if let Some(href) = own_link {
+            self.node_links.insert(id.0, href);
         }
         if let Some(anchor) = element
             .attributes
@@ -2325,6 +2339,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         page_background_image: None,
         flow_item_sources: BTreeMap::new(),
         node_anchors: BTreeMap::new(),
+        node_links: BTreeMap::new(),
         source_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
         degradations: vec!["chapter has no body source node; rendered empty".to_owned()],

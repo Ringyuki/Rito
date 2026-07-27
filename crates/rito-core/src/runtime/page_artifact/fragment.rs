@@ -102,7 +102,21 @@ pub(in crate::runtime) struct FragmentPageArtifact {
     text_hash: String,
     runs: Vec<FragmentRunRecord>,
     images: Vec<FragmentImageRecord>,
+    links: Vec<FragmentLinkRecord>,
     semantics: Vec<FragmentSemanticRecord>,
+}
+
+/// A block-level link's whole border box on this page: the browser makes
+/// the entire `<a>`-wrapped block clickable, padding included, so the
+/// hit area is the box rect — not just the text runs inside it.
+#[derive(Debug, Clone)]
+struct FragmentLinkRecord {
+    block_index: usize,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    href: String,
 }
 
 /// One laid-out image on the page, with its interaction provenance.
@@ -144,6 +158,7 @@ impl FragmentPageArtifact {
             text_hash: hash_page_text(""),
             runs: Vec::new(),
             images: Vec::new(),
+            links: Vec::new(),
             semantics: Vec::new(),
         }
     }
@@ -177,6 +192,7 @@ impl FragmentPageArtifact {
             has_text: false,
             runs: Vec::new(),
             images: Vec::new(),
+            links: Vec::new(),
             semantics: Vec::new(),
         };
         let Fragment::Box(page_root) = root else {
@@ -203,6 +219,7 @@ impl FragmentPageArtifact {
             text_hash,
             runs: builder.runs,
             images: builder.images,
+            links: builder.links,
             semantics: builder.semantics,
         }
     }
@@ -217,6 +234,7 @@ impl FragmentPageArtifact {
             text_hash: hash_page_text(""),
             runs: Vec::new(),
             images: Vec::new(),
+            links: Vec::new(),
             semantics: Vec::new(),
         }
     }
@@ -230,8 +248,10 @@ struct ArtifactBuilder<'a> {
     has_text: bool,
     runs: Vec<FragmentRunRecord>,
     images: Vec<FragmentImageRecord>,
+    links: Vec<FragmentLinkRecord>,
     semantics: Vec<FragmentSemanticRecord>,
 }
+
 
 impl ArtifactBuilder<'_> {
     fn collect(
@@ -244,6 +264,16 @@ impl ArtifactBuilder<'_> {
     ) {
         match fragment {
             Fragment::Box(inner) => {
+                if let Some(href) = self.chapter.node_links.get(&inner.source.0) {
+                    self.links.push(FragmentLinkRecord {
+                        block_index,
+                        x: origin_x + inner.rect.x,
+                        y: origin_y + inner.rect.y,
+                        width: inner.rect.width,
+                        height: inner.rect.height,
+                        href: href.clone(),
+                    });
+                }
                 if let Some(tag) = self.chapter.node_tags.get(&inner.source.0) {
                     self.semantics.push(FragmentSemanticRecord {
                         tag: tag.clone(),
@@ -445,6 +475,27 @@ impl PageArtifact for FragmentPageArtifact {
                 text_length: run.end - run.start,
                 text: run_text,
                 href: run.href.clone(),
+                source_path: None,
+                source_text_offset: None,
+                image_src: None,
+                image_alt: None,
+            });
+        }
+        for link in &self.links {
+            entries.push(PageArtifactTarget {
+                block_index: link.block_index,
+                line_index: 0,
+                run_index: 0,
+                bounds: PageArtifactRect {
+                    x: link.x,
+                    y: link.y,
+                    width: link.width,
+                    height: link.height,
+                },
+                text: String::new(),
+                text_hash: hash_page_text(""),
+                text_length: 0,
+                href: Some(link.href.clone()),
                 source_path: None,
                 source_text_offset: None,
                 image_src: None,
@@ -706,6 +757,7 @@ mod tests {
             page_background_image: None,
             flow_item_sources: BTreeMap::new(),
             node_anchors: BTreeMap::new(),
+            node_links: BTreeMap::new(),
             source_anchors: BTreeMap::new(),
             node_tags: BTreeMap::new(),
             degradations: Vec::new(),
