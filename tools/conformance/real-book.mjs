@@ -407,6 +407,10 @@ await browser.close();
 const chapterKey = (href) =>
   path.basename(decodeURIComponent(href)).replaceAll(/[^A-Za-z0-9.-]/g, '_');
 const engineByChapter = new Map(engineChapters.map((c) => [chapterKey(c.idref), c]));
+// Raw per-box dumps for offline drill-down (sub-tolerance deltas are
+// invisible in the offender report but still real pixels).
+writeFileSync(path.join(buildDir, 'probe-dump.json'), JSON.stringify(engineChapters));
+writeFileSync(path.join(buildDir, 'truth-dump.json'), JSON.stringify(truth));
 const perChapter = [];
 const offenders = [];
 for (const chapter of chapters) {
