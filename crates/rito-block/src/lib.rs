@@ -539,10 +539,41 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         pending_margin = collapse_margins(gap, bottom_margin);
                         continue;
                     }
+                    // The paragraph's own top padding rides its first
+                    // fragment; bottom padding rides the last.
+                    let leading_padding = if consumed == 0.0 {
+                        hbox.padding_top
+                    } else {
+                        0.0
+                    };
                     // Floats beside this paragraph shorten its line boxes
                     // instead of pushing it down, which is what a browser
                     // does; the paragraph box itself keeps its position.
-                    let band = floats.band_at(y, content_width);
+                    // The band is container geometry; the inline provider
+                    // works in the paragraph's own content coordinates, so
+                    // the insets shrink to the overlap with the paragraph's
+                    // content span (CSS 2.1 §9.5 — a float left of an
+                    // auto-centered box never shortens its lines) and the
+                    // extent re-bases to the paragraph's first line.
+                    let paragraph_top = y + gap + leading_padding;
+                    let band = floats
+                        .band_at(paragraph_top, content_width)
+                        .and_then(|band| {
+                            let child_left = hbox.x + hbox.padding_left;
+                            let child_right = child_left + hbox.content_width;
+                            let left = (band.left_inset - child_left)
+                                .clamp(0.0, hbox.content_width);
+                            let right = (child_right - (content_width - band.right_inset))
+                                .clamp(0.0, hbox.content_width);
+                            let bottom = band.bottom - paragraph_top;
+                            (bottom > 1e-6 && (left > 0.0 || right > 0.0)).then_some(
+                                rito_fragment::FloatBand {
+                                    left_inset: left,
+                                    right_inset: right,
+                                    bottom,
+                                },
+                            )
+                        });
                     let lines = self.inline_lines(
                         tree,
                         *child_id,
@@ -551,13 +582,6 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         band,
                         cancel,
                     )?;
-                    // The paragraph's own top padding rides its first
-                    // fragment; bottom padding rides the last.
-                    let leading_padding = if consumed == 0.0 {
-                        hbox.padding_top
-                    } else {
-                        0.0
-                    };
                     let available_for_lines = (available - leading_padding).max(0.0);
                     let placement =
                         place_lines(&lines, consumed, available_for_lines, page_is_empty);
