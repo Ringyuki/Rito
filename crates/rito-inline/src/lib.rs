@@ -2861,6 +2861,159 @@ running through the quiet forest until the morning light returns.";
     }
 
     #[test]
+    #[ignore = "encodes the BOOK-context Blink numbers (A = h + 7.328125); the isolated \
+                construct measures A = h + 6.328125 — one ingredient of the book CSS adds \
+                exactly 1px and is not yet identified (see task #13 dossier)"]
+    fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
+        // The duokan footnote-marker construct, numbers from the pixel
+        // oracle (book 4, Section001 p11): fixed 19.2px strut over a
+        // host metric (asc 18, desc 5), one image 14.390625px tall raised
+        // 6.328125px (the sup rule at a 16px parent). Blink's line:
+        // height 24.921875, baseline 21.71875 — A == baseline, always.
+        use rito_style_contract::{
+            AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
+            LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
+            LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1,
+            MinimumHeightV1, OverflowV1, PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        };
+        let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let mut style_1922 = tinos_style(0.0);
+        style_1922.font.line_height = LineHeight::Length(
+            rito_style_contract::NonNegativeCssPx::new(19.2).expect("finite line height"),
+        );
+        let text_style = inline
+            .intern_for_node(0, style_1922.clone())
+            .expect("style interns");
+        context.set_host_line_metric(
+            &host_family_key(&style_1922),
+            16.0,
+            "",
+            HostNormalLineMetric {
+                height: 23.0,
+                baseline: 18.0,
+            },
+        );
+        let mut layout = LayoutStyleTableV1::new(1);
+        let auto = LengthPercentageOrAuto::Auto;
+        let zero_padding = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(0.0).expect("zero"),
+        ));
+        let image_layout = layout
+            .intern_for_node(
+                0,
+                LayoutFormattingStyleV1 {
+                    display: LayoutDisplayV1 {
+                        outside: LayoutDisplayOutsideV1::Inline,
+                        inside: LayoutDisplayInsideV1::Flow,
+                        is_list_item: false,
+                    },
+                    margin: PhysicalSides {
+                        top: auto,
+                        right: auto,
+                        bottom: auto,
+                        left: auto,
+                    },
+                    padding: PhysicalSides {
+                        top: zero_padding,
+                        right: zero_padding,
+                        bottom: zero_padding,
+                        left: zero_padding,
+                    },
+                    box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
+                    justify_content: JustifyContentV1::Normal,
+                    align_items: AlignItemsV1::Normal,
+                    break_before: PageBreakV1::Auto,
+                    break_after: PageBreakV1::Auto,
+                    width: PreferredSizeV1::Auto,
+                    height: PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+                        LengthPercentage::Length(CssPx::new(14.390625).expect("finite")),
+                    )),
+                    max_width: MaximumSizeV1::None,
+                    min_height: MinimumHeightV1::Auto,
+                    max_height: MaximumHeightV1::None,
+                    clear: ClearV1::None,
+                    float: FloatV1::None,
+                    overflow: OverflowV1::Visible,
+                    list_style_type: ListMarkerStyleV1::None,
+                    position: PositionV1::Static,
+                    inset: PhysicalSides {
+                        top: auto,
+                        right: auto,
+                        bottom: auto,
+                        left: auto,
+                    },
+                    vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+                    border_spacing: (
+                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                    ),
+                },
+            )
+            .expect("layout style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "巴沙巴沙".to_owned(),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                    InlineItem::Image {
+                        src: "images/note.png".to_owned(),
+                        intrinsic_width: 500.0,
+                        intrinsic_height: 500.0,
+                        style: text_style,
+                        layout_style: image_layout,
+                        fit_contain: false,
+                        baseline_shift_px: 6.328125,
+                    },
+                    InlineItem::Text {
+                        text: "，甘夏老师".to_owned(),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(600.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Some(Fragment::Line(line)) = root.children.first() else {
+            panic!("first child is a line");
+        };
+        assert!(
+            (line.rect.height - 24.921875).abs() < 1e-9,
+            "line height matches Blink, got {}",
+            line.rect.height
+        );
+        assert!(
+            (line.baseline - 21.71875).abs() < 1e-9,
+            "baseline == above (Blink 21.71875), got {}",
+            line.baseline
+        );
+    }
+
+    #[test]
     fn images_lay_out_as_atomic_inlines_with_display_geometry() {
         use rito_style_contract::{
             AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
