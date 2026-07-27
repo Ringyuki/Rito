@@ -162,6 +162,7 @@ pub fn build_chapter_formatting_tree(
         node_anchors: BTreeMap::new(),
         source_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
+            block_link: None,
         strut_styles: BTreeMap::new(),
         degradations: Vec::new(),
         checked_block_styles: std::collections::HashMap::new(),
@@ -252,6 +253,11 @@ struct TreeBuilder<'a> {
     node_anchors: BTreeMap<u32, String>,
     source_anchors: BTreeMap<usize, String>,
     node_tags: BTreeMap<u32, String>,
+    /// The nearest enclosing block-level `<a href>` destination: an `<a>`
+    /// containing block children scopes its link over the whole subtree
+    /// (the TOC-card idiom `<a><div>card</div></a>`), so inline runs
+    /// collected below it start with this link active.
+    block_link: Option<String>,
     /// The container inline style per inline-flow node — the CSS strut.
     strut_styles: BTreeMap<u32, StyleId>,
     degradations: Vec<String>,
@@ -350,7 +356,7 @@ impl TreeBuilder<'_> {
             return Ok(());
         }
         let run = std::mem::take(pending);
-        let mut collector = InlineCollector::default();
+        let mut collector = self.inline_collector();
         for node in run {
             self.collect_inline(node, container_inline_style, 0.0, &mut collector)?;
         }
@@ -373,6 +379,15 @@ impl TreeBuilder<'_> {
     }
 
     /// Builds one block-level element. Returns `None` for `display: none`.
+    /// A fresh inline collector that starts inside the current block-level
+    /// link scope, if any.
+    fn inline_collector(&self) -> InlineCollector {
+        InlineCollector {
+            current_link: self.block_link.clone(),
+            ..InlineCollector::default()
+        }
+    }
+
     fn build_block(&mut self, element: &ElementNode) -> EpubResult<Option<FormattingNodeId>> {
         if element.tag == "hr" {
             return self.build_hr(element);
@@ -406,6 +421,18 @@ impl TreeBuilder<'_> {
             Some((paint, _)) => (style, Some(paint)),
             None => (style, None),
         };
+        // The parser unwraps an inline <a> around block children and
+        // merges its href onto each hoisted block, so the link arrives
+        // as an href attribute on ANY block element (the TOC-card div),
+        // not only on a literal <a> tag.
+        let block_link = element
+            .attributes
+            .as_ref()
+            .and_then(|attributes| attributes.href.clone());
+        let saved_block_link = match block_link {
+            Some(href) => Some(self.block_link.replace(href)),
+            None => None,
+        };
         let has_block_children = element
             .children
             .iter()
@@ -426,7 +453,7 @@ impl TreeBuilder<'_> {
             // flow; an empty block still occupies flow (its margins
             // apply), it just has no line boxes.
             let inline_style = self.inline_style_id(source_index, &element.tag);
-            let mut collector = InlineCollector::default();
+            let mut collector = self.inline_collector();
             for child in &element.children {
                 self.collect_inline(child, inline_style, 0.0, &mut collector)?;
             }
@@ -453,6 +480,9 @@ impl TreeBuilder<'_> {
             }
             id
         };
+        if let Some(saved) = saved_block_link {
+            self.block_link = saved;
+        }
         if let Some(anchor) = element
             .attributes
             .as_ref()
@@ -2874,6 +2904,44 @@ p { margin: 8px 0; }\n\
             "/../../apps/reader/src/assets/fonts/Tinos-Regular.ttf"
         );
         std::fs::read(path).expect("pinned Tinos test font reads")
+    }
+
+    #[test]
+    fn a_block_level_link_scopes_its_href_over_the_card_subtree() {
+        // The TOC-card idiom: <a href><div>card text</div></a> — the <a>
+        // is block-level (it contains a block), and its destination must
+        // reach every inline item inside the card, exactly as an inline
+        // <a> scopes its runs.
+        let chapter = resolved_chapter_from(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <a href="Section001.xhtml"><div>card one</div></a>
+  <p>plain</p>
+</body></html>"#,
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let linked = built
+            .flow_item_sources
+            .values()
+            .flatten()
+            .filter(|source| source.href.as_deref() == Some("Section001.xhtml"))
+            .count();
+        assert!(
+            linked > 0,
+            "card text inside a block-level <a> carries its href"
+        );
+        let unlinked = built
+            .flow_item_sources
+            .values()
+            .flatten()
+            .any(|source| source.href.is_none());
+        assert!(unlinked, "the plain paragraph stays link-free");
     }
 
     #[test]
