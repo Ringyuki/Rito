@@ -12,6 +12,21 @@ use crate::{
     input, registry,
 };
 
+/// Copies the pinned-font face descriptor array crossing
+/// `rito_open_with_pinned_fonts_v1`. Nested byte pointers are copied
+/// separately via `copy_bytes` by the caller.
+pub(crate) fn copy_face_descriptors(
+    faces: *const super::RitoPinnedFontFaceV1,
+    face_count: u32,
+) -> Result<Vec<super::RitoPinnedFontFaceV1>, FfiError> {
+    if faces.is_null() {
+        return Err(FfiError::invalid("pinned font face array must not be null"));
+    }
+    // SAFETY: The native caller owns the pointer validity contract for
+    // `face_count` face descriptors; the descriptors are copied before use.
+    Ok(unsafe { slice::from_raw_parts(faces, face_count as usize) }.to_vec())
+}
+
 pub(crate) fn copy_bytes(
     source: *const u8,
     len: u64,
@@ -139,7 +154,40 @@ pub extern "C" fn rito_open_v1(
         let session_id = request.session_id;
         let reservation = registry::reserve_open(session_id)?;
         let publication = input::publication(publication_data, publication_len)?;
-        let artifact = registry::open(reservation, publication, request)?;
+        let artifact = registry::open(reservation, publication, request, None)?;
+        write_session_result(session_id, artifact_out, artifact, "initial artifact")
+    })
+}
+
+#[no_mangle]
+/// Opens a reader with a pinned measurement-font policy and requests its
+/// exact initial artifact.
+///
+/// The policy is what switches on the required-font-face catalog: with it
+/// the runtime measures text against real face bytes and every artifact
+/// declares the embedded publication faces its layout used, so the host
+/// can register them before paint. Face bytes are copied before this
+/// call returns. Pending/terminal semantics match `rito_open_v1`.
+pub extern "C" fn rito_open_with_pinned_fonts_v1(
+    publication_data: *const u8,
+    publication_len: u64,
+    request_data: *const u8,
+    request_len: u64,
+    faces: *const super::RitoPinnedFontFaceV1,
+    face_count: u32,
+    artifact_out: *mut RitoOwnedBufferV1,
+    error_out: *mut RitoOwnedBufferV1,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_artifact_output(artifact_out, error_out)?;
+        let request = input::request(request_data, request_len)?;
+        validate_external_id(request.session_id, "RITOREQ1 session_id")?;
+        validate_external_id(request.request_id, "RITOREQ1 request_id")?;
+        let policy = input::pinned_font_policy(faces, face_count)?;
+        let session_id = request.session_id;
+        let reservation = registry::reserve_open(session_id)?;
+        let publication = input::publication(publication_data, publication_len)?;
+        let artifact = registry::open(reservation, publication, request, Some(policy))?;
         write_session_result(session_id, artifact_out, artifact, "initial artifact")
     })
 }

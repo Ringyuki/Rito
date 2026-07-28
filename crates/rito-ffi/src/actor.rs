@@ -12,6 +12,7 @@ use rito_core::runtime::{
     encode_reader_publication_v1, encode_reader_resource_v1, ReaderAdjacentRequestV1,
     ReaderArtifactRequestV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderErrorV1,
     ReaderForegroundHandoffV1, ReaderResourceKindV1, ReaderSessionV1,
+    RuntimePinnedFontPolicyInput,
 };
 
 use crate::error::{
@@ -281,6 +282,7 @@ pub(crate) enum InitialArtifactReply {
 pub(crate) fn spawn(
     publication: Vec<u8>,
     request: ReaderArtifactRequestV1,
+    pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
     on_exit: ActorExitCallback,
 ) -> Result<SpawnedActor, FfiError> {
     let session_id = request.session_id;
@@ -292,7 +294,14 @@ pub(crate) fn spawn(
         .name(format!("rito-reader-{session_id}"))
         .spawn(move || {
             let _exit = ActorExitGuard::new(exit_client, on_exit);
-            run(publication, request, initial_tx, command_rx, actor_client)
+            run(
+                publication,
+                request,
+                pinned_font_policy,
+                initial_tx,
+                command_rx,
+                actor_client,
+            )
         })
         .map_err(|error| FfiError::engine(format!("failed to spawn reader actor: {error}")))?;
     Ok(SpawnedActor {
@@ -351,11 +360,20 @@ fn lock_admission(shared: &ActorShared) -> MutexGuard<'_, AdmissionState> {
 fn run(
     publication: Vec<u8>,
     request: ReaderArtifactRequestV1,
+    pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
     initial_reply: SyncSender<InitialArtifactReply>,
     commands: Receiver<ActorEnvelope>,
     client: ActorClient,
 ) -> Result<(), FfiError> {
-    let mut reader = match ReaderSessionV1::open_owned(request.session_id, publication) {
+    let opened = match pinned_font_policy {
+        Some(policy) => ReaderSessionV1::open_owned_with_pinned_font_policy(
+            request.session_id,
+            publication,
+            policy,
+        ),
+        None => ReaderSessionV1::open_owned(request.session_id, publication),
+    };
+    let mut reader = match opened {
         Ok(reader) => reader,
         Err(error) => {
             let _ = initial_reply.send(InitialArtifactReply::Failed(FfiError::from(error)));

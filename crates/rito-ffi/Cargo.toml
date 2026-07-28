@@ -15,5 +15,8 @@ path = "src/lib.rs"
 [dependencies]
 rito-core = { path = "../rito-core" }
 
+[dev-dependencies]
+sha2 = "0.10"
+
 [lints.rust]
 unsafe_code = "deny"

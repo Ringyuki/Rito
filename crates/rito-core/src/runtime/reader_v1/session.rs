@@ -174,6 +174,26 @@ impl ReaderSessionV1 {
     pub fn open_owned(session_id: u64, publication_bytes: Vec<u8>) -> Result<Self, ReaderErrorV1> {
         validate_session_id(session_id)?;
         let document = RuntimeDocument::open_owned(publication_bytes).map_err(engine_error)?;
+        Self::from_document(session_id, document)
+    }
+
+    /// Opens a reader whose host pins measurement fallback faces. A non-empty
+    /// policy is what turns on the required-font-face catalog: without it the
+    /// runtime never declares publication faces, so embedded EPUB fonts can
+    /// neither be measured with real bytes nor surface in `artifact.fonts`.
+    pub fn open_owned_with_pinned_font_policy(
+        session_id: u64,
+        publication_bytes: Vec<u8>,
+        policy: crate::runtime::RuntimePinnedFontPolicyInput,
+    ) -> Result<Self, ReaderErrorV1> {
+        validate_session_id(session_id)?;
+        let document =
+            RuntimeDocument::open_owned_with_pinned_font_policy(publication_bytes, policy)
+                .map_err(engine_error)?;
+        Self::from_document(session_id, document)
+    }
+
+    fn from_document(session_id: u64, document: RuntimeDocument) -> Result<Self, ReaderErrorV1> {
         let publication = build_reader_publication_v1(session_id, &document)?;
         Ok(Self {
             session_id,

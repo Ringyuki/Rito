@@ -6,6 +6,7 @@ use std::{
 use rito_core::runtime::{
     ReaderAdjacentRequestV1, ReaderArtifactRequestV1, ReaderBackgroundHandoffV1,
     ReaderBackgroundRequestV1, ReaderForegroundHandoffV1, ReaderResourceKindV1,
+    RuntimePinnedFontPolicyInput,
 };
 
 use crate::{
@@ -70,6 +71,7 @@ pub(crate) fn open(
     reservation: OpenReservation,
     publication: Vec<u8>,
     request: ReaderArtifactRequestV1,
+    pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
 ) -> Result<Vec<u8>, FfiError> {
     let session_id = request.session_id;
     if reservation.session_id != session_id {
@@ -78,7 +80,13 @@ pub(crate) fn open(
         ));
     }
     let generation = reservation.generation;
-    let receiver = start_registered(session_id, generation, publication, request)?;
+    let receiver = start_registered(
+        session_id,
+        generation,
+        publication,
+        request,
+        pinned_font_policy,
+    )?;
     receive_initial(session_id, generation, receiver)
 }
 
@@ -87,6 +95,7 @@ fn start_registered(
     generation: u64,
     publication: Vec<u8>,
     request: ReaderArtifactRequestV1,
+    pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
 ) -> Result<Receiver<InitialArtifactReply>, FfiError> {
     let mut registry = lock_registry();
     if registry.starting.get(&session_id) != Some(&generation) {
@@ -97,6 +106,7 @@ fn start_registered(
     let spawned = actor::spawn(
         publication,
         request,
+        pinned_font_policy,
         Box::new(move || retire_actor(session_id, generation)),
     )?;
     registry.actors.insert(

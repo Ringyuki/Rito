@@ -21,9 +21,11 @@ use rito_core::runtime::{
 use crate::{
     abi::copy_owned_buffer_for_test, error::FfiError, rito_adopt_background_candidate_v1,
     rito_adopt_foreground_candidate_v1, rito_advance_background_v1, rito_buffer_free_v1,
-    rito_dispose_v1, rito_open_v1, rito_read_publication_v1, rito_read_resource_v1,
-    rito_release_artifact_v1, rito_request_adjacent_v1, rito_request_artifact_v1,
-    RitoOwnedBufferV1, RITO_ACTOR_MAX_IN_FLIGHT_V1, RITO_PUBLICATION_WIRE_BYTES_MAX_V1,
+    rito_dispose_v1, rito_open_v1, rito_open_with_pinned_fonts_v1, rito_read_publication_v1,
+    rito_read_resource_v1, rito_release_artifact_v1, rito_request_adjacent_v1,
+    rito_request_artifact_v1, RitoOwnedBufferV1, RitoPinnedFontFaceV1,
+    RITO_ACTOR_MAX_IN_FLIGHT_V1, RITO_PINNED_FONT_ROLE_SERIF_V1,
+    RITO_PUBLICATION_WIRE_BYTES_MAX_V1,
     RITO_RESOURCE_KIND_IMAGE_V1, RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_ALREADY_EXISTS_V1,
     RITO_STATUS_BUSY_V1, RITO_STATUS_EXACT_SEEK_PENDING_V1, RITO_STATUS_INVALID_ARGUMENT_V1,
     RITO_STATUS_NOT_FOUND_V1, RITO_STATUS_OK_V1, RITO_STATUS_QUEUE_FULL_V1,
@@ -944,4 +946,62 @@ fn adjacent_wire(session_id: u64, request_id: u64, from_artifact_id: u64) -> Vec
         },
     })
     .expect("adjacent request encodes")
+}
+
+#[test]
+fn pinned_font_open_declares_embedded_publication_faces() {
+    let session_id = next_session_id();
+    let epub_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/reader/src/assets/demo.epub");
+    let epub = fs::read(epub_path).expect("demo fixture is readable");
+    let pinned_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/reader/src/assets/fonts/Tinos-Regular.ttf");
+    let pinned = fs::read(pinned_path).expect("pinned face is readable");
+    let sha256 = {
+        use sha2::{Digest, Sha256};
+        let digest: [u8; 32] = Sha256::digest(&pinned).into();
+        let mut hex = [0u8; 64];
+        for (index, byte) in digest.iter().enumerate() {
+            let table = b"0123456789abcdef";
+            hex[index * 2] = table[usize::from(byte >> 4)];
+            hex[index * 2 + 1] = table[usize::from(byte & 0x0f)];
+        }
+        hex
+    };
+    let face = RitoPinnedFontFaceV1 {
+        bytes_data: pinned.as_ptr(),
+        bytes_len: u64::try_from(pinned.len()).expect("face length is representable"),
+        sha256_hex: sha256,
+        generic_role: RITO_PINNED_FONT_ROLE_SERIF_V1,
+        language_data: std::ptr::null(),
+        language_len: 0,
+    };
+    let wire = encode_reader_artifact_request_v1(&request(session_id)).expect("request encodes");
+
+    let mut artifact = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_open_with_pinned_fonts_v1(
+        epub.as_ptr(),
+        u64::try_from(epub.len()).expect("epub length is representable"),
+        wire.as_ptr(),
+        u64::try_from(wire.len()).expect("request length is representable"),
+        &face,
+        1,
+        &mut artifact,
+        &mut error,
+    );
+    let artifact_bytes = copy_owned_buffer_for_test(&artifact);
+    let error_text = String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned();
+    rito_buffer_free_v1(&mut artifact);
+    rito_buffer_free_v1(&mut error);
+    assert_eq!(status, RITO_STATUS_OK_V1, "{error_text}");
+    let decoded = decode_reader_artifact_v1(&artifact_bytes).expect("artifact decodes");
+    assert!(
+        !decoded.fonts.is_empty(),
+        "a pinned-font open must declare the embedded faces its layout used"
+    );
+    assert!(decoded
+        .resources
+        .iter()
+        .any(|resource| resource.kind == ReaderResourceKindV1::Font));
+    call_dispose(session_id);
 }
