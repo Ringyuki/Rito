@@ -841,6 +841,7 @@ final class _MockGateway implements RitoReaderGateway {
   Future<RitoArtifact> open({
     required Uint8List publicationBytes,
     required RitoArtifactRequest request,
+    RitoPinnedFontPolicy? pinnedFontPolicy,
   }) async {
     opens += 1;
     return artifact;

@@ -481,6 +481,7 @@ final class _FontGateway implements RitoReaderGateway {
   Future<RitoArtifact> open({
     required Uint8List publicationBytes,
     required RitoArtifactRequest request,
+    RitoPinnedFontPolicy? pinnedFontPolicy,
   }) async => first;
 
   @override

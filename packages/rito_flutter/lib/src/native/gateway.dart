@@ -21,6 +21,7 @@ import 'gateway_queue.dart';
 import 'owned_byte_transfer.dart';
 import 'pending_adjacent.dart';
 import 'pending_open.dart';
+import 'pinned_font_policy.dart';
 import 'session_lane.dart';
 import 'worker_lifecycle.dart';
 
@@ -41,6 +42,8 @@ export 'pending_adjacent.dart'
 export '../protocol/background_models.dart';
 export '../protocol/foreground_models.dart';
 export '../protocol/publication_models.dart';
+export 'pinned_font_policy.dart'
+    show RitoPinnedFontFace, RitoPinnedFontGenericRole, RitoPinnedFontPolicy;
 export 'worker_lifecycle.dart' show RitoNativeWorkerTerminatedException;
 
 part 'worker.dart';
@@ -49,6 +52,7 @@ abstract interface class RitoReaderGateway {
   Future<RitoArtifact> open({
     required Uint8List publicationBytes,
     required RitoArtifactRequest request,
+    RitoPinnedFontPolicy? pinnedFontPolicy,
   });
 
   Future<RitoArtifact> requestArtifact({required RitoArtifactRequest request});
@@ -178,14 +182,23 @@ final class RitoIsolateGateway
   Future<RitoArtifact> open({
     required Uint8List publicationBytes,
     required RitoArtifactRequest request,
+    RitoPinnedFontPolicy? pinnedFontPolicy,
   }) async {
     _requestEncoder.encode(request);
-    final intent = _claimExactSeekIntent(
-      request.sessionId,
-      request.requestId,
-    );
+    final intent = _claimExactSeekIntent(request.sessionId, request.requestId);
     final nativeRequest = _oneQuantumRequestWithId(request, intent.requestId);
     final requestBytes = _requestEncoder.encode(nativeRequest);
+    final pinnedFontFaces = pinnedFontPolicy == null
+        ? null
+        : <_PinnedFontFaceTransfer>[
+            for (final face in pinnedFontPolicy.faces)
+              _PinnedFontFaceTransfer(
+                bytes: RitoOwnedByteTransfer.take(face.bytes),
+                sha256Hex: face.sha256Hex,
+                genericRole: face.genericRole,
+                language: face.language,
+              ),
+          ];
     return _runExactSeekIntent(
       intent: intent,
       request: nativeRequest,
@@ -207,6 +220,7 @@ final class RitoIsolateGateway
                 sessionId: request.sessionId,
                 publicationBytes: RitoOwnedByteTransfer.take(publicationBytes),
                 requestBytes: requestBytes,
+                pinnedFontFaces: pinnedFontFaces,
               ),
             );
             return _decodeArtifact(
@@ -225,10 +239,7 @@ final class RitoIsolateGateway
     required RitoArtifactRequest request,
   }) async {
     _requestEncoder.encode(request);
-    final intent = _claimExactSeekIntent(
-      request.sessionId,
-      request.requestId,
-    );
+    final intent = _claimExactSeekIntent(request.sessionId, request.requestId);
     final nativeRequest = _oneQuantumRequestWithId(request, intent.requestId);
     return _runExactSeekIntent(
       intent: intent,
@@ -265,11 +276,8 @@ final class RitoIsolateGateway
         yieldHostTurn: _yieldHostTurn,
         isCurrent: () => _isCurrent(intent),
         replacementRequestId: () => _replacementRequestId(intent),
-        onTerminal: (error, _) => _finishPendingExactSeek(
-          intent,
-          error,
-          opening: opening,
-        ),
+        onTerminal: (error, _) =>
+            _finishPendingExactSeek(intent, error, opening: opening),
       );
     } on Object {
       _forgetIntent(intent);
@@ -277,9 +285,7 @@ final class RitoIsolateGateway
     }
   }
 
-  Future<RitoArtifact> _requestArtifactOnce(
-    RitoArtifactRequest request,
-  ) async {
+  Future<RitoArtifact> _requestArtifactOnce(RitoArtifactRequest request) async {
     final requestBytes = _requestEncoder.encode(request);
     return _queue.navigate<RitoArtifact>(
       sessionId: request.sessionId,
@@ -348,9 +354,7 @@ final class RitoIsolateGateway
     }
   }
 
-  Future<RitoArtifact> _requestAdjacentOnce(
-    RitoAdjacentRequest request,
-  ) async {
+  Future<RitoArtifact> _requestAdjacentOnce(RitoAdjacentRequest request) async {
     final requestBytes = _requestEncoder.encodeAdjacent(request);
     return _queue.navigate<RitoArtifact>(
       sessionId: request.sessionId,
@@ -1020,8 +1024,7 @@ RitoArtifactRequest _oneQuantumRequestWithId(
     layout: request.layout,
     locator: request.locator,
     work: RitoWorkBudget(
-      maxTopLevelNodesPerQuantum:
-          request.work.maxTopLevelNodesPerQuantum,
+      maxTopLevelNodesPerQuantum: request.work.maxTopLevelNodesPerQuantum,
       maxForegroundQuanta: 1,
       localPageCap: request.work.localPageCap,
     ),

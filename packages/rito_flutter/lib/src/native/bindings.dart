@@ -9,6 +9,7 @@ import '../protocol/artifact_models.dart';
 import '../protocol/binary_reader.dart';
 import '../protocol/resource_decoder.dart';
 import 'asset.dart';
+import 'pinned_font_policy.dart';
 
 part 'ffi_types.dart';
 
@@ -41,6 +42,21 @@ external int _ritoOpenV1(
   int publicationLength,
   Pointer<Uint8> request,
   int requestLength,
+  Pointer<_RitoOwnedBuffer> artifactOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_OpenWithPinnedFontsNative>(
+  symbol: 'rito_open_with_pinned_fonts_v1',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoOpenWithPinnedFontsV1(
+  Pointer<Uint8> publication,
+  int publicationLength,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoPinnedFontFace> faces,
+  int faceCount,
   Pointer<_RitoOwnedBuffer> artifactOut,
   Pointer<_RitoOwnedBuffer> errorOut,
 );
@@ -155,6 +171,7 @@ final class RitoNativeBindings {
     this.artifactDecoder = const RitoArtifactDecoder(),
     this.resourceDecoder = const RitoResourceDecoder(),
   }) : _open = _ritoOpenV1,
+       _openWithPinnedFonts = _ritoOpenWithPinnedFontsV1,
        _requestArtifact = _ritoRequestArtifactV1,
        _requestAdjacent = _ritoRequestAdjacentV1,
        _readPublication = _ritoReadPublicationV1,
@@ -174,6 +191,11 @@ final class RitoNativeBindings {
     this.artifactDecoder = const RitoArtifactDecoder(),
     this.resourceDecoder = const RitoResourceDecoder(),
   }) : _open = library.lookupFunction<_OpenNative, _OpenDart>('rito_open_v1'),
+       _openWithPinnedFonts = library
+           .lookupFunction<
+             _OpenWithPinnedFontsNative,
+             _OpenWithPinnedFontsDart
+           >('rito_open_with_pinned_fonts_v1'),
        _requestArtifact = library
            .lookupFunction<_RequestArtifactNative, _RequestArtifactDart>(
              'rito_request_artifact_v1',
@@ -215,6 +237,7 @@ final class RitoNativeBindings {
   final RitoArtifactDecoder artifactDecoder;
   final RitoResourceDecoder resourceDecoder;
   final _OpenDart _open;
+  final _OpenWithPinnedFontsDart _openWithPinnedFonts;
   final _RequestArtifactDart _requestArtifact;
   final _RequestAdjacentDart _requestAdjacent;
   final _ReadPublicationDart _readPublication;
@@ -229,10 +252,12 @@ final class RitoNativeBindings {
   RitoArtifact openEncoded({
     required Uint8List publicationBytes,
     required Uint8List requestBytes,
+    RitoPinnedFontPolicy? pinnedFontPolicy,
   }) {
     final owned = _openEncodedWire(
       publicationBytes: publicationBytes,
       requestBytes: requestBytes,
+      pinnedFontPolicy: pinnedFontPolicy,
     );
     try {
       final artifact = artifactDecoder.decode(owned);
@@ -257,6 +282,7 @@ final class RitoNativeBindings {
   Uint8List _openEncodedWire({
     required Uint8List publicationBytes,
     required Uint8List requestBytes,
+    RitoPinnedFontPolicy? pinnedFontPolicy,
   }) {
     _validateInput(publicationBytes, 512 * 1024 * 1024, 'publication');
     _validateInput(requestBytes, 16 * 1024 * 1024, 'request');
@@ -264,15 +290,34 @@ final class RitoNativeBindings {
     final request = _copyInput(requestBytes);
     final artifactOut = calloc<_RitoOwnedBuffer>();
     final errorOut = calloc<_RitoOwnedBuffer>();
+    final faceAllocations = <Pointer<NativeType>>[];
     try {
-      final status = _open(
-        publication,
-        publicationBytes.length,
-        request,
-        requestBytes.length,
-        artifactOut,
-        errorOut,
-      );
+      final int status;
+      if (pinnedFontPolicy == null) {
+        status = _open(
+          publication,
+          publicationBytes.length,
+          request,
+          requestBytes.length,
+          artifactOut,
+          errorOut,
+        );
+      } else {
+        final faces = _marshalPinnedFontFaces(
+          pinnedFontPolicy,
+          faceAllocations,
+        );
+        status = _openWithPinnedFonts(
+          publication,
+          publicationBytes.length,
+          request,
+          requestBytes.length,
+          faces,
+          pinnedFontPolicy.faces.length,
+          artifactOut,
+          errorOut,
+        );
+      }
       if (status != 0) {
         throw _nativeError(status, errorOut);
       }
@@ -296,7 +341,50 @@ final class RitoNativeBindings {
         ..free(errorOut)
         ..free(publication)
         ..free(request);
+      for (final allocation in faceAllocations) {
+        calloc.free(allocation);
+      }
     }
+  }
+
+  /// Marshals the pinned-face array for `rito_open_with_pinned_fonts_v1`.
+  /// Every allocation is appended to [allocations] so the caller frees
+  /// them after the native call returns (the ABI copies before then).
+  Pointer<_RitoPinnedFontFace> _marshalPinnedFontFaces(
+    RitoPinnedFontPolicy policy,
+    List<Pointer<NativeType>> allocations,
+  ) {
+    final faces = calloc<_RitoPinnedFontFace>(policy.faces.length);
+    allocations.add(faces);
+    for (var index = 0; index < policy.faces.length; index += 1) {
+      final face = policy.faces[index];
+      final entry = faces + index;
+      final bytes = _copyInput(face.bytes);
+      allocations.add(bytes);
+      entry.ref.bytesData = bytes;
+      entry.ref.bytesLen = face.bytes.length;
+      final digest = ascii.encode(face.sha256Hex);
+      for (var offset = 0; offset < 64; offset += 1) {
+        entry.ref.sha256Hex[offset] = digest[offset];
+      }
+      entry.ref.genericRole = switch (face.genericRole) {
+        RitoPinnedFontGenericRole.serif => 0,
+        RitoPinnedFontGenericRole.sansSerif => 1,
+        RitoPinnedFontGenericRole.monospace => 2,
+      };
+      final language = face.language;
+      if (language == null) {
+        entry.ref.languageData = nullptr;
+        entry.ref.languageLen = 0;
+      } else {
+        final languageBytes = Uint8List.fromList(ascii.encode(language));
+        final languageInput = _copyInput(languageBytes);
+        allocations.add(languageInput);
+        entry.ref.languageData = languageInput;
+        entry.ref.languageLen = languageBytes.length;
+      }
+    }
+    return faces;
   }
 
   RitoArtifact requestArtifactEncoded({
@@ -316,10 +404,7 @@ final class RitoNativeBindings {
       );
       return artifact;
     } on Object catch (error, stackTrace) {
-      if (_releaseAfterFailedArtifact(
-        sessionId,
-        _acceptedArtifactId(owned),
-      )) {
+      if (_releaseAfterFailedArtifact(sessionId, _acceptedArtifactId(owned))) {
         rethrow;
       }
       _disposeAfterFailedSessionOutput(sessionId);
@@ -386,10 +471,7 @@ final class RitoNativeBindings {
       );
       return artifact;
     } on Object catch (error, stackTrace) {
-      if (_releaseAfterFailedArtifact(
-        sessionId,
-        _acceptedArtifactId(owned),
-      )) {
+      if (_releaseAfterFailedArtifact(sessionId, _acceptedArtifactId(owned))) {
         rethrow;
       }
       _disposeAfterFailedSessionOutput(sessionId);
@@ -857,9 +939,11 @@ final class RitoNativeWireBindings {
   Uint8List openEncoded({
     required Uint8List publicationBytes,
     required Uint8List requestBytes,
+    RitoPinnedFontPolicy? pinnedFontPolicy,
   }) => _bindings._openEncodedWire(
     publicationBytes: publicationBytes,
     requestBytes: requestBytes,
+    pinnedFontPolicy: pinnedFontPolicy,
   );
 
   Uint8List requestArtifactEncoded({

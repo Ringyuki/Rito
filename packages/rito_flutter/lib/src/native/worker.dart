@@ -351,11 +351,25 @@ Uint8List _open(
   Set<int> liveSessions,
 ) {
   try {
+    final faces = operation.pinnedFontFaces;
     final wireBytes = bindings.openEncoded(
       publicationBytes: RitoOwnedByteTransfer.materialize(
         operation.publicationBytes,
       ),
       requestBytes: operation.requestBytes,
+      pinnedFontPolicy: faces == null
+          ? null
+          : RitoPinnedFontPolicy(
+              faces: <RitoPinnedFontFace>[
+                for (final face in faces)
+                  RitoPinnedFontFace(
+                    bytes: RitoOwnedByteTransfer.materialize(face.bytes),
+                    sha256Hex: face.sha256Hex,
+                    genericRole: face.genericRole,
+                    language: face.language,
+                  ),
+              ],
+            ),
     );
     liveSessions.add(operation.sessionId);
     return wireBytes;
@@ -442,11 +456,29 @@ final class _OpenOperation extends _WorkerOperation {
     required this.sessionId,
     required this.publicationBytes,
     required this.requestBytes,
+    this.pinnedFontFaces,
   });
 
   final int sessionId;
   final TransferableTypedData publicationBytes;
   final Uint8List requestBytes;
+  final List<_PinnedFontFaceTransfer>? pinnedFontFaces;
+}
+
+/// One pinned face crossing the worker isolate boundary: bytes ride a
+/// [TransferableTypedData] so large faces move without copying.
+final class _PinnedFontFaceTransfer {
+  const _PinnedFontFaceTransfer({
+    required this.bytes,
+    required this.sha256Hex,
+    required this.genericRole,
+    required this.language,
+  });
+
+  final TransferableTypedData bytes;
+  final String sha256Hex;
+  final RitoPinnedFontGenericRole genericRole;
+  final String? language;
 }
 
 final class _RequestArtifactOperation extends _WorkerOperation {

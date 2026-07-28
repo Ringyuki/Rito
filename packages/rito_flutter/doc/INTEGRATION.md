@@ -120,6 +120,29 @@ RitoPageSurface(
 
 ## Fonts
 
+- **Pinned font policy (required for embedded EPUB fonts).** Pass
+  `pinnedFontPolicy` to `RitoReaderSession.open` with the app's bundled
+  fallback faces:
+
+  ```dart
+  pinnedFontPolicy: RitoPinnedFontPolicy(faces: [
+    RitoPinnedFontFace(
+      bytes: serifBytes, // app asset, TTF/OTF
+      genericRole: RitoPinnedFontGenericRole.serif,
+      language: 'ja',    // optional BCP47 selector
+    ),
+  ]),
+  ```
+
+  The policy switches on the core's required-font-face catalog: layout
+  measures text against real face bytes (pinned + the publication's own
+  embedded faces) and every artifact declares the embedded faces its
+  layout used in `artifact.fonts`, which the font cache then registers
+  automatically. **Without a policy `artifact.fonts` stays empty and
+  embedded EPUB fonts never render**, and justified lines are spaced
+  from approximate metrics. SHA-256 digests are computed automatically;
+  variable fonts are rejected by the core.
+
 - Fonts are prepared by `RitoArtifactFontCache.shared` by default:
   read through the artifact's native ownership, length-checked,
   registered with `FontLoader`, deduplicated process-wide by family +

@@ -28,10 +28,7 @@ typedef RitoArtifactResourcePreparer =
 /// One host-owned background result whose optional candidate has completed
 /// resource and font preparation but has not been made visible.
 final class RitoPreparedBackgroundAdvance {
-  RitoPreparedBackgroundAdvance._({
-    required this.advance,
-    this.artifact,
-  });
+  RitoPreparedBackgroundAdvance._({required this.advance, this.artifact});
 
   final RitoBackgroundAdvance advance;
   final RitoPreparedArtifact? artifact;
@@ -64,6 +61,7 @@ final class RitoReaderSession {
     RitoArtifactImageCache? imageCache,
     double imagePixelRatio = 1,
     RitoArtifactResourcePreparer? resourcePreparer,
+    RitoPinnedFontPolicy? pinnedFontPolicy,
   }) async {
     if (!imagePixelRatio.isFinite || imagePixelRatio <= 0) {
       throw ArgumentError.value(
@@ -75,10 +73,12 @@ final class RitoReaderSession {
     final artifact = await gateway.open(
       publicationBytes: publicationBytes,
       request: request,
+      pinnedFontPolicy: pinnedFontPolicy,
     );
     // Marker capabilities are unrelated to RitoReaderGateway, so an `is`
     // check cannot promote; the pattern binds the capable view instead.
-    final resumedIdentity = artifact.requestId > request.requestId &&
+    final resumedIdentity =
+        artifact.requestId > request.requestId &&
         switch (gateway) {
           final RitoResumableExactSeekGateway exactGateway =>
             exactGateway.acceptsResumedExactSeekArtifact(
