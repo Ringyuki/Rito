@@ -882,6 +882,24 @@ impl FormattingContext for ParleyInlineContext {
             } else {
                 None
             };
+            if std::env::var_os("RITO_JUST_DEBUG").is_some() {
+                let range = line.text_range();
+                let prefix: String = flow_text
+                    .get(range.clone())
+                    .unwrap_or_default()
+                    .chars()
+                    .take(8)
+                    .collect();
+                eprintln!(
+                    "[just-debug] '{prefix}' reason={:?} max={} indent={} advance={} trailing={} justified={}",
+                    line.break_reason(),
+                    line_max_advance(line_top),
+                    first_line_indent,
+                    metrics.advance,
+                    metrics.trailing_whitespace,
+                    justify_plan.is_some(),
+                );
+            }
             // Expansion shares consumed at boundaries before the walk's
             // current position; each share moves everything after it.
             let mut justify_shares_used = 0u32;
@@ -1995,6 +2013,24 @@ fn line_end_trim_candidate(
     // a fit decision.
     if line.break_reason() != parley::layout::BreakReason::Regular {
         return None;
+    }
+    // Blink skips the extension whenever the line crosses an element
+    // boundary (measured 2026-07-28, note-box ablation: a leading
+    // <span>① kills it at every size, alignment and vertical-align while
+    // a font-fallback split inside one element does not; flip widths
+    // 560.35 span vs 541.41 without). The line must be one inline item.
+    let mut line_item: Option<u32> = None;
+    for item in line.items() {
+        match item {
+            PositionedLayoutItem::GlyphRun(run) => {
+                let brush = u32::from_le_bytes(run.style().brush);
+                if *line_item.get_or_insert(brush) != brush {
+                    return None;
+                }
+            }
+            // An atomic inline is an element boundary by definition.
+            PositionedLayoutItem::InlineBox(_) => return None,
+        }
     }
     let metrics = line.metrics();
     // Hung trailing whitespace is not measured against the available

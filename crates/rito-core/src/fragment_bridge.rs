@@ -544,6 +544,12 @@ impl TreeBuilder<'_> {
         widen(&mut derived.padding.right, widths[1])?;
         widen(&mut derived.padding.bottom, widths[2])?;
         widen(&mut derived.padding.left, widths[3])?;
+        if std::env::var_os("RITO_BORDER_DEBUG").is_some() {
+            eprintln!(
+                "[border-absorb] {what}: widths={widths:?} padding after: {:?}",
+                derived.padding
+            );
+        }
         self.layout
             .intern(derived)
             .map_err(|error| EpubError::new(format!("{what} border style interns: {error}")))
