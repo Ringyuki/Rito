@@ -174,13 +174,22 @@ fn append_fragment_display_commands_inner(
             }
             if let Some(paint) = node_paint {
                 match paint {
-                    NodePaint::Rule { color, style } => {
+                    NodePaint::Rule {
+                        color,
+                        style,
+                        thickness,
+                    } => {
+                        // The renderer strokes the rule as thick as the
+                        // rect it receives; the box can be taller (author
+                        // height plus borders flow as box size), so the
+                        // painted rect keeps the stroke thickness and
+                        // rides at the box top where the border lives.
                         commands.push(DisplayCommand::paint_horizontal_rule(
                             rect_value(
                                 origin_x + fragment.rect.x,
                                 origin_y + fragment.rect.y,
                                 fragment.rect.width,
-                                fragment.rect.height,
+                                thickness.min(fragment.rect.height),
                             ),
                             serde_json::json!({ "color": color, "style": style }),
                         ));
@@ -1047,6 +1056,7 @@ mod tests {
             NodePaint::Rule {
                 color: "#445566".to_owned(),
                 style: "solid",
+                thickness: 2.0,
             },
         );
         let mut commands = Vec::new();

@@ -118,6 +118,11 @@ pub enum NodePaint {
         color: String,
         /// Stroke pattern understood by the render protocol.
         style: &'static str,
+        /// Stroke thickness. The node's box can be taller (an author
+        /// `height` plus both borders flows as the box size, like a
+        /// browser's `<hr>`), while the visible stroke keeps the border
+        /// width and rides at the box top.
+        thickness: f64,
     },
     /// Block-box decoration: the `paintBlock` command's `paint` object
     /// and optional `borderBox` widths, exactly as the render protocol
@@ -683,7 +688,7 @@ impl TreeBuilder<'_> {
         let border = resolved.fragment.border.top;
         let use_border = border.resolved_width.get() > 0.0
             && !matches!(border.style, BorderStyle::None | BorderStyle::Hidden);
-        let (height, stroke, color) = if use_border {
+        let (thickness, stroke, color) = if use_border {
             let stroke = match border.style {
                 BorderStyle::Dotted => "dotted",
                 BorderStyle::Dashed => "dashed",
@@ -694,13 +699,44 @@ impl TreeBuilder<'_> {
         } else {
             (1.0, "solid", resolved.paint.foreground)
         };
+        // The box the rule occupies in flow follows the CSS box model: an
+        // author `height` is the content height, and both horizontal
+        // borders add to it (the book-measured 3px cascade: a
+        // `height: 2px; border: 1px inset` rule flows 4px tall in Blink
+        // while the stroke stays 1px). Without author borders the classic
+        // one-pixel line keeps its one-pixel box.
+        let block_size = if use_border {
+            let bottom = resolved.fragment.border.bottom;
+            let bottom_width = if matches!(bottom.style, BorderStyle::None | BorderStyle::Hidden) {
+                0.0
+            } else {
+                f64::from(bottom.resolved_width.get())
+            };
+            let author_height = self
+                .layout
+                .style(style)
+                .ok()
+                .and_then(|layout_style| match layout_style.height {
+                    rito_style_contract::PreferredSizeV1::Value(value) => match value.value() {
+                        rito_style_contract::LengthPercentage::Length(px) => {
+                            Some(f64::from(px.get()))
+                        }
+                        _ => None,
+                    },
+                    _ => None,
+                })
+                .unwrap_or(0.0);
+            thickness + author_height + bottom_width
+        } else {
+            thickness
+        };
         let color = crate::style::absolute_color(color)
             .map_err(|error| EpubError::new(format!("hr stroke color: {error:?}")))?;
         let id = self.push_node(
             FormattingNode {
                 style,
                 content: FormattingNodeContent::SizedLeaf {
-                    block_size: height,
+                    block_size,
                     breakable: false,
                 },
                 children: Vec::new(),
@@ -712,6 +748,7 @@ impl TreeBuilder<'_> {
             NodePaint::Rule {
                 color,
                 style: stroke,
+                thickness,
             },
         );
         Ok(Some(id))
@@ -2744,6 +2781,7 @@ p { margin: 8px 0; }\n\
             Some(&NodePaint::Rule {
                 color: "#336699".to_owned(),
                 style: "dashed",
+                thickness: 2.0,
             }),
         );
         let plain = built.tree.node(root.children[1]);
@@ -2759,6 +2797,7 @@ p { margin: 8px 0; }\n\
             Some(&NodePaint::Rule {
                 color: "#223344".to_owned(),
                 style: "solid",
+                thickness: 1.0,
             }),
         );
     }
