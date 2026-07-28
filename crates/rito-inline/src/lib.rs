@@ -1091,7 +1091,7 @@ impl FormattingContext for ParleyInlineContext {
                 // font alone (measured: 19.2px over Tinos+SourceHan puts
                 // the baseline at 15 for empty, Latin and CJK samples
                 // alike).
-                let mut entries: Vec<(&InlineFormattingStyleV1, &str, f64)> = Vec::new();
+                let mut entries: Vec<(&InlineFormattingStyleV1, &str, f64, bool)> = Vec::new();
                 match tree.strut_style(root).or_else(|| {
                     item_line_heights
                         .iter()
@@ -1102,7 +1102,7 @@ impl FormattingContext for ParleyInlineContext {
                     Some(strut_style_id) => match style_tables
                         .and_then(|tables| tables.inline.style(strut_style_id).ok())
                     {
-                        Some(resolved) => entries.push((resolved, "", 0.0)),
+                        Some(resolved) => entries.push((resolved, "", 0.0, false)),
                         None => {
                             complete = false;
                             if line_debug {
@@ -1136,19 +1136,37 @@ impl FormattingContext for ParleyInlineContext {
                         continue;
                     };
                     let shift = item_shifts.get(index).copied().unwrap_or(0.0);
-                    entries.push((resolved, "", shift));
-                    if matches!(resolved.font.line_height, LineHeight::Normal) {
+                    entries.push((resolved, "", shift, false));
+                    // Run-font samples join the entries under `normal`
+                    // line-height, and for SHIFTED items too: a raised
+                    // marker contributes the envelope of the font its
+                    // glyphs actually resolved to (a CJK circled digit
+                    // the Latin pin cannot serve rides the CJK face's
+                    // taller ascent). Shifted samples are OPTIONAL —
+                    // until the host measures the new key the strut
+                    // entry stands, instead of the whole line falling
+                    // back to the shaped envelope.
+                    // A span that DECLARES its own line-height keeps a
+                    // content-independent fixed box even when shifted
+                    // (measured: CJK and Latin superscripts in a
+                    // declared-1.2 span size identically); only an
+                    // INHERITED line-height defers to the run font.
+                    let optional_sample = shift != 0.0 && !resolved.font.line_height_is_declared;
+                    if matches!(resolved.font.line_height, LineHeight::Normal) || optional_sample {
                         for (run_item, sample) in &line_run_samples {
                             if *run_item == index {
-                                entries.push((resolved, sample.as_str(), shift));
+                                entries.push((resolved, sample.as_str(), shift, optional_sample));
                             }
                         }
                     }
                 }
                 let mut above = 0.0_f64;
                 let mut below = 0.0_f64;
-                for (resolved, sample, shift) in entries {
+                for (resolved, sample, shift, optional) in entries {
                     let Some(metric) = self.host_normal_line(resolved, sample) else {
+                        if optional {
+                            continue;
+                        }
                         complete = false;
                         if line_debug {
                             debug_misses.push(format!(
@@ -1168,7 +1186,9 @@ impl FormattingContext for ParleyInlineContext {
                     // normal-ascent 14 + raise, where the fixed-height
                     // model overshot by two rows (measured; totals agreed
                     // and only the baseline moved).
-                    let (item_above, item_below) = if shift != 0.0 {
+                    let (item_above, item_below) = if shift != 0.0
+                        && !resolved.font.line_height_is_declared
+                    {
                         (asc, desc)
                     } else {
                         match resolved.font.line_height {
