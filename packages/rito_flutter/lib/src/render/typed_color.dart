@@ -5,33 +5,17 @@ import '../protocol/display_color.dart';
 
 /// Converts typed CSS Color 4 components to a Flutter paint color.
 ///
-/// Display P3 stays in Display P3. Other spaces are converted through their
-/// specified white point to sRGB, with final channel clipping at the Canvas
-/// boundary. No CSS source text reaches this layer.
+/// Every space converts through its specified white point to sRGB with
+/// per-channel clipping — the calibrated browser pen rasters onto an
+/// sRGB canvas, so Display P3 clips exactly the way Chromium's
+/// fillStyle does (a P3 (1, .2, .1) red lands on (255, 0, 0)); keeping
+/// wide-gamut colors would diverge per surface. No CSS source text
+/// reaches this layer.
 ui.Color ritoUiColor(RitoColor color) {
   final c0 = color.none.component0 ? 0.0 : color.component0;
   final c1 = color.none.component1 ? 0.0 : color.component1;
   final c2 = color.none.component2 ? 0.0 : color.component2;
   final alpha = _unit(color.none.alpha ? 0.0 : color.alpha);
-
-  if (color.space == RitoColorSpace.displayP3) {
-    return ui.Color.from(
-      alpha: alpha,
-      red: _unit(c0),
-      green: _unit(c1),
-      blue: _unit(c2),
-      colorSpace: ui.ColorSpace.displayP3,
-    );
-  }
-  if (color.space == RitoColorSpace.displayP3Linear) {
-    return ui.Color.from(
-      alpha: alpha,
-      red: _unit(_linearToSrgb(c0)),
-      green: _unit(_linearToSrgb(c1)),
-      blue: _unit(_linearToSrgb(c2)),
-      colorSpace: ui.ColorSpace.displayP3,
-    );
-  }
 
   final (red, green, blue) = _toSrgb(color.space, c0, c1, c2);
   return ui.Color.from(
@@ -68,7 +52,23 @@ ui.Color ritoUiColor(RitoColor color) {
   }
 
   late final (double, double, double) xyzD65;
-  if (space == RitoColorSpace.lab || space == RitoColorSpace.lch) {
+  if (space == RitoColorSpace.displayP3 ||
+      space == RitoColorSpace.displayP3Linear) {
+    final linear = space == RitoColorSpace.displayP3
+        ? (_srgbToLinear(c0), _srgbToLinear(c1), _srgbToLinear(c2))
+        : (c0, c1, c2);
+    xyzD65 = _matrix(linear, const <double>[
+      0.4865709486,
+      0.2656676932,
+      0.1982172852,
+      0.2289745641,
+      0.6917385218,
+      0.0792869141,
+      0,
+      0.0451133819,
+      1.0439443689,
+    ]);
+  } else if (space == RitoColorSpace.lab || space == RitoColorSpace.lch) {
     final (lightness, a, b) = space == RitoColorSpace.lab
         ? (c0, c1, c2)
         : (
@@ -265,6 +265,14 @@ double _labInverse(double value) {
 (double, double, double) _linearRgbToSrgb((double, double, double) value) {
   final (red, green, blue) = value;
   return (_linearToSrgb(red), _linearToSrgb(green), _linearToSrgb(blue));
+}
+
+double _srgbToLinear(double value) {
+  final magnitude = value.abs();
+  final linear = magnitude <= 0.04045
+      ? magnitude / 12.92
+      : math.pow((magnitude + 0.055) / 1.055, 2.4).toDouble();
+  return value < 0 ? -linear : linear;
 }
 
 double _linearToSrgb(double value) {
