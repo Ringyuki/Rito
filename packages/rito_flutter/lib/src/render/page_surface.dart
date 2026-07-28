@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../font/artifact_font_cache.dart';
 import '../protocol/artifact_models.dart' show RitoTextProfile;
 import 'canvas_target.dart';
+import 'font_envelope.dart';
 import 'replayer.dart';
 import 'resources.dart';
 
@@ -49,8 +50,11 @@ final class RitoArtifactPainter extends CustomPainter {
     if (value.textProfile != RitoTextProfile.platformStringRuns) {
       throw UnsupportedError('Positioned glyph runs are not available in v1.');
     }
-    final target = RitoCanvasPaintTarget(canvas, resolveImage: resolveImage)
-      ..preflightPaintCapabilities(value.displayList.displayList);
+    final target = RitoCanvasPaintTarget(
+      canvas,
+      resolveImage: resolveImage,
+      fontEnvelopes: RitoFontEnvelopeStore.shared,
+    )..preflightPaintCapabilities(value.displayList.displayList);
     canvas.save();
     try {
       const RitoDisplayListReplayer().replay(

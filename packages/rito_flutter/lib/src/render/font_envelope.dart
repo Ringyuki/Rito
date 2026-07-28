@@ -44,6 +44,12 @@ final class RitoFontEnvelope {
 final class RitoFontEnvelopeStore {
   RitoFontEnvelopeStore();
 
+  /// Process-wide store, mirroring Flutter's process-wide font
+  /// registration: faces cannot be unloaded, so their envelopes are
+  /// kept for the process lifetime too. [RitoArtifactFontCache] fills
+  /// it as artifact fonts register; the page painter reads it.
+  static final RitoFontEnvelopeStore shared = RitoFontEnvelopeStore();
+
   final Map<String, RitoFontEnvelope> _byFamily = <String, RitoFontEnvelope>{};
 
   /// Registers a face's envelope for [family] from raw sfnt bytes

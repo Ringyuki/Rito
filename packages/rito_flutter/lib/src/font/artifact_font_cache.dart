@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../image/artifact_image_cache.dart';
 import '../protocol/artifact_models.dart';
+import '../render/font_envelope.dart';
 
 typedef RitoFontResourceReader =
     Future<RitoResource> Function(RitoResourceRef reference);
@@ -179,6 +180,12 @@ final class RitoArtifactFontCache {
       );
     }
     await _registrar.register(font, resource.bytes);
+    // The painter anchors ruby/text-shadow and inline envelopes with
+    // OS/2 metrics from these same bytes (see RitoFontEnvelopeStore).
+    // Non-sfnt payloads (e.g. WOFF handled by a transcoding registrar)
+    // are ignored; such registrars should register the transcoded bytes
+    // themselves.
+    RitoFontEnvelopeStore.shared.register(font.family, resource.bytes);
   }
 
   Future<void> _waitFor(
