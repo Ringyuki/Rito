@@ -1,0 +1,76 @@
+{
+  "name": "block-background-image",
+  "width": 440,
+  "height": 300,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 10, "y": 10, "width": 96, "height": 64 },
+      "paint": {
+        "background": { "color": "#eeeeee", "image": "synthetic:checker16", "repeat": "repeat" }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 130, "y": 10, "width": 96, "height": 64 },
+      "paint": {
+        "background": { "image": "synthetic:checker16", "repeat": "no-repeat" }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 250, "y": 10, "width": 96, "height": 64 },
+      "paint": {
+        "background": { "image": "synthetic:gradient32", "size": "cover", "repeat": "no-repeat" }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 10, "y": 100, "width": 96, "height": 64 },
+      "paint": {
+        "background": { "image": "synthetic:gradient32", "size": "contain", "repeat": "no-repeat" }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 130, "y": 100, "width": 96, "height": 64 },
+      "paint": {
+        "background": {
+          "image": "synthetic:dot8",
+          "repeat": "repeat",
+          "position": { "x": { "unit": "px", "value": 3 }, "y": { "unit": "px", "value": 5 } }
+        }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 250, "y": 100, "width": 96, "height": 64 },
+      "paint": {
+        "background": {
+          "image": "synthetic:checker16",
+          "repeat": "no-repeat",
+          "position": {
+            "x": { "unit": "percent", "value": 50 },
+            "y": { "unit": "percent", "value": 50 }
+          }
+        }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 10, "y": 190, "width": 96, "height": 64 },
+      "paint": {
+        "background": { "image": "synthetic:checker16", "repeat": "repeat" },
+        "radius": { "px": 12 }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 130, "y": 190.6, "width": 96.3, "height": 64.2 },
+      "paint": {
+        "background": { "image": "synthetic:gradient32", "size": "cover", "repeat": "no-repeat" }
+      }
+    }
+  ]
+}

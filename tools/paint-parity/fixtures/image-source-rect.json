@@ -1,0 +1,35 @@
+{
+  "name": "image-source-rect",
+  "width": 380,
+  "height": 220,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintImage",
+      "src": "synthetic:checker16",
+      "rect": { "x": 10, "y": 10, "width": 64, "height": 64 }
+    },
+    {
+      "kind": "paintImage",
+      "src": "synthetic:gradient32",
+      "rect": { "x": 100, "y": 10, "width": 96, "height": 96 }
+    },
+    {
+      "kind": "paintImage",
+      "src": "synthetic:gradient32",
+      "rect": { "x": 220, "y": 10, "width": 64, "height": 64 },
+      "sourceRect": { "x": 8, "y": 8, "width": 16, "height": 16 }
+    },
+    {
+      "kind": "paintImage",
+      "src": "synthetic:checker16",
+      "rect": { "x": 10, "y": 120, "width": 80, "height": 40 },
+      "sourceRect": { "x": 0, "y": 4, "width": 16, "height": 8 }
+    },
+    {
+      "kind": "paintImage",
+      "src": "synthetic:dot8",
+      "rect": { "x": 120.5, "y": 120.25, "width": 32, "height": 32 }
+    }
+  ]
+}

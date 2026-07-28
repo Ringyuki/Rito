@@ -1,0 +1,93 @@
+{
+  "name": "state-transform-clip",
+  "width": 400,
+  "height": 300,
+  "background": "#ffffff",
+  "commands": [
+    { "kind": "pushState" },
+    { "kind": "translate", "dx": 20.5, "dy": 10.25 },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 0, "y": 0, "width": 80, "height": 40 },
+      "paint": { "background": { "color": "#88bbee" } }
+    },
+    { "kind": "popState" },
+    { "kind": "pushState" },
+    { "kind": "opacity", "value": 0.5 },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 120, "y": 10, "width": 80, "height": 40 },
+      "paint": { "background": { "color": "#cc4444" } }
+    },
+    { "kind": "pushState" },
+    { "kind": "opacity", "value": 0.5 },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 160, "y": 30, "width": 80, "height": 40 },
+      "paint": { "background": { "color": "#4444cc" } }
+    },
+    { "kind": "popState" },
+    { "kind": "popState" },
+    { "kind": "pushState" },
+    {
+      "kind": "transform",
+      "origin": { "x": 320, "y": 40 },
+      "box": { "width": 60, "height": 40 },
+      "transforms": [{ "kind": "rotate", "rad": 0.3 }]
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 290, "y": 20, "width": 60, "height": 40 },
+      "paint": { "background": { "color": "#44aa44" } }
+    },
+    { "kind": "popState" },
+    { "kind": "pushState" },
+    {
+      "kind": "clipRect",
+      "rect": { "x": 20, "y": 100, "width": 100, "height": 60 }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 0, "y": 80, "width": 200, "height": 120 },
+      "paint": { "background": { "color": "#ddaa33" } }
+    },
+    { "kind": "popState" },
+    { "kind": "pushState" },
+    {
+      "kind": "clipRect",
+      "rect": { "x": 160, "y": 100, "width": 100, "height": 60 },
+      "radius": { "rx": 16, "ry": 10 }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 140, "y": 80, "width": 200, "height": 120 },
+      "paint": { "background": { "color": "#33aadd" } }
+    },
+    { "kind": "popState" },
+    { "kind": "pushState" },
+    {
+      "kind": "transform",
+      "origin": { "x": 80, "y": 240 },
+      "box": { "width": 80, "height": 40 },
+      "transforms": [
+        { "kind": "scale", "sx": 1.5, "sy": 0.75 },
+        {
+          "kind": "translate",
+          "x": { "unit": "percent", "value": 25 },
+          "y": { "unit": "px", "value": 6 }
+        }
+      ]
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 40, "y": 220, "width": 80, "height": 40 },
+      "paint": { "background": { "color": "#aa44aa" } }
+    },
+    { "kind": "popState" },
+    {
+      "kind": "paintPage",
+      "rect": { "x": 300, "y": 220, "width": 80, "height": 60 },
+      "paint": { "backgroundColor": "#eeddcc" }
+    }
+  ]
+}
