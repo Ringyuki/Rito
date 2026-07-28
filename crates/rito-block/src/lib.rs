@@ -93,7 +93,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // the container's own width and margins are its parent's business.
         let container_style = container_layout_style(tree, container)?;
         let pad = |side: rito_style_contract::NonNegativeLengthPercentage| {
-            resolve_length_percentage(side.value(), space.inline_size).max(0.0)
+            // LayoutUnit's float constructor truncates toward zero; a raw
+            // resolved padding would get ROUNDED into the first advance
+            // snap and sit one 1/64 low or high of the browser's box.
+            (resolve_length_percentage(side.value(), space.inline_size) * 64.0)
+                .trunc()
+                .max(0.0)
+                / 64.0
         };
         let content_left = pad(container_style.padding.left);
         let padding_right = pad(container_style.padding.right);
@@ -2147,7 +2153,16 @@ fn vertical_margins(
 fn resolve_margin(value: LengthPercentageOrAuto, inline_size: f64) -> f64 {
     match value {
         LengthPercentageOrAuto::Auto => 0.0,
-        LengthPercentageOrAuto::Value(value) => resolve_length_percentage(value, inline_size),
+        // The browser converts a computed margin to LayoutUnit by
+        // TRUNCATION toward zero (LayoutUnit's float constructor), unlike
+        // line heights which round: a 0.2em margin at 16px (3.2 as f32,
+        // 3.2000000476… as f64) lands on 3.1875, and rounding it instead
+        // drifted a message page one 1/64 px per paragraph until a line
+        // crossed a device row (measured: truth paragraph gap 3.1875,
+        // engine 3.203125, delta ×13 paragraphs ≈ 1px).
+        LengthPercentageOrAuto::Value(value) => {
+            (resolve_length_percentage(value, inline_size) * 64.0).trunc() / 64.0
+        }
     }
 }
 
