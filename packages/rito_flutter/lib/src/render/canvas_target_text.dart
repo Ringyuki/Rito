@@ -9,6 +9,14 @@ extension _TextPainting on RitoCanvasPaintTarget {
     _paintStringRun(command, ruby: true);
   }
 
+  /// The engine pre-composes the run rect so its em-top encodes
+  /// `baseline - 0.8 * sizePx` (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
+  /// The browser pen paints with `textBaseline: 'alphabetic'`, which
+  /// Chromium snaps to the nearest device row — bit-identical to Blink's
+  /// DOM raster. Mirror both stages: resolve the target row, then anchor
+  /// the laid-out run by its actual alphabetic baseline.
+  static const double _canvasTopAscentRatio = 0.8;
+
   void _paintStringRun(RitoTextPaintCommand command, {required bool ruby}) {
     final rect = _rect(command.rect);
     _validateRunPaint(command.paint);
@@ -16,51 +24,136 @@ extension _TextPainting on RitoCanvasPaintTarget {
     final painter = TextPainter(
       text: TextSpan(
         text: command.text,
-        style: _textStyle(command.paint, command.lineHeightPx),
+        // Ruby ignores run spacing, matching the browser pen's forced
+        // '0px' letter/word spacing.
+        style: _textStyle(command.paint, includeSpacing: !ruby),
       ),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
     )..layout();
-    final x = ruby ? rect.left + (rect.width - painter.width) / 2 : rect.left;
-    painter.paint(_canvas, ui.Offset(x, rect.top));
+    final baselineOffset = painter.computeDistanceToActualBaseline(
+      TextBaseline.alphabetic,
+    );
+    // SkParagraph splits letter spacing across both cluster edges where
+    // Chromium trails all of it after the cluster — same total advance,
+    // the whole run sits half a spacing to the right (measured via the
+    // parity corpus ink scan). Compensate at the glyph origin only; the
+    // rect geometry is spacing-free.
+    final x = ruby
+        ? rect.left + (rect.width - painter.width) / 2
+        : rect.left - (command.paint.letterSpacingPx ?? 0) / 2;
+    // Ruby anchors its em-top at the rect (browser textBaseline 'top');
+    // regular runs anchor their alphabetic baseline at the snapped row.
+    final baselineRow =
+        (rect.top + _canvasTopAscentRatio * command.paint.font.sizePx)
+            .roundToDouble();
+    final origin = ruby
+        ? ui.Offset(x, rect.top)
+        : ui.Offset(x, baselineRow - baselineOffset);
+    if (command.paint.textShadows.isNotEmpty) {
+      _paintTextShadows(painter, command.paint, origin);
+    }
+    painter.paint(_canvas, origin);
     _paintDecoration(rect, command.paint.decoration);
     _paintRunBorders(rect, command.paint.border);
   }
 
-  TextStyle _textStyle(RitoRunPaint paint, double? lineHeightPx) {
+  /// Mirrors the browser pen's scratch-canvas shadow pass: layers render
+  /// back-to-front, the glyph body is knocked out of the accumulated
+  /// shadow bitmap, and the glyph itself paints on top afterwards.
+  /// Canvas `shadowBlur` is twice the Gaussian sigma, so the mask filter
+  /// gets `blur / 2` directly instead of Flutter's radius conversion.
+  void _paintTextShadows(
+    TextPainter painter,
+    RitoRunPaint paint,
+    ui.Offset origin,
+  ) {
+    final bounds = ui.Rect.fromLTWH(
+      origin.dx,
+      origin.dy,
+      painter.width,
+      painter.height,
+    );
+    var pad = 0.0;
+    for (final shadow in paint.textShadows) {
+      pad = math.max(
+        pad,
+        shadow.blur * 2 + math.max(shadow.offsetX.abs(), shadow.offsetY.abs()),
+      );
+    }
+    _canvas.saveLayer(bounds.inflate(pad + 1), ui.Paint());
+    try {
+      for (final shadow in paint.textShadows.reversed) {
+        final layerPaint = ui.Paint()..color = _color(shadow.color);
+        if (shadow.blur > 0) {
+          layerPaint.maskFilter = ui.MaskFilter.blur(
+            ui.BlurStyle.normal,
+            shadow.blur / 2,
+          );
+        }
+        _paintRunWithPaint(
+          painter,
+          paint,
+          layerPaint,
+          origin.translate(shadow.offsetX, shadow.offsetY),
+        );
+      }
+      // Knock the glyph body out so the shadow never tints it; the real
+      // glyph paints over the hole afterwards.
+      _paintRunWithPaint(
+        painter,
+        paint,
+        ui.Paint()
+          ..color = const ui.Color(0xff000000)
+          ..blendMode = ui.BlendMode.dstOut,
+        origin,
+      );
+    } finally {
+      _canvas.restore();
+    }
+  }
+
+  void _paintRunWithPaint(
+    TextPainter source,
+    RitoRunPaint paint,
+    ui.Paint foreground,
+    ui.Offset origin,
+  ) {
+    final span = source.text! as TextSpan;
+    final layer = TextPainter(
+      text: TextSpan(
+        text: span.text,
+        style: _textStyle(paint, foreground: foreground),
+      ),
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    layer.paint(_canvas, origin);
+  }
+
+  TextStyle _textStyle(
+    RitoRunPaint paint, {
+    ui.Paint? foreground,
+    bool includeSpacing = true,
+  }) {
     final font = paint.font;
     return TextStyle(
-      color: _color(paint.color),
+      color: foreground == null ? _color(paint.color) : null,
+      foreground: foreground,
       fontFamily: font.family.isEmpty ? null : font.family,
       fontSize: font.sizePx,
       fontStyle: font.style == RitoFontStyle.italic
           ? FontStyle.italic
           : FontStyle.normal,
       fontWeight: _fontWeight(font.weight),
-      wordSpacing: paint.wordSpacingPx,
-      letterSpacing: paint.letterSpacingPx,
-      height: lineHeightPx == null || font.sizePx == 0
-          ? null
-          : lineHeightPx / font.sizePx,
-      shadows: paint.textShadows.isEmpty
-          ? null
-          : <ui.Shadow>[
-              for (final shadow in paint.textShadows) _textShadow(shadow),
-            ],
+      wordSpacing: includeSpacing ? paint.wordSpacingPx : null,
+      letterSpacing: includeSpacing ? paint.letterSpacingPx : null,
     );
   }
 
   FontWeight _fontWeight(double value) {
     final index = ((value / 100).round() - 1).clamp(0, 8).toInt();
     return FontWeight.values[index];
-  }
-
-  ui.Shadow _textShadow(RitoTextShadow shadow) {
-    return ui.Shadow(
-      color: _color(shadow.color),
-      blurRadius: shadow.blur,
-      offset: ui.Offset(shadow.offsetX, shadow.offsetY),
-    );
   }
 
   void _paintInlineBackground(ui.Rect rect, RitoRunPaint paint) {
