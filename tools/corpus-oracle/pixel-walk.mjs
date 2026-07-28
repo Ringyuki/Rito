@@ -549,20 +549,28 @@ for (const chapter of plan.chapters) {
       }
     }
     let diff = 0;
+    // Above the characterized host-raster floor: Chromium's own two CPU
+    // raster lanes (canvas 2D vs DOM image/box AA) disagree by at most 13
+    // per channel at bilinear ties and AA coverage ramps — seven
+    // reproduction models pixel-falsified (task dossier). A defect the
+    // engine can act on moves ink, and moved ink exceeds that ceiling.
+    let beyondFloor = 0;
     for (let p = 0; p < pageW * pageH; p += 1) {
       const i = p * 4;
-      if (
-        engine.data[i] !== truthPage.data[i] ||
-        engine.data[i + 1] !== truthPage.data[i + 1] ||
-        engine.data[i + 2] !== truthPage.data[i + 2]
-      )
-        diff += 1;
+      const delta = Math.max(
+        Math.abs(engine.data[i] - truthPage.data[i]),
+        Math.abs(engine.data[i + 1] - truthPage.data[i + 1]),
+        Math.abs(engine.data[i + 2] - truthPage.data[i + 2]),
+      );
+      if (delta > 0) diff += 1;
+      if (delta > 13) beyondFloor += 1;
     }
     results.push({
       chapter: chapter.href,
       pageInChapter: k,
       pageIndex,
       diff,
+      beyondFloor,
       drift: truthUsed - enginePageCount,
       engine,
       truthPage,
@@ -590,7 +598,7 @@ for (const r of results) {
   seen.add(r.chapter);
   lines.push(`- ${r.chapter}: ${r.drift > 0 ? '+' : ''}${r.drift}`);
 }
-lines.push('', '## Pages, worst first (diff pixel count)', '');
+lines.push('', '## Pages, worst first (diff px / beyond-floor px)', '');
 const GALLERY = 12;
 // The floor exemplars: the BEST nonzero pages show what pure rasterization
 // noise looks like once geometry agrees — the data a tolerance ruling
@@ -603,7 +611,7 @@ const bestNonzero = new Set(
 );
 results.forEach((r, rank) => {
   lines.push(
-    `- ${String(r.diff).padStart(8)} px — ${r.chapter} page ${r.pageInChapter} (book page ${r.pageIndex})`,
+    `- ${String(r.diff).padStart(8)} / ${String(r.beyondFloor).padStart(6)} px — ${r.chapter} page ${r.pageInChapter} (book page ${r.pageIndex})`,
   );
   if ((rank < GALLERY || bestNonzero.has(r.pageIndex)) && r.diff > 0) {
     const sep = 4;
@@ -632,10 +640,13 @@ results.forEach((r, rank) => {
   }
 });
 const zero = results.filter((r) => r.diff === 0).length;
+const zeroBeyond = results.filter((r) => r.beyondFloor === 0).length;
+const totalBeyond = results.reduce((sum, r) => sum + r.beyondFloor, 0);
 lines.splice(
   4,
   0,
   `pages compared: ${results.length}; at ZERO diff: ${zero}; worst: ${results[0]?.diff ?? 0} px`,
+  `beyond the characterized raster floor (>13/channel): ${totalBeyond} px on ${results.length - zeroBeyond} pages; at ZERO: ${zeroBeyond}`,
 );
 writeFileSync(path.join(outDir, 'report.md'), lines.join('\n'));
 console.log(lines.slice(0, 30).join('\n'));
