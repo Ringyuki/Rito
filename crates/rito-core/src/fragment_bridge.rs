@@ -840,15 +840,18 @@ impl TreeBuilder<'_> {
         {
             self.source_anchors.insert(source_index, anchor);
         }
-        // NOTE: an SVG-folded image's LAYOUT ratio should come from the
-        // SVG's viewBox (image.svg_viewport), not the embedded raster —
-        // but in the paged reader both cover dimensions are definite
-        // (100%×100% of the page) and the ratio never applies, while the
-        // paint letterbox DOES consume these intrinsics for the raster
-        // fit. Swapping them to the viewBox regressed the cover 10.6k →
-        // 226k. The viewport is parsed and carried for the future
-        // two-stage model (viewport sizes the box, raster letterboxes
-        // inside the image-element rect).
+        // NOTE: an SVG-folded raster's PLACEMENT is two-stage in the
+        // browser — the svg element letterboxes its viewBox (cover:
+        // 1434×2048 → 595.166×850 at x 22.417), then the inner <image>
+        // contain-fits the raster (1119×1600) inside the scaled
+        // image-element rect, landing at x 22.766, width 594.47. The
+        // raster intrinsics below reproduce that FINAL rect in one step,
+        // which is why swapping them for the viewBox regresses the cover
+        // (10.6k → 226k, twice measured: the raster then letterboxes a
+        // second time against the wrong basis). The residual 1,701-px
+        // edge-column class lives in the 0.35px band between the viewBox
+        // content edge and the raster edge — whatever the browser paints
+        // there needs a reduced svg-letterbox probe before any change.
         collector.push_image(
             InlineItem::Image {
                 src: image.src.clone(),
