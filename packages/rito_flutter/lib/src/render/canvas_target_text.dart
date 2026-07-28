@@ -42,16 +42,30 @@ extension _TextPainting on RitoCanvasPaintTarget {
     final x = ruby
         ? rect.left + (rect.width - painter.width) / 2
         : rect.left - (command.paint.letterSpacingPx ?? 0) / 2;
-    // Ruby anchors its em-top at the rect (browser textBaseline 'top');
+    // Ruby anchors its em-box top at the rect (browser textBaseline
+    // 'top' = OS/2 sTypoAscender, probed against pinned Chromium);
     // regular runs anchor their alphabetic baseline at the snapped row.
+    // Either way the raster lands the baseline on a whole device row.
     final baselineRow =
         (rect.top + _canvasTopAscentRatio * command.paint.font.sizePx)
             .roundToDouble();
+    final topAscent =
+        _fontEnvelopes
+            ?.lookup(command.paint.font.family)
+            ?.topAnchorAscentPx(command.paint.font.sizePx) ??
+        baselineOffset;
+    final topAnchorY =
+        (rect.top + topAscent).roundToDouble() - baselineOffset;
     final origin = ruby
-        ? ui.Offset(x, rect.top)
+        ? ui.Offset(x, topAnchorY)
         : ui.Offset(x, baselineRow - baselineOffset);
     if (command.paint.textShadows.isNotEmpty) {
-      _paintTextShadows(painter, command.paint, origin);
+      // The browser pen's shadow scratch pass anchors with textBaseline
+      // 'top' at the rect — deliberately NOT the glyph's snapped
+      // alphabetic anchor. Mirror that offset exactly; the remaining
+      // divergence is Chromium's sub-pixel AA phase, which Skia's
+      // whole-row glyph snap cannot reproduce (accounted AA exemption).
+      _paintTextShadows(painter, command.paint, ui.Offset(x, topAnchorY));
     }
     painter.paint(_canvas, origin);
     _paintDecoration(rect, command.paint.decoration);

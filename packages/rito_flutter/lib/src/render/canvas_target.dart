@@ -10,6 +10,7 @@ import '../protocol/display_paint.dart';
 import '../protocol/wire_exception.dart';
 import 'background_tile_plan.dart';
 import 'canvas_paint_math.dart';
+import 'font_envelope.dart';
 import 'replayer.dart';
 import 'resources.dart';
 import 'typed_color.dart';
@@ -25,11 +26,16 @@ part 'canvas_target_text.dart';
 /// [ritoCanvasMaxBackgroundTiles]. Those cases must not be approximated by a
 /// different CSS effect.
 final class RitoCanvasPaintTarget implements RitoPaintTarget {
-  RitoCanvasPaintTarget(this._canvas, {required RitoImageResolver resolveImage})
-    : _resolveImage = resolveImage;
+  RitoCanvasPaintTarget(
+    this._canvas, {
+    required RitoImageResolver resolveImage,
+    RitoFontEnvelopeStore? fontEnvelopes,
+  }) : _resolveImage = resolveImage,
+       _fontEnvelopes = fontEnvelopes;
 
   final ui.Canvas _canvas;
   final RitoImageResolver _resolveImage;
+  final RitoFontEnvelopeStore? _fontEnvelopes;
   final List<double> _opacityStack = <double>[1];
   final Map<RitoPaintBlock, _PreparedBlockPaint> _preparedBlocks =
       <RitoPaintBlock, _PreparedBlockPaint>{};

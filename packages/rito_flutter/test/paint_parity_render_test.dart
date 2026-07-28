@@ -12,9 +12,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 import 'package:rito_flutter/src/render/canvas_target.dart';
+import 'package:rito_flutter/src/render/font_envelope.dart';
 import 'package:rito_flutter/src/render/typed_color.dart';
 
 import 'support/parity_fixture_loader.dart';
+
+final RitoFontEnvelopeStore _fontEnvelopes = RitoFontEnvelopeStore();
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +75,7 @@ Future<void> _renderFixture(File file, Directory outDir) async {
   final target = RitoCanvasPaintTarget(
     canvas,
     resolveImage: (href) => images[href],
+    fontEnvelopes: _fontEnvelopes,
   );
   final displayList = RitoDisplayList(
     formatVersion: 1,
@@ -104,6 +108,7 @@ Future<void> _loadSharedFonts() async {
     final file = File('$repoRoot/$relative');
     expect(file.existsSync(), isTrue, reason: 'shared font missing: $relative');
     final bytes = file.readAsBytesSync();
+    _fontEnvelopes.register(family, bytes);
     final loader = FontLoader(family)
       ..addFont(Future.value(ByteData.view(bytes.buffer)));
     await loader.load();
