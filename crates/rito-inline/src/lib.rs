@@ -1137,7 +1137,13 @@ impl FormattingContext for ParleyInlineContext {
                     };
                     let shift = item_shifts.get(index).copied().unwrap_or(0.0);
                     entries.push((resolved, "", shift));
-                    if matches!(resolved.font.line_height, LineHeight::Normal) {
+                    // Run-font samples join the entries under `normal`
+                    // line-height — and for SHIFTED items always: a
+                    // superscript contributes the envelope of the font
+                    // its glyphs actually resolved to (a CJK marker the
+                    // Latin pin cannot serve rides the CJK face's taller
+                    // ascent), not the declared family's strut.
+                    if matches!(resolved.font.line_height, LineHeight::Normal) || shift != 0.0 {
                         for (run_item, sample) in &line_run_samples {
                             if *run_item == index {
                                 entries.push((resolved, sample.as_str(), shift));
