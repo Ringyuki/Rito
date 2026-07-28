@@ -177,7 +177,11 @@ impl Decoder<'_> {
         self.read_string()?;
         self.read_rect()?;
         self.read_optional_string()?;
-        self.read_optional_string()
+        self.read_optional_string()?;
+        if self.read_option()? {
+            self.read_rect()?;
+        }
+        Ok(())
     }
 
     fn read_color(&mut self) -> Result<(), DecodeError> {

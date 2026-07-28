@@ -3189,6 +3189,7 @@ running through the quiet forest until the morning light returns.";
                         style: image_inline_style,
                         layout_style: image_layout,
                         fit_contain: false,
+                        viewport: None,
                         baseline_shift_px: 6.328125,
                     },
                     InlineItem::Text {
@@ -3323,6 +3324,7 @@ running through the quiet forest until the morning light returns.";
                         style: text_style,
                         layout_style: image_layout,
                         fit_contain: false,
+                        viewport: None,
                         baseline_shift_px: 0.0,
                     },
                     InlineItem::Text {

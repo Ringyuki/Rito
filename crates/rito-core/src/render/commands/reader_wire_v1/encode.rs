@@ -87,11 +87,15 @@ fn write_command(
             rect,
             alt,
             href,
+            source_rect,
         } => {
             write_string(output, src)?;
             write_rect(output, rect)?;
             write_optional_string(output, alt.as_deref())?;
-            write_optional_string(output, href.as_deref())
+            write_optional_string(output, href.as_deref())?;
+            write_optional(output, source_rect.as_ref(), |output, rect| {
+                write_rect(output, rect)
+            })
         }
         ReaderDisplayCommandV1::PaintHorizontalRule { rect, paint } => {
             write_rect(output, rect)?;

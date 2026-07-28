@@ -229,6 +229,8 @@ export interface RitoReaderPaintImageCommandV1 {
   readonly rect: RitoReaderRectV1;
   readonly alt?: string | undefined;
   readonly href?: string | undefined;
+  /** Raster-pixel subregion to sample; absent samples the whole raster. */
+  readonly sourceRect?: RitoReaderRectV1 | undefined;
 }
 
 export interface RitoReaderDisplayListV1 {

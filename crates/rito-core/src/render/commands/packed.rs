@@ -237,7 +237,9 @@ fn needs_payload(command: &DisplayCommand) -> bool {
         | DisplayCommand::PaintText(_)
         | DisplayCommand::PaintRuby(_)
         | DisplayCommand::PaintHorizontalRule { .. } => true,
-        DisplayCommand::PaintImage { alt, .. } => alt.is_some(),
+        DisplayCommand::PaintImage {
+            alt, source_rect, ..
+        } => alt.is_some() || source_rect.is_some(),
         DisplayCommand::PushState
         | DisplayCommand::PopState
         | DisplayCommand::Translate { .. }

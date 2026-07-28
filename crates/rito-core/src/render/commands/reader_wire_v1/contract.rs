@@ -62,6 +62,7 @@ pub(super) enum ReaderDisplayCommandV1 {
         rect: ReaderRectV1,
         alt: Option<String>,
         href: Option<String>,
+        source_rect: Option<ReaderRectV1>,
     },
     PaintHorizontalRule {
         rect: ReaderRectV1,

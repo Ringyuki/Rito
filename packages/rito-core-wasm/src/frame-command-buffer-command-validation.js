@@ -138,4 +138,5 @@ function validateImageCommand(command, path) {
   validateRect(requiredField(command, 'rect', path), `${path}.rect`);
   validateOptionalField(command, 'alt', path, expectString);
   validateOptionalField(command, 'href', path, expectString);
+  validateOptionalField(command, 'sourceRect', path, validateRect);
 }

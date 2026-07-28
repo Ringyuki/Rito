@@ -200,10 +200,25 @@ function paintImage(
 ): void {
   const bitmap = resolveImage(command.src);
   if (!bitmap) return;
-  const { rect } = command;
+  const { rect, sourceRect } = command;
   // The rect arrives pre-snapped where Blink snaps (plain replaced
   // images; SVG-folded content stays fractional) — see the engine's
-  // append_image_command.
+  // append_image_command. A sourceRect samples only that raster region
+  // — the clamp-bleed strip an svg letterbox smears across its sliver.
+  if (sourceRect) {
+    ctx.drawImage(
+      bitmap,
+      sourceRect.x,
+      sourceRect.y,
+      sourceRect.width,
+      sourceRect.height,
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height,
+    );
+    return;
+  }
   ctx.drawImage(bitmap, rect.x, rect.y, rect.width, rect.height);
 }
 

@@ -112,6 +112,7 @@ pub(crate) enum DisplayCommand {
         rect: Value,
         alt: Option<String>,
         href: Option<String>,
+        source_rect: Option<Value>,
     },
     PaintHorizontalRule {
         rect: Value,
@@ -179,6 +180,19 @@ impl DisplayCommand {
             rect,
             alt,
             href,
+            source_rect: None,
+        }
+    }
+
+    /// An image command that samples only `source_rect` (raster pixels)
+    /// — the clamp-bleed strip an svg letterbox smears across its sliver.
+    pub(crate) fn paint_image_slice(src: String, rect: Value, source_rect: Value) -> Self {
+        Self::PaintImage {
+            src,
+            rect,
+            alt: None,
+            href: None,
+            source_rect: Some(source_rect),
         }
     }
 

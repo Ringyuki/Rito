@@ -860,6 +860,7 @@ impl TreeBuilder<'_> {
                 style,
                 layout_style,
                 fit_contain: image.svg_contain,
+                viewport: image.svg_viewport,
                 baseline_shift_px: ancestor_shift_px
                     + resolved_baseline_shift(
                         resolved,

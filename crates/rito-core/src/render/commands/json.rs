@@ -54,11 +54,15 @@ fn command_fields(command: &DisplayCommand) -> Map<String, Value> {
             rect,
             alt,
             href,
+            source_rect,
         } => {
             insert_field(&mut fields, "src", Value::String(src.clone()));
             insert_field(&mut fields, "rect", rect.clone());
             insert_optional_string(&mut fields, "alt", alt.clone());
             insert_optional_string(&mut fields, "href", href.clone());
+            if let Some(source_rect) = source_rect {
+                insert_field(&mut fields, "sourceRect", source_rect.clone());
+            }
         }
     }
     fields

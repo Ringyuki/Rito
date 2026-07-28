@@ -55,6 +55,11 @@ pub enum InlineItem {
         /// `xMidYMid meet`) makes the content contain-fit the viewport —
         /// only `none` stretches. The box itself stays the resolved size.
         fit_contain: bool,
+        /// The folded SVG's viewBox size, when the image idiom carried
+        /// one: the browser letterboxes THIS box into the element rect
+        /// first, then the raster letterboxes inside it — and clamp
+        /// bleed fills the inner sliver, not the outer margins.
+        viewport: Option<(f64, f64)>,
     },
 }
 
@@ -339,12 +344,18 @@ fn fingerprint(
                             layout_style,
                             baseline_shift_px,
                             fit_contain,
+                            viewport,
                         } => {
                             mixer.mix(&[1]);
                             mixer.mix(&(src.len() as u32).to_le_bytes());
                             mixer.mix(src.as_bytes());
                             mixer.mix(&intrinsic_width.to_bits().to_le_bytes());
                             mixer.mix(&intrinsic_height.to_bits().to_le_bytes());
+                            if let Some((viewport_width, viewport_height)) = viewport {
+                                mixer.mix(&[2]);
+                                mixer.mix(&viewport_width.to_bits().to_le_bytes());
+                                mixer.mix(&viewport_height.to_bits().to_le_bytes());
+                            }
                             mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&layout_style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());

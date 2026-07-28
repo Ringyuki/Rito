@@ -76,6 +76,7 @@ function readCommand(reader) {
         rect: readRect(reader, 'image rect'),
         alt: reader.option('image alternative', () => reader.string('image alternative')),
         href: reader.option('image href', () => reader.string('image href')),
+        sourceRect: reader.option('image source rect', () => readRect(reader, 'image source rect')),
       };
     case 12:
       return {

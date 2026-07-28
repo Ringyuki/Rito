@@ -81,6 +81,8 @@ export interface RitoCoreWasmPaintImageCommand {
   readonly rect: RitoCoreWasmRect;
   readonly alt?: string;
   readonly href?: string;
+  /** Raster-pixel subregion to sample; absent samples the whole raster. */
+  readonly sourceRect?: RitoCoreWasmRect;
 }
 
 export interface RitoCoreWasmPaintHorizontalRuleCommand {

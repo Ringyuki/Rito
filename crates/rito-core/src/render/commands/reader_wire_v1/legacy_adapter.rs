@@ -81,11 +81,16 @@ fn adapt_command(
             rect,
             alt,
             href,
+            source_rect,
         } => ReaderDisplayCommandV1::PaintImage {
             src: src.clone(),
             rect: adapt_rect(rect, "paintImage.rect")?,
             alt: alt.clone(),
             href: href.clone(),
+            source_rect: source_rect
+                .as_ref()
+                .map(|value| adapt_rect(value, "paintImage.sourceRect"))
+                .transpose()?,
         },
         DisplayCommand::PaintHorizontalRule { rect, paint } => {
             ReaderDisplayCommandV1::PaintHorizontalRule {

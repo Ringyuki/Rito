@@ -70,6 +70,7 @@ function convertCommand(command: RitoReaderDisplayCommandV1): CoreFrameCommand |
         rect: command.rect,
         ...(command.alt === undefined ? {} : { alt: command.alt }),
         ...(command.href === undefined ? {} : { href: command.href }),
+        ...(command.sourceRect === undefined ? {} : { sourceRect: command.sourceRect }),
       };
     case 'paint-horizontal-rule':
       return convertHorizontalRule(command);

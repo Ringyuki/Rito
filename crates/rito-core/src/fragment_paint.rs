@@ -424,6 +424,7 @@ fn append_image_command(
         intrinsic_width,
         intrinsic_height,
         fit_contain,
+        viewport,
         ..
     }) = items.get(image.item_index as usize)
     else {
@@ -455,17 +456,72 @@ fn append_image_command(
         };
     }
     if *fit_contain && *intrinsic_width > 0.0 && *intrinsic_height > 0.0 {
-        let scale = (draw.width / intrinsic_width)
-            .min(draw.height / intrinsic_height)
-            .max(0.0);
-        let width = intrinsic_width * scale;
-        let height = intrinsic_height * scale;
-        draw = rito_fragment::FragmentRect {
-            x: draw.x + (draw.width - width) / 2.0,
-            y: draw.y + (draw.height - height) / 2.0,
-            width,
-            height,
+        let contain = |outer: rito_fragment::FragmentRect, ratio_w: f64, ratio_h: f64| {
+            let scale = (outer.width / ratio_w).min(outer.height / ratio_h).max(0.0);
+            let width = ratio_w * scale;
+            let height = ratio_h * scale;
+            rito_fragment::FragmentRect {
+                x: outer.x + (outer.width - width) / 2.0,
+                y: outer.y + (outer.height - height) / 2.0,
+                width,
+                height,
+            }
         };
+        // Two-stage placement (SVG 2 §8.6, both `meet`): the viewBox
+        // letterboxes into the element rect, then the raster letterboxes
+        // inside that content box. Without a viewBox the content box IS
+        // the element rect and this collapses to the one-step fit.
+        let content = match viewport {
+            Some((viewport_width, viewport_height))
+                if *viewport_width > 0.0 && *viewport_height > 0.0 =>
+            {
+                contain(draw, *viewport_width, *viewport_height)
+            }
+            _ => draw,
+        };
+        let raster = contain(content, *intrinsic_width, *intrinsic_height);
+        // The browser samples the raster with CLAMP addressing across the
+        // viewBox CONTENT box: the sliver between the content edge and
+        // the raster edge shows the edge texels smeared, not background
+        // (measured: a cover whose viewBox out-ratios its JPEG by 0.35px
+        // paints one blended edge column per side, uniform down the
+        // page). An edge strip stretched across each sliver is exactly
+        // that clamp bleed; the element-rect margins outside the content
+        // box stay untouched.
+        let sliver = |span: f64| span > 1.0 / 64.0;
+        if sliver(raster.x - content.x) {
+            for (dest_x, dest_w, src_x) in [
+                (content.x, raster.x - content.x, 0.0),
+                (
+                    raster.x + raster.width,
+                    content.x + content.width - raster.x - raster.width,
+                    intrinsic_width - 1.0,
+                ),
+            ] {
+                commands.push(DisplayCommand::paint_image_slice(
+                    src.clone(),
+                    rect_value(line_x + dest_x, line_y + raster.y, dest_w, raster.height),
+                    rect_value(src_x, 0.0, 1.0, *intrinsic_height),
+                ));
+            }
+        }
+        if sliver(raster.y - content.y) {
+            for (dest_y, dest_h, src_y) in [
+                (content.y, raster.y - content.y, 0.0),
+                (
+                    raster.y + raster.height,
+                    content.y + content.height - raster.y - raster.height,
+                    intrinsic_height - 1.0,
+                ),
+            ] {
+                commands.push(DisplayCommand::paint_image_slice(
+                    src.clone(),
+                    rect_value(line_x + raster.x, line_y + dest_y, raster.width, dest_h),
+                    rect_value(0.0, src_y, *intrinsic_width, 1.0),
+                ));
+            }
+        }
+        draw = raster;
     }
     // Alt text and link targets travel with the interaction layer, which
     // the fragment contract does not carry yet.
@@ -1115,6 +1171,7 @@ mod tests {
                     style: text_style,
                     layout_style: image_layout,
                     fit_contain: false,
+                    viewport: None,
                         baseline_shift_px: 0.0,
                 }],
             },
