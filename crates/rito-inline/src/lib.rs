@@ -273,8 +273,18 @@ impl ParleyInlineContext {
         style: &InlineFormattingStyleV1,
         sample: &str,
     ) -> Option<HostNormalLineMetric> {
+        self.host_normal_line_sized(style, f64::from(style.font.size.get()), sample)
+    }
+
+    /// The style's metric at an explicit size — a ruby annotation rides
+    /// the base family at half size, a size no interned style carries.
+    fn host_normal_line_sized(
+        &self,
+        style: &InlineFormattingStyleV1,
+        size: f64,
+        sample: &str,
+    ) -> Option<HostNormalLineMetric> {
         let family = host_family_key(style);
-        let size = f64::from(style.font.size.get());
         let key = (family, host_size_key(size), sample.to_owned());
         if let Some(metric) = self.host_line_metrics.borrow().get(&key) {
             return Some(*metric);
@@ -827,6 +837,9 @@ impl FormattingContext for ParleyInlineContext {
         // line-height stack by rounding and leading distribution, so the
         // block position comes from accumulation instead.
         let mut running_top = 0.0_f64;
+        // The previous line's leading below its text, spent by a ruby
+        // annotation on the next line before the line has to grow.
+        let mut prev_ruby_below: Option<f64> = None;
         for line in layout.lines() {
             let metrics = line.metrics();
             let line_top = running_top;
@@ -1307,6 +1320,59 @@ impl FormattingContext for ParleyInlineContext {
                 }
                 }
             };
+            // Ruby annotations grow the line: the browser reserves the
+            // annotation's normal line height above the base text, minus
+            // the leading already there — measured over four line-heights
+            // at first and subsequent lines: the first line of a block
+            // spends its own above-text leading plus one overlap pixel;
+            // later lines also spend the previous line's below-text
+            // leading and a second overlap pixel.
+            let (content_asc, content_desc) = host_line.map_or(
+                (f64::from(metrics.ascent), f64::from(metrics.descent)),
+                |(content_height, ascent)| (ascent, content_height - ascent),
+            );
+            let ruby_growth = {
+                let mut annotation = 0.0_f64;
+                for (index, range) in item_text_ranges.iter().enumerate() {
+                    let on_line = line_text_range
+                        .is_some_and(|(start, end)| range.start < end && start < range.end);
+                    if !on_line || range.is_empty() {
+                        continue;
+                    }
+                    let Some(InlineItem::Text {
+                        ruby_annotation: Some(_),
+                        style,
+                        ..
+                    }) = tree_items.get(index)
+                    else {
+                        continue;
+                    };
+                    let Some(resolved) =
+                        style_tables.and_then(|tables| tables.inline.style(*style).ok())
+                    else {
+                        continue;
+                    };
+                    let annotation_size = f64::from(resolved.font.size.get()) * 0.5;
+                    let annotation_height = self
+                        .host_normal_line_sized(resolved, annotation_size, "")
+                        .map_or(annotation_size * 1.2, |metric| metric.height);
+                    annotation = annotation.max(annotation_height);
+                }
+                if annotation <= 0.0 {
+                    0.0
+                } else {
+                    let above_space = baseline - max_rise - content_asc;
+                    let spent = match prev_ruby_below {
+                        None => above_space + 1.0,
+                        Some(below) => above_space + below + 2.0,
+                    };
+                    (annotation - spent).max(0.0)
+                }
+            };
+            let line_height = line_height + ruby_growth;
+            let baseline = baseline + ruby_growth;
+            running_top += ruby_growth;
+            prev_ruby_below = Some((line_height - baseline - content_desc).max(0.0));
             if line_debug
                 && (has_inline_box || item_shifts.iter().any(|shift| *shift != 0.0))
             {
@@ -1319,7 +1385,7 @@ impl FormattingContext for ParleyInlineContext {
             let children: Vec<Fragment> = children
                 .into_iter()
                 .map(|(mut fragment, shift)| {
-                    let adjust = max_rise - shift;
+                    let adjust = max_rise - shift + ruby_growth;
                     match &mut fragment {
                         Fragment::Text(text) => {
                             text.rect.y = adjust;
