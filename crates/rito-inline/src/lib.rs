@@ -1148,19 +1148,30 @@ impl FormattingContext for ParleyInlineContext {
                         continue;
                     };
                     let (asc, desc) = (metric.ascent(), metric.descent());
-                    let (item_above, item_below) = match resolved.font.line_height {
-                        LineHeight::Normal => (asc, desc),
-                        LineHeight::Number(number) => {
-                            let height = layout_unit(
-                                f64::from(number.get()) * f64::from(resolved.font.size.get()),
-                            );
-                            let a = metric.fixed_baseline(height);
-                            (a, height - a)
-                        }
-                        LineHeight::Length(px) => {
-                            let height = layout_unit(f64::from(px.get()));
-                            let a = metric.fixed_baseline(height);
-                            (a, height - a)
+                    // A super/sub-shifted inline box contributes its
+                    // FONT's normal envelope around its raised baseline,
+                    // not its line-height box: a 12px superscript inside
+                    // a 20.8px fixed-height paragraph grows the line to
+                    // normal-ascent 14 + raise, where the fixed-height
+                    // model overshot by two rows (measured; totals agreed
+                    // and only the baseline moved).
+                    let (item_above, item_below) = if shift != 0.0 {
+                        (asc, desc)
+                    } else {
+                        match resolved.font.line_height {
+                            LineHeight::Normal => (asc, desc),
+                            LineHeight::Number(number) => {
+                                let height = layout_unit(
+                                    f64::from(number.get()) * f64::from(resolved.font.size.get()),
+                                );
+                                let a = metric.fixed_baseline(height);
+                                (a, height - a)
+                            }
+                            LineHeight::Length(px) => {
+                                let height = layout_unit(f64::from(px.get()));
+                                let a = metric.fixed_baseline(height);
+                                (a, height - a)
+                            }
                         }
                     };
                     above = above.max(item_above + shift);
@@ -1296,7 +1307,9 @@ impl FormattingContext for ParleyInlineContext {
                 }
                 }
             };
-            if line_debug && has_inline_box {
+            if line_debug
+                && (has_inline_box || item_shifts.iter().any(|shift| *shift != 0.0))
+            {
                 eprintln!(
                     "[line-debug] contributions={contributions:?} host_line={host_line:?} \
                      baseline={baseline} height={line_height} max_rise={max_rise} \
