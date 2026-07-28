@@ -20,7 +20,10 @@ extension _TextPainting on RitoCanvasPaintTarget {
   void _paintStringRun(RitoTextPaintCommand command, {required bool ruby}) {
     final rect = _rect(command.rect);
     _validateRunPaint(command.paint);
+    // Browser pen order: background, borders, shadows, glyphs,
+    // decoration.
     _paintInlineBackground(rect, command.paint);
+    _paintRunBorders(rect, command.paint);
     final painter = TextPainter(
       text: TextSpan(
         text: command.text,
@@ -69,7 +72,6 @@ extension _TextPainting on RitoCanvasPaintTarget {
     }
     painter.paint(_canvas, origin);
     _paintDecoration(rect, command.paint.decoration);
-    _paintRunBorders(rect, command.paint.border);
   }
 
   /// Mirrors the browser pen's scratch-canvas shadow pass: layers render
@@ -170,18 +172,63 @@ extension _TextPainting on RitoCanvasPaintTarget {
     return FontWeight.values[index];
   }
 
+  /// Content-height box for inline backgrounds and borders, mirroring
+  /// the browser pen's computeInlineBoxRect: the band spans the run
+  /// font's grid-fit ascent to descent around the baseline (canvas
+  /// fontBoundingBox = rounded OS/2 win metrics), not the em box, then
+  /// grows by padding and border widths. Without envelope metrics the
+  /// em box stands in, exactly like the browser fallback.
+  ui.Rect _inlineBoxRect(ui.Rect rect, RitoRunPaint paint) {
+    final padding = paint.padding;
+    final border = paint.border;
+    final paddingLeft = padding?.left ?? 0;
+    final paddingRight = padding?.right ?? 0;
+    final paddingTop = padding?.top ?? 0;
+    final paddingBottom = padding?.bottom ?? 0;
+    final borderLeft = border?.start?.widthPx ?? 0;
+    final borderRight = border?.end?.widthPx ?? 0;
+    final borderTop = border?.top?.widthPx ?? 0;
+    final borderBottom = border?.bottom?.widthPx ?? 0;
+
+    final size = paint.font.sizePx;
+    var contentTop = rect.top;
+    var contentHeight = size;
+    final envelope = _fontEnvelopes?.lookup(paint.font.family);
+    if (envelope != null) {
+      final ascent = envelope.boundingAscentPx(size);
+      final descent = envelope.boundingDescentPx(size);
+      contentTop = rect.top + _canvasTopAscentRatio * size - ascent;
+      contentHeight = ascent + descent;
+    }
+    return ui.Rect.fromLTWH(
+      rect.left - paddingLeft - borderLeft,
+      contentTop - paddingTop - borderTop,
+      rect.width + paddingLeft + paddingRight + borderLeft + borderRight,
+      contentHeight + paddingTop + paddingBottom + borderTop + borderBottom,
+    );
+  }
+
+  ui.RRect _inlineRoundedRect(ui.Rect box, double radius) {
+    final resolved = math.min(
+      radius,
+      math.min(box.width / 2, box.height / 2),
+    );
+    return ui.RRect.fromRectAndRadius(box, ui.Radius.circular(resolved));
+  }
+
   void _paintInlineBackground(ui.Rect rect, RitoRunPaint paint) {
     final color = paint.backgroundColor;
     if (color == null) {
       return;
     }
-    _canvas.drawRRect(
-      ui.RRect.fromRectAndRadius(
-        rect,
-        ui.Radius.circular(paint.backgroundRadius ?? 0),
-      ),
-      ui.Paint()..color = _color(color),
-    );
+    final box = _inlineBoxRect(rect, paint);
+    final radius = paint.backgroundRadius ?? 0;
+    final fill = ui.Paint()..color = _color(color);
+    if (radius > 0) {
+      _canvas.drawRRect(_inlineRoundedRect(box, radius), fill);
+    } else {
+      _canvas.drawRect(box, fill);
+    }
   }
 
   void _paintDecoration(ui.Rect rect, RitoRunDecoration? decoration) {
@@ -198,23 +245,106 @@ extension _TextPainting on RitoCanvasPaintTarget {
     );
   }
 
-  void _paintRunBorders(ui.Rect rect, RitoRunBorder? border) {
+  void _paintRunBorders(ui.Rect rect, RitoRunPaint paint) {
+    final border = paint.border;
     if (border == null) {
       return;
     }
-    _runBorder(rect.topLeft, rect.topRight, border.top);
-    _runBorder(rect.bottomLeft, rect.bottomRight, border.bottom);
-    _runBorder(rect.topLeft, rect.bottomLeft, border.start);
-    _runBorder(rect.topRight, rect.bottomRight, border.end);
-  }
-
-  void _runBorder(ui.Offset start, ui.Offset end, RitoRunBorderEdge? edge) {
-    if (edge == null) {
+    final top = border.top;
+    final bottom = border.bottom;
+    final start = border.start;
+    final end = border.end;
+    if (top == null && bottom == null && start == null && end == null) {
       return;
     }
+    final box = _inlineBoxRect(rect, paint);
+    final radius = paint.backgroundRadius ?? 0;
+    if (top != null &&
+        bottom != null &&
+        start != null &&
+        end != null &&
+        radius > 0) {
+      _paintRoundedInlineBorders(box, radius, top, end, bottom, start);
+      return;
+    }
+    // Straight edges stroke centred half a width inside the box edge,
+    // unsnapped, matching the browser pen's drawStraightInlineBorders.
+    if (top != null) {
+      _inlineEdge(
+        ui.Offset(box.left, box.top + top.widthPx / 2),
+        ui.Offset(box.right, box.top + top.widthPx / 2),
+        top,
+      );
+    }
+    if (bottom != null) {
+      _inlineEdge(
+        ui.Offset(box.left, box.bottom - bottom.widthPx / 2),
+        ui.Offset(box.right, box.bottom - bottom.widthPx / 2),
+        bottom,
+      );
+    }
+    if (start != null) {
+      _inlineEdge(
+        ui.Offset(box.left + start.widthPx / 2, box.top),
+        ui.Offset(box.left + start.widthPx / 2, box.bottom),
+        start,
+      );
+    }
+    if (end != null) {
+      _inlineEdge(
+        ui.Offset(box.right - end.widthPx / 2, box.top),
+        ui.Offset(box.right - end.widthPx / 2, box.bottom),
+        end,
+      );
+    }
+  }
+
+  /// Full four-edge rounded case: each side clips a triangle from the
+  /// box centre and strokes the rounded outline at its own width,
+  /// mirroring drawRoundedInlineBorders.
+  void _paintRoundedInlineBorders(
+    ui.Rect box,
+    double radius,
+    RitoRunBorderEdge top,
+    RitoRunBorderEdge end,
+    RitoRunBorderEdge bottom,
+    RitoRunBorderEdge start,
+  ) {
+    final center = box.center;
+    final sides = <(RitoRunBorderEdge, ui.Offset, ui.Offset)>[
+      (top, box.topLeft, box.topRight),
+      (end, box.topRight, box.bottomRight),
+      (bottom, box.bottomRight, box.bottomLeft),
+      (start, box.bottomLeft, box.topLeft),
+    ];
+    final outline = _inlineRoundedRect(box, radius);
+    for (final (edge, corner1, corner2) in sides) {
+      _canvas.save();
+      try {
+        _canvas.clipPath(
+          ui.Path()
+            ..moveTo(center.dx, center.dy)
+            ..lineTo(corner1.dx, corner1.dy)
+            ..lineTo(corner2.dx, corner2.dy)
+            ..close(),
+        );
+        _canvas.drawRRect(
+          outline,
+          ui.Paint()
+            ..style = ui.PaintingStyle.stroke
+            ..strokeWidth = edge.widthPx
+            ..color = _color(edge.paint.color),
+        );
+      } finally {
+        _canvas.restore();
+      }
+    }
+  }
+
+  void _inlineEdge(ui.Offset from, ui.Offset to, RitoRunBorderEdge edge) {
     _strokeStyledLine(
-      start,
-      end,
+      from,
+      to,
       edge.widthPx,
       edge.paint.color,
       edge.paint.style,
