@@ -104,6 +104,9 @@ RitoCommand _command(Map<String, Object?> json) {
       return RitoPaintImage(
         src: json['src']! as String,
         rect: _rect(json['rect']!),
+        sourceRect: json['sourceRect'] == null
+            ? null
+            : _rect(json['sourceRect']!),
       );
     case 'paintHorizontalRule':
       final paint = json['paint']! as Map<String, Object?>;

@@ -136,12 +136,18 @@ final class RitoCanvasPaintTarget implements RitoPaintTarget {
     if (image == null) {
       return;
     }
-    final source = ui.Rect.fromLTWH(
-      0,
-      0,
-      image.width.toDouble(),
-      image.height.toDouble(),
-    );
+    // A sourceRect samples only that raster region — the clamp-bleed
+    // strip an svg letterbox smears across its sliver (browser pen's
+    // 9-argument drawImage).
+    final sourceRect = command.sourceRect;
+    final source = sourceRect == null
+        ? ui.Rect.fromLTWH(
+            0,
+            0,
+            image.width.toDouble(),
+            image.height.toDouble(),
+          )
+        : _rect(sourceRect);
     _canvas.drawImageRect(image, source, _rect(command.rect), _imagePaint());
   }
 
@@ -193,8 +199,10 @@ final class RitoCanvasPaintTarget implements RitoPaintTarget {
   }
 
   ui.Paint _imagePaint() {
+    // Canvas 2D's default smoothing quality is 'low' — plain bilinear,
+    // no mipmaps — so 'medium' would diverge on every downscale.
     return ui.Paint()
-      ..filterQuality = ui.FilterQuality.medium
+      ..filterQuality = ui.FilterQuality.low
       ..color = const ui.Color(0xffffffff).withValues(alpha: _opacity);
   }
 }

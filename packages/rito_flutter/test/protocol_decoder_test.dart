@@ -65,7 +65,10 @@ void main() {
     expect(text.paint.color.space, RitoColorSpace.srgb);
     expect(text.sourceText, 'source body');
     expect(text.sourceTextOffset, 9);
-    expect((commands[10] as RitoPaintImage).src, testRelativeImageHref);
+    final image = commands[10] as RitoPaintImage;
+    expect(image.src, testRelativeImageHref);
+    expect(image.sourceRect?.x, 4);
+    expect(image.sourceRect?.height, 30);
   });
 
   test('rejects every truncated artifact prefix and trailing bytes', () {

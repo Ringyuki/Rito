@@ -158,12 +158,18 @@ final class RitoPaintImage extends RitoCommand {
     required this.rect,
     this.alt,
     this.href,
+    this.sourceRect,
   });
 
   final String src;
   final RitoDisplayRect rect;
   final String? alt;
   final String? href;
+
+  /// Raster sub-region to sample instead of the full bitmap — the
+  /// clamp-bleed guard an SVG letterbox needs (see the engine's
+  /// append_image_command).
+  final RitoDisplayRect? sourceRect;
 
   @override
   int get opcode => 11;

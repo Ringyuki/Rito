@@ -82,6 +82,7 @@ Uint8List displayFixture({
   _rect(writer);
   writer.option(() => writer.string('cover'));
   writer.option(null);
+  writer.option(() => _rect(writer));
   writer.uint16(12);
   _rect(writer);
   _color(writer, red: 0, green: 0, blue: 0);

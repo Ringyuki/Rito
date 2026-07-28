@@ -75,6 +75,10 @@ final class RitoDisplayListDecoder {
           () => reader.string('image alternative'),
         ),
         href: reader.option('image href', () => reader.string('image href')),
+        sourceRect: reader.option(
+          'image source rect',
+          () => reader.readDisplayRect('image source rect'),
+        ),
       ),
       12 => RitoPaintHorizontalRule(
         rect: reader.readDisplayRect('horizontal rule rect'),
