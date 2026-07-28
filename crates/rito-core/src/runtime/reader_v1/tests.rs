@@ -1560,3 +1560,47 @@ fn collect_double_spread_text(
     session.dispose().expect("double-spread session disposes");
     page_text
 }
+
+#[test]
+fn previous_chapter_tail_publishes_when_the_chapter_completes_within_budget() {
+    use crate::runtime::tests::fixture::short_previous_chapter_fixture_epub;
+    for tail in ["text", "trailing-image", "image-only", "hidden-tail", "ruby-tail", "svg-image", "empty-tail"] {
+        let mut session =
+            ReaderSessionV1::open_owned(97, short_previous_chapter_fixture_epub(tail))
+                .expect("reader session opens");
+        let visible = session
+            .request_artifact(request(97, 1, "chapter-1.xhtml"))
+            .expect("source chapter resolves");
+        adopt_initial(&mut session, 97, visible.artifact_id);
+        let mut prev = adjacent(
+            97,
+            2,
+            visible.artifact_id,
+            ReaderAdjacentDirectionV1::Previous,
+        );
+        let mut resolved = None;
+        for request_id in 2..=64 {
+            prev.request_id = request_id;
+            match session.request_adjacent(prev) {
+                Ok(artifact) => {
+                    resolved = Some(artifact);
+                    break;
+                }
+                Err(error) => {
+                    assert_eq!(
+                        error.kind,
+                        ReaderErrorKindV1::TargetNotPublished,
+                        "tail={tail}: unexpected error: {error:?}"
+                    );
+                    assert!(
+                        session.has_pending_adjacent_v1(),
+                        "tail={tail}: previous-tail request became terminal: {error:?}"
+                    );
+                }
+            }
+        }
+        let resolved =
+            resolved.unwrap_or_else(|| panic!("tail={tail}: previous chapter tail never resolves"));
+        assert_eq!(resolved.locator.href, "chapter-0.xhtml", "tail={tail}");
+    }
+}

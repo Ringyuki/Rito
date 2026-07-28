@@ -3,7 +3,7 @@ use crate::epub::{EpubError, EpubResult};
 use super::page_artifact::PageArtifactSourceRunStart;
 use super::{
     navigation::spread_index_for_page, RuntimeChapterTextIndex, RuntimeDocument,
-    RuntimeExactSourceRangeRequest, RuntimeRevision,
+    RuntimeExactSourceRangeRequest, RuntimeRevision, RuntimeRevisionStatus,
 };
 
 mod href;
@@ -430,7 +430,23 @@ fn resolve_canonical_source_locator(
                 SourceProjection::Page(chapter_range.start_page)
             } else {
                 let offset = (progression * text_length as f64).round() as usize;
-                project_source_offset(&source_starts, source_index, offset.min(text_length))
+                let projection =
+                    project_source_offset(&source_starts, source_index, offset.min(text_length));
+                // A progression target is a ratio, not an exact point: once
+                // the revision is complete it must always publish. Hidden
+                // text (display:none tails and the like) sits in the
+                // normalized index but never enters paint runs, so a 1.0
+                // progression lands beyond the sealed extent forever —
+                // clamp it to the chapter's last page instead of leaving
+                // the completed revision unresolvable (the previous-chapter
+                // tail crash).
+                if projection == SourceProjection::BeyondSealedExtent
+                    && revision.status == RuntimeRevisionStatus::Complete
+                {
+                    SourceProjection::Page(chapter_range.end_page)
+                } else {
+                    projection
+                }
             }
         }
         (RuntimeSourceLocatorMatchedBy::Href, _) => {

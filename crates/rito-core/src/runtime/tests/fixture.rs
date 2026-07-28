@@ -416,3 +416,26 @@ pub(super) fn add_file(
     writer.start_file(path, options).expect("file starts");
     writer.write_all(bytes).expect("file writes");
 }
+
+/// Two-chapter book whose first chapter is tiny enough to complete
+/// inside a single bounded quantum, in three tail shapes that exercise
+/// the previous-chapter-tail (progression 1.0) projection.
+pub fn short_previous_chapter_fixture_epub(tail: &str) -> Vec<u8> {
+    let chapter_zero = match tail {
+        "text" => r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p>short chapter</p></body></html>"#.to_owned(),
+        "trailing-image" => r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p>short chapter</p><img src="missing.png" alt="tail image"/></body></html>"#.to_owned(),
+        "image-only" => r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><img src="missing.png" alt="only image"/></body></html>"#.to_owned(),
+        "hidden-tail" => r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p>short chapter</p><p style="display:none">hidden colophon text</p></body></html>"#.to_owned(),
+        "ruby-tail" => r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p>tail is <ruby>ruby<rt>annotated</rt></ruby></p></body></html>"#.to_owned(),
+        "svg-image" => r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150"><image href="missing.png" width="100" height="150"/></svg></body></html>"#.to_owned(),
+        "empty-tail" => r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p>short chapter</p><p>&#160;</p><div></div></body></html>"#.to_owned(),
+        other => panic!("unknown tail shape: {other}"),
+    };
+    many_chapter_fixture_epub_with(2, move |index| {
+        if index == 0 {
+            chapter_zero.clone()
+        } else {
+            chapter_fixture_xhtml("adjacent source chapter")
+        }
+    })
+}
