@@ -1,0 +1,62 @@
+{
+  "name": "text-baseline-phases",
+  "width": 420,
+  "height": 220,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintText",
+      "text": "Baseline phase 0.00",
+      "rect": { "x": 10, "y": 10, "width": 220, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "Baseline phase 0.25",
+      "rect": { "x": 10, "y": 40.25, "width": 220, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "Baseline phase 0.50",
+      "rect": { "x": 10, "y": 70.5, "width": 220, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "Baseline phase 0.75",
+      "rect": { "x": 10, "y": 100.75, "width": 220, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "Fractional size 14.123456",
+      "rect": { "x": 10, "y": 130.6, "width": 260, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos", "sizePx": 14.123456, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "宋体基线相位测试",
+      "rect": { "x": 10, "y": 160.3, "width": 300, "height": 26 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Source Han Serif CN", "sizePx": 18, "style": "normal", "weight": 400 }
+      }
+    }
+  ]
+}
