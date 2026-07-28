@@ -155,10 +155,13 @@ final class RitoCanvasPaintTarget implements RitoPaintTarget {
   void paintHorizontalRule(RitoPaintHorizontalRule command) {
     final rect = _rect(command.rect);
     _validateHorizontalRulePaint(command);
-    final y = rect.top + rect.height / 2;
+    // Browser pen snap: centerline rounds to the grid, odd heights ride
+    // the half-pixel, endpoints round.
+    final rawY = rect.top + rect.height / 2;
+    final y = rawY.roundToDouble() + (rect.height % 2 == 1 ? 0.5 : 0.0);
     _strokeStyledLine(
-      ui.Offset(rect.left, y),
-      ui.Offset(rect.right, y),
+      ui.Offset(rect.left.roundToDouble(), y),
+      ui.Offset(rect.right.roundToDouble(), y),
       rect.height,
       command.paint.color,
       command.paint.style,

@@ -31,6 +31,9 @@ extension _CanvasPaintCapabilities on RitoCanvasPaintTarget {
       return const _PreparedBlockPaint();
     }
     final target = _backgroundTarget(source, rect, background);
+    // The browser pen tiles every repeat mode except no-repeat on both
+    // axes; mirror that collapse so the grids agree.
+    final repeat = background.repeat ?? RitoBackgroundRepeat.repeat;
     final plan = RitoBackgroundTilePlan.create(
       boxLeft: rect.left,
       boxTop: rect.top,
@@ -40,7 +43,9 @@ extension _CanvasPaintCapabilities on RitoCanvasPaintTarget {
       targetTop: target.top,
       targetWidth: target.width,
       targetHeight: target.height,
-      repeat: background.repeat ?? RitoBackgroundRepeat.repeat,
+      repeat: repeat == RitoBackgroundRepeat.noRepeat
+          ? RitoBackgroundRepeat.noRepeat
+          : RitoBackgroundRepeat.repeat,
     );
     return _PreparedBlockPaint(image: image, tilePlan: plan);
   }
