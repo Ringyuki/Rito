@@ -143,6 +143,15 @@ RitoPageSurface(
   from approximate metrics. SHA-256 digests are computed automatically;
   variable fonts are rejected by the core.
 
+  The session also registers each pinned face with `FontLoader` under
+  its engine alias (`__RitoPinned_<sha256>`) before the first paint —
+  the alias every painted run's family stack rides ahead of its generic
+  tail. Paint therefore resolves to the same bytes layout measured
+  with, and the app does **not** need to declare these faces in
+  `pubspec.yaml`. The painter splits the run's comma-joined CSS family
+  stack into `fontFamily` + `fontFamilyFallback`, so book-embedded
+  families registered from `artifact.fonts` also resolve by name.
+
 - Fonts are prepared by `RitoArtifactFontCache.shared` by default:
   read through the artifact's native ownership, length-checked,
   registered with `FontLoader`, deduplicated process-wide by family +

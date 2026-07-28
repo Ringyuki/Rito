@@ -20,7 +20,8 @@ final class RitoPinnedFontFace {
     required this.genericRole,
     this.language,
     String? sha256Hex,
-  }) : sha256Hex = sha256Hex ?? crypto.sha256.convert(bytes).toString() {
+  }) : sha256Hex = (sha256Hex ?? crypto.sha256.convert(bytes).toString())
+           .toLowerCase() {
     if (bytes.isEmpty) {
       throw ArgumentError('pinned font face bytes must not be empty');
     }
@@ -32,6 +33,13 @@ final class RitoPinnedFontFace {
       );
     }
   }
+
+  /// Stable family alias the engine paints this face under — pinned
+  /// aliases appear in every run's family stack ahead of the generic
+  /// tail. Must stay in lockstep with the core's
+  /// `RuntimePinnedFontFace::family_alias` (`__RitoPinned_<sha256>`,
+  /// contract-tested on the Rust side).
+  String get familyAlias => '__RitoPinned_$sha256Hex';
 
   /// Raw TTF/OTF face bytes. Variable fonts are rejected by the core.
   final Uint8List bytes;

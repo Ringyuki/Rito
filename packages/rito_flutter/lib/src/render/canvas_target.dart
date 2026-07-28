@@ -10,6 +10,7 @@ import '../protocol/display_paint.dart';
 import '../protocol/wire_exception.dart';
 import 'background_tile_plan.dart';
 import 'font_envelope.dart';
+import 'font_family_stack.dart';
 import 'replayer.dart';
 import 'resources.dart';
 import 'typed_color.dart';

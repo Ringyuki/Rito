@@ -6,6 +6,7 @@ import 'dart:collection';
 import 'package:flutter/services.dart';
 
 import '../image/artifact_image_cache.dart';
+import '../native/pinned_font_policy.dart';
 import '../protocol/artifact_models.dart';
 import '../render/font_envelope.dart';
 
@@ -100,11 +101,36 @@ final class RitoArtifactFontCache {
   static final RitoArtifactFontCache shared = RitoArtifactFontCache();
 
   final RitoFontRegistrar _registrar;
+  final Set<String> _pinnedAliases = <String>{};
   final _AsyncWorkLimiter _prepareLimiter = _AsyncWorkLimiter(
     _fontPrepareConcurrency,
   );
   final Map<({String family, String fingerprint}), _FontLoadEntry> _loads =
       <({String family, String fingerprint}), _FontLoadEntry>{};
+
+  /// Registers the session's pinned faces under their engine aliases
+  /// (`__RitoPinned_<sha256>`) so the family stacks the engine paints
+  /// resolve to the exact bytes layout measured with. Deduplicated
+  /// process-wide by alias; fonts cannot be unloaded. Uses Flutter's
+  /// `FontLoader` directly — pinned faces are app assets, already
+  /// TTF/OTF, so the WOFF-transcoding registrar path does not apply.
+  Future<void> registerPinnedFaces(RitoPinnedFontPolicy policy) async {
+    for (final face in policy.faces) {
+      final alias = face.familyAlias;
+      if (!_pinnedAliases.add(alias)) {
+        continue;
+      }
+      try {
+        RitoFontEnvelopeStore.shared.register(alias, face.bytes);
+        final loader = FontLoader(alias)
+          ..addFont(Future<ByteData>.value(ByteData.sublistView(face.bytes)));
+        await loader.load();
+      } on Object {
+        _pinnedAliases.remove(alias);
+        rethrow;
+      }
+    }
+  }
 
   Future<RitoPreparedArtifact> prepare({
     required RitoArtifact artifact,
@@ -253,7 +279,8 @@ final class _AsyncWorkLimiter {
   _AsyncWorkLimiter(this.limit);
 
   final int limit;
-  final Queue<Future<void> Function()> _queue = Queue<Future<void> Function()>();
+  final Queue<Future<void> Function()> _queue =
+      Queue<Future<void> Function()>();
   int _active = 0;
 
   Future<T> run<T>(Future<T> Function() task) {

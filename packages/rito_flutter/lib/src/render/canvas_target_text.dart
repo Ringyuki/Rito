@@ -54,11 +54,10 @@ extension _TextPainting on RitoCanvasPaintTarget {
             .roundToDouble();
     final topAscent =
         _fontEnvelopes
-            ?.lookup(command.paint.font.family)
+            ?.lookupFamilyStack(command.paint.font.family)
             ?.topAnchorAscentPx(command.paint.font.sizePx) ??
         baselineOffset;
-    final topAnchorY =
-        (rect.top + topAscent).roundToDouble() - baselineOffset;
+    final topAnchorY = (rect.top + topAscent).roundToDouble() - baselineOffset;
     final origin = ruby
         ? ui.Offset(x, topAnchorY)
         : ui.Offset(x, baselineRow - baselineOffset);
@@ -153,10 +152,16 @@ extension _TextPainting on RitoCanvasPaintTarget {
     bool includeSpacing = true,
   }) {
     final font = paint.font;
+    // The run family is a comma-joined CSS fallback stack (book faces,
+    // pinned aliases, generic tail). Canvas resolves it natively; here
+    // it must split into Flutter's single-family + fallback-list shape
+    // or the literal stack string never matches a registered face.
+    final families = ritoSplitFontFamilyStack(font.family);
     return TextStyle(
       color: foreground == null ? _color(paint.color) : null,
       foreground: foreground,
-      fontFamily: font.family.isEmpty ? null : font.family,
+      fontFamily: families.isEmpty ? null : families.first,
+      fontFamilyFallback: families.length > 1 ? families.sublist(1) : null,
       fontSize: font.sizePx,
       fontStyle: font.style == RitoFontStyle.italic
           ? FontStyle.italic
@@ -193,7 +198,7 @@ extension _TextPainting on RitoCanvasPaintTarget {
     final size = paint.font.sizePx;
     var contentTop = rect.top;
     var contentHeight = size;
-    final envelope = _fontEnvelopes?.lookup(paint.font.family);
+    final envelope = _fontEnvelopes?.lookupFamilyStack(paint.font.family);
     if (envelope != null) {
       final ascent = envelope.boundingAscentPx(size);
       final descent = envelope.boundingDescentPx(size);
@@ -209,10 +214,7 @@ extension _TextPainting on RitoCanvasPaintTarget {
   }
 
   ui.RRect _inlineRoundedRect(ui.Rect box, double radius) {
-    final resolved = math.min(
-      radius,
-      math.min(box.width / 2, box.height / 2),
-    );
+    final resolved = math.min(radius, math.min(box.width / 2, box.height / 2));
     return ui.RRect.fromRectAndRadius(box, ui.Radius.circular(resolved));
   }
 

@@ -70,6 +70,15 @@ final class RitoReaderSession {
         'must be positive',
       );
     }
+    // Register pinned faces under their engine aliases before the first
+    // artifact can paint: every run's family stack rides these aliases
+    // ahead of the generic tail, so paint resolves to the same bytes
+    // layout measures with.
+    if (pinnedFontPolicy != null) {
+      await (fontCache ?? RitoArtifactFontCache.shared).registerPinnedFaces(
+        pinnedFontPolicy,
+      );
+    }
     final artifact = await gateway.open(
       publicationBytes: publicationBytes,
       request: request,

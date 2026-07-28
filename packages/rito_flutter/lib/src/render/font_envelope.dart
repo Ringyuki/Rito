@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'font_family_stack.dart';
+
 /// Per-family font metrics the browser pen reads off Chromium's canvas,
 /// re-derived from the same sfnt tables so both pens stay
 /// platform-independent (SkParagraph only exposes hhea-based line
@@ -29,8 +31,7 @@ final class RitoFontEnvelope {
 
   /// Unrounded em-box ascent: the 'top' anchor descends by this before
   /// the raster's whole-row baseline snap.
-  double topAnchorAscentPx(double sizePx) =>
-      typoAscender * sizePx / unitsPerEm;
+  double topAnchorAscentPx(double sizePx) => typoAscender * sizePx / unitsPerEm;
 
   /// Chromium's canvas fontBoundingBoxAscent (grid-fit).
   double boundingAscentPx(double sizePx) =>
@@ -63,12 +64,27 @@ final class RitoFontEnvelopeStore {
 
   RitoFontEnvelope? lookup(String family) => _byFamily[family];
 
+  /// Resolves a run's comma-joined CSS family stack to the first
+  /// registered face's envelope — the same face Flutter's fallback
+  /// chain will paint with.
+  RitoFontEnvelope? lookupFamilyStack(String stack) {
+    for (final family in ritoSplitFontFamilyStack(stack)) {
+      final envelope = _byFamily[family];
+      if (envelope != null) {
+        return envelope;
+      }
+    }
+    return null;
+  }
+
   static RitoFontEnvelope? _parse(Uint8List bytes) {
     final data = ByteData.sublistView(bytes);
     if (bytes.length < 12) return null;
     final version = data.getUint32(0);
     // 0x00010000 TrueType, 'OTTO' CFF, 'true' legacy Apple TrueType.
-    if (version != 0x00010000 && version != 0x4f54544f && version != 0x74727565) {
+    if (version != 0x00010000 &&
+        version != 0x4f54544f &&
+        version != 0x74727565) {
       return null;
     }
     final numTables = data.getUint16(4);
