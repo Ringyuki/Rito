@@ -111,6 +111,20 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         let padding_top = if resumed { 0.0 } else { container_padding_top };
         let mut y = padding_top;
         remaining -= padding_top;
+        // The collapsed root margin — the chapter body's own margin plus
+        // every first-child margin the bridge folded up the chain —
+        // positions content below the flow start, exactly as a browser
+        // pushes a chapter's first heading down by its escaped margin
+        // (a 1em heading margin starts the whole book 22px lower). It
+        // belongs to the first fragment only; a resumed fragmentainer
+        // starts flush like any margin meeting an unforced break.
+        if collapse_root_edges && !resumed {
+            let (root_margin_top, _) = vertical_margins(tree, container, space.inline_size)?;
+            if root_margin_top > 0.0 {
+                y += root_margin_top;
+                remaining -= root_margin_top;
+            }
+        }
         // Padding blocks parent-child margin collapse per CSS, so a padded
         // root keeps its first child's top margin inside.
         let collapse_root_edges = collapse_root_edges && container_padding_top == 0.0;

@@ -2299,6 +2299,17 @@ fn fold_through_collapsing_margins(
                         ))
                     }
                 }
+                // A zero-percentage padding (`padding: 0% 0`) is exactly
+                // zero regardless of basis, so a length margin folds into
+                // it as a plain length — dropping into the fallthrough
+                // instead silently vanished a chapter's 22px heading
+                // margin and shifted every page of the book.
+                (
+                    LengthPercentageOrAuto::Value(LengthPercentage::Length(margin_px)),
+                    LengthPercentage::Percentage(existing),
+                ) if existing.ratio() == 0.0 && margin_px.get() > 0.0 => {
+                    Some(LengthPercentage::Length(margin_px))
+                }
                 (
                     LengthPercentageOrAuto::Value(LengthPercentage::Percentage(pct)),
                     existing_padding,
@@ -2323,7 +2334,14 @@ fn fold_through_collapsing_margins(
                 *padding = NonNegativeLengthPercentage::new(next);
                 changed = true;
             }
-            if !matches!(*margin, LengthPercentageOrAuto::Value(LengthPercentage::Length(px)) if px.get() == 0.0)
+            // Only a margin the padding actually absorbed may be
+            // cleared; an unfoldable one (mixed length + percentage)
+            // stays a real margin for layout to apply at the flow start.
+            let absorbed = folded.is_some()
+                || matches!(*margin, LengthPercentageOrAuto::Value(LengthPercentage::Length(px)) if px.get() <= 0.0)
+                || matches!(*margin, LengthPercentageOrAuto::Auto);
+            if absorbed
+                && !matches!(*margin, LengthPercentageOrAuto::Value(LengthPercentage::Length(px)) if px.get() == 0.0)
             {
                 *margin = zero();
                 changed = true;
