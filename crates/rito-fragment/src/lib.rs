@@ -32,7 +32,8 @@ pub use formatting_tree::{
     InlineItem,
 };
 pub use fragment::{
-    BoxFragment, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFragment, TextFragment,
+    BoxFragment, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFragment,
+    MarkerFragment, TextFragment,
 };
 pub use serialize::{decode_layout_outcome, encode_layout_outcome};
 

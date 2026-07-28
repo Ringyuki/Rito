@@ -69,6 +69,12 @@ hr { margin-block: 0.5em; }
 sup { vertical-align: super; font-size: smaller; }
 sub { vertical-align: sub; font-size: smaller; }
 
+/* Chromium's light-mode UA link styling (measured rgb(0,0,238) on the
+   pinned truth): publication TOCs lean on it. No :visited distinction —
+   the engine has no history, and the truth browser's fresh profile
+   renders every link unvisited. */
+a:any-link { color: rgb(0, 0, 238); text-decoration: underline; }
+
 /* HTML's bidi isolation defaults. The engine implements no bidi
    reordering yet (a listed capability gap), so these compute and are
    accepted as inert rather than noted per element. */

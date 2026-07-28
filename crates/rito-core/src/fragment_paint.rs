@@ -280,6 +280,34 @@ fn append_line_commands(
     }
     let line_x = origin_x + line.rect.x;
     let line_y = origin_y + line.rect.y;
+    // The list item's outside disc marker, filled with the line's text
+    // color (Blink inherits the item's `color`). Geometry comes from the
+    // layout side (see rito_fragment::MarkerFragment).
+    if let Some(marker) = &line.marker {
+        let color = items
+            .iter()
+            .find_map(|item| match item {
+                InlineItem::Text { style, .. } => Some(*style),
+                _ => None,
+            })
+            .and_then(|style| styles.inline.style(style).ok())
+            .map(|style| css_color(style.paint.foreground))
+            .transpose()?
+            .unwrap_or_else(|| "#000000".to_owned());
+        commands.push(DisplayCommand::paint_block(
+            rect_value(
+                line_x + marker.x,
+                line_y + marker.y,
+                marker.diameter,
+                marker.diameter,
+            ),
+            serde_json::json!({
+                "background": { "color": color },
+                "radius": { "px": marker.diameter / 2.0 },
+            }),
+            None,
+        ));
+    }
     for child in &line.children {
         match child {
             Fragment::Text(run) => {
@@ -874,6 +902,7 @@ mod tests {
             },
             children: vec![Fragment::Line(LineFragment {
                 source: FormattingNodeId(0),
+                marker: None,
                 rect: FragmentRect {
                     x: 4.0,
                     y: 6.0,

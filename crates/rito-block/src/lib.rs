@@ -2392,6 +2392,7 @@ mod tests {
                 .map(|index| {
                     Fragment::Line(LineFragment {
                         source: node,
+                        marker: None,
                         rect: FragmentRect {
                             x: 0.0,
                             y: 10.0 * index as f64,
@@ -3212,6 +3213,7 @@ mod tests {
                     .map(|index| {
                         Fragment::Line(LineFragment {
                             source: node,
+                            marker: None,
                             rect: FragmentRect {
                                 x: 0.0,
                                 y: LINE * index as f64,

@@ -35,12 +35,31 @@ pub struct LineFragment {
     pub rect: FragmentRect,
     /// Baseline offset from the line box top, CSS px.
     pub baseline: f64,
+    /// Outside list marker (a disc) anchored to this line, in
+    /// line-relative coordinates. Only the first line of a
+    /// `display: list-item` flow carries one; the painter fills it with
+    /// the line's text color.
+    pub marker: Option<MarkerFragment>,
     /// Advance consumed by trailing whitespace, CSS px. Consumers that need
     /// the visible ink extent subtract this from the rect width, matching
     /// how CSS hangs whitespace at the end of a line.
     pub trailing_whitespace: f64,
     /// Text (and later inline-box) fragments in visual order.
     pub children: Vec<Fragment>,
+}
+
+/// An outside list-item marker: a filled disc whose geometry Blink derives
+/// from the list item's primary font (measured 2026-07-28, two faces and
+/// four sizes): diameter = ascent / 3, horizontally the disc's right edge
+/// sits `7px` (Chromium's marker padding) before the content edge, and its
+/// vertical center rides half the x-height above the first line's baseline.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MarkerFragment {
+    /// Disc left edge, relative to the line box origin.
+    pub x: f64,
+    /// Disc top edge, relative to the line box origin.
+    pub y: f64,
+    pub diameter: f64,
 }
 
 /// One run of laid-out text inside a line.

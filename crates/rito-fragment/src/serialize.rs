@@ -76,6 +76,15 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             encode_rect(&fragment.rect, out);
             out.extend_from_slice(&fragment.baseline.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.trailing_whitespace.to_bits().to_le_bytes());
+            match &fragment.marker {
+                None => out.push(0),
+                Some(marker) => {
+                    out.push(1);
+                    out.extend_from_slice(&marker.x.to_bits().to_le_bytes());
+                    out.extend_from_slice(&marker.y.to_bits().to_le_bytes());
+                    out.extend_from_slice(&marker.diameter.to_bits().to_le_bytes());
+                }
+            }
             out.extend_from_slice(&(fragment.children.len() as u32).to_le_bytes());
             for child in &fragment.children {
                 encode_fragment(child, out);
@@ -124,6 +133,15 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
         FRAGMENT_TAG_LINE => {
             let baseline = reader.f64()?;
             let trailing_whitespace = reader.f64()?;
+            let marker = match reader.u8()? {
+                0 => None,
+                1 => Some(crate::MarkerFragment {
+                    x: reader.f64()?,
+                    y: reader.f64()?,
+                    diameter: reader.f64()?,
+                }),
+                tag => return Err(format!("unknown line marker tag {tag}")),
+            };
             let child_count = reader.u32()? as usize;
             let mut children = Vec::with_capacity(child_count.min(reader.remaining()));
             for _ in 0..child_count {
@@ -134,6 +152,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 rect,
                 baseline,
                 trailing_whitespace,
+                marker,
                 children,
             }))
         }
@@ -369,6 +388,11 @@ mod tests {
                     },
                     children: vec![Fragment::Line(LineFragment {
                         source: FormattingNodeId(0),
+                        marker: Some(crate::MarkerFragment {
+                            x: -11.5,
+                            y: 6.25,
+                            diameter: 4.5,
+                        }),
                         rect: FragmentRect {
                             x: 0.0,
                             y: 0.0,
