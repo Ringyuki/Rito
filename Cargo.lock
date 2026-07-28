@@ -1058,6 +1058,7 @@ name = "rito-ffi"
 version = "0.0.0"
 dependencies = [
  "rito-core",
+ "sha2",
 ]
 
 [[package]]
