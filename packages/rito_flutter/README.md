@@ -106,6 +106,24 @@ should normally use the isolate gateway. Tests and embedder diagnostics may opt
 out of Native Assets with `RitoIsolateGateway(diagnosticLibrary: ...)` or
 `RitoNativeBindings.fromDynamicLibrary(...)`.
 
+A full integration reference lives in `doc/INTEGRATION.md`.
+
+## Paint parity
+
+The Canvas pen replays the same display list as the pixel-court
+calibrated browser pen and is held to it by the diff instrument at
+`tools/paint-parity/run.mjs` (repo root): shared fixture corpus →
+both pens → per-pixel report. All geometric rules — two-stage baseline
+snapping, letter-spacing distribution, border grid snapping and 1px
+dotted binary dots, per-corner radii with CSS §5.5 overlap scaling,
+box-shadow sigma and interior exclusion, background sizing/tiling,
+image sourceRect sampling, typed-color sRGB clipping — are ported and
+verified pixel-exact. Remaining divergence is rasterizer-level AA and
+interpolation rounding, itemized with evidence in
+`tools/paint-parity/EXEMPTIONS.md`. Font-dependent anchors (ruby,
+text-shadow, inline envelopes) use OS/2 metrics via
+`RitoFontEnvelopeStore`, filled automatically during font preparation.
+
 ## Known renderer semantics still to close
 
 - `RITODL1` V1 does not carry bidi direction or visual glyph runs, so Flutter
@@ -114,9 +132,9 @@ out of Native Assets with `RitoIsolateGateway(diagnosticLibrary: ...)` or
 - Flutter 3.41's `FontLoader` documents OTF/TTF support only. EPUB WOFF/WOFF2
   faces therefore fail closed before page paint unless an injected
   `RitoFontRegistrar` transcodes them or the native adapter supplies SFNT font
-  bytes.
-- Inset box shadows are decoded but not painted. `groove`, `ridge`, `inset`,
-  and `outset` borders currently use a solid-line approximation.
-- Background `space` and `round` repeat modes currently use regular tiling.
-  Out-of-gamut non-P3 colors are converted to sRGB with channel clipping rather
-  than browser-grade perceptual gamut mapping.
+  bytes. A transcoding registrar should also register the transcoded bytes
+  with `RitoFontEnvelopeStore.shared` so 'top'-anchored features keep their
+  Chromium-sourced metrics.
+- Inset box shadows are decoded but not painted; they and `groove`/`ridge`/
+  `inset`/`outset` borders fail closed with `UnsupportedError` before any
+  partial paint.
