@@ -102,6 +102,12 @@ extension _RitoDisplayPaintReader on RitoBinaryReader {
     return switch (tag) {
       1 => RitoBlockPxRadius(float64('block radius')),
       2 => RitoBlockPercentRadius(float64('block radius')),
+      3 => RitoBlockCornersRadius(<double>[
+        float64('block radius top-left'),
+        float64('block radius top-right'),
+        float64('block radius bottom-right'),
+        float64('block radius bottom-left'),
+      ]),
       _ => fail('unknown block radius tag: $tag'),
     };
   }

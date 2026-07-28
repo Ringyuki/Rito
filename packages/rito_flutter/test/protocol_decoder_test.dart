@@ -130,6 +130,12 @@ void main() {
       decoder.decode(displayFixture(blockRadiusTag: tag));
       decoder.decode(displayFixture(transformLengthTag: tag));
     }
+    final cornered = decoder.decode(displayFixture(blockRadiusTag: 3));
+    final corners =
+        ((cornered.commands[7] as RitoPaintBlock).paint.radius!
+                as RitoBlockCornersRadius)
+            .corners;
+    expect(corners, <double>[4, 3, 2, 3]);
   });
 
   test('rejects every truncated display-list prefix', () {
@@ -161,7 +167,7 @@ void main() {
       displayFixture(pageColorRed: double.infinity),
       displayFixture(backgroundSizeTag: 4),
       displayFixture(backgroundRepeatTag: 7),
-      displayFixture(blockRadiusTag: 3),
+      displayFixture(blockRadiusTag: 4),
       displayFixture(shadowInsetTag: 2),
       displayFixture(fontStyleTag: 3),
       displayFixture(decorationKindTag: 3),

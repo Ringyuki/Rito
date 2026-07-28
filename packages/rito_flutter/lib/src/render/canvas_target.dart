@@ -9,7 +9,6 @@ import '../protocol/display_models.dart';
 import '../protocol/display_paint.dart';
 import '../protocol/wire_exception.dart';
 import 'background_tile_plan.dart';
-import 'canvas_paint_math.dart';
 import 'font_envelope.dart';
 import 'replayer.dart';
 import 'resources.dart';

@@ -199,9 +199,10 @@ RitoBlockRadius? _blockRadius(Object? json) {
   if (map['px'] != null) return RitoBlockPxRadius(_double(map['px']));
   if (map['pct'] != null) return RitoBlockPercentRadius(_double(map['pct']));
   if (map['corners'] != null) {
-    // Wire tag 3 (per-corner radii) is not represented in the Flutter
-    // protocol model yet; surfacing the gap in the diff is the point.
-    throw UnsupportedError('corners radius not yet supported by rito_flutter');
+    final corners = (map['corners']! as List<Object?>)
+        .map((value) => (value! as num).toDouble())
+        .toList();
+    return RitoBlockCornersRadius(corners);
   }
   throw FormatException('unknown radius shape: $map');
 }

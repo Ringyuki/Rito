@@ -13,7 +13,10 @@ extension _BlockPainting on RitoCanvasPaintTarget {
     final radius = _blockRadius(command.paint.radius, rect);
     final prepared =
         _preparedBlocks[command] ?? _prepareBlockPaint(command, rect);
-    _paintBoxShadows(rect, radius, command.paint.boxShadows);
+    // Per-corner radii shape only the background fill and clip; shadows
+    // and borders see rx/ry 0, exactly like the browser pen's
+    // resolveCanvasBlockRadius.
+    _paintBoxShadows(rect, radius.uniform, command.paint.boxShadows);
     final background = command.paint.background;
     if (background != null) {
       _paintBlockBackground(
@@ -24,18 +27,73 @@ extension _BlockPainting on RitoCanvasPaintTarget {
         prepared.tilePlan,
       );
     }
-    _paintBlockBorders(rect, radius, command.paint.border, command.borderBox);
+    _paintBlockBorders(
+      rect,
+      radius.uniform,
+      command.paint.border,
+      command.borderBox,
+    );
   }
 
-  ui.Radius _blockRadius(RitoBlockRadius? radius, ui.Rect rect) {
+  _ResolvedBlockRadius _blockRadius(RitoBlockRadius? radius, ui.Rect rect) {
     return switch (radius) {
-      null => ui.Radius.zero,
-      RitoBlockPxRadius(:final value) => ui.Radius.circular(value),
-      RitoBlockPercentRadius(:final value) => ui.Radius.elliptical(
-        rect.width * value / 100,
-        rect.height * value / 100,
+      null => const _ResolvedBlockRadius(ui.Radius.zero),
+      RitoBlockPxRadius(:final value) => _ResolvedBlockRadius(
+        ui.Radius.circular(value),
+      ),
+      RitoBlockPercentRadius(:final value) => _ResolvedBlockRadius(
+        ui.Radius.elliptical(
+          rect.width * value / 100,
+          rect.height * value / 100,
+        ),
+      ),
+      RitoBlockCornersRadius(:final corners) => _ResolvedBlockRadius(
+        ui.Radius.zero,
+        corners: corners,
       ),
     };
+  }
+
+  /// Rounded shape for a resolved radius: per-corner path when the
+  /// corners disagree (overlap-scaled per CSS Backgrounds §5.5),
+  /// uniform rounded rect otherwise.
+  ui.RRect _resolvedRoundedRect(ui.Rect rect, _ResolvedBlockRadius radius) {
+    final corners = radius.corners;
+    if (corners == null) {
+      return _roundedRect(rect, radius.uniform);
+    }
+    final scaled = _scaleCornerOverlap(corners, rect.width, rect.height);
+    return ui.RRect.fromRectAndCorners(
+      rect,
+      topLeft: ui.Radius.circular(scaled[0]),
+      topRight: ui.Radius.circular(scaled[1]),
+      bottomRight: ui.Radius.circular(scaled[2]),
+      bottomLeft: ui.Radius.circular(scaled[3]),
+    );
+  }
+
+  /// CSS Backgrounds §5.5: shrink all corners by one factor so adjacent
+  /// corners never cross on a short edge (browser pen
+  /// scaleCornerOverlap).
+  List<double> _scaleCornerOverlap(
+    List<double> corners,
+    double width,
+    double height,
+  ) {
+    final tl = math.max(0.0, corners[0]);
+    final tr = math.max(0.0, corners[1]);
+    final br = math.max(0.0, corners[2]);
+    final bl = math.max(0.0, corners[3]);
+    double ratio(double extent, double sum) =>
+        extent / math.max(1e-6, sum);
+    final factor = math.min(
+      1.0,
+      math.min(
+        math.min(ratio(width, tl + tr), ratio(width, bl + br)),
+        math.min(ratio(height, tl + bl), ratio(height, tr + br)),
+      ),
+    );
+    return <double>[tl * factor, tr * factor, br * factor, bl * factor];
   }
 
   /// Clockwise rounded-rect path with CSS radius clamping, the analogue
@@ -104,24 +162,22 @@ extension _BlockPainting on RitoCanvasPaintTarget {
 
   void _paintBlockBackground(
     ui.Rect rect,
-    ui.Radius radius,
+    _ResolvedBlockRadius radius,
     RitoBackgroundPaint background,
     ui.Image? image,
     RitoBackgroundTilePlan? tilePlan,
   ) {
+    final shape = _resolvedRoundedRect(rect, radius);
     final color = background.color;
     if (color != null) {
-      _canvas.drawRRect(
-        _roundedRect(rect, radius),
-        ui.Paint()..color = _color(color),
-      );
+      _canvas.drawRRect(shape, ui.Paint()..color = _color(color));
     }
     if (image == null || tilePlan == null) {
       return;
     }
     _canvas.save();
     try {
-      _canvas.clipRRect(_roundedRect(rect, radius));
+      _canvas.clipRRect(shape);
       _drawBackgroundImage(image, tilePlan);
     } finally {
       _canvas.restore();
@@ -438,6 +494,7 @@ extension _BlockPainting on RitoCanvasPaintTarget {
     RitoColor color,
     RitoBorderStyle style,
   ) {
+    // (shared by inline borders and horizontal rules; unsnapped)
     if (width <= 0) {
       return;
     }
@@ -468,4 +525,14 @@ extension _BlockPainting on RitoCanvasPaintTarget {
       _canvas.drawLine(start + unit * cursor, start + unit * finish, paint);
     }
   }
+}
+
+/// A wire radius resolved against its block rect: per-corner circular
+/// radii when the corners disagree, a uniform radius otherwise (the
+/// browser pen's CanvasBlockResolvedRadius).
+final class _ResolvedBlockRadius {
+  const _ResolvedBlockRadius(this.uniform, {this.corners});
+
+  final ui.Radius uniform;
+  final List<double>? corners;
 }

@@ -109,17 +109,28 @@ final class RitoBlockBorder {
 }
 
 sealed class RitoBlockRadius {
-  const RitoBlockRadius(this.value);
+  const RitoBlockRadius();
+}
+
+final class RitoBlockPxRadius extends RitoBlockRadius {
+  const RitoBlockPxRadius(this.value);
 
   final double value;
 }
 
-final class RitoBlockPxRadius extends RitoBlockRadius {
-  const RitoBlockPxRadius(super.value);
+final class RitoBlockPercentRadius extends RitoBlockRadius {
+  const RitoBlockPercentRadius(this.value);
+
+  final double value;
 }
 
-final class RitoBlockPercentRadius extends RitoBlockRadius {
-  const RitoBlockPercentRadius(super.value);
+/// Circular per-corner radii in CSS order (top-left, top-right,
+/// bottom-right, bottom-left) for boxes whose corners disagree.
+final class RitoBlockCornersRadius extends RitoBlockRadius {
+  RitoBlockCornersRadius(List<double> corners)
+    : corners = List<double>.unmodifiable(corners);
+
+  final List<double> corners;
 }
 
 final class RitoBoxShadow {

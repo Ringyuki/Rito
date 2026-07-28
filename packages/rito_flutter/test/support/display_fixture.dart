@@ -141,7 +141,14 @@ void _blockPaint(
   });
   writer.option(() {
     writer
-      ..uint8(blockRadiusTag)
+      ..uint8(blockRadiusTag);
+    if (blockRadiusTag == 3) {
+      writer
+        ..float64(4)
+        ..float64(3)
+        ..float64(2);
+    }
+    writer
       ..float64(3);
   });
   writer
