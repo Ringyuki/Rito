@@ -87,6 +87,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             encode_rect(&fragment.rect, out);
             out.extend_from_slice(&fragment.text_start.to_le_bytes());
             out.extend_from_slice(&fragment.text_end.to_le_bytes());
+            out.extend_from_slice(&fragment.justify_px.to_bits().to_le_bytes());
         }
         Fragment::Image(fragment) => {
             out.push(FRAGMENT_TAG_IMAGE);
@@ -139,11 +140,13 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
         FRAGMENT_TAG_TEXT => {
             let text_start = reader.u32()?;
             let text_end = reader.u32()?;
+            let justify_px = reader.f64()?;
             Ok(Fragment::Text(TextFragment {
                 source,
                 rect,
                 text_start,
                 text_end,
+                justify_px,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -384,6 +387,7 @@ mod tests {
                             },
                             text_start: 0,
                             text_end: 42,
+                            justify_px: 0.25,
                         })],
                     })],
                 }),

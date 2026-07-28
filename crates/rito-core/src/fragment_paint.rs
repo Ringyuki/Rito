@@ -350,7 +350,7 @@ fn append_text_run_command(
         .inline
         .style(*style)
         .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
-    let paint = run_paint(style, family_policy)?;
+    let paint = run_paint(style, family_policy, run.justify_px)?;
     let font_size = f64::from(style.font.size.get());
     // The run's baseline is the line's, raised by the item's own shift;
     // the paint rect starts one canvas-'top' ascent above it and spans the
@@ -541,6 +541,7 @@ fn append_image_command(
 fn run_paint(
     style: &InlineFormattingStyleV1,
     family_policy: Option<&PaintFamilyPolicy>,
+    justify_px: f64,
 ) -> EpubResult<RunPaint> {
     let paint = &style.paint;
     let color = css_color(paint.foreground)?;
@@ -578,7 +579,13 @@ fn run_paint(
                 family: paint_family_stack(style, family_policy)?,
             },
             word_spacing_px: spacing_px(style.text_flow.word_spacing)?,
-            letter_spacing_px: spacing_px(style.text_flow.letter_spacing)?,
+            // Justification spacing rides the same painter knob as author
+            // letter-spacing: the canvas spreads clusters exactly like the
+            // DOM's justified shaping does (measured bit-identical).
+            letter_spacing_px: match (spacing_px(style.text_flow.letter_spacing)?, justify_px) {
+                (author, 0.0) => author,
+                (author, justify) => Some(author.unwrap_or(0.0) + justify),
+            },
         },
         color,
         background_color,
@@ -852,6 +859,7 @@ mod tests {
             },
             text_start: start,
             text_end: end,
+            justify_px: 0.0,
         })
     }
 

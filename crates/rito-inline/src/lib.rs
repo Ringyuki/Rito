@@ -673,7 +673,7 @@ impl FormattingContext for ParleyInlineContext {
         let mut end_trims: Vec<usize> = Vec::new();
         let mut rejected_trims: Vec<usize> = Vec::new();
         let mut pending_trim: Option<usize> = None;
-        let (layout, alignment, shifted_ranges) = loop {
+        let (layout, alignment, shifted_ranges, first_line_indent) = loop {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
             }
@@ -725,14 +725,27 @@ impl FormattingContext for ParleyInlineContext {
                     end_trims.push(byte);
                     pending_trim = Some(byte);
                 }
-                None => break (layout, alignment, shifted_ranges),
+                None => break (layout, alignment, shifted_ranges, first_line_indent),
             }
         };
         let mut layout = layout;
         // Always align, `Start` included: alignment is where Parley applies
         // the first-line indent's start-edge offset, so skipping it for the
         // default alignment would leave indented lines flush.
-        layout.align(alignment, parley::AlignmentOptions::default());
+        //
+        // Justified paragraphs align to the start edge here: Parley's own
+        // justification expands whitespace clusters only, while the line
+        // loop below spreads each line's slack across Blink's expansion
+        // opportunities (CJK boundaries included) itself.
+        let justify = alignment == parley::Alignment::Justify;
+        layout.align(
+            if justify {
+                parley::Alignment::Start
+            } else {
+                alignment
+            },
+            parley::AlignmentOptions::default(),
+        );
         let strut_height = self.resolved_strut_height(tree, root)?;
         let item_shifts: Vec<f64> = match &tree.node(root).content {
             FormattingNodeContent::InlineFlow { items } => items
@@ -852,6 +865,26 @@ impl FormattingContext for ParleyInlineContext {
             let mut debug_misses: Vec<String> = Vec::new();
             let ink_top = f64::from(metrics.block_min_coord);
             let line_x = f64::from(metrics.offset);
+            // A justified line spreads its slack equally across Blink's
+            // expansion opportunities (see `line_justify_plan`); the
+            // paragraph's last line and forced breaks keep the start edge.
+            let justify_plan = if justify
+                && matches!(
+                    line.break_reason(),
+                    parley::layout::BreakReason::Regular
+                        | parley::layout::BreakReason::Emergency
+                ) {
+                let range = line.text_range();
+                let indent = if range.start == 0 { first_line_indent } else { 0.0 };
+                let target = f64::from(line_max_advance(line_top)) - f64::from(indent);
+                let advance = f64::from(metrics.advance - metrics.trailing_whitespace);
+                line_justify_plan(&flow_text, range, target - advance)
+            } else {
+                None
+            };
+            // Expansion shares consumed at boundaries before the walk's
+            // current position; each share moves everything after it.
+            let mut justify_shares_used = 0u32;
             // Collect the line's content first, remembering each child's
             // baseline shift, so the line box can grow by however far
             // shifted content rises above the strut before positions are
@@ -921,20 +954,95 @@ impl FormattingContext for ParleyInlineContext {
                         }
                         let shift = shift_for_range(&run_range);
                         max_rise = max_rise.max(shift);
-                        children.push((
-                            Fragment::Text(TextFragment {
-                                source: root,
-                                rect: FragmentRect {
-                                    x: f64::from(glyph_run.offset()) - line_x,
-                                    y: 0.0,
-                                    width: f64::from(glyph_run.advance()),
-                                    height: 0.0,
-                                },
-                                text_start: run_range.start as u32,
-                                text_end: run_range.end as u32,
-                            }),
-                            shift,
-                        ));
+                        let run_x = f64::from(glyph_run.offset()) - line_x;
+                        let mut emit = |range: std::ops::Range<usize>,
+                                        x: f64,
+                                        width: f64,
+                                        justify_px: f64| {
+                            children.push((
+                                Fragment::Text(TextFragment {
+                                    source: root,
+                                    rect: FragmentRect {
+                                        x,
+                                        y: 0.0,
+                                        width,
+                                        height: 0.0,
+                                    },
+                                    text_start: range.start as u32,
+                                    text_end: range.end as u32,
+                                    justify_px,
+                                }),
+                                shift,
+                            ));
+                        };
+                        match &justify_plan {
+                            None => {
+                                emit(run_range, run_x, f64::from(glyph_run.advance()), 0.0);
+                            }
+                            Some(plan) => {
+                                // Shares at the boundary against the
+                                // previous run shift this whole run; shares
+                                // inside it ride the run's letter spacing
+                                // while their count stays uniform, and cut
+                                // the run into separately placed stretches
+                                // where it changes (a deferred double
+                                // share, a latin word's zero-share gaps).
+                                justify_shares_used += plan.count_at(run_range.start);
+                                let mut stretch_start = run_range.start;
+                                let mut stretch_x =
+                                    run_x + plan.share * f64::from(justify_shares_used);
+                                let mut stretch_natural = 0.0_f64;
+                                let mut stretch_shares = 0u32;
+                                let mut uniform: Option<u32> = None;
+                                let mut natural_x = run_x;
+                                let mut cluster = parley::layout::Cluster::from_byte_index(
+                                    &layout,
+                                    run_range.start,
+                                );
+                                while let Some(current) = cluster {
+                                    let byte = current.text_range().start;
+                                    if byte >= run_range.end {
+                                        break;
+                                    }
+                                    if byte > stretch_start {
+                                        let count = plan.count_at(byte);
+                                        if count <= 1
+                                            && uniform.map_or(true, |value| value == count)
+                                        {
+                                            uniform = Some(count);
+                                            stretch_shares += count;
+                                            justify_shares_used += count;
+                                        } else {
+                                            emit(
+                                                stretch_start..byte,
+                                                stretch_x,
+                                                stretch_natural
+                                                    + plan.share * f64::from(stretch_shares),
+                                                plan.share * f64::from(uniform.unwrap_or(0)),
+                                            );
+                                            justify_shares_used += count;
+                                            stretch_start = byte;
+                                            stretch_x = natural_x
+                                                + plan.share * f64::from(justify_shares_used);
+                                            stretch_natural = 0.0;
+                                            stretch_shares = 0;
+                                            uniform = None;
+                                        }
+                                    }
+                                    stretch_natural += f64::from(current.advance());
+                                    natural_x += f64::from(current.advance());
+                                    cluster = current.next_logical();
+                                }
+                                if stretch_start < run_range.end {
+                                    emit(
+                                        stretch_start..run_range.end,
+                                        stretch_x,
+                                        stretch_natural + plan.share * f64::from(stretch_shares),
+                                        plan.share * f64::from(uniform.unwrap_or(0)),
+                                    );
+                                }
+                            }
+                        }
                     }
                     PositionedLayoutItem::InlineBox(inline_box) => {
                         // Every inline box is an atomic image item. Its
@@ -1549,6 +1657,114 @@ fn is_cjk_context(character: char) -> bool {
         | 0xF900..=0xFAFF
         | 0xFF00..=0xFFEF
         | 0x20000..=0x3FFFF)
+}
+
+/// Blink's justification character class (`Character::IsCJKIdeographOrSymbol`
+/// by block): ideographs, kana, CJK punctuation, and fullwidth forms.
+/// Measured against pinned Chromium (scratchpad justify probes,
+/// 2026-07-28): em dashes, ellipses, middle dots and curly quotes are NOT
+/// in the class even when a CJK face serves them — the class is decided
+/// by code point, not by the resolved font.
+fn is_cjk_justify(character: char) -> bool {
+    matches!(u32::from(character),
+        0x2E80..=0x2EFF
+        | 0x3000..=0x303F
+        | 0x3041..=0x30FF
+        | 0x31C0..=0x31EF
+        | 0x3200..=0x33FF
+        | 0x3400..=0x4DBF
+        | 0x4E00..=0x9FFF
+        | 0xF900..=0xFAFF
+        | 0xFE30..=0xFE4F
+        | 0xFF00..=0xFF60
+        | 0xFFE0..=0xFFE6
+        | 0x20000..=0x2FA1F)
+}
+
+/// Whether a justified line expands after this character: word separators
+/// and CJK ideographs/symbols both open a share on their right side.
+fn justify_expands_after(character: char) -> bool {
+    character == ' ' || is_cjk_justify(character)
+}
+
+/// One justified line's expansion plan.
+///
+/// Blink (`text-align: justify`, default `text-justify: auto`) spreads a
+/// line's slack in equal shares across its expansion opportunities.
+/// Measured against pinned Chromium (scratchpad justify probes,
+/// 2026-07-28, five discriminating lines):
+///
+/// - every boundary whose left character is a space or CJK gets one share
+///   (CJK-CJK, CJK-latin, CJK-space, space-anything: all one share, so
+///   fullwidth punctuation expands exactly like an ideograph);
+/// - latin-latin and latin-space boundaries get none;
+/// - a CJK character right of a non-expansive character opens a share
+///   that lands one boundary LATE (measured: `t|花` stays natural while
+///   `花|鸟` doubles — Blink defers the "before" opportunity it cannot
+///   apply at the boundary itself);
+/// - the line's edges never expand, and trailing whitespace hangs
+///   outside the distribution.
+///
+/// Glyph positions follow the ideal float accumulation truncated to the
+/// device's 1/64px grid; painting the share as canvas letter spacing (or
+/// per-cluster placement) reproduces the DOM raster bit-for-bit
+/// (measured: 0-diff over all 250 line columns, all three paint models).
+struct JustifyPlan {
+    /// Pixels one expansion share adds.
+    share: f64,
+    /// Share count at each inter-character boundary, keyed by the byte
+    /// index (into the flow text) of the boundary's right-hand character,
+    /// ascending. Boundaries without shares are absent.
+    counts: Vec<(usize, u32)>,
+}
+
+impl JustifyPlan {
+    fn count_at(&self, byte: usize) -> u32 {
+        self.counts
+            .binary_search_by_key(&byte, |(index, _)| *index)
+            .map(|found| self.counts[found].1)
+            .unwrap_or(0)
+    }
+}
+
+/// Builds the expansion plan for one line, or `None` when the line has no
+/// slack or no opportunities (then the start-aligned positions stand).
+fn line_justify_plan(
+    text: &str,
+    range: std::ops::Range<usize>,
+    slack: f64,
+) -> Option<JustifyPlan> {
+    if !(slack > 0.0) {
+        return None;
+    }
+    let content = text.get(range.clone())?.trim_end();
+    let mut counts: Vec<(usize, u32)> = Vec::new();
+    let mut total = 0u32;
+    let mut pending = 0u32;
+    let mut previous: Option<char> = None;
+    for (offset, character) in content.char_indices() {
+        if let Some(left) = previous {
+            let mut count = pending;
+            pending = 0;
+            if justify_expands_after(left) {
+                count += 1;
+            } else if is_cjk_justify(character) {
+                pending += 1;
+            }
+            if count > 0 {
+                counts.push((range.start + offset, count));
+                total += count;
+            }
+        }
+        previous = Some(character);
+    }
+    if total == 0 {
+        return None;
+    }
+    Some(JustifyPlan {
+        share: slack / f64::from(total),
+        counts,
+    })
 }
 
 /// Which glyph loses its blank half at a fullwidth-punctuation boundary.

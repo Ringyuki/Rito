@@ -54,6 +54,10 @@ pub struct TextFragment {
     pub text_start: u32,
     /// End byte offset (exclusive) into the concatenated item text.
     pub text_end: u32,
+    /// Extra per-cluster justification spacing, painted as additional
+    /// letter spacing. The rect already sits at its justified position;
+    /// this spreads the run's own characters apart.
+    pub justify_px: f64,
 }
 
 /// One laid-out atomic inline (an image) inside a line.
