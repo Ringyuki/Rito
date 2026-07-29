@@ -391,10 +391,13 @@ impl ReaderSessionV1 {
     /// MAY advance (bounded by the request's work budget, exactly like
     /// an ordinary forward turn) so the next spread is peekable without
     /// a committed navigation; pagination progress is shared revision
-    /// state, not foreground state. This applies to both chapter-local
-    /// and publication-backed sources. Targets still out of reach
-    /// (chapter boundaries, window rollover creation, publication
-    /// spreads the budget could not reach) return `TargetNotPublished`,
+    /// state, not foreground state. This applies to chapter-local and
+    /// publication-backed sources alike, and covers window rollover and
+    /// adjacent-chapter boundaries (next peeks the following chapter's
+    /// first spread, previous the preceding chapter's last). Targets
+    /// still out of reach (the publication's terminal boundary, or a
+    /// budget the neighbor could not be paginated within) return
+    /// `TargetNotPublished`,
     /// which hosts surface as "not peekable yet". The artifact still
     /// occupies one live-artifact slot and must be released by the
     /// caller.
@@ -448,93 +451,37 @@ impl ReaderSessionV1 {
                 "peek request localPageCap must match the source revision",
             ));
         }
-        let known_spreads = revision.known_local_spread_count;
-        let previous_window = revision.previous_window_revision_id;
-        let next_window = revision.next_window_revision_id;
-        let page_cap_reached = revision.page_cap_reached;
-        let artifact = match request.direction {
+        // Reuses the foreground navigation helpers wholesale: window
+        // rollover and adjacent-chapter creation are shared pagination
+        // progress, exactly like in-chapter continuation. The one piece
+        // of foreground state those helpers touch is the pending exact
+        // seek, so the foreground's own pending is parked across the
+        // call and whatever seek the peek attempt parks in its place is
+        // discarded — a peek must neither consume nor leave behind a
+        // foreground continuation.
+        let parked_exact_seek = self.pending_exact_seek.take();
+        let result = match request.direction {
             ReaderAdjacentDirectionV1::Previous if source.local_spread_index > 0 => self
                 .publish_revision_artifact(
                     source.revision_id,
                     source.local_spread_index - 1,
                     request.request_id,
-                )?,
+                ),
             ReaderAdjacentDirectionV1::Previous => {
-                let Some(previous_revision_id) = previous_window else {
-                    return Err(target_not_published(
-                        "previous spread is not retained for peeking",
-                    ));
-                };
-                let previous_spread = self
-                    .revisions
-                    .get(&previous_revision_id)
-                    .and_then(|revision| revision.known_local_spread_count.checked_sub(1))
-                    .ok_or_else(|| {
-                        target_not_published("retained previous window has no published spread")
-                    })?;
-                self.retain_adjacent_windows(previous_revision_id, source.revision_id)?;
-                self.publish_revision_artifact(
-                    previous_revision_id,
-                    previous_spread,
-                    request.request_id,
-                )?
+                self.request_previous_window_or_chapter(source, request.request_id, request.work)
             }
             ReaderAdjacentDirectionV1::Next => {
-                let target = source
-                    .local_spread_index
-                    .checked_add(1)
-                    .ok_or_else(|| numeric_overflow("local spread index"))?;
-                // Lazy pagination stops exactly at the visible target, so
-                // a strictly read-only peek would never find its neighbor
-                // laid out. Advance the chapter's own pagination within
-                // the request's budget — shared revision progress, not a
-                // foreground effect — before deciding.
-                if target >= known_spreads && !page_cap_reached {
-                    let runtime_budget = RuntimeRevisionWorkBudget {
-                        max_top_level_nodes: usize_from_u32(
-                            request.work.max_top_level_nodes_per_quantum,
-                            "top-level work budget",
-                        )?,
-                    };
-                    self.continue_revision_until(
-                        source.revision_id,
-                        target,
-                        request.work.max_foreground_quanta,
-                        runtime_budget,
-                    )?;
-                }
-                let known_spreads = self
-                    .revisions
-                    .get(&source.revision_id)
-                    .map(|revision| revision.known_local_spread_count)
-                    .unwrap_or(known_spreads);
-                if target < known_spreads {
-                    self.publish_revision_artifact(
-                        source.revision_id,
-                        target,
-                        request.request_id,
-                    )?
-                } else if let Some(next_revision_id) = next_window {
-                    if self
-                        .revisions
-                        .get(&next_revision_id)
-                        .is_some_and(|revision| revision.known_local_spread_count > 0)
-                    {
-                        self.retain_adjacent_windows(source.revision_id, next_revision_id)?;
-                        self.publish_revision_artifact(next_revision_id, 0, request.request_id)?
-                    } else {
-                        return Err(target_not_published(
-                            "linked next window has no published spread",
-                        ));
-                    }
-                } else {
-                    return Err(target_not_published(
-                        "next spread is not laid out for peeking",
-                    ));
-                }
+                self.request_next(source, request.request_id, request.work)
             }
         };
-        Ok(artifact)
+        let peek_seek = std::mem::replace(&mut self.pending_exact_seek, parked_exact_seek);
+        if let Some(pending) = peek_seek {
+            let owner = owner_from_advance(&pending.advance);
+            self.document
+                .release_chapter_local_revision_immediately(&owner)
+                .map_err(engine_error)?;
+        }
+        result
     }
 
     /// Commits a previously peeked artifact as the visible foreground

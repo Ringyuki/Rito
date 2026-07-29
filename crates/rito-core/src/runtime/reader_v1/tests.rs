@@ -1684,7 +1684,7 @@ fn peek_publishes_known_neighbors_without_foreground_side_effects() {
 }
 
 #[test]
-fn peek_refuses_targets_that_would_need_layout_work() {
+fn peek_declines_at_the_terminal_publication_boundary() {
     let mut session = ReaderSessionV1::open_owned(121, long_chapter_window_fixture_epub())
         .expect("reader session opens");
     let visible = session
@@ -1692,8 +1692,8 @@ fn peek_refuses_targets_that_would_need_layout_work() {
         .expect("first chapter resolves");
     adopt_initial(&mut session, 121, visible.artifact_id);
 
-    // Previous from the first spread of the publication crosses a
-    // chapter boundary — layout work — so the peek declines.
+    // Previous from the first spread of the first chapter is the
+    // publication's terminal boundary, so the peek declines.
     let boundary = session
         .peek_adjacent(adjacent(
             121,
@@ -1783,4 +1783,87 @@ fn commit_peeked_artifact_is_a_pure_visible_swap() {
         })
         .expect_err("stale expected-visible is rejected");
     assert_eq!(stale.kind, ReaderErrorKindV1::StaleRequest);
+}
+
+#[test]
+fn peek_crosses_single_page_chapter_boundaries_in_both_directions() {
+    use crate::runtime::tests::fixture::many_chapter_fixture_epub;
+    // The acceptance scenario: front matter made of single-page
+    // chapters (image plates). Every drag-open must be able to peek its
+    // neighbor — next peeks the following chapter's first spread,
+    // previous the preceding chapter's last — and the turn fast path
+    // commits the peeked artifact unchanged.
+    let mut session = ReaderSessionV1::open_owned(123, many_chapter_fixture_epub(4))
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(request(123, 1, "chapter-0.xhtml"))
+        .expect("first chapter resolves");
+    adopt_initial(&mut session, 123, visible.artifact_id);
+
+    let mut current = visible;
+    let mut request_id = 10;
+    for chapter in 1..4 {
+        let peeked = session
+            .peek_adjacent(adjacent(
+                123,
+                request_id,
+                current.artifact_id,
+                ReaderAdjacentDirectionV1::Next,
+            ))
+            .unwrap_or_else(|error| panic!("chapter {chapter} peeks next: {error:?}"));
+        request_id += 1;
+        assert_eq!(peeked.locator.href, format!("chapter-{chapter}.xhtml"));
+        assert_eq!(session.visible_artifact_id(), Some(current.artifact_id));
+        assert!(!session.has_pending_exact_seek_v1());
+        assert!(!session.has_pending_adjacent_v1());
+        session
+            .commit_peeked_artifact(ReaderForegroundHandoffV1 {
+                session_id: 123,
+                expected_visible_artifact_id: Some(current.artifact_id),
+                candidate_artifact_id: peeked.artifact_id,
+            })
+            .expect("peeked chapter commits");
+        session
+            .release_artifact(current.artifact_id)
+            .expect("outgoing spread releases");
+        current = peeked;
+    }
+
+    for chapter in (0..3).rev() {
+        let peeked = session
+            .peek_adjacent(adjacent(
+                123,
+                request_id,
+                current.artifact_id,
+                ReaderAdjacentDirectionV1::Previous,
+            ))
+            .unwrap_or_else(|error| panic!("chapter {chapter} peeks previous: {error:?}"));
+        request_id += 1;
+        assert_eq!(peeked.locator.href, format!("chapter-{chapter}.xhtml"));
+        assert!(!session.has_pending_exact_seek_v1());
+        session
+            .commit_peeked_artifact(ReaderForegroundHandoffV1 {
+                session_id: 123,
+                expected_visible_artifact_id: Some(current.artifact_id),
+                candidate_artifact_id: peeked.artifact_id,
+            })
+            .expect("peeked chapter commits");
+        session
+            .release_artifact(current.artifact_id)
+            .expect("outgoing spread releases");
+        current = peeked;
+    }
+
+    // Terminal book boundary still declines without leaving state.
+    let boundary = session
+        .peek_adjacent(adjacent(
+            123,
+            request_id,
+            current.artifact_id,
+            ReaderAdjacentDirectionV1::Previous,
+        ))
+        .expect_err("terminal boundary peek declines");
+    assert_eq!(boundary.kind, ReaderErrorKindV1::TargetNotPublished);
+    assert!(!session.has_pending_exact_seek_v1());
+    assert_eq!(session.visible_artifact_id(), Some(current.artifact_id));
 }
