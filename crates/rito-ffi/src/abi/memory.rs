@@ -262,10 +262,11 @@ pub extern "C" fn rito_request_adjacent_v1(
 }
 
 #[no_mangle]
-/// Publishes the adjacent spread as a read-only artifact when its layout
-/// already exists, without any foreground side effect. The visible
-/// artifact and all pending navigation stay untouched. Targets that
-/// would require layout work return
+/// Publishes the adjacent spread as a read-only artifact without any
+/// foreground side effect. The visible artifact and all pending
+/// navigation stay untouched. In-chapter pagination may advance within
+/// the request's work budget to reach the neighbor; targets still out
+/// of reach (cross-chapter, or budget exhausted) return
 /// `RITO_STATUS_TARGET_NOT_PUBLISHED_V1` (hosts surface this as "not
 /// peekable"), never retaining a continuation. The peeked artifact
 /// occupies one live slot and must be released by the caller.

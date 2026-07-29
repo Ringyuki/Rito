@@ -387,8 +387,10 @@ final class RitoReaderSession {
   /// artifact without changing the visible state — the peek/turn
   /// counterpart to [turn].
   ///
-  /// Returns null when the neighbor is not peekable yet (its layout
-  /// does not exist and would need work; the UI falls back to its
+  /// In-chapter, the engine paginates toward the neighbor within
+  /// [work]'s budget, so peeks normally succeed even under lazy
+  /// pagination. Returns null when the neighbor is still out of reach
+  /// (cross-chapter, or the budget ran out; the UI falls back to its
   /// fade-in path). A returned artifact is live, has fonts and images
   /// prepared, counts against the session's live-artifact budget, and
   /// must be freed with [releaseArtifact]. A later [turn] in the same

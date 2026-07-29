@@ -387,14 +387,15 @@ impl ReaderSessionV1 {
     /// Unlike [`Self::request_adjacent`] this never begins a foreground
     /// intent, never installs a candidate, and never touches pending
     /// exact-seek or adjacent continuations — the visible artifact and
-    /// every in-flight navigation stay exactly as they were. It also
-    /// never lays anything out: only spreads already published in the
-    /// source revision or an already-linked rollover window qualify.
-    /// Anything that would need layout work (chapter boundaries,
-    /// unlinked windows, unpaginated spreads) returns
-    /// `TargetNotPublished`, which hosts surface as "not peekable yet".
-    /// The artifact still occupies one live-artifact slot and must be
-    /// released by the caller.
+    /// every in-flight navigation stay exactly as they were. In-chapter
+    /// pagination MAY advance (bounded by the request's work budget,
+    /// exactly like an ordinary forward turn) so the next spread is
+    /// peekable without a committed navigation; pagination progress is
+    /// shared revision state, not foreground state. Anything beyond the
+    /// chapter's own pagination (chapter boundaries, window rollover
+    /// creation) returns `TargetNotPublished`, which hosts surface as
+    /// "not peekable yet". The artifact still occupies one
+    /// live-artifact slot and must be released by the caller.
     pub fn peek_adjacent(
         &mut self,
         request: ReaderAdjacentRequestV1,
@@ -430,6 +431,7 @@ impl ReaderSessionV1 {
         let known_spreads = revision.known_local_spread_count;
         let previous_window = revision.previous_window_revision_id;
         let next_window = revision.next_window_revision_id;
+        let page_cap_reached = revision.page_cap_reached;
         let artifact = match request.direction {
             ReaderAdjacentDirectionV1::Previous if source.local_spread_index > 0 => self
                 .publish_revision_artifact(
@@ -462,6 +464,30 @@ impl ReaderSessionV1 {
                     .local_spread_index
                     .checked_add(1)
                     .ok_or_else(|| numeric_overflow("local spread index"))?;
+                // Lazy pagination stops exactly at the visible target, so
+                // a strictly read-only peek would never find its neighbor
+                // laid out. Advance the chapter's own pagination within
+                // the request's budget — shared revision progress, not a
+                // foreground effect — before deciding.
+                if target >= known_spreads && !page_cap_reached {
+                    let runtime_budget = RuntimeRevisionWorkBudget {
+                        max_top_level_nodes: usize_from_u32(
+                            request.work.max_top_level_nodes_per_quantum,
+                            "top-level work budget",
+                        )?,
+                    };
+                    self.continue_revision_until(
+                        source.revision_id,
+                        target,
+                        request.work.max_foreground_quanta,
+                        runtime_budget,
+                    )?;
+                }
+                let known_spreads = self
+                    .revisions
+                    .get(&source.revision_id)
+                    .map(|revision| revision.known_local_spread_count)
+                    .unwrap_or(known_spreads);
                 if target < known_spreads {
                     self.publish_revision_artifact(
                         source.revision_id,

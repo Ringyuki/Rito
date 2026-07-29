@@ -1649,16 +1649,20 @@ fn peek_publishes_known_neighbors_without_foreground_side_effects() {
         ))
         .expect("next spread peeks");
     assert_eq!(peeked_next.local_page_index, next.local_page_index);
-    // A spread nobody has laid out yet declines instead of paginating.
-    let unpaginated = session
+    // An unpaginated in-chapter neighbor paginates within the peek's
+    // own budget — shared revision progress, not a foreground effect.
+    let paginated_ahead = session
         .peek_adjacent(adjacent(
             120,
             12,
             next.artifact_id,
             ReaderAdjacentDirectionV1::Next,
         ))
-        .expect_err("unpaginated next declines");
-    assert_eq!(unpaginated.kind, ReaderErrorKindV1::TargetNotPublished);
+        .expect("in-chapter peek paginates its neighbor");
+    assert_eq!(
+        paginated_ahead.local_spread_index,
+        next.local_spread_index + 1
+    );
 
     // No foreground side effects: visible unchanged, nothing pending.
     assert_eq!(session.visible_artifact_id(), Some(next.artifact_id));
@@ -1672,6 +1676,9 @@ fn peek_publishes_known_neighbors_without_foreground_side_effects() {
         .expect("peeked artifact releases");
     session
         .release_artifact(peeked_next.artifact_id)
+        .expect("peeked artifact releases");
+    session
+        .release_artifact(paginated_ahead.artifact_id)
         .expect("peeked artifact releases");
     assert_eq!(session.visible_artifact_id(), Some(next.artifact_id));
 }
