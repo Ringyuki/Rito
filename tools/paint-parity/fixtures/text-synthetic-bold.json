@@ -1,0 +1,49 @@
+{
+  "name": "text-synthetic-bold",
+  "width": 420,
+  "height": 140,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintText",
+      "text": "regular baseline for contrast",
+      "rect": { "x": 10, "y": 10, "width": 380, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos, serif", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "synthetic bold from a regular face",
+      "rect": { "x": 10, "y": 42, "width": 380, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos, serif", "sizePx": 16, "style": "normal", "weight": 700 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "合成粗体的中文标题字重",
+      "rect": { "x": 10, "y": 76, "width": 380, "height": 26 },
+      "paint": {
+        "color": "#000000",
+        "font": {
+          "family": "\"Source Han Serif CN\", serif",
+          "sizePx": 20,
+          "style": "normal",
+          "weight": 700
+        }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "intermediate 650 rounds to a bucket",
+      "rect": { "x": 10, "y": 110, "width": 380, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos, serif", "sizePx": 16, "style": "normal", "weight": 650 }
+      }
+    }
+  ]
+}
