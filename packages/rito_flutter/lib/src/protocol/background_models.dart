@@ -18,6 +18,7 @@ enum RitoBackgroundState {
   reused,
   candidatePending,
   complete,
+  indexing,
 }
 
 final class RitoBackgroundAdvance {

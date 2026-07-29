@@ -150,7 +150,7 @@ void main() {
       decoder.decodeHandoffAck(bytes);
     });
     expect(
-      () => decoder.decodeAdvance(backgroundAdvanceFixture(stateTag: 5)),
+      () => decoder.decodeAdvance(backgroundAdvanceFixture(stateTag: 6)),
       throwsA(isA<FormatException>()),
     );
     expect(

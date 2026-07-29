@@ -66,6 +66,7 @@ final class RitoBackgroundDecoder {
       2 => RitoBackgroundState.reused,
       3 => RitoBackgroundState.candidatePending,
       4 => RitoBackgroundState.complete,
+      5 => RitoBackgroundState.indexing,
       _ => reader.fail('unknown background state: $tag'),
     };
   }
