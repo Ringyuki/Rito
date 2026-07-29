@@ -7,7 +7,7 @@ use crate::runtime::{
     RuntimeDocument,
 };
 
-use super::{publication::ReaderRevisionBackingV1, *};
+use super::{publication::ReaderRevisionBackingV1, session::READER_LIVE_ARTIFACT_CAP_V1, *};
 
 #[test]
 fn session_exposes_one_static_publication_snapshot() {
@@ -714,16 +714,16 @@ fn failed_revision_retirement_restores_artifact_ownership() {
 
 #[test]
 fn three_published_flips_reuse_revision_without_reflow() {
-    let mut session = ReaderSessionV1::open_owned(61, source_locator_fixture_epub())
+    let mut session = ReaderSessionV1::open_owned(61, long_chapter_window_fixture_epub())
         .expect("reader session opens");
-    let mut initial_request = request(61, 1, "chapter.xhtml#point-0");
+    let mut initial_request = request(61, 1, "chapter.xhtml#window-point-0");
     initial_request.work.max_top_level_nodes_per_quantum = 64;
     let first = session
         .request_artifact(initial_request)
         .expect("first spread resolves");
     let mut artifacts = vec![first];
 
-    for request_id in 2..=4 {
+    for request_id in 2..=u64::from(READER_LIVE_ARTIFACT_CAP_V1) {
         let next = session
             .request_adjacent(adjacent(
                 61,
@@ -738,15 +738,18 @@ fn three_published_flips_reuse_revision_without_reflow() {
         artifacts.push(next);
     }
 
-    assert_eq!(session.live_artifact_count(), 4);
+    assert_eq!(
+        session.live_artifact_count(),
+        READER_LIVE_ARTIFACT_CAP_V1
+    );
     let capped = session
         .request_adjacent(adjacent(
             61,
-            5,
+            u64::from(READER_LIVE_ARTIFACT_CAP_V1) + 1,
             artifacts.last().unwrap().artifact_id,
             ReaderAdjacentDirectionV1::Next,
         ))
-        .expect_err("fifth live artifact is rejected before doing work");
+        .expect_err("an over-cap live artifact is rejected before doing work");
     assert_eq!(capped.kind, ReaderErrorKindV1::InvalidRequest);
     for artifact in artifacts.into_iter().rev() {
         session
@@ -1603,4 +1606,174 @@ fn previous_chapter_tail_publishes_when_the_chapter_completes_within_budget() {
             resolved.unwrap_or_else(|| panic!("tail={tail}: previous chapter tail never resolves"));
         assert_eq!(resolved.locator.href, "chapter-0.xhtml", "tail={tail}");
     }
+}
+
+#[test]
+fn peek_publishes_known_neighbors_without_foreground_side_effects() {
+    let mut session = ReaderSessionV1::open_owned(120, long_chapter_window_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(request(120, 1, ""))
+        .expect("source chapter resolves");
+    adopt_initial(&mut session, 120, visible.artifact_id);
+    let next = session
+        .request_adjacent(adjacent(
+            120,
+            2,
+            visible.artifact_id,
+            ReaderAdjacentDirectionV1::Next,
+        ))
+        .expect("in-chapter next resolves");
+    adopt_replacement(&mut session, 120, visible.artifact_id, next.artifact_id);
+
+    // Peek previous from the second spread, and peek next from the
+    // retained first-spread artifact (its neighbor is already laid out).
+    let peeked_previous = session
+        .peek_adjacent(adjacent(
+            120,
+            10,
+            next.artifact_id,
+            ReaderAdjacentDirectionV1::Previous,
+        ))
+        .expect("previous spread peeks");
+    assert_eq!(
+        peeked_previous.local_page_index, visible.local_page_index,
+        "previous peek republishes the already-laid-out spread"
+    );
+    let peeked_next = session
+        .peek_adjacent(adjacent(
+            120,
+            11,
+            visible.artifact_id,
+            ReaderAdjacentDirectionV1::Next,
+        ))
+        .expect("next spread peeks");
+    assert_eq!(peeked_next.local_page_index, next.local_page_index);
+    // A spread nobody has laid out yet declines instead of paginating.
+    let unpaginated = session
+        .peek_adjacent(adjacent(
+            120,
+            12,
+            next.artifact_id,
+            ReaderAdjacentDirectionV1::Next,
+        ))
+        .expect_err("unpaginated next declines");
+    assert_eq!(unpaginated.kind, ReaderErrorKindV1::TargetNotPublished);
+
+    // No foreground side effects: visible unchanged, nothing pending.
+    assert_eq!(session.visible_artifact_id(), Some(next.artifact_id));
+    assert!(!session.has_pending_adjacent_v1());
+    assert!(!session.has_pending_exact_seek_v1());
+
+    // Peeked artifacts are live and releasable like any other artifact.
+    assert!(session.has_live_artifact(peeked_previous.artifact_id));
+    session
+        .release_artifact(peeked_previous.artifact_id)
+        .expect("peeked artifact releases");
+    session
+        .release_artifact(peeked_next.artifact_id)
+        .expect("peeked artifact releases");
+    assert_eq!(session.visible_artifact_id(), Some(next.artifact_id));
+}
+
+#[test]
+fn peek_refuses_targets_that_would_need_layout_work() {
+    let mut session = ReaderSessionV1::open_owned(121, long_chapter_window_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(request(121, 1, ""))
+        .expect("first chapter resolves");
+    adopt_initial(&mut session, 121, visible.artifact_id);
+
+    // Previous from the first spread of the publication crosses a
+    // chapter boundary — layout work — so the peek declines.
+    let boundary = session
+        .peek_adjacent(adjacent(
+            121,
+            5,
+            visible.artifact_id,
+            ReaderAdjacentDirectionV1::Previous,
+        ))
+        .expect_err("boundary peek declines");
+    assert_eq!(boundary.kind, ReaderErrorKindV1::TargetNotPublished);
+    assert!(!session.has_pending_adjacent_v1());
+    assert!(!session.has_pending_exact_seek_v1());
+    assert_eq!(session.visible_artifact_id(), Some(visible.artifact_id));
+}
+
+#[test]
+fn commit_peeked_artifact_is_a_pure_visible_swap() {
+    let mut session = ReaderSessionV1::open_owned(122, long_chapter_window_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(request(122, 1, ""))
+        .expect("source chapter resolves");
+    adopt_initial(&mut session, 122, visible.artifact_id);
+    let second = session
+        .request_adjacent(adjacent(
+            122,
+            2,
+            visible.artifact_id,
+            ReaderAdjacentDirectionV1::Next,
+        ))
+        .expect("in-chapter next resolves");
+    adopt_replacement(&mut session, 122, visible.artifact_id, second.artifact_id);
+    let peeked = session
+        .peek_adjacent(adjacent(
+            122,
+            3,
+            second.artifact_id,
+            ReaderAdjacentDirectionV1::Previous,
+        ))
+        .expect("previous spread peeks");
+
+    let ack = session
+        .commit_peeked_artifact(ReaderForegroundHandoffV1 {
+            session_id: 122,
+            expected_visible_artifact_id: Some(second.artifact_id),
+            candidate_artifact_id: peeked.artifact_id,
+        })
+        .expect("peeked artifact commits");
+    assert_eq!(ack.replaced_artifact_id, Some(second.artifact_id));
+    assert_eq!(ack.visible_artifact_id, peeked.artifact_id);
+    assert_eq!(session.visible_artifact_id(), Some(peeked.artifact_id));
+
+    // A second commit of the same artifact is rejected: it left the
+    // peeked set on adoption.
+    let replay = session
+        .commit_peeked_artifact(ReaderForegroundHandoffV1 {
+            session_id: 122,
+            expected_visible_artifact_id: Some(peeked.artifact_id),
+            candidate_artifact_id: peeked.artifact_id,
+        })
+        .expect_err("peeked commit does not replay");
+    assert_eq!(replay.kind, ReaderErrorKindV1::InvalidRequest);
+
+    // Non-peeked artifacts cannot take the fast path.
+    let denied = session
+        .commit_peeked_artifact(ReaderForegroundHandoffV1 {
+            session_id: 122,
+            expected_visible_artifact_id: Some(peeked.artifact_id),
+            candidate_artifact_id: visible.artifact_id,
+        })
+        .expect_err("ordinary artifacts cannot fast-commit");
+    assert_eq!(denied.kind, ReaderErrorKindV1::InvalidRequest);
+
+    // Stale CAS is rejected.
+    let peeked_again = session
+        .peek_adjacent(adjacent(
+            122,
+            4,
+            peeked.artifact_id,
+            ReaderAdjacentDirectionV1::Next,
+        ))
+        .expect("next spread peeks");
+    let stale = session
+        .commit_peeked_artifact(ReaderForegroundHandoffV1 {
+            session_id: 122,
+            expected_visible_artifact_id: Some(second.artifact_id),
+            candidate_artifact_id: peeked_again.artifact_id,
+        })
+        .expect_err("stale expected-visible is rejected");
+    assert_eq!(stale.kind, ReaderErrorKindV1::StaleRequest);
 }

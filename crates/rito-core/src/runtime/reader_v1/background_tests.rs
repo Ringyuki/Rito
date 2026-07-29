@@ -568,7 +568,7 @@ fn live_artifact_cap_requires_and_then_consumes_one_candidate_reserve() {
     let mut session = ReaderSessionV1::open_owned(207, source_locator_fixture_epub())
         .expect("reader session opens");
     let mut locals = Vec::new();
-    for request_id in 1..=4 {
+    for request_id in 1..=u64::from(READER_LIVE_ARTIFACT_CAP_V1) {
         locals.push(
             session
                 .request_artifact(artifact_request(207, request_id, "chapter.xhtml#point-0"))
@@ -611,15 +611,16 @@ fn live_artifact_cap_requires_and_then_consumes_one_candidate_reserve() {
     assert!(pending.artifact.is_none());
     assert_eq!(session.live_artifact_count(), READER_LIVE_ARTIFACT_CAP_V1);
 
+    let next_request_id = u64::from(READER_LIVE_ARTIFACT_CAP_V1) + 1;
     let capped_foreground = session
-        .request_artifact(artifact_request(207, 5, "chapter.xhtml#point-1"))
-        .expect_err("foreground cannot consume a fifth live slot");
+        .request_artifact(artifact_request(207, next_request_id, "chapter.xhtml#point-1"))
+        .expect_err("foreground cannot exceed the live cap");
     assert_eq!(capped_foreground.kind, ReaderErrorKindV1::InvalidRequest);
     assert!(session
         .release_artifact(candidate.artifact_id)
         .expect("candidate reserve releases explicitly"));
     let fifth = session
-        .request_artifact(artifact_request(207, 5, "chapter.xhtml#point-1"))
+        .request_artifact(artifact_request(207, next_request_id, "chapter.xhtml#point-1"))
         .expect("capacity failure does not consume the request id");
 
     let mut ids = locals

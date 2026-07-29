@@ -36,7 +36,10 @@ use super::{
 
 mod exact_cache;
 
-pub const READER_LIVE_ARTIFACT_CAP_V1: u32 = 4;
+// Budgeted for the peek prefetch window: visible + outgoing page-turn
+// artifact + one peeked neighbor per direction + an in-flight foreground
+// candidate, with one slot of slack.
+pub const READER_LIVE_ARTIFACT_CAP_V1: u32 = 6;
 const READER_RETAINED_WINDOW_CAP_V1: usize = 2;
 
 #[derive(Debug, Clone)]
@@ -155,6 +158,10 @@ pub struct ReaderSessionV1 {
     artifacts: BTreeMap<u64, ReaderArtifactOwnerV1>,
     released_artifacts: BTreeSet<u64>,
     retained_windows: VecDeque<u64>,
+    // Read-only adjacent artifacts produced by `peek_adjacent`. Only these
+    // may take the `commit_peeked_artifact` fast path to visibility; the
+    // set keeps arbitrary live artifacts from being promoted.
+    peeked_artifacts: BTreeSet<u64>,
     visible_intent: Option<ReaderVisibleIntentV1>,
     foreground_candidate: Option<ReaderForegroundCandidateV1>,
     // At most one unpublished owner survives a bounded exact seek. It never
@@ -208,6 +215,7 @@ impl ReaderSessionV1 {
             artifacts: BTreeMap::new(),
             released_artifacts: BTreeSet::new(),
             retained_windows: VecDeque::new(),
+            peeked_artifacts: BTreeSet::new(),
             visible_intent: None,
             foreground_candidate: None,
             pending_exact_seek: None,
@@ -373,6 +381,174 @@ impl ReaderSessionV1 {
         }
     }
 
+    /// Publishes the adjacent spread as a read-only artifact when its
+    /// layout already exists, without any foreground side effect.
+    ///
+    /// Unlike [`Self::request_adjacent`] this never begins a foreground
+    /// intent, never installs a candidate, and never touches pending
+    /// exact-seek or adjacent continuations — the visible artifact and
+    /// every in-flight navigation stay exactly as they were. It also
+    /// never lays anything out: only spreads already published in the
+    /// source revision or an already-linked rollover window qualify.
+    /// Anything that would need layout work (chapter boundaries,
+    /// unlinked windows, unpaginated spreads) returns
+    /// `TargetNotPublished`, which hosts surface as "not peekable yet".
+    /// The artifact still occupies one live-artifact slot and must be
+    /// released by the caller.
+    pub fn peek_adjacent(
+        &mut self,
+        request: ReaderAdjacentRequestV1,
+    ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
+        self.validate_request_identity(request.session_id, request.request_id, "peek")?;
+        validate_external_request_id(request.from_artifact_id, "fromArtifactId")?;
+        validate_work(request.work)?;
+        self.require_artifact_capacity()?;
+        let source = self
+            .artifacts
+            .get(&request.from_artifact_id)
+            .cloned()
+            .ok_or_else(|| unknown_artifact(request.from_artifact_id))?;
+        // The request ID is consumed exactly like every other reader
+        // request, but deliberately NOT via begin_foreground_request —
+        // peeking must not clear a pending foreground candidate.
+        self.latest_request_id = request.request_id;
+        if source.backing != ReaderRevisionBackingV1::ChapterLocal {
+            return Err(target_not_published(
+                "peek supports chapter-local artifacts only",
+            ));
+        }
+        let revision = self
+            .revisions
+            .get(&source.revision_id)
+            .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::ChapterLocal))?;
+        if request.work.local_page_cap != revision.local_page_cap {
+            return Err(ReaderErrorV1::new(
+                ReaderErrorKindV1::InvalidRequest,
+                "peek request localPageCap must match the source revision",
+            ));
+        }
+        let known_spreads = revision.known_local_spread_count;
+        let previous_window = revision.previous_window_revision_id;
+        let next_window = revision.next_window_revision_id;
+        let artifact = match request.direction {
+            ReaderAdjacentDirectionV1::Previous if source.local_spread_index > 0 => self
+                .publish_revision_artifact(
+                    source.revision_id,
+                    source.local_spread_index - 1,
+                    request.request_id,
+                )?,
+            ReaderAdjacentDirectionV1::Previous => {
+                let Some(previous_revision_id) = previous_window else {
+                    return Err(target_not_published(
+                        "previous spread is not retained for peeking",
+                    ));
+                };
+                let previous_spread = self
+                    .revisions
+                    .get(&previous_revision_id)
+                    .and_then(|revision| revision.known_local_spread_count.checked_sub(1))
+                    .ok_or_else(|| {
+                        target_not_published("retained previous window has no published spread")
+                    })?;
+                self.retain_adjacent_windows(previous_revision_id, source.revision_id)?;
+                self.publish_revision_artifact(
+                    previous_revision_id,
+                    previous_spread,
+                    request.request_id,
+                )?
+            }
+            ReaderAdjacentDirectionV1::Next => {
+                let target = source
+                    .local_spread_index
+                    .checked_add(1)
+                    .ok_or_else(|| numeric_overflow("local spread index"))?;
+                if target < known_spreads {
+                    self.publish_revision_artifact(
+                        source.revision_id,
+                        target,
+                        request.request_id,
+                    )?
+                } else if let Some(next_revision_id) = next_window {
+                    if self
+                        .revisions
+                        .get(&next_revision_id)
+                        .is_some_and(|revision| revision.known_local_spread_count > 0)
+                    {
+                        self.retain_adjacent_windows(source.revision_id, next_revision_id)?;
+                        self.publish_revision_artifact(next_revision_id, 0, request.request_id)?
+                    } else {
+                        return Err(target_not_published(
+                            "linked next window has no published spread",
+                        ));
+                    }
+                } else {
+                    return Err(target_not_published(
+                        "next spread is not laid out for peeking",
+                    ));
+                }
+            }
+        };
+        self.peeked_artifacts.insert(artifact.artifact_id);
+        Ok(artifact)
+    }
+
+    /// Commits a previously peeked artifact as the visible foreground
+    /// with a visible-artifact CAS and zero layout work.
+    ///
+    /// Only artifacts produced by [`Self::peek_adjacent`] qualify. A
+    /// successful commit supersedes any in-flight foreground intent
+    /// (candidate, pending exact seek, pending adjacent), exactly as a
+    /// fresh foreground navigation would.
+    pub fn commit_peeked_artifact(
+        &mut self,
+        request: ReaderForegroundHandoffV1,
+    ) -> Result<ReaderForegroundHandoffAckV1, ReaderErrorV1> {
+        self.validate_foreground_handoff_request(request)?;
+        if !self.peeked_artifacts.contains(&request.candidate_artifact_id) {
+            return Err(ReaderErrorV1::new(
+                ReaderErrorKindV1::InvalidRequest,
+                "commit candidate was not produced by peek",
+            ));
+        }
+        let current_visible_artifact_id = self
+            .visible_intent
+            .as_ref()
+            .map(|intent| intent.visible_artifact_id);
+        if current_visible_artifact_id != request.expected_visible_artifact_id {
+            return Err(stale_foreground_intent(
+                request.expected_visible_artifact_id,
+                current_visible_artifact_id,
+            ));
+        }
+        let owner = self
+            .artifacts
+            .get(&request.candidate_artifact_id)
+            .cloned()
+            .ok_or_else(|| unknown_artifact(request.candidate_artifact_id))?;
+        let layout = self
+            .revisions
+            .get(&owner.revision_id)
+            .map(|revision| revision.layout.clone())
+            .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::ChapterLocal))?;
+        let locator = runtime_locator(owner.locator.clone())?;
+        self.foreground_candidate = None;
+        self.release_pending_adjacent()?;
+        self.release_pending_exact_seek()?;
+        self.visible_intent = Some(ReaderVisibleIntentV1 {
+            accepted_request_id: owner.request_id,
+            visible_artifact_id: request.candidate_artifact_id,
+            locator,
+            layout,
+            pending_handoff_artifact_id: None,
+        });
+        self.peeked_artifacts.remove(&request.candidate_artifact_id);
+        Ok(ReaderForegroundHandoffAckV1 {
+            intent_request_id: owner.request_id,
+            replaced_artifact_id: current_visible_artifact_id,
+            visible_artifact_id: request.candidate_artifact_id,
+        })
+    }
+
     pub fn read_resource(
         &mut self,
         artifact_id: u64,
@@ -486,6 +662,7 @@ impl ReaderSessionV1 {
         }
         self.artifacts.remove(&artifact_id);
         self.released_artifacts.insert(artifact_id);
+        self.peeked_artifacts.remove(&artifact_id);
         if releases_foreground_candidate {
             self.foreground_candidate = None;
         }
