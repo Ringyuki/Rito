@@ -387,15 +387,17 @@ impl ReaderSessionV1 {
     /// Unlike [`Self::request_adjacent`] this never begins a foreground
     /// intent, never installs a candidate, and never touches pending
     /// exact-seek or adjacent continuations — the visible artifact and
-    /// every in-flight navigation stay exactly as they were. In-chapter
-    /// pagination MAY advance (bounded by the request's work budget,
-    /// exactly like an ordinary forward turn) so the next spread is
-    /// peekable without a committed navigation; pagination progress is
-    /// shared revision state, not foreground state. Anything beyond the
-    /// chapter's own pagination (chapter boundaries, window rollover
-    /// creation) returns `TargetNotPublished`, which hosts surface as
-    /// "not peekable yet". The artifact still occupies one
-    /// live-artifact slot and must be released by the caller.
+    /// every in-flight navigation stay exactly as they were. Pagination
+    /// MAY advance (bounded by the request's work budget, exactly like
+    /// an ordinary forward turn) so the next spread is peekable without
+    /// a committed navigation; pagination progress is shared revision
+    /// state, not foreground state. This applies to both chapter-local
+    /// and publication-backed sources. Targets still out of reach
+    /// (chapter boundaries, window rollover creation, publication
+    /// spreads the budget could not reach) return `TargetNotPublished`,
+    /// which hosts surface as "not peekable yet". The artifact still
+    /// occupies one live-artifact slot and must be released by the
+    /// caller.
     pub fn peek_adjacent(
         &mut self,
         request: ReaderAdjacentRequestV1,
@@ -413,11 +415,29 @@ impl ReaderSessionV1 {
         // request, but deliberately NOT via begin_foreground_request —
         // peeking must not clear a pending foreground candidate.
         self.latest_request_id = request.request_id;
-        if source.backing != ReaderRevisionBackingV1::ChapterLocal {
-            return Err(target_not_published(
-                "peek supports chapter-local artifacts only",
-            ));
-        }
+        let artifact = match source.backing {
+            ReaderRevisionBackingV1::ChapterLocal => {
+                self.peek_chapter_local_adjacent(source, request)?
+            }
+            // Publication turns already resolve their neighbor with
+            // bounded cooperative pagination and no foreground effect,
+            // so peeking reuses that path verbatim.
+            ReaderRevisionBackingV1::Publication => self.request_publication_adjacent(
+                source,
+                request.request_id,
+                request.direction,
+                request.work,
+            )?,
+        };
+        self.peeked_artifacts.insert(artifact.artifact_id);
+        Ok(artifact)
+    }
+
+    fn peek_chapter_local_adjacent(
+        &mut self,
+        source: ReaderArtifactOwnerV1,
+        request: ReaderAdjacentRequestV1,
+    ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
         let revision = self
             .revisions
             .get(&source.revision_id)
@@ -514,7 +534,6 @@ impl ReaderSessionV1 {
                 }
             }
         };
-        self.peeked_artifacts.insert(artifact.artifact_id);
         Ok(artifact)
     }
 
@@ -551,11 +570,17 @@ impl ReaderSessionV1 {
             .get(&request.candidate_artifact_id)
             .cloned()
             .ok_or_else(|| unknown_artifact(request.candidate_artifact_id))?;
-        let layout = self
-            .revisions
-            .get(&owner.revision_id)
-            .map(|revision| revision.layout.clone())
-            .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::ChapterLocal))?;
+        let layout = match owner.backing {
+            ReaderRevisionBackingV1::ChapterLocal => self
+                .revisions
+                .get(&owner.revision_id)
+                .map(|revision| revision.layout.clone()),
+            ReaderRevisionBackingV1::Publication => self
+                .publication_revisions
+                .get(&owner.revision_id)
+                .map(|revision| revision.layout.clone()),
+        }
+        .ok_or_else(|| missing_artifact_revision(owner.backing))?;
         let locator = runtime_locator(owner.locator.clone())?;
         self.foreground_candidate = None;
         self.release_pending_adjacent()?;

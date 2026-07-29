@@ -913,3 +913,57 @@ fn publication_turns_cross_image_only_plates_in_both_directions() {
     }
     assert_eq!(current.local_spread_index, 0);
 }
+
+#[test]
+fn peek_and_fast_commit_work_from_publication_artifacts() {
+    use crate::runtime::tests::fixture::image_plate_fixture_epub;
+    let mut session = ReaderSessionV1::open_owned(221, image_plate_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(artifact_request(221, 1, "chapter-0.xhtml"))
+        .expect("first chapter resolves");
+    adopt_initial(&mut session, 221, visible.artifact_id);
+    let candidate = advance_to_candidate(&mut session, 221, visible.artifact_id, 64)
+        .artifact
+        .expect("publication produces a handoff candidate");
+    session
+        .adopt_background_candidate(ReaderBackgroundHandoffV1 {
+            session_id: 221,
+            expected_visible_artifact_id: visible.artifact_id,
+            candidate_artifact_id: candidate.artifact_id,
+        })
+        .expect("publication candidate adopts");
+
+    // The adopted spread's neighbor may not be laid out by the
+    // background pump yet — peek must reach it with its own bounded
+    // cooperative pagination, exactly like a forward turn would.
+    let peeked = session
+        .peek_adjacent(plate_adjacent(
+            221,
+            50,
+            candidate.artifact_id,
+            ReaderAdjacentDirectionV1::Next,
+        ))
+        .expect("publication neighbor peeks");
+    assert_eq!(peeked.local_spread_index, candidate.local_spread_index + 1);
+
+    let ack = session
+        .commit_peeked_artifact(ReaderForegroundHandoffV1 {
+            session_id: 221,
+            expected_visible_artifact_id: Some(candidate.artifact_id),
+            candidate_artifact_id: peeked.artifact_id,
+        })
+        .expect("peeked publication artifact commits");
+    assert_eq!(ack.visible_artifact_id, peeked.artifact_id);
+    assert_eq!(ack.replaced_artifact_id, Some(candidate.artifact_id));
+
+    let back = session
+        .peek_adjacent(plate_adjacent(
+            221,
+            51,
+            peeked.artifact_id,
+            ReaderAdjacentDirectionV1::Previous,
+        ))
+        .expect("previous publication neighbor peeks");
+    assert_eq!(back.local_spread_index, candidate.local_spread_index);
+}

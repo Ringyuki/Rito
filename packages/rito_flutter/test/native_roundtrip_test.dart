@@ -261,4 +261,99 @@ void main() {
       }
     },
   );
+
+  test(
+    'peek hits from publication-backed spreads after background adoption',
+    () async {
+      final publication = File(
+        '../rito/tests/fixtures/books/book-10.epub',
+      ).readAsBytesSync();
+      const sessionId = 9004;
+      const work = RitoWorkBudget(
+        maxTopLevelNodesPerQuantum: 32,
+        maxForegroundQuanta: 8,
+        localPageCap: 16,
+      );
+      final gateway = RitoIsolateGateway();
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: publication,
+        request: const RitoArtifactRequest(
+          sessionId: sessionId,
+          requestId: 1,
+          layout: RitoLayoutRequest(
+            viewportWidth: 420,
+            viewportHeight: 640,
+            marginTop: 24,
+            marginRight: 24,
+            marginBottom: 24,
+            marginLeft: 24,
+            spreadMode: RitoSpreadMode.single,
+            firstPageAlone: true,
+            spreadGap: 0,
+            rootFontSize: 16,
+          ),
+          locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
+          work: work,
+        ),
+      );
+      try {
+        final first = session.firstArtifact;
+
+        // Drive the background pump until it produces the publication
+        // candidate for the visible spread, then adopt it — the live
+        // reading path after which every visible artifact is
+        // publication-backed.
+        RitoPreparedArtifact? candidate;
+        for (var quantum = 0; quantum < 512 && candidate == null; quantum++) {
+          final advance = await session.advanceBackground(
+            maxTopLevelNodesPerQuantum: 32,
+          );
+          candidate = advance.artifact;
+          if (candidate != null) {
+            await session.adoptBackground(advance);
+          }
+        }
+        expect(candidate, isNotNull, reason: 'background pump must hand off');
+        await session.releaseArtifact(first);
+
+        // Turn into the chapter body, then peek the next spread. The
+        // neighbor is not laid out ahead of time; peek paginates it.
+        final inBody = await session.turn(
+          from: candidate!,
+          requestId: session.nextRequestId,
+          direction: RitoAdjacentDirection.next,
+          work: work,
+        );
+        await session.releaseArtifact(candidate);
+        final peeked = await session.peek(
+          from: inBody,
+          requestId: session.nextRequestId,
+          direction: RitoAdjacentDirection.next,
+          work: work,
+        );
+        expect(peeked, isNotNull, reason: 'in-book peek must hit');
+        expect(session.visibleArtifactId, inBody.artifactId);
+        expect(
+          peeked!.artifact.localPageIndex,
+          inBody.artifact.localPageIndex + 1,
+        );
+
+        // Turn onto the peeked spread: fast path commits the same artifact.
+        final committed = await session.turn(
+          from: inBody,
+          requestId: session.nextRequestId,
+          direction: RitoAdjacentDirection.next,
+          work: work,
+        );
+        expect(committed.artifactId, peeked.artifactId);
+        expect(session.visibleArtifactId, peeked.artifactId);
+
+        await session.releaseArtifact(inBody);
+      } finally {
+        await session.dispose();
+        await gateway.close();
+      }
+    },
+  );
 }
