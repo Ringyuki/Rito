@@ -131,6 +131,11 @@ final class RitoReaderSession {
   final Set<int> _liveArtifacts;
   final Map<int, RitoArtifactImageLease> _imageLeases =
       <int, RitoArtifactImageLease>{};
+  // Peeked neighbors keyed by (source artifact, direction). Records are
+  // forgotten — never released — on staleness; the artifacts themselves
+  // stay owned by the caller.
+  final Map<({int fromArtifactId, String direction}), RitoPreparedArtifact>
+  _peeked = <({int fromArtifactId, String direction}), RitoPreparedArtifact>{};
   late final RitoPreparedArtifact firstArtifact;
   _NavigationTicket? _activeNavigation;
   _NavigationTicket? _navigationTail;
@@ -333,6 +338,7 @@ final class RitoReaderSession {
     }
     _visibleArtifactId = artifact.artifactId;
     _visibleRequestId = ack.intentRequestId;
+    _peeked.clear();
     return ack;
   }
 
@@ -377,14 +383,76 @@ final class RitoReaderSession {
   ///
   /// The source remains live so callers can animate both artifacts. Release it
   /// explicitly only after the page-turn animation no longer paints it.
+  /// Publishes the neighboring page as a fully prepared read-only
+  /// artifact without changing the visible state — the peek/turn
+  /// counterpart to [turn].
+  ///
+  /// Returns null when the neighbor is not peekable yet (its layout
+  /// does not exist and would need work; the UI falls back to its
+  /// fade-in path). A returned artifact is live, has fonts and images
+  /// prepared, counts against the session's live-artifact budget, and
+  /// must be freed with [releaseArtifact]. A later [turn] in the same
+  /// direction from the same page commits the peeked artifact directly
+  /// (zero layout, pure visible swap).
+  Future<RitoPreparedArtifact?> peek({
+    required RitoPreparedArtifact from,
+    required int requestId,
+    required RitoAdjacentDirection direction,
+    required RitoWorkBudget work,
+  }) async {
+    _requireOpen();
+    if (from.sessionId != sessionId) {
+      throw ArgumentError('Peek source belongs to another Rito session.');
+    }
+    if (!_liveArtifacts.contains(from.artifactId)) {
+      throw ArgumentError('Peek source artifact is not live.');
+    }
+    final artifact = await gateway.peekAdjacent(
+      request: RitoAdjacentRequest(
+        sessionId: sessionId,
+        requestId: requestId,
+        fromArtifactId: from.artifactId,
+        direction: direction,
+        work: work,
+      ),
+    );
+    _recordConsumedRequestId(requestId);
+    if (artifact == null) {
+      return null;
+    }
+    _liveArtifacts.add(artifact.artifactId);
+    late final RitoPreparedArtifact prepared;
+    try {
+      prepared = await _prepareOwnedArtifact(artifact);
+    } on Object {
+      await _discardFailedArtifact(artifact);
+      rethrow;
+    }
+    _peeked[(fromArtifactId: from.artifactId, direction: direction.name)] =
+        prepared;
+    return prepared;
+  }
+
   Future<RitoPreparedArtifact> turn({
     required RitoPreparedArtifact from,
     required int requestId,
     required RitoAdjacentDirection direction,
     required RitoWorkBudget work,
-  }) {
+  }) async {
     if (from.sessionId != sessionId) {
       throw ArgumentError('Adjacent source belongs to another Rito session.');
+    }
+    // The cache probe is synchronous so a miss enters the ordinary
+    // navigation without yielding the event loop (background work must
+    // not slip in between turn and its navigation ticket).
+    if (_peeked.containsKey((
+      fromArtifactId: from.artifactId,
+      direction: direction.name,
+    ))) {
+      final fast = await _commitPeekedIfCurrent(from, direction);
+      if (fast != null) {
+        return fast;
+      }
     }
     return requestAdjacent(
       RitoAdjacentRequest(
@@ -395,6 +463,49 @@ final class RitoReaderSession {
         work: work,
       ),
     );
+  }
+
+  /// Peek → turn fast path: when the target page was already peeked
+  /// from this source, commit it with a pure visible-artifact swap and
+  /// zero layout work. On any staleness the peek record is dropped and
+  /// the caller falls back to the ordinary turn.
+  Future<RitoPreparedArtifact?> _commitPeekedIfCurrent(
+    RitoPreparedArtifact from,
+    RitoAdjacentDirection direction,
+  ) async {
+    final key = (fromArtifactId: from.artifactId, direction: direction.name);
+    final peeked = _peeked[key];
+    if (peeked == null) {
+      return null;
+    }
+    if (!_liveArtifacts.contains(peeked.artifactId) ||
+        _visibleArtifactId != from.artifactId ||
+        _activeNavigation != null) {
+      _peeked.remove(key);
+      return null;
+    }
+    _requireOpen();
+    try {
+      final ack = await gateway.commitPeeked(
+        handoff: RitoForegroundHandoff(
+          sessionId: sessionId,
+          expectedVisibleArtifactId: from.artifactId,
+          candidateArtifactId: peeked.artifactId,
+        ),
+        intentRequestId: peeked.requestId,
+      );
+      _visibleArtifactId = ack.visibleArtifactId;
+      _visibleRequestId = ack.intentRequestId;
+      _peeked.clear();
+      return peeked;
+    } on RitoNativeSessionInvalidatedException {
+      rethrow;
+    } on Object {
+      // Stale CAS or any other rejection: forget the record and let the
+      // ordinary turn resolve the navigation.
+      _peeked.remove(key);
+      return null;
+    }
   }
 
   Future<RitoPreparedArtifact> requestAdjacent(
@@ -498,6 +609,11 @@ final class RitoReaderSession {
     if (!_liveArtifacts.remove(artifact.artifactId)) {
       return;
     }
+    _peeked.removeWhere(
+      (key, value) =>
+          value.artifactId == artifact.artifactId ||
+          key.fromArtifactId == artifact.artifactId,
+    );
     try {
       await gateway.releaseArtifact(
         sessionId: sessionId,
@@ -802,6 +918,7 @@ final class RitoReaderSession {
     }
     _visibleArtifactId = artifact.artifactId;
     _visibleRequestId = ack.intentRequestId;
+    _peeked.clear();
     return prepared;
   }
 
@@ -856,6 +973,7 @@ final class RitoReaderSession {
     }
     _visibleArtifactId = artifact.artifactId;
     _visibleRequestId = ack.intentRequestId;
+    _peeked.clear();
     return prepared;
   }
 

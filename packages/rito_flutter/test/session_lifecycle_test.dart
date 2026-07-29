@@ -163,226 +163,238 @@ void main() {
     await session.dispose();
   });
 
-  test('exact and adjacent mutation invalidations terminalize the session', () async {
-    const invalidation = RitoNativeSessionInvalidatedException(
-      sessionId: 91,
-      requestId: 13,
-      cleanupError: 'mutation acknowledgement was lost',
-    );
-    final exactGateway = _MockGateway(requestArtifactError: invalidation);
-    final exactSession = await RitoReaderSession.open(
-      gateway: exactGateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
-
-    await expectLater(
-      exactSession.requestArtifact(_request(13)),
-      throwsA(same(invalidation)),
-    );
-    await expectLater(
-      exactSession.advanceBackground(maxTopLevelNodesPerQuantum: 8),
-      throwsA(same(invalidation)),
-    );
-    expect(exactGateway.disposals, 1);
-
-    final adjacentGateway = _MockGateway(adjacentError: invalidation);
-    final adjacentSession = await RitoReaderSession.open(
-      gateway: adjacentGateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
-    await expectLater(
-      adjacentSession.turn(
-        from: adjacentSession.firstArtifact,
+  test(
+    'exact and adjacent mutation invalidations terminalize the session',
+    () async {
+      const invalidation = RitoNativeSessionInvalidatedException(
+        sessionId: 91,
         requestId: 13,
-        direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
-      ),
-      throwsA(same(invalidation)),
-    );
-    await expectLater(
-      adjacentSession.requestArtifact(_request(14)),
-      throwsA(same(invalidation)),
-    );
-    expect(adjacentGateway.disposals, 1);
-  });
+        cleanupError: 'mutation acknowledgement was lost',
+      );
+      final exactGateway = _MockGateway(requestArtifactError: invalidation);
+      final exactSession = await RitoReaderSession.open(
+        gateway: exactGateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
 
-  test('foreground adoption ambiguity terminalizes without candidate release', () async {
-    const invalidation = RitoNativeSessionInvalidatedException(
-      sessionId: 91,
-      requestId: 13,
-      cleanupError: 'foreground CAS acknowledgement was lost',
-    );
-    final gateway = _MockGateway(
-      replacementForegroundError: invalidation,
-    );
-    final session = await RitoReaderSession.open(
-      gateway: gateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
+      await expectLater(
+        exactSession.requestArtifact(_request(13)),
+        throwsA(same(invalidation)),
+      );
+      await expectLater(
+        exactSession.advanceBackground(maxTopLevelNodesPerQuantum: 8),
+        throwsA(same(invalidation)),
+      );
+      expect(exactGateway.disposals, 1);
 
-    await expectLater(
-      session.turn(
+      final adjacentGateway = _MockGateway(adjacentError: invalidation);
+      final adjacentSession = await RitoReaderSession.open(
+        gateway: adjacentGateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
+      await expectLater(
+        adjacentSession.turn(
+          from: adjacentSession.firstArtifact,
+          requestId: 13,
+          direction: RitoAdjacentDirection.next,
+          work: testWorkBudget,
+        ),
+        throwsA(same(invalidation)),
+      );
+      await expectLater(
+        adjacentSession.requestArtifact(_request(14)),
+        throwsA(same(invalidation)),
+      );
+      expect(adjacentGateway.disposals, 1);
+    },
+  );
+
+  test(
+    'foreground adoption ambiguity terminalizes without candidate release',
+    () async {
+      const invalidation = RitoNativeSessionInvalidatedException(
+        sessionId: 91,
+        requestId: 13,
+        cleanupError: 'foreground CAS acknowledgement was lost',
+      );
+      final gateway = _MockGateway(replacementForegroundError: invalidation);
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
+
+      await expectLater(
+        session.turn(
+          from: session.firstArtifact,
+          requestId: 13,
+          direction: RitoAdjacentDirection.next,
+          work: testWorkBudget,
+        ),
+        throwsA(same(invalidation)),
+      );
+      expect(gateway.releases, 0);
+      expect(gateway.disposals, 1);
+      expect(session.isDisposed, isTrue);
+    },
+  );
+
+  test(
+    'background advance and adoption ambiguity terminalize locally',
+    () async {
+      const invalidation = RitoNativeSessionInvalidatedException(
+        sessionId: 91,
+        requestId: 12,
+        cleanupError: 'background mutation acknowledgement was lost',
+      );
+      final advanceGateway = _MockGateway(backgroundAdvanceError: invalidation);
+      final advanceSession = await RitoReaderSession.open(
+        gateway: advanceGateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
+      await expectLater(
+        advanceSession.advanceBackground(maxTopLevelNodesPerQuantum: 8),
+        throwsA(same(invalidation)),
+      );
+      expect(advanceGateway.disposals, 1);
+
+      final adoptGateway = _MockGateway(
+        provideBackgroundCandidate: true,
+        backgroundAdoptError: invalidation,
+      );
+      final adoptSession = await RitoReaderSession.open(
+        gateway: adoptGateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
+      final prepared = await adoptSession.advanceBackground(
+        maxTopLevelNodesPerQuantum: 8,
+      );
+      await expectLater(
+        adoptSession.adoptBackground(prepared),
+        throwsA(same(invalidation)),
+      );
+      expect(adoptGateway.releases, 0);
+      expect(adoptGateway.disposals, 1);
+    },
+  );
+
+  test(
+    'release transport ambiguity never resurrects a native artifact',
+    () async {
+      final releaseFailure = StateError('release acknowledgement was lost');
+      final invalidation = RitoNativeSessionInvalidatedException(
+        sessionId: 91,
+        requestId: 12,
+        cleanupError: releaseFailure,
+      );
+      final gateway = _MockGateway(releaseError: invalidation);
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
+      await session.turn(
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
         work: testWorkBudget,
-      ),
-      throwsA(same(invalidation)),
-    );
-    expect(gateway.releases, 0);
-    expect(gateway.disposals, 1);
-    expect(session.isDisposed, isTrue);
-  });
+      );
 
-  test('background advance and adoption ambiguity terminalize locally', () async {
-    const invalidation = RitoNativeSessionInvalidatedException(
-      sessionId: 91,
-      requestId: 12,
-      cleanupError: 'background mutation acknowledgement was lost',
-    );
-    final advanceGateway = _MockGateway(
-      backgroundAdvanceError: invalidation,
-    );
-    final advanceSession = await RitoReaderSession.open(
-      gateway: advanceGateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
-    await expectLater(
-      advanceSession.advanceBackground(maxTopLevelNodesPerQuantum: 8),
-      throwsA(same(invalidation)),
-    );
-    expect(advanceGateway.disposals, 1);
+      await expectLater(
+        session.releaseArtifact(session.firstArtifact),
+        throwsA(same(invalidation)),
+      );
+      expect(gateway.releases, 1);
+      expect(gateway.disposals, 1);
+      expect(session.isDisposed, isTrue);
+    },
+  );
 
-    final adoptGateway = _MockGateway(
-      provideBackgroundCandidate: true,
-      backgroundAdoptError: invalidation,
-    );
-    final adoptSession = await RitoReaderSession.open(
-      gateway: adoptGateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
-    final prepared = await adoptSession.advanceBackground(
-      maxTopLevelNodesPerQuantum: 8,
-    );
-    await expectLater(
-      adoptSession.adoptBackground(prepared),
-      throwsA(same(invalidation)),
-    );
-    expect(adoptGateway.releases, 0);
-    expect(adoptGateway.disposals, 1);
-  });
+  test(
+    'terminal read failures latch before the actor can become not-found',
+    () async {
+      const invalidation = RitoNativeSessionInvalidatedException(
+        sessionId: 91,
+        requestId: 12,
+        cleanupError: 'reader actor ended before the read reply',
+      );
+      final publicationGateway = _MockGateway(publicationError: invalidation);
+      final publicationSession = await RitoReaderSession.open(
+        gateway: publicationGateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
+      await expectLater(
+        publicationSession.readPublication(),
+        throwsA(same(invalidation)),
+      );
+      expect(publicationGateway.disposals, 1);
 
-  test('release transport ambiguity never resurrects a native artifact', () async {
-    final releaseFailure = StateError('release acknowledgement was lost');
-    final invalidation = RitoNativeSessionInvalidatedException(
-      sessionId: 91,
-      requestId: 12,
-      cleanupError: releaseFailure,
-    );
-    final gateway = _MockGateway(releaseError: invalidation);
-    final session = await RitoReaderSession.open(
-      gateway: gateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
-    await session.turn(
-      from: session.firstArtifact,
-      requestId: 13,
-      direction: RitoAdjacentDirection.next,
-      work: testWorkBudget,
-    );
+      final resourceGateway = _MockGateway();
+      final resourceSession = await RitoReaderSession.open(
+        gateway: resourceGateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
+      resourceGateway.resourceError = invalidation;
+      final image = resourceSession.firstArtifact.resources.firstWhere(
+        (resource) => resource.kind == RitoResourceKind.image,
+      );
+      await expectLater(
+        resourceSession.readResource(resourceSession.firstArtifact, image),
+        throwsA(same(invalidation)),
+      );
+      expect(resourceGateway.disposals, 1);
+    },
+  );
 
-    await expectLater(
-      session.releaseArtifact(session.firstArtifact),
-      throwsA(same(invalidation)),
-    );
-    expect(gateway.releases, 1);
-    expect(gateway.disposals, 1);
-    expect(session.isDisposed, isTrue);
-  });
+  test(
+    'publication and background candidate remain explicitly adopted',
+    () async {
+      final gateway = _MockGateway(provideBackgroundCandidate: true);
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
 
-  test('terminal read failures latch before the actor can become not-found', () async {
-    const invalidation = RitoNativeSessionInvalidatedException(
-      sessionId: 91,
-      requestId: 12,
-      cleanupError: 'reader actor ended before the read reply',
-    );
-    final publicationGateway = _MockGateway(
-      publicationError: invalidation,
-    );
-    final publicationSession = await RitoReaderSession.open(
-      gateway: publicationGateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
-    await expectLater(
-      publicationSession.readPublication(),
-      throwsA(same(invalidation)),
-    );
-    expect(publicationGateway.disposals, 1);
+      final publication = await session.readPublication();
+      final advance = await session.advanceBackground(
+        maxTopLevelNodesPerQuantum: 8,
+      );
+      expect(publication.metadata.title, 'Fixture');
+      expect(advance.artifact?.artifactId, 7003);
+      expect(session.visibleArtifactId, 7001);
 
-    final resourceGateway = _MockGateway();
-    final resourceSession = await RitoReaderSession.open(
-      gateway: resourceGateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
-    resourceGateway.resourceError = invalidation;
-    final image = resourceSession.firstArtifact.resources.firstWhere(
-      (resource) => resource.kind == RitoResourceKind.image,
-    );
-    await expectLater(
-      resourceSession.readResource(resourceSession.firstArtifact, image),
-      throwsA(same(invalidation)),
-    );
-    expect(resourceGateway.disposals, 1);
-  });
-
-  test('publication and background candidate remain explicitly adopted', () async {
-    final gateway = _MockGateway(provideBackgroundCandidate: true);
-    final session = await RitoReaderSession.open(
-      gateway: gateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
-
-    final publication = await session.readPublication();
-    final advance = await session.advanceBackground(
-      maxTopLevelNodesPerQuantum: 8,
-    );
-    expect(publication.metadata.title, 'Fixture');
-    expect(advance.artifact?.artifactId, 7003);
-    expect(session.visibleArtifactId, 7001);
-
-    final ack = await session.adoptBackground(advance);
-    expect(ack.replacedArtifactId, 7001);
-    expect(ack.visibleArtifactId, 7003);
-    expect(session.visibleArtifactId, 7003);
-    expect(gateway.backgroundRequests, hasLength(1));
-    expect(gateway.backgroundHandoffs, hasLength(1));
-    await expectLater(
-      session.adoptBackground(advance),
-      throwsA(isA<StateError>()),
-    );
-    expect(gateway.backgroundHandoffs, hasLength(1));
-    expect(gateway.releases, 0);
-    await session.releaseArtifact(session.firstArtifact);
-    await session.dispose();
-  });
+      final ack = await session.adoptBackground(advance);
+      expect(ack.replacedArtifactId, 7001);
+      expect(ack.visibleArtifactId, 7003);
+      expect(session.visibleArtifactId, 7003);
+      expect(gateway.backgroundRequests, hasLength(1));
+      expect(gateway.backgroundHandoffs, hasLength(1));
+      await expectLater(
+        session.adoptBackground(advance),
+        throwsA(isA<StateError>()),
+      );
+      expect(gateway.backgroundHandoffs, hasLength(1));
+      expect(gateway.releases, 0);
+      await session.releaseArtifact(session.firstArtifact);
+      await session.dispose();
+    },
+  );
 
   test('RITOREQ1 uses fixed-width header and total length', () {
     final bytes = const RitoRequestEncoder().encode(_request(12));
@@ -565,30 +577,33 @@ void main() {
     await session.dispose();
   });
 
-  test('terminal resumed seek still records every consumed request ID', () async {
-    final gateway = _ResumableSeekGateway(terminal: true);
-    final session = await RitoReaderSession.open(
-      gateway: gateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
+  test(
+    'terminal resumed seek still records every consumed request ID',
+    () async {
+      final gateway = _ResumableSeekGateway(terminal: true);
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
 
-    await expectLater(
-      session.requestArtifact(_request(13)),
-      throwsA(
-        isA<RitoNativeException>().having(
-          (error) => error.status,
-          'status',
-          ritoNativeStatusTargetNotPublishedV1,
+      await expectLater(
+        session.requestArtifact(_request(13)),
+        throwsA(
+          isA<RitoNativeException>().having(
+            (error) => error.status,
+            'status',
+            ritoNativeStatusTargetNotPublishedV1,
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(session.latestRequestId, 15);
-    expect(session.nextRequestId, 16);
-    await session.dispose();
-  });
+      expect(session.latestRequestId, 15);
+      expect(session.nextRequestId, 16);
+      await session.dispose();
+    },
+  );
 
   test(
     'resumed adjacent prepares then adopts and advances request baseline',
@@ -622,8 +637,9 @@ void main() {
       expect(session.nextRequestId, 17);
       expect(preparedArtifactIds, <int>[7001, 7002]);
       expect(
-        gateway.foregroundHandoffs
-            .map((handoff) => handoff.candidateArtifactId),
+        gateway.foregroundHandoffs.map(
+          (handoff) => handoff.candidateArtifactId,
+        ),
         <int>[7001, 7002],
       );
       expect(gateway.foregroundHandoffs.last.expectedVisibleArtifactId, 7001);
@@ -634,61 +650,67 @@ void main() {
     },
   );
 
-  test('terminal resumed adjacent records every internally consumed ID', () async {
-    final gateway = _ResumableAdjacentGateway(terminal: true);
-    final session = await RitoReaderSession.open(
-      gateway: gateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
+  test(
+    'terminal resumed adjacent records every internally consumed ID',
+    () async {
+      final gateway = _ResumableAdjacentGateway(terminal: true);
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
 
-    await expectLater(
-      session.turn(
+      await expectLater(
+        session.turn(
+          from: session.firstArtifact,
+          requestId: 13,
+          direction: RitoAdjacentDirection.next,
+          work: testWorkBudget,
+        ),
+        throwsA(
+          isA<RitoNativeException>().having(
+            (error) => error.status,
+            'status',
+            ritoNativeStatusTargetNotPublishedV1,
+          ),
+        ),
+      );
+
+      expect(session.latestRequestId, 15);
+      expect(session.nextRequestId, 16);
+      await session.dispose();
+    },
+  );
+
+  test(
+    'background work yields while a retained adjacent turn is active',
+    () async {
+      final gateway = _DelayedResumableAdjacentGateway();
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: Uint8List.fromList(<int>[1]),
+        request: _request(12),
+        fontCache: _fontCache(),
+      );
+
+      final turning = session.turn(
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
         work: testWorkBudget,
-      ),
-      throwsA(
-        isA<RitoNativeException>().having(
-          (error) => error.status,
-          'status',
-          ritoNativeStatusTargetNotPublishedV1,
-        ),
-      ),
-    );
+      );
+      await expectLater(
+        session.advanceBackground(maxTopLevelNodesPerQuantum: 8),
+        throwsA(isA<StateError>()),
+      );
+      expect(gateway.backgroundRequests, isEmpty);
 
-    expect(session.latestRequestId, 15);
-    expect(session.nextRequestId, 16);
-    await session.dispose();
-  });
-
-  test('background work yields while a retained adjacent turn is active', () async {
-    final gateway = _DelayedResumableAdjacentGateway();
-    final session = await RitoReaderSession.open(
-      gateway: gateway,
-      publicationBytes: Uint8List.fromList(<int>[1]),
-      request: _request(12),
-      fontCache: _fontCache(),
-    );
-
-    final turning = session.turn(
-      from: session.firstArtifact,
-      requestId: 13,
-      direction: RitoAdjacentDirection.next,
-      work: testWorkBudget,
-    );
-    await expectLater(
-      session.advanceBackground(maxTopLevelNodesPerQuantum: 8),
-      throwsA(isA<StateError>()),
-    );
-    expect(gateway.backgroundRequests, isEmpty);
-
-    gateway.completeAdjacent();
-    expect((await turning).requestId, 16);
-    await session.dispose();
-  });
+      gateway.completeAdjacent();
+      expect((await turning).requestId, 16);
+      await session.dispose();
+    },
+  );
 
   test('native adjacent status remains typed and lossless', () async {
     const error = RitoNativeException(status: 6, message: 'not published');
@@ -836,6 +858,19 @@ final class _MockGateway implements RitoReaderGateway {
       <RitoBackgroundHandoff>[];
   int? _visibleRequestId;
   String? lastResourceHref;
+
+  @override
+  Future<RitoArtifact?> peekAdjacent({required RitoAdjacentRequest request}) {
+    throw UnimplementedError('peekAdjacent is not exercised by this fake.');
+  }
+
+  @override
+  Future<RitoForegroundHandoffAck> commitPeeked({
+    required RitoForegroundHandoff handoff,
+    required int intentRequestId,
+  }) {
+    throw UnimplementedError('commitPeeked is not exercised by this fake.');
+  }
 
   @override
   Future<RitoArtifact> open({
@@ -1002,8 +1037,7 @@ final class _MockGateway implements RitoReaderGateway {
 
 final class _ResumableMockGateway extends _MockGateway
     implements RitoResumableExactSeekGateway {
-  _ResumableMockGateway()
-    : super(openRequestId: 15, adjacentRequestId: 16);
+  _ResumableMockGateway() : super(openRequestId: 15, adjacentRequestId: 16);
 
   @override
   bool acceptsResumedExactSeekArtifact({
@@ -1114,9 +1148,7 @@ final class _DelayedResumableAdjacentGateway extends _MockGateway
   void completeAdjacent() => _adjacent.complete(nextArtifact);
 
   @override
-  Future<RitoArtifact> requestAdjacent({
-    required RitoAdjacentRequest request,
-  }) {
+  Future<RitoArtifact> requestAdjacent({required RitoAdjacentRequest request}) {
     adjacentRequests += 1;
     return _adjacent.future;
   }

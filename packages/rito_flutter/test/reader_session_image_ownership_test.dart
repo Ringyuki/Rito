@@ -30,10 +30,7 @@ void main() {
       specs: const <String, TestImageSpec>{href: spec},
       beforeAdopt: (_) => expect(decoder.decodedCodes, isNotEmpty),
     );
-    final cache = RitoArtifactImageCache(
-      decoder: decoder,
-      targetBucketSize: 1,
-    );
+    final cache = RitoArtifactImageCache(decoder: decoder, targetBucketSize: 1);
     final session = await RitoReaderSession.open(
       gateway: gateway,
       publicationBytes: Uint8List.fromList(const <int>[1]),
@@ -70,64 +67,68 @@ void main() {
     cache.dispose();
   });
 
-  test('failed candidate decode releases native candidate and keeps visible', () async {
-    const firstHref = 'images/first.png';
-    const nextHref = 'images/failed.png';
-    const firstSpec = TestImageSpec(code: 1, width: 40, height: 40);
-    const nextSpec = TestImageSpec(
-      code: 2,
-      width: 40,
-      height: 40,
-      failDecode: true,
-    );
-    final first = imageArtifact(
-      artifactId: 7001,
-      hrefs: const <String>[firstHref],
-      commands: <RitoCommand>[directImage(firstHref)],
-    );
-    final next = imageArtifact(
-      artifactId: 7002,
-      requestId: 13,
-      hrefs: const <String>[nextHref],
-      commands: <RitoCommand>[directImage(nextHref)],
-    );
-    final decoder = TestImageDecoder(
-      const <TestImageSpec>[firstSpec, nextSpec],
-    );
-    final gateway = _ImageGateway(
-      first: first,
-      next: next,
-      specs: const <String, TestImageSpec>{
-        firstHref: firstSpec,
-        nextHref: nextSpec,
-      },
-    );
-    final cache = RitoArtifactImageCache(decoder: decoder);
-    final session = await RitoReaderSession.open(
-      gateway: gateway,
-      publicationBytes: Uint8List.fromList(const <int>[1]),
-      request: _request(12),
-      imageCache: cache,
-    );
-    final visibleImage = session.firstArtifact.resolveImage(firstHref);
-
-    await expectLater(
-      session.turn(
-        from: session.firstArtifact,
+  test(
+    'failed candidate decode releases native candidate and keeps visible',
+    () async {
+      const firstHref = 'images/first.png';
+      const nextHref = 'images/failed.png';
+      const firstSpec = TestImageSpec(code: 1, width: 40, height: 40);
+      const nextSpec = TestImageSpec(
+        code: 2,
+        width: 40,
+        height: 40,
+        failDecode: true,
+      );
+      final first = imageArtifact(
+        artifactId: 7001,
+        hrefs: const <String>[firstHref],
+        commands: <RitoCommand>[directImage(firstHref)],
+      );
+      final next = imageArtifact(
+        artifactId: 7002,
         requestId: 13,
-        direction: RitoAdjacentDirection.next,
-        work: _work,
-      ),
-      throwsStateError,
-    );
+        hrefs: const <String>[nextHref],
+        commands: <RitoCommand>[directImage(nextHref)],
+      );
+      final decoder = TestImageDecoder(const <TestImageSpec>[
+        firstSpec,
+        nextSpec,
+      ]);
+      final gateway = _ImageGateway(
+        first: first,
+        next: next,
+        specs: const <String, TestImageSpec>{
+          firstHref: firstSpec,
+          nextHref: nextSpec,
+        },
+      );
+      final cache = RitoArtifactImageCache(decoder: decoder);
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: Uint8List.fromList(const <int>[1]),
+        request: _request(12),
+        imageCache: cache,
+      );
+      final visibleImage = session.firstArtifact.resolveImage(firstHref);
 
-    expect(session.visibleArtifactId, 7001);
-    expect(gateway.releasedArtifactIds, <int>[7002]);
-    expect(visibleImage.debugDisposed, isFalse);
-    await session.dispose();
-    expect(visibleImage.debugDisposed, isTrue);
-    cache.dispose();
-  });
+      await expectLater(
+        session.turn(
+          from: session.firstArtifact,
+          requestId: 13,
+          direction: RitoAdjacentDirection.next,
+          work: _work,
+        ),
+        throwsStateError,
+      );
+
+      expect(session.visibleArtifactId, 7001);
+      expect(gateway.releasedArtifactIds, <int>[7002]);
+      expect(visibleImage.debugDisposed, isFalse);
+      await session.dispose();
+      expect(visibleImage.debugDisposed, isTrue);
+      cache.dispose();
+    },
+  );
 }
 
 const _work = RitoWorkBudget(
@@ -175,6 +176,19 @@ final class _ImageGateway implements RitoReaderGateway {
   int resourceReads = 0;
   int? _visibleArtifactId;
   int? _visibleRequestId;
+
+  @override
+  Future<RitoArtifact?> peekAdjacent({required RitoAdjacentRequest request}) {
+    throw UnimplementedError('peekAdjacent is not exercised by this fake.');
+  }
+
+  @override
+  Future<RitoForegroundHandoffAck> commitPeeked({
+    required RitoForegroundHandoff handoff,
+    required int intentRequestId,
+  }) {
+    throw UnimplementedError('commitPeeked is not exercised by this fake.');
+  }
 
   @override
   Future<RitoArtifact> open({

@@ -40,8 +40,9 @@ void main() {
       expect(gateway.releaseAttempts, <int>[7002]);
       expect(gateway.releasedArtifactIds, <int>[7002]);
       expect(
-        gateway.foregroundHandoffs
-            .map((handoff) => handoff.candidateArtifactId),
+        gateway.foregroundHandoffs.map(
+          (handoff) => handoff.candidateArtifactId,
+        ),
         <int>[7001, 7003],
       );
       await session.dispose();
@@ -227,6 +228,19 @@ final class _NavigationGateway implements RitoReaderGateway {
   int? _visibleRequestId;
   final List<RitoForegroundHandoff> foregroundHandoffs =
       <RitoForegroundHandoff>[];
+
+  @override
+  Future<RitoArtifact?> peekAdjacent({required RitoAdjacentRequest request}) {
+    throw UnimplementedError('peekAdjacent is not exercised by this fake.');
+  }
+
+  @override
+  Future<RitoForegroundHandoffAck> commitPeeked({
+    required RitoForegroundHandoff handoff,
+    required int intentRequestId,
+  }) {
+    throw UnimplementedError('commitPeeked is not exercised by this fake.');
+  }
 
   @override
   Future<RitoArtifact> open({

@@ -59,6 +59,20 @@ abstract interface class RitoReaderGateway {
 
   Future<RitoArtifact> requestAdjacent({required RitoAdjacentRequest request});
 
+  /// Publishes the adjacent spread as a read-only artifact when its
+  /// layout already exists — no visible-state change, no pending
+  /// navigation, no layout work. Returns null when the neighbor is not
+  /// peekable yet (it would need layout). The artifact occupies a live
+  /// slot and must be released.
+  Future<RitoArtifact?> peekAdjacent({required RitoAdjacentRequest request});
+
+  /// Commits an artifact previously produced by [peekAdjacent] as the
+  /// visible foreground with a CAS and zero layout work.
+  Future<RitoForegroundHandoffAck> commitPeeked({
+    required RitoForegroundHandoff handoff,
+    required int intentRequestId,
+  });
+
   Future<RitoPublication> readPublication({required int sessionId});
 
   Future<RitoForegroundHandoffAck> adoptForeground({
@@ -378,6 +392,92 @@ final class RitoIsolateGateway
             sessionId: request.sessionId,
             requestId: request.requestId,
           );
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<RitoArtifact?> peekAdjacent({
+    required RitoAdjacentRequest request,
+  }) async {
+    final requestBytes = _requestEncoder.encodeAdjacent(request);
+    try {
+      return await _queue.ordered<RitoArtifact>(
+        sessionId: request.sessionId,
+        operation: () => _guardNativeMutation<RitoArtifact>(
+          sessionId: request.sessionId,
+          requestId: request.requestId,
+          operation: () async {
+            final worker = await _worker;
+            final wireBytes = await worker.invokeWire(
+              _PeekAdjacentOperation(
+                sessionId: request.sessionId,
+                requestBytes: requestBytes,
+              ),
+            );
+            // Deliberately NOT _decodeArtifact: a peeked artifact is
+            // read-only and must never register as the pending
+            // foreground candidate.
+            final artifact = _artifactDecoder.decode(wireBytes);
+            if (artifact.sessionId != request.sessionId ||
+                artifact.requestId != request.requestId) {
+              return _rejectMalformedArtifact(
+                sessionId: request.sessionId,
+                requestId: request.requestId,
+                contractError: const RitoNativeException(
+                  status: 4,
+                  message:
+                      'Native peeked artifact identity does not match its request.',
+                ),
+                contractStackTrace: StackTrace.current,
+              );
+            }
+            return artifact;
+          },
+        ),
+      );
+    } on RitoNativeException catch (error) {
+      if (error.status == ritoNativeStatusTargetNotPublishedV1) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<RitoForegroundHandoffAck> commitPeeked({
+    required RitoForegroundHandoff handoff,
+    required int intentRequestId,
+  }) {
+    final requestBytes = _foregroundEncoder.encodeHandoff(handoff);
+    return _queue.ordered<RitoForegroundHandoffAck>(
+      sessionId: handoff.sessionId,
+      operation: () => _guardNativeMutation<RitoForegroundHandoffAck>(
+        sessionId: handoff.sessionId,
+        requestId: intentRequestId,
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(
+            _CommitPeekedOperation(
+              sessionId: handoff.sessionId,
+              requestBytes: requestBytes,
+            ),
+          );
+          final ack = await _decodeSessionWire<RitoForegroundHandoffAck>(
+            sessionId: handoff.sessionId,
+            field: 'peeked commit acknowledgement',
+            wireBytes: wireBytes,
+            decode: _foregroundDecoder.decodeHandoffAck,
+            validate: (ack) =>
+                ack.intentRequestId == intentRequestId &&
+                ack.replacedArtifactId == handoff.expectedVisibleArtifactId &&
+                ack.visibleArtifactId == handoff.candidateArtifactId,
+          );
+          // The commit superseded any pending foreground candidate on
+          // the core side; mirror that in the gateway bookkeeping.
+          _pendingForegroundCandidates.remove(handoff.sessionId);
+          return ack;
         },
       ),
     );

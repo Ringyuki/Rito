@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rito_flutter/rito_flutter.dart';
 import 'package:rito_flutter/rito_flutter_native.dart';
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 
@@ -176,4 +177,88 @@ void main() {
       bindings.dispose(sessionId: sessionId);
     }
   });
+
+  test(
+    'peek publishes a read-only neighbor and turn fast-commits it',
+    () async {
+      final publication = File(
+        '../rito/tests/fixtures/books/book-10.epub',
+      ).readAsBytesSync();
+      const sessionId = 9003;
+      const work = RitoWorkBudget(
+        maxTopLevelNodesPerQuantum: 32,
+        maxForegroundQuanta: 64,
+        localPageCap: 16,
+      );
+      final gateway = RitoIsolateGateway();
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: publication,
+        request: const RitoArtifactRequest(
+          sessionId: sessionId,
+          requestId: 1,
+          layout: RitoLayoutRequest(
+            viewportWidth: 420,
+            viewportHeight: 640,
+            marginTop: 24,
+            marginRight: 24,
+            marginBottom: 24,
+            marginLeft: 24,
+            spreadMode: RitoSpreadMode.single,
+            firstPageAlone: true,
+            spreadGap: 0,
+            rootFontSize: 16,
+          ),
+          locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
+          work: work,
+        ),
+      );
+      try {
+        final first = session.firstArtifact;
+        final second = await session.turn(
+          from: first,
+          requestId: session.nextRequestId,
+          direction: RitoAdjacentDirection.next,
+          work: work,
+        );
+
+        // Peek the previous neighbor: no visible change, fully prepared.
+        final peeked = await session.peek(
+          from: second,
+          requestId: session.nextRequestId,
+          direction: RitoAdjacentDirection.previous,
+          work: work,
+        );
+        expect(peeked, isNotNull);
+        expect(session.visibleArtifactId, second.artifactId);
+        expect(peeked!.artifact.localPageIndex, first.artifact.localPageIndex);
+
+        // Turn onto the peeked page: fast path commits the same artifact.
+        final committed = await session.turn(
+          from: second,
+          requestId: session.nextRequestId,
+          direction: RitoAdjacentDirection.previous,
+          work: work,
+        );
+        expect(committed.artifactId, peeked.artifactId);
+        expect(session.visibleArtifactId, peeked.artifactId);
+
+        // An unpaginated far neighbor peeks as null.
+        final far = await session.peek(
+          from: committed,
+          requestId: session.nextRequestId,
+          direction: RitoAdjacentDirection.previous,
+          work: work,
+        );
+        if (far != null) {
+          await session.releaseArtifact(far);
+        }
+        await session.releaseArtifact(first);
+        await session.releaseArtifact(second);
+      } finally {
+        await session.dispose();
+        await gateway.close();
+      }
+    },
+  );
 }

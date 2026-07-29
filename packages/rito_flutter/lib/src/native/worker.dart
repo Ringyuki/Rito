@@ -264,6 +264,15 @@ void _discardUnsentWire(
           );
         }
         break;
+      case _PeekAdjacentOperation():
+        final artifactId = _wireArtifactId(wireBytes);
+        if (artifactId != null) {
+          bindings.releaseArtifact(
+            sessionId: operation.sessionId,
+            artifactId: artifactId,
+          );
+        }
+        break;
       case _AdvanceBackgroundOperation():
         // The reply either carries a host-owned candidate or confirms a
         // visibility mutation. If transfer fails, only session disposal can
@@ -272,6 +281,12 @@ void _discardUnsentWire(
         liveSessions.remove(operation.sessionId);
         break;
       case _AdoptForegroundOperation():
+        bindings.dispose(sessionId: operation.sessionId);
+        liveSessions.remove(operation.sessionId);
+        break;
+      case _CommitPeekedOperation():
+        // The commit may already have swapped visibility; a lost ack
+        // leaves ownership unprovable, so only disposal recovers.
         bindings.dispose(sessionId: operation.sessionId);
         liveSessions.remove(operation.sessionId);
         break;
@@ -315,6 +330,14 @@ Object? _perform(
       requestBytes: operation.requestBytes,
     ),
     _RequestAdjacentOperation() => bindings.requestAdjacentEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
+    ),
+    _PeekAdjacentOperation() => bindings.peekAdjacentEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
+    ),
+    _CommitPeekedOperation() => bindings.commitPeekedArtifactEncoded(
       sessionId: operation.sessionId,
       requestBytes: operation.requestBytes,
     ),
@@ -493,6 +516,26 @@ final class _RequestArtifactOperation extends _WorkerOperation {
 
 final class _RequestAdjacentOperation extends _WorkerOperation {
   const _RequestAdjacentOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
+}
+
+final class _PeekAdjacentOperation extends _WorkerOperation {
+  const _PeekAdjacentOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
+}
+
+final class _CommitPeekedOperation extends _WorkerOperation {
+  const _CommitPeekedOperation({
     required this.sessionId,
     required this.requestBytes,
   });

@@ -85,6 +85,30 @@ external int _ritoRequestAdjacentV1(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_RequestAdjacentNative>(
+  symbol: 'rito_peek_adjacent_v1',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoPeekAdjacentV1(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> artifactOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_OwnedWireRequestNative>(
+  symbol: 'rito_commit_peeked_artifact_v1',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoCommitPeekedArtifactV1(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> ackOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_ReadPublicationNative>(
   symbol: 'rito_read_publication_v1',
   assetId: ritoNativeAssetId,
@@ -174,6 +198,8 @@ final class RitoNativeBindings {
        _openWithPinnedFonts = _ritoOpenWithPinnedFontsV1,
        _requestArtifact = _ritoRequestArtifactV1,
        _requestAdjacent = _ritoRequestAdjacentV1,
+       _peekAdjacent = _ritoPeekAdjacentV1,
+       _commitPeeked = _ritoCommitPeekedArtifactV1,
        _readPublication = _ritoReadPublicationV1,
        _adoptForeground = _ritoAdoptForegroundCandidateV1,
        _advanceBackground = _ritoAdvanceBackgroundV1,
@@ -203,6 +229,14 @@ final class RitoNativeBindings {
        _requestAdjacent = library
            .lookupFunction<_RequestAdjacentNative, _RequestAdjacentDart>(
              'rito_request_adjacent_v1',
+           ),
+       _peekAdjacent = library
+           .lookupFunction<_RequestAdjacentNative, _RequestAdjacentDart>(
+             'rito_peek_adjacent_v1',
+           ),
+       _commitPeeked = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_commit_peeked_artifact_v1',
            ),
        _readPublication = library
            .lookupFunction<_ReadPublicationNative, _ReadPublicationDart>(
@@ -240,6 +274,8 @@ final class RitoNativeBindings {
   final _OpenWithPinnedFontsDart _openWithPinnedFonts;
   final _RequestArtifactDart _requestArtifact;
   final _RequestAdjacentDart _requestAdjacent;
+  final _RequestAdjacentDart _peekAdjacent;
+  final _OwnedWireRequestDart _commitPeeked;
   final _ReadPublicationDart _readPublication;
   final _OwnedWireRequestDart _adoptForeground;
   final _OwnedWireRequestDart _advanceBackground;
@@ -525,6 +561,93 @@ final class RitoNativeBindings {
         ..free(errorOut)
         ..free(request);
     }
+  }
+
+  RitoArtifact peekAdjacentEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    final owned = _peekAdjacentEncodedWire(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+    );
+    try {
+      final artifact = artifactDecoder.decode(owned);
+      _validateArtifactIdentity(
+        artifact,
+        sessionId: sessionId,
+        requestId: _acceptedRequestId(requestBytes),
+      );
+      return artifact;
+    } on Object catch (error, stackTrace) {
+      if (_releaseAfterFailedArtifact(sessionId, _acceptedArtifactId(owned))) {
+        rethrow;
+      }
+      _disposeAfterFailedSessionOutput(sessionId);
+      Error.throwWithStackTrace(
+        _terminatedSessionResultError('peeked artifact', error),
+        stackTrace,
+      );
+    }
+  }
+
+  Uint8List _peekAdjacentEncodedWire({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    _validateId(sessionId, 'session id');
+    if (requestBytes.length != 60) {
+      throw ArgumentError.value(
+        requestBytes.length,
+        'request byte length',
+        'RITONAV1 must be exactly 60 bytes',
+      );
+    }
+    final request = _copyInput(requestBytes);
+    final artifactOut = calloc<_RitoOwnedBuffer>();
+    final errorOut = calloc<_RitoOwnedBuffer>();
+    try {
+      final status = _peekAdjacent(
+        sessionId,
+        request,
+        requestBytes.length,
+        artifactOut,
+        errorOut,
+      );
+      if (status != 0) {
+        throw _nativeError(status, errorOut);
+      }
+      try {
+        return _copyOutput(artifactOut, 'artifact');
+      } on Object catch (error, stackTrace) {
+        _disposeAfterFailedSessionOutput(sessionId);
+        Error.throwWithStackTrace(
+          _terminatedSessionResultError('peeked artifact', error),
+          stackTrace,
+        );
+      }
+    } finally {
+      _bufferFree(artifactOut);
+      _bufferFree(errorOut);
+      calloc
+        ..free(artifactOut)
+        ..free(errorOut)
+        ..free(request);
+    }
+  }
+
+  Uint8List commitPeekedArtifactEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      expectedLength: 48,
+      wireName: 'RITOFGH1',
+      outputName: 'peeked commit acknowledgement',
+      operation: _commitPeeked,
+    );
   }
 
   Uint8List readPublicationEncoded({required int sessionId}) {
@@ -958,6 +1081,22 @@ final class RitoNativeWireBindings {
     required int sessionId,
     required Uint8List requestBytes,
   }) => _bindings._requestAdjacentEncodedWire(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List peekAdjacentEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings._peekAdjacentEncodedWire(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List commitPeekedArtifactEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.commitPeekedArtifactEncoded(
     sessionId: sessionId,
     requestBytes: requestBytes,
   );

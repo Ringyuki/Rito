@@ -261,9 +261,7 @@ void main() {
       var activeReads = 0;
       var peakReads = 0;
 
-      await RitoArtifactFontCache(
-        registrar: _CountingRegistrar(),
-      ).prepare(
+      await RitoArtifactFontCache(registrar: _CountingRegistrar()).prepare(
         artifact: artifact,
         readResource: (reference) async {
           activeReads += 1;
@@ -302,7 +300,10 @@ void main() {
     final gate = Completer<void>();
     var activeReads = 0;
     var peakReads = 0;
-    Future<RitoResource> read(RitoArtifact artifact, RitoResourceRef reference) async {
+    Future<RitoResource> read(
+      RitoArtifact artifact,
+      RitoResourceRef reference,
+    ) async {
       activeReads += 1;
       peakReads = peakReads < activeReads ? activeReads : peakReads;
       await gate.future;
@@ -431,10 +432,8 @@ RitoArtifact _withFonts(
     displayList: source.displayList,
     resources: fonts
         .map(
-          (font) => RitoResourceRef(
-            kind: RitoResourceKind.font,
-            href: font.href,
-          ),
+          (font) =>
+              RitoResourceRef(kind: RitoResourceKind.font, href: font.href),
         )
         .toList(growable: false),
     fonts: fonts,
@@ -476,6 +475,19 @@ final class _FontGateway implements RitoReaderGateway {
   int? _visibleRequestId;
   final List<RitoForegroundHandoff> foregroundHandoffs =
       <RitoForegroundHandoff>[];
+
+  @override
+  Future<RitoArtifact?> peekAdjacent({required RitoAdjacentRequest request}) {
+    throw UnimplementedError('peekAdjacent is not exercised by this fake.');
+  }
+
+  @override
+  Future<RitoForegroundHandoffAck> commitPeeked({
+    required RitoForegroundHandoff handoff,
+    required int intentRequestId,
+  }) {
+    throw UnimplementedError('commitPeeked is not exercised by this fake.');
+  }
 
   @override
   Future<RitoArtifact> open({
