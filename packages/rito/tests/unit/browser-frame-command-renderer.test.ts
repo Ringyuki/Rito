@@ -46,6 +46,28 @@ describe('browser frame-command Canvas renderer', () => {
     expect(production.records).toEqual(reference.records);
   });
 
+  it('replaces the materialized page ground with the theme override background', () => {
+    const commands: readonly RitoCoreWasmFrameCommand[] = [
+      {
+        kind: 'paintPage',
+        rect: { x: 0, y: 0, width: 100, height: 150 },
+        paint: { backgroundColor: '#ffffff' },
+      },
+    ];
+
+    const themed = createMockCanvasContext();
+    renderFrameCommandsToCanvas(commands, themed.ctx, {
+      pixelRatio: 1,
+      foregroundColor: '#e5e5e5',
+      backgroundColor: '#1a1a1a',
+    });
+    expect(themed.getPropertySets('fillStyle').map((set) => set.value)).toEqual(['#1a1a1a']);
+
+    const unthemed = createMockCanvasContext();
+    renderFrameCommandsToCanvas(commands, unthemed.ctx, { pixelRatio: 1 });
+    expect(unthemed.getPropertySets('fillStyle').map((set) => set.value)).toEqual(['#ffffff']);
+  });
+
   it('restores executor-owned Canvas state when text paint throws', () => {
     const mock = createMockCanvasContext();
     const ctx = contextThrowingOn(mock.ctx, 'fillText');

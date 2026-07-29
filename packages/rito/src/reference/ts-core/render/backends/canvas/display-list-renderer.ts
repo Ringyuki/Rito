@@ -102,7 +102,7 @@ function renderCommand(
       applyClipRect(ctx, command);
       break;
     case 'paintPage':
-      paintPage(ctx, command.paint.backgroundColor, command.rect);
+      paintPage(ctx, command.paint.backgroundColor, command.rect, state.colorOverride);
       break;
     case 'paintBlock':
       paintBlock(ctx, command, state);
@@ -150,9 +150,12 @@ function paintPage(
   ctx: CanvasRenderingContext2D,
   backgroundColor: string | undefined,
   rect: Rect,
+  colorOverride: CanvasRenderState['colorOverride'],
 ): void {
   if (!backgroundColor) return;
-  ctx.fillStyle = backgroundColor;
+  // An active theme override owns the page ground (see the browser
+  // frame-command renderer, which this reference mirrors).
+  ctx.fillStyle = colorOverride ? colorOverride.backgroundColor : backgroundColor;
   ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
 }
 

@@ -126,7 +126,7 @@ function renderCommand(ctx: CanvasContext, command: CoreFrameCommand, state: Ren
       applyClipRect(ctx, command);
       return;
     case 'paintPage':
-      paintPage(ctx, command.paint.backgroundColor, command.rect);
+      paintPage(ctx, command.paint.backgroundColor, command.rect, state.colorOverride);
       return;
     case 'paintBlock':
       paintBlock(ctx, command, state);
@@ -163,9 +163,16 @@ function paintPage(
   ctx: CanvasRenderingContext2D,
   backgroundColor: string | undefined,
   rect: Extract<CoreFrameCommand, { readonly kind: 'paintPage' }>['rect'],
+  colorOverride: CanvasTextColorOverride | undefined,
 ): void {
   if (!backgroundColor) return;
-  ctx.fillStyle = backgroundColor;
+  // An active theme override owns the page ground: the engine
+  // materializes the book's own body background (usually white), which
+  // would otherwise bury the host's dark/sepia theme. This mirrors the
+  // pre-materialization behavior where the page command did not exist
+  // and the host-painted theme ground showed through. Absent commands
+  // stay absent — the override never invents a page fill.
+  ctx.fillStyle = colorOverride ? colorOverride.backgroundColor : backgroundColor;
   ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
 }
 
