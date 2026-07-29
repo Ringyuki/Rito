@@ -58,10 +58,11 @@ impl RuntimeDocument {
     ) -> EpubResult<RuntimePageReadingAnchor> {
         let capture = self.capture_page_reading_source(revision_id, page_index)?;
         if capture.source_starts.is_empty() {
-            return Ok(unavailable_page_reading_anchor(
+            return Ok(self.page_reading_anchor_fallback(
                 revision_id,
                 page_index,
                 capture.spread_index,
+                capture.chapter_index,
                 RuntimePageReadingAnchorUnavailableReason::NoSourceContent,
             ));
         }
@@ -74,10 +75,11 @@ impl RuntimeDocument {
             ));
         };
         let Some(locator) = self.page_reading_locator(chapter_index, capture.source_starts) else {
-            return Ok(unavailable_page_reading_anchor(
+            return Ok(self.page_reading_anchor_fallback(
                 revision_id,
                 page_index,
                 capture.spread_index,
+                Some(chapter_index),
                 RuntimePageReadingAnchorUnavailableReason::SourceUnavailable,
             ));
         };
@@ -87,6 +89,68 @@ impl RuntimeDocument {
             spread_index: capture.spread_index,
             locator,
         })
+    }
+
+    /// Text-free pages (cover plates, illustration spreads) still need a
+    /// durable locator: progress persistence and publication spread
+    /// publishing both dead-end on `Unavailable`. Mirror the
+    /// chapter-local reader's degradation ladder — a paint-target
+    /// canonical locator when the page carries one (images own source
+    /// identity), else the page's position inside its chapter as a
+    /// progression.
+    fn page_reading_anchor_fallback(
+        &mut self,
+        revision_id: &str,
+        page_index: usize,
+        spread_index: usize,
+        chapter_index: Option<usize>,
+        reason: RuntimePageReadingAnchorUnavailableReason,
+    ) -> RuntimePageReadingAnchor {
+        let Some(chapter_index) = chapter_index else {
+            return unavailable_page_reading_anchor(revision_id, page_index, spread_index, reason);
+        };
+        if let Ok(targets) = self.get_page_targets(revision_id, page_index) {
+            if let Some(locator) = targets
+                .entries
+                .into_iter()
+                .find_map(|entry| entry.source_locator)
+            {
+                return RuntimePageReadingAnchor::Resolved {
+                    revision_id: revision_id.to_owned(),
+                    page_index,
+                    spread_index,
+                    locator,
+                };
+            }
+        }
+        let chapter = &self.document.chapters[chapter_index];
+        let href = chapter.href.clone();
+        let idref = chapter.idref.clone();
+        let progression = self
+            .revisions
+            .get(revision_id)
+            .and_then(|revision| revision.chapter_engine_session().known_chapter(&idref))
+            .map(|range| {
+                let span = range.end_page.saturating_sub(range.start_page);
+                if span == 0 {
+                    0.0
+                } else {
+                    page_index.saturating_sub(range.start_page) as f64 / span as f64
+                }
+            })
+            .unwrap_or(0.0);
+        RuntimePageReadingAnchor::Resolved {
+            revision_id: revision_id.to_owned(),
+            page_index,
+            spread_index,
+            locator: RuntimeSourceLocator {
+                href,
+                anchor_id: None,
+                source_point: None,
+                source_range: None,
+                progression: Some(progression),
+            },
+        }
     }
 
     fn capture_page_reading_source(

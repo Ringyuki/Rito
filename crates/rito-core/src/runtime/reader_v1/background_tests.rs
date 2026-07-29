@@ -795,3 +795,121 @@ fn release_all(session: &mut ReaderSessionV1, artifact_ids: impl IntoIterator<It
             .expect("live artifact releases"));
     }
 }
+
+fn plate_adjacent(
+    session_id: u64,
+    request_id: u64,
+    from_artifact_id: u64,
+    direction: ReaderAdjacentDirectionV1,
+) -> ReaderAdjacentRequestV1 {
+    ReaderAdjacentRequestV1 {
+        session_id,
+        request_id,
+        from_artifact_id,
+        direction,
+        work: ReaderWorkBudgetV1 {
+            max_top_level_nodes_per_quantum: 8,
+            max_foreground_quanta: 64,
+            local_page_cap: 16,
+        },
+    }
+}
+
+#[test]
+fn publication_turns_cross_image_only_plates_in_both_directions() {
+    use crate::runtime::tests::fixture::image_plate_fixture_epub;
+    let mut session = ReaderSessionV1::open_owned(220, image_plate_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(artifact_request(220, 1, "chapter-0.xhtml"))
+        .expect("first chapter resolves");
+    adopt_initial(&mut session, 220, visible.artifact_id);
+
+    let candidate = advance_to_candidate(&mut session, 220, visible.artifact_id, 64)
+        .artifact
+        .expect("publication produces a handoff candidate");
+    session
+        .adopt_background_candidate(ReaderBackgroundHandoffV1 {
+            session_id: 220,
+            expected_visible_artifact_id: visible.artifact_id,
+            candidate_artifact_id: candidate.artifact_id,
+        })
+        .expect("publication candidate adopts");
+    // Finish publication layout so every spread is published.
+    for _ in 0..256 {
+        let step = session
+            .advance_background_once(background_request(220, candidate.artifact_id, 64))
+            .expect("background completes");
+        if step.state == ReaderBackgroundStateV1::Complete {
+            break;
+        }
+    }
+
+    // Turn forward through the image-only plate to the last chapter,
+    // then all the way back. Every spread must publish an artifact —
+    // text-free plates included (the durable-anchor fallback).
+    let mut current = candidate.clone();
+    let mut request_id = 100;
+    let mut forward = Vec::new();
+    loop {
+        let step = session.request_adjacent(plate_adjacent(
+            220,
+            request_id,
+            current.artifact_id,
+            ReaderAdjacentDirectionV1::Next,
+        ));
+        request_id += 1;
+        match step {
+            Ok(next) => {
+                adopt_replacement(&mut session, 220, current.artifact_id, next.artifact_id);
+                session
+                    .release_artifact(current.artifact_id)
+                    .expect("old spread releases");
+                forward.push(next.local_spread_index);
+                current = next;
+            }
+            Err(error) => {
+                assert_eq!(
+                    error.kind,
+                    ReaderErrorKindV1::TargetNotPublished,
+                    "forward turn must only stop at the publication boundary: {error:?}"
+                );
+                assert!(error.message.contains("terminal"), "{error:?}");
+                break;
+            }
+        }
+    }
+    assert!(
+        forward.len() >= 2,
+        "the book must span the plate: {forward:?}"
+    );
+
+    loop {
+        let step = session.request_adjacent(plate_adjacent(
+            220,
+            request_id,
+            current.artifact_id,
+            ReaderAdjacentDirectionV1::Previous,
+        ));
+        request_id += 1;
+        match step {
+            Ok(previous) => {
+                adopt_replacement(&mut session, 220, current.artifact_id, previous.artifact_id);
+                session
+                    .release_artifact(current.artifact_id)
+                    .expect("old spread releases");
+                current = previous;
+            }
+            Err(error) => {
+                assert_eq!(
+                    error.kind,
+                    ReaderErrorKindV1::TargetNotPublished,
+                    "backward turn must only stop at the publication boundary: {error:?}"
+                );
+                assert!(error.message.contains("terminal"), "{error:?}");
+                break;
+            }
+        }
+    }
+    assert_eq!(current.local_spread_index, 0);
+}

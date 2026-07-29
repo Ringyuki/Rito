@@ -83,7 +83,13 @@ fn exact_page_anchor_round_trips_to_the_same_source_after_reflow() {
 }
 
 #[test]
-fn image_only_page_returns_typed_unavailable_without_guessing_progression() {
+fn image_only_page_resolves_a_durable_fallback_anchor() {
+    // Text-free pages used to answer Unavailable, which dead-ended both
+    // progress persistence and publication spread publishing (a book
+    // with plates could not be turned past them). The anchor now
+    // degrades like the chapter-local reader: paint-target source
+    // identity when the page carries it, else chapter-relative
+    // progression — and must resolve back to the same page.
     let mut document =
         RuntimeDocument::open(&image_only_fixture_epub()).expect("image-only document opens");
     let revision = document
@@ -95,26 +101,21 @@ fn image_only_page_returns_typed_unavailable_without_guessing_progression() {
         .get_page_reading_anchor_at(&handle, 0)
         .expect("known image page returns an authoritative response");
 
-    assert!(matches!(
-        &response.value,
-        RuntimePageReadingAnchor::Unavailable {
-            reason: RuntimePageReadingAnchorUnavailableReason::NoSourceContent,
-            ..
-        }
-    ));
-    assert_eq!(
-        serde_json::to_value(response).expect("unavailable anchor serializes"),
-        json!({
-            "revision": {"revisionId": revision.revision_id, "revisionVersion": 0},
-            "value": {
-                "status": "unavailable",
-                "revisionId": revision.revision_id,
-                "pageIndex": 0,
-                "spreadIndex": 0,
-                "reason": "noSourceContent"
-            }
-        })
-    );
+    let RuntimePageReadingAnchor::Resolved {
+        locator,
+        page_index: 0,
+        ..
+    } = response.value
+    else {
+        panic!("image-only page must resolve a durable fallback anchor");
+    };
+    let projection = document
+        .resolve_source_locator_at(&handle, locator)
+        .expect("fallback anchor resolves on its own revision");
+    let RuntimeSourceLocatorResolution::Resolved { page_index, .. } = projection.value else {
+        panic!("fallback anchor should project onto a page");
+    };
+    assert_eq!(page_index, 0);
     let invalid = document
         .get_page_reading_anchor_at(&handle, revision.page_count)
         .expect_err("an unknown page remains a request error");

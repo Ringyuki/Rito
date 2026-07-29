@@ -439,3 +439,15 @@ pub fn short_previous_chapter_fixture_epub(tail: &str) -> Vec<u8> {
         }
     })
 }
+
+/// Three-chapter book whose middle spine item is an image-only plate,
+/// exercising publication turns across text-free spreads.
+pub fn image_plate_fixture_epub() -> Vec<u8> {
+    many_chapter_fixture_epub_with(3, |index| {
+        if index == 1 {
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><img src="missing.png" alt="plate"/></body></html>"#.to_owned()
+        } else {
+            chapter_fixture_xhtml(&format!("plate neighbor chapter {index}"))
+        }
+    })
+}
