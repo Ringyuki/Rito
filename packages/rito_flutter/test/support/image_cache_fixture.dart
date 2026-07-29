@@ -12,12 +12,22 @@ final class TestImageSpec {
     required this.width,
     required this.height,
     this.failDecode = false,
+    this.decodedWidth,
+    this.decodedHeight,
+    this.misdecodeFullSize = false,
   });
 
   final int code;
   final int width;
   final int height;
   final bool failDecode;
+
+  /// When set, scaled decodes return these dimensions instead of the
+  /// requested target — simulating codec rounding. Full-size decodes
+  /// stay exact unless [misdecodeFullSize] is also set.
+  final int? decodedWidth;
+  final int? decodedHeight;
+  final bool misdecodeFullSize;
 }
 
 final class TestImageDecoder implements RitoImageDecoder {
@@ -73,15 +83,22 @@ final class _TestImageDecodeSource implements RitoImageDecodeSource {
     if (spec.failDecode) {
       throw StateError('Injected image decode failure.');
     }
+    var outWidth = targetWidth;
+    var outHeight = targetHeight;
+    final fullSize = targetWidth == spec.width && targetHeight == spec.height;
+    if (spec.decodedWidth != null && (!fullSize || spec.misdecodeFullSize)) {
+      outWidth = spec.decodedWidth!;
+      outHeight = spec.decodedHeight!;
+    }
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     canvas.drawRect(
-      ui.Rect.fromLTWH(0, 0, targetWidth.toDouble(), targetHeight.toDouble()),
+      ui.Rect.fromLTWH(0, 0, outWidth.toDouble(), outHeight.toDouble()),
       ui.Paint()..color = const ui.Color(0xff112233),
     );
     final picture = recorder.endRecording();
     try {
-      final image = picture.toImageSync(targetWidth, targetHeight);
+      final image = picture.toImageSync(outWidth, outHeight);
       owner.createdImages.add(image);
       return image;
     } finally {

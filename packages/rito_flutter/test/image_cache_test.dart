@@ -279,4 +279,105 @@ void main() {
     cache.dispose();
     cache.dispose();
   });
+  test('one-pixel codec rounding on a full-size decode is tolerated', () async {
+    // The 402x183 reality: the engine's scaled-decode entry floors the
+    // derived axis and returns 402x182 for a same-size target.
+    const spec = TestImageSpec(
+      code: 41,
+      width: 402,
+      height: 183,
+      decodedWidth: 402,
+      decodedHeight: 182,
+      misdecodeFullSize: true,
+    );
+    final artifact = imageArtifact(
+      artifactId: 7301,
+      hrefs: const ['images/plate.png'],
+      commands: [directImage('images/plate.png', width: 402, height: 183)],
+    );
+    final decoder = TestImageDecoder(const [spec]);
+    final cache = RitoArtifactImageCache(decoder: decoder);
+
+    final lease = await cache.prepare(
+      artifact: artifact,
+      pixelRatio: 1,
+      readResource: (reference) async =>
+          imageResource(artifact: artifact, reference: reference, spec: spec),
+    );
+
+    expect(decoder.decodedCodes, hasLength(1));
+    expect(lease.resolveImage('images/plate.png').height, 182);
+    lease.release();
+    cache.dispose();
+  });
+
+  test('a decode that breaks its target falls back to a full-size decode', () async {
+    // Scaled decode returns nonsense; the fallback full-size decode is
+    // exact, so the artifact survives with the source-sized image.
+    const spec = TestImageSpec(
+      code: 42,
+      width: 800,
+      height: 600,
+      decodedWidth: 100,
+      decodedHeight: 50,
+    );
+    final artifact = imageArtifact(
+      artifactId: 7302,
+      hrefs: const ['images/broken-scale.png'],
+      commands: [
+        directImage('images/broken-scale.png', width: 400, height: 300),
+      ],
+    );
+    final decoder = TestImageDecoder(const [spec]);
+    final cache = RitoArtifactImageCache(decoder: decoder);
+
+    final lease = await cache.prepare(
+      artifact: artifact,
+      pixelRatio: 1,
+      readResource: (reference) async =>
+          imageResource(artifact: artifact, reference: reference, spec: spec),
+    );
+
+    expect(decoder.decodedCodes, hasLength(2), reason: 'fallback re-decodes');
+    final image = lease.resolveImage('images/broken-scale.png');
+    expect((image.width, image.height), (800, 600));
+    lease.release();
+    cache.dispose();
+  });
+
+  test('an image that cannot reproduce itself fails with full numbers', () async {
+    const spec = TestImageSpec(
+      code: 43,
+      width: 402,
+      height: 183,
+      decodedWidth: 50,
+      decodedHeight: 50,
+      misdecodeFullSize: true,
+    );
+    final artifact = imageArtifact(
+      artifactId: 7303,
+      hrefs: const ['images/broken.png'],
+      commands: [directImage('images/broken.png', width: 402, height: 183)],
+    );
+    final decoder = TestImageDecoder(const [spec]);
+    final cache = RitoArtifactImageCache(decoder: decoder);
+
+    await expectLater(
+      cache.prepare(
+        artifact: artifact,
+        pixelRatio: 1,
+        readResource: (reference) async =>
+            imageResource(artifact: artifact, reference: reference, spec: spec),
+      ),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('decoded=50x50'), contains('source=402x183')),
+        ),
+      ),
+    );
+    expect(decoder.decodedCodes, hasLength(2));
+    cache.dispose();
+  });
 }

@@ -85,12 +85,17 @@ extension _ImageCacheValidation on RitoArtifactImageCache {
         image.width > target.width ||
         image.height > target.height ||
         (requiresSourceDimensions &&
-            (image.width != source.width || image.height != source.height)) ||
+            ((image.width - source.width).abs() > 1 ||
+                (image.height - source.height).abs() > 1)) ||
         image.width > source.width ||
         image.height > source.height ||
         aspectError > roundingTolerance) {
       throw FormatException(
-        'Decoded image $href violates its bounded aspect-preserving target.',
+        'Decoded image $href violates its bounded aspect-preserving target. '
+        'decoded=${image.width}x${image.height} '
+        'source=${source.width}x${source.height} '
+        'target=${target.width}x${target.height} '
+        'aspectError=$aspectError tolerance=$roundingTolerance',
       );
     }
   }

@@ -76,7 +76,13 @@ final class _RitoUiImageDecodeSource implements RitoImageDecodeSource {
         targetHeight > height) {
       throw ArgumentError('Image decode target must be positive and bounded.');
     }
-    final codec = width >= height
+    // The engine's scaling entry derives the other axis from a float
+    // ratio and floors it, which can undershoot the intrinsic size by
+    // one pixel even at scale 1.0 (a 402x183 source decodes as
+    // 402x182). A full-size decode must bypass scaling entirely.
+    final codec = targetWidth == width && targetHeight == height
+        ? await _descriptor.instantiateCodec()
+        : width >= height
         ? await _descriptor.instantiateCodec(targetWidth: targetWidth)
         : await _descriptor.instantiateCodec(targetHeight: targetHeight);
     try {

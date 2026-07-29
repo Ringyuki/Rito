@@ -213,7 +213,26 @@ final class RitoArtifactImageCache {
         targetWidth: target.width,
         targetHeight: target.height,
       );
-      _validateDecoded(decoded, source, target, reference.href);
+      try {
+        _validateDecoded(decoded, source, target, reference.href);
+      } on FormatException {
+        // One image whose codec rounding disagrees with the plan must
+        // not take down the whole artifact. Fall back to a full-size
+        // decode held to the source dimensions; only an image that
+        // cannot even reproduce itself still fails.
+        decoded.dispose();
+        decoded = null;
+        final fallback = _ImageDecodeDimensions(
+          width: source.width,
+          height: source.height,
+        );
+        budget.reserveTarget(fallback.pixels - target.pixels, reference.href);
+        decoded = await source.decode(
+          targetWidth: fallback.width,
+          targetHeight: fallback.height,
+        );
+        _validateDecoded(decoded, source, fallback, reference.href);
+      }
       final sourceWidth = source.width;
       final sourceHeight = source.height;
       try {
