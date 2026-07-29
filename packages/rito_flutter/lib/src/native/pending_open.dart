@@ -125,8 +125,7 @@ RitoArtifactRequest _oneQuantumRequest(
     layout: request.layout,
     locator: request.locator,
     work: RitoWorkBudget(
-      maxTopLevelNodesPerQuantum:
-          request.work.maxTopLevelNodesPerQuantum,
+      maxTopLevelNodesPerQuantum: request.work.maxTopLevelNodesPerQuantum,
       maxForegroundQuanta: 1,
       localPageCap: request.work.localPageCap,
     ),

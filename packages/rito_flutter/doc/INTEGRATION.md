@@ -118,6 +118,28 @@ RitoPageSurface(
   text profiles. Catch at the widget layer if the corpus may contain
   these.
 
+## Themes (dark / sepia)
+
+Pass a `colorOverride` to the page surface:
+
+```dart
+RitoPageSurface(
+  artifact: prepared,
+  colorOverride: const RitoCanvasColorOverride(
+    foreground: Color(0xffe5e5e5),
+    background: Color(0xff1a1a1a),
+  ),
+)
+```
+
+Semantics match the browser reader pixel-for-pixel (parity fixture
+`theme-override-dark`): the theme background replaces the materialized
+page ground; run text keeps its original color while it stays
+WCAG-readable (4.5:1) against the theme background and otherwise snaps
+to the theme foreground; decorations, block grounds, and images stay
+as authored. Omit the override for light mode — the authored page
+paints unmodified.
+
 ## Fonts
 
 - **Pinned font policy (required for embedded EPUB fonts).** Pass

@@ -20,10 +20,7 @@ final class RitoBackgroundEncoder {
       request.maxTopLevelNodesPerQuantum,
       'max top-level nodes per quantum',
     );
-    return writer.finish(
-      magic: 'RITOBGQ1',
-      expectedBytes: requestWireBytes,
-    );
+    return writer.finish(magic: 'RITOBGQ1', expectedBytes: requestWireBytes);
   }
 
   Uint8List encodeHandoff(RitoBackgroundHandoff handoff) {
@@ -34,9 +31,6 @@ final class RitoBackgroundEncoder {
       'expected visible artifact id',
     );
     writer.externalId(handoff.candidateArtifactId, 'candidate artifact id');
-    return writer.finish(
-      magic: 'RITOHOF1',
-      expectedBytes: handoffWireBytes,
-    );
+    return writer.finish(magic: 'RITOHOF1', expectedBytes: handoffWireBytes);
   }
 }

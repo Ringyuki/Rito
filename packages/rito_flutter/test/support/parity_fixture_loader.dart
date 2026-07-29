@@ -15,6 +15,8 @@ final class ParityFixture {
     required this.width,
     required this.height,
     this.background,
+    this.themeForeground,
+    this.themeBackground,
     required this.commands,
   });
 
@@ -22,6 +24,8 @@ final class ParityFixture {
   final int width;
   final int height;
   final RitoColor? background;
+  final RitoColor? themeForeground;
+  final RitoColor? themeBackground;
   final List<RitoCommand> commands;
 }
 
@@ -30,6 +34,7 @@ ParityFixture parseParityFixture(Map<String, Object?> json) {
   for (final entry in json['commands']! as List<Object?>) {
     commands.add(_command(entry! as Map<String, Object?>));
   }
+  final theme = json['theme'] as Map<String, Object?>?;
   return ParityFixture(
     name: json['name']! as String,
     width: (json['width']! as num).toInt(),
@@ -37,6 +42,12 @@ ParityFixture parseParityFixture(Map<String, Object?> json) {
     background: json['background'] == null
         ? null
         : parseCssColor(json['background']! as String),
+    themeForeground: theme == null
+        ? null
+        : parseCssColor(theme['foreground']! as String),
+    themeBackground: theme == null
+        ? null
+        : parseCssColor(theme['background']! as String),
     commands: commands,
   );
 }
@@ -49,10 +60,7 @@ RitoCommand _command(Map<String, Object?> json) {
     case 'popState':
       return const RitoPopState();
     case 'translate':
-      return RitoTranslate(
-        dx: _double(json['dx']),
-        dy: _double(json['dy']),
-      );
+      return RitoTranslate(dx: _double(json['dx']), dy: _double(json['dy']));
     case 'opacity':
       return RitoOpacity(_double(json['value']));
     case 'transform':
@@ -384,7 +392,10 @@ RitoColor parseCssColor(String css) {
   }
   if (text.startsWith('rgb')) {
     final inner = text.substring(text.indexOf('(') + 1, text.lastIndexOf(')'));
-    final parts = inner.split(RegExp(r'[,\s/]+')).where((p) => p.isNotEmpty).toList();
+    final parts = inner
+        .split(RegExp(r'[,\s/]+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
     return _srgb(
       double.parse(parts[0]) / 255,
       double.parse(parts[1]) / 255,

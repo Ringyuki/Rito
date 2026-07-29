@@ -3,9 +3,20 @@ part of 'canvas_target.dart';
 extension _BlockPainting on RitoCanvasPaintTarget {
   void _paintPage(RitoPaintPage command) {
     final color = command.paint.backgroundColor;
-    if (color != null) {
-      _canvas.drawRect(_rect(command.rect), ui.Paint()..color = _color(color));
+    if (color == null) {
+      return;
     }
+    // An active theme override owns the page ground: the engine
+    // materializes the book's body background (usually white), which
+    // would otherwise bury the host theme. Absent commands stay absent
+    // — the override never invents a page fill (browser pen parity).
+    final override = _colorOverride;
+    final fill = override != null
+        ? override.background.withValues(
+            alpha: override.background.a * _opacity,
+          )
+        : _color(color);
+    _canvas.drawRect(_rect(command.rect), ui.Paint()..color = fill);
   }
 
   void _paintBlock(RitoPaintBlock command) {
@@ -84,8 +95,7 @@ extension _BlockPainting on RitoCanvasPaintTarget {
     final tr = math.max(0.0, corners[1]);
     final br = math.max(0.0, corners[2]);
     final bl = math.max(0.0, corners[3]);
-    double ratio(double extent, double sum) =>
-        extent / math.max(1e-6, sum);
+    double ratio(double extent, double sum) => extent / math.max(1e-6, sum);
     final factor = math.min(
       1.0,
       math.min(
@@ -310,7 +320,10 @@ extension _BlockPainting on RitoCanvasPaintTarget {
     // odd widths ride the half-pixel (browser pen strokeBorder).
     final snap = width % 2 == 1 ? 0.5 : 0.0;
     _strokeStyledLine(
-      ui.Offset(start.dx.roundToDouble() + snap, start.dy.roundToDouble() + snap),
+      ui.Offset(
+        start.dx.roundToDouble() + snap,
+        start.dy.roundToDouble() + snap,
+      ),
       ui.Offset(end.dx.roundToDouble() + snap, end.dy.roundToDouble() + snap),
       width,
       edge.color,
@@ -386,8 +399,7 @@ extension _BlockPainting on RitoCanvasPaintTarget {
         edges.every((side) => side.$2 == edges.first.$2) &&
         edges.every(
           (side) =>
-              side.$1 != null &&
-              _sameEdgePaint(side.$1!, edges.first.$1!),
+              side.$1 != null && _sameEdgePaint(side.$1!, edges.first.$1!),
         );
     final outline = _roundedRect(rect, radius);
     if (uniform) {

@@ -1,10 +1,7 @@
 part of 'artifact_image_cache.dart';
 
 final class _ImageDecodeDimensions {
-  const _ImageDecodeDimensions({
-    required this.width,
-    required this.height,
-  });
+  const _ImageDecodeDimensions({required this.width, required this.height});
 
   final int width;
   final int height;

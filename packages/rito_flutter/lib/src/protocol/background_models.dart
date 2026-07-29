@@ -12,7 +12,13 @@ final class RitoBackgroundRequest {
   final int maxTopLevelNodesPerQuantum;
 }
 
-enum RitoBackgroundState { started, advanced, reused, candidatePending, complete }
+enum RitoBackgroundState {
+  started,
+  advanced,
+  reused,
+  candidatePending,
+  complete,
+}
 
 final class RitoBackgroundAdvance {
   const RitoBackgroundAdvance({

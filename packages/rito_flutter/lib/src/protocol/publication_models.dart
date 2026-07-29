@@ -32,8 +32,7 @@ sealed class RitoPublicationTocTarget {
   const RitoPublicationTocTarget();
 }
 
-final class RitoPublicationTocLocatorTarget
-    extends RitoPublicationTocTarget {
+final class RitoPublicationTocLocatorTarget extends RitoPublicationTocTarget {
   const RitoPublicationTocLocatorTarget({
     required this.spineIndex,
     required this.locator,
@@ -43,8 +42,7 @@ final class RitoPublicationTocLocatorTarget
   final RitoLocator locator;
 }
 
-final class RitoPublicationTocExternalTarget
-    extends RitoPublicationTocTarget {
+final class RitoPublicationTocExternalTarget extends RitoPublicationTocTarget {
   const RitoPublicationTocExternalTarget({required this.href});
 
   final String href;

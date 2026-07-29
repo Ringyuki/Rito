@@ -1,0 +1,70 @@
+{
+  "name": "theme-override-dark",
+  "width": 420,
+  "height": 200,
+  "background": "#1a1a1a",
+  "theme": { "foreground": "#e5e5e5", "background": "#1a1a1a" },
+  "commands": [
+    {
+      "kind": "paintPage",
+      "rect": { "x": 0, "y": 0, "width": 420, "height": 200 },
+      "paint": { "backgroundColor": "#ffffff" }
+    },
+    {
+      "kind": "paintText",
+      "text": "black body text snaps to the theme",
+      "rect": { "x": 10, "y": 12, "width": 380, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos, serif", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "readable accent color survives",
+      "rect": { "x": 10, "y": 44, "width": 380, "height": 20 },
+      "paint": {
+        "color": "#ffb86b",
+        "font": { "family": "Tinos, serif", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "深色主题下的中文正文换色",
+      "rect": { "x": 10, "y": 76, "width": 380, "height": 24 },
+      "paint": {
+        "color": "#222222",
+        "font": {
+          "family": "\"Source Han Serif CN\", serif",
+          "sizePx": 18,
+          "style": "normal",
+          "weight": 400
+        }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "underlined link keeps decoration color",
+      "rect": { "x": 10, "y": 110, "width": 380, "height": 20 },
+      "paint": {
+        "color": "#0000ee",
+        "decoration": { "kind": "underline", "y": 17.5, "thickness": 1, "color": "#0000ee" },
+        "font": { "family": "Tinos, serif", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 10, "y": 150, "width": 180, "height": 36 },
+      "paint": { "background": { "color": "#f5f5f5" } }
+    },
+    {
+      "kind": "paintText",
+      "text": "block ground stays as authored",
+      "rect": { "x": 16, "y": 158, "width": 170, "height": 18 },
+      "paint": {
+        "color": "#333333",
+        "font": { "family": "Tinos, serif", "sizePx": 13, "style": "normal", "weight": 400 }
+      }
+    }
+  ]
+}

@@ -22,4 +22,9 @@ export 'src/protocol/request_models.dart';
 export 'src/reader_session.dart';
 export 'src/render/font_envelope.dart'
     show RitoFontEnvelope, RitoFontEnvelopeStore;
-export 'src/render/page_surface.dart' show RitoImageResolver, RitoPageSurface;
+export 'src/render/page_surface.dart'
+    show
+        RitoArtifactPainter,
+        RitoCanvasColorOverride,
+        RitoImageResolver,
+        RitoPageSurface;

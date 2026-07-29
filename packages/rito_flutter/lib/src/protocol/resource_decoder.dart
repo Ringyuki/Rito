@@ -32,10 +32,7 @@ final class RitoResourceDecoder {
       mediaType: reader.string('resource media type'),
       // The returned view keeps the owned wire buffer alive and avoids one
       // full resource copy between FFI transfer and the platform decoder.
-      bytes: reader.blobView(
-        'resource bytes',
-        maxBytes: _byteLimit(kind),
-      ),
+      bytes: reader.blobView('resource bytes', maxBytes: _byteLimit(kind)),
       width: reader.option('resource width', () => reader.uint32('width')),
       height: reader.option('resource height', () => reader.uint32('height')),
     );

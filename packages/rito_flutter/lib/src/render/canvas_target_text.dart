@@ -158,7 +158,7 @@ extension _TextPainting on RitoCanvasPaintTarget {
     // or the literal stack string never matches a registered face.
     final families = ritoSplitFontFamilyStack(font.family);
     return TextStyle(
-      color: foreground == null ? _color(paint.color) : null,
+      color: foreground == null ? _effectiveTextColor(paint) : null,
       foreground: foreground,
       fontFamily: families.isEmpty ? null : families.first,
       fontFamilyFallback: families.length > 1 ? families.sublist(1) : null,
@@ -175,6 +175,25 @@ extension _TextPainting on RitoCanvasPaintTarget {
   FontWeight _fontWeight(double value) {
     final index = ((value / 100).round() - 1).clamp(0, 8).toInt();
     return FontWeight.values[index];
+  }
+
+  /// Run text keeps its original color only while it stays
+  /// WCAG-readable against the theme background; otherwise it snaps to
+  /// the theme foreground (browser pen's resolveTextColor). Decoration
+  /// and shadow layer colors deliberately stay original, matching the
+  /// browser pen.
+  ui.Color _effectiveTextColor(RitoRunPaint paint) {
+    final color = _color(paint.color);
+    final override = _colorOverride;
+    if (override == null) {
+      return color;
+    }
+    final effective = override.effectiveTextColor(color);
+    // _color already carries the opacity stack; a theme substitution
+    // must re-apply it (the browser pen's globalAlpha does this).
+    return identical(effective, color)
+        ? color
+        : effective.withValues(alpha: effective.a * _opacity);
   }
 
   /// Content-height box for inline backgrounds and borders, mirroring

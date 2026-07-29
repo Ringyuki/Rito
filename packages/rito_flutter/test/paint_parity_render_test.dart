@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 import 'package:rito_flutter/src/render/canvas_target.dart';
+import 'package:rito_flutter/src/render/color_override.dart';
 import 'package:rito_flutter/src/render/font_envelope.dart';
 import 'package:rito_flutter/src/render/typed_color.dart';
 
@@ -72,10 +73,18 @@ Future<void> _renderFixture(File file, Directory outDir) async {
       ui.Paint()..color = ritoUiColor(background),
     );
   }
+  final themeForeground = fixture.themeForeground;
+  final themeBackground = fixture.themeBackground;
   final target = RitoCanvasPaintTarget(
     canvas,
     resolveImage: (href) => images[href],
     fontEnvelopes: _fontEnvelopes,
+    colorOverride: themeForeground == null || themeBackground == null
+        ? null
+        : RitoCanvasColorOverride(
+            foreground: ritoUiColor(themeForeground),
+            background: ritoUiColor(themeBackground),
+          ),
   );
   final displayList = RitoDisplayList(
     formatVersion: 1,
@@ -127,9 +136,7 @@ String _findRepoRoot() {
   return dir.path;
 }
 
-Future<Map<String, ui.Image>> _prepareImages(
-  List<RitoCommand> commands,
-) async {
+Future<Map<String, ui.Image>> _prepareImages(List<RitoCommand> commands) async {
   final images = <String, ui.Image>{};
   for (final command in commands) {
     final src = switch (command) {

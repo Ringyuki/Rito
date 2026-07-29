@@ -81,9 +81,7 @@ extension _PublicationTocDecoder on RitoPublicationDecoder {
     );
   }
 
-  RitoPublicationTocExternalTarget _externalTarget(
-    RitoBinaryReader reader,
-  ) {
+  RitoPublicationTocExternalTarget _externalTarget(RitoBinaryReader reader) {
     final href = reader.string('publication external TOC href');
     if (href.isEmpty || !_isExternalHref(href)) {
       reader.fail('publication external TOC href is invalid');

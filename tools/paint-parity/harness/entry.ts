@@ -12,6 +12,8 @@ interface ParityFixture {
   readonly width: number;
   readonly height: number;
   readonly background?: string;
+  /** Host theme override (dark/sepia) applied by both pens. */
+  readonly theme?: { readonly foreground: string; readonly background: string };
   readonly commands: readonly unknown[];
 }
 
@@ -99,6 +101,12 @@ function renderParityFixture(fixture: ParityFixture): string {
   renderFrameCommandsToCanvas(fixture.commands as readonly CoreFrameCommand[], ctx, {
     pixelRatio: 1,
     resolveImage: makeSyntheticImage,
+    ...(fixture.theme
+      ? {
+          foregroundColor: fixture.theme.foreground,
+          backgroundColor: fixture.theme.background,
+        }
+      : {}),
   });
   return canvas.toDataURL('image/png');
 }

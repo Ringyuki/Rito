@@ -16,9 +16,6 @@ final class RitoForegroundEncoder {
       'expected visible artifact id',
     );
     writer.externalId(handoff.candidateArtifactId, 'candidate artifact id');
-    return writer.finish(
-      magic: 'RITOFGH1',
-      expectedBytes: handoffWireBytes,
-    );
+    return writer.finish(magic: 'RITOFGH1', expectedBytes: handoffWireBytes);
   }
 }

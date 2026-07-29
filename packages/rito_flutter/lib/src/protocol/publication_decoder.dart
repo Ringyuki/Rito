@@ -29,8 +29,7 @@ final class RitoPublicationDecoder {
     final metadata = _metadata(reader);
     final spineCount = reader.count('publication spine');
     final spine = <RitoPublicationSpineItem>[
-      for (var index = 0; index < spineCount; index += 1)
-        _spineItem(reader),
+      for (var index = 0; index < spineCount; index += 1) _spineItem(reader),
     ];
     final duplicateHrefs = _validateSpine(reader, spine);
     final toc = _tocEntries(
@@ -137,9 +136,10 @@ bool _isExternalHref(String href) {
   }
   for (var index = 0; index < colon; index += 1) {
     final code = path.codeUnitAt(index);
-    final alphabetic = (code >= 0x41 && code <= 0x5a) ||
-        (code >= 0x61 && code <= 0x7a);
-    final allowedAfterFirst = index > 0 &&
+    final alphabetic =
+        (code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a);
+    final allowedAfterFirst =
+        index > 0 &&
         ((code >= 0x30 && code <= 0x39) ||
             code == 0x2b ||
             code == 0x2d ||

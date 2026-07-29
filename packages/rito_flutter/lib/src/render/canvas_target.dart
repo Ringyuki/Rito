@@ -9,6 +9,7 @@ import '../protocol/display_models.dart';
 import '../protocol/display_paint.dart';
 import '../protocol/wire_exception.dart';
 import 'background_tile_plan.dart';
+import 'color_override.dart';
 import 'font_envelope.dart';
 import 'font_family_stack.dart';
 import 'replayer.dart';
@@ -30,12 +31,15 @@ final class RitoCanvasPaintTarget implements RitoPaintTarget {
     this._canvas, {
     required RitoImageResolver resolveImage,
     RitoFontEnvelopeStore? fontEnvelopes,
+    RitoCanvasColorOverride? colorOverride,
   }) : _resolveImage = resolveImage,
-       _fontEnvelopes = fontEnvelopes;
+       _fontEnvelopes = fontEnvelopes,
+       _colorOverride = colorOverride;
 
   final ui.Canvas _canvas;
   final RitoImageResolver _resolveImage;
   final RitoFontEnvelopeStore? _fontEnvelopes;
+  final RitoCanvasColorOverride? _colorOverride;
   final List<double> _opacityStack = <double>[1];
   final Map<RitoPaintBlock, _PreparedBlockPaint> _preparedBlocks =
       <RitoPaintBlock, _PreparedBlockPaint>{};

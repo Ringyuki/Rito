@@ -33,7 +33,11 @@ final class RitoFixedMessageWriter {
   RitoFixedMessageWriter(String magic) {
     final encoded = ascii.encode(magic);
     if (encoded.length != 8) {
-      throw ArgumentError.value(magic, 'magic', 'must contain eight ASCII bytes');
+      throw ArgumentError.value(
+        magic,
+        'magic',
+        'must contain eight ASCII bytes',
+      );
     }
     _bytes.addAll(encoded);
     uint32(1, 'wire version');

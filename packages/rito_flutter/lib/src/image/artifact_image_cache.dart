@@ -73,10 +73,7 @@ final class RitoArtifactImageCache {
     required double pixelRatio,
   }) async {
     _requireOpen();
-    final plan = _ImageTargetPlan.collect(
-      artifact,
-      pixelRatio: pixelRatio,
-    );
+    final plan = _ImageTargetPlan.collect(artifact, pixelRatio: pixelRatio);
     final declarations = _imageDeclarations(artifact);
     for (final href in plan.hrefs) {
       if (!declarations.containsKey(href)) {
@@ -225,10 +222,10 @@ final class RitoArtifactImageCache {
         source = null;
       }
       _requireOpen();
-      final key = _cacheKey(
-        (sessionId: artifact.sessionId, href: reference.href),
-        target,
-      );
+      final key = _cacheKey((
+        sessionId: artifact.sessionId,
+        href: reference.href,
+      ), target);
       final entry = _ImageEntry(
         key: key,
         image: decoded,
