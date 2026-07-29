@@ -212,11 +212,25 @@ pub(crate) fn request_adjacent(
     actor::request_adjacent(admission, request)
 }
 
+pub(crate) fn peek_adjacent(
+    admission: CommandAdmission,
+    request: ReaderAdjacentRequestV1,
+) -> Result<Vec<u8>, FfiError> {
+    actor::peek_adjacent(admission, request)
+}
+
 pub(crate) fn adopt_foreground_candidate(
     admission: CommandAdmission,
     request: ReaderForegroundHandoffV1,
 ) -> Result<Vec<u8>, FfiError> {
     actor::adopt_foreground_candidate(admission, request)
+}
+
+pub(crate) fn commit_peeked_artifact(
+    admission: CommandAdmission,
+    request: ReaderForegroundHandoffV1,
+) -> Result<Vec<u8>, FfiError> {
+    actor::commit_peeked_artifact(admission, request)
 }
 
 pub(crate) fn advance_background(

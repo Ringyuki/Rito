@@ -16,9 +16,10 @@ mod tests;
 
 pub use abi::{
     rito_adopt_background_candidate_v1, rito_adopt_foreground_candidate_v1,
-    rito_advance_background_v1, rito_buffer_free_v1, rito_dispose_v1, rito_open_v1,
-    rito_open_with_pinned_fonts_v1, rito_read_publication_v1, rito_read_resource_v1,
-    rito_release_artifact_v1, rito_request_adjacent_v1, rito_request_artifact_v1,
+    rito_advance_background_v1, rito_buffer_free_v1, rito_commit_peeked_artifact_v1,
+    rito_dispose_v1, rito_open_v1, rito_open_with_pinned_fonts_v1, rito_peek_adjacent_v1,
+    rito_read_publication_v1, rito_read_resource_v1, rito_release_artifact_v1,
+    rito_request_adjacent_v1, rito_request_artifact_v1,
 };
 pub use abi::{
     RitoOwnedBufferV1, RitoPinnedFontFaceV1, RITO_ABI_VERSION_V1,

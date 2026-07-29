@@ -21,7 +21,8 @@ use rito_core::runtime::{
 use crate::{
     abi::copy_owned_buffer_for_test, error::FfiError, rito_adopt_background_candidate_v1,
     rito_adopt_foreground_candidate_v1, rito_advance_background_v1, rito_buffer_free_v1,
-    rito_dispose_v1, rito_open_v1, rito_open_with_pinned_fonts_v1, rito_read_publication_v1,
+    rito_commit_peeked_artifact_v1, rito_dispose_v1, rito_open_v1,
+    rito_open_with_pinned_fonts_v1, rito_peek_adjacent_v1, rito_read_publication_v1,
     rito_read_resource_v1, rito_release_artifact_v1, rito_request_adjacent_v1,
     rito_request_artifact_v1, RitoOwnedBufferV1, RitoPinnedFontFaceV1,
     RITO_ACTOR_MAX_IN_FLIGHT_V1, RITO_PINNED_FONT_ROLE_SERIF_V1,
@@ -1003,5 +1004,104 @@ fn pinned_font_open_declares_embedded_publication_faces() {
         .resources
         .iter()
         .any(|resource| resource.kind == ReaderResourceKindV1::Font));
+    call_dispose(session_id);
+}
+
+#[test]
+fn peek_and_commit_round_trip_without_foreground_side_effects() {
+    let session_id = next_session_id();
+    let mut open_request = request(session_id);
+    // Section013 spans many pages, so the in-chapter neighbors peek
+    // without any layout work.
+    open_request.locator.href = "OEBPS/Text/Section013.xhtml".to_owned();
+    let open_wire = encode_reader_artifact_request_v1(&open_request).expect("request encodes");
+    let opened = call_open(&publication(), &open_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let first = decode_reader_artifact_v1(&opened.artifact).expect("artifact decodes");
+    let adopted = call_adopt_foreground(
+        session_id,
+        &encode_reader_foreground_handoff_v1(&ReaderForegroundHandoffV1 {
+            session_id,
+            expected_visible_artifact_id: None,
+            candidate_artifact_id: first.artifact_id,
+        })
+        .expect("handoff encodes"),
+    );
+    assert_eq!(adopted.status, RITO_STATUS_OK_V1, "{}", adopted.error);
+
+    // Advance one spread so the previous neighbor is laid out, then peek.
+    let next_wire = encode_reader_adjacent_request_v1(&ReaderAdjacentRequestV1 {
+        session_id,
+        request_id: 2,
+        from_artifact_id: first.artifact_id,
+        direction: ReaderAdjacentDirectionV1::Next,
+        work: request(session_id).work,
+    })
+    .expect("adjacent encodes");
+    let next = call_request_adjacent(session_id, &next_wire);
+    assert_eq!(next.status, RITO_STATUS_OK_V1, "{}", next.error);
+    let next = decode_reader_artifact_v1(&next.artifact).expect("next decodes");
+    let adopted_next = call_adopt_foreground(
+        session_id,
+        &encode_reader_foreground_handoff_v1(&ReaderForegroundHandoffV1 {
+            session_id,
+            expected_visible_artifact_id: Some(first.artifact_id),
+            candidate_artifact_id: next.artifact_id,
+        })
+        .expect("handoff encodes"),
+    );
+    assert_eq!(adopted_next.status, RITO_STATUS_OK_V1, "{}", adopted_next.error);
+
+    let peek_wire = encode_reader_adjacent_request_v1(&ReaderAdjacentRequestV1 {
+        session_id,
+        request_id: 3,
+        from_artifact_id: next.artifact_id,
+        direction: ReaderAdjacentDirectionV1::Previous,
+        work: request(session_id).work,
+    })
+    .expect("peek encodes");
+    let mut artifact_out = RitoOwnedBufferV1::EMPTY;
+    let mut error_out = RitoOwnedBufferV1::EMPTY;
+    let status = rito_peek_adjacent_v1(
+        session_id,
+        peek_wire.as_ptr(),
+        u64::try_from(peek_wire.len()).expect("length fits"),
+        &mut artifact_out,
+        &mut error_out,
+    );
+    let peeked_bytes = copy_owned_buffer_for_test(&artifact_out);
+    let error_text = String::from_utf8_lossy(&copy_owned_buffer_for_test(&error_out)).into_owned();
+    rito_buffer_free_v1(&mut artifact_out);
+    rito_buffer_free_v1(&mut error_out);
+    assert_eq!(status, RITO_STATUS_OK_V1, "{error_text}");
+    let peeked = decode_reader_artifact_v1(&peeked_bytes).expect("peeked decodes");
+    assert_eq!(peeked.local_page_index, first.local_page_index);
+
+    // Fast-path commit of the peeked artifact.
+    let commit_wire = encode_reader_foreground_handoff_v1(&ReaderForegroundHandoffV1 {
+        session_id,
+        expected_visible_artifact_id: Some(next.artifact_id),
+        candidate_artifact_id: peeked.artifact_id,
+    })
+    .expect("handoff encodes");
+    let mut ack_out = RitoOwnedBufferV1::EMPTY;
+    let mut commit_error = RitoOwnedBufferV1::EMPTY;
+    let commit_status = rito_commit_peeked_artifact_v1(
+        session_id,
+        commit_wire.as_ptr(),
+        u64::try_from(commit_wire.len()).expect("length fits"),
+        &mut ack_out,
+        &mut commit_error,
+    );
+    let ack_bytes = copy_owned_buffer_for_test(&ack_out);
+    let commit_error_text =
+        String::from_utf8_lossy(&copy_owned_buffer_for_test(&commit_error)).into_owned();
+    rito_buffer_free_v1(&mut ack_out);
+    rito_buffer_free_v1(&mut commit_error);
+    assert_eq!(commit_status, RITO_STATUS_OK_V1, "{commit_error_text}");
+    let ack = decode_reader_foreground_handoff_ack_v1(&ack_bytes).expect("ack decodes");
+    assert_eq!(ack.visible_artifact_id, peeked.artifact_id);
+    assert_eq!(ack.replaced_artifact_id, Some(next.artifact_id));
+
     call_dispose(session_id);
 }

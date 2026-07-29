@@ -34,7 +34,15 @@ pub(crate) enum ActorCommand {
         request: ReaderAdjacentRequestV1,
         reply: Reply<Vec<u8>>,
     },
+    PeekAdjacent {
+        request: ReaderAdjacentRequestV1,
+        reply: Reply<Vec<u8>>,
+    },
     AdoptForegroundCandidate {
+        request: ReaderForegroundHandoffV1,
+        reply: Reply<Vec<u8>>,
+    },
+    CommitPeekedArtifact {
         request: ReaderForegroundHandoffV1,
         reply: Reply<Vec<u8>>,
     },
@@ -521,9 +529,33 @@ fn run_commands(
                 }
                 let _ = reply.send(result);
             }
+            ActorCommand::PeekAdjacent { request, reply } => {
+                let (result, terminate) = encode_mutation_result(
+                    session.peek_adjacent(request),
+                    encode_reader_artifact_v1,
+                );
+                if terminate {
+                    let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
+                    let _ = reply.send(result);
+                    return disposed;
+                }
+                let _ = reply.send(result);
+            }
             ActorCommand::AdoptForegroundCandidate { request, reply } => {
                 let (result, terminate) = encode_mutation_result(
                     session.adopt_foreground_candidate(request),
+                    encode_reader_foreground_handoff_ack_v1,
+                );
+                if terminate {
+                    let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
+                    let _ = reply.send(result);
+                    return disposed;
+                }
+                let _ = reply.send(result);
+            }
+            ActorCommand::CommitPeekedArtifact { request, reply } => {
+                let (result, terminate) = encode_mutation_result(
+                    session.commit_peeked_artifact(request),
                     encode_reader_foreground_handoff_ack_v1,
                 );
                 if terminate {
@@ -631,6 +663,17 @@ pub(crate) fn request_adjacent(
     )
 }
 
+pub(crate) fn peek_adjacent(
+    admission: CommandAdmission,
+    request: ReaderAdjacentRequestV1,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::PeekAdjacent { request, reply },
+        "peeked artifact",
+    )
+}
+
 pub(crate) fn adopt_foreground_candidate(
     admission: CommandAdmission,
     request: ReaderForegroundHandoffV1,
@@ -639,6 +682,17 @@ pub(crate) fn adopt_foreground_candidate(
         admission,
         |reply| ActorCommand::AdoptForegroundCandidate { request, reply },
         "foreground handoff acknowledgement",
+    )
+}
+
+pub(crate) fn commit_peeked_artifact(
+    admission: CommandAdmission,
+    request: ReaderForegroundHandoffV1,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::CommitPeekedArtifact { request, reply },
+        "peeked commit acknowledgement",
     )
 }
 

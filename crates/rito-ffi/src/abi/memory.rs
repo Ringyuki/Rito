@@ -262,6 +262,71 @@ pub extern "C" fn rito_request_adjacent_v1(
 }
 
 #[no_mangle]
+/// Publishes the adjacent spread as a read-only artifact when its layout
+/// already exists, without any foreground side effect. The visible
+/// artifact and all pending navigation stay untouched. Targets that
+/// would require layout work return
+/// `RITO_STATUS_TARGET_NOT_PUBLISHED_V1` (hosts surface this as "not
+/// peekable"), never retaining a continuation. The peeked artifact
+/// occupies one live slot and must be released by the caller.
+pub extern "C" fn rito_peek_adjacent_v1(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    artifact_out: *mut RitoOwnedBufferV1,
+    error_out: *mut RitoOwnedBufferV1,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_artifact_output(artifact_out, error_out)?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::adjacent_request(request_data, request_len)?;
+        validate_external_id(request.session_id, "RITONAV1 session_id")?;
+        validate_external_id(request.request_id, "RITONAV1 request_id")?;
+        validate_external_id(request.from_artifact_id, "RITONAV1 from_artifact_id")?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITONAV1 session_id does not match the ABI session_id",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let artifact = registry::peek_adjacent(admission, request)?;
+        write_session_result(session_id, artifact_out, artifact, "peeked artifact")
+    })
+}
+
+#[no_mangle]
+/// Commits a previously peeked artifact as the visible foreground with a
+/// visible-artifact CAS and zero layout work. Only artifacts produced by
+/// `rito_peek_adjacent_v1` qualify; a successful commit supersedes any
+/// in-flight foreground intent exactly as a fresh navigation would.
+pub extern "C" fn rito_commit_peeked_artifact_v1(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    ack_out: *mut RitoOwnedBufferV1,
+    error_out: *mut RitoOwnedBufferV1,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(ack_out, error_out, "ack_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::foreground_handoff(request_data, request_len)?;
+        validate_external_id(request.session_id, "RITOFGH1 session_id")?;
+        validate_external_id(
+            request.candidate_artifact_id,
+            "RITOFGH1 candidate_artifact_id",
+        )?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOFGH1 session_id does not match the ABI session_id",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let ack = registry::commit_peeked_artifact(admission, request)?;
+        write_session_result(session_id, ack_out, ack, "peeked commit acknowledgement")
+    })
+}
+
+#[no_mangle]
 /// Atomically adopts one prepared foreground candidate as visible.
 ///
 /// The fixed 48-byte RITOFGH1 message is decoded before actor admission. A
