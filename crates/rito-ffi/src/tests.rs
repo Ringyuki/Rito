@@ -7,7 +7,8 @@ use std::{
 use rito_core::runtime::{
     decode_reader_artifact_v1, decode_reader_background_advance_v1,
     decode_reader_background_handoff_ack_v1, decode_reader_foreground_handoff_ack_v1,
-    decode_reader_publication_v1, decode_reader_resource_v1, encode_reader_adjacent_request_v1,
+    decode_reader_footnote_v1, decode_reader_publication_v1, decode_reader_resource_v1,
+    encode_reader_adjacent_request_v1,
     encode_reader_artifact_request_v1, encode_reader_background_handoff_v1,
     encode_reader_background_request_v1, encode_reader_foreground_handoff_v1,
     ReaderAdjacentDirectionV1, ReaderAdjacentRequestV1, ReaderArtifactRequestV1,
@@ -23,7 +24,8 @@ use crate::{
     rito_adopt_foreground_candidate_v1, rito_advance_background_v1, rito_buffer_free_v1,
     rito_commit_peeked_artifact_v1, rito_dispose_v1, rito_open_v1,
     rito_open_with_pinned_fonts_v1, rito_peek_adjacent_v1, rito_read_publication_v1,
-    rito_read_resource_v1, rito_release_artifact_v1, rito_request_adjacent_v1,
+    rito_read_footnote_v1, rito_read_resource_v1, rito_release_artifact_v1,
+    rito_request_adjacent_v1,
     rito_request_artifact_v1, RitoOwnedBufferV1, RitoPinnedFontFaceV1,
     RITO_ACTOR_MAX_IN_FLIGHT_V1, RITO_PINNED_FONT_ROLE_SERIF_V1,
     RITO_PUBLICATION_WIRE_BYTES_MAX_V1,
@@ -863,6 +865,27 @@ fn call_read_resource(session_id: u64, artifact_id: u64, kind: u32, href: &[u8])
     result
 }
 
+fn call_read_footnote(session_id: u64, artifact_id: u64, key: &[u8]) -> ResourceResult {
+    let mut footnote = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_read_footnote_v1(
+        session_id,
+        artifact_id,
+        key.as_ptr(),
+        u64::try_from(key.len()).expect("key length is representable"),
+        &mut footnote,
+        &mut error,
+    );
+    let result = ResourceResult {
+        status,
+        resource: copy_owned_buffer_for_test(&footnote),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free_v1(&mut footnote);
+    rito_buffer_free_v1(&mut error);
+    result
+}
+
 fn call_release(session_id: u64, artifact_id: u64) -> u32 {
     let mut error = RitoOwnedBufferV1::EMPTY;
     let status = rito_release_artifact_v1(session_id, artifact_id, &mut error);
@@ -1103,5 +1126,63 @@ fn peek_and_commit_round_trip_without_foreground_side_effects() {
     assert_eq!(ack.visible_artifact_id, peeked.artifact_id);
     assert_eq!(ack.replaced_artifact_id, Some(next.artifact_id));
 
+    call_dispose(session_id);
+}
+
+#[test]
+fn footnote_hits_read_back_through_the_abi() {
+    let session_id = next_session_id();
+    let open_wire =
+        encode_reader_artifact_request_v1(&request(session_id)).expect("request encodes");
+    let opened = call_open(&publication(), &open_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let artifact = decode_reader_artifact_v1(&opened.artifact).expect("artifact decodes");
+
+    // The corpus book carries real notereds; walk forward until a page
+    // publishes one, then read its definition with the key verbatim.
+    let mut current = artifact;
+    let mut request_id = 2;
+    let mut found = None;
+    for _ in 0..24 {
+        if let Some(key) = current
+            .pages
+            .iter()
+            .flat_map(|page| page.hits.iter())
+            .find_map(|hit| hit.footnote_key.clone().filter(|_| !hit.footnote_pending))
+        {
+            found = Some((current.artifact_id, key));
+            break;
+        }
+        let wire = encode_reader_adjacent_request_v1(&ReaderAdjacentRequestV1 {
+            session_id,
+            request_id,
+            from_artifact_id: current.artifact_id,
+            direction: ReaderAdjacentDirectionV1::Next,
+            work: request(session_id).work,
+        })
+        .expect("adjacent encodes");
+        request_id += 1;
+        let next = call_request_adjacent(session_id, &wire);
+        if next.status != RITO_STATUS_OK_V1 {
+            break;
+        }
+        current = decode_reader_artifact_v1(&next.artifact).expect("next decodes");
+    }
+
+    if let Some((artifact_id, key)) = found {
+        let result = call_read_footnote(session_id, artifact_id, key.as_bytes());
+        assert_eq!(result.status, RITO_STATUS_OK_V1, "{}", result.error);
+        let footnote =
+            decode_reader_footnote_v1(&result.resource).expect("footnote wire decodes");
+        assert_eq!(footnote.key, key);
+        assert_eq!(footnote.artifact_id, artifact_id);
+        assert!(!footnote.text.is_empty(), "{footnote:?}");
+    }
+
+    // An unknown key is a clean typed failure, never a crash.
+    let missing = call_read_footnote(session_id, current.artifact_id, b"nope.xhtml#missing");
+    assert_eq!(missing.status, RITO_STATUS_TARGET_NOT_PUBLISHED_V1);
+    let empty = call_read_footnote(session_id, current.artifact_id, b"");
+    assert_eq!(empty.status, RITO_STATUS_INVALID_ARGUMENT_V1);
     call_dispose(session_id);
 }

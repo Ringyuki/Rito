@@ -696,6 +696,8 @@ fn artifact_fixture() -> ReaderArtifactV1 {
         width: 834.5,
         height: 1_194.25,
         terminal_extent: true,
+        book_page_index: Some(140),
+        book_page_count: Some(312),
         navigation: ReaderNavigationV1 {
             previous: ReaderAdjacentAvailabilityV1::Available,
             next: ReaderAdjacentAvailabilityV1::ChapterBoundary,
@@ -835,6 +837,8 @@ fn page_fixture() -> ReaderPageV1 {
             }),
             image_src: Some("images/next.png".into()),
             image_alt: Some("次章".into()),
+            footnote_key: Some("Text/chapter-02.xhtml#fn7".into()),
+            footnote_pending: true,
         }],
         semantics: semantic_roles_fixture(),
         text: "吾輩は猫である。".into(),

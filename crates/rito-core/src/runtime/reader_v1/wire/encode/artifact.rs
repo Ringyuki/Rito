@@ -31,6 +31,14 @@ pub(super) fn body(writer: &mut Writer, value: &ReaderArtifactV1) -> Result<(), 
     writer.f64(value.width, "artifact width")?;
     writer.f64(value.height, "artifact height")?;
     writer.bool(value.terminal_extent);
+    writer.option(value.book_page_index.as_ref(), |writer, index| {
+        writer.u32(*index);
+        Ok(())
+    })?;
+    writer.option(value.book_page_count.as_ref(), |writer, count| {
+        writer.u32(*count);
+        Ok(())
+    })?;
     writer.u32(adjacent_availability(value.navigation.previous));
     writer.u32(adjacent_availability(value.navigation.next));
     writer.u32(text_profile(value.text_profile));
@@ -122,7 +130,10 @@ fn hit_entry(writer: &mut Writer, value: &ReaderHitEntryV1) -> Result<(), Reader
     optional_string(writer, value.href.as_deref(), "hit href")?;
     writer.option(value.source_point.as_ref(), super::source_point)?;
     optional_string(writer, value.image_src.as_deref(), "hit image source")?;
-    optional_string(writer, value.image_alt.as_deref(), "hit image alternative")
+    optional_string(writer, value.image_alt.as_deref(), "hit image alternative")?;
+    optional_string(writer, value.footnote_key.as_deref(), "hit footnote key")?;
+    writer.bool(value.footnote_pending);
+    Ok(())
 }
 
 fn semantic_node(

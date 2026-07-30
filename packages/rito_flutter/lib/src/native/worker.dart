@@ -296,6 +296,7 @@ void _discardUnsentWire(
         break;
       case _ReadPublicationOperation():
       case _ReadResourceOperation():
+      case _ReadFootnoteOperation():
       case _ReleaseArtifactOperation():
       case _DisposeOperation():
       case _CloseOperation():
@@ -361,6 +362,11 @@ Object? _perform(
       artifactId: operation.artifactId,
       kind: operation.kind,
       href: operation.href,
+    ),
+    _ReadFootnoteOperation() => bindings.readFootnote(
+      sessionId: operation.sessionId,
+      artifactId: operation.artifactId,
+      key: operation.key,
     ),
     _ReleaseArtifactOperation() => _release(bindings, operation),
     _DisposeOperation() => _dispose(bindings, operation, liveSessions),
@@ -592,6 +598,18 @@ final class _ReadResourceOperation extends _WorkerOperation {
   final int artifactId;
   final RitoResourceKind kind;
   final String href;
+}
+
+final class _ReadFootnoteOperation extends _WorkerOperation {
+  const _ReadFootnoteOperation({
+    required this.sessionId,
+    required this.artifactId,
+    required this.key,
+  });
+
+  final int sessionId;
+  final int artifactId;
+  final String key;
 }
 
 final class _ReleaseArtifactOperation extends _WorkerOperation {

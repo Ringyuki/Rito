@@ -21,7 +21,7 @@ Uint8List artifactFixture({
   final display = displayFixture();
   final writer = TestWireWriter.message('RITOART1');
   writer
-    ..uint32(1)
+    ..uint32(2)
     ..uint32(1)
     ..uint64(sessionId)
     ..uint64(requestId)
@@ -38,6 +38,8 @@ Uint8List artifactFixture({
     ..float64(360)
     ..float64(640)
     ..boolean(false)
+    ..option(null)
+    ..option(null)
     ..uint32(previousAvailability)
     ..uint32(nextAvailability)
     ..uint32(0);
@@ -154,6 +156,8 @@ void _pages(TestWireWriter writer, int pageIndex) {
       hit.option(() => _sourcePoint(hit, <int>[1, 9, 2], 47));
       hit.option(null);
       hit.option(null);
+      hit.option(null);
+      hit.boolean(false);
     });
     page.uint32(1);
     page.record((semantic) {

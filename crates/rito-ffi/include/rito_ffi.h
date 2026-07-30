@@ -215,6 +215,21 @@ uint32_t rito_read_resource_v1(uint64_t session_id,
                                rito_owned_buffer_v1 *error_out);
 
 /*
+ * Reads a footnote definition referenced by a live RITOART1 artifact and
+ * returns a complete RITOFTN1 message. key_data is the hit's footnoteKey
+ * verbatim — it is already canonical, so hosts must not normalize the link
+ * href themselves — and is copied before this function returns. A definition
+ * the publication footnote index has not reached yet returns
+ * RITO_STATUS_TARGET_NOT_PUBLISHED_V1 and succeeds on a later retry.
+ */
+uint32_t rito_read_footnote_v1(uint64_t session_id,
+                               uint64_t artifact_id,
+                               const uint8_t *key_data,
+                               uint64_t key_len,
+                               rito_owned_buffer_v1 *footnote_out,
+                               rito_owned_buffer_v1 *error_out);
+
+/*
  * Idempotent for an artifact already released from this session. BUSY means
  * the release was not queued and the artifact remains live; retry it or dispose
  * the owning session.

@@ -30,6 +30,8 @@ pub(super) fn body(reader: &mut Reader<'_>) -> Result<ReaderArtifactV1, ReaderEr
         width: reader.f64("artifact width")?,
         height: reader.f64("artifact height")?,
         terminal_extent: reader.bool("terminal extent")?,
+        book_page_index: reader.option("book page index", Reader::u32)?,
+        book_page_count: reader.option("book page count", Reader::u32)?,
         navigation: ReaderNavigationV1 {
             previous: adjacent_availability(reader.u32()?)?,
             next: adjacent_availability(reader.u32()?)?,
@@ -122,6 +124,8 @@ fn hit_entry(reader: &mut Reader<'_>) -> Result<ReaderHitEntryV1, ReaderErrorV1>
         source_point: reader.option("hit source point", source_point)?,
         image_src: optional_string(reader, "hit image source")?,
         image_alt: optional_string(reader, "hit image alternative")?,
+        footnote_key: optional_string(reader, "hit footnote key")?,
+        footnote_pending: reader.bool("hit footnote pending")?,
     })
 }
 

@@ -289,3 +289,45 @@ fn canonical_locator_href(locator: &RuntimeSourceLocator) -> String {
         .map(|anchor| format!("{}#{anchor}", locator.href))
         .unwrap_or_else(|| locator.href.clone())
 }
+
+/// Page-scoped footnote classification for hosts that build their own
+/// hit lists (the reader_v1 artifact path) instead of consuming
+/// [`RuntimePageTarget`]. It resolves the page's chapter once and then
+/// answers per href, so a page's hits classify exactly the way
+/// `runtime_page_targets` would — the two surfaces must never disagree
+/// about what is a footnote.
+pub(super) struct RuntimeFootnoteHitResolver<'a> {
+    document: &'a LoadedEpubDocument,
+    context: &'a RuntimePageTargetContext,
+    revision: &'a RuntimeRevision,
+    chapter: Option<&'a LoadedChapter>,
+}
+
+impl<'a> RuntimeFootnoteHitResolver<'a> {
+    pub(super) fn new(
+        document: &'a LoadedEpubDocument,
+        context: &'a RuntimePageTargetContext,
+        revision: &'a RuntimeRevision,
+        page_index: usize,
+    ) -> Self {
+        Self {
+            document,
+            context,
+            revision,
+            chapter: chapter_for_page(document, revision, page_index),
+        }
+    }
+
+    /// The canonical footnote key for a raw target href, plus whether
+    /// its definition is still awaiting indexing. `None` for anything
+    /// that is not a semantic noteref.
+    pub(super) fn resolve(&self, href: &str) -> Option<(String, bool)> {
+        let canonical =
+            canonical_destination(self.document, self.context, self.chapter, href).href;
+        match target_kind(self.revision, Some(canonical.as_str()), None) {
+            RuntimePageTargetKind::Footnote => Some((canonical, false)),
+            RuntimePageTargetKind::FootnotePending => Some((canonical, true)),
+            _ => None,
+        }
+    }
+}

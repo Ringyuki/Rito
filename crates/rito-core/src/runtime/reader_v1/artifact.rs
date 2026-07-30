@@ -73,10 +73,11 @@ pub(super) fn build_reader_artifact_v1(
             })?
         }
     };
-    build_reader_artifact_from_revision(revision, identity, target, navigation)
+    build_reader_artifact_from_revision(document, revision, identity, target, navigation)
 }
 
 fn build_reader_artifact_from_revision(
+    document: &RuntimeDocument,
     revision: &RuntimeRevision,
     identity: ArtifactIdentityV1,
     target: &ResolvedArtifactTarget,
@@ -101,7 +102,7 @@ fn build_reader_artifact_from_revision(
                     format!("published frame references unknown page {page_index}"),
                 )
             })?;
-            reader_page(*page_index, page)
+            reader_page(document, revision, *page_index, page)
         })
         .collect::<Result<Vec<_>, _>>()?;
     let font_families = used_font_families(&encoded.font_families);
@@ -146,6 +147,20 @@ fn build_reader_artifact_from_revision(
         width: revision.layout_config.viewport_width,
         height: revision.layout_config.viewport_height,
         terminal_extent: revision.final_extent.is_some(),
+        // Whole-book numbering exists only in absolute coordinate space.
+        // A chapter-local revision's page index is a window ordinal that
+        // restarts at every rollover, so it must never be published as a
+        // book page number.
+        book_page_index: revision
+            .is_absolute_coordinate_space()
+            .then(|| u32_from_usize(target.local_page_index, "book page index"))
+            .transpose()?,
+        book_page_count: revision
+            .is_absolute_coordinate_space()
+            .then_some(revision.final_extent)
+            .flatten()
+            .map(|extent| u32_from_usize(extent.page_count, "book page count"))
+            .transpose()?,
         navigation,
         text_profile: ReaderTextRenderingProfileV1::PlatformStringRuns,
         display_list: ReaderDisplayListV1 {
@@ -229,9 +244,18 @@ pub(super) fn published_spread_target(
     })
 }
 
-fn reader_page(page_index: usize, page: &dyn PageArtifact) -> Result<ReaderPageV1, ReaderErrorV1> {
+fn reader_page(
+    document: &RuntimeDocument,
+    revision: &RuntimeRevision,
+    page_index: usize,
+    page: &dyn PageArtifact,
+) -> Result<ReaderPageV1, ReaderErrorV1> {
     let metadata = page.metadata();
     let targets = page.targets();
+    // Classified through the same resolver `get_page_targets` uses, so
+    // the artifact's hits and the runtime's page targets never disagree
+    // about which hrefs are footnotes or under which key they are held.
+    let footnotes = document.footnote_hit_resolver(revision, page_index);
     let text = page.text_positions();
     Ok(ReaderPageV1 {
         page_index: u32_from_usize(page_index, "page index")?,
@@ -251,6 +275,10 @@ fn reader_page(page_index: usize, page: &dyn PageArtifact) -> Result<ReaderPageV
                     }),
                     _ => None,
                 };
+                let footnote = target
+                    .href
+                    .as_deref()
+                    .and_then(|href| footnotes.resolve(href));
                 Ok(ReaderHitEntryV1 {
                     page_index: u32_from_usize(page_index, "hit page index")?,
                     bounds: reader_rect(target.bounds),
@@ -259,6 +287,8 @@ fn reader_page(page_index: usize, page: &dyn PageArtifact) -> Result<ReaderPageV
                     source_point,
                     image_src: target.image_src,
                     image_alt: target.image_alt,
+                    footnote_key: footnote.as_ref().map(|(key, _)| key.clone()),
+                    footnote_pending: footnote.is_some_and(|(_, pending)| pending),
                 })
             })
             .collect::<Result<Vec<_>, ReaderErrorV1>>()?,

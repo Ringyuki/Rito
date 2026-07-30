@@ -164,6 +164,8 @@ final class RitoHitEntry {
     this.sourcePoint,
     this.imageSrc,
     this.imageAlt,
+    this.footnoteKey,
+    this.footnotePending = false,
   });
 
   final int pageIndex;
@@ -173,6 +175,18 @@ final class RitoHitEntry {
   final RitoSourcePoint? sourcePoint;
   final String? imageSrc;
   final String? imageAlt;
+
+  /// Canonical footnote key when this hit is a semantic noteref — the
+  /// engine's own `href#fragment` form. Pass it to
+  /// [RitoReaderSession.readFootnote] verbatim; a host must not
+  /// normalize the link [href] itself. Null means an ordinary link.
+  final String? footnoteKey;
+
+  /// True while this key's definition has not been indexed yet. The key
+  /// is already valid; reading it fails until background indexing
+  /// reaches the definition, so a host can show the popup with a
+  /// loading state and retry.
+  final bool footnotePending;
 }
 
 final class RitoSemanticNode {
@@ -252,6 +266,8 @@ final class RitoArtifact {
     required this.width,
     required this.height,
     required this.terminalExtent,
+    this.bookPageIndex,
+    this.bookPageCount,
     required this.navigation,
     required this.textProfile,
     required this.displayList,
@@ -278,6 +294,17 @@ final class RitoArtifact {
   final double width;
   final double height;
   final bool terminalExtent;
+
+  /// Zero-based page number within the whole book. Null until the
+  /// whole-book layout backs this artifact (before that, only
+  /// [localPageIndex] exists and it is a rollover-window ordinal, not a
+  /// page number). Hosts should hide page numbering rather than show 0.
+  final int? bookPageIndex;
+
+  /// Total pages in the book, present only once whole-book pagination
+  /// is complete. It appears strictly after [bookPageIndex] does, so a
+  /// host can render "page N" immediately and cross-fade in "of M".
+  final int? bookPageCount;
   final RitoNavigation navigation;
   final RitoTextProfile textProfile;
   final RitoDisplayListPayload displayList;

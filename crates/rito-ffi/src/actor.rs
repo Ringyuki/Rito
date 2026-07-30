@@ -9,7 +9,8 @@ use std::{
 use rito_core::runtime::{
     encode_reader_artifact_v1, encode_reader_background_advance_v1,
     encode_reader_background_handoff_ack_v1, encode_reader_foreground_handoff_ack_v1,
-    encode_reader_publication_v1, encode_reader_resource_v1, ReaderAdjacentRequestV1,
+    encode_reader_footnote_v1, encode_reader_publication_v1, encode_reader_resource_v1,
+    ReaderAdjacentRequestV1,
     ReaderArtifactRequestV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderErrorV1,
     ReaderForegroundHandoffV1, ReaderResourceKindV1, ReaderSessionV1,
     RuntimePinnedFontPolicyInput,
@@ -61,6 +62,11 @@ pub(crate) enum ActorCommand {
         artifact_id: u64,
         kind: ReaderResourceKindV1,
         href: String,
+        reply: Reply<Vec<u8>>,
+    },
+    ReadFootnote {
+        artifact_id: u64,
+        key: String,
         reply: Reply<Vec<u8>>,
     },
     ReleaseArtifact {
@@ -594,6 +600,17 @@ fn run_commands(
                     encode_reader_publication_v1(session.publication_v1()).map_err(FfiError::from);
                 let _ = reply.send(result);
             }
+            ActorCommand::ReadFootnote {
+                artifact_id,
+                key,
+                reply,
+            } => {
+                let result = session
+                    .read_footnote(artifact_id, &key)
+                    .and_then(|footnote| encode_reader_footnote_v1(&footnote))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
             ActorCommand::ReadResource {
                 artifact_id,
                 kind,
@@ -741,6 +758,22 @@ pub(crate) fn request_resource(
             reply,
         },
         "resource",
+    )
+}
+
+pub(crate) fn request_footnote(
+    admission: CommandAdmission,
+    artifact_id: u64,
+    key: String,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::ReadFootnote {
+            artifact_id,
+            key,
+            reply,
+        },
+        "footnote",
     )
 }
 

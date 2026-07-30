@@ -260,6 +260,14 @@ pub(crate) fn read_resource(
     actor::request_resource(admission, artifact_id, kind, href)
 }
 
+pub(crate) fn read_footnote(
+    admission: CommandAdmission,
+    artifact_id: u64,
+    key: String,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_footnote(admission, artifact_id, key)
+}
+
 pub(crate) fn release_artifact(
     admission: CommandAdmission,
     artifact_id: u64,

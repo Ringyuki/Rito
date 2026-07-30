@@ -1830,7 +1830,7 @@ function request(href) {
 
 function artifactWire(sessionId, requestId, artifactId, href, options = {}) {
   const writer = ReaderWireWriterV1.message('RITOART1');
-  writer.u32(1, 'protocol');
+  writer.u32(2, 'protocol');
   writer.u32(1, 'capability');
   writer.externalId(sessionId, 'session');
   writer.externalId(requestId, 'request');
@@ -1846,6 +1846,8 @@ function artifactWire(sessionId, requestId, artifactId, href, options = {}) {
   writer.f64(800, 'width');
   writer.f64(600, 'height');
   writer.bool(false);
+  writer.option(undefined, () => undefined);
+  writer.option(undefined, () => undefined);
   writer.u32(3, 'previous');
   writer.u32(3, 'next');
   writer.u32(0, 'text profile');

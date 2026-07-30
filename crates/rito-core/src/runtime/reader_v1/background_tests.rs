@@ -967,3 +967,57 @@ fn peek_and_fast_commit_work_from_publication_artifacts() {
         .expect("previous publication neighbor peeks");
     assert_eq!(back.local_spread_index, candidate.local_spread_index);
 }
+
+#[test]
+fn publication_artifacts_number_pages_book_wide() {
+    use crate::runtime::tests::fixture::image_plate_fixture_epub;
+    let mut session = ReaderSessionV1::open_owned(222, image_plate_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(artifact_request(222, 1, "chapter-0.xhtml"))
+        .expect("first chapter resolves");
+    // Before the whole-book layout exists there is no book numbering.
+    assert_eq!(visible.book_page_index, None);
+    assert_eq!(visible.book_page_count, None);
+    adopt_initial(&mut session, 222, visible.artifact_id);
+
+    let candidate = advance_to_candidate(&mut session, 222, visible.artifact_id, 64)
+        .artifact
+        .expect("publication produces a handoff candidate");
+    // The publication candidate is book-wide numbered from the start;
+    // the total only appears once its layout is complete.
+    assert_eq!(candidate.book_page_index, Some(0));
+    session
+        .adopt_background_candidate(ReaderBackgroundHandoffV1 {
+            session_id: 222,
+            expected_visible_artifact_id: visible.artifact_id,
+            candidate_artifact_id: candidate.artifact_id,
+        })
+        .expect("publication candidate adopts");
+    for _ in 0..256 {
+        let step = session
+            .advance_background_once(background_request(222, candidate.artifact_id, 64))
+            .expect("background advances");
+        if step.state == ReaderBackgroundStateV1::Complete {
+            break;
+        }
+    }
+
+    let second = session
+        .request_adjacent(plate_adjacent(
+            222,
+            60,
+            candidate.artifact_id,
+            ReaderAdjacentDirectionV1::Next,
+        ))
+        .expect("next spread resolves");
+    let count = second
+        .book_page_count
+        .expect("a completed publication publishes its page count");
+    assert!(count >= 2, "{count}");
+    assert_eq!(second.book_page_index, Some(1));
+    assert!(
+        second.book_page_index.is_some_and(|index| index < count),
+        "book page index must fall inside the book: {second:?}"
+    );
+}

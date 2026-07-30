@@ -13,7 +13,7 @@ final class RitoArtifactDecoder {
     this.displayListDecoder = const RitoDisplayListDecoder(),
   });
 
-  static const int protocolVersion = 1;
+  static const int protocolVersion = 2;
   static const int wireVersion = 1;
   static const int _maxSemanticDepth = 64;
   static final List<int> _magic = ascii.encode('RITOART1');
@@ -64,6 +64,14 @@ final class RitoArtifactDecoder {
       width: reader.float64('artifact width'),
       height: reader.float64('artifact height'),
       terminalExtent: reader.boolean('terminal extent'),
+      bookPageIndex: reader.option(
+        'book page index',
+        () => reader.uint32('book page index'),
+      ),
+      bookPageCount: reader.option(
+        'book page count',
+        () => reader.uint32('book page count'),
+      ),
       navigation: RitoNavigation(
         previous: _adjacentAvailability(reader),
         next: _adjacentAvailability(reader),

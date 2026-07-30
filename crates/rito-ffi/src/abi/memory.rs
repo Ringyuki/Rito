@@ -454,6 +454,32 @@ pub extern "C" fn rito_read_resource_v1(
     })
 }
 
+/// Reads a footnote definition an artifact's hits referenced. The key
+/// is the hit's `footnote_key` verbatim — it is already canonical, so
+/// hosts must not normalize the link href themselves. A definition the
+/// publication footnote index has not reached yet returns
+/// `RITO_STATUS_TARGET_NOT_PUBLISHED_V1`; the same read succeeds once
+/// indexing completes, so hosts can retry rather than fail closed.
+#[no_mangle]
+pub extern "C" fn rito_read_footnote_v1(
+    session_id: u64,
+    artifact_id: u64,
+    key_data: *const u8,
+    key_len: u64,
+    footnote_out: *mut RitoOwnedBufferV1,
+    error_out: *mut RitoOwnedBufferV1,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(footnote_out, error_out, "footnote_out")?;
+        validate_external_id(session_id, "session_id")?;
+        validate_external_id(artifact_id, "artifact_id")?;
+        let admission = registry::try_admit(session_id)?;
+        let key = input::footnote_key(key_data, key_len)?;
+        let footnote = registry::read_footnote(admission, artifact_id, key)?;
+        write_buffer(footnote_out, footnote)
+    })
+}
+
 #[no_mangle]
 pub extern "C" fn rito_release_artifact_v1(
     session_id: u64,

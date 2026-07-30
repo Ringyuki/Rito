@@ -1867,3 +1867,63 @@ fn peek_crosses_single_page_chapter_boundaries_in_both_directions() {
     assert!(!session.has_pending_exact_seek_v1());
     assert_eq!(session.visible_artifact_id(), Some(current.artifact_id));
 }
+
+#[test]
+fn artifact_hits_carry_footnote_keys_that_read_back_directly() {
+    use crate::runtime::tests::fixture::interaction_target_fixture_epub;
+    let mut session = ReaderSessionV1::open_owned(130, interaction_target_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(request(130, 1, ""))
+        .expect("first chapter resolves");
+
+    let hits = visible
+        .pages
+        .iter()
+        .flat_map(|page| page.hits.iter())
+        .collect::<Vec<_>>();
+    let noteref = hits
+        .iter()
+        .find(|hit| hit.footnote_key.is_some())
+        .expect("the noteref hit carries a footnote key");
+    // A plain internal link on the same page must NOT be classified as
+    // a footnote, or hosts would open popups for ordinary links.
+    assert!(
+        hits.iter()
+            .any(|hit| hit.href.is_some() && hit.footnote_key.is_none()),
+        "ordinary links must stay unclassified: {hits:?}"
+    );
+    assert!(!noteref.footnote_pending, "{noteref:?}");
+    let key = noteref.footnote_key.clone().expect("key");
+    assert!(
+        key.contains('#'),
+        "the key is the canonical href#fragment form: {key}"
+    );
+
+    // The host passes the key back verbatim — no normalization.
+    let footnote = session
+        .read_footnote(visible.artifact_id, &key)
+        .expect("footnote reads back");
+    assert_eq!(footnote.key, key);
+    assert_eq!(footnote.kind, ReaderFootnoteKindV1::Footnote);
+    assert!(footnote.text.contains("Runtime note"), "{footnote:?}");
+    assert!(footnote.html.contains("Runtime note"), "{footnote:?}");
+
+    let unknown = session
+        .read_footnote(visible.artifact_id, "Text/nope.xhtml#missing")
+        .expect_err("unknown keys do not resolve");
+    assert_eq!(unknown.kind, ReaderErrorKindV1::TargetNotPublished);
+}
+
+#[test]
+fn chapter_local_artifacts_have_no_book_page_numbering() {
+    let mut session = ReaderSessionV1::open_owned(131, long_chapter_window_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(request(131, 1, ""))
+        .expect("first chapter resolves");
+    // A window ordinal restarts at every rollover, so publishing it as
+    // a book page number would be a lie. The field stays absent.
+    assert_eq!(visible.book_page_index, None);
+    assert_eq!(visible.book_page_count, None);
+}

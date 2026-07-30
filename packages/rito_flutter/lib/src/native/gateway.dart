@@ -10,6 +10,7 @@ import '../protocol/background_encoder.dart';
 import '../protocol/background_models.dart';
 import '../protocol/foreground_decoder.dart';
 import '../protocol/foreground_encoder.dart';
+import '../protocol/footnote_decoder.dart';
 import '../protocol/foreground_models.dart';
 import '../protocol/publication_decoder.dart';
 import '../protocol/publication_models.dart';
@@ -92,6 +93,14 @@ abstract interface class RitoReaderGateway {
     required int artifactId,
     required RitoResourceKind kind,
     required String href,
+  });
+
+  /// Reads a footnote definition an artifact referenced. [key] is the
+  /// hit's canonical `footnoteKey` verbatim.
+  Future<RitoFootnote> readFootnote({
+    required int sessionId,
+    required int artifactId,
+    required String key,
   });
 
   Future<void> releaseArtifact({
@@ -179,6 +188,7 @@ final class RitoIsolateGateway
   final RitoBackgroundDecoder _backgroundDecoder =
       const RitoBackgroundDecoder();
   final RitoResourceDecoder _resourceDecoder = const RitoResourceDecoder();
+  final RitoFootnoteDecoder _footnoteDecoder = const RitoFootnoteDecoder();
   final RitoRequestEncoder _requestEncoder = const RitoRequestEncoder();
   final RitoNativeGatewayQueue _queue = RitoNativeGatewayQueue();
   final RitoPendingExactSeekDriver _pendingExactSeek =
@@ -686,6 +696,39 @@ final class RitoIsolateGateway
                 resource.artifactId == artifactId &&
                 resource.kind == kind &&
                 resource.href == href,
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<RitoFootnote> readFootnote({
+    required int sessionId,
+    required int artifactId,
+    required String key,
+  }) async {
+    return _queue.ordered<RitoFootnote>(
+      sessionId: sessionId,
+      operation: () => _guardNativeSessionOperation<RitoFootnote>(
+        sessionId: sessionId,
+        requestId: _diagnosticRequestId(sessionId),
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(
+            _ReadFootnoteOperation(
+              sessionId: sessionId,
+              artifactId: artifactId,
+              key: key,
+            ),
+          );
+          return _decodeSessionWire<RitoFootnote>(
+            sessionId: sessionId,
+            field: 'footnote',
+            wireBytes: wireBytes,
+            decode: _footnoteDecoder.decode,
+            validate: (footnote) =>
+                footnote.artifactId == artifactId && footnote.key == key,
           );
         },
       ),

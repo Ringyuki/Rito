@@ -6,6 +6,7 @@ import 'image/artifact_image_cache.dart';
 import 'native/gateway.dart';
 import 'protocol/artifact_models.dart';
 import 'protocol/background_models.dart';
+import 'protocol/footnote_decoder.dart';
 import 'protocol/foreground_models.dart';
 import 'protocol/publication_models.dart';
 import 'protocol/request_models.dart';
@@ -559,6 +560,49 @@ final class RitoReaderSession {
     RitoResourceRef reference,
   ) {
     return _readOwnedResource(prepared.artifact, reference);
+  }
+
+  /// Reads the footnote definition a hit referenced.
+  ///
+  /// [key] is [RitoHitEntry.footnoteKey] verbatim — it is already the
+  /// engine's canonical form, so a host must not normalize the link
+  /// href itself. A hit whose `footnotePending` is true has a valid key
+  /// whose definition is not indexed yet: this throws
+  /// [RitoNativeException] with status 6 until background indexing
+  /// reaches it, so a popup can show a loading state and retry rather
+  /// than treating the note as missing.
+  Future<RitoFootnote> readFootnote(
+    RitoPreparedArtifact prepared,
+    String key,
+  ) async {
+    _requireOpen();
+    final artifact = prepared.artifact;
+    if (artifact.sessionId != sessionId ||
+        !_liveArtifacts.contains(artifact.artifactId)) {
+      throw ArgumentError('Artifact is not live in this Rito session.');
+    }
+    if (key.isEmpty) {
+      throw ArgumentError.value(key, 'key', 'must not be empty');
+    }
+    late final RitoFootnote footnote;
+    try {
+      footnote = await gateway.readFootnote(
+        sessionId: sessionId,
+        artifactId: artifact.artifactId,
+        key: key,
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    if (footnote.artifactId != artifact.artifactId || footnote.key != key) {
+      throw StateError('Footnote ownership does not match its artifact.');
+    }
+    return footnote;
   }
 
   Future<RitoResource> _readOwnedResource(

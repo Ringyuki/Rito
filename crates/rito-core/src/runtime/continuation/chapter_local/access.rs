@@ -136,6 +136,19 @@ impl RuntimeDocument {
             .map_err(local_engine_error)
     }
 
+    /// The footnote definition a chapter-local artifact referenced, or
+    /// `None` while the publication footnote index has not reached it.
+    /// Chapter-local revisions inherit the publication's shared index,
+    /// so a definition living in another chapter still resolves.
+    pub fn get_chapter_local_footnote(
+        &self,
+        owner: &RuntimeChapterLocalRevisionHandle,
+        key: &str,
+    ) -> Result<Option<crate::interaction::FootnoteEntry>, RuntimeChapterLocalRevisionError> {
+        let revision = self.require_chapter_local_owner(owner)?;
+        Ok(revision.interactions.footnote(key).cloned())
+    }
+
     pub(in crate::runtime) fn require_chapter_local_owner(
         &self,
         owner: &RuntimeChapterLocalRevisionHandle,

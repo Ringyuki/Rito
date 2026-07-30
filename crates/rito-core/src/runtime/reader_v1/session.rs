@@ -30,7 +30,8 @@ use super::{
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
     ReaderBackgroundStateV1, ReaderDisposeAckV1, ReaderErrorKindV1, ReaderErrorV1,
     ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderLocatorV1, ReaderNavigationV1,
-    ReaderPublicationV1, ReaderResourceKindV1, ReaderResourceV1, ReaderTextRenderingProfileV1,
+    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderPublicationV1, ReaderResourceKindV1,
+    ReaderResourceV1, ReaderTextRenderingProfileV1,
     ReaderWorkBudgetV1, READER_EXTERNAL_ID_MAX_V1,
 };
 
@@ -622,6 +623,67 @@ impl ReaderSessionV1 {
             bytes: resource.bytes,
             width: resource.width,
             height: resource.height,
+        })
+    }
+
+    /// Reads a footnote definition an artifact's hits referenced.
+    ///
+    /// `key` is the hit's `footnote_key` verbatim — it is already the
+    /// canonical publication-relative form the index is keyed by, so
+    /// hosts must not normalize the link href themselves. A key whose
+    /// definition has not been indexed yet (the hit reported
+    /// `footnote_pending`) fails with `TargetNotPublished`; the same
+    /// read succeeds once the background footnote index reaches it.
+    pub fn read_footnote(
+        &mut self,
+        artifact_id: u64,
+        key: &str,
+    ) -> Result<ReaderFootnoteV1, ReaderErrorV1> {
+        validate_external_request_id(artifact_id, "artifactId")?;
+        if key.is_empty() {
+            return Err(ReaderErrorV1::new(
+                ReaderErrorKindV1::InvalidRequest,
+                "footnote key must not be empty",
+            ));
+        }
+        let artifact = self
+            .artifacts
+            .get(&artifact_id)
+            .cloned()
+            .ok_or_else(|| unknown_artifact(artifact_id))?;
+        let entry = match artifact.backing {
+            ReaderRevisionBackingV1::ChapterLocal => {
+                let owner = self
+                    .revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.owner.clone())
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                self.document
+                    .get_chapter_local_footnote(&owner, key)
+                    .map_err(engine_error)?
+                    .map(|entry| (entry.kind, entry.text, entry.html))
+            }
+            ReaderRevisionBackingV1::Publication => {
+                let owner = self
+                    .publication_revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.owner.clone())
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                self.document
+                    .get_footnote_at(&owner, key)
+                    .ok()
+                    .map(|versioned| versioned.value)
+                    .map(|footnote| (footnote.kind, footnote.text, footnote.html))
+            }
+        };
+        let (kind, text, html) =
+            entry.ok_or_else(|| target_not_published("footnote definition is not indexed yet"))?;
+        Ok(ReaderFootnoteV1 {
+            artifact_id,
+            key: key.to_owned(),
+            kind: reader_footnote_kind(kind),
+            text,
+            html,
         })
     }
 
@@ -2795,5 +2857,14 @@ mod identity_tests {
                 .kind,
             ReaderErrorKindV1::NumericOverflow
         );
+    }
+}
+
+const fn reader_footnote_kind(kind: crate::interaction::FootnoteKind) -> ReaderFootnoteKindV1 {
+    match kind {
+        crate::interaction::FootnoteKind::Footnote => ReaderFootnoteKindV1::Footnote,
+        crate::interaction::FootnoteKind::Endnote => ReaderFootnoteKindV1::Endnote,
+        crate::interaction::FootnoteKind::Rearnote => ReaderFootnoteKindV1::Rearnote,
+        crate::interaction::FootnoteKind::Note => ReaderFootnoteKindV1::Note,
     }
 }

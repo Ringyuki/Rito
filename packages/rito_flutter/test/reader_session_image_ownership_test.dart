@@ -227,6 +227,15 @@ final class _ImageGateway implements RitoReaderGateway {
   }
 
   @override
+  Future<RitoFootnote> readFootnote({
+    required int sessionId,
+    required int artifactId,
+    required String key,
+  }) async {
+    throw UnimplementedError('footnotes are out of scope for this fake');
+  }
+
+  @override
   Future<RitoResource> readResource({
     required int sessionId,
     required int artifactId,

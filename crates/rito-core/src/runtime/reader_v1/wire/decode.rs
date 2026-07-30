@@ -16,7 +16,8 @@ use crate::runtime::reader_v1::{
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
     ReaderBackgroundStateV1, ReaderErrorV1, ReaderForegroundHandoffAckV1,
     ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1, ReaderPublicationV1,
-    ReaderResourceV1, ReaderSourcePointV1, ReaderSourceRangeV1, ReaderSpreadModeV1,
+    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderResourceV1, ReaderSourcePointV1,
+    ReaderSourceRangeV1, ReaderSpreadModeV1,
     ReaderTextRenderingProfileV1, ReaderWorkBudgetV1, READER_PUBLICATION_WIRE_BYTES_MAX_V1,
 };
 
@@ -184,6 +185,33 @@ pub(super) fn publication(bytes: &[u8]) -> Result<ReaderPublicationV1, ReaderErr
     super::super::publication_info::validate_reader_publication_v1(&publication)
         .map_err(invalid)?;
     Ok(publication)
+}
+
+pub(super) fn footnote(bytes: &[u8]) -> Result<ReaderFootnoteV1, ReaderErrorV1> {
+    let mut reader = Reader::message(
+        bytes,
+        super::READER_FOOTNOTE_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    )?;
+    let footnote = ReaderFootnoteV1 {
+        artifact_id: external_id(reader.u64()?, "artifactId")?,
+        key: reader.string("footnote key")?,
+        kind: footnote_kind(reader.u32()?)?,
+        text: reader.string("footnote text")?,
+        html: reader.string("footnote html")?,
+    };
+    reader.finish("footnote wire message")?;
+    Ok(footnote)
+}
+
+fn footnote_kind(value: u32) -> Result<ReaderFootnoteKindV1, ReaderErrorV1> {
+    match value {
+        0 => Ok(ReaderFootnoteKindV1::Footnote),
+        1 => Ok(ReaderFootnoteKindV1::Endnote),
+        2 => Ok(ReaderFootnoteKindV1::Rearnote),
+        3 => Ok(ReaderFootnoteKindV1::Note),
+        tag => Err(invalid(format!("unknown footnote kind: {tag}"))),
+    }
 }
 
 pub(super) fn resource(bytes: &[u8]) -> Result<ReaderResourceV1, ReaderErrorV1> {

@@ -95,6 +95,8 @@ extension _ArtifactPages on RitoArtifactDecoder {
       ),
       imageSrc: _optionalString(record, 'hit image source'),
       imageAlt: _optionalString(record, 'hit image alternative'),
+      footnoteKey: _optionalString(record, 'hit footnote key'),
+      footnotePending: record.boolean('hit footnote pending'),
     );
     record.finish('hit');
     return result;

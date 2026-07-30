@@ -129,6 +129,16 @@ pub(super) struct RuntimeFrameCacheOwner {
 }
 
 impl RuntimeRevision {
+    /// True while this revision paginates the whole publication, so its
+    /// page and spread indexes are book-wide numbers. Chapter-local
+    /// revisions number within a rollover window instead.
+    pub(super) const fn is_absolute_coordinate_space(&self) -> bool {
+        matches!(
+            self.coordinate_space,
+            RuntimeRevisionCoordinateSpace::Absolute
+        )
+    }
+
     pub(super) fn completed(
         layout: BuiltLayout,
         layout_config: LayoutConfig,

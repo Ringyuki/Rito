@@ -107,6 +107,14 @@ pub(crate) fn resource_href(source: *const u8, len: u64) -> Result<String, FfiEr
     String::from_utf8(bytes).map_err(|_| FfiError::invalid("resource href must be valid UTF-8"))
 }
 
+pub(crate) fn footnote_key(source: *const u8, len: u64) -> Result<String, FfiError> {
+    if len == 0 {
+        return Err(FfiError::invalid("footnote key must not be empty"));
+    }
+    let bytes = copy_bytes(source, len, MAX_HREF_BYTES, "footnote key")?;
+    String::from_utf8(bytes).map_err(|_| FfiError::invalid("footnote key must be valid UTF-8"))
+}
+
 pub(crate) fn resource_kind(value: u32) -> Result<ReaderResourceKindV1, FfiError> {
     match value {
         RITO_RESOURCE_KIND_IMAGE_V1 => Ok(ReaderResourceKindV1::Image),

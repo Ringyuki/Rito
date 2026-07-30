@@ -11,7 +11,7 @@ use super::{
     ReaderAdjacentRequestV1, ReaderArtifactRequestV1, ReaderArtifactV1, ReaderBackgroundAdvanceV1,
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
     ReaderErrorV1, ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderPublicationV1,
-    ReaderResourceV1,
+    ReaderFootnoteV1, ReaderResourceV1,
 };
 
 pub const READER_ADJACENT_REQUEST_WIRE_MAGIC_V1: [u8; 8] = *b"RITONAV1";
@@ -25,6 +25,7 @@ pub const READER_FOREGROUND_HANDOFF_WIRE_MAGIC_V1: [u8; 8] = *b"RITOFGH1";
 pub const READER_PUBLICATION_WIRE_MAGIC_V1: [u8; 8] = *b"RITOPUB1";
 pub const READER_REQUEST_WIRE_MAGIC_V1: [u8; 8] = *b"RITOREQ1";
 pub const READER_RESOURCE_WIRE_MAGIC_V1: [u8; 8] = *b"RITORES1";
+pub const READER_FOOTNOTE_WIRE_MAGIC_V1: [u8; 8] = *b"RITOFTN1";
 pub const READER_WIRE_VERSION_V1: u32 = 1;
 pub const READER_WIRE_HEADER_BYTES_V1: u32 = 20;
 pub const READER_ADJACENT_REQUEST_WIRE_BYTES_V1: u32 = 60;
@@ -155,4 +156,12 @@ pub fn encode_reader_resource_v1(resource: &ReaderResourceV1) -> Result<Vec<u8>,
 
 pub fn decode_reader_resource_v1(bytes: &[u8]) -> Result<ReaderResourceV1, ReaderErrorV1> {
     decode::resource(bytes)
+}
+
+pub fn encode_reader_footnote_v1(footnote: &ReaderFootnoteV1) -> Result<Vec<u8>, ReaderErrorV1> {
+    encode::footnote(footnote)
+}
+
+pub fn decode_reader_footnote_v1(bytes: &[u8]) -> Result<ReaderFootnoteV1, ReaderErrorV1> {
+    decode::footnote(bytes)
 }

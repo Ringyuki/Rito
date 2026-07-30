@@ -21,7 +21,7 @@ const SEMANTIC_ROLES = [
 export function decodeRitoReaderArtifactV1(value) {
   const reader = validateReaderWireMessageV1(value, 'RITOART1', 'artifact');
   const protocolVersion = reader.u32('artifact protocol version');
-  if (protocolVersion !== 1) {
+  if (protocolVersion !== 2) {
     reader.fail(`unsupported artifact protocol version: ${String(protocolVersion)}`);
   }
   const capabilityProfileId = reader.u32('capability profile');
@@ -46,6 +46,8 @@ export function decodeRitoReaderArtifactV1(value) {
     width: reader.f64('artifact width'),
     height: reader.f64('artifact height'),
     terminalExtent: reader.bool('terminal extent'),
+    bookPageIndex: reader.option('book page index', () => reader.u32('book page index')),
+    bookPageCount: reader.option('book page count', () => reader.u32('book page count')),
     navigation: {
       previous: readTaggedU32(reader, 'adjacent availability', ADJACENT),
       next: readTaggedU32(reader, 'adjacent availability', ADJACENT),
@@ -67,7 +69,7 @@ export function decodeRitoReaderArtifactIdentityV1(value) {
   const reader = validateReaderWireMessageV1(value, 'RITOART1', 'artifact');
   const protocolVersion = reader.u32('artifact protocol version');
   const capabilityProfileId = reader.u32('capability profile');
-  if (protocolVersion !== 1 || capabilityProfileId !== 1) {
+  if (protocolVersion !== 2 || capabilityProfileId !== 1) {
     reader.fail('artifact protocol or capability profile is unsupported');
   }
   return {
@@ -196,6 +198,8 @@ function readHit(reader) {
     sourcePoint: record.option('hit source point', () => readSourcePoint(record)),
     imageSrc: readOptionalString(record, 'hit image source'),
     imageAlt: readOptionalString(record, 'hit image alternative'),
+    footnoteKey: readOptionalString(record, 'hit footnote key'),
+    footnotePending: record.bool('hit footnote pending'),
   };
   record.finish('hit');
   return hit;

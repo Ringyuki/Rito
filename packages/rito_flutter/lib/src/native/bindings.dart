@@ -7,6 +7,7 @@ import 'package:ffi/ffi.dart';
 import '../protocol/artifact_decoder.dart';
 import '../protocol/artifact_models.dart';
 import '../protocol/binary_reader.dart';
+import '../protocol/footnote_decoder.dart';
 import '../protocol/resource_decoder.dart';
 import 'asset.dart';
 import 'pinned_font_policy.dart';
@@ -169,6 +170,19 @@ external int _ritoReadResourceV1(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_ReadFootnoteNative>(
+  symbol: 'rito_read_footnote_v1',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoReadFootnoteV1(
+  int sessionId,
+  int artifactId,
+  Pointer<Uint8> key,
+  int keyLength,
+  Pointer<_RitoOwnedBuffer> footnoteOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_ReleaseNative>(
   symbol: 'rito_release_artifact_v1',
   assetId: ritoNativeAssetId,
@@ -194,6 +208,7 @@ final class RitoNativeBindings {
   RitoNativeBindings({
     this.artifactDecoder = const RitoArtifactDecoder(),
     this.resourceDecoder = const RitoResourceDecoder(),
+    this.footnoteDecoder = const RitoFootnoteDecoder(),
   }) : _open = _ritoOpenV1,
        _openWithPinnedFonts = _ritoOpenWithPinnedFontsV1,
        _requestArtifact = _ritoRequestArtifactV1,
@@ -205,6 +220,7 @@ final class RitoNativeBindings {
        _advanceBackground = _ritoAdvanceBackgroundV1,
        _adoptBackground = _ritoAdoptBackgroundCandidateV1,
        _readResource = _ritoReadResourceV1,
+       _readFootnote = _ritoReadFootnoteV1,
        _release = _ritoReleaseArtifactV1,
        _dispose = _ritoDisposeV1,
        _bufferFree = _ritoBufferFreeV1;
@@ -216,6 +232,7 @@ final class RitoNativeBindings {
     DynamicLibrary library, {
     this.artifactDecoder = const RitoArtifactDecoder(),
     this.resourceDecoder = const RitoResourceDecoder(),
+    this.footnoteDecoder = const RitoFootnoteDecoder(),
   }) : _open = library.lookupFunction<_OpenNative, _OpenDart>('rito_open_v1'),
        _openWithPinnedFonts = library
            .lookupFunction<
@@ -258,6 +275,10 @@ final class RitoNativeBindings {
            .lookupFunction<_ReadResourceNative, _ReadResourceDart>(
              'rito_read_resource_v1',
            ),
+       _readFootnote = library
+           .lookupFunction<_ReadFootnoteNative, _ReadFootnoteDart>(
+             'rito_read_footnote_v1',
+           ),
        _release = library.lookupFunction<_ReleaseNative, _ReleaseDart>(
          'rito_release_artifact_v1',
        ),
@@ -270,6 +291,7 @@ final class RitoNativeBindings {
 
   final RitoArtifactDecoder artifactDecoder;
   final RitoResourceDecoder resourceDecoder;
+  final RitoFootnoteDecoder footnoteDecoder;
   final _OpenDart _open;
   final _OpenWithPinnedFontsDart _openWithPinnedFonts;
   final _RequestArtifactDart _requestArtifact;
@@ -281,6 +303,7 @@ final class RitoNativeBindings {
   final _OwnedWireRequestDart _advanceBackground;
   final _OwnedWireRequestDart _adoptBackground;
   final _ReadResourceDart _readResource;
+  final _ReadFootnoteDart _readFootnote;
   final _ReleaseDart _release;
   final _DisposeDart _dispose;
   final _BufferFreeDart _bufferFree;
@@ -843,6 +866,71 @@ final class RitoNativeBindings {
     }
   }
 
+  RitoFootnote readFootnote({
+    required int sessionId,
+    required int artifactId,
+    required String key,
+  }) {
+    final owned = _readFootnoteWire(
+      sessionId: sessionId,
+      artifactId: artifactId,
+      key: key,
+    );
+    try {
+      final footnote = footnoteDecoder.decode(owned);
+      if (footnote.artifactId != artifactId || footnote.key != key) {
+        throw const RitoNativeException(
+          status: 4,
+          message: 'Native footnote identity does not match its request.',
+        );
+      }
+      return footnote;
+    } on Object catch (error, stackTrace) {
+      _disposeAfterFailedSessionOutput(sessionId);
+      Error.throwWithStackTrace(
+        _terminatedSessionResultError('footnote', error),
+        stackTrace,
+      );
+    }
+  }
+
+  Uint8List _readFootnoteWire({
+    required int sessionId,
+    required int artifactId,
+    required String key,
+  }) {
+    _validateId(sessionId, 'session id');
+    _validateId(artifactId, 'artifact id');
+    final keyBytes = Uint8List.fromList(utf8.encode(key));
+    if (keyBytes.isEmpty || keyBytes.length > ritoMaxStringBytes) {
+      throw ArgumentError.value(key, 'key', 'must be non-empty protocol UTF-8');
+    }
+    final keyInput = _copyInput(keyBytes);
+    final footnoteOut = calloc<_RitoOwnedBuffer>();
+    final errorOut = calloc<_RitoOwnedBuffer>();
+    try {
+      final status = _readFootnote(
+        sessionId,
+        artifactId,
+        keyInput,
+        keyBytes.length,
+        footnoteOut,
+        errorOut,
+      );
+      if (status != 0) {
+        throw _nativeError(status, errorOut);
+      }
+      return _copyOutput(footnoteOut, 'footnote');
+    } finally {
+      _bufferFree(footnoteOut);
+      _bufferFree(errorOut);
+      calloc
+        ..free(footnoteOut)
+        ..free(errorOut)
+        ..free(keyInput);
+    }
+  }
+
   void releaseArtifact({required int sessionId, required int artifactId}) {
     _validateId(sessionId, 'session id');
     _validateId(artifactId, 'artifact id');
@@ -1138,6 +1226,16 @@ final class RitoNativeWireBindings {
     artifactId: artifactId,
     kind: kind,
     href: href,
+  );
+
+  Uint8List readFootnote({
+    required int sessionId,
+    required int artifactId,
+    required String key,
+  }) => _bindings._readFootnoteWire(
+    sessionId: sessionId,
+    artifactId: artifactId,
+    key: key,
   );
 
   void releaseArtifact({required int sessionId, required int artifactId}) {

@@ -15,7 +15,8 @@ use crate::runtime::reader_v1::{
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
     ReaderBackgroundStateV1, ReaderErrorV1, ReaderForegroundHandoffAckV1,
     ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1, ReaderPublicationV1,
-    ReaderResourceV1, ReaderSourcePointV1, ReaderSourceRangeV1, ReaderSpreadModeV1,
+    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderResourceV1, ReaderSourcePointV1,
+    ReaderSourceRangeV1, ReaderSpreadModeV1,
     ReaderTextRenderingProfileV1, ReaderWorkBudgetV1, READER_PROTOCOL_VERSION_V1,
     READER_PUBLICATION_WIRE_BYTES_MAX_V1,
 };
@@ -188,6 +189,29 @@ pub(super) fn publication(value: &ReaderPublicationV1) -> Result<Vec<u8>, Reader
         return Err(super::primitives::overflow("publication wire byte limit"));
     }
     Ok(bytes)
+}
+
+pub(super) fn footnote(value: &ReaderFootnoteV1) -> Result<Vec<u8>, ReaderErrorV1> {
+    super::primitives::external_id(value.artifact_id, "artifactId")?;
+    let mut writer = Writer::message(
+        super::READER_FOOTNOTE_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    );
+    writer.u64(value.artifact_id);
+    writer.string(&value.key, "footnote key")?;
+    writer.u32(footnote_kind(value.kind));
+    writer.string(&value.text, "footnote text")?;
+    writer.string(&value.html, "footnote html")?;
+    writer.finish_message()
+}
+
+const fn footnote_kind(value: ReaderFootnoteKindV1) -> u32 {
+    match value {
+        ReaderFootnoteKindV1::Footnote => 0,
+        ReaderFootnoteKindV1::Endnote => 1,
+        ReaderFootnoteKindV1::Rearnote => 2,
+        ReaderFootnoteKindV1::Note => 3,
+    }
 }
 
 pub(super) fn resource(value: &ReaderResourceV1) -> Result<Vec<u8>, ReaderErrorV1> {

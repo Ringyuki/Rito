@@ -337,6 +337,39 @@ pub struct ReaderHitEntryV1 {
     pub source_point: Option<ReaderSourcePointV1>,
     pub image_src: Option<String>,
     pub image_alt: Option<String>,
+    /// Canonical footnote key when this hit is a semantic noteref, in
+    /// the publication-relative `href#fragment` form the footnote index
+    /// is keyed by. Present for both indexed and not-yet-indexed
+    /// definitions; [`Self::footnote_pending`] distinguishes them. Hosts
+    /// pass it to `read_footnote` verbatim — no host-side normalization.
+    pub footnote_key: Option<String>,
+    /// True while the key's definition has not been indexed yet. The
+    /// host may show a loading affordance; the key stays valid and the
+    /// same read succeeds once the publication footnote index completes.
+    pub footnote_pending: bool,
+}
+
+/// EPUB semantic role of a footnote definition, taken verbatim from the
+/// publication's `epub:type`. Hosts use it to title the popup (a
+/// footnote and an endnote are read differently).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderFootnoteKindV1 {
+    Footnote,
+    Endnote,
+    Rearnote,
+    Note,
+}
+
+/// A resolved footnote definition. `text` is the plain reading text;
+/// `html` is the same content as an allowlist-sanitized fragment that
+/// preserves safe structure (emphasis, links, lists).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderFootnoteV1 {
+    pub artifact_id: u64,
+    pub key: String,
+    pub kind: ReaderFootnoteKindV1,
+    pub text: String,
+    pub html: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -401,6 +434,17 @@ pub struct ReaderArtifactV1 {
     pub width: f64,
     pub height: f64,
     pub terminal_extent: bool,
+    /// Zero-based page number within the whole publication, present
+    /// only for artifacts published from a whole-book (publication)
+    /// revision. Chapter-local artifacts have no book-wide numbering —
+    /// their `local_page_index` is a window ordinal — so the field is
+    /// absent rather than zero.
+    pub book_page_index: Option<u32>,
+    /// Whole-publication page count, present only once that revision's
+    /// layout is complete. It is absent while pagination is still
+    /// growing, so a host can render "page N" immediately and add
+    /// "of M" when this appears.
+    pub book_page_count: Option<u32>,
     pub navigation: ReaderNavigationV1,
     pub text_profile: ReaderTextRenderingProfileV1,
     pub display_list: ReaderDisplayListV1,

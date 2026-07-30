@@ -18,12 +18,14 @@ pub use wire::{
     decode_reader_artifact_v1, decode_reader_background_advance_v1,
     decode_reader_background_handoff_ack_v1, decode_reader_background_handoff_v1,
     decode_reader_background_request_v1, decode_reader_foreground_handoff_ack_v1,
-    decode_reader_foreground_handoff_v1, decode_reader_publication_v1, decode_reader_resource_v1,
+    decode_reader_foreground_handoff_v1, decode_reader_footnote_v1,
+    decode_reader_publication_v1, decode_reader_resource_v1,
     encode_reader_adjacent_request_v1, encode_reader_artifact_request_v1,
     encode_reader_artifact_v1, encode_reader_background_advance_v1,
     encode_reader_background_handoff_ack_v1, encode_reader_background_handoff_v1,
     encode_reader_background_request_v1, encode_reader_foreground_handoff_ack_v1,
-    encode_reader_foreground_handoff_v1, encode_reader_publication_v1, encode_reader_resource_v1,
+    encode_reader_foreground_handoff_v1, encode_reader_footnote_v1,
+    encode_reader_publication_v1, encode_reader_resource_v1,
     READER_ADJACENT_REQUEST_WIRE_BYTES_V1, READER_ADJACENT_REQUEST_WIRE_MAGIC_V1,
     READER_ARTIFACT_WIRE_MAGIC_V1, READER_BACKGROUND_ADVANCE_WIRE_MAGIC_V1,
     READER_BACKGROUND_ADVANCE_WIRE_PREFIX_BYTES_V1, READER_BACKGROUND_HANDOFF_ACK_WIRE_BYTES_V1,
@@ -31,12 +33,13 @@ pub use wire::{
     READER_BACKGROUND_HANDOFF_WIRE_MAGIC_V1, READER_BACKGROUND_REQUEST_WIRE_BYTES_V1,
     READER_BACKGROUND_REQUEST_WIRE_MAGIC_V1, READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES_V1,
     READER_FOREGROUND_HANDOFF_ACK_WIRE_MAGIC_V1, READER_FOREGROUND_HANDOFF_WIRE_BYTES_V1,
-    READER_FOREGROUND_HANDOFF_WIRE_MAGIC_V1, READER_PUBLICATION_WIRE_MAGIC_V1,
+    READER_FOOTNOTE_WIRE_MAGIC_V1, READER_FOREGROUND_HANDOFF_WIRE_MAGIC_V1,
+    READER_PUBLICATION_WIRE_MAGIC_V1,
     READER_REQUEST_WIRE_MAGIC_V1, READER_RESOURCE_WIRE_MAGIC_V1, READER_WIRE_HEADER_BYTES_V1,
     READER_WIRE_VERSION_V1,
 };
 
-pub const READER_PROTOCOL_VERSION_V1: u32 = 1;
+pub const READER_PROTOCOL_VERSION_V1: u32 = 2;
 pub const READER_PUBLICATION_TOC_DEPTH_MAX_V1: u32 = 64;
 pub const READER_PUBLICATION_TOC_ITEM_MAX_V1: u32 = 100_000;
 pub const READER_PUBLICATION_WIRE_BYTES_MAX_V1: u64 = 16 * 1024 * 1024;

@@ -415,6 +415,25 @@ impl RuntimeDocument {
         page_targets(&self.document, context, revision_id, revision, page_index)
     }
 
+    /// Page-scoped footnote classifier shared with `get_page_targets`,
+    /// so every host surface agrees on what counts as a footnote and on
+    /// the exact key its definition is stored under.
+    pub(crate) fn footnote_hit_resolver<'a>(
+        &'a self,
+        revision: &'a RuntimeRevision,
+        page_index: usize,
+    ) -> page_target::RuntimeFootnoteHitResolver<'a> {
+        let context = self
+            .page_target_context
+            .get_or_init(|| page_target::RuntimePageTargetContext::new(&self.document));
+        page_target::RuntimeFootnoteHitResolver::new(
+            &self.document,
+            context,
+            revision,
+            page_index,
+        )
+    }
+
     pub fn get_page_semantics(
         &self,
         revision_id: &str,
