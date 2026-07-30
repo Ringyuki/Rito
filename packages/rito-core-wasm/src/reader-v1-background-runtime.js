@@ -34,10 +34,10 @@ export function decodeRitoReaderBackgroundAdvanceV1(value) {
   const artifact =
     artifactBytes.byteLength === 0 ? undefined : decodeRitoReaderArtifactV1(artifactBytes);
   reader.finish('background advance');
-  if (
-    (state === 'indexing' || state === 'candidate-pending' || state === 'complete') &&
-    artifact !== undefined
-  ) {
+  // 'complete' may carry exactly one artifact: the completion handoff
+  // that delivers the book page count to a reader who never turned a
+  // page. The other quiet states carry nothing by definition.
+  if ((state === 'indexing' || state === 'candidate-pending') && artifact !== undefined) {
     reader.fail(`${state} background advance must not carry an artifact`);
   }
   return { state, intentRequestId, replacesArtifactId, artifact };

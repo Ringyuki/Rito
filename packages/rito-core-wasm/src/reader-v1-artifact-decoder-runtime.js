@@ -1,4 +1,8 @@
-import { readerWireBytesV1, validateReaderWireMessageV1 } from './reader-v1-wire-base-runtime.js';
+import {
+  READER_V1_PROTOCOL_VERSION,
+  readerWireBytesV1,
+  validateReaderWireMessageV1,
+} from './reader-v1-wire-base-runtime.js';
 import { decodeRitoReaderDisplayListV1 } from './reader-v1-display-decoder-runtime.js';
 
 const MAX_SEMANTIC_DEPTH = 64;
@@ -21,7 +25,7 @@ const SEMANTIC_ROLES = [
 export function decodeRitoReaderArtifactV1(value) {
   const reader = validateReaderWireMessageV1(value, 'RITOART1', 'artifact');
   const protocolVersion = reader.u32('artifact protocol version');
-  if (protocolVersion !== 2) {
+  if (protocolVersion !== READER_V1_PROTOCOL_VERSION) {
     reader.fail(`unsupported artifact protocol version: ${String(protocolVersion)}`);
   }
   const capabilityProfileId = reader.u32('capability profile');
@@ -69,7 +73,7 @@ export function decodeRitoReaderArtifactIdentityV1(value) {
   const reader = validateReaderWireMessageV1(value, 'RITOART1', 'artifact');
   const protocolVersion = reader.u32('artifact protocol version');
   const capabilityProfileId = reader.u32('capability profile');
-  if (protocolVersion !== 2 || capabilityProfileId !== 1) {
+  if (protocolVersion !== READER_V1_PROTOCOL_VERSION || capabilityProfileId !== 1) {
     reader.fail('artifact protocol or capability profile is unsupported');
   }
   return {

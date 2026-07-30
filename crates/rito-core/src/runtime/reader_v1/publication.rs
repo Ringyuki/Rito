@@ -26,6 +26,12 @@ pub(super) struct ReaderPublicationRevisionOwnerV1 {
     pub(super) known_spread_count: usize,
     pub(super) final_spread_count: Option<usize>,
     pub(super) artifact_ref_count: u32,
+    /// Whether the one completion candidate has been offered. Artifacts
+    /// minted before the whole-book layout finished carry no book page
+    /// count, so a reader who never turns a page would never learn the
+    /// total; completion offers one final candidate through the same
+    /// handoff channel, exactly once.
+    pub(super) completion_handoff_offered: bool,
 }
 
 impl ReaderPublicationRevisionOwnerV1 {
@@ -45,6 +51,7 @@ impl ReaderPublicationRevisionOwnerV1 {
                 .final_extent
                 .map(|extent| extent.spread_count),
             artifact_ref_count: 0,
+            completion_handoff_offered: false,
         }
     }
 

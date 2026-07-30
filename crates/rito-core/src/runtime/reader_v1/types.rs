@@ -331,6 +331,16 @@ pub struct ReaderRectV1 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReaderHitEntryV1 {
     pub page_index: u32,
+    /// Display-list space: the same coordinates the artifact's own
+    /// commands paint in, spread page offset and page margins included.
+    /// A host hit-tests taps on its painted surface directly against
+    /// this, with no correction of its own.
+    ///
+    /// This deliberately differs from [`crate::runtime::RuntimePageTarget`],
+    /// whose bounds stay content-box relative because the browser
+    /// binding applies its own transform. The two producers serve
+    /// different hosts; do not "unify" them without moving that
+    /// transform too.
     pub bounds: ReaderRectV1,
     pub text: String,
     pub href: Option<String>,
@@ -385,6 +395,8 @@ pub enum ReaderSemanticRoleV1 {
     Generic,
 }
 
+/// Accessibility node. Its `bounds` share the artifact's display-list
+/// space, exactly like [`ReaderHitEntryV1::bounds`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReaderSemanticNodeV1 {
     pub role: ReaderSemanticRoleV1,
@@ -439,11 +451,20 @@ pub struct ReaderArtifactV1 {
     /// revision. Chapter-local artifacts have no book-wide numbering —
     /// their `local_page_index` is a window ordinal — so the field is
     /// absent rather than zero.
+    ///
+    /// A fresh `request_artifact` (an exact seek, or a reflow at the
+    /// same locator) is always served chapter-local, so it **drops**
+    /// book numbering: both this and `book_page_count` go back to
+    /// `None` until the background pump republishes a publication
+    /// artifact and the host adopts it. Re-requesting the current page
+    /// therefore loses the page number rather than refreshing it.
     pub book_page_index: Option<u32>,
     /// Whole-publication page count, present only once that revision's
     /// layout is complete. It is absent while pagination is still
     /// growing, so a host can render "page N" immediately and add
-    /// "of M" when this appears.
+    /// "of M" when this appears — completion offers one final candidate
+    /// through the ordinary background handoff so a reader who never
+    /// turns a page still receives it.
     pub book_page_count: Option<u32>,
     pub navigation: ReaderNavigationV1,
     pub text_profile: ReaderTextRenderingProfileV1,

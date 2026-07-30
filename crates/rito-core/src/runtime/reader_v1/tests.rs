@@ -1927,3 +1927,138 @@ fn chapter_local_artifacts_have_no_book_page_numbering() {
     assert_eq!(visible.book_page_index, None);
     assert_eq!(visible.book_page_count, None);
 }
+
+#[test]
+fn artifact_hits_share_the_display_list_coordinate_space() {
+    use crate::runtime::tests::fixture::interaction_target_fixture_epub;
+    // A host hit-tests against the pixels it painted. If the artifact's
+    // hits and its display list disagree by the page margins, every tap
+    // lands short — which is exactly what shipped before this test.
+    for (label, mut layout) in [
+        ("single", crate::runtime::tests::fixture::layout()),
+        ("double", crate::runtime::tests::fixture::double_layout()),
+    ] {
+        // reader_v1 always lays out font-aware; the reference revision
+        // must match or the two disagree on advances for reasons that
+        // have nothing to do with coordinate space.
+        layout.text_measurement = crate::layout::TextMeasurementMode::FontAware;
+        let mut document =
+            crate::runtime::RuntimeDocument::open_owned(interaction_target_fixture_epub())
+                .expect("document opens");
+        let summary = document.create_revision(&layout).expect("revision");
+        let frame = document
+            .get_frame(&summary.revision_id, 0)
+            .expect("frame publishes");
+        // Where the pen actually draws every href-carrying command. One
+        // href can paint more than once (a text link and an image link
+        // sharing a target), so origins collect per href.
+        let mut painted: std::collections::BTreeMap<String, Vec<(f64, f64)>> =
+            std::collections::BTreeMap::new();
+        for command in &frame.commands {
+            let Some(object) = command.as_object() else {
+                continue;
+            };
+            let (Some(href), Some(rect)) = (
+                object.get("href").and_then(|value| value.as_str()),
+                object.get("rect").and_then(|value| value.as_object()),
+            ) else {
+                continue;
+            };
+            let (Some(x), Some(y)) = (
+                rect.get("x").and_then(serde_json::Value::as_f64),
+                rect.get("y").and_then(serde_json::Value::as_f64),
+            ) else {
+                continue;
+            };
+            painted.entry(href.to_owned()).or_default().push((x, y));
+        }
+        assert!(!painted.is_empty(), "{label}: fixture must paint links");
+
+        let mut session = ReaderSessionV1::open_owned(150, interaction_target_fixture_epub())
+            .expect("reader session opens");
+        let artifact = session
+            .request_artifact(ReaderArtifactRequestV1 {
+                layout: reader_layout(&layout),
+                ..request(150, 1, "")
+            })
+            .expect("artifact resolves");
+        let mut checked = 0;
+        for hit in artifact.pages.iter().flat_map(|page| page.hits.iter()) {
+            let Some(href) = hit.href.as_deref() else {
+                continue;
+            };
+            let origins = painted
+                .get(href)
+                .unwrap_or_else(|| panic!("{label}: {href:?} is hit but never painted"));
+            // The display list's JSON scalars ride the contract's f32
+            // decimal snap, so the two carry the same geometry to within
+            // that rounding, not bit for bit.
+            assert!(
+                origins.iter().any(|(x, y)| (x - hit.bounds.x).abs() < 0.01
+                    && (y - hit.bounds.y).abs() < 0.01),
+                "{label}: hit for {href:?} at {:?} is not where the display list paints it ({origins:?})",
+                (hit.bounds.x, hit.bounds.y)
+            );
+            assert!(
+                hit.bounds.x >= layout.margin_left && hit.bounds.y >= layout.margin_top,
+                "{label}: hits sit inside the page margins, not at the page corner"
+            );
+            checked += 1;
+        }
+        assert!(checked > 0, "{label}: the fixture must publish link hits");
+    }
+}
+
+#[test]
+fn double_spread_hits_carry_their_page_offset() {
+    // The right-hand page of a spread is translated by the display list;
+    // its hits must carry the same translation or every tap on the right
+    // page resolves against the left page's geometry.
+    let layout = crate::runtime::tests::fixture::double_layout();
+    let mut session =
+        ReaderSessionV1::open_owned(151, crate::runtime::tests::fixture::fixture_epub())
+            .expect("reader session opens");
+    let artifact = session
+        .request_artifact(ReaderArtifactRequestV1 {
+            layout: reader_layout(&layout),
+            ..request(151, 1, "")
+        })
+        .expect("artifact resolves");
+    assert_eq!(
+        artifact.pages.len(),
+        2,
+        "the fixture must fill a double spread: {:?}",
+        artifact.local_page_indexes
+    );
+    let right_origin = layout.page_width + layout.spread_gap + layout.margin_left;
+    for hit in &artifact.pages[1].hits {
+        assert!(
+            hit.bounds.x >= right_origin,
+            "right-page hit {:?} must sit past {right_origin}",
+            hit.bounds
+        );
+    }
+    for node in &artifact.pages[1].semantics {
+        assert!(node.bounds.x >= right_origin, "{node:?}");
+    }
+}
+
+fn reader_layout(config: &crate::layout::LayoutConfig) -> ReaderLayoutV1 {
+    ReaderLayoutV1 {
+        viewport_width: config.viewport_width,
+        viewport_height: config.viewport_height,
+        margin_top: config.margin_top,
+        margin_right: config.margin_right,
+        margin_bottom: config.margin_bottom,
+        margin_left: config.margin_left,
+        spread_mode: match config.spread_mode {
+            crate::layout::SpreadMode::Single => ReaderSpreadModeV1::Single,
+            crate::layout::SpreadMode::Double => ReaderSpreadModeV1::Double,
+        },
+        first_page_alone: config.first_page_alone,
+        spread_gap: config.spread_gap,
+        root_font_size: config.root_font_size,
+        line_height_override: config.line_height_override,
+        font_family_override: config.font_family_override.clone(),
+    }
+}

@@ -1,3 +1,12 @@
+/**
+ * Reader v1 protocol version, mirroring `READER_PROTOCOL_VERSION_V1` in
+ * crates/rito-core/src/runtime/reader_v1.rs. Every message the reader
+ * protocol carries a protocol version on (artifact, publication) gates
+ * against this one constant — the Rust side has a single constant too,
+ * so scattering literals here is how the two drift apart unnoticed.
+ */
+export const READER_V1_PROTOCOL_VERSION = 2;
+
 const MAX_WIRE_BYTES = 256 * 1024 * 1024;
 const MAX_STRING_BYTES = 16 * 1024 * 1024;
 const MAX_COLLECTION_ITEMS = 1_000_000;

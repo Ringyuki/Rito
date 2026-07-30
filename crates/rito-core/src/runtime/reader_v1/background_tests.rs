@@ -322,14 +322,23 @@ fn adopted_publication_keeps_advancing_and_owns_adjacent_resources_and_disposal(
         let step = session
             .advance_background_once(background_request(204, candidate.artifact_id, 1))
             .expect("adopted publication continues cooperatively");
-        assert!(step.artifact.is_none());
         match step.state {
             ReaderBackgroundStateV1::Advanced => {
+                assert!(step.artifact.is_none());
                 observed_advance = true;
                 assert_eq!(publication_version(&session), before + 1);
             }
             ReaderBackgroundStateV1::Complete => {
                 assert_eq!(publication_version(&session), before);
+                // Completion offers one last candidate so the host can
+                // learn the book's page count without turning a page.
+                let final_candidate = step
+                    .artifact
+                    .expect("completion offers a final candidate");
+                assert!(final_candidate.book_page_count.is_some(), "{final_candidate:?}");
+                session
+                    .release_artifact(final_candidate.artifact_id)
+                    .expect("the completion candidate releases");
                 break;
             }
             state => panic!("unexpected post-adoption background state: {state:?}"),
@@ -1020,4 +1029,74 @@ fn publication_artifacts_number_pages_book_wide() {
         second.book_page_index.is_some_and(|index| index < count),
         "book page index must fall inside the book: {second:?}"
     );
+}
+
+#[test]
+fn completion_hands_the_book_page_count_to_a_reader_who_never_turns() {
+    use crate::runtime::tests::fixture::many_chapter_fixture_epub;
+    // Long enough that the first handoff candidate is minted while the
+    // whole-book layout is still growing — the exact window where the
+    // total used to be unreachable without a page turn.
+    let mut session = ReaderSessionV1::open_owned(223, many_chapter_fixture_epub(24))
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(artifact_request(223, 1, "chapter-0.xhtml"))
+        .expect("first chapter resolves");
+    adopt_initial(&mut session, 223, visible.artifact_id);
+    let candidate = advance_to_candidate(&mut session, 223, visible.artifact_id, 64)
+        .artifact
+        .expect("publication produces a handoff candidate");
+    assert_eq!(
+        candidate.book_page_count, None,
+        "an in-progress layout has no total yet"
+    );
+    session
+        .adopt_background_candidate(ReaderBackgroundHandoffV1 {
+            session_id: 223,
+            expected_visible_artifact_id: visible.artifact_id,
+            candidate_artifact_id: candidate.artifact_id,
+        })
+        .expect("publication candidate adopts");
+    session
+        .release_artifact(visible.artifact_id)
+        .expect("the chapter-local artifact releases");
+
+    // Pump to completion without ever turning a page.
+    let mut final_candidate = None;
+    let mut completions = 0;
+    for _ in 0..512 {
+        let step = session
+            .advance_background_once(background_request(223, candidate.artifact_id, 64))
+            .expect("background advances");
+        if step.state == ReaderBackgroundStateV1::Complete {
+            completions += 1;
+            if let Some(artifact) = step.artifact {
+                assert!(final_candidate.is_none(), "the offer must happen once");
+                final_candidate = Some(artifact);
+            }
+            if completions >= 3 {
+                break;
+            }
+        }
+    }
+    let final_candidate =
+        final_candidate.expect("completion offers a candidate carrying the total");
+    assert!(completions >= 3, "later Complete steps must stay quiet");
+    let total = final_candidate
+        .book_page_count
+        .expect("the completion candidate carries the book page count");
+    assert!(total >= 1, "{total}");
+    assert_eq!(
+        final_candidate.book_page_index, candidate.book_page_index,
+        "the completion candidate is the same page, only better numbered"
+    );
+
+    // It rides the ordinary adopt channel — no new host API.
+    session
+        .adopt_background_candidate(ReaderBackgroundHandoffV1 {
+            session_id: 223,
+            expected_visible_artifact_id: candidate.artifact_id,
+            candidate_artifact_id: final_candidate.artifact_id,
+        })
+        .expect("the completion candidate adopts like any other");
 }

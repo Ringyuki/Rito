@@ -1,9 +1,11 @@
 import 'dart:typed_data';
 
+import 'package:rito_flutter/rito_flutter_native.dart' show RitoArtifactDecoder;
+
 import 'wire_writer.dart';
 
 Uint8List publicationFixture({
-  int protocolVersion = 1,
+  int protocolVersion = RitoArtifactDecoder.protocolVersion,
   int sessionId = 91,
   int firstSpineIndex = 0,
   int firstLinearIndex = 0,
@@ -78,7 +80,7 @@ Uint8List publicationFixture({
 Uint8List deepPublicationFixture(int depth) {
   final writer = TestWireWriter.message('RITOPUB1');
   writer
-    ..uint32(1)
+    ..uint32(RitoArtifactDecoder.protocolVersion)
     ..uint64(92);
   _metadata(writer);
   writer.uint32(1);

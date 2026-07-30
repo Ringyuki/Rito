@@ -1,4 +1,5 @@
 import {
+  READER_V1_PROTOCOL_VERSION,
   RitoReaderWireErrorV1,
   readerWireBytesV1,
   validateReaderWireMessageV1,
@@ -15,7 +16,7 @@ export function decodeRitoReaderPublicationV1(value) {
   }
   const reader = validateReaderWireMessageV1(bytes, 'RITOPUB1', 'publication');
   const protocolVersion = reader.u32('publication protocol version');
-  if (protocolVersion !== 1) {
+  if (protocolVersion !== READER_V1_PROTOCOL_VERSION) {
     reader.fail(`unsupported publication protocol version: ${String(protocolVersion)}`);
   }
   const sessionId = reader.externalId('publication session id');

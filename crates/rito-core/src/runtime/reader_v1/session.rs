@@ -924,10 +924,16 @@ impl ReaderSessionV1 {
             Some(revision_id) => {
                 let continued = self.continue_publication_once(revision_id, budget)?;
                 if !continued {
+                    // Pagination just finished. Every artifact minted
+                    // before this point predates the final extent and so
+                    // carries no book page count; offer one last
+                    // candidate for the same visible locator so a reader
+                    // who never turns a page still learns the total.
+                    let completion_candidate = self.take_completion_handoff(revision_id, &intent)?;
                     return Ok(background_result(
                         ReaderBackgroundStateV1::Complete,
                         &intent,
-                        None,
+                        completion_candidate,
                     ));
                 }
                 (revision_id, ReaderBackgroundStateV1::Advanced)
@@ -1268,6 +1274,44 @@ impl ReaderSessionV1 {
                 Err(engine_error(error))
             }
         }
+    }
+
+    /// Offers the single post-completion candidate, or `None` when the
+    /// visible artifact already carries the final numbers, when it was
+    /// already offered, or when the session cannot hold another live
+    /// artifact. Never fails the background step: a missing total is a
+    /// missing affordance, not a broken reader.
+    fn take_completion_handoff(
+        &mut self,
+        revision_id: u64,
+        intent: &ReaderVisibleIntentV1,
+    ) -> Result<Option<ReaderArtifactV1>, ReaderErrorV1> {
+        let offered = self
+            .publication_revisions
+            .get(&revision_id)
+            .is_none_or(|revision| {
+                revision.completion_handoff_offered || revision.final_spread_count.is_none()
+            });
+        if offered {
+            return Ok(None);
+        }
+        let visible_is_current_publication = self
+            .artifacts
+            .get(&intent.visible_artifact_id)
+            .is_some_and(|artifact| {
+                artifact.backing == ReaderRevisionBackingV1::Publication
+                    && artifact.revision_id == revision_id
+            });
+        if !visible_is_current_publication || self.require_artifact_capacity().is_err() {
+            return Ok(None);
+        }
+        let candidate = self.try_publication_candidate(revision_id, intent)?;
+        if candidate.is_some() {
+            if let Some(revision) = self.publication_revisions.get_mut(&revision_id) {
+                revision.completion_handoff_offered = true;
+            }
+        }
+        Ok(candidate)
     }
 
     fn try_publication_candidate(

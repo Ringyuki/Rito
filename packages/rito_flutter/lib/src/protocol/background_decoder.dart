@@ -25,8 +25,11 @@ final class RitoBackgroundDecoder {
     final intentRequestId = reader.externalId('intent request id');
     final replacesArtifactId = reader.externalId('replaces artifact id');
     final artifactBytes = reader.blobView('background artifact');
+    // Complete may carry exactly one artifact: the completion handoff
+    // that delivers the book page count to a reader who never turned a
+    // page. Indexing and candidatePending carry nothing by definition.
     if ((state == RitoBackgroundState.candidatePending ||
-            state == RitoBackgroundState.complete) &&
+            state == RitoBackgroundState.indexing) &&
         artifactBytes.isNotEmpty) {
       reader.fail('$state background advance must not carry an artifact');
     }

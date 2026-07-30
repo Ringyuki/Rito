@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { decodeRitoReaderPublicationV1 } from '../src/reader-v1-publication-runtime.js';
-import { ReaderWireWriterV1 } from '../src/reader-v1-wire-base-runtime.js';
+import {
+  READER_V1_PROTOCOL_VERSION,
+  ReaderWireWriterV1,
+} from '../src/reader-v1-wire-base-runtime.js';
 
 const PUBLICATION_WIRE_BYTES_MAX = 16 * 1024 * 1024;
 const SESSION_ID = (1n << 60n) + 23n;
@@ -10,7 +13,7 @@ const SESSION_ID = (1n << 60n) + 23n;
 test('RITOPUB1 decodes immutable publication metadata, spine, and nested TOC with bigint IDs', () => {
   const publication = decodeRitoReaderPublicationV1(publicationWire(publicationFixture()));
 
-  assert.equal(publication.protocolVersion, 1);
+  assert.equal(publication.protocolVersion, READER_V1_PROTOCOL_VERSION);
   assert.equal(publication.sessionId, SESSION_ID);
   assert.equal(typeof publication.sessionId, 'bigint');
   assert.deepEqual(publication.metadata, {
@@ -72,7 +75,7 @@ test('RITOPUB1 rejects wire/protocol versions, high-bit IDs, unknown targets, an
   cases.push(wireVersion);
 
   const protocolVersion = publicationWire(publicationFixture());
-  view(protocolVersion).setUint32(20, 2, true);
+  view(protocolVersion).setUint32(20, READER_V1_PROTOCOL_VERSION + 1, true);
   cases.push(protocolVersion);
 
   const highBitSession = publicationWire(publicationFixture());
@@ -151,7 +154,7 @@ test('RITOPUB1 applies its 16 MiB cap before parsing a body', () => {
 
 function publicationFixture() {
   return {
-    protocolVersion: 1,
+    protocolVersion: READER_V1_PROTOCOL_VERSION,
     sessionId: SESSION_ID,
     metadata: {
       title: '縦書きの本',

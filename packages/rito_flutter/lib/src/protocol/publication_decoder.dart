@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'artifact_decoder.dart';
 import 'binary_reader.dart';
 import 'locator_reader.dart';
 import 'publication_models.dart';
@@ -22,7 +23,7 @@ final class RitoPublicationDecoder {
       maxBytes: ritoPublicationMaxWireBytes,
     );
     final protocolVersion = reader.uint32('publication protocol version');
-    if (protocolVersion != 1) {
+    if (protocolVersion != RitoArtifactDecoder.protocolVersion) {
       reader.fail('unsupported publication protocol version: $protocolVersion');
     }
     final sessionId = reader.externalId('publication session id');

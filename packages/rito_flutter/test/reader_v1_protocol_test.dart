@@ -13,7 +13,7 @@ void main() {
       publicationFixture(),
     );
 
-    expect(publication.protocolVersion, 1);
+    expect(publication.protocolVersion, RitoArtifactDecoder.protocolVersion);
     expect(publication.sessionId, 91);
     expect(publication.metadata.title, 'Fixture book');
     expect(publication.metadata.creator, 'Rito');
@@ -121,7 +121,10 @@ void main() {
       backgroundAdvanceFixture(artifact: artifactFixture()),
     );
     expect(advance.artifact?.artifactId, 7001);
-    for (final stateTag in <int>[3, 4]) {
+    // candidatePending (3) and indexing (5) carry nothing by
+    // definition; complete (4) may carry the one completion handoff
+    // that delivers the book page count without a page turn.
+    for (final stateTag in <int>[3, 5]) {
       expect(
         () => decoder.decodeAdvance(
           backgroundAdvanceFixture(
@@ -132,6 +135,11 @@ void main() {
         throwsA(isA<FormatException>()),
       );
     }
+    final completion = decoder.decodeAdvance(
+      backgroundAdvanceFixture(stateTag: 4, artifact: artifactFixture()),
+    );
+    expect(completion.state, RitoBackgroundState.complete);
+    expect(completion.artifact?.artifactId, 7001);
     final ack = decoder.decodeHandoffAck(backgroundHandoffAckFixture());
     expect(ack.intentRequestId, 12);
     expect(ack.replacedArtifactId, 7001);

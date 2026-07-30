@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    layout::parse_font_family_list,
+    layout::{parse_font_family_list, LayoutConfig},
     render::encode_reader_display_list_v1,
     runtime::{
         page_artifact::{
@@ -92,17 +92,31 @@ fn build_reader_artifact_from_revision(
     })?;
     let encoded: crate::render::ReaderEncodedDisplayListV1 =
         encode_reader_display_list_v1(&frame.commands).map_err(engine_error)?;
+    // Page geometry from the engine is content-box relative and
+    // page-local. The display list this artifact carries is not: it
+    // translates the right-hand page of a spread and paints content at
+    // the margin origin. Hosts hit-test against what they painted, so
+    // every rect this artifact publishes is lifted into that same
+    // display-list space here — see `page_origin`.
+    let config = &revision.layout_config;
     let pages = frame
         .page_indexes
         .iter()
-        .map(|page_index| {
+        .enumerate()
+        .map(|(slot, page_index)| {
             let page = engine.page(*page_index).ok_or_else(|| {
                 ReaderErrorV1::new(
                     ReaderErrorKindV1::TargetNotPublished,
                     format!("published frame references unknown page {page_index}"),
                 )
             })?;
-            reader_page(document, revision, *page_index, page)
+            reader_page(
+                document,
+                revision,
+                *page_index,
+                page,
+                page_origin(config, slot),
+            )
         })
         .collect::<Result<Vec<_>, _>>()?;
     let font_families = used_font_families(&encoded.font_families);
@@ -244,11 +258,29 @@ pub(super) fn published_spread_target(
     })
 }
 
+/// Origin of a spread slot's content box in display-list space.
+///
+/// `build_display_list_commands` lays the left page at x 0 and the right
+/// page at `page_width + spread_gap` (slot order matches
+/// `frame.page_indexes`), then paints each page's blocks offset by the
+/// page margins. Anything the artifact publishes as a rect must carry
+/// the same origin or it cannot be compared with the pixels the host
+/// drew.
+fn page_origin(config: &LayoutConfig, slot: usize) -> (f64, f64) {
+    let spread_offset_x = if slot == 0 {
+        0.0
+    } else {
+        config.page_width + config.spread_gap
+    };
+    (spread_offset_x + config.margin_left, config.margin_top)
+}
+
 fn reader_page(
     document: &RuntimeDocument,
     revision: &RuntimeRevision,
     page_index: usize,
     page: &dyn PageArtifact,
+    origin: (f64, f64),
 ) -> Result<ReaderPageV1, ReaderErrorV1> {
     let metadata = page.metadata();
     let targets = page.targets();
@@ -281,7 +313,7 @@ fn reader_page(
                     .and_then(|href| footnotes.resolve(href));
                 Ok(ReaderHitEntryV1 {
                     page_index: u32_from_usize(page_index, "hit page index")?,
-                    bounds: reader_rect(target.bounds),
+                    bounds: reader_rect_at(target.bounds, origin),
                     text: target.text,
                     href: target.href,
                     source_point,
@@ -295,7 +327,7 @@ fn reader_page(
         semantics: page
             .semantic_nodes()
             .into_iter()
-            .map(reader_semantic_node)
+            .map(|node| reader_semantic_node(node, origin))
             .collect(),
         text: text.text,
         text_length: u64_from_usize(text.text_length, "page text length")?,
@@ -328,7 +360,10 @@ fn reader_font_ref(
     })
 }
 
-fn reader_semantic_node(value: PageArtifactSemanticNode) -> ReaderSemanticNodeV1 {
+fn reader_semantic_node(
+    value: PageArtifactSemanticNode,
+    origin: (f64, f64),
+) -> ReaderSemanticNodeV1 {
     ReaderSemanticNodeV1 {
         role: match value.role {
             PageArtifactSemanticRole::Heading => ReaderSemanticRoleV1::Heading,
@@ -345,19 +380,21 @@ fn reader_semantic_node(value: PageArtifactSemanticNode) -> ReaderSemanticNodeV1
         text: value.text,
         alt: value.alt,
         href: value.href,
-        bounds: reader_rect(value.bounds),
+        bounds: reader_rect_at(value.bounds, origin),
         children: value
             .children
             .into_iter()
-            .map(reader_semantic_node)
+            .map(|child| reader_semantic_node(child, origin))
             .collect(),
     }
 }
 
-fn reader_rect(value: PageArtifactRect) -> ReaderRectV1 {
+/// Lifts an engine rect (content-box relative, page-local) into the
+/// artifact's display-list space.
+fn reader_rect_at(value: PageArtifactRect, origin: (f64, f64)) -> ReaderRectV1 {
     ReaderRectV1 {
-        x: value.x,
-        y: value.y,
+        x: value.x + origin.0,
+        y: value.y + origin.1,
         width: value.width,
         height: value.height,
     }

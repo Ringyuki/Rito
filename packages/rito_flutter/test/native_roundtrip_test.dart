@@ -449,4 +449,80 @@ void main() {
       await gateway.close();
     }
   });
+
+  test('a reader who never turns a page still receives the book total', () async {
+    final publication = File(
+      '../rito/tests/fixtures/books/book-10.epub',
+    ).readAsBytesSync();
+    const sessionId = 9006;
+    const work = RitoWorkBudget(
+      maxTopLevelNodesPerQuantum: 32,
+      maxForegroundQuanta: 64,
+      localPageCap: 16,
+    );
+    final gateway = RitoIsolateGateway();
+    final session = await RitoReaderSession.open(
+      gateway: gateway,
+      publicationBytes: publication,
+      request: const RitoArtifactRequest(
+        sessionId: sessionId,
+        requestId: 1,
+        layout: RitoLayoutRequest(
+          viewportWidth: 420,
+          viewportHeight: 640,
+          marginTop: 24,
+          marginRight: 24,
+          marginBottom: 24,
+          marginLeft: 24,
+          spreadMode: RitoSpreadMode.single,
+          firstPageAlone: true,
+          spreadGap: 0,
+          rootFontSize: 16,
+        ),
+        locator: RitoLocator(href: 'OEBPS/Text/Section011.xhtml'),
+        work: work,
+      ),
+    );
+    try {
+      final first = session.firstArtifact;
+      expect(first.artifact.bookPageIndex, isNull);
+
+      // Pump to completion, adopting every candidate, never turning.
+      RitoPreparedArtifact? visible;
+      int? total;
+      for (var quantum = 0; quantum < 4096; quantum++) {
+        final advance = await session.advanceBackground(
+          maxTopLevelNodesPerQuantum: 64,
+        );
+        final candidate = advance.artifact;
+        if (candidate != null) {
+          await session.adoptBackground(advance);
+          final previous = visible ?? first;
+          if (!identical(previous, first)) {
+            await session.releaseArtifact(previous);
+          }
+          visible = candidate;
+          total = candidate.artifact.bookPageCount;
+        }
+        if (advance.advance.state == RitoBackgroundState.complete &&
+            total != null) {
+          break;
+        }
+      }
+      expect(visible, isNotNull, reason: 'the pump must hand off');
+      expect(visible!.artifact.bookPageIndex, isNotNull);
+      expect(
+        total,
+        isNotNull,
+        reason: 'completion must deliver the book page count without a turn',
+      );
+      expect(total, greaterThan(0));
+      expect(visible.artifact.bookPageIndex, lessThan(total!));
+
+      await session.releaseArtifact(first);
+    } finally {
+      await session.dispose();
+      await gateway.close();
+    }
+  });
 }

@@ -14,7 +14,11 @@ import {
 import { decodeRitoReaderPublicationV1 } from '../src/reader-v1-publication-runtime.js';
 import { createRitoCoreWasmReaderV1WorkerClient } from '../src/reader-v1-worker-client-runtime.js';
 import { createRitoCoreWasmReaderV1WorkerHandler } from '../src/reader-v1-worker-runtime.js';
-import { ReaderWireReaderV1, ReaderWireWriterV1 } from '../src/reader-v1-wire-base-runtime.js';
+import {
+  READER_V1_PROTOCOL_VERSION,
+  ReaderWireReaderV1,
+  ReaderWireWriterV1,
+} from '../src/reader-v1-wire-base-runtime.js';
 
 const layout = {
   viewportWidth: 800,
@@ -1830,7 +1834,7 @@ function request(href) {
 
 function artifactWire(sessionId, requestId, artifactId, href, options = {}) {
   const writer = ReaderWireWriterV1.message('RITOART1');
-  writer.u32(2, 'protocol');
+  writer.u32(READER_V1_PROTOCOL_VERSION, 'protocol');
   writer.u32(1, 'capability');
   writer.externalId(sessionId, 'session');
   writer.externalId(requestId, 'request');
@@ -1868,7 +1872,7 @@ function artifactWire(sessionId, requestId, artifactId, href, options = {}) {
 
 function publicationWire(sessionId) {
   const writer = ReaderWireWriterV1.message('RITOPUB1');
-  writer.u32(1, 'protocol');
+  writer.u32(READER_V1_PROTOCOL_VERSION, 'protocol');
   writer.externalId(sessionId, 'session');
   writer.record((record) => {
     record.string('Reader v1 Book', 'title');

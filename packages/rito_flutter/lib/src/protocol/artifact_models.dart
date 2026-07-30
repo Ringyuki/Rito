@@ -169,6 +169,11 @@ final class RitoHitEntry {
   });
 
   final int pageIndex;
+
+  /// Display-list space: the same coordinates
+  /// [RitoArtifact.displayList] paints in, spread page offset and page
+  /// margins included. Hit-test taps on the painted surface directly
+  /// against this — no host-side margin correction.
   final RitoRect bounds;
   final String text;
   final String? href;
@@ -299,11 +304,23 @@ final class RitoArtifact {
   /// whole-book layout backs this artifact (before that, only
   /// [localPageIndex] exists and it is a rollover-window ordinal, not a
   /// page number). Hosts should hide page numbering rather than show 0.
+  ///
+  /// A fresh [RitoReaderSession.requestArtifact] — an exact seek, or a
+  /// reflow at the same locator — is served chapter-local, so it
+  /// **drops** book numbering: this and [bookPageCount] both return to
+  /// null until the background pump republishes a publication artifact
+  /// and the host adopts it. Re-requesting the page you are already on
+  /// loses the page number rather than refreshing it.
   final int? bookPageIndex;
 
   /// Total pages in the book, present only once whole-book pagination
   /// is complete. It appears strictly after [bookPageIndex] does, so a
   /// host can render "page N" immediately and cross-fade in "of M".
+  ///
+  /// A reader who never turns a page still receives it: when pagination
+  /// completes, [RitoReaderSession.advanceBackground] returns one final
+  /// candidate for the same visible page carrying the total. Adopt it
+  /// through the ordinary [RitoReaderSession.adoptBackground] channel.
   final int? bookPageCount;
   final RitoNavigation navigation;
   final RitoTextProfile textProfile;
