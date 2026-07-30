@@ -15,6 +15,7 @@ import type {
 import { renderBlockDecoration, traceRoundedRect } from './background/background-renderer';
 import { createCanvasImageResolver } from './image-resolver';
 import { drawRubyFragment, drawTextFragment } from './text/text-renderer';
+import { isBookOwnedPageGround, isOpaqueColor } from '../../../utils/color';
 
 export type CanvasRenderingTarget = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -55,6 +56,12 @@ function renderDisplayListToCanvas(
 interface CanvasRenderState {
   readonly resolveImage: (src: string) => ImageBitmap | undefined;
   readonly colorOverride?: { readonly foregroundColor: string; readonly backgroundColor: string };
+  // Declared-ground tracking for the theme override (R1/R2), mirroring
+  // the browser frame-command renderer: opaque block backgrounds
+  // replayed so far, and the page ground when R1 kept the book's own
+  // color. Reset by every paintPage command.
+  readonly blockGrounds: { readonly rect: Rect; readonly color: string }[];
+  bookOwnedPageGround: string | undefined;
 }
 
 function createCanvasRenderState(options: CanvasDisplayListOptions | undefined): CanvasRenderState {
@@ -66,13 +73,46 @@ function createCanvasRenderState(options: CanvasDisplayListOptions | undefined):
     const imageResolver = options.imageResolver;
     return {
       resolveImage: (src: string) => imageResolver.resolveImage(src),
+      blockGrounds: [],
+      bookOwnedPageGround: undefined,
       ...(colorOverride ? { colorOverride } : {}),
     };
   }
   const resolveImage = options?.images
     ? createCanvasImageResolver(options.images)
     : () => undefined;
-  return { resolveImage, ...(colorOverride ? { colorOverride } : {}) };
+  return {
+    resolveImage,
+    blockGrounds: [],
+    bookOwnedPageGround: undefined,
+    ...(colorOverride ? { colorOverride } : {}),
+  };
+}
+
+/** The ground a run's ink was typeset against, when the book expressed
+ * one (R2): the run's own inline background, else the nearest opaque
+ * block background containing the run's rect, else the page ground R1
+ * kept for the book. Undefined means the theme supplies the ground. */
+function declaredGroundFor(
+  rect: Rect,
+  paint: { readonly backgroundColor?: string },
+  state: CanvasRenderState,
+): string | undefined {
+  const runBackground = paint.backgroundColor;
+  if (runBackground !== undefined && isOpaqueColor(runBackground)) return runBackground;
+  for (let index = state.blockGrounds.length - 1; index >= 0; index -= 1) {
+    const ground = state.blockGrounds[index];
+    if (
+      ground !== undefined &&
+      rect.x >= ground.rect.x &&
+      rect.y >= ground.rect.y &&
+      rect.x + rect.width <= ground.rect.x + ground.rect.width &&
+      rect.y + rect.height <= ground.rect.y + ground.rect.height
+    ) {
+      return ground.color;
+    }
+  }
+  return state.bookOwnedPageGround;
 }
 
 function renderCommand(
@@ -102,9 +142,10 @@ function renderCommand(
       applyClipRect(ctx, command);
       break;
     case 'paintPage':
-      paintPage(ctx, command.paint.backgroundColor, command.rect, state.colorOverride);
+      paintPage(ctx, command.paint.backgroundColor, command.rect, state);
       break;
     case 'paintBlock':
+      trackBlockGround(command, state);
       paintBlock(ctx, command, state);
       break;
     case 'paintText':
@@ -150,13 +191,32 @@ function paintPage(
   ctx: CanvasRenderingContext2D,
   backgroundColor: string | undefined,
   rect: Rect,
-  colorOverride: CanvasRenderState['colorOverride'],
+  state: CanvasRenderState,
 ): void {
   if (!backgroundColor) return;
-  // An active theme override owns the page ground (see the browser
-  // frame-command renderer, which this reference mirrors).
-  ctx.fillStyle = colorOverride ? colorOverride.backgroundColor : backgroundColor;
+  state.blockGrounds.length = 0;
+  state.bookOwnedPageGround = undefined;
+  // R1, page-ground ownership (see the browser frame-command renderer,
+  // which this reference mirrors): a designed ground stays the book's
+  // and marks the page book-owned; the white-paper default is taken
+  // over by the theme.
+  let fill = backgroundColor;
+  if (state.colorOverride) {
+    if (isBookOwnedPageGround(backgroundColor)) {
+      state.bookOwnedPageGround = backgroundColor;
+    } else {
+      fill = state.colorOverride.backgroundColor;
+    }
+  }
+  ctx.fillStyle = fill;
   ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+}
+
+function trackBlockGround(command: PaintBlockCommand, state: CanvasRenderState): void {
+  const color = command.paint.background?.color;
+  if (color !== undefined && isOpaqueColor(color)) {
+    state.blockGrounds.push({ rect: command.rect, color });
+  }
 }
 
 function paintBlock(
@@ -199,6 +259,7 @@ function paintText(
       paint: command.paint,
     },
     state.colorOverride,
+    declaredGroundFor(command.rect, command.paint, state),
   );
 }
 
@@ -215,6 +276,7 @@ function paintRuby(
       paint: command.paint,
     },
     state.colorOverride,
+    declaredGroundFor(command.rect, command.paint, state),
   );
 }
 

@@ -44,6 +44,13 @@ final class RitoCanvasPaintTarget implements RitoPaintTarget {
   final Map<RitoPaintBlock, _PreparedBlockPaint> _preparedBlocks =
       <RitoPaintBlock, _PreparedBlockPaint>{};
   final Map<String, ui.Image?> _preparedImages = <String, ui.Image?>{};
+  // Declared-ground tracking for the theme override (R1/R2): opaque
+  // block backgrounds replayed so far, and the page ground when R1 kept
+  // the book's own color. Reset by every page command. The browser pen
+  // accumulates and searches these the same way or parity drifts.
+  final List<({ui.Rect rect, ui.Color color})> _blockGrounds =
+      <({ui.Rect rect, ui.Color color})>[];
+  ui.Color? _bookOwnedPageGround;
 
   double get _opacity => _opacityStack.last;
 

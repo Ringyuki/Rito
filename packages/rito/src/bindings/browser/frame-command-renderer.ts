@@ -3,6 +3,7 @@ import { renderCanvasBlockDecoration } from './canvas-block/renderer';
 import { traceRoundedRect } from './canvas-path';
 import { drawCanvasRubyFragment, drawCanvasTextFragment } from './canvas-text/renderer';
 import type { CanvasTextColorOverride } from './canvas-text/types';
+import { isBookOwnedPageGround, isOpaqueColor } from './theme/text-color';
 
 export type CanvasRenderingTarget = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type CanvasContext = CanvasRenderingContext2D;
@@ -29,6 +30,12 @@ interface RenderState {
   readonly resolveImage: FrameCommandImageResolver;
   readonly colorOverride?: CanvasTextColorOverride;
   commandSaveDepth: number;
+  // Declared-ground tracking for the theme override (R1/R2): opaque
+  // block backgrounds replayed so far, and the page ground when R1 kept
+  // the book's own color. Reset by every paintPage command. Both pens
+  // accumulate and search these the same way or parity drifts.
+  readonly blockGrounds: { readonly rect: TextCommand['rect']; readonly color: string }[];
+  bookOwnedPageGround: string | undefined;
 }
 
 export function renderFrameCommandsToCanvas(
@@ -96,8 +103,36 @@ function createRenderState(options: FrameCommandRenderOptions): RenderState {
   return {
     resolveImage: options.resolveImage ?? (() => undefined),
     commandSaveDepth: 0,
+    blockGrounds: [],
+    bookOwnedPageGround: undefined,
     ...(colorOverride ? { colorOverride } : {}),
   };
+}
+
+/** The ground a run's ink was typeset against, when the book expressed
+ * one (R2): the run's own inline background, else the nearest opaque
+ * block background containing the run's rect, else the page ground R1
+ * kept for the book. Undefined means the theme supplies the ground. */
+function declaredGroundFor(
+  rect: TextCommand['rect'],
+  paint: { readonly backgroundColor?: string },
+  state: RenderState,
+): string | undefined {
+  const runBackground = paint.backgroundColor;
+  if (runBackground !== undefined && isOpaqueColor(runBackground)) return runBackground;
+  for (let index = state.blockGrounds.length - 1; index >= 0; index -= 1) {
+    const ground = state.blockGrounds[index];
+    if (
+      ground !== undefined &&
+      rect.x >= ground.rect.x &&
+      rect.y >= ground.rect.y &&
+      rect.x + rect.width <= ground.rect.x + ground.rect.width &&
+      rect.y + rect.height <= ground.rect.y + ground.rect.height
+    ) {
+      return ground.color;
+    }
+  }
+  return state.bookOwnedPageGround;
 }
 
 function renderCommand(ctx: CanvasContext, command: CoreFrameCommand, state: RenderState): void {
@@ -126,9 +161,10 @@ function renderCommand(ctx: CanvasContext, command: CoreFrameCommand, state: Ren
       applyClipRect(ctx, command);
       return;
     case 'paintPage':
-      paintPage(ctx, command.paint.backgroundColor, command.rect, state.colorOverride);
+      paintPage(ctx, command.paint.backgroundColor, command.rect, state);
       return;
     case 'paintBlock':
+      trackBlockGround(command, state);
       paintBlock(ctx, command, state);
       return;
     case 'paintText':
@@ -163,17 +199,34 @@ function paintPage(
   ctx: CanvasRenderingContext2D,
   backgroundColor: string | undefined,
   rect: Extract<CoreFrameCommand, { readonly kind: 'paintPage' }>['rect'],
-  colorOverride: CanvasTextColorOverride | undefined,
+  state: RenderState,
 ): void {
   if (!backgroundColor) return;
-  // An active theme override owns the page ground: the engine
-  // materializes the book's own body background (usually white), which
-  // would otherwise bury the host's dark/sepia theme. This mirrors the
-  // pre-materialization behavior where the page command did not exist
-  // and the host-painted theme ground showed through. Absent commands
-  // stay absent — the override never invents a page fill.
-  ctx.fillStyle = colorOverride ? colorOverride.backgroundColor : backgroundColor;
+  state.blockGrounds.length = 0;
+  state.bookOwnedPageGround = undefined;
+  // R1, page-ground ownership: a designed ground (opaque and darker
+  // than the white-paper limit) is a choice the book expressed — keep
+  // it and mark the page book-owned. Near-white/unstated grounds are
+  // the typesetter's white-paper default assumption; the theme takes
+  // those over. Absent commands stay absent — the override never
+  // invents a page fill.
+  let fill = backgroundColor;
+  if (state.colorOverride) {
+    if (isBookOwnedPageGround(backgroundColor)) {
+      state.bookOwnedPageGround = backgroundColor;
+    } else {
+      fill = state.colorOverride.backgroundColor;
+    }
+  }
+  ctx.fillStyle = fill;
   ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+}
+
+function trackBlockGround(command: BlockCommand, state: RenderState): void {
+  const color = command.paint.background?.color;
+  if (color !== undefined && isOpaqueColor(color)) {
+    state.blockGrounds.push({ rect: command.rect, color });
+  }
 }
 
 function paintBlock(
@@ -189,6 +242,7 @@ function paintText(ctx: CanvasRenderingContext2D, command: TextCommand, state: R
     ctx,
     { text: command.text, rect: command.rect, paint: command.paint },
     state.colorOverride,
+    declaredGroundFor(command.rect, command.paint, state),
   );
 }
 
@@ -197,6 +251,7 @@ function paintRuby(ctx: CanvasRenderingContext2D, command: RubyCommand, state: R
     ctx,
     { text: command.text, rect: command.rect, paint: command.paint },
     state.colorOverride,
+    declaredGroundFor(command.rect, command.paint, state),
   );
 }
 

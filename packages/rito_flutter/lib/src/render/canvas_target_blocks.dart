@@ -6,21 +6,41 @@ extension _BlockPainting on RitoCanvasPaintTarget {
     if (color == null) {
       return;
     }
-    // An active theme override owns the page ground: the engine
-    // materializes the book's body background (usually white), which
-    // would otherwise bury the host theme. Absent commands stay absent
-    // — the override never invents a page fill (browser pen parity).
+    _blockGrounds.clear();
+    _bookOwnedPageGround = null;
+    // R1, page-ground ownership: a designed ground (opaque and darker
+    // than the white-paper limit) is a choice the book expressed — keep
+    // it and mark the page book-owned. Near-white/unstated grounds are
+    // the typesetter's white-paper default assumption; the theme takes
+    // those over. Absent commands stay absent — the override never
+    // invents a page fill (browser pen parity).
     final override = _colorOverride;
-    final fill = override != null
-        ? override.background.withValues(
-            alpha: override.background.a * _opacity,
-          )
-        : _color(color);
+    ui.Color fill;
+    if (override == null) {
+      fill = _color(color);
+    } else {
+      final book = ritoUiColor(color);
+      if (RitoCanvasColorOverride.isBookOwnedPageGround(book)) {
+        _bookOwnedPageGround = book;
+        fill = _color(color);
+      } else {
+        fill = override.background.withValues(
+          alpha: override.background.a * _opacity,
+        );
+      }
+    }
     _canvas.drawRect(_rect(command.rect), ui.Paint()..color = fill);
   }
 
   void _paintBlock(RitoPaintBlock command) {
     final rect = _rect(command.rect);
+    final backgroundColor = command.paint.background?.color;
+    if (backgroundColor != null) {
+      final ground = ritoUiColor(backgroundColor);
+      if (ground.a >= 1) {
+        _blockGrounds.add((rect: rect, color: ground));
+      }
+    }
     final radius = _blockRadius(command.paint.radius, rect);
     final prepared =
         _preparedBlocks[command] ?? _prepareBlockPaint(command, rect);

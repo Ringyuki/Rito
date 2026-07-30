@@ -157,5 +157,74 @@ export function resolveTextColor(
     minContrast ?? (isLargeText ? WCAG_LARGE_TEXT_THRESHOLD : WCAG_NORMAL_TEXT_THRESHOLD);
   const ratio = contrastRatio(fg, bg);
   if (ratio >= threshold) return originalColor;
-  return foregroundColor;
+
+  // R3: never snap chromatic ink to the foreground. Keep hue and
+  // saturation, move only lightness to the theme foreground's, so a red
+  // heading turns bright red at night instead of gray-white. Achromatic
+  // ink lands exactly on the theme foreground.
+  const themeInk = parseColor(foregroundColor);
+  if (!themeInk) return foregroundColor;
+  const [hue, saturation] = rgbToHsl(...fg);
+  if (saturation <= ACHROMATIC_SATURATION_LIMIT) return foregroundColor;
+  const [, , themeLightness] = rgbToHsl(...themeInk);
+  const relit = hslToRgb(hue, saturation * 100, themeLightness * 100);
+  if (contrastRatio(relit, bg) < threshold) return foregroundColor;
+  return `rgb(${String(relit[0])}, ${String(relit[1])}, ${String(relit[2])})`;
+}
+
+/** Saturation at or below which ink counts as achromatic and lands
+ * exactly on the theme foreground. */
+const ACHROMATIC_SATURATION_LIMIT = 0.05;
+
+/** Page grounds darker than this relative luminance are a designed
+ * choice the book expressed; lighter ones are the typesetter's
+ * white-paper default that the theme takes over. */
+const BOOK_GROUND_LUMINANCE_LIMIT = 0.75;
+
+export function rgbToHsl(red: number, green: number, blue: number): [number, number, number] {
+  const r = red / 255;
+  const g = green / 255;
+  const b = blue / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+  if (max === min) return [0, 0, lightness];
+  const delta = max - min;
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+  let hue: number;
+  if (max === r) {
+    hue = (g - b) / delta + (g < b ? 6 : 0);
+  } else if (max === g) {
+    hue = (b - r) / delta + 2;
+  } else {
+    hue = (r - g) / delta + 4;
+  }
+  return [hue * 60, saturation, lightness];
+}
+
+/** True when a page background is the book's own designed ground (R1). */
+export function isBookOwnedPageGround(color: string): boolean {
+  const parsed = parseColor(color);
+  if (!parsed || !isOpaqueColor(color)) return false;
+  return relativeLuminance(...parsed) < BOOK_GROUND_LUMINANCE_LIMIT;
+}
+
+/** True when a color string carries no transparency. */
+export function isOpaqueColor(color: string): boolean {
+  const trimmed = color.trim();
+  if (trimmed.startsWith('#')) return trimmed.length === 4 || trimmed.length === 7;
+  const fn = /^(?:rgba?|hsla?)\(\s*(.+)\s*\)$/i.exec(trimmed);
+  if (fn?.[1]) {
+    const args = fn[1];
+    const comma = args.split(',');
+    if (comma.length >= 4) return Number(comma[3]) >= 1;
+    const slash = /\/\s*([\d.]+%?)\s*$/.exec(args);
+    if (slash?.[1]) {
+      const raw = slash[1];
+      const value = raw.endsWith('%') ? Number(raw.slice(0, -1)) / 100 : Number(raw);
+      return value >= 1;
+    }
+    return true;
+  }
+  return trimmed.toLowerCase() !== 'transparent' && parseColor(trimmed) !== undefined;
 }

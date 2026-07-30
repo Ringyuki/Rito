@@ -59,11 +59,13 @@ describe('production Canvas text renderer', () => {
     expect(lastProperty(result, 'letterSpacing')).toBe(testCase.letterSpacing);
   });
 
+  // Unreadable chromatic ink relights along lightness only (R3): yellow
+  // keeps its hue at the foreground's lightness instead of snapping.
   it.each([
-    { name: 'hex', color: '#ffff00', expected: COLOR_OVERRIDE.foregroundColor },
-    { name: 'rgb', color: 'rgb(255, 255, 0)', expected: COLOR_OVERRIDE.foregroundColor },
-    { name: 'hsl', color: 'hsl(60 100% 50%)', expected: COLOR_OVERRIDE.foregroundColor },
-    { name: 'named', color: 'yellow', expected: COLOR_OVERRIDE.foregroundColor },
+    { name: 'hex', color: '#ffff00', expected: 'rgb(32, 32, 0)' },
+    { name: 'rgb', color: 'rgb(255, 255, 0)', expected: 'rgb(32, 32, 0)' },
+    { name: 'hsl', color: 'hsl(60 100% 50%)', expected: 'rgb(32, 32, 0)' },
+    { name: 'named', color: 'yellow', expected: 'rgb(32, 32, 0)' },
     { name: 'unparseable', color: 'currentColor', expected: 'currentColor' },
   ])('matches reference $name color override behavior', ({ color, expected }) => {
     const result = expectTextParity(textFragment({ color }), COLOR_OVERRIDE);
@@ -157,7 +159,7 @@ describe('production Canvas text renderer', () => {
     expect(result.getCalls('fillText')[0]?.args).toEqual(['rt', 29, 20]);
     expect(lastProperty(result, 'wordSpacing')).toBe('0px');
     expect(lastProperty(result, 'letterSpacing')).toBe('0px');
-    expect(lastProperty(result, 'fillStyle')).toBe(COLOR_OVERRIDE.foregroundColor);
+    expect(lastProperty(result, 'fillStyle')).toBe('rgb(32, 32, 0)');
   });
 
   it.each(localFailureCases())(

@@ -28,3 +28,4 @@ export 'src/render/page_surface.dart'
         RitoCanvasColorOverride,
         RitoImageResolver,
         RitoPageSurface;
+export 'src/render/typed_color.dart' show ritoUiColor;

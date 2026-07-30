@@ -22,13 +22,17 @@ export function drawTextFragment(
   ctx: CanvasRenderingContext2D,
   fragment: CanvasTextFragment,
   colorOverride?: { foregroundColor: string; backgroundColor: string },
+  declaredGround?: string,
 ): void {
   const paint = fragment.paint;
   ctx.font = buildFontString(paint.font);
 
-  const color = colorOverride
-    ? resolveTextColor(paint.color, colorOverride.backgroundColor, colorOverride.foregroundColor)
-    : paint.color;
+  // R2: ink is only re-resolved when its ground is theme-supplied; a
+  // declared ground means the color pair was the typesetter's choice.
+  const color =
+    colorOverride && declaredGround === undefined
+      ? resolveTextColor(paint.color, colorOverride.backgroundColor, colorOverride.foregroundColor)
+      : paint.color;
 
   ctx.fillStyle = color;
   ctx.textBaseline = 'alphabetic';
@@ -59,11 +63,13 @@ export function drawRubyFragment(
   ctx: CanvasRenderingContext2D,
   ruby: CanvasRubyFragment,
   colorOverride?: { foregroundColor: string; backgroundColor: string },
+  declaredGround?: string,
 ): void {
   const paint = ruby.paint;
-  const color = colorOverride
-    ? resolveTextColor(paint.color, colorOverride.backgroundColor, colorOverride.foregroundColor)
-    : paint.color;
+  const color =
+    colorOverride && declaredGround === undefined
+      ? resolveTextColor(paint.color, colorOverride.backgroundColor, colorOverride.foregroundColor)
+      : paint.color;
   ctx.save();
   ctx.font = buildFontString(paint.font);
   ctx.fillStyle = color;

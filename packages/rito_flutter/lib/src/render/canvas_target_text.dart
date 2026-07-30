@@ -29,7 +29,7 @@ extension _TextPainting on RitoCanvasPaintTarget {
         text: command.text,
         // Ruby ignores run spacing, matching the browser pen's forced
         // '0px' letter/word spacing.
-        style: _textStyle(command.paint, includeSpacing: !ruby),
+        style: _textStyle(command.paint, includeSpacing: !ruby, runRect: rect),
       ),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
@@ -150,6 +150,7 @@ extension _TextPainting on RitoCanvasPaintTarget {
     RitoRunPaint paint, {
     ui.Paint? foreground,
     bool includeSpacing = true,
+    ui.Rect? runRect,
   }) {
     final font = paint.font;
     // The run family is a comma-joined CSS fallback stack (book faces,
@@ -158,7 +159,7 @@ extension _TextPainting on RitoCanvasPaintTarget {
     // or the literal stack string never matches a registered face.
     final families = ritoSplitFontFamilyStack(font.family);
     return TextStyle(
-      color: foreground == null ? _effectiveTextColor(paint) : null,
+      color: foreground == null ? _effectiveTextColor(paint, runRect) : null,
       foreground: foreground,
       fontFamily: families.isEmpty ? null : families.first,
       fontFamilyFallback: families.length > 1 ? families.sublist(1) : null,
@@ -177,23 +178,53 @@ extension _TextPainting on RitoCanvasPaintTarget {
     return FontWeight.values[index];
   }
 
-  /// Run text keeps its original color only while it stays
-  /// WCAG-readable against the theme background; otherwise it snaps to
-  /// the theme foreground (browser pen's resolveTextColor). Decoration
-  /// and shadow layer colors deliberately stay original, matching the
-  /// browser pen.
-  ui.Color _effectiveTextColor(RitoRunPaint paint) {
+  /// Run ink is only re-resolved when its ground is theme-supplied
+  /// (R2): a declared ground — the run's own inline band, an opaque
+  /// block fill containing the run, or a book-owned page ground — means
+  /// the color pair was the typesetter's choice and stays untouched.
+  /// On the theme ground it follows the override's contrast policy
+  /// (browser pen's resolveTextColor). Decoration and shadow layer
+  /// colors deliberately stay original, matching the browser pen.
+  ui.Color _effectiveTextColor(RitoRunPaint paint, ui.Rect? runRect) {
     final color = _color(paint.color);
     final override = _colorOverride;
     if (override == null) {
       return color;
     }
-    final effective = override.effectiveTextColor(color);
+    final effective = override.effectiveTextColor(
+      color,
+      declaredGround: runRect == null ? null : _declaredGroundFor(paint, runRect),
+    );
     // _color already carries the opacity stack; a theme substitution
     // must re-apply it (the browser pen's globalAlpha does this).
     return identical(effective, color)
         ? color
         : effective.withValues(alpha: effective.a * _opacity);
+  }
+
+  /// The ground a run's ink was typeset against, when the book
+  /// expressed one: the run's own inline background, else the nearest
+  /// opaque block background containing the run's rect, else the page
+  /// ground R1 kept for the book. Null means the theme supplies the
+  /// ground. Mirrors the browser pen's declaredGroundFor.
+  ui.Color? _declaredGroundFor(RitoRunPaint paint, ui.Rect rect) {
+    final runBackground = paint.backgroundColor;
+    if (runBackground != null) {
+      final ground = ritoUiColor(runBackground);
+      if (ground.a >= 1) {
+        return ground;
+      }
+    }
+    for (var index = _blockGrounds.length - 1; index >= 0; index -= 1) {
+      final ground = _blockGrounds[index];
+      if (rect.left >= ground.rect.left &&
+          rect.top >= ground.rect.top &&
+          rect.left + rect.width <= ground.rect.left + ground.rect.width &&
+          rect.top + rect.height <= ground.rect.top + ground.rect.height) {
+        return ground.color;
+      }
+    }
+    return _bookOwnedPageGround;
   }
 
   /// Content-height box for inline backgrounds and borders, mirroring

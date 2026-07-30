@@ -4,6 +4,8 @@ import {
   relativeLuminance,
   contrastRatio,
   resolveTextColor,
+  isBookOwnedPageGround,
+  isOpaqueColor,
 } from '../../src/reference/ts-core/utils/color';
 
 describe('parseColor', () => {
@@ -326,5 +328,57 @@ describe('resolveTextColor', () => {
   it('works with hsl() colors', () => {
     // black text on white bg via hsl()
     expect(resolveTextColor('hsl(0, 0, 0)', 'hsl(0, 0, 100)', '#111111')).toBe('hsl(0, 0, 0)');
+  });
+});
+
+describe('R1 page-ground classification', () => {
+  it("designed grounds stay the book's", () => {
+    // Teal contents page, deep black art page, saturated purple.
+    for (const color of ['#00ced1', '#111111', '#663399']) {
+      expect(isBookOwnedPageGround(color)).toBe(true);
+    }
+  });
+
+  it('white-paper defaults go to the theme', () => {
+    // White, warm off-white (solarized paper), light gray, and any
+    // translucent ground.
+    for (const color of ['#ffffff', '#fdf6e3', '#ebebeb', 'rgba(17, 17, 17, 0.5)']) {
+      expect(isBookOwnedPageGround(color)).toBe(false);
+    }
+  });
+});
+
+describe('isOpaqueColor', () => {
+  it('classifies the engine color forms', () => {
+    expect(isOpaqueColor('#1a2b3c')).toBe(true);
+    expect(isOpaqueColor('rgba(1, 2, 3, 1)')).toBe(true);
+    expect(isOpaqueColor('rgba(1, 2, 3, 0.4)')).toBe(false);
+    expect(isOpaqueColor('transparent')).toBe(false);
+  });
+});
+
+describe('R3 lightness-only relight', () => {
+  const bg = '#1a1a1a';
+  const fg = '#e5e5e5';
+
+  it('readable ink stays', () => {
+    expect(resolveTextColor('#ffb86b', bg, fg)).toBe('#ffb86b');
+  });
+
+  it('achromatic ink lands exactly on the theme foreground', () => {
+    for (const ink of ['#000000', '#222222', '#333333']) {
+      expect(resolveTextColor(ink, bg, fg)).toBe(fg);
+    }
+  });
+
+  it('chromatic ink keeps hue and moves only lightness', () => {
+    // Red heading at night becomes bright red, not gray-white:
+    // #cc0000 -> hsl(0, 100%, L(fg)) -> rgb(255, 203, 203). The Dart
+    // pen asserts these exact channels too.
+    expect(resolveTextColor('#cc0000', bg, fg)).toBe('rgb(255, 203, 203)');
+  });
+
+  it('a foreground that cannot carry the hue falls back exactly', () => {
+    expect(resolveTextColor('#cc0000', '#777777', '#888888')).toBe('#888888');
   });
 });

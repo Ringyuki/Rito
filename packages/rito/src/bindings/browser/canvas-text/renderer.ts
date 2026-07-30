@@ -10,10 +10,11 @@ export function drawCanvasTextFragment(
   ctx: CanvasRenderingContext2D,
   fragment: CanvasTextFragment,
   colorOverride?: CanvasTextColorOverride,
+  declaredGround?: string,
 ): void {
   const { paint } = fragment;
   ctx.font = buildFontString(paint.font);
-  const color = effectiveTextColor(paint.color, colorOverride);
+  const color = effectiveTextColor(paint.color, colorOverride, declaredGround);
   ctx.fillStyle = color;
   ctx.textBaseline = 'alphabetic';
   ctx.wordSpacing = canvasSpacingValue(paint.wordSpacingPx);
@@ -41,9 +42,10 @@ export function drawCanvasRubyFragment(
   ctx: CanvasRenderingContext2D,
   ruby: CanvasRubyFragment,
   colorOverride?: CanvasTextColorOverride,
+  declaredGround?: string,
 ): void {
   const { paint } = ruby;
-  const color = effectiveTextColor(paint.color, colorOverride);
+  const color = effectiveTextColor(paint.color, colorOverride, declaredGround);
   ctx.save();
   try {
     ctx.font = buildFontString(paint.font);
@@ -62,10 +64,18 @@ export function drawCanvasRubyFragment(
 function effectiveTextColor(
   originalColor: string,
   colorOverride: CanvasTextColorOverride | undefined,
+  declaredGround: string | undefined,
 ): string {
-  return colorOverride
-    ? resolveTextColor(originalColor, colorOverride.backgroundColor, colorOverride.foregroundColor)
-    : originalColor;
+  // R2: ink is only re-resolved when its ground is theme-supplied. A
+  // declared ground (inline band, block fill, book-owned page) means
+  // the foreground/background pair was the typesetter's choice — any
+  // one-sided substitution would break it.
+  if (!colorOverride || declaredGround !== undefined) return originalColor;
+  return resolveTextColor(
+    originalColor,
+    colorOverride.backgroundColor,
+    colorOverride.foregroundColor,
+  );
 }
 
 function drawLine(
