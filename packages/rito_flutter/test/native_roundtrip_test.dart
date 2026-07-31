@@ -525,4 +525,88 @@ void main() {
       await gateway.close();
     }
   });
+
+  test('text range geometry paints where the page was drawn', () async {
+    final publication = File(
+      '../rito/tests/fixtures/books/book-01.epub',
+    ).readAsBytesSync();
+    const sessionId = 9007;
+    const work = RitoWorkBudget(
+      maxTopLevelNodesPerQuantum: 32,
+      maxForegroundQuanta: 64,
+      localPageCap: 16,
+    );
+    final gateway = RitoIsolateGateway();
+    final session = await RitoReaderSession.open(
+      gateway: gateway,
+      publicationBytes: publication,
+      request: const RitoArtifactRequest(
+        sessionId: sessionId,
+        requestId: 1,
+        layout: RitoLayoutRequest(
+          viewportWidth: 420,
+          viewportHeight: 640,
+          marginTop: 24,
+          marginRight: 24,
+          marginBottom: 24,
+          marginLeft: 24,
+          spreadMode: RitoSpreadMode.single,
+          firstPageAlone: true,
+          spreadGap: 0,
+          rootFontSize: 16,
+        ),
+        locator: RitoLocator(href: 'OEBPS/Text/Section002.xhtml'),
+        work: work,
+      ),
+    );
+    try {
+      final prepared = session.firstArtifact;
+      final page = prepared.artifact.pages.firstWhere(
+        (candidate) => candidate.textRuns.isNotEmpty,
+      );
+      final run = page.textRuns.first;
+
+      final geometry = await session.textRangeGeometry(
+        prepared,
+        pageIndex: page.pageIndex,
+        start: RitoTextPosition(
+          blockIndex: run.blockIndex,
+          lineIndex: run.lineIndex,
+          runIndex: run.runIndex,
+          charIndex: 0,
+        ),
+        end: RitoTextPosition(
+          blockIndex: run.blockIndex,
+          lineIndex: run.lineIndex,
+          runIndex: run.runIndex,
+          charIndex: 1,
+        ),
+      );
+      expect(geometry.rects, isNotEmpty);
+      expect(geometry.pageIndex, page.pageIndex);
+
+      // The decisive property for highlighting: the rect sits inside
+      // the same painted text run, in the same coordinates.
+      final painted = prepared.artifact.displayList.displayList.commands
+          .whereType<RitoPaintText>()
+          .map((command) => command.rect)
+          .toList();
+      expect(painted, isNotEmpty);
+      final rect = geometry.rects.first;
+      expect(
+        painted.any(
+          (candidate) =>
+              rect.bounds.x >= candidate.x - 1 &&
+              rect.bounds.x <= candidate.x + candidate.width + 1 &&
+              rect.bounds.y >= candidate.y - 1 &&
+              rect.bounds.y <= candidate.y + candidate.height + 1,
+        ),
+        isTrue,
+        reason: 'geometry must land inside a painted run, not offset by margins',
+      );
+    } finally {
+      await session.dispose();
+      await gateway.close();
+    }
+  });
 }

@@ -266,7 +266,7 @@ pub(super) fn published_spread_target(
 /// page margins. Anything the artifact publishes as a rect must carry
 /// the same origin or it cannot be compared with the pixels the host
 /// drew.
-fn page_origin(config: &LayoutConfig, slot: usize) -> (f64, f64) {
+pub(super) fn page_origin(config: &LayoutConfig, slot: usize) -> (f64, f64) {
     let spread_offset_x = if slot == 0 {
         0.0
     } else {

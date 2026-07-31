@@ -296,6 +296,7 @@ void _discardUnsentWire(
         break;
       case _ReadPublicationOperation():
       case _ReadResourceOperation():
+      case _TextRangeGeometryOperation():
       case _ReadFootnoteOperation():
       case _ReleaseArtifactOperation():
       case _DisposeOperation():
@@ -362,6 +363,10 @@ Object? _perform(
       artifactId: operation.artifactId,
       kind: operation.kind,
       href: operation.href,
+    ),
+    _TextRangeGeometryOperation() => bindings.textRangeGeometryEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
     ),
     _ReadFootnoteOperation() => bindings.readFootnote(
       sessionId: operation.sessionId,
@@ -598,6 +603,16 @@ final class _ReadResourceOperation extends _WorkerOperation {
   final int artifactId;
   final RitoResourceKind kind;
   final String href;
+}
+
+final class _TextRangeGeometryOperation extends _WorkerOperation {
+  const _TextRangeGeometryOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
 }
 
 final class _ReadFootnoteOperation extends _WorkerOperation {

@@ -324,6 +324,13 @@ final class _NavigationGateway implements RitoReaderGateway {
   }
 
   @override
+  Future<RitoTextRangeGeometry> textRangeGeometry({
+    required RitoTextRangeRequest request,
+  }) async {
+    throw UnimplementedError('text geometry is out of scope for this fake');
+  }
+
+  @override
   Future<RitoFootnote> readFootnote({
     required int sessionId,
     required int artifactId,

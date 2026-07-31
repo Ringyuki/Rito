@@ -10,7 +10,8 @@ use rito_core::runtime::{
     encode_reader_artifact_v1, encode_reader_background_advance_v1,
     encode_reader_background_handoff_ack_v1, encode_reader_foreground_handoff_ack_v1,
     encode_reader_footnote_v1, encode_reader_publication_v1, encode_reader_resource_v1,
-    ReaderAdjacentRequestV1,
+    encode_reader_text_range_geometry_v1, ReaderAdjacentRequestV1,
+    ReaderTextRangeRequestV1,
     ReaderArtifactRequestV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderErrorV1,
     ReaderForegroundHandoffV1, ReaderResourceKindV1, ReaderSessionV1,
     RuntimePinnedFontPolicyInput,
@@ -62,6 +63,10 @@ pub(crate) enum ActorCommand {
         artifact_id: u64,
         kind: ReaderResourceKindV1,
         href: String,
+        reply: Reply<Vec<u8>>,
+    },
+    TextRangeGeometry {
+        request: ReaderTextRangeRequestV1,
         reply: Reply<Vec<u8>>,
     },
     ReadFootnote {
@@ -600,6 +605,13 @@ fn run_commands(
                     encode_reader_publication_v1(session.publication_v1()).map_err(FfiError::from);
                 let _ = reply.send(result);
             }
+            ActorCommand::TextRangeGeometry { request, reply } => {
+                let result = session
+                    .get_text_range_geometry(request)
+                    .and_then(|geometry| encode_reader_text_range_geometry_v1(&geometry))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
             ActorCommand::ReadFootnote {
                 artifact_id,
                 key,
@@ -758,6 +770,17 @@ pub(crate) fn request_resource(
             reply,
         },
         "resource",
+    )
+}
+
+pub(crate) fn request_text_range_geometry(
+    admission: CommandAdmission,
+    request: ReaderTextRangeRequestV1,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::TextRangeGeometry { request, reply },
+        "text range geometry",
     )
 }
 

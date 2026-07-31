@@ -2062,3 +2062,68 @@ fn reader_layout(config: &crate::layout::LayoutConfig) -> ReaderLayoutV1 {
         font_family_override: config.font_family_override.clone(),
     }
 }
+
+#[test]
+fn text_range_geometry_lands_in_display_list_space() {
+    let mut session = ReaderSessionV1::open_owned(160, crate::runtime::tests::fixture::fixture_epub())
+        .expect("reader session opens");
+    let artifact = session
+        .request_artifact(request(160, 1, ""))
+        .expect("artifact resolves");
+    let page = artifact.pages.first().expect("a page");
+    let run = page.text_runs.first().copied().expect("a text run");
+
+    let geometry = session
+        .get_text_range_geometry(ReaderTextRangeRequestV1 {
+            session_id: 160,
+            artifact_id: artifact.artifact_id,
+            page_index: page.page_index,
+            start: ReaderTextPositionV1 {
+                block_index: run.block_index,
+                line_index: run.line_index,
+                run_index: run.run_index,
+                char_index: 0,
+            },
+            end: ReaderTextPositionV1 {
+                block_index: run.block_index,
+                line_index: run.line_index,
+                run_index: run.run_index,
+                char_index: 1,
+            },
+        })
+        .expect("the first run resolves geometry");
+    assert_eq!(geometry.artifact_id, artifact.artifact_id);
+    assert!(!geometry.rects.is_empty());
+
+    // Highlights are painted onto the same surface the display list
+    // drew, so the rect must carry the page origin like a hit does.
+    let layout = crate::runtime::tests::fixture::layout();
+    for rect in &geometry.rects {
+        assert!(
+            rect.bounds.x >= layout.margin_left && rect.bounds.y >= layout.margin_top,
+            "geometry must be display-list space, not content-box: {rect:?}"
+        );
+    }
+
+    // A range no page holds is a typed failure, not a panic.
+    let missing = session
+        .get_text_range_geometry(ReaderTextRangeRequestV1 {
+            session_id: 160,
+            artifact_id: artifact.artifact_id,
+            page_index: page.page_index,
+            start: ReaderTextPositionV1 {
+                block_index: 9_999,
+                line_index: 0,
+                run_index: 0,
+                char_index: 0,
+            },
+            end: ReaderTextPositionV1 {
+                block_index: 9_999,
+                line_index: 0,
+                run_index: 0,
+                char_index: 1,
+            },
+        })
+        .expect_err("an unknown range fails");
+    assert_eq!(missing.kind, ReaderErrorKindV1::EngineFailure);
+}

@@ -454,6 +454,33 @@ pub extern "C" fn rito_read_resource_v1(
     })
 }
 
+/// Resolves where a text range sits on one of a live artifact's pages
+/// and returns a complete RITOTRG1 message. The rects are in the
+/// artifact's display-list space — the same space its hit bounds use —
+/// so a host paints them straight onto the surface it drew the page on.
+#[no_mangle]
+pub extern "C" fn rito_get_text_range_geometry_v1(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    geometry_out: *mut RitoOwnedBufferV1,
+    error_out: *mut RitoOwnedBufferV1,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(geometry_out, error_out, "geometry_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::text_range_request(request_data, request_len)?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOTRQ1 session_id must match the session",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let geometry = registry::text_range_geometry(admission, request)?;
+        write_buffer(geometry_out, geometry)
+    })
+}
+
 /// Reads a footnote definition an artifact's hits referenced. The key
 /// is the hit's `footnote_key` verbatim — it is already canonical, so
 /// hosts must not normalize the link href themselves. A definition the

@@ -16,6 +16,7 @@ use crate::runtime::reader_v1::{
     ReaderBackgroundStateV1, ReaderErrorV1, ReaderForegroundHandoffAckV1,
     ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1, ReaderPublicationV1,
     ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderResourceV1, ReaderSourcePointV1,
+    ReaderTextPositionV1, ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
     ReaderSourceRangeV1, ReaderSpreadModeV1,
     ReaderTextRenderingProfileV1, ReaderWorkBudgetV1, READER_PROTOCOL_VERSION_V1,
     READER_PUBLICATION_WIRE_BYTES_MAX_V1,
@@ -189,6 +190,58 @@ pub(super) fn publication(value: &ReaderPublicationV1) -> Result<Vec<u8>, Reader
         return Err(super::primitives::overflow("publication wire byte limit"));
     }
     Ok(bytes)
+}
+
+pub(super) fn text_range_request(
+    value: &ReaderTextRangeRequestV1,
+) -> Result<Vec<u8>, ReaderErrorV1> {
+    super::primitives::external_id(value.session_id, "sessionId")?;
+    super::primitives::external_id(value.artifact_id, "artifactId")?;
+    let mut writer = Writer::message(
+        super::READER_TEXT_RANGE_REQUEST_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    );
+    writer.u64(value.session_id);
+    writer.u64(value.artifact_id);
+    writer.u32(value.page_index);
+    text_position(&mut writer, value.start);
+    text_position(&mut writer, value.end);
+    writer.finish_message()
+}
+
+fn text_position(writer: &mut Writer, value: ReaderTextPositionV1) {
+    writer.u32(value.block_index);
+    writer.u32(value.line_index);
+    writer.u32(value.run_index);
+    writer.u32(value.char_index);
+}
+
+pub(super) fn text_range_geometry(
+    value: &ReaderTextRangeGeometryV1,
+) -> Result<Vec<u8>, ReaderErrorV1> {
+    super::primitives::external_id(value.artifact_id, "artifactId")?;
+    let mut writer = Writer::message(
+        super::READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    );
+    writer.u64(value.artifact_id);
+    writer.u32(value.page_index);
+    writer.count(value.rects.len(), "text range rect count")?;
+    for rect in &value.rects {
+        writer.record(|writer| {
+            writer.f64(rect.bounds.x, "text rect x")?;
+            writer.f64(rect.bounds.y, "text rect y")?;
+            writer.f64(rect.bounds.width, "text rect width")?;
+            writer.f64(rect.bounds.height, "text rect height")?;
+            writer.u32(rect.block_index);
+            writer.u32(rect.line_index);
+            writer.u32(rect.run_index);
+            writer.u32(rect.start_char_index);
+            writer.u32(rect.end_char_index);
+            Ok(())
+        })?;
+    }
+    writer.finish_message()
 }
 
 pub(super) fn footnote(value: &ReaderFootnoteV1) -> Result<Vec<u8>, ReaderErrorV1> {

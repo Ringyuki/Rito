@@ -1,4 +1,5 @@
 use rito_core::runtime::{
+    decode_reader_text_range_request_v1, ReaderTextRangeRequestV1,
     decode_reader_adjacent_request_v1, decode_reader_artifact_request_v1,
     decode_reader_background_handoff_v1, decode_reader_background_request_v1,
     decode_reader_foreground_handoff_v1, ReaderAdjacentRequestV1, ReaderArtifactRequestV1,
@@ -105,6 +106,14 @@ pub(crate) fn resource_href(source: *const u8, len: u64) -> Result<String, FfiEr
     }
     let bytes = copy_bytes(source, len, MAX_HREF_BYTES, "resource href")?;
     String::from_utf8(bytes).map_err(|_| FfiError::invalid("resource href must be valid UTF-8"))
+}
+
+pub(crate) fn text_range_request(
+    source: *const u8,
+    len: u64,
+) -> Result<ReaderTextRangeRequestV1, FfiError> {
+    let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "text range request")?;
+    decode_reader_text_range_request_v1(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn footnote_key(source: *const u8, len: u64) -> Result<String, FfiError> {

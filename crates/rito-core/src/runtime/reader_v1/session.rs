@@ -9,7 +9,8 @@ use crate::{
         RuntimeContinueChapterLocalRevisionRequest, RuntimeContinueRevisionRequest,
         RuntimeDocument, RuntimePageReadingAnchor, RuntimeRevisionWorkBudget,
         RuntimeRolloverChapterLocalRevisionRequest, RuntimeSourceLocator,
-        RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorResolution,
+        RuntimeRevision, RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorResolution,
+        RuntimeTextRangeGeometryRequest,
         RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX,
     },
 };
@@ -19,7 +20,9 @@ use super::{
         build_reader_artifact_v1, published_spread_target, ArtifactIdentityV1,
         ResolvedArtifactOwnerV1, ResolvedArtifactTarget,
     },
-    convert::{layout_config, runtime_locator, runtime_resource_kind, usize_from_u32},
+    convert::{
+        layout_config, runtime_locator, runtime_resource_kind, u32_from_usize, usize_from_u32,
+    },
     publication::{
         ReaderForegroundCandidateV1, ReaderPublicationRevisionOwnerV1, ReaderRevisionBackingV1,
         ReaderVisibleIntentV1,
@@ -30,7 +33,9 @@ use super::{
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
     ReaderBackgroundStateV1, ReaderDisposeAckV1, ReaderErrorKindV1, ReaderErrorV1,
     ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderLocatorV1, ReaderNavigationV1,
-    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderPublicationV1, ReaderResourceKindV1,
+    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderPublicationV1, ReaderRectV1,
+    ReaderResourceKindV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1,
+    ReaderTextRangeRequestV1, ReaderTextRectV1,
     ReaderResourceV1, ReaderTextRenderingProfileV1,
     ReaderWorkBudgetV1, READER_EXTERNAL_ID_MAX_V1,
 };
@@ -684,6 +689,105 @@ impl ReaderSessionV1 {
             kind: reader_footnote_kind(kind),
             text,
             html,
+        })
+    }
+
+    /// Resolves where a text range sits on one of an artifact's pages.
+    ///
+    /// The returned rects are in the artifact's display-list space, the
+    /// same space [`ReaderHitEntryV1::bounds`] uses, so a host paints
+    /// them directly onto the surface it drew the page on. `page_index`
+    /// is one the artifact published (`ReaderPageV1::page_index`), and
+    /// the positions are the ones its `text_runs` describe — anchoring
+    /// a highlight to source text instead of to remembered pixels.
+    pub fn get_text_range_geometry(
+        &mut self,
+        request: ReaderTextRangeRequestV1,
+    ) -> Result<ReaderTextRangeGeometryV1, ReaderErrorV1> {
+        if request.session_id != self.session_id {
+            return Err(ReaderErrorV1::new(
+                ReaderErrorKindV1::InvalidSession,
+                "text range request belongs to a different session",
+            ));
+        }
+        validate_external_request_id(request.artifact_id, "artifactId")?;
+        let artifact = self
+            .artifacts
+            .get(&request.artifact_id)
+            .cloned()
+            .ok_or_else(|| unknown_artifact(request.artifact_id))?;
+        let page_index = usize_from_u32(request.page_index, "page index")?;
+        let runtime_request = RuntimeTextRangeGeometryRequest {
+            page_index,
+            start: runtime_text_position(request.start)?,
+            end: runtime_text_position(request.end)?,
+        };
+        let (geometry, origin) = match artifact.backing {
+            ReaderRevisionBackingV1::ChapterLocal => {
+                let owner = self
+                    .revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.owner.clone())
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                let revision = self
+                    .document
+                    .require_chapter_local_owner(&owner)
+                    .map_err(engine_error)?;
+                let origin = page_display_origin(revision, artifact.local_spread_index, page_index)?;
+                let geometry =
+                    crate::runtime::page::text_range_geometry(&owner.revision_id, revision, runtime_request)
+                        .map_err(engine_error)?;
+                (geometry, origin)
+            }
+            ReaderRevisionBackingV1::Publication => {
+                let owner = self
+                    .publication_revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.owner.clone())
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                let revision = self
+                    .document
+                    .revisions
+                    .get(&owner.revision_id)
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                let origin = page_display_origin(revision, artifact.local_spread_index, page_index)?;
+                let geometry = crate::runtime::page::text_range_geometry(
+                    &owner.revision_id,
+                    revision,
+                    runtime_request,
+                )
+                .map_err(engine_error)?;
+                (geometry, origin)
+            }
+        };
+        Ok(ReaderTextRangeGeometryV1 {
+            artifact_id: request.artifact_id,
+            page_index: request.page_index,
+            rects: geometry
+                .rects
+                .into_iter()
+                .map(|rect| {
+                    Ok(ReaderTextRectV1 {
+                        bounds: ReaderRectV1 {
+                            x: rect.x + origin.0,
+                            y: rect.y + origin.1,
+                            width: rect.width,
+                            height: rect.height,
+                        },
+                        block_index: u32_from_usize(rect.block_index, "text rect block index")?,
+                        line_index: u32_from_usize(rect.line_index, "text rect line index")?,
+                        run_index: u32_from_usize(rect.run_index, "text rect run index")?,
+                        start_char_index: u32_from_usize(
+                            rect.start_char_index,
+                            "text rect start char index",
+                        )?,
+                        end_char_index: u32_from_usize(
+                            rect.end_char_index,
+                            "text rect end char index",
+                        )?,
+                    })
+                })
+                .collect::<Result<Vec<_>, ReaderErrorV1>>()?,
         })
     }
 
@@ -2911,4 +3015,39 @@ const fn reader_footnote_kind(kind: crate::interaction::FootnoteKind) -> ReaderF
         crate::interaction::FootnoteKind::Rearnote => ReaderFootnoteKindV1::Rearnote,
         crate::interaction::FootnoteKind::Note => ReaderFootnoteKindV1::Note,
     }
+}
+
+/// Display-list origin of the page slot holding `page_index` inside the
+/// artifact's spread, so geometry lands where the pen painted.
+fn page_display_origin(
+    revision: &RuntimeRevision,
+    spread_index: usize,
+    page_index: usize,
+) -> Result<(f64, f64), ReaderErrorV1> {
+    let frame = revision
+        .chapter_engine_session()
+        .frame(spread_index)
+        .ok_or_else(|| target_not_published("artifact spread is not published"))?;
+    let slot = frame
+        .page_indexes
+        .iter()
+        .position(|index| *index == page_index)
+        .ok_or_else(|| {
+            ReaderErrorV1::new(
+                ReaderErrorKindV1::InvalidRequest,
+                format!("page {page_index} is not part of this artifact"),
+            )
+        })?;
+    Ok(super::artifact::page_origin(&revision.layout_config, slot))
+}
+
+fn runtime_text_position(
+    value: ReaderTextPositionV1,
+) -> Result<crate::layout::SearchTextPosition, ReaderErrorV1> {
+    Ok(crate::layout::SearchTextPosition {
+        block_index: usize_from_u32(value.block_index, "text position block index")?,
+        line_index: usize_from_u32(value.line_index, "text position line index")?,
+        run_index: usize_from_u32(value.run_index, "text position run index")?,
+        char_index: usize_from_u32(value.char_index, "text position char index")?,
+    })
 }

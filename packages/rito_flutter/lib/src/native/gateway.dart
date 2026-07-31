@@ -11,6 +11,7 @@ import '../protocol/background_models.dart';
 import '../protocol/foreground_decoder.dart';
 import '../protocol/foreground_encoder.dart';
 import '../protocol/footnote_decoder.dart';
+import '../protocol/text_geometry.dart';
 import '../protocol/foreground_models.dart';
 import '../protocol/publication_decoder.dart';
 import '../protocol/publication_models.dart';
@@ -93,6 +94,11 @@ abstract interface class RitoReaderGateway {
     required int artifactId,
     required RitoResourceKind kind,
     required String href,
+  });
+
+  /// Resolves where a text range sits on one of an artifact's pages.
+  Future<RitoTextRangeGeometry> textRangeGeometry({
+    required RitoTextRangeRequest request,
   });
 
   /// Reads a footnote definition an artifact referenced. [key] is the
@@ -189,6 +195,10 @@ final class RitoIsolateGateway
       const RitoBackgroundDecoder();
   final RitoResourceDecoder _resourceDecoder = const RitoResourceDecoder();
   final RitoFootnoteDecoder _footnoteDecoder = const RitoFootnoteDecoder();
+  final RitoTextGeometryEncoder _textGeometryEncoder =
+      const RitoTextGeometryEncoder();
+  final RitoTextGeometryDecoder _textGeometryDecoder =
+      const RitoTextGeometryDecoder();
   final RitoRequestEncoder _requestEncoder = const RitoRequestEncoder();
   final RitoNativeGatewayQueue _queue = RitoNativeGatewayQueue();
   final RitoPendingExactSeekDriver _pendingExactSeek =
@@ -696,6 +706,37 @@ final class RitoIsolateGateway
                 resource.artifactId == artifactId &&
                 resource.kind == kind &&
                 resource.href == href,
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<RitoTextRangeGeometry> textRangeGeometry({
+    required RitoTextRangeRequest request,
+  }) async {
+    return _queue.ordered<RitoTextRangeGeometry>(
+      sessionId: request.sessionId,
+      operation: () => _guardNativeSessionOperation<RitoTextRangeGeometry>(
+        sessionId: request.sessionId,
+        requestId: _diagnosticRequestId(request.sessionId),
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(
+            _TextRangeGeometryOperation(
+              sessionId: request.sessionId,
+              requestBytes: _textGeometryEncoder.encodeRequest(request),
+            ),
+          );
+          return _decodeSessionWire<RitoTextRangeGeometry>(
+            sessionId: request.sessionId,
+            field: 'text range geometry',
+            wireBytes: wireBytes,
+            decode: _textGeometryDecoder.decode,
+            validate: (geometry) =>
+                geometry.artifactId == request.artifactId &&
+                geometry.pageIndex == request.pageIndex,
           );
         },
       ),

@@ -215,6 +215,19 @@ uint32_t rito_read_resource_v1(uint64_t session_id,
                                rito_owned_buffer_v1 *error_out);
 
 /*
+ * Resolves where a text range sits on one of a live artifact's pages and
+ * returns a complete RITOTRG1 message. request_data is a RITOTRQ1 message and
+ * is copied before this function returns. The returned rects are in the
+ * artifact's display-list space — the same space its hit bounds use — so a
+ * host paints them directly onto the surface it drew the page on.
+ */
+uint32_t rito_get_text_range_geometry_v1(uint64_t session_id,
+                                         const uint8_t *request_data,
+                                         uint64_t request_len,
+                                         rito_owned_buffer_v1 *geometry_out,
+                                         rito_owned_buffer_v1 *error_out);
+
+/*
  * Reads a footnote definition referenced by a live RITOART1 artifact and
  * returns a complete RITOFTN1 message. key_data is the hit's footnoteKey
  * verbatim — it is already canonical, so hosts must not normalize the link

@@ -7,6 +7,7 @@ import 'native/gateway.dart';
 import 'protocol/artifact_models.dart';
 import 'protocol/background_models.dart';
 import 'protocol/footnote_decoder.dart';
+import 'protocol/text_geometry.dart';
 import 'protocol/foreground_models.dart';
 import 'protocol/publication_models.dart';
 import 'protocol/request_models.dart';
@@ -560,6 +561,59 @@ final class RitoReaderSession {
     RitoResourceRef reference,
   ) {
     return _readOwnedResource(prepared.artifact, reference);
+  }
+
+  /// Resolves where a text range sits on one of [prepared]'s pages.
+  ///
+  /// [pageIndex] is one the artifact published
+  /// ([RitoPage.pageIndex]) and the positions are the ones its
+  /// [RitoPage.textRuns] describe, so a highlight anchors to source
+  /// text rather than to remembered pixels. The returned rects share
+  /// the artifact's display-list space, so they paint straight onto the
+  /// surface the page was drawn on.
+  Future<RitoTextRangeGeometry> textRangeGeometry(
+    RitoPreparedArtifact prepared, {
+    required int pageIndex,
+    required RitoTextPosition start,
+    required RitoTextPosition end,
+  }) async {
+    _requireOpen();
+    final artifact = prepared.artifact;
+    if (artifact.sessionId != sessionId ||
+        !_liveArtifacts.contains(artifact.artifactId)) {
+      throw ArgumentError('Artifact is not live in this Rito session.');
+    }
+    if (!artifact.pages.any((page) => page.pageIndex == pageIndex)) {
+      throw ArgumentError.value(
+        pageIndex,
+        'pageIndex',
+        'is not published by this artifact',
+      );
+    }
+    late final RitoTextRangeGeometry geometry;
+    try {
+      geometry = await gateway.textRangeGeometry(
+        request: RitoTextRangeRequest(
+          sessionId: sessionId,
+          artifactId: artifact.artifactId,
+          pageIndex: pageIndex,
+          start: start,
+          end: end,
+        ),
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    if (geometry.artifactId != artifact.artifactId ||
+        geometry.pageIndex != pageIndex) {
+      throw StateError('Text geometry ownership does not match its artifact.');
+    }
+    return geometry;
   }
 
   /// Reads the footnote definition a hit referenced.

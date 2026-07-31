@@ -8,6 +8,8 @@ use rito_core::runtime::{
     decode_reader_artifact_v1, decode_reader_background_advance_v1,
     decode_reader_background_handoff_ack_v1, decode_reader_foreground_handoff_ack_v1,
     decode_reader_footnote_v1, decode_reader_publication_v1, decode_reader_resource_v1,
+    decode_reader_text_range_geometry_v1, encode_reader_text_range_request_v1,
+    ReaderTextPositionV1, ReaderTextRangeRequestV1,
     encode_reader_adjacent_request_v1,
     encode_reader_artifact_request_v1, encode_reader_background_handoff_v1,
     encode_reader_background_request_v1, encode_reader_foreground_handoff_v1,
@@ -24,7 +26,8 @@ use crate::{
     rito_adopt_foreground_candidate_v1, rito_advance_background_v1, rito_buffer_free_v1,
     rito_commit_peeked_artifact_v1, rito_dispose_v1, rito_open_v1,
     rito_open_with_pinned_fonts_v1, rito_peek_adjacent_v1, rito_read_publication_v1,
-    rito_read_footnote_v1, rito_read_resource_v1, rito_release_artifact_v1,
+    rito_get_text_range_geometry_v1, rito_read_footnote_v1, rito_read_resource_v1,
+    rito_release_artifact_v1,
     rito_request_adjacent_v1,
     rito_request_artifact_v1, RitoOwnedBufferV1, RitoPinnedFontFaceV1,
     RITO_ACTOR_MAX_IN_FLIGHT_V1, RITO_PINNED_FONT_ROLE_SERIF_V1,
@@ -1184,5 +1187,93 @@ fn footnote_hits_read_back_through_the_abi() {
     assert_eq!(missing.status, RITO_STATUS_TARGET_NOT_PUBLISHED_V1);
     let empty = call_read_footnote(session_id, current.artifact_id, b"");
     assert_eq!(empty.status, RITO_STATUS_INVALID_ARGUMENT_V1);
+    call_dispose(session_id);
+}
+
+#[test]
+fn text_range_geometry_crosses_the_abi_in_display_list_space() {
+    let session_id = next_session_id();
+    let open_wire =
+        encode_reader_artifact_request_v1(&request(session_id)).expect("request encodes");
+    let opened = call_open(&publication(), &open_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let mut artifact = decode_reader_artifact_v1(&opened.artifact).expect("artifact decodes");
+    // The opening spread of the corpus book can be a plate with no text
+    // runs; walk forward until a page actually carries one.
+    let mut request_id = 2;
+    for _ in 0..12 {
+        if artifact
+            .pages
+            .iter()
+            .any(|page| !page.text_runs.is_empty())
+        {
+            break;
+        }
+        let wire = encode_reader_adjacent_request_v1(&ReaderAdjacentRequestV1 {
+            session_id,
+            request_id,
+            from_artifact_id: artifact.artifact_id,
+            direction: ReaderAdjacentDirectionV1::Next,
+            work: request(session_id).work,
+        })
+        .expect("adjacent encodes");
+        request_id += 1;
+        let next = call_request_adjacent(session_id, &wire);
+        if next.status != RITO_STATUS_OK_V1 {
+            break;
+        }
+        let previous = artifact.artifact_id;
+        artifact = decode_reader_artifact_v1(&next.artifact).expect("next decodes");
+        call_release(session_id, previous);
+    }
+    let page = artifact
+        .pages
+        .iter()
+        .find(|page| !page.text_runs.is_empty())
+        .expect("a page with text");
+    let run = page.text_runs.first().copied().expect("a text run");
+
+    let wire = encode_reader_text_range_request_v1(&ReaderTextRangeRequestV1 {
+        session_id,
+        artifact_id: artifact.artifact_id,
+        page_index: page.page_index,
+        start: ReaderTextPositionV1 {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: 0,
+        },
+        end: ReaderTextPositionV1 {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: 1,
+        },
+    })
+    .expect("text range request encodes");
+    let mut geometry_out = RitoOwnedBufferV1::EMPTY;
+    let mut error_out = RitoOwnedBufferV1::EMPTY;
+    let status = rito_get_text_range_geometry_v1(
+        session_id,
+        wire.as_ptr(),
+        u64::try_from(wire.len()).expect("length"),
+        &mut geometry_out,
+        &mut error_out,
+    );
+    let bytes = copy_owned_buffer_for_test(&geometry_out);
+    let error = String::from_utf8_lossy(&copy_owned_buffer_for_test(&error_out)).into_owned();
+    rito_buffer_free_v1(&mut geometry_out);
+    rito_buffer_free_v1(&mut error_out);
+    assert_eq!(status, RITO_STATUS_OK_V1, "{error}");
+
+    let geometry = decode_reader_text_range_geometry_v1(&bytes).expect("geometry decodes");
+    assert_eq!(geometry.artifact_id, artifact.artifact_id);
+    assert_eq!(geometry.page_index, page.page_index);
+    assert!(!geometry.rects.is_empty());
+    // Same space as the hits the same artifact published.
+    let margin_left = request(session_id).layout.margin_left;
+    for rect in &geometry.rects {
+        assert!(rect.bounds.x >= margin_left, "{rect:?}");
+    }
     call_dispose(session_id);
 }

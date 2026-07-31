@@ -8,6 +8,7 @@ import '../protocol/artifact_decoder.dart';
 import '../protocol/artifact_models.dart';
 import '../protocol/binary_reader.dart';
 import '../protocol/footnote_decoder.dart';
+import '../protocol/text_geometry.dart';
 import '../protocol/resource_decoder.dart';
 import 'asset.dart';
 import 'pinned_font_policy.dart';
@@ -170,6 +171,18 @@ external int _ritoReadResourceV1(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_OwnedWireRequestNative>(
+  symbol: 'rito_get_text_range_geometry_v1',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoGetTextRangeGeometryV1(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> geometryOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_ReadFootnoteNative>(
   symbol: 'rito_read_footnote_v1',
   assetId: ritoNativeAssetId,
@@ -221,6 +234,7 @@ final class RitoNativeBindings {
        _adoptBackground = _ritoAdoptBackgroundCandidateV1,
        _readResource = _ritoReadResourceV1,
        _readFootnote = _ritoReadFootnoteV1,
+       _textRangeGeometry = _ritoGetTextRangeGeometryV1,
        _release = _ritoReleaseArtifactV1,
        _dispose = _ritoDisposeV1,
        _bufferFree = _ritoBufferFreeV1;
@@ -279,6 +293,10 @@ final class RitoNativeBindings {
            .lookupFunction<_ReadFootnoteNative, _ReadFootnoteDart>(
              'rito_read_footnote_v1',
            ),
+       _textRangeGeometry = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_get_text_range_geometry_v1',
+           ),
        _release = library.lookupFunction<_ReleaseNative, _ReleaseDart>(
          'rito_release_artifact_v1',
        ),
@@ -304,6 +322,7 @@ final class RitoNativeBindings {
   final _OwnedWireRequestDart _adoptBackground;
   final _ReadResourceDart _readResource;
   final _ReadFootnoteDart _readFootnote;
+  final _OwnedWireRequestDart _textRangeGeometry;
   final _ReleaseDart _release;
   final _DisposeDart _dispose;
   final _BufferFreeDart _bufferFree;
@@ -725,6 +744,20 @@ final class RitoNativeBindings {
       wireName: 'RITOBGQ1',
       outputName: 'background advance',
       operation: _advanceBackground,
+    );
+  }
+
+  Uint8List textRangeGeometryEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      expectedLength: RitoTextGeometryEncoder.requestWireBytes,
+      wireName: 'RITOTRQ1',
+      outputName: 'text range geometry',
+      operation: _textRangeGeometry,
     );
   }
 
@@ -1226,6 +1259,14 @@ final class RitoNativeWireBindings {
     artifactId: artifactId,
     kind: kind,
     href: href,
+  );
+
+  Uint8List textRangeGeometryEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.textRangeGeometryEncoded(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
   );
 
   Uint8List readFootnote({

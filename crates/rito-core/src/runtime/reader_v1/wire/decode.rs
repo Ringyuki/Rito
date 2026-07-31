@@ -16,7 +16,9 @@ use crate::runtime::reader_v1::{
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
     ReaderBackgroundStateV1, ReaderErrorV1, ReaderForegroundHandoffAckV1,
     ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1, ReaderPublicationV1,
-    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderResourceV1, ReaderSourcePointV1,
+    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderRectV1, ReaderResourceV1,
+    ReaderSourcePointV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1,
+    ReaderTextRangeRequestV1, ReaderTextRectV1,
     ReaderSourceRangeV1, ReaderSpreadModeV1,
     ReaderTextRenderingProfileV1, ReaderWorkBudgetV1, READER_PUBLICATION_WIRE_BYTES_MAX_V1,
 };
@@ -185,6 +187,67 @@ pub(super) fn publication(bytes: &[u8]) -> Result<ReaderPublicationV1, ReaderErr
     super::super::publication_info::validate_reader_publication_v1(&publication)
         .map_err(invalid)?;
     Ok(publication)
+}
+
+pub(super) fn text_range_request(
+    bytes: &[u8],
+) -> Result<ReaderTextRangeRequestV1, ReaderErrorV1> {
+    let mut reader = Reader::message(
+        bytes,
+        super::READER_TEXT_RANGE_REQUEST_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    )?;
+    let request = ReaderTextRangeRequestV1 {
+        session_id: external_id(reader.u64()?, "sessionId")?,
+        artifact_id: external_id(reader.u64()?, "artifactId")?,
+        page_index: reader.u32()?,
+        start: text_position(&mut reader)?,
+        end: text_position(&mut reader)?,
+    };
+    reader.finish("text range request wire message")?;
+    Ok(request)
+}
+
+fn text_position(reader: &mut Reader<'_>) -> Result<ReaderTextPositionV1, ReaderErrorV1> {
+    Ok(ReaderTextPositionV1 {
+        block_index: reader.u32()?,
+        line_index: reader.u32()?,
+        run_index: reader.u32()?,
+        char_index: reader.u32()?,
+    })
+}
+
+pub(super) fn text_range_geometry(
+    bytes: &[u8],
+) -> Result<ReaderTextRangeGeometryV1, ReaderErrorV1> {
+    let mut reader = Reader::message(
+        bytes,
+        super::READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    )?;
+    let geometry = ReaderTextRangeGeometryV1 {
+        artifact_id: external_id(reader.u64()?, "artifactId")?,
+        page_index: reader.u32()?,
+        rects: reader.collection("text range rects", |reader| {
+            reader.record("text range rect", |reader| {
+                Ok(ReaderTextRectV1 {
+                    bounds: ReaderRectV1 {
+                        x: reader.f64("text rect x")?,
+                        y: reader.f64("text rect y")?,
+                        width: reader.f64("text rect width")?,
+                        height: reader.f64("text rect height")?,
+                    },
+                    block_index: reader.u32()?,
+                    line_index: reader.u32()?,
+                    run_index: reader.u32()?,
+                    start_char_index: reader.u32()?,
+                    end_char_index: reader.u32()?,
+                })
+            })
+        })?,
+    };
+    reader.finish("text range geometry wire message")?;
+    Ok(geometry)
 }
 
 pub(super) fn footnote(bytes: &[u8]) -> Result<ReaderFootnoteV1, ReaderErrorV1> {

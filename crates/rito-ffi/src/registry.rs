@@ -4,6 +4,7 @@ use std::{
 };
 
 use rito_core::runtime::{
+    ReaderTextRangeRequestV1,
     ReaderAdjacentRequestV1, ReaderArtifactRequestV1, ReaderBackgroundHandoffV1,
     ReaderBackgroundRequestV1, ReaderForegroundHandoffV1, ReaderResourceKindV1,
     RuntimePinnedFontPolicyInput,
@@ -258,6 +259,13 @@ pub(crate) fn read_resource(
     href: String,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_resource(admission, artifact_id, kind, href)
+}
+
+pub(crate) fn text_range_geometry(
+    admission: CommandAdmission,
+    request: ReaderTextRangeRequestV1,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_text_range_geometry(admission, request)
 }
 
 pub(crate) fn read_footnote(

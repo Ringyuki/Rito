@@ -35,6 +35,12 @@ export 'src/protocol/artifact_models.dart';
 export 'src/protocol/display_models.dart' show RitoCommand, RitoDisplayList;
 export 'src/protocol/footnote_decoder.dart'
     show RitoFootnote, RitoFootnoteKind;
+export 'src/protocol/text_geometry.dart'
+    show
+        RitoTextPosition,
+        RitoTextRangeGeometry,
+        RitoTextRangeRequest,
+        RitoTextRect;
 export 'src/protocol/request_models.dart';
 export 'src/reader_session.dart';
 export 'src/render/font_envelope.dart'

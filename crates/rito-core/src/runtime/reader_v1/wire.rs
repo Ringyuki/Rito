@@ -11,7 +11,7 @@ use super::{
     ReaderAdjacentRequestV1, ReaderArtifactRequestV1, ReaderArtifactV1, ReaderBackgroundAdvanceV1,
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
     ReaderErrorV1, ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderPublicationV1,
-    ReaderFootnoteV1, ReaderResourceV1,
+    ReaderFootnoteV1, ReaderResourceV1, ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
 };
 
 pub const READER_ADJACENT_REQUEST_WIRE_MAGIC_V1: [u8; 8] = *b"RITONAV1";
@@ -26,6 +26,9 @@ pub const READER_PUBLICATION_WIRE_MAGIC_V1: [u8; 8] = *b"RITOPUB1";
 pub const READER_REQUEST_WIRE_MAGIC_V1: [u8; 8] = *b"RITOREQ1";
 pub const READER_RESOURCE_WIRE_MAGIC_V1: [u8; 8] = *b"RITORES1";
 pub const READER_FOOTNOTE_WIRE_MAGIC_V1: [u8; 8] = *b"RITOFTN1";
+pub const READER_TEXT_RANGE_REQUEST_WIRE_MAGIC_V1: [u8; 8] = *b"RITOTRQ1";
+pub const READER_TEXT_RANGE_REQUEST_WIRE_BYTES_V1: u32 = 72;
+pub const READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC_V1: [u8; 8] = *b"RITOTRG1";
 pub const READER_WIRE_VERSION_V1: u32 = 1;
 pub const READER_WIRE_HEADER_BYTES_V1: u32 = 20;
 pub const READER_ADJACENT_REQUEST_WIRE_BYTES_V1: u32 = 60;
@@ -164,4 +167,28 @@ pub fn encode_reader_footnote_v1(footnote: &ReaderFootnoteV1) -> Result<Vec<u8>,
 
 pub fn decode_reader_footnote_v1(bytes: &[u8]) -> Result<ReaderFootnoteV1, ReaderErrorV1> {
     decode::footnote(bytes)
+}
+
+pub fn encode_reader_text_range_request_v1(
+    request: &ReaderTextRangeRequestV1,
+) -> Result<Vec<u8>, ReaderErrorV1> {
+    encode::text_range_request(request)
+}
+
+pub fn decode_reader_text_range_request_v1(
+    bytes: &[u8],
+) -> Result<ReaderTextRangeRequestV1, ReaderErrorV1> {
+    decode::text_range_request(bytes)
+}
+
+pub fn encode_reader_text_range_geometry_v1(
+    geometry: &ReaderTextRangeGeometryV1,
+) -> Result<Vec<u8>, ReaderErrorV1> {
+    encode::text_range_geometry(geometry)
+}
+
+pub fn decode_reader_text_range_geometry_v1(
+    bytes: &[u8],
+) -> Result<ReaderTextRangeGeometryV1, ReaderErrorV1> {
+    decode::text_range_geometry(bytes)
 }

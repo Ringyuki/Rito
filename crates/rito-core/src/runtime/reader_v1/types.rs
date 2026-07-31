@@ -359,6 +359,50 @@ pub struct ReaderHitEntryV1 {
     pub footnote_pending: bool,
 }
 
+/// A position inside a page's laid-out text, in the same coordinates
+/// `ReaderPageV1::text_runs` reports: block, line, run, then character
+/// offset within that run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderTextPositionV1 {
+    pub block_index: u32,
+    pub line_index: u32,
+    pub run_index: u32,
+    pub char_index: u32,
+}
+
+/// Asks where a text range sits on a page so a host can paint a
+/// selection or highlight anchored to source text rather than to a
+/// pixel guess.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderTextRangeRequestV1 {
+    pub session_id: u64,
+    pub artifact_id: u64,
+    pub page_index: u32,
+    pub start: ReaderTextPositionV1,
+    pub end: ReaderTextPositionV1,
+}
+
+/// One run-aligned rectangle of a resolved text range.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReaderTextRectV1 {
+    pub bounds: ReaderRectV1,
+    pub block_index: u32,
+    pub line_index: u32,
+    pub run_index: u32,
+    pub start_char_index: u32,
+    pub end_char_index: u32,
+}
+
+/// Geometry of a resolved text range. `rects` are in the artifact's
+/// display-list space, exactly like [`ReaderHitEntryV1::bounds`], so a
+/// host paints them straight onto the surface it drew the page on.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderTextRangeGeometryV1 {
+    pub artifact_id: u64,
+    pub page_index: u32,
+    pub rects: Vec<ReaderTextRectV1>,
+}
+
 /// EPUB semantic role of a footnote definition, taken verbatim from the
 /// publication's `epub:type`. Hosts use it to title the popup (a
 /// footnote and an endnote are read differently).
