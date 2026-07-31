@@ -16,7 +16,8 @@ use crate::runtime::reader_v1::{
     ReaderBackgroundStateV1, ReaderErrorV1, ReaderForegroundHandoffAckV1,
     ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1, ReaderPublicationV1,
     ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderResourceV1, ReaderSourcePointV1,
-    ReaderTextPositionV1, ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
+    ReaderSearchRequestV1, ReaderSearchResponseV1, ReaderTextPositionV1,
+    ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
     ReaderSourceRangeV1, ReaderSpreadModeV1,
     ReaderTextRenderingProfileV1, ReaderWorkBudgetV1, READER_PROTOCOL_VERSION_V1,
     READER_PUBLICATION_WIRE_BYTES_MAX_V1,
@@ -190,6 +191,45 @@ pub(super) fn publication(value: &ReaderPublicationV1) -> Result<Vec<u8>, Reader
         return Err(super::primitives::overflow("publication wire byte limit"));
     }
     Ok(bytes)
+}
+
+pub(super) fn search_request(value: &ReaderSearchRequestV1) -> Result<Vec<u8>, ReaderErrorV1> {
+    super::primitives::external_id(value.session_id, "sessionId")?;
+    super::primitives::external_id(value.artifact_id, "artifactId")?;
+    let mut writer = Writer::message(
+        super::READER_SEARCH_REQUEST_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    );
+    writer.u64(value.session_id);
+    writer.u64(value.artifact_id);
+    writer.string(&value.query, "search query")?;
+    writer.bool(value.case_sensitive);
+    writer.bool(value.whole_word);
+    writer.u32(value.limit);
+    writer.finish_message()
+}
+
+pub(super) fn search_response(value: &ReaderSearchResponseV1) -> Result<Vec<u8>, ReaderErrorV1> {
+    super::primitives::external_id(value.artifact_id, "artifactId")?;
+    let mut writer = Writer::message(
+        super::READER_SEARCH_RESPONSE_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    );
+    writer.u64(value.artifact_id);
+    writer.string(&value.query, "search query")?;
+    writer.bool(value.truncated);
+    writer.count(value.results.len(), "search result count")?;
+    for result in &value.results {
+        writer.record(|writer| {
+            writer.u32(result.page_index);
+            writer.u32(result.spread_index);
+            text_position(writer, result.start);
+            text_position(writer, result.end);
+            writer.string(&result.context, "search context")?;
+            writer.option(result.locator.as_ref(), locator)
+        })?;
+    }
+    writer.finish_message()
 }
 
 pub(super) fn text_range_request(

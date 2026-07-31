@@ -9,7 +9,8 @@ use crate::{
         RuntimeContinueChapterLocalRevisionRequest, RuntimeContinueRevisionRequest,
         RuntimeDocument, RuntimePageReadingAnchor, RuntimeRevisionWorkBudget,
         RuntimeRolloverChapterLocalRevisionRequest, RuntimeSourceLocator,
-        RuntimeRevision, RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorResolution,
+        RuntimeRevision, RuntimeSearchRequest, RuntimeSourceLocatorMatchedBy,
+        RuntimeSourceLocatorResolution,
         RuntimeTextRangeGeometryRequest,
         RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX,
     },
@@ -34,7 +35,8 @@ use super::{
     ReaderBackgroundStateV1, ReaderDisposeAckV1, ReaderErrorKindV1, ReaderErrorV1,
     ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderLocatorV1, ReaderNavigationV1,
     ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderPublicationV1, ReaderRectV1,
-    ReaderResourceKindV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1,
+    ReaderResourceKindV1, ReaderSearchRequestV1, ReaderSearchResponseV1,
+    ReaderSearchResultV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1,
     ReaderTextRangeRequestV1, ReaderTextRectV1,
     ReaderResourceV1, ReaderTextRenderingProfileV1,
     ReaderWorkBudgetV1, READER_EXTERNAL_ID_MAX_V1,
@@ -689,6 +691,101 @@ impl ReaderSessionV1 {
             kind: reader_footnote_kind(kind),
             text,
             html,
+        })
+    }
+
+    /// Searches the revision backing an artifact.
+    ///
+    /// Scope follows that revision: from a chapter-local artifact the
+    /// search covers the pages that chapter has laid out; from a
+    /// publication artifact it covers the whole book as far as
+    /// background pagination has reached. Hits carry the page-text
+    /// positions `get_text_range_geometry` consumes and, where the
+    /// layout retained source identity, a durable locator to store.
+    pub fn search(
+        &mut self,
+        request: ReaderSearchRequestV1,
+    ) -> Result<ReaderSearchResponseV1, ReaderErrorV1> {
+        if request.session_id != self.session_id {
+            return Err(ReaderErrorV1::new(
+                ReaderErrorKindV1::InvalidSession,
+                "search request belongs to a different session",
+            ));
+        }
+        validate_external_request_id(request.artifact_id, "artifactId")?;
+        if request.query.is_empty() {
+            return Err(ReaderErrorV1::new(
+                ReaderErrorKindV1::InvalidRequest,
+                "search query must not be empty",
+            ));
+        }
+        let artifact = self
+            .artifacts
+            .get(&request.artifact_id)
+            .cloned()
+            .ok_or_else(|| unknown_artifact(request.artifact_id))?;
+        // Ask for one more than the cap so the response can say
+        // truthfully whether the list is a prefix.
+        let probe_limit = (request.limit > 0).then(|| usize_from_u32(request.limit, "search limit"))
+            .transpose()?
+            .map(|limit| limit.saturating_add(1));
+        let runtime_request = RuntimeSearchRequest {
+            query: request.query.clone(),
+            case_sensitive: request.case_sensitive,
+            whole_word: request.whole_word,
+            limit: probe_limit,
+        };
+        let response = match artifact.backing {
+            ReaderRevisionBackingV1::ChapterLocal => {
+                let owner = self
+                    .revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.owner.clone())
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                let revision = self
+                    .document
+                    .require_chapter_local_owner(&owner)
+                    .map_err(engine_error)?;
+                crate::runtime::search::search_revision(
+                    self.document.document(),
+                    &owner.revision_id,
+                    revision,
+                    runtime_request,
+                )
+            }
+            ReaderRevisionBackingV1::Publication => {
+                let owner = self
+                    .publication_revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.owner.clone())
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                let revision = self
+                    .document
+                    .revisions
+                    .get(&owner.revision_id)
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                crate::runtime::search::search_revision(
+                    self.document.document(),
+                    &owner.revision_id,
+                    revision,
+                    runtime_request,
+                )
+            }
+        };
+        let cap = usize_from_u32(request.limit, "search limit")?;
+        let truncated = cap > 0 && response.results.len() > cap;
+        let mut results = response.results;
+        if truncated {
+            results.truncate(cap);
+        }
+        Ok(ReaderSearchResponseV1 {
+            artifact_id: request.artifact_id,
+            query: request.query,
+            truncated,
+            results: results
+                .into_iter()
+                .map(reader_search_result)
+                .collect::<Result<Vec<_>, ReaderErrorV1>>()?,
         })
     }
 
@@ -3049,5 +3146,41 @@ fn runtime_text_position(
         line_index: usize_from_u32(value.line_index, "text position line index")?,
         run_index: usize_from_u32(value.run_index, "text position run index")?,
         char_index: usize_from_u32(value.char_index, "text position char index")?,
+    })
+}
+
+fn reader_search_result(
+    value: crate::runtime::RuntimeSearchResult,
+) -> Result<ReaderSearchResultV1, ReaderErrorV1> {
+    let locator = match value.source {
+        crate::runtime::RuntimeSearchSource::Resolved { href, source_range } => {
+            Some(super::convert::reader_locator(RuntimeSourceLocator {
+                href,
+                anchor_id: None,
+                source_point: None,
+                source_range: Some(source_range),
+                progression: None,
+            })?)
+        }
+        crate::runtime::RuntimeSearchSource::Unavailable { .. } => None,
+    };
+    Ok(ReaderSearchResultV1 {
+        page_index: u32_from_usize(value.page_index, "search page index")?,
+        spread_index: u32_from_usize(value.spread_index, "search spread index")?,
+        start: reader_text_position(value.match_range.start)?,
+        end: reader_text_position(value.match_range.end)?,
+        context: value.match_range.context,
+        locator,
+    })
+}
+
+fn reader_text_position(
+    value: crate::layout::SearchTextPosition,
+) -> Result<ReaderTextPositionV1, ReaderErrorV1> {
+    Ok(ReaderTextPositionV1 {
+        block_index: u32_from_usize(value.block_index, "text position block index")?,
+        line_index: u32_from_usize(value.line_index, "text position line index")?,
+        run_index: u32_from_usize(value.run_index, "text position run index")?,
+        char_index: u32_from_usize(value.char_index, "text position char index")?,
     })
 }

@@ -2127,3 +2127,77 @@ fn text_range_geometry_lands_in_display_list_space() {
         .expect_err("an unknown range fails");
     assert_eq!(missing.kind, ReaderErrorKindV1::EngineFailure);
 }
+
+#[test]
+fn search_hits_feed_straight_into_text_geometry() {
+    let mut session =
+        ReaderSessionV1::open_owned(170, crate::runtime::tests::fixture::fixture_epub())
+            .expect("reader session opens");
+    let artifact = session
+        .request_artifact(request(170, 1, ""))
+        .expect("artifact resolves");
+    // Take a word the fixture actually renders, straight off the page.
+    let page = artifact.pages.first().expect("a page");
+    let needle = page
+        .text
+        .split_whitespace()
+        .find(|word| word.chars().count() >= 3)
+        .expect("the fixture page has a word")
+        .to_owned();
+
+    let response = session
+        .search(ReaderSearchRequestV1 {
+            session_id: 170,
+            artifact_id: artifact.artifact_id,
+            query: needle.clone(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: 8,
+        })
+        .expect("search runs");
+    assert_eq!(response.artifact_id, artifact.artifact_id);
+    assert_eq!(response.query, needle);
+    let hit = response.results.first().expect("the word is found");
+    assert!(hit.context.contains(&needle), "{hit:?}");
+
+    // The whole point of the positions: they resolve to paintable
+    // geometry without the host inventing coordinates.
+    let geometry = session
+        .get_text_range_geometry(ReaderTextRangeRequestV1 {
+            session_id: 170,
+            artifact_id: artifact.artifact_id,
+            page_index: hit.page_index,
+            start: hit.start,
+            end: hit.end,
+        })
+        .expect("a hit resolves to geometry");
+    assert!(!geometry.rects.is_empty());
+
+    // A limit is honoured and reported rather than silently applied.
+    let capped = session
+        .search(ReaderSearchRequestV1 {
+            session_id: 170,
+            artifact_id: artifact.artifact_id,
+            query: "e".to_owned(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: 1,
+        })
+        .expect("capped search runs");
+    assert!(capped.results.len() <= 1);
+    if capped.truncated {
+        assert_eq!(capped.results.len(), 1);
+    }
+
+    let empty = session
+        .search(ReaderSearchRequestV1 {
+            session_id: 170,
+            artifact_id: artifact.artifact_id,
+            query: String::new(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: 8,
+        })
+        .expect_err("an empty query is rejected");
+    assert_eq!(empty.kind, ReaderErrorKindV1::InvalidRequest);
+}

@@ -324,6 +324,13 @@ final class _NavigationGateway implements RitoReaderGateway {
   }
 
   @override
+  Future<RitoSearchResponse> search({
+    required RitoSearchRequest request,
+  }) async {
+    throw UnimplementedError('search is out of scope for this fake');
+  }
+
+  @override
   Future<RitoTextRangeGeometry> textRangeGeometry({
     required RitoTextRangeRequest request,
   }) async {

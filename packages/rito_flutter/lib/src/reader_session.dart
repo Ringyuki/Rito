@@ -7,6 +7,7 @@ import 'native/gateway.dart';
 import 'protocol/artifact_models.dart';
 import 'protocol/background_models.dart';
 import 'protocol/footnote_decoder.dart';
+import 'protocol/search.dart';
 import 'protocol/text_geometry.dart';
 import 'protocol/foreground_models.dart';
 import 'protocol/publication_models.dart';
@@ -561,6 +562,61 @@ final class RitoReaderSession {
     RitoResourceRef reference,
   ) {
     return _readOwnedResource(prepared.artifact, reference);
+  }
+
+  /// Searches the book from [prepared].
+  ///
+  /// Scope follows the revision behind the artifact: from a
+  /// chapter-local artifact the search covers that chapter's laid-out
+  /// pages; once the background pump has handed off a publication
+  /// artifact it covers the book as far as pagination has reached. Hits
+  /// carry positions [textRangeGeometry] consumes and, where the layout
+  /// kept source identity, a durable [RitoLocator] to store instead of
+  /// a page number.
+  Future<RitoSearchResponse> search(
+    RitoPreparedArtifact prepared,
+    String query, {
+    bool caseSensitive = false,
+    bool wholeWord = false,
+    int limit = 0,
+  }) async {
+    _requireOpen();
+    final artifact = prepared.artifact;
+    if (artifact.sessionId != sessionId ||
+        !_liveArtifacts.contains(artifact.artifactId)) {
+      throw ArgumentError('Artifact is not live in this Rito session.');
+    }
+    if (query.isEmpty) {
+      throw ArgumentError.value(query, 'query', 'must not be empty');
+    }
+    if (limit < 0) {
+      throw ArgumentError.value(limit, 'limit', 'must not be negative');
+    }
+    late final RitoSearchResponse response;
+    try {
+      response = await gateway.search(
+        request: RitoSearchRequest(
+          sessionId: sessionId,
+          artifactId: artifact.artifactId,
+          query: query,
+          caseSensitive: caseSensitive,
+          wholeWord: wholeWord,
+          limit: limit,
+        ),
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    if (response.artifactId != artifact.artifactId ||
+        response.query != query) {
+      throw StateError('Search ownership does not match its artifact.');
+    }
+    return response;
   }
 
   /// Resolves where a text range sits on one of [prepared]'s pages.

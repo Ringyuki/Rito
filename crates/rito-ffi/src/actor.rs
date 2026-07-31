@@ -10,8 +10,8 @@ use rito_core::runtime::{
     encode_reader_artifact_v1, encode_reader_background_advance_v1,
     encode_reader_background_handoff_ack_v1, encode_reader_foreground_handoff_ack_v1,
     encode_reader_footnote_v1, encode_reader_publication_v1, encode_reader_resource_v1,
-    encode_reader_text_range_geometry_v1, ReaderAdjacentRequestV1,
-    ReaderTextRangeRequestV1,
+    encode_reader_search_response_v1, encode_reader_text_range_geometry_v1,
+    ReaderAdjacentRequestV1, ReaderSearchRequestV1, ReaderTextRangeRequestV1,
     ReaderArtifactRequestV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderErrorV1,
     ReaderForegroundHandoffV1, ReaderResourceKindV1, ReaderSessionV1,
     RuntimePinnedFontPolicyInput,
@@ -63,6 +63,10 @@ pub(crate) enum ActorCommand {
         artifact_id: u64,
         kind: ReaderResourceKindV1,
         href: String,
+        reply: Reply<Vec<u8>>,
+    },
+    Search {
+        request: ReaderSearchRequestV1,
         reply: Reply<Vec<u8>>,
     },
     TextRangeGeometry {
@@ -605,6 +609,13 @@ fn run_commands(
                     encode_reader_publication_v1(session.publication_v1()).map_err(FfiError::from);
                 let _ = reply.send(result);
             }
+            ActorCommand::Search { request, reply } => {
+                let result = session
+                    .search(request)
+                    .and_then(|response| encode_reader_search_response_v1(&response))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
             ActorCommand::TextRangeGeometry { request, reply } => {
                 let result = session
                     .get_text_range_geometry(request)
@@ -770,6 +781,17 @@ pub(crate) fn request_resource(
             reply,
         },
         "resource",
+    )
+}
+
+pub(crate) fn request_search(
+    admission: CommandAdmission,
+    request: ReaderSearchRequestV1,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::Search { request, reply },
+        "search",
     )
 }
 

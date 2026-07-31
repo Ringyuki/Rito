@@ -17,6 +17,7 @@ use crate::runtime::reader_v1::{
     ReaderBackgroundStateV1, ReaderErrorV1, ReaderForegroundHandoffAckV1,
     ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1, ReaderPublicationV1,
     ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderRectV1, ReaderResourceV1,
+    ReaderSearchRequestV1, ReaderSearchResponseV1, ReaderSearchResultV1,
     ReaderSourcePointV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1,
     ReaderTextRangeRequestV1, ReaderTextRectV1,
     ReaderSourceRangeV1, ReaderSpreadModeV1,
@@ -187,6 +188,51 @@ pub(super) fn publication(bytes: &[u8]) -> Result<ReaderPublicationV1, ReaderErr
     super::super::publication_info::validate_reader_publication_v1(&publication)
         .map_err(invalid)?;
     Ok(publication)
+}
+
+pub(super) fn search_request(bytes: &[u8]) -> Result<ReaderSearchRequestV1, ReaderErrorV1> {
+    let mut reader = Reader::message(
+        bytes,
+        super::READER_SEARCH_REQUEST_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    )?;
+    let request = ReaderSearchRequestV1 {
+        session_id: external_id(reader.u64()?, "sessionId")?,
+        artifact_id: external_id(reader.u64()?, "artifactId")?,
+        query: reader.string("search query")?,
+        case_sensitive: reader.bool("search case sensitive")?,
+        whole_word: reader.bool("search whole word")?,
+        limit: reader.u32()?,
+    };
+    reader.finish("search request wire message")?;
+    Ok(request)
+}
+
+pub(super) fn search_response(bytes: &[u8]) -> Result<ReaderSearchResponseV1, ReaderErrorV1> {
+    let mut reader = Reader::message(
+        bytes,
+        super::READER_SEARCH_RESPONSE_WIRE_MAGIC_V1,
+        READER_WIRE_VERSION_V1,
+    )?;
+    let response = ReaderSearchResponseV1 {
+        artifact_id: external_id(reader.u64()?, "artifactId")?,
+        query: reader.string("search query")?,
+        truncated: reader.bool("search truncated")?,
+        results: reader.collection("search results", |reader| {
+            reader.record("search result", |reader| {
+                Ok(ReaderSearchResultV1 {
+                    page_index: reader.u32()?,
+                    spread_index: reader.u32()?,
+                    start: text_position(reader)?,
+                    end: text_position(reader)?,
+                    context: reader.string("search context")?,
+                    locator: reader.option("search locator", locator)?,
+                })
+            })
+        })?,
+    };
+    reader.finish("search response wire message")?;
+    Ok(response)
 }
 
 pub(super) fn text_range_request(

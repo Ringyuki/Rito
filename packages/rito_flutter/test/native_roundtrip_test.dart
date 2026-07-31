@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:characters/characters.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter.dart';
 import 'package:rito_flutter/rito_flutter_native.dart';
@@ -603,6 +605,74 @@ void main() {
         ),
         isTrue,
         reason: 'geometry must land inside a painted run, not offset by margins',
+      );
+    } finally {
+      await session.dispose();
+      await gateway.close();
+    }
+  });
+
+  test('search returns storable locators that resolve to geometry', () async {
+    final publication = File(
+      '../rito/tests/fixtures/books/book-10.epub',
+    ).readAsBytesSync();
+    const sessionId = 9008;
+    const work = RitoWorkBudget(
+      maxTopLevelNodesPerQuantum: 32,
+      maxForegroundQuanta: 64,
+      localPageCap: 16,
+    );
+    final gateway = RitoIsolateGateway();
+    final session = await RitoReaderSession.open(
+      gateway: gateway,
+      publicationBytes: publication,
+      request: const RitoArtifactRequest(
+        sessionId: sessionId,
+        requestId: 1,
+        layout: RitoLayoutRequest(
+          viewportWidth: 420,
+          viewportHeight: 640,
+          marginTop: 24,
+          marginRight: 24,
+          marginBottom: 24,
+          marginLeft: 24,
+          spreadMode: RitoSpreadMode.single,
+          firstPageAlone: true,
+          spreadGap: 0,
+          rootFontSize: 16,
+        ),
+        locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
+        work: work,
+      ),
+    );
+    try {
+      final prepared = session.firstArtifact;
+      final needle = prepared.artifact.pages
+          .expand((page) => page.text.split(RegExp(r'\s+')))
+          .firstWhere((word) => word.characters.length >= 2);
+
+      final response = await session.search(prepared, needle, limit: 16);
+      expect(response.query, needle);
+      expect(response.results, isNotEmpty);
+      final hit = response.results.first;
+      expect(hit.context, contains(needle));
+      // A durable anchor is what a host stores; page indexes move.
+      expect(hit.locator, isNotNull);
+      expect(hit.locator!.href, isNotEmpty);
+
+      // The hit's positions paint without the host inventing geometry.
+      final geometry = await session.textRangeGeometry(
+        prepared,
+        pageIndex: hit.pageIndex,
+        start: hit.start,
+        end: hit.end,
+      );
+      expect(geometry.rects, isNotEmpty);
+
+      // An empty query is a host mistake, caught before the ABI.
+      expect(
+        () => session.search(prepared, ''),
+        throwsA(isA<ArgumentError>()),
       );
     } finally {
       await session.dispose();

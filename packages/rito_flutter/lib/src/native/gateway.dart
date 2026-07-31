@@ -11,6 +11,7 @@ import '../protocol/background_models.dart';
 import '../protocol/foreground_decoder.dart';
 import '../protocol/foreground_encoder.dart';
 import '../protocol/footnote_decoder.dart';
+import '../protocol/search.dart';
 import '../protocol/text_geometry.dart';
 import '../protocol/foreground_models.dart';
 import '../protocol/publication_decoder.dart';
@@ -95,6 +96,9 @@ abstract interface class RitoReaderGateway {
     required RitoResourceKind kind,
     required String href,
   });
+
+  /// Searches the revision behind an artifact.
+  Future<RitoSearchResponse> search({required RitoSearchRequest request});
 
   /// Resolves where a text range sits on one of an artifact's pages.
   Future<RitoTextRangeGeometry> textRangeGeometry({
@@ -199,6 +203,8 @@ final class RitoIsolateGateway
       const RitoTextGeometryEncoder();
   final RitoTextGeometryDecoder _textGeometryDecoder =
       const RitoTextGeometryDecoder();
+  final RitoRequestEncoder _searchEncoder = const RitoRequestEncoder();
+  final RitoSearchDecoder _searchDecoder = const RitoSearchDecoder();
   final RitoRequestEncoder _requestEncoder = const RitoRequestEncoder();
   final RitoNativeGatewayQueue _queue = RitoNativeGatewayQueue();
   final RitoPendingExactSeekDriver _pendingExactSeek =
@@ -706,6 +712,37 @@ final class RitoIsolateGateway
                 resource.artifactId == artifactId &&
                 resource.kind == kind &&
                 resource.href == href,
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<RitoSearchResponse> search({
+    required RitoSearchRequest request,
+  }) async {
+    return _queue.ordered<RitoSearchResponse>(
+      sessionId: request.sessionId,
+      operation: () => _guardNativeSessionOperation<RitoSearchResponse>(
+        sessionId: request.sessionId,
+        requestId: _diagnosticRequestId(request.sessionId),
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(
+            _SearchOperation(
+              sessionId: request.sessionId,
+              requestBytes: _searchEncoder.encodeSearch(request),
+            ),
+          );
+          return _decodeSessionWire<RitoSearchResponse>(
+            sessionId: request.sessionId,
+            field: 'search response',
+            wireBytes: wireBytes,
+            decode: _searchDecoder.decode,
+            validate: (response) =>
+                response.artifactId == request.artifactId &&
+                response.query == request.query,
           );
         },
       ),

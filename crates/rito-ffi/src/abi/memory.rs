@@ -454,6 +454,35 @@ pub extern "C" fn rito_read_resource_v1(
     })
 }
 
+/// Searches the revision behind a live artifact and returns a complete
+/// RITOSRS1 message. request_data is a RITOSRQ1 message, copied before
+/// this call returns. Scope follows the artifact's revision: a
+/// chapter-local artifact searches that chapter's laid-out pages, a
+/// publication artifact searches the book as far as background
+/// pagination has reached.
+#[no_mangle]
+pub extern "C" fn rito_search_v1(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    response_out: *mut RitoOwnedBufferV1,
+    error_out: *mut RitoOwnedBufferV1,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(response_out, error_out, "response_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::search_request(request_data, request_len)?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOSRQ1 session_id must match the session",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let response = registry::search(admission, request)?;
+        write_buffer(response_out, response)
+    })
+}
+
 /// Resolves where a text range sits on one of a live artifact's pages
 /// and returns a complete RITOTRG1 message. The rects are in the
 /// artifact's display-list space — the same space its hit bounds use —

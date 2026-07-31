@@ -359,6 +359,48 @@ pub struct ReaderHitEntryV1 {
     pub footnote_pending: bool,
 }
 
+/// Asks the revision behind an artifact for matches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderSearchRequestV1 {
+    pub session_id: u64,
+    pub artifact_id: u64,
+    pub query: String,
+    pub case_sensitive: bool,
+    pub whole_word: bool,
+    /// Maximum hits to return. Zero means unbounded, which on a whole
+    /// book can be a long list — hosts should pass a real cap.
+    pub limit: u32,
+}
+
+/// One in-book search hit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderSearchResultV1 {
+    pub page_index: u32,
+    pub spread_index: u32,
+    /// Where the match sits in the page's laid-out text, in the same
+    /// coordinates `ReaderPageV1::text_runs` reports — feed these
+    /// straight to `get_text_range_geometry` to paint the hit.
+    pub start: ReaderTextPositionV1,
+    pub end: ReaderTextPositionV1,
+    /// Surrounding text for a result list.
+    pub context: String,
+    /// Durable source anchor for the match, absent when the layout did
+    /// not retain enough source identity to build one. A host that
+    /// stores a hit should store this, not the page index.
+    pub locator: Option<ReaderLocatorV1>,
+}
+
+/// Results of one search over the revision backing an artifact.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderSearchResponseV1 {
+    pub artifact_id: u64,
+    pub query: String,
+    /// True when the search stopped at the request's limit, so the host
+    /// knows the list is a prefix rather than the whole book.
+    pub truncated: bool,
+    pub results: Vec<ReaderSearchResultV1>,
+}
+
 /// A position inside a page's laid-out text, in the same coordinates
 /// `ReaderPageV1::text_runs` reports: block, line, run, then character
 /// offset within that run.

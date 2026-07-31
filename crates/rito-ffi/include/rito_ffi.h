@@ -215,6 +215,19 @@ uint32_t rito_read_resource_v1(uint64_t session_id,
                                rito_owned_buffer_v1 *error_out);
 
 /*
+ * Searches the revision behind a live artifact and returns a complete RITOSRS1
+ * message. request_data is a RITOSRQ1 message and is copied before this
+ * function returns. Scope follows the artifact's revision: a chapter-local
+ * artifact searches that chapter's laid-out pages, a publication artifact
+ * searches the book as far as background pagination has reached.
+ */
+uint32_t rito_search_v1(uint64_t session_id,
+                        const uint8_t *request_data,
+                        uint64_t request_len,
+                        rito_owned_buffer_v1 *response_out,
+                        rito_owned_buffer_v1 *error_out);
+
+/*
  * Resolves where a text range sits on one of a live artifact's pages and
  * returns a complete RITOTRG1 message. request_data is a RITOTRQ1 message and
  * is copied before this function returns. The returned rects are in the

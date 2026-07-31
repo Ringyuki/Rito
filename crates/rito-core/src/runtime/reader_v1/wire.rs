@@ -11,7 +11,8 @@ use super::{
     ReaderAdjacentRequestV1, ReaderArtifactRequestV1, ReaderArtifactV1, ReaderBackgroundAdvanceV1,
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
     ReaderErrorV1, ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderPublicationV1,
-    ReaderFootnoteV1, ReaderResourceV1, ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
+    ReaderFootnoteV1, ReaderResourceV1, ReaderSearchRequestV1, ReaderSearchResponseV1,
+    ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
 };
 
 pub const READER_ADJACENT_REQUEST_WIRE_MAGIC_V1: [u8; 8] = *b"RITONAV1";
@@ -29,6 +30,8 @@ pub const READER_FOOTNOTE_WIRE_MAGIC_V1: [u8; 8] = *b"RITOFTN1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_MAGIC_V1: [u8; 8] = *b"RITOTRQ1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_BYTES_V1: u32 = 72;
 pub const READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC_V1: [u8; 8] = *b"RITOTRG1";
+pub const READER_SEARCH_REQUEST_WIRE_MAGIC_V1: [u8; 8] = *b"RITOSRQ1";
+pub const READER_SEARCH_RESPONSE_WIRE_MAGIC_V1: [u8; 8] = *b"RITOSRS1";
 pub const READER_WIRE_VERSION_V1: u32 = 1;
 pub const READER_WIRE_HEADER_BYTES_V1: u32 = 20;
 pub const READER_ADJACENT_REQUEST_WIRE_BYTES_V1: u32 = 60;
@@ -167,6 +170,30 @@ pub fn encode_reader_footnote_v1(footnote: &ReaderFootnoteV1) -> Result<Vec<u8>,
 
 pub fn decode_reader_footnote_v1(bytes: &[u8]) -> Result<ReaderFootnoteV1, ReaderErrorV1> {
     decode::footnote(bytes)
+}
+
+pub fn encode_reader_search_request_v1(
+    request: &ReaderSearchRequestV1,
+) -> Result<Vec<u8>, ReaderErrorV1> {
+    encode::search_request(request)
+}
+
+pub fn decode_reader_search_request_v1(
+    bytes: &[u8],
+) -> Result<ReaderSearchRequestV1, ReaderErrorV1> {
+    decode::search_request(bytes)
+}
+
+pub fn encode_reader_search_response_v1(
+    response: &ReaderSearchResponseV1,
+) -> Result<Vec<u8>, ReaderErrorV1> {
+    encode::search_response(response)
+}
+
+pub fn decode_reader_search_response_v1(
+    bytes: &[u8],
+) -> Result<ReaderSearchResponseV1, ReaderErrorV1> {
+    decode::search_response(bytes)
 }
 
 pub fn encode_reader_text_range_request_v1(

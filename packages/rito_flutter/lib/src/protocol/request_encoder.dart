@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'artifact_models.dart';
 import 'binary_reader.dart';
 import 'request_models.dart';
+import 'search.dart';
 
 final class RitoRequestEncoder {
   const RitoRequestEncoder();
@@ -109,6 +110,20 @@ final class RitoRequestEncoder {
       RitoTextProfile.platformStringRuns => 0,
       RitoTextProfile.positionedGlyphRuns => 1,
     };
+  }
+}
+
+extension RitoSearchRequestEncoding on RitoRequestEncoder {
+  /// Encodes a RITOSRQ1 search request.
+  Uint8List encodeSearch(RitoSearchRequest request) {
+    final writer = _Writer.message(ascii.encode('RITOSRQ1'), 1);
+    writer.externalId(request.sessionId, 'session id');
+    writer.externalId(request.artifactId, 'artifact id');
+    writer.string(request.query, 'search query');
+    writer.boolean(request.caseSensitive);
+    writer.boolean(request.wholeWord);
+    writer.uint32(request.limit, 'search limit');
+    return writer.finish();
   }
 }
 

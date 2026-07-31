@@ -6,7 +6,7 @@ pub use memory::{
     rito_advance_background_v1, rito_buffer_free_v1, rito_commit_peeked_artifact_v1,
     rito_dispose_v1, rito_open_v1, rito_open_with_pinned_fonts_v1, rito_peek_adjacent_v1,
     rito_get_text_range_geometry_v1, rito_read_footnote_v1, rito_read_publication_v1,
-    rito_read_resource_v1,
+    rito_read_resource_v1, rito_search_v1,
     rito_release_artifact_v1,
     rito_request_adjacent_v1, rito_request_artifact_v1,
 };

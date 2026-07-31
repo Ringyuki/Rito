@@ -172,6 +172,18 @@ external int _ritoReadResourceV1(
 );
 
 @Native<_OwnedWireRequestNative>(
+  symbol: 'rito_search_v1',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoSearchV1(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> responseOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_OwnedWireRequestNative>(
   symbol: 'rito_get_text_range_geometry_v1',
   assetId: ritoNativeAssetId,
 )
@@ -235,6 +247,7 @@ final class RitoNativeBindings {
        _readResource = _ritoReadResourceV1,
        _readFootnote = _ritoReadFootnoteV1,
        _textRangeGeometry = _ritoGetTextRangeGeometryV1,
+       _search = _ritoSearchV1,
        _release = _ritoReleaseArtifactV1,
        _dispose = _ritoDisposeV1,
        _bufferFree = _ritoBufferFreeV1;
@@ -297,6 +310,10 @@ final class RitoNativeBindings {
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_get_text_range_geometry_v1',
            ),
+       _search = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_search_v1',
+           ),
        _release = library.lookupFunction<_ReleaseNative, _ReleaseDart>(
          'rito_release_artifact_v1',
        ),
@@ -323,6 +340,7 @@ final class RitoNativeBindings {
   final _ReadResourceDart _readResource;
   final _ReadFootnoteDart _readFootnote;
   final _OwnedWireRequestDart _textRangeGeometry;
+  final _OwnedWireRequestDart _search;
   final _ReleaseDart _release;
   final _DisposeDart _dispose;
   final _BufferFreeDart _bufferFree;
@@ -747,6 +765,20 @@ final class RitoNativeBindings {
     );
   }
 
+  Uint8List searchEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      expectedLength: null,
+      wireName: 'RITOSRQ1',
+      outputName: 'search response',
+      operation: _search,
+    );
+  }
+
   Uint8List textRangeGeometryEncoded({
     required int sessionId,
     required Uint8List requestBytes,
@@ -778,17 +810,26 @@ final class RitoNativeBindings {
   Uint8List _ownedWireRequest({
     required int sessionId,
     required Uint8List requestBytes,
-    required int expectedLength,
+    required int? expectedLength,
     required String wireName,
     required String outputName,
     required _OwnedWireRequestDart operation,
   }) {
     _validateId(sessionId, 'session id');
-    if (requestBytes.length != expectedLength) {
+    // Variable-length messages (a search carries a query string) pass
+    // null; every fixed-shape message still pins its exact size.
+    if (expectedLength != null && requestBytes.length != expectedLength) {
       throw ArgumentError.value(
         requestBytes.length,
         'request byte length',
         '$wireName must be exactly $expectedLength bytes',
+      );
+    }
+    if (requestBytes.isEmpty || requestBytes.length > ritoMaxWireBytes) {
+      throw ArgumentError.value(
+        requestBytes.length,
+        'request byte length',
+        '$wireName must be a non-empty protocol message',
       );
     }
     final request = _copyInput(requestBytes);
@@ -1259,6 +1300,14 @@ final class RitoNativeWireBindings {
     artifactId: artifactId,
     kind: kind,
     href: href,
+  );
+
+  Uint8List searchEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.searchEncoded(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
   );
 
   Uint8List textRangeGeometryEncoded({

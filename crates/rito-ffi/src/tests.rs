@@ -8,7 +8,8 @@ use rito_core::runtime::{
     decode_reader_artifact_v1, decode_reader_background_advance_v1,
     decode_reader_background_handoff_ack_v1, decode_reader_foreground_handoff_ack_v1,
     decode_reader_footnote_v1, decode_reader_publication_v1, decode_reader_resource_v1,
-    decode_reader_text_range_geometry_v1, encode_reader_text_range_request_v1,
+    decode_reader_search_response_v1, decode_reader_text_range_geometry_v1,
+    encode_reader_search_request_v1, encode_reader_text_range_request_v1, ReaderSearchRequestV1,
     ReaderTextPositionV1, ReaderTextRangeRequestV1,
     encode_reader_adjacent_request_v1,
     encode_reader_artifact_request_v1, encode_reader_background_handoff_v1,
@@ -27,6 +28,7 @@ use crate::{
     rito_commit_peeked_artifact_v1, rito_dispose_v1, rito_open_v1,
     rito_open_with_pinned_fonts_v1, rito_peek_adjacent_v1, rito_read_publication_v1,
     rito_get_text_range_geometry_v1, rito_read_footnote_v1, rito_read_resource_v1,
+    rito_search_v1,
     rito_release_artifact_v1,
     rito_request_adjacent_v1,
     rito_request_artifact_v1, RitoOwnedBufferV1, RitoPinnedFontFaceV1,
@@ -1275,5 +1277,57 @@ fn text_range_geometry_crosses_the_abi_in_display_list_space() {
     for rect in &geometry.rects {
         assert!(rect.bounds.x >= margin_left, "{rect:?}");
     }
+    call_dispose(session_id);
+}
+
+#[test]
+fn search_crosses_the_abi_with_locators_and_context() {
+    let session_id = next_session_id();
+    let mut open_request = request(session_id);
+    // The corpus book opens on a plate; search needs rendered text.
+    open_request.locator.href = "OEBPS/Text/Section013.xhtml".to_owned();
+    let open_wire = encode_reader_artifact_request_v1(&open_request).expect("request encodes");
+    let opened = call_open(&publication(), &open_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let artifact = decode_reader_artifact_v1(&opened.artifact).expect("artifact decodes");
+    let needle = artifact
+        .pages
+        .iter()
+        .flat_map(|page| page.text.split_whitespace())
+        .find(|word| word.chars().count() >= 2)
+        .expect("the chapter renders text")
+        .to_owned();
+
+    let wire = encode_reader_search_request_v1(&ReaderSearchRequestV1 {
+        session_id,
+        artifact_id: artifact.artifact_id,
+        query: needle.clone(),
+        case_sensitive: false,
+        whole_word: false,
+        limit: 16,
+    })
+    .expect("search request encodes");
+    let mut response_out = RitoOwnedBufferV1::EMPTY;
+    let mut error_out = RitoOwnedBufferV1::EMPTY;
+    let status = rito_search_v1(
+        session_id,
+        wire.as_ptr(),
+        u64::try_from(wire.len()).expect("length"),
+        &mut response_out,
+        &mut error_out,
+    );
+    let bytes = copy_owned_buffer_for_test(&response_out);
+    let error = String::from_utf8_lossy(&copy_owned_buffer_for_test(&error_out)).into_owned();
+    rito_buffer_free_v1(&mut response_out);
+    rito_buffer_free_v1(&mut error_out);
+    assert_eq!(status, RITO_STATUS_OK_V1, "{error}");
+
+    let response = decode_reader_search_response_v1(&bytes).expect("response decodes");
+    assert_eq!(response.artifact_id, artifact.artifact_id);
+    assert_eq!(response.query, needle);
+    let hit = response.results.first().expect("the word is found");
+    assert!(hit.context.contains(&needle), "{hit:?}");
+    // A durable anchor is what a host stores; page indexes move.
+    assert!(hit.locator.is_some(), "{hit:?}");
     call_dispose(session_id);
 }

@@ -35,6 +35,8 @@ export 'src/protocol/artifact_models.dart';
 export 'src/protocol/display_models.dart' show RitoCommand, RitoDisplayList;
 export 'src/protocol/footnote_decoder.dart'
     show RitoFootnote, RitoFootnoteKind;
+export 'src/protocol/search.dart'
+    show RitoSearchRequest, RitoSearchResponse, RitoSearchResult;
 export 'src/protocol/text_geometry.dart'
     show
         RitoTextPosition,
