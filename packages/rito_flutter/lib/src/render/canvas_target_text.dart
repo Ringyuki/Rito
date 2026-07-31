@@ -167,10 +167,42 @@ extension _TextPainting on RitoCanvasPaintTarget {
       fontStyle: font.style == RitoFontStyle.italic
           ? FontStyle.italic
           : FontStyle.normal,
-      fontWeight: _fontWeight(font.weight),
+      fontWeight: _paintWeight(families, font.weight),
       wordSpacing: includeSpacing ? paint.wordSpacingPx : null,
       letterSpacing: includeSpacing ? paint.letterSpacingPx : null,
     );
+  }
+
+  /// The weight to hand Flutter so its synthesis decision matches CSS.
+  ///
+  /// CSS matches a face by the `@font-face` descriptor; Flutter matches
+  /// by the face's own `OS/2.usWeightClass`. When a book ships one file
+  /// and declares it as its bold, CSS renders that file as-is while
+  /// Flutter — seeing a 400-weight file under a 700 request — emboldens
+  /// it, painting heavier than the browser and than the designer chose.
+  /// Asking for a sub-bold weight suppresses that, and is only safe
+  /// because the family holds exactly one face, so there is no other
+  /// face for the lower number to select.
+  ///
+  /// Everything else passes through: a family that declares itself
+  /// Regular still synthesizes under a bold run, which is what the
+  /// browser does with the same declaration.
+  FontWeight _paintWeight(List<String> families, double requested) {
+    if (requested < 600 || families.isEmpty) {
+      return _fontWeight(requested);
+    }
+    final store = _fontEnvelopes;
+    if (store == null) {
+      return _fontWeight(requested);
+    }
+    final head = families.first;
+    final envelope = store.lookup(head);
+    if (envelope == null ||
+        !envelope.declaredBold ||
+        store.faceCount(head) != 1) {
+      return _fontWeight(requested);
+    }
+    return FontWeight.w400;
   }
 
   FontWeight _fontWeight(double value) {

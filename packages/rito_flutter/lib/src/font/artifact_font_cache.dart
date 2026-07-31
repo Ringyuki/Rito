@@ -137,7 +137,14 @@ final class RitoArtifactFontCache {
         continue;
       }
       try {
-        RitoFontEnvelopeStore.shared.register(alias, face.bytes);
+        // Policy v1 pins one Regular per generic role, so a bold run
+        // against a pinned alias synthesizes — the same thing the web
+        // reader's Regular-only pin set does.
+        RitoFontEnvelopeStore.shared.register(
+          alias,
+          face.bytes,
+          declaredWeight: face.declaredWeight,
+        );
         final loader = FontLoader(alias)
           ..addFont(Future<ByteData>.value(ByteData.sublistView(face.bytes)));
         await loader.load();
@@ -227,7 +234,11 @@ final class RitoArtifactFontCache {
     // Non-sfnt payloads (e.g. WOFF handled by a transcoding registrar)
     // are ignored; such registrars should register the transcoded bytes
     // themselves.
-    RitoFontEnvelopeStore.shared.register(font.family, resource.bytes);
+    RitoFontEnvelopeStore.shared.register(
+      font.family,
+      resource.bytes,
+      declaredWeight: font.weight,
+    );
   }
 
   Future<void> _waitFor(

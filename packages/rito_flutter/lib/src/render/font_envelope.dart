@@ -21,6 +21,8 @@ final class RitoFontEnvelope {
     required this.winAscent,
     required this.winDescent,
     required this.unitsPerEm,
+    required this.fileWeightClass,
+    this.declaredWeight,
   });
 
   final int typoAscender;
@@ -28,6 +30,31 @@ final class RitoFontEnvelope {
   final int winAscent;
   final int winDescent;
   final int unitsPerEm;
+
+  /// `OS/2.usWeightClass` from the face's own bytes. Flutter matches on
+  /// this; CSS matches on the `@font-face` descriptor instead, so the
+  /// two disagree whenever a book ships a file whose internal weight is
+  /// not what it declared.
+  final int fileWeightClass;
+
+  /// Weight the publication declared for this face, when the artifact
+  /// carried one. This — not [fileWeightClass] — is what CSS matching
+  /// uses, so it is what the pen has to honour.
+  final int? declaredWeight;
+
+  /// Whether the declared face is already the book's bold, so painting
+  /// it must not embolden on top of what the designer chose.
+  bool get declaredBold => (declaredWeight ?? 400) >= 600;
+
+  RitoFontEnvelope withDeclaredWeight(int? weight) => RitoFontEnvelope(
+    typoAscender: typoAscender,
+    typoDescender: typoDescender,
+    winAscent: winAscent,
+    winDescent: winDescent,
+    unitsPerEm: unitsPerEm,
+    fileWeightClass: fileWeightClass,
+    declaredWeight: weight,
+  );
 
   /// Unrounded em-box ascent: the 'top' anchor descends by this before
   /// the raster's whole-row baseline snap.
@@ -52,15 +79,22 @@ final class RitoFontEnvelopeStore {
   static final RitoFontEnvelopeStore shared = RitoFontEnvelopeStore();
 
   final Map<String, RitoFontEnvelope> _byFamily = <String, RitoFontEnvelope>{};
+  final Map<String, int> _familyFaceCount = <String, int>{};
 
   /// Registers a face's envelope for [family] from raw sfnt bytes
   /// (TTF or CFF-flavoured OTF). Non-sfnt payloads are ignored.
-  void register(String family, Uint8List bytes) {
+  void register(String family, Uint8List bytes, {int? declaredWeight}) {
     final envelope = _parse(bytes);
     if (envelope != null) {
-      _byFamily[family] = envelope;
+      _byFamily[family] = envelope.withDeclaredWeight(declaredWeight);
+      _familyFaceCount[family] = (_familyFaceCount[family] ?? 0) + 1;
     }
   }
+
+  /// How many faces have registered under [family]. A family with one
+  /// face can be painted at a chosen weight safely; a family with
+  /// several must be left to Flutter's own matching.
+  int faceCount(String family) => _familyFaceCount[family] ?? 0;
 
   RitoFontEnvelope? lookup(String family) => _byFamily[family];
 
@@ -103,6 +137,7 @@ final class RitoFontEnvelopeStore {
       return null;
     }
     return RitoFontEnvelope(
+      fileWeightClass: data.getUint16(os2Offset + 4),
       typoAscender: data.getInt16(os2Offset + 68),
       typoDescender: data.getInt16(os2Offset + 70),
       winAscent: data.getUint16(os2Offset + 74),

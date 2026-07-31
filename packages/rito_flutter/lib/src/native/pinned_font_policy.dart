@@ -18,6 +18,7 @@ final class RitoPinnedFontFace {
   RitoPinnedFontFace({
     required this.bytes,
     required this.genericRole,
+    this.declaredWeight = 400,
     this.language,
     String? sha256Hex,
   }) : sha256Hex = (sha256Hex ?? crypto.sha256.convert(bytes).toString())
@@ -49,6 +50,12 @@ final class RitoPinnedFontFace {
   final String sha256Hex;
 
   final RitoPinnedFontGenericRole genericRole;
+
+  /// Weight this face stands in for. Policy v1 pins one Regular per
+  /// generic role, so the default is 400 and a bold run synthesizes.
+  /// A host that pins a real bold declares it here, and runs at that
+  /// weight paint the face as designed instead of emboldening it.
+  final int declaredWeight;
 
   /// Optional ASCII BCP47-style selector (e.g. `ja`, `zh-hant`);
   /// absent means the `und` default.
