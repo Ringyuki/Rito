@@ -43,6 +43,8 @@ test('background advance and handoff acknowledgement decode high-bit identities 
     state: 'advanced',
     intentRequestId: HIGH_ID,
     replacesArtifactId: HIGH_ID - 1n,
+    // No candidate, so the handoff cannot move the reader.
+    movesVisibleContent: false,
     artifact: undefined,
   });
 
@@ -95,6 +97,7 @@ function backgroundAdvanceWire(state, intentRequestId, replacesArtifactId) {
   writer.u32(state, 'state');
   writer.externalId(intentRequestId, 'intent');
   writer.externalId(replacesArtifactId, 'replaces');
+  writer.bool(false);
   writer.u64(0n, 'artifact length');
   return writer.finish();
 }

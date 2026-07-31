@@ -39,6 +39,15 @@ final class RitoPreparedBackgroundAdvance {
 
   final RitoBackgroundAdvance advance;
   final RitoPreparedArtifact? artifact;
+
+  /// Whether [adoptBackground] would put different content on screen.
+  ///
+  /// False is the ordinary handoff — the same page renumbered onto the
+  /// whole-book layout — and adopting it is invisible to the reader.
+  /// True means pagination resolved the reading position onto another
+  /// page; adopt it and the reader is moved. A reader app that must not
+  /// move the page unprompted should release the candidate instead.
+  bool get movesVisibleContent => advance.movesVisibleContent;
   bool _consumed = false;
 }
 

@@ -136,6 +136,7 @@ pub(super) fn background_advance(
     writer.u32(background_state(value.state));
     writer.u64(value.intent_request_id);
     writer.u64(value.replaces_artifact_id);
+    writer.bool(value.moves_visible_content);
     writer.blob(
         artifact.as_deref().unwrap_or_default(),
         "background artifact",

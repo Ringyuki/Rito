@@ -140,6 +140,23 @@ void main() {
     );
     expect(completion.state, RitoBackgroundState.complete);
     expect(completion.artifact?.artifactId, 7001);
+
+    // The handoff says whether adopting moves the reader; without a
+    // candidate there is nothing to move to, so it stays false.
+    final moving = decoder.decodeAdvance(
+      backgroundAdvanceFixture(
+        movesVisibleContent: true,
+        artifact: artifactFixture(),
+      ),
+    );
+    expect(moving.movesVisibleContent, isTrue);
+    expect(
+      decoder
+          .decodeAdvance(backgroundAdvanceFixture(movesVisibleContent: true))
+          .movesVisibleContent,
+      isFalse,
+      reason: 'a candidateless advance cannot move the reader',
+    );
     final ack = decoder.decodeHandoffAck(backgroundHandoffAckFixture());
     expect(ack.intentRequestId, 12);
     expect(ack.replacedArtifactId, 7001);

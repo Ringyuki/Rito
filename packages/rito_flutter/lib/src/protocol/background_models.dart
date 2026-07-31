@@ -26,12 +26,29 @@ final class RitoBackgroundAdvance {
     required this.state,
     required this.intentRequestId,
     required this.replacesArtifactId,
+    this.movesVisibleContent = false,
     this.artifact,
   });
 
   final RitoBackgroundState state;
   final int intentRequestId;
   final int replacesArtifactId;
+
+  /// Whether adopting [artifact] would put different content on screen
+  /// than [replacesArtifactId] is showing.
+  ///
+  /// False is the ordinary handoff: the same page, renumbered onto the
+  /// whole-book layout — safe to adopt without the reader noticing.
+  /// True means pagination resolved the reading position onto a
+  /// different page, so adoption moves the reader; a host that must not
+  /// move the reader unprompted should release the candidate instead of
+  /// adopting it. Always false when there is no candidate.
+  ///
+  /// Comparing locators yourself is not a substitute: both artifacts'
+  /// locators describe the pages they draw, so they agree exactly when
+  /// this is false — this field is the same answer without the host
+  /// having to know that.
+  final bool movesVisibleContent;
   final RitoArtifact? artifact;
 }
 

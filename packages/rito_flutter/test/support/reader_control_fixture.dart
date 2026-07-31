@@ -19,6 +19,7 @@ Uint8List backgroundAdvanceFixture({
   int stateTag = 0,
   int intentRequestId = 12,
   int replacesArtifactId = 7001,
+  bool movesVisibleContent = false,
   List<int> artifact = const <int>[],
 }) {
   final writer = TestWireWriter.message('RITOBGA1');
@@ -26,6 +27,7 @@ Uint8List backgroundAdvanceFixture({
     ..uint32(stateTag)
     ..uint64(intentRequestId)
     ..uint64(replacesArtifactId)
+    ..boolean(movesVisibleContent)
     ..blob(artifact);
   return writer.finishMessage();
 }

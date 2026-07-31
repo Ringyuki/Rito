@@ -113,6 +113,7 @@ fn background_messages_are_fixed_width_or_length_framed_and_round_trip() {
     ] {
         let advance = ReaderBackgroundAdvanceV1 {
             state,
+            moves_visible_content: false,
             intent_request_id: (1u64 << 55) + 2,
             replaces_artifact_id: (1u64 << 57) + 4,
             artifact: (state == ReaderBackgroundStateV1::Started).then(artifact_fixture),
@@ -122,12 +123,16 @@ fn background_messages_are_fixed_width_or_length_framed_and_round_trip() {
         assert!(
             wire.len() >= usize::try_from(READER_BACKGROUND_ADVANCE_WIRE_PREFIX_BYTES_V1).unwrap()
         );
+        // The prefix is header + state + the two IDs + the
+        // moves-visible-content flag + the nested blob's length.
+        let prefix = usize::try_from(READER_BACKGROUND_ADVANCE_WIRE_PREFIX_BYTES_V1).unwrap();
         if advance.artifact.is_some() {
-            let nested_length = u64::from_le_bytes(wire[40..48].try_into().unwrap());
-            assert_eq!(usize::try_from(nested_length).unwrap(), wire.len() - 48);
-            assert_eq!(&wire[48..56], b"RITOART1");
+            let nested_length =
+                u64::from_le_bytes(wire[prefix - 8..prefix].try_into().unwrap());
+            assert_eq!(usize::try_from(nested_length).unwrap(), wire.len() - prefix);
+            assert_eq!(&wire[prefix..prefix + 8], b"RITOART1");
         } else {
-            assert_eq!(wire.len(), 48);
+            assert_eq!(wire.len(), prefix);
         }
         assert_eq!(decode_reader_background_advance_v1(&wire), Ok(advance));
     }
@@ -240,6 +245,7 @@ fn background_messages_reject_every_truncated_prefix_and_unknown_state() {
     }
 
     let advance = encode_reader_background_advance_v1(&ReaderBackgroundAdvanceV1 {
+        moves_visible_content: false,
         state: ReaderBackgroundStateV1::Started,
         intent_request_id: (1u64 << 55) + 2,
         replaces_artifact_id: (1u64 << 57) + 4,
@@ -354,6 +360,7 @@ fn wire_rejects_unknown_versions_and_trailing_bytes() {
     assert_invalid(decode_reader_foreground_handoff_v1(&foreground));
 
     let mut advance = encode_reader_background_advance_v1(&ReaderBackgroundAdvanceV1 {
+        moves_visible_content: false,
         state: ReaderBackgroundStateV1::Complete,
         intent_request_id: 1,
         replaces_artifact_id: 2,
@@ -472,6 +479,7 @@ fn identities_retain_exact_bigint_width_and_reject_the_sign_bit() {
     assert_invalid(decode_reader_background_request_v1(&invalid));
 
     let mut advance = encode_reader_background_advance_v1(&ReaderBackgroundAdvanceV1 {
+        moves_visible_content: false,
         state: ReaderBackgroundStateV1::Advanced,
         intent_request_id: READER_EXTERNAL_ID_MAX_V1,
         replaces_artifact_id: READER_EXTERNAL_ID_MAX_V1 - 1,

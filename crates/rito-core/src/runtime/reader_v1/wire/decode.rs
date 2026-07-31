@@ -125,6 +125,7 @@ pub(super) fn background_advance(bytes: &[u8]) -> Result<ReaderBackgroundAdvance
     let state = background_state(reader.u32()?)?;
     let intent_request_id = external_id(reader.u64()?, "intentRequestId")?;
     let replaces_artifact_id = external_id(reader.u64()?, "replacesArtifactId")?;
+    let moves_visible_content = reader.bool("background moves visible content")?;
     let artifact_bytes = reader.blob_slice("background artifact")?;
     let artifact = if artifact_bytes.is_empty() {
         None
@@ -136,6 +137,7 @@ pub(super) fn background_advance(bytes: &[u8]) -> Result<ReaderBackgroundAdvance
         state,
         intent_request_id,
         replaces_artifact_id,
+        moves_visible_content: moves_visible_content && artifact.is_some(),
         artifact,
     })
 }

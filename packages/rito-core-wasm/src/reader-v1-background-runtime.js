@@ -30,6 +30,7 @@ export function decodeRitoReaderBackgroundAdvanceV1(value) {
   if (state === undefined) reader.fail(`unknown background state: ${String(stateTag)}`);
   const intentRequestId = reader.externalId('intent request id');
   const replacesArtifactId = reader.externalId('replaces artifact id');
+  const movesVisibleContent = reader.bool('background moves visible content');
   const artifactBytes = reader.blob('background artifact');
   const artifact =
     artifactBytes.byteLength === 0 ? undefined : decodeRitoReaderArtifactV1(artifactBytes);
@@ -40,7 +41,13 @@ export function decodeRitoReaderBackgroundAdvanceV1(value) {
   if ((state === 'indexing' || state === 'candidate-pending') && artifact !== undefined) {
     reader.fail(`${state} background advance must not carry an artifact`);
   }
-  return { state, intentRequestId, replacesArtifactId, artifact };
+  return {
+    state,
+    intentRequestId,
+    replacesArtifactId,
+    movesVisibleContent: movesVisibleContent && artifact !== undefined,
+    artifact,
+  };
 }
 
 export function encodeRitoReaderBackgroundHandoffV1(request) {

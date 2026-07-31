@@ -256,6 +256,16 @@ pub struct ReaderBackgroundAdvanceV1 {
     pub intent_request_id: u64,
     pub replaces_artifact_id: u64,
     pub artifact: Option<ReaderArtifactV1>,
+    /// Whether adopting `artifact` would put different content on
+    /// screen than `replaces_artifact_id` is showing.
+    ///
+    /// False is the ordinary handoff: the same page, renumbered onto
+    /// the whole-book layout. True means pagination resolved the
+    /// reading position onto a different page, so adopting moves the
+    /// reader — a host that must not move the reader unprompted should
+    /// release the candidate instead. Always false when there is no
+    /// candidate.
+    pub moves_visible_content: bool,
 }
 
 /// Host acknowledgement that atomically adopts a previously returned

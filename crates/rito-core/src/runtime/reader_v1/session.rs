@@ -58,6 +58,13 @@ struct ReaderArtifactOwnerV1 {
     locator: ReaderLocatorV1,
     local_spread_index: usize,
     resources: Vec<(ReaderResourceKindV1, String)>,
+    /// Fingerprint of the text this artifact's pages actually draw.
+    ///
+    /// Locators cannot answer "would the reader see something else":
+    /// a chapter-local anchor and a whole-book anchor for the same page
+    /// carry different progressions, so comparing them reports a move
+    /// that is not one. Comparing what was drawn does answer it.
+    painted_digest: u64,
 }
 
 #[derive(Debug)]
@@ -1118,10 +1125,13 @@ impl ReaderSessionV1 {
         if needs_handoff {
             if let Some(revision_id) = self.active_publication_revision_id {
                 if let Some(artifact) = self.try_publication_candidate(revision_id, &intent)? {
-                    return Ok(background_result(
+                    let moves =
+                        self.handoff_moves_visible_content(intent.visible_artifact_id, &artifact);
+                    return Ok(background_result_with_move(
                         ReaderBackgroundStateV1::Reused,
                         &intent,
                         Some(artifact),
+                        moves,
                     ));
                 }
             }
@@ -1143,10 +1153,14 @@ impl ReaderSessionV1 {
                     // candidate for the same visible locator so a reader
                     // who never turns a page still learns the total.
                     let completion_candidate = self.take_completion_handoff(revision_id, &intent)?;
-                    return Ok(background_result(
+                    let moves = completion_candidate.as_ref().is_some_and(|candidate| {
+                        self.handoff_moves_visible_content(intent.visible_artifact_id, candidate)
+                    });
+                    return Ok(background_result_with_move(
                         ReaderBackgroundStateV1::Complete,
                         &intent,
                         completion_candidate,
+                        moves,
                     ));
                 }
                 (revision_id, ReaderBackgroundStateV1::Advanced)
@@ -1161,7 +1175,10 @@ impl ReaderSessionV1 {
         } else {
             None
         };
-        Ok(background_result(state, &intent, artifact))
+        let moves = artifact.as_ref().is_some_and(|candidate| {
+            self.handoff_moves_visible_content(intent.visible_artifact_id, candidate)
+        });
+        Ok(background_result_with_move(state, &intent, artifact, moves))
     }
 
     pub fn adopt_background_candidate(
@@ -1527,6 +1544,15 @@ impl ReaderSessionV1 {
         Ok(candidate)
     }
 
+    /// Mints the publication artifact that stands in for what the
+    /// reader is currently looking at.
+    ///
+    /// The artifact's locator is derived from the page it actually
+    /// publishes — never echoed from the request — because a candidate
+    /// whose locator does not describe its own display list is
+    /// indistinguishable from a pure renumbering, and a host gating on
+    /// "same locator, safe to adopt" would swap the reader onto another
+    /// page without any way to see it happen.
     fn try_publication_candidate(
         &mut self,
         revision_id: u64,
@@ -1544,9 +1570,7 @@ impl ReaderSessionV1 {
             .value;
         let RuntimeSourceLocatorResolution::Resolved {
             locator,
-            page_index,
             spread_index,
-            matched_by,
             ..
         } = resolved
         else {
@@ -1563,51 +1587,42 @@ impl ReaderSessionV1 {
                     .map_or(0, |current| current.visible_artifact_id),
             ));
         }
-        let navigation = publication_navigation(
-            self.publication_revisions
-                .get(&revision_id)
-                .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::Publication))?,
-            spread_index,
-        );
-        let artifact_id = take_identity(&mut self.next_artifact_id, "artifactId")?;
-        let target = ResolvedArtifactTarget {
-            owner: ResolvedArtifactOwnerV1::Publication(owner),
-            locator,
-            matched_by,
-            local_page_index: page_index,
-            local_spread_index: spread_index,
-        };
-        let artifact = build_reader_artifact_v1(
-            &self.document,
-            ArtifactIdentityV1 {
-                session_id: self.session_id,
-                request_id: intent.accepted_request_id,
-                revision_id,
-                artifact_id,
-            },
-            &target,
-            navigation,
-        )?;
-        let artifact_owner = artifact_owner(
+        // Publishing through the ordinary path is what makes the
+        // locator honest: it reads the anchor back off the published
+        // page and refuses a page whose anchor resolves elsewhere. A
+        // spread that cannot publish is simply not offered.
+        let artifact = match self.publish_publication_artifact(
             revision_id,
-            ReaderRevisionBackingV1::Publication,
             spread_index,
-            &artifact,
-        );
-        let revision = self
-            .publication_revisions
-            .get_mut(&revision_id)
-            .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::Publication))?;
-        debug_assert_eq!(revision.reader_revision_id, revision_id);
-        revision.artifact_ref_count = revision
-            .artifact_ref_count
-            .checked_add(1)
-            .ok_or_else(|| numeric_overflow("artifact reference count"))?;
-        self.artifacts.insert(artifact_id, artifact_owner);
+            intent.accepted_request_id,
+        ) {
+            Ok(artifact) => artifact,
+            Err(error) if error.kind == ReaderErrorKindV1::TargetNotPublished => {
+                return Ok(None);
+            }
+            Err(error) => return Err(error),
+        };
         if let Some(current) = self.visible_intent.as_mut() {
-            current.pending_handoff_artifact_id = Some(artifact_id);
+            current.pending_handoff_artifact_id = Some(artifact.artifact_id);
         }
         Ok(Some(artifact))
+    }
+
+    /// Whether adopting `candidate` would put different content on
+    /// screen than `visible_artifact_id` is showing.
+    ///
+    /// Answered by comparing what each artifact draws, not their
+    /// locators: the same page anchored chapter-locally and
+    /// book-globally carries different progressions, so locators would
+    /// report a move on every first handoff.
+    fn handoff_moves_visible_content(
+        &self,
+        visible_artifact_id: u64,
+        candidate: &ReaderArtifactV1,
+    ) -> bool {
+        self.artifacts
+            .get(&visible_artifact_id)
+            .is_none_or(|visible| visible.painted_digest != painted_digest(candidate))
     }
 
     fn visible_intent_matches(&self, expected: &ReaderVisibleIntentV1) -> bool {
@@ -2821,10 +2836,20 @@ fn background_result(
     intent: &ReaderVisibleIntentV1,
     artifact: Option<ReaderArtifactV1>,
 ) -> ReaderBackgroundAdvanceV1 {
+    background_result_with_move(state, intent, artifact, false)
+}
+
+fn background_result_with_move(
+    state: ReaderBackgroundStateV1,
+    intent: &ReaderVisibleIntentV1,
+    artifact: Option<ReaderArtifactV1>,
+    moves_visible_content: bool,
+) -> ReaderBackgroundAdvanceV1 {
     ReaderBackgroundAdvanceV1 {
         state,
         intent_request_id: intent.accepted_request_id,
         replaces_artifact_id: intent.visible_artifact_id,
+        moves_visible_content: artifact.is_some() && moves_visible_content,
         artifact,
     }
 }
@@ -2846,7 +2871,18 @@ fn artifact_owner(
             .iter()
             .map(|resource| (resource.kind, resource.href.clone()))
             .collect(),
+        painted_digest: painted_digest(artifact),
     }
+}
+
+fn painted_digest(artifact: &ReaderArtifactV1) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for page in &artifact.pages {
+        page.text.hash(&mut hasher);
+        page.text_length.hash(&mut hasher);
+    }
+    hasher.finish()
 }
 
 fn publication_navigation(

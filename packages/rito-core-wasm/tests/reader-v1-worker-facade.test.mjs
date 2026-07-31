@@ -1913,6 +1913,7 @@ function backgroundAdvanceWire(state, intentRequestId, replacesArtifactId, artif
   writer.u32(state, 'state');
   writer.externalId(intentRequestId, 'intent');
   writer.externalId(replacesArtifactId, 'replaces');
+  writer.bool(false);
   const bytes = artifact ?? new Uint8Array();
   writer.u64(BigInt(bytes.byteLength), 'artifact length');
   writer.raw(bytes);

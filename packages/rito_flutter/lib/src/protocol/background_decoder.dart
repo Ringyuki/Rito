@@ -24,6 +24,7 @@ final class RitoBackgroundDecoder {
     final state = _state(reader);
     final intentRequestId = reader.externalId('intent request id');
     final replacesArtifactId = reader.externalId('replaces artifact id');
+    final movesVisibleContent = reader.boolean('background moves visible content');
     final artifactBytes = reader.blobView('background artifact');
     // Complete may carry exactly one artifact: the completion handoff
     // that delivers the book page count to a reader who never turned a
@@ -41,6 +42,7 @@ final class RitoBackgroundDecoder {
       state: state,
       intentRequestId: intentRequestId,
       replacesArtifactId: replacesArtifactId,
+      movesVisibleContent: movesVisibleContent && artifact != null,
       artifact: artifact,
     );
   }

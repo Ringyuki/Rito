@@ -1100,3 +1100,75 @@ fn completion_hands_the_book_page_count_to_a_reader_who_never_turns() {
         })
         .expect("the completion candidate adopts like any other");
 }
+
+#[test]
+fn every_publication_candidate_locator_describes_the_page_it_draws() {
+    use crate::runtime::tests::fixture::many_chapter_fixture_epub;
+    // A candidate used to echo the request's locator onto whatever
+    // spread pagination happened to resolve, so two handoffs could
+    // carry identical locators while drawing different pages — a host
+    // gating on "same locator, safe to adopt" would be swapped onto
+    // another page with no way to see it.
+    let mut session = ReaderSessionV1::open_owned(224, many_chapter_fixture_epub(24))
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(artifact_request(224, 1, "chapter-0.xhtml"))
+        .expect("first chapter resolves");
+    adopt_initial(&mut session, 224, visible.artifact_id);
+
+    let mut adopted = visible;
+    let mut handoffs = 0;
+    for _ in 0..512 {
+        let step = session
+            .advance_background_once(background_request(224, adopted.artifact_id, 8))
+            .expect("background advances");
+        let Some(candidate) = step.artifact else {
+            if step.state == ReaderBackgroundStateV1::Complete {
+                break;
+            }
+            continue;
+        };
+        handoffs += 1;
+
+        // The invariant: the locator must be the reading anchor of the
+        // page the candidate actually draws. Resolving it back has to
+        // land on the candidate's own spread.
+        let reresolved = session
+            .request_artifact(ReaderArtifactRequestV1 {
+                request_id: 900 + handoffs,
+                locator: candidate.locator.clone(),
+                ..artifact_request(224, 900 + handoffs, "chapter-0.xhtml")
+            })
+            .expect("the candidate's own locator resolves");
+        assert_eq!(
+            reresolved.pages.first().map(|page| page.text.clone()),
+            candidate.pages.first().map(|page| page.text.clone()),
+            "a candidate's locator must describe the page it draws"
+        );
+        session
+            .release_artifact(reresolved.artifact_id)
+            .expect("probe releases");
+
+        // And the handoff says whether adopting moves the reader.
+        let moved = step.moves_visible_content;
+        let same_text = adopted.pages.first().map(|page| page.text.clone())
+            == candidate.pages.first().map(|page| page.text.clone());
+        assert_eq!(
+            moved, !same_text,
+            "movesVisibleContent must match what the reader would see"
+        );
+
+        session
+            .adopt_background_candidate(ReaderBackgroundHandoffV1 {
+                session_id: 224,
+                expected_visible_artifact_id: adopted.artifact_id,
+                candidate_artifact_id: candidate.artifact_id,
+            })
+            .expect("candidate adopts");
+        session
+            .release_artifact(adopted.artifact_id)
+            .expect("outgoing artifact releases");
+        adopted = candidate;
+    }
+    assert!(handoffs > 0, "the pump must hand off at least once");
+}
