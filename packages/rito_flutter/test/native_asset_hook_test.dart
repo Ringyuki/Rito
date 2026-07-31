@@ -101,6 +101,20 @@ void main() {
     expect(ritoNativeAssetId, 'package:rito_flutter/src/native/bindings.dart');
   });
 
+  test('a checkout compiles its live crates, not a stale snapshot', () {
+    // The snapshot is generated for publishing and gitignored, so it
+    // does not move when the crates do. Preferring it compiles an old
+    // engine against new Dart and surfaces as a wire mismatch.
+    final workspace = RitoWorkspace.fromPackageRoot(
+      Uri.parse('file:///repo/packages/rito_flutter/'),
+      pathExists: (path) =>
+          path.endsWith('/native/Cargo.toml') ||
+          path.endsWith('/crates/rito-core/Cargo.toml'),
+    );
+
+    expect(workspace.root, Uri.parse('file:///repo/'));
+  });
+
   test('published packages use their bundled Rust workspace', () {
     final workspace = RitoWorkspace.fromPackageRoot(
       Uri.parse('file:///pub-cache/rito_flutter-0.1.0/'),
