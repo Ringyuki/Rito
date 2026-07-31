@@ -654,6 +654,14 @@ void main() {
       final response = await session.search(prepared, needle, limit: 16);
       expect(response.query, needle);
       expect(response.results, isNotEmpty);
+      // Scope is reportable, so two runs that differ are explainable
+      // rather than looking like two complete-but-different lists.
+      expect(response.searchedPageCount, greaterThan(0));
+      expect(
+        response.scopeComplete,
+        isFalse,
+        reason: 'a chapter-local artifact has not paginated the book',
+      );
       final hit = response.results.first;
       expect(hit.context, contains(needle));
       // A durable anchor is what a host stores; page indexes move.
@@ -674,6 +682,25 @@ void main() {
         () => session.search(prepared, ''),
         throwsA(isA<ArgumentError>()),
       );
+
+      // A superseded artifact is a different, retryable failure — not
+      // the same ArgumentError a wrong artifact raises. Turning adopts a
+      // replacement, after which the old one can be released.
+      final next = await session.turn(
+        from: prepared,
+        requestId: session.nextRequestId,
+        direction: RitoAdjacentDirection.next,
+        work: work,
+      );
+      await session.releaseArtifact(prepared);
+      await expectLater(
+        session.search(prepared, needle),
+        throwsA(isA<RitoArtifactNotLiveException>()),
+      );
+      // The current artifact still serves, so a host that catches the
+      // exception and reissues succeeds.
+      final reissued = await session.search(next, needle, limit: 4);
+      expect(reissued.artifactId, next.artifactId);
     } finally {
       await session.dispose();
       await gateway.close();

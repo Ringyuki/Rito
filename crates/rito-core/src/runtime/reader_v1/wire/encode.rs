@@ -218,6 +218,8 @@ pub(super) fn search_response(value: &ReaderSearchResponseV1) -> Result<Vec<u8>,
     writer.u64(value.artifact_id);
     writer.string(&value.query, "search query")?;
     writer.bool(value.truncated);
+    writer.u32(value.searched_page_count);
+    writer.bool(value.scope_complete);
     writer.count(value.results.len(), "search result count")?;
     for result in &value.results {
         writer.record(|writer| {

@@ -29,8 +29,14 @@ final class RitoSearchResult {
   final String context;
 
   /// Durable source anchor. Store this rather than [pageIndex]: page
-  /// numbers move when the book reflows, source anchors do not. Null
-  /// when the layout kept no source identity for the match.
+  /// numbers move when the book reflows, source anchors do not.
+  ///
+  /// When generated content (a list marker, `::before`, a
+  /// `text-transform` rewrite) sits inside the match, the anchor covers
+  /// the longest stretch that does have a source rather than being
+  /// dropped — so it may span less than the match while still pointing
+  /// into the body text. Null only when no part of the match had a
+  /// source at all.
   final RitoLocator? locator;
 }
 
@@ -39,6 +45,8 @@ final class RitoSearchResponse {
     required this.artifactId,
     required this.query,
     required this.truncated,
+    required this.searchedPageCount,
+    required this.scopeComplete,
     required List<RitoSearchResult> results,
   }) : results = List<RitoSearchResult>.unmodifiable(results);
 
@@ -48,6 +56,19 @@ final class RitoSearchResponse {
   /// True when the hit list stopped at the requested limit, so it is a
   /// prefix rather than every match in scope.
   final bool truncated;
+
+  /// Pages that existed to be searched when this ran.
+  ///
+  /// Scope grows as background pagination lays out more of the book, so
+  /// the same query run twice legitimately returns different lists.
+  /// [truncated] cannot express that — it only reports the `limit`. Use
+  /// this together with [scopeComplete] to decide whether a result list
+  /// is worth showing as final.
+  final int searchedPageCount;
+
+  /// True once the book behind this artifact has finished laying out,
+  /// so re-running the query cannot find more.
+  final bool scopeComplete;
   final List<RitoSearchResult> results;
 }
 
@@ -93,6 +114,8 @@ final class RitoSearchDecoder {
     final artifactId = reader.externalId('search response artifact id');
     final query = reader.string('search query');
     final truncated = reader.boolean('search truncated');
+    final searchedPageCount = reader.uint32('searched page count');
+    final scopeComplete = reader.boolean('search scope complete');
     final count = reader.count('search results');
     final results = <RitoSearchResult>[
       for (var index = 0; index < count; index += 1) _result(reader),
@@ -101,6 +124,8 @@ final class RitoSearchDecoder {
       artifactId: artifactId,
       query: query,
       truncated: truncated,
+      searchedPageCount: searchedPageCount,
+      scopeComplete: scopeComplete,
       results: results,
     );
     reader.finish('search response wire message');

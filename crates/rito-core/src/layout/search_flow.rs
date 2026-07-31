@@ -131,6 +131,14 @@ pub(crate) struct SearchRuntimeMatch {
 pub(crate) struct SearchSourceRange {
     pub(crate) start: SearchSourcePoint,
     pub(crate) end: SearchSourcePoint,
+    /// The slice of the match this range actually anchors, as page-text
+    /// offsets. It equals the whole match unless generated content
+    /// (list markers, `::before`, a `text-transform` rewrite) sits
+    /// inside it and has no source to point at; then it is the longest
+    /// stretch that does, so a hit straddling generated and real text
+    /// still lands somewhere durable instead of losing its anchor.
+    pub(crate) covered_start: usize,
+    pub(crate) covered_end: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -294,13 +302,25 @@ fn search_page(page: &SearchPageText, spec: &SearchFlowQuerySpec<'_>) -> Vec<Sea
             search_offset_to_position(&page.offsets, start_offset, SearchBias::Start),
             search_offset_to_position(&page.offsets, end_offset, SearchBias::End),
         ) {
+            let source_range = search_source_range(&page.offsets, start_offset, end_offset);
+            // The source range is verified against the text it claims
+            // to cover, which is the whole match unless generated
+            // content forced it to shrink. Verifying a shrunken range
+            // against the full match would fail and throw the anchor
+            // away, which is exactly the outcome the shrinking exists
+            // to avoid.
+            let (covered_start, covered_end) = source_range
+                .as_ref()
+                .map_or((start_offset, end_offset), |range| {
+                    (range.covered_start, range.covered_end)
+                });
             results.push(SearchResultDetail {
                 page_index: page.page_index,
                 start,
                 end,
-                selected_text: utf16_slice(&page.text, start_offset, end_offset),
+                selected_text: utf16_slice(&page.text, covered_start, covered_end),
                 context: extract_search_context(&page.text, start_offset, end_offset),
-                source_range: search_source_range(&page.offsets, start_offset, end_offset),
+                source_range,
             });
         }
         pos = end_byte;
@@ -507,10 +527,25 @@ fn search_source_range(
     start: usize,
     end: usize,
 ) -> Option<SearchSourceRange> {
+    // Walk the match, collecting the runs that carry source identity
+    // into contiguous segments. A run without a source, a gap, or a
+    // jump to another flow ends the current segment rather than
+    // discarding the match: the longest surviving segment is a weaker
+    // anchor than the whole range, but it beats none at all.
+    let mut segments: Vec<SearchSourceRange> = Vec::new();
+    let mut current: Option<SearchSourceRange> = None;
     let mut cursor = start;
-    let mut first = None;
-    let mut last = None;
-    let mut previous_flow = None;
+    let mut previous_flow: Option<(Arc<LogicalTextFlow>, u32)> = None;
+
+    let close = |current: &mut Option<SearchSourceRange>,
+                     previous_flow: &mut Option<(Arc<LogicalTextFlow>, u32)>,
+                     segments: &mut Vec<SearchSourceRange>| {
+        if let Some(segment) = current.take() {
+            segments.push(segment);
+        }
+        *previous_flow = None;
+    };
+
     for entry in offsets
         .iter()
         .filter(|entry| entry.end > start && entry.start < end)
@@ -518,39 +553,65 @@ fn search_source_range(
         let part_start = start.max(entry.start);
         let part_end = end.min(entry.end);
         if part_start != cursor {
-            return None;
+            close(&mut current, &mut previous_flow, &mut segments);
         }
-        let source = entry.source.as_ref()?;
+        cursor = part_end;
+        let Some(source) = entry.source.as_ref() else {
+            close(&mut current, &mut previous_flow, &mut segments);
+            continue;
+        };
         let local_start = part_start - entry.start;
         let local_end = part_end - entry.start;
-        let logical_start = source
-            .logical_start
-            .checked_add(local_start.try_into().ok()?)?;
-        let logical_end = source
-            .logical_start
-            .checked_add(local_end.try_into().ok()?)?;
+        let (Some(logical_start), Some(logical_end)) = (
+            local_start
+                .try_into()
+                .ok()
+                .and_then(|offset: u32| source.logical_start.checked_add(offset)),
+            local_end
+                .try_into()
+                .ok()
+                .and_then(|offset: u32| source.logical_start.checked_add(offset)),
+        ) else {
+            close(&mut current, &mut previous_flow, &mut segments);
+            continue;
+        };
         if logical_end > source.logical_end || local_end > source.source_length {
-            return None;
+            close(&mut current, &mut previous_flow, &mut segments);
+            continue;
         }
         if let Some((flow, previous_end)) = &previous_flow {
             if !Arc::ptr_eq(flow, &source.flow) || *previous_end != logical_start {
-                return None;
+                close(&mut current, &mut previous_flow, &mut segments);
             }
         }
-        if first.is_none() {
-            first = Some(source_point(source, local_start)?);
+        let (Some(head), Some(tail)) = (
+            source_point(source, local_start),
+            source_point(source, local_end),
+        ) else {
+            close(&mut current, &mut previous_flow, &mut segments);
+            continue;
+        };
+        match current.as_mut() {
+            Some(segment) => {
+                segment.end = tail;
+                segment.covered_end = part_end;
+            }
+            None => {
+                current = Some(SearchSourceRange {
+                    start: head,
+                    end: tail,
+                    covered_start: part_start,
+                    covered_end: part_end,
+                });
+            }
         }
-        last = Some(source_point(source, local_end)?);
         previous_flow = Some((Arc::clone(&source.flow), logical_end));
-        cursor = part_end;
     }
-    if cursor != end {
-        return None;
-    }
-    Some(SearchSourceRange {
-        start: first?,
-        end: last?,
-    })
+    close(&mut current, &mut previous_flow, &mut segments);
+
+    segments
+        .into_iter()
+        .max_by_key(|segment| segment.covered_end - segment.covered_start)
 }
 
 fn source_point(source: &SearchRunSource, local_offset: usize) -> Option<SearchSourcePoint> {

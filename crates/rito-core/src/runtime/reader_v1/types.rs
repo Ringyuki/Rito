@@ -396,8 +396,17 @@ pub struct ReaderSearchResponseV1 {
     pub artifact_id: u64,
     pub query: String,
     /// True when the search stopped at the request's limit, so the host
-    /// knows the list is a prefix rather than the whole book.
+    /// knows the list is a prefix rather than everything in scope.
     pub truncated: bool,
+    /// Pages that existed to be searched when this ran. Scope grows as
+    /// background pagination lays out more of the book, so the same
+    /// query run twice legitimately returns different lists; this says
+    /// how much was covered, which `truncated` cannot express.
+    pub searched_page_count: u32,
+    /// True once the revision behind the artifact has finished laying
+    /// out, so the scope is the whole book and re-running the query
+    /// cannot find more.
+    pub scope_complete: bool,
     pub results: Vec<ReaderSearchResultV1>,
 }
 

@@ -4,6 +4,15 @@ import 'package:crypto/crypto.dart' as crypto;
 
 /// Generic CSS family role occupied by one pinned fallback face
 /// (runtime pinned-font policy schema v1).
+/// Which generic keyword a pinned face stands in for.
+///
+/// The role is **not** a filter at paint time. It is a sort key: the
+/// engine orders every pinned face by (role, language, sha256) with
+/// `serif` first, `sansSerif` second, `monospace` last, and then
+/// inserts *all* of them, in that order, ahead of the first generic
+/// keyword in a run's family stack. A run asking for `sans-serif`
+/// therefore still meets the serif-role face first. See
+/// [RitoPinnedFontPolicy] for what that means in practice.
 enum RitoPinnedFontGenericRole { serif, sansSerif, monospace }
 
 /// One host-pinned measurement fallback face.
@@ -63,6 +72,29 @@ final class RitoPinnedFontFace {
 }
 
 /// Version-one pinned fallback face set supplied on session open.
+/// The measurement and paint fallback faces a host pins for a session.
+///
+/// This reads like "a set of faces divided up by role", and it is not.
+/// It is one fallback chain, and three rules govern it:
+///
+/// 1. **The order you pass faces in is discarded.** The engine sorts by
+///    (genericRole, language, sha256), and [RitoPinnedFontGenericRole]
+///    orders serif before sansSerif before monospace. Reordering
+///    [faces] changes nothing.
+/// 2. **Roles do not filter.** Every alias is spliced in ahead of the
+///    first generic keyword of a run's stack, whatever that keyword is.
+///    What actually paints a glyph is the first face in the sorted
+///    chain that covers it, regardless of whether the book asked for
+///    `serif` or `sans-serif`.
+/// 3. **Therefore:** pin one face and it owns every generic keyword in
+///    the book; pin several and the earlier role wins, with later ones
+///    reached only for glyphs the earlier face lacks.
+///
+/// The practical consequence, and the thing that costs an afternoon if
+/// you learn it the hard way: to change the reader's default body face,
+/// change *which single face you pin* — not the order, and not the
+/// role. A role change alone produces no visible difference and no
+/// error.
 final class RitoPinnedFontPolicy {
   RitoPinnedFontPolicy({required List<RitoPinnedFontFace> faces})
     : faces = List<RitoPinnedFontFace>.unmodifiable(faces) {

@@ -564,6 +564,30 @@ final class RitoReaderSession {
     return _readOwnedResource(prepared.artifact, reference);
   }
 
+  /// Rejects an artifact this session cannot serve, telling the two
+  /// reasons apart.
+  ///
+  /// An artifact from another session is a host mistake and stays an
+  /// [ArgumentError]. An artifact of *this* session that is no longer
+  /// live was superseded — background adoption swapping the visible
+  /// page is the ordinary way it happens — so it raises
+  /// [RitoArtifactNotLiveException], which a host can catch and reissue
+  /// against its current artifact instead of surfacing as a failure.
+  void _requireLiveArtifact(RitoArtifact artifact) {
+    if (artifact.sessionId != sessionId) {
+      throw ArgumentError(
+        'Artifact ${artifact.artifactId} belongs to session '
+        '${artifact.sessionId}, not $sessionId.',
+      );
+    }
+    if (!_liveArtifacts.contains(artifact.artifactId)) {
+      throw RitoArtifactNotLiveException(
+        sessionId: sessionId,
+        artifactId: artifact.artifactId,
+      );
+    }
+  }
+
   /// Searches the book from [prepared].
   ///
   /// Scope follows the revision behind the artifact: from a
@@ -582,10 +606,7 @@ final class RitoReaderSession {
   }) async {
     _requireOpen();
     final artifact = prepared.artifact;
-    if (artifact.sessionId != sessionId ||
-        !_liveArtifacts.contains(artifact.artifactId)) {
-      throw ArgumentError('Artifact is not live in this Rito session.');
-    }
+    _requireLiveArtifact(artifact);
     if (query.isEmpty) {
       throw ArgumentError.value(query, 'query', 'must not be empty');
     }
@@ -635,10 +656,7 @@ final class RitoReaderSession {
   }) async {
     _requireOpen();
     final artifact = prepared.artifact;
-    if (artifact.sessionId != sessionId ||
-        !_liveArtifacts.contains(artifact.artifactId)) {
-      throw ArgumentError('Artifact is not live in this Rito session.');
-    }
+    _requireLiveArtifact(artifact);
     if (!artifact.pages.any((page) => page.pageIndex == pageIndex)) {
       throw ArgumentError.value(
         pageIndex,
@@ -687,10 +705,7 @@ final class RitoReaderSession {
   ) async {
     _requireOpen();
     final artifact = prepared.artifact;
-    if (artifact.sessionId != sessionId ||
-        !_liveArtifacts.contains(artifact.artifactId)) {
-      throw ArgumentError('Artifact is not live in this Rito session.');
-    }
+    _requireLiveArtifact(artifact);
     if (key.isEmpty) {
       throw ArgumentError.value(key, 'key', 'must not be empty');
     }
@@ -720,10 +735,7 @@ final class RitoReaderSession {
     RitoResourceRef reference,
   ) async {
     _requireOpen();
-    if (artifact.sessionId != sessionId ||
-        !_liveArtifacts.contains(artifact.artifactId)) {
-      throw ArgumentError('Artifact is not live in this Rito session.');
-    }
+    _requireLiveArtifact(artifact);
     if (!artifact.resources.any(
       (item) => item.kind == reference.kind && item.href == reference.href,
     )) {
@@ -1360,4 +1372,27 @@ final class _NavigationTicket {
       _completion.complete();
     }
   }
+}
+
+/// Raised when an artifact of this session is no longer live.
+///
+/// This is the retryable half of "cannot serve that artifact": the page
+/// it described was superseded, most often by background pagination
+/// handing off a whole-book artifact that the host adopted. Reissue the
+/// call against the current artifact. A genuinely wrong artifact — one
+/// from another session — raises [ArgumentError] instead, and retrying
+/// that would loop forever.
+final class RitoArtifactNotLiveException implements Exception {
+  const RitoArtifactNotLiveException({
+    required this.sessionId,
+    required this.artifactId,
+  });
+
+  final int sessionId;
+  final int artifactId;
+
+  @override
+  String toString() =>
+      'RitoArtifactNotLiveException: artifact $artifactId is no longer live '
+      'in Rito session $sessionId; reissue against the current artifact.';
 }

@@ -18,6 +18,14 @@ final class RitoTextPosition {
   final int blockIndex;
   final int lineIndex;
   final int runIndex;
+
+  /// Offset **in UTF-16 code units**, not characters — the same domain
+  /// as [RitoTextRunOffset.start]/[RitoTextRunOffset.end] and as
+  /// `RitoPage.text`, so `page.text` can be indexed with it directly.
+  /// Dart's `String` is UTF-16, so plain `substring`/`length` agree;
+  /// anything that counts user-perceived characters (`characters`,
+  /// grapheme clusters) does not, and converting through it lands in
+  /// the wrong place on CJK surrogate pairs and emoji.
   final int charIndex;
 }
 

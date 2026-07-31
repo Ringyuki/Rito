@@ -167,23 +167,34 @@ fn search_match_retains_exact_durable_source_boundaries() {
         },
     );
 
+    let range = results[0]
+        .source_range
+        .clone()
+        .expect("a sourced match anchors");
     assert_eq!(
-        results[0].source_range,
-        Some(SearchSourceRange {
-            start: SearchSourcePoint {
-                node_path: vec![4, 5],
-                text_offset: 17,
-            },
-            end: SearchSourcePoint {
-                node_path: vec![4, 6],
-                text_offset: 33,
-            },
-        })
+        range.start,
+        SearchSourcePoint {
+            node_path: vec![4, 5],
+            text_offset: 17,
+        }
+    );
+    assert_eq!(
+        range.end,
+        SearchSourcePoint {
+            node_path: vec![4, 6],
+            text_offset: 33,
+        }
+    );
+    // Nothing forced a shrink here, so the anchor spans the whole match.
+    assert_eq!(
+        range.covered_end - range.covered_start,
+        "needle".chars().count(),
+        "a fully sourced match covers all of itself"
     );
 }
 
 #[test]
-fn search_match_rejects_unavailable_content_between_exact_endpoints() {
+fn search_match_shrinks_to_the_sourced_side_of_generated_content() {
     let flow = fixture_logical_text_flow("abc", vec![(0, 3, Some((vec![1], 0)))]);
     let page = SearchPageText {
         page_index: 0,
@@ -239,8 +250,21 @@ fn search_match_rejects_unavailable_content_between_exact_endpoints() {
         },
     );
 
+    // Generated content inside the match used to void the anchor
+    // entirely. It now shrinks to the longest sourced stretch, so a hit
+    // that straddles generated and real text still points somewhere
+    // durable — here the tail character, whose source survives.
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0].source_range, None);
+    let range = results[0]
+        .source_range
+        .clone()
+        .expect("the sourced side still anchors");
+    assert_eq!(range.start.node_path, vec![1]);
+    assert_eq!(range.covered_end - range.covered_start, 1);
+    assert!(
+        range.covered_start >= 2,
+        "the anchor must land on the sourced tail, not the generated gap: {range:?}"
+    );
 }
 
 fn page_with_text(text: &str) -> RuntimePage<RuntimeBlock<LineBox>> {

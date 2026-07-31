@@ -218,6 +218,8 @@ pub(super) fn search_response(bytes: &[u8]) -> Result<ReaderSearchResponseV1, Re
         artifact_id: external_id(reader.u64()?, "artifactId")?,
         query: reader.string("search query")?,
         truncated: reader.bool("search truncated")?,
+        searched_page_count: reader.u32()?,
+        scope_complete: reader.bool("search scope complete")?,
         results: reader.collection("search results", |reader| {
             reader.record("search result", |reader| {
                 Ok(ReaderSearchResultV1 {

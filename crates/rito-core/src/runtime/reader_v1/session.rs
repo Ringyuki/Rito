@@ -735,7 +735,7 @@ impl ReaderSessionV1 {
             whole_word: request.whole_word,
             limit: probe_limit,
         };
-        let response = match artifact.backing {
+        let (response, searched_page_count, scope_complete) = match artifact.backing {
             ReaderRevisionBackingV1::ChapterLocal => {
                 let owner = self
                     .revisions
@@ -746,11 +746,16 @@ impl ReaderSessionV1 {
                     .document
                     .require_chapter_local_owner(&owner)
                     .map_err(engine_error)?;
-                crate::runtime::search::search_revision(
-                    self.document.document(),
-                    &owner.revision_id,
-                    revision,
-                    runtime_request,
+                let scope = revision_search_scope(revision)?;
+                (
+                    crate::runtime::search::search_revision(
+                        self.document.document(),
+                        &owner.revision_id,
+                        revision,
+                        runtime_request,
+                    ),
+                    scope.0,
+                    scope.1,
                 )
             }
             ReaderRevisionBackingV1::Publication => {
@@ -764,11 +769,16 @@ impl ReaderSessionV1 {
                     .revisions
                     .get(&owner.revision_id)
                     .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
-                crate::runtime::search::search_revision(
-                    self.document.document(),
-                    &owner.revision_id,
-                    revision,
-                    runtime_request,
+                let scope = revision_search_scope(revision)?;
+                (
+                    crate::runtime::search::search_revision(
+                        self.document.document(),
+                        &owner.revision_id,
+                        revision,
+                        runtime_request,
+                    ),
+                    scope.0,
+                    scope.1,
                 )
             }
         };
@@ -782,6 +792,8 @@ impl ReaderSessionV1 {
             artifact_id: request.artifact_id,
             query: request.query,
             truncated,
+            searched_page_count,
+            scope_complete,
             results: results
                 .into_iter()
                 .map(reader_search_result)
@@ -3183,4 +3195,13 @@ fn reader_text_position(
         run_index: u32_from_usize(value.run_index, "text position run index")?,
         char_index: u32_from_usize(value.char_index, "text position char index")?,
     })
+}
+
+/// How much of the book a search over this revision could see: the
+/// pages laid out so far, and whether that is now all of them.
+fn revision_search_scope(revision: &RuntimeRevision) -> Result<(u32, bool), ReaderErrorV1> {
+    Ok((
+        u32_from_usize(revision.known_extent.page_count, "searched page count")?,
+        revision.final_extent.is_some(),
+    ))
 }

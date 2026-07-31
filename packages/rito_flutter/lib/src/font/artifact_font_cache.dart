@@ -53,25 +53,37 @@ final class RitoFlutterFontRegistrar implements RitoFontRegistrar {
 /// The private constructor prevents a page surface from being created from a
 /// decoded-but-unprepared artifact.
 final class RitoPreparedArtifact {
-  const RitoPreparedArtifact._(this.artifact, [this._imageLease]);
+  const RitoPreparedArtifact._(this.artifact, [this._imageLease])
+    : _testImages = null;
+
+  const RitoPreparedArtifact._forTest(this.artifact, this._testImages)
+    : _imageLease = null;
 
   /// Builds a prepared artifact without going through font or image
   /// preparation, for host tests that exercise what happens *after* an
   /// artifact arrives (pump-and-adopt, page-number regression, texture
   /// invalidation, link and image flows).
   ///
-  /// The result reports `hasPreparedImages == false` and throws from
-  /// [resolveImage]: nothing was actually prepared, and a test that
-  /// paints one would be asserting against a lie. Pass [imageLease]
-  /// when the test does need image resolution.
+  /// Pass [images] — hrefs to `ui.Image`s the test made itself — to
+  /// paint a page whose display list draws images; the artifact then
+  /// resolves them exactly as a session-prepared one would. Omit it and
+  /// [hasPreparedImages] stays false and [resolveImage] throws, because
+  /// nothing was prepared and a page that painted blanks would be
+  /// asserting against a lie.
+  ///
+  /// The test owns any image it passes: this does not dispose them.
   @visibleForTesting
   factory RitoPreparedArtifact.forTest(
     RitoArtifact artifact, {
-    RitoArtifactImageLease? imageLease,
-  }) => RitoPreparedArtifact._(artifact, imageLease);
+    Map<String, ui.Image>? images,
+  }) => RitoPreparedArtifact._forTest(
+    artifact,
+    images == null ? null : Map<String, ui.Image>.unmodifiable(images),
+  );
 
   final RitoArtifact artifact;
   final RitoArtifactImageLease? _imageLease;
+  final Map<String, ui.Image>? _testImages;
 
   int get sessionId => artifact.sessionId;
   int get requestId => artifact.requestId;
@@ -79,9 +91,17 @@ final class RitoPreparedArtifact {
   List<RitoResourceRef> get resources => artifact.resources;
   List<RitoFontRef> get fonts => artifact.fonts;
 
-  bool get hasPreparedImages => _imageLease != null;
+  bool get hasPreparedImages => _imageLease != null || _testImages != null;
 
   ui.Image resolveImage(String href) {
+    final testImages = _testImages;
+    if (testImages != null) {
+      final image = testImages[href];
+      if (image == null) {
+        throw StateError('Test artifact has no image for $href.');
+      }
+      return image;
+    }
     final lease = _imageLease;
     if (lease == null) {
       throw StateError('Artifact images were not prepared by this session.');
