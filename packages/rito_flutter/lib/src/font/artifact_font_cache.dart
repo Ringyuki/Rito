@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../image/artifact_image_cache.dart';
@@ -53,6 +54,21 @@ final class RitoFlutterFontRegistrar implements RitoFontRegistrar {
 /// decoded-but-unprepared artifact.
 final class RitoPreparedArtifact {
   const RitoPreparedArtifact._(this.artifact, [this._imageLease]);
+
+  /// Builds a prepared artifact without going through font or image
+  /// preparation, for host tests that exercise what happens *after* an
+  /// artifact arrives (pump-and-adopt, page-number regression, texture
+  /// invalidation, link and image flows).
+  ///
+  /// The result reports `hasPreparedImages == false` and throws from
+  /// [resolveImage]: nothing was actually prepared, and a test that
+  /// paints one would be asserting against a lie. Pass [imageLease]
+  /// when the test does need image resolution.
+  @visibleForTesting
+  factory RitoPreparedArtifact.forTest(
+    RitoArtifact artifact, {
+    RitoArtifactImageLease? imageLease,
+  }) => RitoPreparedArtifact._(artifact, imageLease);
 
   final RitoArtifact artifact;
   final RitoArtifactImageLease? _imageLease;
