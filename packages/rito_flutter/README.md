@@ -18,6 +18,19 @@ bundles the correct dynamic library for the selected Android, iOS, or host
 target on Flutter 3.41.7 or newer. Application code does not construct or guess
 a library path.
 
+## Installation
+
+```console
+flutter pub add rito_flutter
+```
+
+The build machine must provide Rust 1.95 and the Rust target selected by
+Flutter. Android builds additionally require NDK 28.2; iOS builds require
+Xcode. The package includes the locked Rust source closure used by its Native
+Assets hook, so consuming applications do not need a Rito repository checkout.
+
+## Basic usage
+
 ```dart
 final gateway = RitoIsolateGateway();
 final session = await RitoReaderSession.open(

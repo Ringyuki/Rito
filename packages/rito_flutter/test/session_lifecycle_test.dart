@@ -33,6 +33,7 @@ void main() {
         direction: RitoAdjacentDirection.next,
         work: testWorkBudget,
       );
+      expect(next.artifactId, 7002);
       await session.releaseArtifact(session.firstArtifact);
       await session.releaseArtifact(session.firstArtifact);
       await session.dispose();
@@ -817,7 +818,6 @@ final class _MockGateway implements RitoReaderGateway {
     this.backgroundAdoptError,
     this.releaseError,
     this.publicationError,
-    this.resourceError,
     this.replacementForegroundError,
   }) : artifact = const RitoArtifactDecoder().decode(
          artifactFixture(requestId: openRequestId),

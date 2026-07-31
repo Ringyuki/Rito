@@ -89,15 +89,35 @@ void main() {
     );
   });
 
-  test('workspace and Native Asset identifiers remain stable', () {
+  test('repository workspace and Native Asset identifiers remain stable', () {
     final workspace = RitoWorkspace.fromPackageRoot(
       Uri.parse('file:///repo/packages/rito_flutter/'),
+      pathExists: (_) => false,
     );
 
     expect(workspace.root, Uri.parse('file:///repo/'));
     expect(workspace.hookDependencies, contains(workspace.crates));
     expect(ritoNativeAssetName, 'src/native/bindings.dart');
     expect(ritoNativeAssetId, 'package:rito_flutter/src/native/bindings.dart');
+  });
+
+  test('published packages use their bundled Rust workspace', () {
+    final workspace = RitoWorkspace.fromPackageRoot(
+      Uri.parse('file:///pub-cache/rito_flutter-0.1.0/'),
+      pathExists: (path) => path.endsWith('/native/Cargo.toml'),
+    );
+
+    expect(
+      workspace.root,
+      Uri.parse('file:///pub-cache/rito_flutter-0.1.0/native/'),
+    );
+    expect(
+      workspace.ffiManifest,
+      Uri.parse(
+        'file:///pub-cache/rito_flutter-0.1.0/'
+        'native/crates/rito-ffi/Cargo.toml',
+      ),
+    );
   });
 
   group('Cargo executable discovery', () {

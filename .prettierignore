@@ -13,3 +13,5 @@ benchmarks/css-engine-spike/results/**/*.jsonl
 **/.idea/
 **/*.iml
 **/pubspec.lock
+packages/rito_flutter/doc/api/
+packages/rito_flutter/native/

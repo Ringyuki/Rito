@@ -1,3 +1,4 @@
+/// High-level reader sessions, prepared artifacts, and Flutter page painting.
 library;
 
 export 'src/font/artifact_font_cache.dart'
@@ -35,6 +36,7 @@ export 'src/protocol/artifact_models.dart';
 export 'src/protocol/display_models.dart' show RitoCommand, RitoDisplayList;
 export 'src/protocol/footnote_decoder.dart'
     show RitoFootnote, RitoFootnoteKind;
+export 'src/protocol/request_models.dart';
 export 'src/protocol/search.dart'
     show RitoSearchRequest, RitoSearchResponse, RitoSearchResult;
 export 'src/protocol/text_geometry.dart'
@@ -43,7 +45,6 @@ export 'src/protocol/text_geometry.dart'
         RitoTextRangeGeometry,
         RitoTextRangeRequest,
         RitoTextRect;
-export 'src/protocol/request_models.dart';
 export 'src/reader_session.dart';
 export 'src/render/font_envelope.dart'
     show RitoFontEnvelope, RitoFontEnvelopeStore;

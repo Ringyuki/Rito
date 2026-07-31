@@ -1,3 +1,6 @@
 .dart_tool/
 build/
+doc/api/
 flutter_*.log
+/LICENSE
+/native/

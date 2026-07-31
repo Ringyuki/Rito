@@ -35,6 +35,7 @@
     "lint:fix": "pnpm run bootstrap:core-wasm && node scripts/run-eslint-bounded.mjs --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "flutter:release:prepare": "node scripts/prepare-flutter-release.mjs",
     "rust:check": "pnpm run rust:fmt:check && pnpm run rust:clippy && pnpm run rust:test",
     "rust:clippy": "cargo clippy --workspace --all-targets --jobs 1 -- -D warnings",
     "rust:fixtures:check": "pnpm --filter @ritojs/core run fixtures:rust:check",

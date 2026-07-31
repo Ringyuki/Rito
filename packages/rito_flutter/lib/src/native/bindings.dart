@@ -8,8 +8,8 @@ import '../protocol/artifact_decoder.dart';
 import '../protocol/artifact_models.dart';
 import '../protocol/binary_reader.dart';
 import '../protocol/footnote_decoder.dart';
-import '../protocol/text_geometry.dart';
 import '../protocol/resource_decoder.dart';
+import '../protocol/text_geometry.dart';
 import 'asset.dart';
 import 'pinned_font_policy.dart';
 

@@ -1,3 +1,4 @@
+/// Low-level Native Assets bindings and isolate gateway APIs for embedders.
 library;
 
 export 'src/native/bindings.dart'

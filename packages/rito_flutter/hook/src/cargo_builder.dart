@@ -133,7 +133,15 @@ String _joinPath(List<String> parts, String separator) {
 final class RitoWorkspace {
   const RitoWorkspace(this.root);
 
-  factory RitoWorkspace.fromPackageRoot(Uri packageRoot) {
+  factory RitoWorkspace.fromPackageRoot(
+    Uri packageRoot, {
+    RitoPathExists? pathExists,
+  }) {
+    final exists = pathExists ?? (String path) => File(path).existsSync();
+    final packagedRoot = packageRoot.resolve('native/');
+    if (exists(packagedRoot.resolve('Cargo.toml').toFilePath())) {
+      return RitoWorkspace(packagedRoot);
+    }
     return RitoWorkspace(packageRoot.resolve('../../'));
   }
 

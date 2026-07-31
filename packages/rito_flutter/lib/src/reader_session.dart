@@ -1,3 +1,7 @@
+// Keep protocol model dependencies explicit even though gateway.dart re-exports
+// them for public API convenience.
+// ignore_for_file: unnecessary_import
+
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -7,11 +11,11 @@ import 'native/gateway.dart';
 import 'protocol/artifact_models.dart';
 import 'protocol/background_models.dart';
 import 'protocol/footnote_decoder.dart';
-import 'protocol/search.dart';
-import 'protocol/text_geometry.dart';
 import 'protocol/foreground_models.dart';
 import 'protocol/publication_models.dart';
 import 'protocol/request_models.dart';
+import 'protocol/search.dart';
+import 'protocol/text_geometry.dart';
 
 typedef RitoArtifactResourceReader =
     Future<RitoResource> Function(RitoResourceRef reference);

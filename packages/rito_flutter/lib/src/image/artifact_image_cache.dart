@@ -173,7 +173,7 @@ final class RitoArtifactImageCache {
         return entry.key;
       } finally {
         if (identical(_loads[sourceKey], operation)) {
-          _loads.remove(sourceKey);
+          unawaited(_loads.remove(sourceKey));
         }
       }
     }

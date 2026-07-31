@@ -1,7 +1,6 @@
-import 'dart:ui' as ui;
-
 import 'dart:async';
 import 'dart:collection';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';

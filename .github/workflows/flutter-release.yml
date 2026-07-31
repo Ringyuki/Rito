@@ -1,15 +1,17 @@
 # Publishes rito_flutter to pub.dev on a version tag.
 #
 # Trigger: push a tag `rito_flutter-vX.Y.Z` whose version matches
-# pubspec.yaml. Publishing uses pub.dev's GitHub Actions automated
-# publishing (OIDC) — no long-lived token is stored anywhere. One-time
-# setup on pub.dev (package Admin → Automated publishing): enable
-# GitHub Actions publishing for repository `Ringyuki/Rito` with tag
-# pattern `rito_flutter-v{{version}}`.
+# pubspec.yaml. The main Release workflow creates this tag automatically after
+# npm publishing succeeds. Publishing uses pub.dev's GitHub Actions automated
+# publishing (OIDC) — no long-lived pub.dev token is stored anywhere. One-time
+# setup on pub.dev (package Admin → Automated publishing): enable GitHub Actions
+# publishing for repository `Ringyuki/Rito` with tag pattern
+# `rito_flutter-v{{version}}`.
 #
-# Safety: `dart pub publish` refuses while pubspec still carries
-# `publish_to: none`, so this workflow cannot ship the package before
-# the vendored-source packaging lands and that line is removed.
+# The release preparation step vendors the exact tracked Rust dependency
+# closure used by rito-ffi. The Native Assets hook prefers that self-contained
+# workspace in published packages and falls back to the monorepo during local
+# development.
 name: flutter-release
 
 on:
@@ -29,9 +31,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Provisions the pub.dev OIDC credential. Flutter shadows this action's
+      # standalone Dart binary in the following step.
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.11.5
+
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: 3.41.7
+
+      - uses: dtolnay/rust-toolchain@1.95.0
 
       - name: Verify tag matches pubspec version
         run: |
@@ -40,10 +50,18 @@ jobs:
           echo "tag=$TAG_VERSION pubspec=$PUBSPEC_VERSION"
           test "$TAG_VERSION" = "$PUBSPEC_VERSION"
 
-      # TODO(release stage 1): run the vendored-source packaging script
-      # here (copy the rito-ffi crate closure + Cargo.toml/Cargo.lock/
-      # rust-toolchain.toml into the package) before validation, and
-      # drop `publish_to: none` from pubspec.yaml.
+      - name: Prepare self-contained package
+        working-directory: .
+        run: node scripts/prepare-flutter-release.mjs
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: dart analyze
+
+      - name: Test bundled Native Asset
+        run: flutter test
 
       - name: Validate package
         run: dart pub publish --dry-run

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter.dart';
-import 'package:rito_flutter/rito_flutter_protocol.dart';
 
 import 'support/image_cache_fixture.dart';
 

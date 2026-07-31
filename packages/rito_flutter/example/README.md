@@ -1,17 +1,14 @@
 # rito_flutter_example
 
-A new Flutter project.
+Minimal build-smoke host for `rito_flutter`. It references
+`RitoIsolateGateway`, which makes Flutter compile and link the bundled
+`rito-ffi` Native Asset for the selected target.
 
-## Getting Started
+From this directory:
 
-This project is a starting point for a Flutter application.
+```console
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+For an end-to-end reader integration, see
+[`doc/INTEGRATION.md`](../doc/INTEGRATION.md).
