@@ -388,10 +388,36 @@ fn unpublished_publication_adjacent_advances_one_retained_foreground_quantum() {
         })
         .expect("publication candidate adopts");
 
+    // A handoff only happens once the reader's spread is sealed, which
+    // means the spread after it already exists. Walk to the frontier —
+    // where `next` is still Pending — to exercise the bounded-work
+    // contract this test is about.
+    let mut visible = publication.clone();
+    let mut walk_id = 500;
+    while visible.navigation.next == ReaderAdjacentAvailabilityV1::Available {
+        walk_id += 1;
+        let next = session
+            .request_adjacent(adjacent_request(
+                209,
+                walk_id,
+                visible.artifact_id,
+                ReaderAdjacentDirectionV1::Next,
+            ))
+            .expect("published spreads turn without extra work");
+        adopt_replacement(&mut session, 209, visible.artifact_id, next.artifact_id);
+        if visible.artifact_id != publication.artifact_id {
+            session
+                .release_artifact(visible.artifact_id)
+                .expect("intermediate spread releases");
+        }
+        visible = next;
+    }
+    assert_eq!(visible.navigation.next, ReaderAdjacentAvailabilityV1::Pending);
+
     let mut adjacent = adjacent_request(
         209,
-        2,
-        publication.artifact_id,
+        walk_id + 1,
+        visible.artifact_id,
         ReaderAdjacentDirectionV1::Next,
     );
     adjacent.work.max_top_level_nodes_per_quantum = 1;
@@ -404,12 +430,12 @@ fn unpublished_publication_adjacent_advances_one_retained_foreground_quantum() {
     assert!(session.has_pending_adjacent_v1());
     assert_eq!(publication_version(&session), before + 1);
     let background = session
-        .advance_background_once(background_request(209, publication.artifact_id, 1))
+        .advance_background_once(background_request(209, visible.artifact_id, 1))
         .expect_err("background yields while publication adjacent owns continuation");
     assert_eq!(background.kind, ReaderErrorKindV1::StaleRequest);
 
     let mut resolved = None;
-    for request_id in 3..=128 {
+    for request_id in walk_id + 2..=walk_id + 128 {
         adjacent.request_id = request_id;
         match session.request_adjacent(adjacent) {
             Ok(artifact) => {
@@ -425,13 +451,14 @@ fn unpublished_publication_adjacent_advances_one_retained_foreground_quantum() {
     let resolved = resolved.expect("retained publication work eventually publishes adjacent");
     assert_eq!(resolved.revision_id, publication.revision_id);
     assert!(!session.has_pending_adjacent_v1());
-    assert_eq!(session.visible_artifact_id(), Some(publication.artifact_id));
+    assert_eq!(session.visible_artifact_id(), Some(visible.artifact_id));
 
     release_all(
         &mut session,
         [
             local.artifact_id,
             publication.artifact_id,
+            visible.artifact_id,
             resolved.artifact_id,
         ],
     );
@@ -1171,4 +1198,63 @@ fn every_publication_candidate_locator_describes_the_page_it_draws() {
         adopted = candidate;
     }
     assert!(handoffs > 0, "the pump must hand off at least once");
+}
+
+#[test]
+fn no_handoff_ever_moves_the_reader() {
+    use crate::runtime::tests::fixture::many_chapter_fixture_epub;
+    // The invariant the host gates on. A candidate resolved onto the
+    // frontier spread is not stable — content still flows into it — and
+    // the completion handoff must republish the page the reader is on
+    // rather than re-resolving where they entered the book. Both used
+    // to move the reader, in either order depending on where the
+    // frontier happened to be.
+    for start in ["chapter-0.xhtml", "chapter-11.xhtml", "chapter-22.xhtml"] {
+        let mut session = ReaderSessionV1::open_owned(226, many_chapter_fixture_epub(24))
+            .expect("reader session opens");
+        let visible = session
+            .request_artifact(artifact_request(226, 1, start))
+            .expect("chapter resolves");
+        adopt_initial(&mut session, 226, visible.artifact_id);
+
+        let mut current = visible;
+        let mut handoffs = 0;
+        for _ in 0..4096 {
+            let step = session
+                .advance_background_once(background_request(226, current.artifact_id, 8))
+                .expect("background advances");
+            if let Some(candidate) = step.artifact {
+                handoffs += 1;
+                assert!(
+                    !step.moves_visible_content,
+                    "{start}: handoff {handoffs} moved the reader"
+                );
+                assert_eq!(
+                    candidate.pages.first().map(|page| page.text.clone()),
+                    current.pages.first().map(|page| page.text.clone()),
+                    "{start}: handoff {handoffs} drew different content"
+                );
+                session
+                    .adopt_background_candidate(ReaderBackgroundHandoffV1 {
+                        session_id: 226,
+                        expected_visible_artifact_id: current.artifact_id,
+                        candidate_artifact_id: candidate.artifact_id,
+                    })
+                    .expect("candidate adopts");
+                session
+                    .release_artifact(current.artifact_id)
+                    .expect("outgoing releases");
+                current = candidate;
+            }
+            if step.state == ReaderBackgroundStateV1::Complete && handoffs > 0 {
+                break;
+            }
+        }
+        assert!(handoffs > 0, "{start}: the pump must hand off");
+        // Reaching the book page count is the point of the last one.
+        assert!(
+            current.book_page_count.is_some(),
+            "{start}: the reader ends up with a book page count"
+        );
+    }
 }

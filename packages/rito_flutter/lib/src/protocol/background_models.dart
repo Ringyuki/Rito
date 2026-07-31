@@ -44,10 +44,12 @@ final class RitoBackgroundAdvance {
   /// move the reader unprompted should release the candidate instead of
   /// adopting it. Always false when there is no candidate.
   ///
-  /// Comparing locators yourself is not a substitute: both artifacts'
-  /// locators describe the pages they draw, so they agree exactly when
-  /// this is false — this field is the same answer without the host
-  /// having to know that.
+  /// In practice this is now always false, and it is kept as an
+  /// assertion rather than a situation to handle: a candidate is only
+  /// minted once its page is sealed (content no longer flows into it),
+  /// and the completion handoff republishes the page the reader is on
+  /// instead of re-resolving where they entered the book. A host that
+  /// sees true should report it — the engine regressed.
   final bool movesVisibleContent;
   final RitoArtifact? artifact;
 }

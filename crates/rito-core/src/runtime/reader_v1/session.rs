@@ -1535,13 +1535,38 @@ impl ReaderSessionV1 {
         if !visible_is_current_publication || self.require_artifact_capacity().is_err() {
             return Ok(None);
         }
-        let candidate = self.try_publication_candidate(revision_id, intent)?;
-        if candidate.is_some() {
-            if let Some(revision) = self.publication_revisions.get_mut(&revision_id) {
-                revision.completion_handoff_offered = true;
+        // Republish the spread the reader is already on. Re-resolving
+        // the original locator would be a second navigation decision at
+        // the worst possible moment: `intent.locator` still names where
+        // the reader entered the book, not where they are now, so a
+        // completed layout can resolve it somewhere else entirely and
+        // this handoff — whose whole job is to deliver a page count —
+        // would move them.
+        let Some(spread_index) = self
+            .artifacts
+            .get(&intent.visible_artifact_id)
+            .map(|visible| visible.local_spread_index)
+        else {
+            return Ok(None);
+        };
+        let candidate = match self.publish_publication_artifact(
+            revision_id,
+            spread_index,
+            intent.accepted_request_id,
+        ) {
+            Ok(artifact) => artifact,
+            Err(error) if error.kind == ReaderErrorKindV1::TargetNotPublished => {
+                return Ok(None);
             }
+            Err(error) => return Err(error),
+        };
+        if let Some(revision) = self.publication_revisions.get_mut(&revision_id) {
+            revision.completion_handoff_offered = true;
         }
-        Ok(candidate)
+        if let Some(current) = self.visible_intent.as_mut() {
+            current.pending_handoff_artifact_id = Some(candidate.artifact_id);
+        }
+        Ok(Some(candidate))
     }
 
     /// Mints the publication artifact that stands in for what the
@@ -1579,6 +1604,14 @@ impl ReaderSessionV1 {
         if locator != intent.locator {
             return Ok(None);
         }
+        // Content keeps flowing into the last laid-out spread, so a
+        // position resolved onto it is not yet where it will end up.
+        // Minting a candidate there hands the host a page that moves
+        // under it once layout continues; waiting costs a few quanta
+        // and makes the handoff a pure renumbering.
+        if !self.publication_spread_is_sealed(revision_id, spread_index) {
+            return Ok(None);
+        }
         if !self.visible_intent_matches(intent) {
             return Err(stale_background_intent(
                 intent.visible_artifact_id,
@@ -1606,6 +1639,20 @@ impl ReaderSessionV1 {
             current.pending_handoff_artifact_id = Some(artifact.artifact_id);
         }
         Ok(Some(artifact))
+    }
+
+    /// Whether a spread's composition is final.
+    ///
+    /// Only the frontier spread of an unfinished layout can still take
+    /// more content; anything with a spread after it is sealed, as is
+    /// every spread once the layout completes.
+    fn publication_spread_is_sealed(&self, revision_id: u64, spread_index: usize) -> bool {
+        self.publication_revisions
+            .get(&revision_id)
+            .is_some_and(|revision| {
+                revision.final_spread_count.is_some()
+                    || spread_index + 1 < revision.known_spread_count
+            })
     }
 
     /// Whether adopting `candidate` would put different content on
