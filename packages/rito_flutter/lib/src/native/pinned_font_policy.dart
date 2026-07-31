@@ -4,15 +4,17 @@ import 'package:crypto/crypto.dart' as crypto;
 
 /// Generic CSS family role occupied by one pinned fallback face
 /// (runtime pinned-font policy schema v1).
-/// Which generic keyword a pinned face stands in for.
+/// Which generic keyword a pinned face serves.
 ///
-/// The role is **not** a filter at paint time. It is a sort key: the
-/// engine orders every pinned face by (role, language, sha256) with
-/// `serif` first, `sansSerif` second, `monospace` last, and then
-/// inserts *all* of them, in that order, ahead of the first generic
-/// keyword in a run's family stack. A run asking for `sans-serif`
-/// therefore still meets the serif-role face first. See
-/// [RitoPinnedFontPolicy] for what that means in practice.
+/// The role **is a filter**: a run whose family list resolves to
+/// `serif` is only offered faces pinned as [serif], and a face pinned
+/// as [sansSerif] never appears in it. Getting this wrong is silent —
+/// the run falls through to whatever the platform supplies, which is
+/// exactly what pinning exists to prevent — so a host that pins one
+/// face must pin it for the role its books actually use.
+///
+/// Most EPUBs declare no `font-family` at all and their text resolves
+/// to `serif`, so `serif` is the role to pin first.
 enum RitoPinnedFontGenericRole { serif, sansSerif, monospace }
 
 /// One host-pinned measurement fallback face.
@@ -74,27 +76,26 @@ final class RitoPinnedFontFace {
 /// Version-one pinned fallback face set supplied on session open.
 /// The measurement and paint fallback faces a host pins for a session.
 ///
-/// This reads like "a set of faces divided up by role", and it is not.
-/// It is one fallback chain, and three rules govern it:
+/// Three rules govern it:
 ///
 /// 1. **The order you pass faces in is discarded.** The engine sorts by
-///    (genericRole, language, sha256), and [RitoPinnedFontGenericRole]
-///    orders serif before sansSerif before monospace. Reordering
-///    [faces] changes nothing.
-/// 2. **Roles do not filter.** Every alias is spliced in ahead of the
-///    first generic keyword of a run's stack, whatever that keyword is.
-///    What actually paints a glyph is the first face in the sorted
-///    chain that covers it, regardless of whether the book asked for
-///    `serif` or `sans-serif`.
-/// 3. **Therefore:** pin one face and it owns every generic keyword in
-///    the book; pin several and the earlier role wins, with later ones
-///    reached only for glyphs the earlier face lacks.
+///    (genericRole, language, sha256). Reordering [faces] changes
+///    nothing.
+/// 2. **The role selects which runs a face serves.** A run resolving to
+///    `serif` is offered only serif-role faces; a sans-serif-role face
+///    is invisible to it. Language narrows this further: a face tagged
+///    for a language is preferred inside that language and still
+///    reachable outside it, within the same role.
+/// 3. **A generic with no pinned face for its role is not pinned at
+///    all.** That run falls through to whatever the platform has, which
+///    differs across iOS, Android and the browser — the determinism
+///    pinning exists for is lost for those runs, silently.
 ///
-/// The practical consequence, and the thing that costs an afternoon if
-/// you learn it the hard way: to change the reader's default body face,
-/// change *which single face you pin* — not the order, and not the
-/// role. A role change alone produces no visible difference and no
-/// error.
+/// The practical consequence: to change the reader's body face, pin the
+/// new face **under the role the book's text actually resolves to**.
+/// Most EPUBs declare no `font-family`, so that role is `serif`. Pinning
+/// a single sans-serif face for such a book changes nothing and reports
+/// nothing.
 final class RitoPinnedFontPolicy {
   RitoPinnedFontPolicy({required List<RitoPinnedFontFace> faces})
     : faces = List<RitoPinnedFontFace>.unmodifiable(faces) {

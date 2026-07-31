@@ -133,3 +133,53 @@ fn diagnostic(
         .unwrap()
         .value
 }
+
+#[test]
+fn a_pinned_role_only_serves_runs_that_ask_for_that_generic() {
+    // The contract hosts get this wrong on: the role is a filter, not a
+    // label. A book whose text resolves to `serif` gets nothing from a
+    // face pinned as sans-serif, and the symptom is silent — the run
+    // simply falls through to whatever the platform supplies, which is
+    // the one outcome pinning exists to prevent.
+    let font = title_font();
+    let character = shared_supported_character(&font, &font);
+    let body = format!(
+        r#"<p style="font-family: serif">{}</p>"#,
+        xml_text(character)
+    );
+    let bytes = content_epub("en", &body, "", None);
+
+    for (role, expects_alias) in [
+        (RuntimePinnedFontGenericRole::Serif, true),
+        (RuntimePinnedFontGenericRole::SansSerif, false),
+    ] {
+        let mut document = RuntimeDocument::open_with_pinned_font_policy(
+            &bytes,
+            policy(vec![face(font.clone(), role, None)]),
+        )
+        .expect("document opens");
+        let alias = document.pinned_font_policy_summary().faces[0]
+            .family_alias
+            .clone();
+        let revision = document
+            .create_revision(&font_aware_layout())
+            .expect("revision");
+        let frame = document
+            .get_frame(&revision.revision_id, 0)
+            .expect("frame publishes");
+        let families = frame
+            .commands
+            .iter()
+            .filter(|command| command["kind"] == "paintText")
+            .filter_map(|command| command["paint"]["font"]["family"].as_str())
+            .collect::<Vec<_>>();
+        assert!(!families.is_empty(), "{role:?}: the fixture paints text");
+        for family in families {
+            assert_eq!(
+                family.contains(&alias),
+                expects_alias,
+                "{role:?}: serif run resolved to {family:?}"
+            );
+        }
+    }
+}
