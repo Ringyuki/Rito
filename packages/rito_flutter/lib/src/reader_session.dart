@@ -1378,10 +1378,20 @@ final class _NavigationTicket {
 ///
 /// This is the retryable half of "cannot serve that artifact": the page
 /// it described was superseded, most often by background pagination
-/// handing off a whole-book artifact that the host adopted. Reissue the
-/// call against the current artifact. A genuinely wrong artifact — one
-/// from another session — raises [ArgumentError] instead, and retrying
-/// that would loop forever.
+/// handing off a whole-book artifact that the host adopted.
+///
+/// Reissue against the current artifact — but reissue the *work*, not
+/// just the argument. The reason an artifact gets superseded is usually
+/// that the book was laid out again, so positions taken from the old
+/// response do not survive the swap: a [RitoSearchResult]'s `pageIndex`
+/// and its [RitoTextPosition]s describe the old artifact's pagination
+/// and mean something else (or nothing) on the new one. Run the query
+/// again and use the hits it returns. What does carry across is the
+/// hit's [RitoLocator], which is anchored to source text rather than to
+/// pagination.
+///
+/// A genuinely wrong artifact — one from another session — raises
+/// [ArgumentError] instead, and retrying that would loop forever.
 final class RitoArtifactNotLiveException implements Exception {
   const RitoArtifactNotLiveException({
     required this.sessionId,

@@ -17,6 +17,29 @@ use super::{
 
 pub const READER_ADJACENT_REQUEST_WIRE_MAGIC_V1: [u8; 8] = *b"RITONAV1";
 pub const READER_ARTIFACT_WIRE_MAGIC_V1: [u8; 8] = *b"RITOART1";
+// Every message below is decoded by hand in more than one language, and
+// nothing in the build makes them agree. Changing a message's field
+// layout — adding a field, changing a type, relaxing an invariant —
+// means changing every mirror in the same commit:
+//
+//   * Rust        this module (encode + decode) and its tests
+//   * Dart        packages/rito_flutter/lib/src/protocol/
+//   * JavaScript  packages/rito-core-wasm/src/reader-v1-*-runtime.js
+//
+// Which mirrors exist depends on the message. RITOART1, RITOPUB1,
+// RITORES1, RITOBGA1 and the handoffs have all three. RITOFTN1,
+// RITOTRQ1/RITOTRG1 and RITOSRQ1/RITOSRS1 are FFI-only today and have
+// no JavaScript mirror — if the browser ever consumes one, it gains a
+// third mirror and this obligation with it.
+//
+// The failure mode is silent, because every mirror ships hand-built
+// test fixtures that agree with their own decoder. A stale mirror keeps
+// passing its own tests while rejecting real bytes at runtime: that is
+// exactly how the publication decoder ended up pinned to protocol
+// version 1 while the encoder wrote 2, bricking `readPublication` and
+// taking the session down with it. `protocol_version_parity_test.dart`
+// now guards the version specifically; nothing guards field layout, so
+// that part is on the author.
 pub const READER_BACKGROUND_ADVANCE_WIRE_MAGIC_V1: [u8; 8] = *b"RITOBGA1";
 pub const READER_BACKGROUND_HANDOFF_ACK_WIRE_MAGIC_V1: [u8; 8] = *b"RITOHOA1";
 pub const READER_BACKGROUND_HANDOFF_WIRE_MAGIC_V1: [u8; 8] = *b"RITOHOF1";
