@@ -1845,10 +1845,13 @@ fn is_cjk_context(character: char) -> bool {
 /// Measured against pinned Chromium (scratchpad justify probes,
 /// 2026-07-28): em dashes, ellipses, middle dots and curly quotes are NOT
 /// in the class even when a CJK face serves them — the class is decided
-/// by code point, not by the resolved font.
+/// by code point, not by the resolved font. Enclosed alphanumerics
+/// (U+2460 circled digits — postil markers) ARE in the class, plain and
+/// superscripted alike (measured 2026-08-03).
 fn is_cjk_justify(character: char) -> bool {
     matches!(u32::from(character),
-        0x2E80..=0x2EFF
+        0x2460..=0x24FF
+        | 0x2E80..=0x2EFF
         | 0x3000..=0x303F
         | 0x3041..=0x30FF
         | 0x31C0..=0x31EF
