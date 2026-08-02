@@ -1939,6 +1939,15 @@ fn line_justify_plan(
         }
         previous = Some(character);
     }
+    // A share deferred into the line's end has nowhere to land, but
+    // Blink still counts it in the denominator: a justified line ending
+    // `……唉` distributes slack/(shares+1) and stays one share short of
+    // the right edge (measured 2026-08-03, replica vs live: Blink share
+    // 26.688/33 = 0.809 with the line ending 0.81px shy; the engine's
+    // slack/32 overfilled).
+    if pending > 0 {
+        total += pending;
+    }
     if total == 0 {
         return None;
     }
