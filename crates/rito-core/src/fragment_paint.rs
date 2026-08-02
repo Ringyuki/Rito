@@ -387,7 +387,23 @@ fn append_text_run_command(
         .inline
         .style(*style)
         .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
-    let paint = run_paint(style, family_policy, run.justify_px)?;
+    // A span shaping into several glyph runs still paints ONE inline box:
+    // only the run at the item's start carries the start edge and left
+    // padding, only the run at its end carries the end edge and right
+    // padding.
+    let (item_range, _) = text_ranges
+        .iter()
+        .find(|(range, _)| range.start <= start && end <= range.end)
+        .cloned()
+        .map(|(range, index)| (range, index))
+        .unwrap_or((start..end, 0));
+    let paint = run_paint(
+        style,
+        family_policy,
+        run.justify_px,
+        start == item_range.start,
+        end == item_range.end,
+    )?;
     let font_size = f64::from(style.font.size.get());
     // The run's baseline is the line's, raised by the item's own shift;
     // the paint rect starts one canvas-'top' ascent above it and spans the
@@ -579,6 +595,8 @@ fn run_paint(
     style: &InlineFormattingStyleV1,
     family_policy: Option<&PaintFamilyPolicy>,
     justify_px: f64,
+    box_start: bool,
+    box_end: bool,
 ) -> EpubResult<RunPaint> {
     let paint = &style.paint;
     let color = css_color(paint.foreground)?;
@@ -629,15 +647,19 @@ fn run_paint(
         background_radius: None,
         text_shadows: Arc::from(text_shadows),
         decoration: run_decoration(style, font_size)?,
-        padding: run_box_padding(style),
-        border: run_box_border(style)?,
+        padding: run_box_padding(style, box_start, box_end),
+        border: run_box_border(style, box_start, box_end)?,
     }))
 }
 
 /// Inline box padding for a run's paint, when any side is a positive
 /// length. The painter grows the inline box outward from the run rect by
 /// these values; percentages have no inline expression and drop to zero.
-fn run_box_padding(style: &InlineFormattingStyleV1) -> Option<crate::layout::RunSpacing> {
+fn run_box_padding(
+    style: &InlineFormattingStyleV1,
+    box_start: bool,
+    box_end: bool,
+) -> Option<crate::layout::RunSpacing> {
     let side = |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
         LengthPercentage::Length(px) => f64::from(px.get()),
         _ => 0.0,
@@ -645,9 +667,9 @@ fn run_box_padding(style: &InlineFormattingStyleV1) -> Option<crate::layout::Run
     let padding = &style.fragment.padding;
     let spacing = crate::layout::RunSpacing {
         top: side(&padding.top),
-        right: side(&padding.right),
+        right: if box_end { side(&padding.right) } else { 0.0 },
         bottom: side(&padding.bottom),
-        left: side(&padding.left),
+        left: if box_start { side(&padding.left) } else { 0.0 },
     };
     (spacing.top > 0.0 || spacing.right > 0.0 || spacing.bottom > 0.0 || spacing.left > 0.0)
         .then_some(spacing)
@@ -657,6 +679,8 @@ fn run_box_padding(style: &InlineFormattingStyleV1) -> Option<crate::layout::Run
 /// paint solid, exactly as block borders degrade.
 fn run_box_border(
     style: &InlineFormattingStyleV1,
+    box_start: bool,
+    box_end: bool,
 ) -> EpubResult<Option<crate::layout::RunBorder>> {
     use crate::layout::{BorderEdgePaint, BorderLineStyle, RunBorder, RunBorderEdge};
     use rito_style_contract::BorderStyle;
@@ -682,8 +706,8 @@ fn run_box_border(
     let run = RunBorder {
         top: edge(&border.top)?,
         bottom: edge(&border.bottom)?,
-        start: edge(&border.left)?,
-        end: edge(&border.right)?,
+        start: if box_start { edge(&border.left)? } else { None },
+        end: if box_end { edge(&border.right)? } else { None },
     };
     Ok(
         (run.top.is_some() || run.bottom.is_some() || run.start.is_some() || run.end.is_some())
