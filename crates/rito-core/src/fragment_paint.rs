@@ -629,9 +629,66 @@ fn run_paint(
         background_radius: None,
         text_shadows: Arc::from(text_shadows),
         decoration: run_decoration(style, font_size)?,
-        padding: None,
-        border: None,
+        padding: run_box_padding(style),
+        border: run_box_border(style)?,
     }))
+}
+
+/// Inline box padding for a run's paint, when any side is a positive
+/// length. The painter grows the inline box outward from the run rect by
+/// these values; percentages have no inline expression and drop to zero.
+fn run_box_padding(style: &InlineFormattingStyleV1) -> Option<crate::layout::RunSpacing> {
+    let side = |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
+        LengthPercentage::Length(px) => f64::from(px.get()),
+        _ => 0.0,
+    };
+    let padding = &style.fragment.padding;
+    let spacing = crate::layout::RunSpacing {
+        top: side(&padding.top),
+        right: side(&padding.right),
+        bottom: side(&padding.bottom),
+        left: side(&padding.left),
+    };
+    (spacing.top > 0.0 || spacing.right > 0.0 || spacing.bottom > 0.0 || spacing.left > 0.0)
+        .then_some(spacing)
+}
+
+/// Inline box border edges for a run's paint. Exotic stroke patterns
+/// paint solid, exactly as block borders degrade.
+fn run_box_border(
+    style: &InlineFormattingStyleV1,
+) -> EpubResult<Option<crate::layout::RunBorder>> {
+    use crate::layout::{BorderEdgePaint, BorderLineStyle, RunBorder, RunBorderEdge};
+    use rito_style_contract::BorderStyle;
+    let edge = |edge: &rito_style_contract::BorderEdge| -> EpubResult<Option<RunBorderEdge>> {
+        let width = f64::from(edge.resolved_width.get());
+        if width <= 0.0 || matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
+            return Ok(None);
+        }
+        let line = match edge.style {
+            BorderStyle::Dotted => BorderLineStyle::DOTTED,
+            BorderStyle::Dashed => BorderLineStyle::DASHED,
+            _ => BorderLineStyle::SOLID,
+        };
+        Ok(Some(RunBorderEdge {
+            width_px: width,
+            paint: BorderEdgePaint {
+                color: css_color(edge.color.resolve(style.paint.foreground))?,
+                style: line,
+            },
+        }))
+    };
+    let border = &style.fragment.border;
+    let run = RunBorder {
+        top: edge(&border.top)?,
+        bottom: edge(&border.bottom)?,
+        start: edge(&border.left)?,
+        end: edge(&border.right)?,
+    };
+    Ok(
+        (run.top.is_some() || run.bottom.is_some() || run.start.is_some() || run.end.is_some())
+            .then_some(run),
+    )
 }
 
 /// Maps computed text-decoration onto the protocol's single solid stroke.

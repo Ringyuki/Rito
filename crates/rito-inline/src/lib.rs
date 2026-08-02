@@ -38,6 +38,12 @@ struct ParagraphLayout {
     /// The `text-indent` margin Parley reserves on the first line, which
     /// narrows that line's available advance for fit decisions.
     first_line_indent: f32,
+    /// Per item index: advance the item's LAST cluster gained from inline
+    /// box gaps (its own trailing padding/border, plus the leading
+    /// padding/border of a box opening right after it). Emitted fragment
+    /// widths shed it so the run rect stays the ink advance the painter
+    /// grows the inline box from.
+    item_box_sheds: std::collections::HashMap<usize, f64>,
 }
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -555,8 +561,93 @@ impl ParleyInlineContext {
                 range.clone(),
             );
         }
+        // Inline box advances: a span's horizontal padding and borders
+        // widen the gap at each box boundary. The gap rides as letter
+        // spacing on the character left of the boundary (the same
+        // mechanism as the punctuation trims); a box opening at the very
+        // start of the flow folds its lead into the first-line indent.
+        // Each edit is (range, box gap, author letter-spacing): standalone
+        // pushes apply author + gap; an edit landing on a trimmed
+        // character adds only the gap (the trim value already carries the
+        // author spacing).
+        let mut box_edits: Vec<(std::ops::Range<usize>, f32, f32)> = Vec::new();
+        let mut leading_box_indent = 0.0_f32;
+        let mut item_box_sheds: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+        {
+            let box_side = |value: &rito_style_contract::NonNegativeLengthPercentage| match value
+                .value()
+            {
+                LengthPercentage::Length(px) => px.get(),
+                _ => 0.0,
+            };
+            let edge_width = |edge: &rito_style_contract::BorderEdge| {
+                use rito_style_contract::BorderStyle;
+                if matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
+                    0.0
+                } else {
+                    edge.resolved_width.get()
+                }
+            };
+            let author = |style: &InlineFormattingStyleV1| match style.text_flow.letter_spacing {
+                LengthPercentage::Length(px) => px.get(),
+                _ => 0.0,
+            };
+            for (index, (range, style, item_index)) in runs.iter().enumerate() {
+                if range.is_empty() {
+                    continue;
+                }
+                let lead = box_side(&style.fragment.padding.left)
+                    + edge_width(&style.fragment.border.left);
+                let trail = box_side(&style.fragment.padding.right)
+                    + edge_width(&style.fragment.border.right);
+                if trail > 0.0 {
+                    if let Some((last, _)) = text[range.clone()].char_indices().last() {
+                        box_edits.push((range.start + last..range.end, trail, author(style)));
+                        *item_box_sheds.entry(*item_index).or_insert(0.0) += f64::from(trail);
+                    }
+                }
+                if lead > 0.0 {
+                    if range.start == 0 {
+                        leading_box_indent += lead;
+                    } else if let Some((prev_range, prev_style, prev_item)) = runs
+                        .get(..index)
+                        .and_then(|earlier| {
+                            earlier
+                                .iter()
+                                .rev()
+                                .find(|(earlier_range, ..)| !earlier_range.is_empty())
+                        })
+                    {
+                        if let Some((last, _)) = text[prev_range.clone()].char_indices().last() {
+                            box_edits.push((
+                                prev_range.start + last..prev_range.end,
+                                lead,
+                                author(prev_style),
+                            ));
+                            *item_box_sheds.entry(*prev_item).or_insert(0.0) += f64::from(lead);
+                        }
+                    }
+                }
+            }
+        }
+        let first_line_indent = first_line_indent + leading_box_indent;
         for (range, spacing) in punctuation_trims {
+            // A box gap on the same character composes with the trim (the
+            // trim value already carries the author spacing).
+            let boxed = box_edits
+                .iter()
+                .position(|(edit_range, ..)| *edit_range == range);
+            let spacing = match boxed {
+                Some(found) => {
+                    let (_, gap, _) = box_edits.remove(found);
+                    spacing + gap
+                }
+                None => spacing,
+            };
             builder.push(StyleProperty::LetterSpacing(spacing), range);
+        }
+        for (range, gap, author) in box_edits {
+            builder.push(StyleProperty::LetterSpacing(author + gap), range);
         }
         push_line_end_trims(&mut builder, &text, &runs, end_trims);
         for image_box in image_boxes {
@@ -596,6 +687,7 @@ impl ParleyInlineContext {
             alignment,
             shifted_ranges,
             first_line_indent,
+            item_box_sheds,
         })
     }
 }
@@ -673,7 +765,7 @@ impl FormattingContext for ParleyInlineContext {
         let mut end_trims: Vec<usize> = Vec::new();
         let mut rejected_trims: Vec<usize> = Vec::new();
         let mut pending_trim: Option<usize> = None;
-        let (layout, alignment, shifted_ranges, first_line_indent) = loop {
+        let (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds) = loop {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
             }
@@ -683,6 +775,7 @@ impl FormattingContext for ParleyInlineContext {
                 shifted_ranges,
                 text,
                 first_line_indent,
+                item_box_sheds,
             } = self.build_layout(
                 tree,
                 root,
@@ -725,7 +818,7 @@ impl FormattingContext for ParleyInlineContext {
                     end_trims.push(byte);
                     pending_trim = Some(byte);
                 }
-                None => break (layout, alignment, shifted_ranges, first_line_indent),
+                None => break (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds),
             }
         };
         let mut layout = layout;
@@ -1002,9 +1095,21 @@ impl FormattingContext for ParleyInlineContext {
                                 shift,
                             ));
                         };
+                        // The advance a box gap parked on this run's last
+                        // cluster: shed it so the rect stays ink-sized.
+                        let box_shed = if run_range.end == item_range.end {
+                            item_box_sheds.get(&item_index).copied().unwrap_or(0.0)
+                        } else {
+                            0.0
+                        };
                         match &justify_plan {
                             None => {
-                                emit(run_range, run_x, f64::from(glyph_run.advance()), 0.0);
+                                emit(
+                                    run_range,
+                                    run_x,
+                                    f64::from(glyph_run.advance()) - box_shed,
+                                    0.0,
+                                );
                             }
                             Some(plan) => {
                                 // Shares at the boundary against the
@@ -1064,7 +1169,8 @@ impl FormattingContext for ParleyInlineContext {
                                     emit(
                                         stretch_start..run_range.end,
                                         stretch_x,
-                                        stretch_natural + plan.share * f64::from(stretch_shares),
+                                        stretch_natural + plan.share * f64::from(stretch_shares)
+                                            - box_shed,
                                         plan.share * f64::from(uniform.unwrap_or(0)),
                                     );
                                 }

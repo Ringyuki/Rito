@@ -22,8 +22,15 @@ export function requirePageReadingAnchor(value, revision, pageIndex, operation) 
   requireCount(anchor.spreadIndex, `${operation} spreadIndex`);
   if (anchor.status === 'resolved') {
     const locator = requireSourceLocatorRequest(anchor.locator, operation);
-    if (locator.sourcePoint === undefined) {
-      throw new Error(`${operation} returned a reading anchor without an exact source point`);
+    // Text-free pages (cover plates, illustration spreads) resolve
+    // through the engine's degradation ladder: a paint-target locator or
+    // the page's chapter progression instead of an exact source point
+    // (see rito-core runtime/source_locator.rs). The anchor must still
+    // point somewhere.
+    if (locator.sourcePoint === undefined && locator.progression === undefined) {
+      throw new Error(
+        `${operation} returned a reading anchor with neither a source point nor a progression`,
+      );
     }
     if (locator.sourceRange !== undefined) {
       throw new Error(`${operation} returned a reading anchor with a source range`);

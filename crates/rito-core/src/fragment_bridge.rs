@@ -371,6 +371,7 @@ impl TreeBuilder<'_> {
             return Ok(());
         }
         let run = std::mem::take(pending);
+        let container_inline_style = self.container_text_style(container_inline_style)?;
         let mut collector = self.inline_collector();
         for node in run {
             self.collect_inline(node, container_inline_style, 0.0, &mut collector)?;
@@ -469,6 +470,7 @@ impl TreeBuilder<'_> {
             // flow; an empty block still occupies flow (its margins
             // apply), it just has no line boxes.
             let inline_style = self.inline_style_id(source_index, &element.tag);
+            let inline_style = self.container_text_style(inline_style)?;
             let mut collector = self.inline_collector();
             for child in &element.children {
                 self.collect_inline(child, inline_style, 0.0, &mut collector)?;
@@ -564,6 +566,56 @@ impl TreeBuilder<'_> {
     /// the style of the nearest element ancestor (the container itself for
     /// text sitting directly in an anonymous flow), which is exactly the
     /// computed style a text node takes in CSS.
+    /// The style bare text borrows from its block container, with the
+    /// container's own box (padding and borders) stripped: those belong
+    /// to the block layout, not to the text runs inside it. A span's own
+    /// style keeps its box — that is what makes it an inline box.
+    fn container_text_style(&mut self, style: StyleId) -> EpubResult<StyleId> {
+        use rito_style_contract as c;
+        let resolved = self
+            .inline
+            .style(style)
+            .map_err(|error| EpubError::new(format!("container style resolves: {error}")))?;
+        let zero_side = |side: &c::NonNegativeLengthPercentage| {
+            length_percentage_is_zero(&side.value())
+        };
+        let zero_edge =
+            |edge: &c::BorderEdge| f64::from(edge.resolved_width.get()) == 0.0;
+        let fragment = &resolved.fragment;
+        if zero_side(&fragment.padding.top)
+            && zero_side(&fragment.padding.right)
+            && zero_side(&fragment.padding.bottom)
+            && zero_side(&fragment.padding.left)
+            && zero_edge(&fragment.border.top)
+            && zero_edge(&fragment.border.right)
+            && zero_edge(&fragment.border.bottom)
+            && zero_edge(&fragment.border.left)
+        {
+            return Ok(style);
+        }
+        let mut derived = resolved.clone();
+        let zero = c::NonNegativeLengthPercentage::new(c::LengthPercentage::Length(
+            c::CssPx::new(0.0).map_err(|error| {
+                EpubError::new(format!("container text style zero: {error:?}"))
+            })?,
+        ));
+        derived.fragment.padding.top = zero;
+        derived.fragment.padding.right = zero;
+        derived.fragment.padding.bottom = zero;
+        derived.fragment.padding.left = zero;
+        let clear = |edge: &mut c::BorderEdge| {
+            edge.resolved_width = c::NonNegativeCssPx::new(0.0).expect("zero width");
+            edge.style = c::BorderStyle::None;
+        };
+        clear(&mut derived.fragment.border.top);
+        clear(&mut derived.fragment.border.right);
+        clear(&mut derived.fragment.border.bottom);
+        clear(&mut derived.fragment.border.left);
+        self.inline
+            .intern(derived)
+            .map_err(|error| EpubError::new(format!("container text style interns: {error}")))
+    }
+
     fn collect_inline(
         &mut self,
         node: &DocumentNode,
@@ -1702,29 +1754,36 @@ fn inline_box_capability_violation(
     if !style.paint.transform.is_none() {
         return Some("inline transform".to_owned());
     }
-    // Inline fragment boxes: margins/padding/borders displace glyphs.
-    if let Some(reason) =
-        horizontal_spacing_violation(&style.fragment.margin, &style.fragment.padding)
-    {
-        return Some(format!("inline {reason}"));
-    }
-    let vertical_margin_inert = [&style.fragment.margin.top, &style.fragment.margin.bottom]
-        .iter()
-        .all(|side| match side {
-            c::LengthPercentageOrAuto::Auto => true,
-            c::LengthPercentageOrAuto::Value(value) => length_percentage_is_zero(value),
-        });
-    if !vertical_margin_inert {
-        return Some("inline vertical margin".to_owned());
-    }
-    for (edge, name) in [
-        (&style.fragment.border.top, "border-top"),
-        (&style.fragment.border.right, "border-right"),
-        (&style.fragment.border.bottom, "border-bottom"),
-        (&style.fragment.border.left, "border-left"),
+    // Inline margins still displace glyphs the layout does not model;
+    // inline padding and borders are implemented (advance edits at the
+    // box boundaries, painted as the run's grown inline box).
+    let margin_inert = |side: &c::LengthPercentageOrAuto| match side {
+        c::LengthPercentageOrAuto::Auto => true,
+        c::LengthPercentageOrAuto::Value(value) => length_percentage_is_zero(value),
+    };
+    for (side, name) in [
+        (&style.fragment.margin.left, "margin-left"),
+        (&style.fragment.margin.right, "margin-right"),
+        (&style.fragment.margin.top, "margin-top"),
+        (&style.fragment.margin.bottom, "margin-bottom"),
     ] {
-        if edge.resolved_width.get() != 0.0 {
+        if !margin_inert(side) {
             return Some(format!("inline {name}"));
+        }
+    }
+    // Percentage padding has no inline expression; lengths are modeled.
+    for (side, name) in [
+        (&style.fragment.padding.top, "padding-top"),
+        (&style.fragment.padding.right, "padding-right"),
+        (&style.fragment.padding.bottom, "padding-bottom"),
+        (&style.fragment.padding.left, "padding-left"),
+    ] {
+        if !matches!(
+            side.value(),
+            c::LengthPercentage::Length(_)
+        ) && !length_percentage_is_zero(&side.value())
+        {
+            return Some(format!("inline percentage {name}"));
         }
     }
     match style.fragment.baseline_shift {

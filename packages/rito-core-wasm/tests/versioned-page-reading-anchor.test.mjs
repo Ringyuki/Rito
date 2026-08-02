@@ -112,6 +112,18 @@ test('worker client correlates out-of-order page anchor responses by request id'
     result: pageReadingAnchor(),
   });
   assert.equal((await first).value.locator.sourcePoint.textOffset, 8);
+
+  // A text-free page resolves through the engine's degradation ladder:
+  // a progression-only locator is a valid resolved anchor.
+  const progressionOnly = pageReadingAnchor();
+  delete progressionOnly.locator.sourcePoint;
+  const third = client.getPageReadingAnchorAtRevision(anchorHandle(), 4);
+  respond(worker, worker.messages.at(-1), {
+    kind: 'getPageReadingAnchorAtRevision',
+    revision: anchorHandle(),
+    result: progressionOnly,
+  });
+  assert.equal((await third).value.locator.progression, 0.25);
   client.dispose();
 });
 
@@ -165,7 +177,13 @@ function malformedAnchors() {
     ),
     mutated((value) => (value.reason = 'noSourceContent'), /unknown field reason/),
     mutated((value) => (value.locator.href = ''), /invalid source locator href/),
-    mutated((value) => delete value.locator.sourcePoint, /without an exact source point/),
+    mutated((value) => {
+      // A resolved anchor may carry a progression instead of an exact
+      // source point (the engine's text-free-page ladder); carrying
+      // NEITHER is malformed.
+      delete value.locator.sourcePoint;
+      delete value.locator.progression;
+    }, /neither a source point nor a progression/),
     mutated((value) => (value.locator.progression = 2), /progression/),
     mutated((value) => (value.locator.unknown = true), /unknown field unknown/),
     mutated((value) => (value.locator.sourcePoint.textOffset = -1), /source text offset/),
