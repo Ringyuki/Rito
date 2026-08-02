@@ -731,16 +731,30 @@ impl FormattingContext for ParleyInlineContext {
         let band = space.float_band.filter(|band| {
             band.bottom > 0.0 && (band.left_inset > 0.0 || band.right_inset > 0.0)
         });
-        let break_lines = |layout: &mut parley::Layout<[u8; 4]>| match band {
-            None => layout.break_all_lines(Some(space.inline_size as f32)),
-            Some(band) => {
-                let band_inline_size =
-                    (space.inline_size - band.left_inset - band.right_inset).max(0.0);
-                let mut breaker = layout.break_lines();
-                breaker
-                    .state_mut()
-                    .set_layout_max_advance(space.inline_size as f32);
-                loop {
+        // Lines break through one manual loop so a specific line index can
+        // be FORCED to hold an exact cluster count: the browser's rejected
+        // line-end trim extension rewinds the whole overflowing item to
+        // the next line (measured: a razor-fit note line breaks as
+        // [span ①][whole text item] where greedy would split the text),
+        // and `break_next_with_length` reproduces that rewind.
+        let break_lines = |layout: &mut parley::Layout<[u8; 4]>,
+                          forced: &[(usize, u32)]| {
+            if band.is_none() && forced.is_empty() {
+                layout.break_all_lines(Some(space.inline_size as f32));
+                return;
+            }
+            let mut breaker = layout.break_lines();
+            breaker
+                .state_mut()
+                .set_layout_max_advance(space.inline_size as f32);
+            let mut index = 0usize;
+            loop {
+                // Every line gets its advance set explicitly: a forced
+                // break leaves breaker state the next natural break must
+                // not inherit.
+                if let Some(band) = band {
+                    let band_inline_size =
+                        (space.inline_size - band.left_inset - band.right_inset).max(0.0);
                     let inside = f64::from(breaker.committed_y() as f32) < band.bottom;
                     let (advance, offset) = if inside {
                         (band_inline_size, band.left_inset)
@@ -750,12 +764,25 @@ impl FormattingContext for ParleyInlineContext {
                     let state = breaker.state_mut();
                     state.set_line_max_advance(advance as f32);
                     state.set_line_x(offset as f32);
-                    if breaker.break_next().is_none() {
-                        break;
-                    }
+                } else {
+                    breaker
+                        .state_mut()
+                        .set_line_max_advance(space.inline_size as f32);
                 }
-                breaker.finish();
+                let forced_count = forced
+                    .iter()
+                    .find(|(line, _)| *line == index)
+                    .map(|(_, count)| *count);
+                let progressed = match forced_count {
+                    Some(count) => breaker.break_next_with_length(count).is_some(),
+                    None => breaker.break_next().is_some(),
+                };
+                if !progressed {
+                    break;
+                }
+                index += 1;
             }
+            breaker.finish();
         };
         // The max advance the breaker gave a line, reconstructed from the
         // same rule the loop above applied: band width while the line's top
@@ -773,9 +800,30 @@ impl FormattingContext for ParleyInlineContext {
         // rules stay the authority over what an accepted trim produces.
         // Each accepted trim finalizes one more line, so the loop is
         // bounded by the line count (plus one rebuild per rejection).
+        // Byte range each item occupies in the flow text (images occupy
+        // none). Hoisted above the layout loop: the rewind detection maps
+        // an overflowing character back to its item.
+        let item_text_ranges: Vec<std::ops::Range<usize>> = match &tree.node(root).content {
+            FormattingNodeContent::InlineFlow { items } => {
+                let mut cursor = 0usize;
+                items
+                    .iter()
+                    .map(|item| match item {
+                        InlineItem::Text { text, .. } => {
+                            let start = cursor;
+                            cursor += text.len();
+                            start..cursor
+                        }
+                        InlineItem::Image { .. } => cursor..cursor,
+                    })
+                    .collect()
+            }
+            _ => Vec::new(),
+        };
         let mut end_trims: Vec<usize> = Vec::new();
         let mut rejected_trims: Vec<usize> = Vec::new();
         let mut suppressed_pair_trims: Vec<usize> = Vec::new();
+        let mut forced_line_breaks: Vec<(usize, u32)> = Vec::new();
         let mut pending_trim: Option<usize> = None;
         let (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds) = loop {
             if cancel.is_cancelled() {
@@ -799,7 +847,7 @@ impl FormattingContext for ParleyInlineContext {
                 &suppressed_pair_trims,
                 cancel,
             )?;
-            break_lines(&mut layout);
+            break_lines(&mut layout, &forced_line_breaks);
             // A pair trim is only real while both glyphs share a line
             // (measured: a line-final comma keeps its full width when its
             // partner bracket opens the next line, and the line's justify
@@ -819,6 +867,7 @@ impl FormattingContext for ParleyInlineContext {
                     }
                 }
                 if straddled {
+                    forced_line_breaks.clear();
                     continue;
                 }
             }
@@ -853,8 +902,46 @@ impl FormattingContext for ParleyInlineContext {
                 Some(byte) => {
                     end_trims.push(byte);
                     pending_trim = Some(byte);
+                    forced_line_breaks.clear();
                 }
-                None => break (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds),
+                None => {
+                    // Rejected-extension rewind: when the line-end trim
+                    // extension would fit but the line crosses an element
+                    // boundary (the single-item gate), the browser sends
+                    // the WHOLE overflowing item to the next line instead
+                    // of breaking greedily inside it. Force that line to
+                    // hold exactly the clusters before the item and
+                    // re-lay; one rewind per pass keeps earlier line
+                    // indices stable.
+                    let mut line_top = 0.0_f64;
+                    let mut rewound = false;
+                    for index in 0..layout.len().saturating_sub(1) {
+                        let indent = if index == 0 { first_line_indent } else { 0.0 };
+                        let max_advance = f64::from(line_max_advance(line_top) - indent);
+                        line_top += layout
+                            .get(index)
+                            .map_or(0.0, |line| f64::from(line.metrics().line_height));
+                        if forced_line_breaks.iter().any(|(line, _)| *line == index) {
+                            continue;
+                        }
+                        let Some(count) = rewind_break_count(
+                            &layout,
+                            &text,
+                            index,
+                            max_advance,
+                            &item_text_ranges,
+                        ) else {
+                            continue;
+                        };
+                        forced_line_breaks.push((index, count));
+                        rewound = true;
+                        break;
+                    }
+                    if rewound {
+                        continue;
+                    }
+                    break (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds);
+                }
             }
         };
         let mut layout = layout;
@@ -888,28 +975,6 @@ impl FormattingContext for ParleyInlineContext {
                     } => *baseline_shift_px,
                 })
                 .collect(),
-            _ => Vec::new(),
-        };
-        // Byte range each item occupies in the flow text (images occupy
-        // none). Parley reports a glyph run's range at shaping-run
-        // granularity, and one shaping run can span several items when
-        // their measure styles are identical; intersecting with the run's
-        // brushed item recovers the exact per-item range.
-        let item_text_ranges: Vec<std::ops::Range<usize>> = match &tree.node(root).content {
-            FormattingNodeContent::InlineFlow { items } => {
-                let mut cursor = 0usize;
-                items
-                    .iter()
-                    .map(|item| match item {
-                        InlineItem::Text { text, .. } => {
-                            let start = cursor;
-                            cursor += text.len();
-                            start..cursor
-                        }
-                        InlineItem::Image { .. } => cursor..cursor,
-                    })
-                    .collect()
-            }
             _ => Vec::new(),
         };
         // Per item: a declared line-height resolves to a fixed height; a
@@ -2278,6 +2343,91 @@ const LINE_END_TRIM_SCAN: usize = 8;
 /// caller re-lays the paragraph with the trim applied and keeps it only
 /// if the line then breaks exactly after the trimmed closer, so parley's
 /// own fitting (and its break rules) remain the authority.
+/// Detects a rejected-extension rewind on `line_index`: the line-end trim
+/// extension would fit the first overflowing closer (so a single-item
+/// line would have extended), but the line crosses an element boundary,
+/// which Blink answers by rewinding the WHOLE overflowing item to the
+/// next line — measured on razor-fit note-box lines, where line one keeps
+/// only the leading `①` span while greedy would split the text item.
+/// Returns the cluster count the line must be forced to hold.
+fn rewind_break_count(
+    layout: &parley::Layout<[u8; 4]>,
+    text: &str,
+    line_index: usize,
+    max_advance: f64,
+    item_ranges: &[std::ops::Range<usize>],
+) -> Option<u32> {
+    let line = layout.get(line_index)?;
+    let next = layout.get(line_index + 1)?;
+    if line.break_reason() != parley::layout::BreakReason::Regular {
+        return None;
+    }
+    // Only a line crossing an element boundary rewinds; a single-item
+    // line extends instead (see `line_end_trim_candidate`).
+    let mut line_item: Option<u32> = None;
+    let mut crosses = false;
+    for item in line.items() {
+        let brush = match item {
+            PositionedLayoutItem::GlyphRun(run) => u32::from_le_bytes(run.style().brush),
+            PositionedLayoutItem::InlineBox(inline_box) => u32::MAX - inline_box.id as u32,
+        };
+        if *line_item.get_or_insert(brush) != brush {
+            crosses = true;
+            break;
+        }
+    }
+    if !crosses {
+        return None;
+    }
+    let metrics = line.metrics();
+    let mut advance = f64::from(metrics.advance - metrics.trailing_whitespace);
+    let next_range = next.text_range();
+    let mut cluster = parley::layout::Cluster::from_byte_index(layout, next_range.start)?;
+    for _ in 0..LINE_END_TRIM_SCAN {
+        let byte = cluster.text_range().start;
+        if byte >= next_range.end {
+            return None;
+        }
+        let character = text[byte..].chars().next()?;
+        let cluster_advance = f64::from(cluster.advance());
+        if advance + cluster_advance <= max_advance + f64::from(LINE_FIT_EPS) {
+            advance += cluster_advance;
+            cluster = cluster.next_logical()?;
+            continue;
+        }
+        if !line_end_trim_eligible(character) {
+            return None;
+        }
+        let trimmed = cluster_advance - 0.5 * f64::from(cluster.run().font_size());
+        if advance + trimmed > max_advance + f64::from(LINE_FIT_EPS) {
+            return None;
+        }
+        // Only a PARAGRAPH-FINAL candidate rewinds (measured: `……。）啊`
+        // with content after the closer breaks greedily; the razor-fit
+        // note line whose `）` ends the paragraph rewinds its whole item).
+        let candidate_end = byte + character.len_utf8();
+        if !text
+            .get(candidate_end..)
+            .is_some_and(|rest| rest.chars().all(char::is_whitespace))
+        {
+            return None;
+        }
+        // The extension would fit; the rewound item is the one holding
+        // the candidate, and it must begin inside this line.
+        let item_start = item_ranges
+            .iter()
+            .find(|range| range.contains(&byte))
+            .map(|range| range.start)?;
+        let line_start = line.text_range().start;
+        if item_start <= line_start {
+            return None;
+        }
+        let count = text.get(line_start..item_start)?.chars().count();
+        return u32::try_from(count).ok().filter(|count| *count > 0);
+    }
+    None
+}
+
 fn line_end_trim_candidate(
     layout: &parley::Layout<[u8; 4]>,
     text: &str,
