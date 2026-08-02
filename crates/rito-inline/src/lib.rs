@@ -38,6 +38,10 @@ struct ParagraphLayout {
     /// The `text-indent` margin Parley reserves on the first line, which
     /// narrows that line's available advance for fit decisions.
     first_line_indent: f32,
+    /// Every applied punctuation pair trim as (left char byte, right char
+    /// byte): the trim is only valid while both sit on one line, so the
+    /// layout loop suppresses any pair a line break separates and re-lays.
+    pair_trims: Vec<(usize, usize)>,
     /// Per item index: advance the item's LAST cluster gained from inline
     /// box gaps (its own trailing padding/border, plus the leading
     /// padding/border of a box opening right after it). Emitted fragment
@@ -440,6 +444,7 @@ impl ParleyInlineContext {
         available_block_size: Option<f64>,
         percentage_images: PercentageImageSizing,
         end_trims: &[usize],
+        suppressed_pair_trims: &[usize],
         cancel: &CancelFlag,
     ) -> Result<ParagraphLayout, LayoutError> {
         let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
@@ -523,7 +528,12 @@ impl ParleyInlineContext {
             &mut self.halt_feature_cache.borrow_mut(),
             &text,
             &runs,
+            suppressed_pair_trims,
         );
+        let pair_trims: Vec<(usize, usize)> = punctuation_trims
+            .iter()
+            .map(|(range, _)| (range.start, range.end))
+            .collect();
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = layouts.ranged_builder(&mut fonts, &text, 1.0, true);
         // The pinned-browser baseline: Chromium's ASCII break tailoring plus
@@ -687,6 +697,7 @@ impl ParleyInlineContext {
             alignment,
             shifted_ranges,
             first_line_indent,
+            pair_trims,
             item_box_sheds,
         })
     }
@@ -764,6 +775,7 @@ impl FormattingContext for ParleyInlineContext {
         // bounded by the line count (plus one rebuild per rejection).
         let mut end_trims: Vec<usize> = Vec::new();
         let mut rejected_trims: Vec<usize> = Vec::new();
+        let mut suppressed_pair_trims: Vec<usize> = Vec::new();
         let mut pending_trim: Option<usize> = None;
         let (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds) = loop {
             if cancel.is_cancelled() {
@@ -775,6 +787,7 @@ impl FormattingContext for ParleyInlineContext {
                 shifted_ranges,
                 text,
                 first_line_indent,
+                pair_trims,
                 item_box_sheds,
             } = self.build_layout(
                 tree,
@@ -783,9 +796,32 @@ impl FormattingContext for ParleyInlineContext {
                 space.fragmentainer_size,
                 PercentageImageSizing::Intrinsic,
                 &end_trims,
+                &suppressed_pair_trims,
                 cancel,
             )?;
             break_lines(&mut layout);
+            // A pair trim is only real while both glyphs share a line
+            // (measured: a line-final comma keeps its full width when its
+            // partner bracket opens the next line, and the line's justify
+            // slack follows). Suppress every straddled pair and re-lay to
+            // a fixpoint; suppression only widens lines, so breaks only
+            // move earlier and the loop is bounded by the pair count.
+            {
+                let mut straddled = false;
+                for (left_byte, right_byte) in &pair_trims {
+                    if layout
+                        .lines()
+                        .any(|line| line.text_range().start == *right_byte)
+                        && !suppressed_pair_trims.contains(left_byte)
+                    {
+                        suppressed_pair_trims.push(*left_byte);
+                        straddled = true;
+                    }
+                }
+                if straddled {
+                    continue;
+                }
+            }
             if let Some(byte) = pending_trim.take() {
                 let trimmed_end = byte + text[byte..].chars().next().map_or(1, char::len_utf8);
                 let confirmed = layout.lines().any(|line| line.text_range().end == trimmed_end);
@@ -1742,6 +1778,7 @@ impl FormattingContext for ParleyInlineContext {
             None,
             PercentageImageSizing::Shrunk,
             &[],
+            &[],
             &CancelFlag::new(),
         )?;
         let intrinsic = self.build_layout(
@@ -1750,6 +1787,7 @@ impl FormattingContext for ParleyInlineContext {
             None,
             None,
             PercentageImageSizing::Intrinsic,
+            &[],
             &[],
             &CancelFlag::new(),
         )?;
@@ -1986,6 +2024,7 @@ fn compute_cjk_punctuation_trims(
     halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
     text: &str,
     runs: &[(std::ops::Range<usize>, &InlineFormattingStyleV1, usize)],
+    suppressed_pairs: &[usize],
 ) -> Vec<(std::ops::Range<usize>, f32)> {
     fn style_at<'a>(
         cursor: &mut usize,
@@ -2004,6 +2043,13 @@ fn compute_cjk_punctuation_trims(
     let mut previous: Option<(usize, char)> = None;
     for (byte, character) in text.char_indices() {
         if let Some((left_byte, left)) = previous {
+            // A pair a line break was found to separate keeps both
+            // glyphs at full width, exactly as the browser trims within
+            // lines only.
+            if suppressed_pairs.contains(&left_byte) {
+                previous = Some((byte, character));
+                continue;
+            }
             if let Some(trimmed) = cjk_punctuation_trim(left, character) {
                 let left_style = style_at(&mut cursor, runs, left_byte);
                 let (trimmed_style, trimmed_char) = match trimmed {
