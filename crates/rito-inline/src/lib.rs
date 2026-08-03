@@ -1923,19 +1923,40 @@ impl FormattingContext for ParleyInlineContext {
                 }
                 }
             };
-            // Ruby annotations grow the line: the browser reserves the
-            // annotation's normal line height above the base text, minus
-            // the leading already there — measured over four line-heights
-            // at first and subsequent lines: the first line of a block
-            // spends its own above-text leading plus one overlap pixel;
-            // later lines also spend the previous line's below-text
-            // leading and a second overlap pixel.
-            let (content_asc, content_desc) = host_line.map_or(
-                (f64::from(metrics.ascent), f64::from(metrics.descent)),
-                |(content_height, ascent)| (ascent, content_height - ascent),
-            );
+            // Ruby annotations grow the line. Measured to exactness (24/24
+            // configurations: two fonts x three line-heights x two sizes x
+            // first/subsequent lines): the browser places the annotation's
+            // BASELINE one pixel above the base font's typographic-ascent
+            // edge, so the line's baseline must sit at least
+            //   annotation grid ascent + 1 + floor(sTypoAscender x size)
+            // below the line top. A later line may also spend the gap the
+            // PREVIOUS line leaves under its own typographic-descent edge
+            // (its below-baseline extent minus ceil(sTypoDescender x
+            // size)). Whatever the baseline still lacks becomes growth.
+            let base_typo = |range: &std::ops::Range<usize>, fs: f64| -> Option<(f64, f64)> {
+                use skrifa::raw::TableProvider as _;
+                for item in line.items() {
+                    let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                        continue;
+                    };
+                    let run = glyph_run.run();
+                    let shaped = run.text_range();
+                    if shaped.start >= range.end || range.start >= shaped.end {
+                        continue;
+                    }
+                    let font = run.font();
+                    let font_ref =
+                        skrifa::FontRef::from_index(font.data.as_ref(), font.index).ok()?;
+                    let os2 = font_ref.os2().ok()?;
+                    let upem = f64::from(font_ref.head().ok()?.units_per_em());
+                    let asc = f64::from(os2.s_typo_ascender()) / upem * fs;
+                    let desc = f64::from(-i32::from(os2.s_typo_descender())) / upem * fs;
+                    return Some((asc.floor(), desc.ceil()));
+                }
+                None
+            };
             let ruby_growth = {
-                let mut annotation = 0.0_f64;
+                let mut growth = 0.0_f64;
                 for (index, range) in item_text_ranges.iter().enumerate() {
                     let on_line = line_text_range
                         .is_some_and(|(start, end)| range.start < end && start < range.end);
@@ -1955,27 +1976,24 @@ impl FormattingContext for ParleyInlineContext {
                     else {
                         continue;
                     };
-                    let annotation_size = f64::from(resolved.font.size.get()) * 0.5;
-                    let annotation_height = self
+                    let fs = f64::from(resolved.font.size.get());
+                    let annotation_size = fs * 0.5;
+                    let annotation_ascent = self
                         .host_normal_line_sized(resolved, annotation_size, "")
-                        .map_or(annotation_size * 1.2, |metric| metric.height);
-                    annotation = annotation.max(annotation_height);
+                        .map_or(annotation_size, |metric| metric.ascent());
+                    let (asc_floor, desc_ceil) =
+                        base_typo(range, fs).unwrap_or(((fs * 0.88).floor(), (fs * 0.12).ceil()));
+                    let required = annotation_ascent + 1.0 + asc_floor;
+                    let prev_gap =
+                        prev_ruby_below.map_or(0.0, |below| (below - desc_ceil).max(0.0));
+                    growth = growth.max((required - baseline - prev_gap).max(0.0));
                 }
-                if annotation <= 0.0 {
-                    0.0
-                } else {
-                    let above_space = baseline - max_rise - content_asc;
-                    let spent = match prev_ruby_below {
-                        None => above_space + 1.0,
-                        Some(below) => above_space + below + 2.0,
-                    };
-                    (annotation - spent).max(0.0)
-                }
+                growth
             };
             let line_height = line_height + ruby_growth;
             let baseline = baseline + ruby_growth;
             running_top += ruby_growth;
-            prev_ruby_below = Some((line_height - baseline - content_desc).max(0.0));
+            prev_ruby_below = Some((line_height - baseline).max(0.0));
             if line_debug
                 && (has_inline_box || item_shifts.iter().any(|shift| *shift != 0.0))
             {
