@@ -1951,7 +1951,7 @@ impl FormattingContext for ParleyInlineContext {
                     let upem = f64::from(font_ref.head().ok()?.units_per_em());
                     let asc = f64::from(os2.s_typo_ascender()) / upem * fs;
                     let desc = f64::from(-i32::from(os2.s_typo_descender())) / upem * fs;
-                    return Some((asc.floor(), desc.ceil()));
+                    return Some((asc, desc));
                 }
                 None
             };
@@ -1981,11 +1981,21 @@ impl FormattingContext for ParleyInlineContext {
                     let annotation_ascent = self
                         .host_normal_line_sized(resolved, annotation_size, "")
                         .map_or(annotation_size, |metric| metric.ascent());
-                    let (asc_floor, desc_ceil) =
-                        base_typo(range, fs).unwrap_or(((fs * 0.88).floor(), (fs * 0.12).ceil()));
-                    let required = annotation_ascent + 1.0 + asc_floor;
-                    let prev_gap =
-                        prev_ruby_below.map_or(0.0, |below| (below - desc_ceil).max(0.0));
+                    let (typo_asc, typo_desc) =
+                        base_typo(range, fs).unwrap_or((fs * 0.88, fs * 0.12));
+                    // The measured law (32/32 configurations): the ruby
+                    // line's baseline must clear
+                    //   floor(typoAsc x size)            (base em-over edge)
+                    //   + annotation host grid ascent
+                    //   + round(typoDesc x size / 2)     (annotation's own
+                    //                                     typo descent)
+                    // and a later line may first spend the gap under the
+                    // previous line's round(typoDesc x size) edge.
+                    let required = typo_asc.floor()
+                        + annotation_ascent
+                        + (typo_desc * 0.5).round();
+                    let prev_gap = prev_ruby_below
+                        .map_or(0.0, |below| (below - typo_desc.round()).max(0.0));
                     growth = growth.max((required - baseline - prev_gap).max(0.0));
                 }
                 growth
