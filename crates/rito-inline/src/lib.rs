@@ -3295,7 +3295,6 @@ fn image_display_size(
     // axis independently, distortion included (measured: a 723x1 strip
     // declared 538395x1430 renders 626.6875x850 in the browser — a
     // full-page stretch — not the ratio-preserving 626.69x1.66).
-    let both_specified = preferred_width.is_some() && preferred_height.is_some();
     let (mut width, mut height) = match (preferred_width, preferred_height) {
         (Some(width), Some(height)) => (width, height),
         (Some(width), None) => (width, width * ratio),
@@ -3310,7 +3309,13 @@ fn image_display_size(
             if width > cap && width > 0.0 {
                 let scale = cap / width;
                 width = cap;
-                if !both_specified {
+                // A clamp rescales only the AUTO cross axis: an
+                // author-specified axis holds and the image distorts,
+                // exactly as the browser resolves CSS 2.1 §10.4 (measured:
+                // a width:100% manga plate under the page-height clamp
+                // keeps its 640px width — the ratio-preserving shrink to
+                // 598px shifted every halftone dot on the page).
+                if preferred_height.is_none() {
                     height *= scale;
                 }
             }
@@ -3327,7 +3332,7 @@ fn image_display_size(
         if height > page_height && height > 0.0 && page_height > 0.0 {
             let scale = page_height / height;
             height = page_height;
-            if !both_specified {
+            if preferred_width.is_none() {
                 width *= scale;
             }
         }
@@ -3335,7 +3340,7 @@ fn image_display_size(
             if width > page_width && width > 0.0 && page_width > 0.0 {
                 let scale = page_width / width;
                 width = page_width;
-                if !both_specified {
+                if preferred_height.is_none() {
                     height *= scale;
                 }
             }
