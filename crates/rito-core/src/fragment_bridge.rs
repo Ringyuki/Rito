@@ -651,6 +651,58 @@ impl TreeBuilder<'_> {
             .map_err(|error| EpubError::new(format!("anonymous strut interns: {error}")))
     }
 
+    /// CSS 2 §16.3.1 text-decoration propagation: an inline box's
+    /// decorations draw across its in-flow descendants — they are NOT
+    /// inherited properties, so a descendant's computed style carries
+    /// none of them and cannot cancel them with `text-decoration: none`.
+    /// The flattened run keeps one style per text item, so an ancestor's
+    /// lines fold into the descendant's style here. A descendant with no
+    /// decoration of its own takes the ancestor's stroke wholesale (its
+    /// color and style belong to the decorating box); one with its own
+    /// lines keeps them and unions the ancestor's flags (measured: a UA
+    /// underlined <a> around an undecorated calibre <span> underlines in
+    /// the browser, and the run style dropped it).
+    fn propagate_text_decorations(
+        &mut self,
+        own: StyleId,
+        inherited: StyleId,
+    ) -> EpubResult<StyleId> {
+        use rito_style_contract as c;
+        let ancestor = self
+            .inline
+            .style(inherited)
+            .map_err(|error| EpubError::new(format!("decoration ancestor resolves: {error}")))?
+            .paint
+            .text_decoration;
+        if ancestor.lines.is_empty() {
+            return Ok(own);
+        }
+        let resolved = self
+            .inline
+            .style(own)
+            .map_err(|error| EpubError::new(format!("decoration owner resolves: {error}")))?;
+        let decoration = if resolved.paint.text_decoration.lines.is_empty() {
+            ancestor
+        } else {
+            let mut merged = resolved.paint.text_decoration;
+            merged.lines = c::TextDecorationLines::new(
+                merged.lines.underline || ancestor.lines.underline,
+                merged.lines.overline || ancestor.lines.overline,
+                merged.lines.line_through || ancestor.lines.line_through,
+                merged.lines.blink || ancestor.lines.blink,
+            );
+            merged
+        };
+        if decoration == resolved.paint.text_decoration {
+            return Ok(own);
+        }
+        let mut derived = resolved.clone();
+        derived.paint.text_decoration = decoration;
+        self.inline
+            .intern(derived)
+            .map_err(|error| EpubError::new(format!("propagated decoration interns: {error}")))
+    }
+
     fn collect_inline(
         &mut self,
         node: &DocumentNode,
@@ -709,6 +761,7 @@ impl TreeBuilder<'_> {
                 }
                 let style = self.inline_style_id(source_index, &element.tag);
                 self.require_inline_capabilities(style, true, &element.tag)?;
+                let style = self.propagate_text_decorations(style, inherited)?;
                 let resolved = self
                     .inline
                     .style(style)
