@@ -553,12 +553,14 @@ fn append_text_run_command(
     };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
     if let Some(annotation) = ruby_annotation {
+        let annotation_ratio = f64::from(annotation.size_ratio);
+        let annotation = &annotation.text;
         // The reader's ruby convention (shared with the retained engine):
         // the annotation paints at half the base font size, centered over
         // the base run's laid-out extent, its bottom edge one pixel above
         // the base's paint anchor. A base split across lines repeats its
         // full annotation over each of its runs.
-        let annotation_size = font_size * 0.5;
+        let annotation_size = font_size * annotation_ratio;
         commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
             text: Value::String(annotation.clone()),
             rect: rect_value(
@@ -1342,7 +1344,10 @@ mod tests {
                 text: "漢字".to_owned(),
                 style: red,
                 baseline_shift_px: 0.0,
-                ruby_annotation: Some("かんじ".to_owned()),
+                ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                    text: "かんじ".to_owned(),
+                    size_ratio: 0.5,
+                }),
             }]
         });
         let root = boxed_line(vec![text_run(0.0, 32.0, 0, 6)]);

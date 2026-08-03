@@ -1964,7 +1964,7 @@ impl FormattingContext for ParleyInlineContext {
                         continue;
                     }
                     let Some(InlineItem::Text {
-                        ruby_annotation: Some(_),
+                        ruby_annotation: Some(annotation),
                         style,
                         ..
                     }) = tree_items.get(index)
@@ -1977,6 +1977,7 @@ impl FormattingContext for ParleyInlineContext {
                         continue;
                     };
                     let fs = f64::from(resolved.font.size.get());
+                    let ratio = f64::from(annotation.size_ratio);
                     // The browser's ruby geometry is measured, not derived:
                     // the U+E000 host probe is a one-line ruby whose
                     // baseline IS the minimum baseline the annotation
@@ -1986,14 +1987,19 @@ impl FormattingContext for ParleyInlineContext {
                     // line's under-edge the annotation may reuse. Font
                     // tables cannot substitute: three fonts yielded three
                     // inconsistent hhea/OS-2 decompositions.
-                    let ruby_one = self.host_normal_line_sized(resolved, fs, "\u{E000}");
-                    let ruby_two = self.host_normal_line_sized(resolved, fs, "\u{E001}");
+                    // The probe key carries the annotation's size ratio so
+                    // the host measures the ruby with the rt size the
+                    // cascade actually produced.
+                    let one_key = format!("\u{E000}{:.4}", ratio);
+                    let two_key = format!("\u{E001}{:.4}", ratio);
+                    let ruby_one = self.host_normal_line_sized(resolved, fs, &one_key);
+                    let ruby_two = self.host_normal_line_sized(resolved, fs, &two_key);
                     let plain = self.host_normal_line(resolved, "");
                     let (typo_asc, typo_desc) =
                         base_typo(range, fs).unwrap_or((fs * 0.88, fs * 0.12));
                     let annotation_ascent = self
-                        .host_normal_line_sized(resolved, fs * 0.5, "")
-                        .map_or(fs * 0.5, |metric| metric.ascent());
+                        .host_normal_line_sized(resolved, fs * ratio, "")
+                        .map_or(fs * ratio, |metric| metric.ascent());
                     let required = ruby_one.map_or_else(
                         // Fallback until the host answers: the table law
                         // (exact for Source Han and FZBWKS, one px off for

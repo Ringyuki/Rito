@@ -149,13 +149,18 @@ async function measureBrowserHostLineMetrics(
       // annotation demands. U+E001 is the same ruby forced onto a second
       // line: its total height exposes how much of the previous line's
       // under-edge the annotation may reuse.
-      if (sample === '\uE000') {
-        paragraph.innerHTML = '<ruby><rb>中文</rb><rt>an</rt></ruby>中文';
-      } else if (sample === '\uE001') {
-        paragraph.style.width = `${String(request.size * 4)}px`;
-        paragraph.style.whiteSpace = 'normal';
-        paragraph.innerHTML =
-          '中文中文<ruby><rb>中文</rb><rt>an</rt></ruby>';
+      if (sample.startsWith('\uE000') || sample.startsWith('\uE001')) {
+        // The tail of the probe key is the annotation size ratio the
+        // engine's cascade resolved for the rt element.
+        const ratio = Number(sample.slice(1)) || 0.5;
+        const rt = `<rt style="font-size:${String(ratio)}em">an</rt>`;
+        if (sample.startsWith('\uE000')) {
+          paragraph.innerHTML = `<ruby><rb>中文</rb>${rt}</ruby>中文`;
+        } else {
+          paragraph.style.width = `${String(request.size * 4)}px`;
+          paragraph.style.whiteSpace = 'normal';
+          paragraph.innerHTML = `中文中文<ruby><rb>中文</rb>${rt}</ruby>`;
+        }
       } else {
         // A zero-sized inline-block sits on the baseline, so its top is
         // the baseline offset from the line box top. An empty sample

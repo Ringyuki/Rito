@@ -936,12 +936,31 @@ impl TreeBuilder<'_> {
                         self.degrade("ruby annotation without a base dropped".to_owned());
                         continue;
                     }
+                    // The annotation size is the rt element's cascaded
+                    // font-size relative to the base (UA default 50%,
+                    // commonly overridden — `rt { font-size: 0.55em }` in
+                    // the measured corpus grew every title line one px).
+                    let rt_source_index = element_source_index(inner)?;
+                    let rt_style = self.inline_style_id(rt_source_index, "rt");
+                    let size_ratio = match (
+                        self.inline.style(rt_style),
+                        self.inline.style(style),
+                    ) {
+                        (Ok(rt_resolved), Ok(base_resolved))
+                            if base_resolved.font.size.get() > 0.0 =>
+                        {
+                            rt_resolved.font.size.get() / base_resolved.font.size.get()
+                        }
+                        _ => 0.5,
+                    };
                     collector.push_text(
                         &std::mem::take(&mut pending_base),
                         style,
                         ancestor_shift_px,
                         collapse,
-                        Some(annotation).filter(|text| !text.is_empty()),
+                        Some(annotation)
+                            .filter(|text| !text.is_empty())
+                            .map(|text| rito_fragment::RubyAnnotation { text, size_ratio }),
                         Some(source_index),
                         Some(element.source_ref.node_path.clone()),
                     );
@@ -2055,7 +2074,7 @@ impl InlineCollector {
         style: StyleId,
         baseline_shift_px: f64,
         collapse: bool,
-        ruby_annotation: Option<String>,
+        ruby_annotation: Option<rito_fragment::RubyAnnotation>,
         source_index: Option<usize>,
         source_path: Option<Vec<usize>>,
     ) {
@@ -2924,7 +2943,10 @@ p { margin: 8px 0; }\n\
                     text,
                     ruby_annotation,
                     ..
-                } => (text.as_str(), ruby_annotation.as_deref()),
+                } => (
+                    text.as_str(),
+                    ruby_annotation.as_ref().map(|a| a.text.as_str()),
+                ),
                 InlineItem::Image { .. } => panic!("no images here"),
             })
             .collect();
@@ -2946,7 +2968,10 @@ p { margin: 8px 0; }\n\
             panic!("ruby base is a text item");
         };
         assert_eq!(text, "東京");
-        assert_eq!(ruby_annotation.as_deref(), Some("とうきょう"));
+        assert_eq!(
+            ruby_annotation.as_ref().map(|a| a.text.as_str()),
+            Some("とうきょう")
+        );
     }
 
     #[test]
@@ -3002,7 +3027,10 @@ p { margin: 8px 0; }\n\
                     text,
                     ruby_annotation,
                     ..
-                } => (text.as_str(), ruby_annotation.as_deref()),
+                } => (
+                    text.as_str(),
+                    ruby_annotation.as_ref().map(|a| a.text.as_str()),
+                ),
                 InlineItem::Image { .. } => panic!("no images here"),
             })
             .collect();

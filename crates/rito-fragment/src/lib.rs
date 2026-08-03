@@ -29,7 +29,7 @@ pub use context::{
 };
 pub use formatting_tree::{
     FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree, FormattingTreeStyles,
-    InlineItem,
+    InlineItem, RubyAnnotation,
 };
 pub use fragment::{
     BoxFragment, BoxSnap, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFragment,
