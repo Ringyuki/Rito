@@ -2351,6 +2351,16 @@ fn fold_through_collapsing_margins(
             LengthPercentageOrAuto::Value(LengthPercentage::Length(px)) => {
                 Some(f64::from(px.get()))
             }
+            // A zero percentage is zero at any basis; treating it as
+            // unresolvable made a `body { margin: 0% 1%; }` swallow its
+            // first child's escaped margin — the child was zeroed before
+            // the body's own margin failed to resolve, and the chapter
+            // opened flush where the browser keeps the 1.5em gap.
+            LengthPercentageOrAuto::Value(LengthPercentage::Percentage(pct))
+                if pct.ratio() == 0.0 =>
+            {
+                Some(0.0)
+            }
             LengthPercentageOrAuto::Auto => Some(0.0),
             _ => None,
         }
@@ -2459,11 +2469,20 @@ fn fold_through_collapsing_margins(
                     .unwrap_or(false)
             }
             let mut accumulated: Option<f64> = None;
-            let in_flow_children: Vec<FormattingNodeId> = children
-                .iter()
-                .copied()
-                .filter(|id| in_flow(nodes, layout, *id))
-                .collect();
+            // The container's own margin must be resolvable before any
+            // child margin is zeroed: an unresolvable own margin used to
+            // abort AFTER the children were stripped, dropping their
+            // margins on the floor instead of leaving them in place.
+            let own = resolved_px(style.margin.top);
+            let in_flow_children: Vec<FormattingNodeId> = if own.is_some() {
+                children
+                    .iter()
+                    .copied()
+                    .filter(|id| in_flow(nodes, layout, *id))
+                    .collect()
+            } else {
+                Vec::new()
+            };
             for child in in_flow_children {
                 let child_style = layout
                     .style(nodes[child.0 as usize].style)
@@ -2496,7 +2515,6 @@ fn fold_through_collapsing_margins(
                 accumulated = Some(join(accumulated.unwrap_or(0.0), bottom));
                 set_margin(layout, nodes, child, None, Some(0.0))?;
             }
-            let own = resolved_px(style.margin.top);
             if let (Some(escape), Some(own)) = (accumulated, own) {
                 if escape != 0.0 {
                     set_margin(layout, nodes, node, Some(join(own, escape)), None)?;
