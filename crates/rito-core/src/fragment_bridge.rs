@@ -136,6 +136,12 @@ pub enum NodePaint {
         /// stacking wrapper around the box and its whole subtree (origin =
         /// border-box center, CSS transform-origin default).
         transform: Option<Value>,
+        /// Ridge/groove edges paint two-tone: the border entry strokes
+        /// the edge's OUTER half color across the full width and each
+        /// entry here overlays the INNER half (the strip adjacent to the
+        /// content) with the opposite tone. Keyed by edge index in
+        /// border-box order (0 top, 1 right, 2 bottom, 3 left).
+        bevels: Vec<(usize, String)>,
     },
 }
 
@@ -1538,6 +1544,7 @@ fn block_box_paint(
     };
     let mut widths = [0.0; 4];
     let mut border = serde_json::Map::new();
+    let mut bevels = Vec::new();
     for (index, (edge, name)) in [
         (&style.fragment.border.top, "top"),
         (&style.fragment.border.right, "right"),
@@ -1551,19 +1558,29 @@ fn block_box_paint(
         if width <= 0.0 || matches!(edge.style, c::BorderStyle::None | c::BorderStyle::Hidden) {
             continue;
         }
-        let stroke = match edge.style {
-            c::BorderStyle::Solid => "solid",
-            c::BorderStyle::Dashed => "dashed",
-            c::BorderStyle::Dotted => "dotted",
-            other => {
-                degradations.push(format!("border-{name} style {other:?} drawn solid"));
-                "solid"
-            }
-        };
         let Ok(color) = crate::style::absolute_color(edge.color.resolve(style.paint.foreground))
         else {
             degradations.push(format!("border-{name} color unresolvable, edge skipped"));
             continue;
+        };
+        let mut color = color;
+        let stroke = match edge.style {
+            c::BorderStyle::Solid => "solid",
+            c::BorderStyle::Dashed => "dashed",
+            c::BorderStyle::Dotted => "dotted",
+            c::BorderStyle::Ridge | c::BorderStyle::Groove
+                if two_tone_halves(&color, edge.style, index).is_some() =>
+            {
+                let (outer, inner) =
+                    two_tone_halves(&color, edge.style, index).expect("guard checked");
+                color = outer;
+                bevels.push((index, inner));
+                "solid"
+            }
+            other => {
+                degradations.push(format!("border-{name} style {other:?} drawn solid"));
+                "solid"
+            }
         };
         widths[index] = width;
         border.insert(
@@ -1720,11 +1737,52 @@ fn block_box_paint(
                 paint: Value::Object(paint),
                 border_box,
                 transform,
+                bevels,
             },
             widths,
         )),
         degradations,
     )
+}
+
+/// Splits a ridge/groove edge into its two measured Blink tones: one half
+/// keeps the border color, the other is Blink's `Color::Dark()` — every
+/// channel scaled by `(V - 0.33) / V` where `V` is the largest channel
+/// (steelblue `#4682b4` darkens to `#254560`, `#cc2200` to `#781400`,
+/// both probed channel-exact). Ridge raises the box: top/left edges keep
+/// the base tone outside and darken inside; bottom/right mirror. Groove
+/// is ridge inverted. Returns `(outer, inner)` in border-box edge order,
+/// or `None` for colors the split cannot parse (translucent borders
+/// serialize as `rgba(...)` and degrade to solid instead).
+fn two_tone_halves(
+    base: &str,
+    style: rito_style_contract::BorderStyle,
+    edge_index: usize,
+) -> Option<(String, String)> {
+    use rito_style_contract::BorderStyle;
+    let hex = base.strip_prefix('#')?;
+    if hex.len() != 6 {
+        return None;
+    }
+    let channel = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).ok();
+    let channels = [channel(0)?, channel(2)?, channel(4)?];
+    let value = f64::from(*channels.iter().max().expect("three channels")) / 255.0;
+    let scale = if value > 0.0 {
+        ((value - 0.33) / value).max(0.0)
+    } else {
+        0.0
+    };
+    let [red, green, blue] =
+        channels.map(|component| (f64::from(component) * scale).round() as u8);
+    let dark = format!("#{red:02x}{green:02x}{blue:02x}");
+    let base = base.to_owned();
+    // Edge indices: 0 top, 1 right, 2 bottom, 3 left.
+    let raised_outside = matches!(edge_index, 0 | 3) == matches!(style, BorderStyle::Ridge);
+    Some(if raised_outside {
+        (base, dark)
+    } else {
+        (dark, base)
+    })
 }
 
 /// Box decoration the fragment painter cannot reproduce on any box:
@@ -2988,6 +3046,48 @@ p { margin: 8px 0; }\n\
                 .iter()
                 .any(|reason| reason.contains("drawn solid")),
             "the approximation is recorded: {:?}",
+            built.degradations
+        );
+    }
+
+    #[test]
+    fn ridge_borders_split_into_measured_two_tone_halves() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <div class="frame"><p>text</p></div>
+</body></html>"#,
+            ".frame { border-top: 6px ridge #4682b4; border-right: 6px groove #4682b4; }\n",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("ridge borders build");
+        let root = built.tree.node(built.tree.root());
+        let Some(NodePaint::Box { paint, bevels, .. }) =
+            built.node_paints.get(&root.children[0].0)
+        else {
+            panic!("the frame paints its border");
+        };
+        // Ridge top: outer keeps steelblue, inner darkens (V - 0.33
+        // scaling, probed #254560). Groove right inverts: outer stays
+        // base, the dark half hugs the content.
+        assert_eq!(paint["border"]["top"]["style"], "solid");
+        assert_eq!(paint["border"]["top"]["color"], "#4682b4");
+        assert_eq!(paint["border"]["right"]["color"], "#4682b4");
+        assert_eq!(bevels.as_slice(), &[
+            (0, "#254560".to_owned()),
+            (1, "#254560".to_owned()),
+        ]);
+        assert!(
+            !built
+                .degradations
+                .iter()
+                .any(|reason| reason.contains("drawn solid")),
+            "two-tone edges are exact, not degraded: {:?}",
             built.degradations
         );
     }

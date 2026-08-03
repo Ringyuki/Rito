@@ -221,7 +221,10 @@ fn append_fragment_display_commands_inner(
                         }
                     }
                     NodePaint::Box {
-                        paint, border_box, ..
+                        paint,
+                        border_box,
+                        bevels,
+                        ..
                     } => {
                         // A transform-only box carries an empty paint
                         // object; there is nothing to stroke or fill.
@@ -238,6 +241,58 @@ fn append_fragment_display_commands_inner(
                                 paint.clone(),
                                 border_box.clone(),
                             ));
+                            // Ridge/groove inner halves: the border entry
+                            // stroked the edge's outer tone full-width, so
+                            // each bevel lays the opposite tone over the
+                            // strip adjacent to the content. Corner joins
+                            // stop at the neighbouring edge's width — the
+                            // square stop approximates Blink's diagonal
+                            // miter to within the corner's own pixels.
+                            for (edge_index, inner_color) in bevels {
+                                let side = |key: &str| {
+                                    border_box
+                                        .as_ref()
+                                        .and_then(|widths| widths[key].as_f64())
+                                        .unwrap_or(0.0)
+                                };
+                                let (top, right, bottom, left) = (
+                                    side("topWidth"),
+                                    side("rightWidth"),
+                                    side("bottomWidth"),
+                                    side("leftWidth"),
+                                );
+                                let (x, y) = (
+                                    origin_x + fragment.rect.x,
+                                    origin_y + fragment.rect.y,
+                                );
+                                let (width, height) =
+                                    (fragment.rect.width, fragment.rect.height);
+                                let strip = match edge_index {
+                                    0 => (x + left, y + top / 2.0, width - left - right, top / 2.0),
+                                    1 => (
+                                        x + width - right,
+                                        y + top,
+                                        right / 2.0,
+                                        height - top - bottom,
+                                    ),
+                                    2 => (
+                                        x + left,
+                                        y + height - bottom,
+                                        width - left - right,
+                                        bottom / 2.0,
+                                    ),
+                                    _ => (x + left / 2.0, y + top, left / 2.0, height - top - bottom),
+                                };
+                                if strip.2 > 0.0 && strip.3 > 0.0 {
+                                    commands.push(DisplayCommand::paint_block(
+                                        rect_value(strip.0, strip.1, strip.2, strip.3),
+                                        serde_json::json!({
+                                            "background": { "color": inner_color }
+                                        }),
+                                        None,
+                                    ));
+                                }
+                            }
                         }
                     }
                 }
@@ -1071,6 +1126,7 @@ mod tests {
                 paint: Value::Object(serde_json::Map::new()),
                 border_box: None,
                 transform: Some(serde_json::json!([{ "kind": "rotate", "rad": 0.05 }])),
+                bevels: Vec::new(),
             },
         );
         let mut commands = Vec::new();
