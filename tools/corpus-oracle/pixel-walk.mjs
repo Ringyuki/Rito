@@ -527,10 +527,17 @@ img, svg { max-height: ${contentH}px !important; max-width: 100% !important; }`;
       const scrolled = await truth.evaluate(() => window.scrollX);
       const clipX = x0 - scrolled;
       if (clipX + contentW > contentW + 200) break;
+      // Capture the right page margin too: an unbreakable line overflows
+      // its column and PAINTS across the page's right margin band, which
+      // the engine (clipping at the page edge) also shows. A content-wide
+      // clip amputated that band and scored the engine's overflow ink as
+      // phantom diff. The clip is clamped to the viewport; a clamped last
+      // column loses only pixels the composite pads with page ground.
+      const clipW = Math.min(contentW + MARGIN, contentW + 200 - clipX);
       columns.push(
         PNG.sync.read(
           await truth.screenshot({
-            clip: { x: clipX, y: 0, width: contentW, height: contentH },
+            clip: { x: clipX, y: 0, width: clipW, height: contentH },
           }),
         ),
       );
@@ -587,8 +594,8 @@ for (const chapter of plan.chapters) {
     }
     if (column) {
       for (let y = 0; y < contentH; y += 1) {
-        for (let x = 0; x < contentW; x += 1) {
-          const si = (y * contentW + x) * 4;
+        for (let x = 0; x < column.width && MARGIN + x < pageW; x += 1) {
+          const si = (y * column.width + x) * 4;
           const di = ((MARGIN + y) * pageW + (MARGIN + x)) * 4;
           for (let j = 0; j < 4; j += 1) truthPage.data[di + j] = column.data[si + j];
         }
