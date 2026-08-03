@@ -97,6 +97,20 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             out.extend_from_slice(&fragment.text_start.to_le_bytes());
             out.extend_from_slice(&fragment.text_end.to_le_bytes());
             out.extend_from_slice(&fragment.justify_px.to_bits().to_le_bytes());
+            match &fragment.box_snap {
+                None => out.push(0),
+                Some(snap) => {
+                    out.push(1);
+                    for value in [
+                        snap.int_ascent,
+                        snap.int_descent,
+                        snap.edge_top,
+                        snap.edge_bottom,
+                    ] {
+                        out.extend_from_slice(&value.to_bits().to_le_bytes());
+                    }
+                }
+            }
         }
         Fragment::Image(fragment) => {
             out.push(FRAGMENT_TAG_IMAGE);
@@ -160,12 +174,23 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
             let text_start = reader.u32()?;
             let text_end = reader.u32()?;
             let justify_px = reader.f64()?;
+            let box_snap = match reader.u8()? {
+                0 => None,
+                1 => Some(crate::BoxSnap {
+                    int_ascent: reader.f64()?,
+                    int_descent: reader.f64()?,
+                    edge_top: reader.f64()?,
+                    edge_bottom: reader.f64()?,
+                }),
+                tag => return Err(format!("unknown text box-snap tag {tag}")),
+            };
             Ok(Fragment::Text(TextFragment {
                 source,
                 rect,
                 text_start,
                 text_end,
                 justify_px,
+                box_snap,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -411,6 +436,7 @@ mod tests {
                             },
                             text_start: 0,
                             text_end: 42,
+                            box_snap: None,
                             justify_px: 0.25,
                         })],
                     })],

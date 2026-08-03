@@ -59,6 +59,7 @@ fn full_wire_paint_keeps_camel_case_and_omits_no_present_field() {
             start: Some(edge(3.0, "#333333", "dashed")),
             end: Some(edge(4.0, "#444444", "solid")),
         }),
+        box_offsets: None,
     });
 
     assert_eq!(

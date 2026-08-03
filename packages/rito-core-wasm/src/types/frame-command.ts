@@ -225,6 +225,16 @@ export interface RitoCoreWasmRunPaint {
   readonly decoration?: RitoCoreWasmRunDecoration;
   readonly padding?: RitoCoreWasmSpacing;
   readonly border?: RitoCoreWasmRunBorder;
+  /** Pre-snapped vertical extent of the run's decorated inline box, as
+   * offsets from the run rect's top. The layout side rounds the box to
+   * device rows; the painter uses these instead of deriving the box
+   * from font metrics. */
+  readonly box?: RitoCoreWasmRunBox;
+}
+
+export interface RitoCoreWasmRunBox {
+  readonly topPx: number;
+  readonly bottomPx: number;
 }
 
 export interface RitoCoreWasmFontShorthand {

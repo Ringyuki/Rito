@@ -43,6 +43,16 @@ impl RunPaint {
             "border",
             self.data.border.as_ref().map(border_value),
         );
+        insert_optional_value(
+            &mut output,
+            "box",
+            self.data.box_offsets.map(|(top, bottom)| {
+                Value::Object(Map::from_iter([
+                    ("topPx".to_owned(), paint_number_value(top)),
+                    ("bottomPx".to_owned(), paint_number_value(bottom)),
+                ]))
+            }),
+        );
         Value::Object(output)
     }
 }

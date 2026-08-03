@@ -150,6 +150,57 @@ fn fixed_line_baseline(height: f64, ascent: f64, descent: f64) -> f64 {
     (ascent + (height - (ascent + descent)) / 2.0).round()
 }
 
+/// The raster anchor a decorated inline box hands its runs, or `None`
+/// for an undecorated span (bare text snaps off the line box). The
+/// browser's paint re-anchors at the decorated box: its absolute top
+/// rounds to a device row, the top edge (border + LayoutUnit-quantized
+/// padding) rounds within it, and the baseline sits the primary font's
+/// integer ascent below — measured on 22px/24px bordered spans sharing a
+/// 309.5625 layout baseline that raster one row apart (309 and 310).
+/// Without a host grid metric the anchor is withheld; the measure →
+/// inject → reflow loop converges it the same way line metrics do.
+fn item_box_snap(
+    resolved: &InlineFormattingStyleV1,
+    metric: Option<HostNormalLineMetric>,
+) -> Option<rito_fragment::BoxSnap> {
+    use rito_style_contract::BorderStyle;
+    let side_px = |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
+        LengthPercentage::Length(px) => f64::from(px.get()),
+        _ => 0.0,
+    };
+    let edge_px = |edge: &rito_style_contract::BorderEdge| {
+        if matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
+            0.0
+        } else {
+            f64::from(edge.resolved_width.get())
+        }
+    };
+    let padding = &resolved.fragment.padding;
+    let border = &resolved.fragment.border;
+    let decorated = [
+        side_px(&padding.top),
+        side_px(&padding.right),
+        side_px(&padding.bottom),
+        side_px(&padding.left),
+        edge_px(&border.top),
+        edge_px(&border.right),
+        edge_px(&border.bottom),
+        edge_px(&border.left),
+    ]
+    .iter()
+    .any(|px| *px > 0.0);
+    if !decorated {
+        return None;
+    }
+    let (int_ascent, int_descent) = metric?.grid?;
+    Some(rito_fragment::BoxSnap {
+        int_ascent,
+        int_descent,
+        edge_top: edge_px(&border.top) + layout_unit(side_px(&padding.top)),
+        edge_bottom: edge_px(&border.bottom) + layout_unit(side_px(&padding.bottom)),
+    })
+}
+
 /// The character's Unicode script, as the integer a metric key uses.
 ///
 /// Font fallback is keyed by script in every browser, so this is the axis
@@ -301,6 +352,24 @@ impl ParleyInlineContext {
         }
         self.host_metric_requests.borrow_mut().insert(key);
         None
+    }
+
+    /// Reads a host metric without recording a request on a miss. Paths
+    /// that merely ENRICH fragments (the decorated-box raster anchor)
+    /// use this so they never perturb the measure → inject → reflow
+    /// convergence the line-metric paths drive; the anchor appears once
+    /// those paths have measured the style anyway.
+    fn host_normal_line_peek(
+        &self,
+        style: &InlineFormattingStyleV1,
+        sample: &str,
+    ) -> Option<HostNormalLineMetric> {
+        let key = (
+            host_family_key(style),
+            host_size_key(f64::from(style.font.size.get())),
+            sample.to_owned(),
+        );
+        self.host_line_metrics.borrow().get(&key).copied()
     }
 
     /// The sample character to measure a text run's resolved font with.
@@ -1176,6 +1245,18 @@ impl FormattingContext for ParleyInlineContext {
                         let shift = shift_for_range(&run_range);
                         max_rise = max_rise.max(shift);
                         let run_x = f64::from(glyph_run.offset()) - line_x;
+                        // A run inside a bordered/padded span carries the
+                        // box's raster anchor: the browser snaps the
+                        // decorated box to its own device row and hangs
+                        // the baseline off it (integer primary-font
+                        // ascent below the rounded top edge), instead of
+                        // the bare-text line-box snap.
+                        let run_box_snap = style_tables.and_then(|tables| {
+                            let entry = item_line_heights.get(item_index)?.as_ref()?;
+                            let resolved = tables.inline.style(entry.style).ok()?;
+                            let metric = self.host_normal_line_peek(&resolved, "");
+                            item_box_snap(&resolved, metric)
+                        });
                         let mut emit = |range: std::ops::Range<usize>,
                                         x: f64,
                                         width: f64,
@@ -1192,6 +1273,7 @@ impl FormattingContext for ParleyInlineContext {
                                     text_start: range.start as u32,
                                     text_end: range.end as u32,
                                     justify_px,
+                                    box_snap: run_box_snap,
                                 }),
                                 shift,
                             ));

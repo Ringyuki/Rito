@@ -21,6 +21,7 @@ impl RunPaint {
             decoration: object.get("decoration").and_then(test_decoration),
             padding: object.get("padding").and_then(test_spacing),
             border: object.get("border").and_then(test_border),
+            box_offsets: None,
         })
     }
 }

@@ -22,6 +22,11 @@ pub(crate) struct RunPaintData {
     pub(crate) decoration: Option<RunDecoration>,
     pub(crate) padding: Option<RunSpacing>,
     pub(crate) border: Option<RunBorder>,
+    /// Pre-snapped vertical extent of the run's decorated inline box,
+    /// as offsets from the run rect's top (top, bottom). The painter
+    /// uses these instead of growing the box from font metrics, so the
+    /// box lands on the exact device rows the layout side rounded to.
+    pub(crate) box_offsets: Option<(f64, f64)>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -211,6 +216,11 @@ impl RunPaint {
         data.border.get_or_insert_with(RunBorder::default).end = Some(edge);
     }
 
+    pub(crate) fn set_box_offsets(&mut self, top: f64, bottom: f64) {
+        let data = Arc::make_mut(&mut self.data);
+        data.box_offsets = Some((top, bottom));
+    }
+
     pub(crate) fn for_ruby(&self, font_size: f64) -> Self {
         let font = &self.data.measure.font;
         Self::new(RunPaintData {
@@ -231,6 +241,7 @@ impl RunPaint {
             decoration: None,
             padding: None,
             border: None,
+            box_offsets: None,
         })
     }
 
@@ -257,6 +268,7 @@ impl Default for RunPaintData {
             decoration: None,
             padding: None,
             border: None,
+            box_offsets: None,
         }
     }
 }

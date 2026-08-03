@@ -77,6 +77,30 @@ pub struct TextFragment {
     /// letter spacing. The rect already sits at its justified position;
     /// this spreads the run's own characters apart.
     pub justify_px: f64,
+    /// Raster anchoring for a run inside a decorated inline box, absent
+    /// for bare text (which snaps off the line box alone).
+    pub box_snap: Option<BoxSnap>,
+}
+
+/// The vertical anchor a decorated inline box gives the runs inside it.
+///
+/// The browser paints a bordered or padded span as its own snapped box:
+/// the box's absolute top rounds to a device row, the top border+padding
+/// rounds on top of that, and the run's baseline sits one integer ascent
+/// below — so two runs sharing one layout baseline can raster one row
+/// apart when their boxes round differently (measured on the summary
+/// page's 22px/24px bordered spans: layout baseline 309.5625 painted at
+/// 309 and 310).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BoxSnap {
+    /// The primary font's grid-fit (integer) ascent at the run's size.
+    pub int_ascent: f64,
+    /// The primary font's grid-fit (integer) descent at the run's size.
+    pub int_descent: f64,
+    /// Top border width plus LayoutUnit-quantized top padding.
+    pub edge_top: f64,
+    /// Bottom border width plus LayoutUnit-quantized bottom padding.
+    pub edge_bottom: f64,
 }
 
 /// One laid-out atomic inline (an image) inside a line.

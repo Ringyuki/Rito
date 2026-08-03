@@ -478,7 +478,7 @@ fn append_text_run_command(
         .cloned()
         .map(|(range, index)| (range, index))
         .unwrap_or((start..end, 0));
-    let paint = run_paint(
+    let mut paint = run_paint(
         style,
         family_policy,
         run.justify_px,
@@ -508,9 +508,34 @@ fn append_text_run_command(
     // composed with the transform command's layer-origin translate this
     // reproduces round(box) + round(local), the browser's quantized
     // layer raster.
-    let baseline = snap_origin_y
-        + (line_y - snap_origin_y).round()
-        + (line.baseline - baseline_shift_px).round();
+    // A run inside a decorated inline box re-anchors at the BOX instead
+    // (measured on 22px/24px bordered spans sharing one 309.5625 layout
+    // baseline that raster one row apart): the box's absolute top rounds
+    // to a device row, the top border+padding edge rounds within it, and
+    // the baseline hangs the primary font's integer ascent below. The
+    // box's snapped extent rides the paint so the painter strokes the
+    // decoration on those exact rows. For an undecorated run the formula
+    // would collapse to the line-box snap (integer ascent and integer
+    // within-line baseline commute with the round), so bare text keeps
+    // the two-stage path verbatim.
+    let baseline = match &run.box_snap {
+        Some(snap) => {
+            let layout_baseline = line_y + line.baseline - baseline_shift_px;
+            let box_top = layout_baseline - snap.int_ascent - snap.edge_top;
+            let box_bottom = layout_baseline + snap.int_descent + snap.edge_bottom;
+            let painted_top = snap_origin_y + (box_top - snap_origin_y).round();
+            let painted_bottom = snap_origin_y + (box_bottom - snap_origin_y).round();
+            let baseline = painted_top + snap.edge_top.round() + snap.int_ascent;
+            let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
+            paint.set_box_offsets(painted_top - em_top, painted_bottom - em_top);
+            baseline
+        }
+        None => {
+            snap_origin_y
+                + (line_y - snap_origin_y).round()
+                + (line.baseline - baseline_shift_px).round()
+        }
+    };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
     if let Some(annotation) = ruby_annotation {
         // The reader's ruby convention (shared with the retained engine):
@@ -730,6 +755,7 @@ fn run_paint(
         decoration: run_decoration(style, font_size)?,
         padding: run_box_padding(style, box_start, box_end),
         border: run_box_border(style, box_start, box_end)?,
+        box_offsets: None,
     }))
 }
 
@@ -1070,6 +1096,7 @@ mod tests {
             },
             text_start: start,
             text_end: end,
+            box_snap: None,
             justify_px: 0.0,
         })
     }

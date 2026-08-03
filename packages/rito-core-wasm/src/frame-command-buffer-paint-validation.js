@@ -43,6 +43,7 @@ export function validateRunPaint(value, path) {
   validateOptionalField(paint, 'decoration', path, validateRunDecoration);
   validateOptionalField(paint, 'padding', path, validateSpacing);
   validateOptionalField(paint, 'border', path, validateRunBorder);
+  validateOptionalField(paint, 'box', path, validateRunBox);
 }
 
 export function validateHorizontalRulePaint(value, path) {
@@ -174,6 +175,11 @@ function validateRunDecoration(value, path) {
   expectFiniteNumber(requiredField(decoration, 'y', path), `${path}.y`);
   expectFiniteNumber(requiredField(decoration, 'thickness', path), `${path}.thickness`);
   expectString(requiredField(decoration, 'color', path), `${path}.color`);
+}
+
+function validateRunBox(value, path) {
+  const box = expectObject(value, path);
+  validateFiniteFields(box, path, ['topPx', 'bottomPx']);
 }
 
 function validateRunBorder(value, path) {
