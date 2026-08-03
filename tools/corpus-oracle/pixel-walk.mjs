@@ -301,6 +301,12 @@ const recoverToSpread = async (spreadIndex) => {
     content: '[data-testid=engine-badge] { display: none !important; }',
   });
   await reader.waitForTimeout(1200);
+  for (let guard = 0; guard < 400; guard += 1) {
+    const at = await reader.evaluate(() => window.__ritoController.reader.activeSpreadIndex ?? 0);
+    if (!at) break;
+    await reader.keyboard.press('ArrowLeft');
+    await reader.waitForTimeout(45);
+  }
   for (let step = 0; step < spreadIndex; step += 1) {
     await reader.keyboard.press('ArrowRight');
     await reader.waitForTimeout(60);
@@ -319,6 +325,19 @@ const paginationSignature = () =>
       .join(',')}`;
   });
 let planSignature = await paginationSignature();
+// Some books open at a guide/start-reading position instead of spread 0
+// (measured: book 003 opens at spread 19); the capture loop assumes the
+// first shot is spread 0, so rewind until the reader actually sits there.
+const rewindToStart = async () => {
+  for (let guard = 0; guard < 400; guard += 1) {
+    const at = await reader.evaluate(() => window.__ritoController.reader.activeSpreadIndex ?? 0);
+    if (!at) return;
+    await reader.keyboard.press('ArrowLeft');
+    await reader.waitForTimeout(45);
+  }
+};
+await rewindToStart();
+await reader.waitForTimeout(600);
 for (let attempt = 0; attempt < 2; attempt += 1) {
   const totalSpreads = Math.max(...plan.pages.map((p) => p.spread)) + 1;
   for (let s = 0; s < totalSpreads; s += 1) {
