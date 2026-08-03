@@ -3190,6 +3190,12 @@ fn image_display_size(
         let _ = resolve(cap.value());
     }
     let width_percentage_without_basis = percentage_without_basis.get();
+    // With BOTH axes author-specified the aspect ratio is out of the
+    // picture: max-width/max-height (and the page clamp) constrain each
+    // axis independently, distortion included (measured: a 723x1 strip
+    // declared 538395x1430 renders 626.6875x850 in the browser — a
+    // full-page stretch — not the ratio-preserving 626.69x1.66).
+    let both_specified = preferred_width.is_some() && preferred_height.is_some();
     let (mut width, mut height) = match (preferred_width, preferred_height) {
         (Some(width), Some(height)) => (width, height),
         (Some(width), None) => (width, width * ratio),
@@ -3204,7 +3210,9 @@ fn image_display_size(
             if width > cap && width > 0.0 {
                 let scale = cap / width;
                 width = cap;
-                height *= scale;
+                if !both_specified {
+                    height *= scale;
+                }
             }
         }
     }
@@ -3219,13 +3227,17 @@ fn image_display_size(
         if height > page_height && height > 0.0 && page_height > 0.0 {
             let scale = page_height / height;
             height = page_height;
-            width *= scale;
+            if !both_specified {
+                width *= scale;
+            }
         }
         if let Some(page_width) = available_inline_size {
             if width > page_width && width > 0.0 && page_width > 0.0 {
                 let scale = page_width / width;
                 width = page_width;
-                height *= scale;
+                if !both_specified {
+                    height *= scale;
+                }
             }
         }
     }
