@@ -1175,6 +1175,9 @@ impl FormattingContext for ParleyInlineContext {
             // Expansion shares consumed at boundaries before the walk's
             // current position; each share moves everything after it.
             let mut justify_shares_used = 0u32;
+            // (item index, truth item start, engine item start) for the
+            // LayoutUnit item cursor on justified lines.
+            let mut justify_item_track: Option<(usize, f64, f64)> = None;
             // Collect the line's content first, remembering each child's
             // baseline shift, so the line box can grow by however far
             // shifted content rises above the strut before positions are
@@ -1361,6 +1364,38 @@ impl FormattingContext for ParleyInlineContext {
                                 // where it changes (a deferred double
                                 // share, a latin word's zero-share gaps).
                                 justify_shares_used += plan.count_at(run_range.start);
+                                // The browser holds every inline item's
+                                // justified advance on the LayoutUnit
+                                // grid: the next style item starts at
+                                // ceil64 of the running sum (probed: a
+                                // 12px superscript span's 12.5671875
+                                // advance starts its successor at
+                                // +12.578125). Runs re-anchor on that
+                                // cursor so a postil span doesn't leave
+                                // the rest of its line a fraction adrift
+                                // of the browser's raster ties.
+                                let justified_x = run_x
+                                    + plan.share * f64::from(justify_shares_used);
+                                let ceil64 = |value: f64| (value * 64.0).ceil() / 64.0;
+                                let run_x = run_x
+                                    + match &mut justify_item_track {
+                                        slot @ None => {
+                                            *slot = Some((item_index, justified_x, justified_x));
+                                            0.0
+                                        }
+                                        Some((item, truth_start, engine_start)) => {
+                                            if *item != item_index {
+                                                let advance = justified_x - *engine_start;
+                                                let truth = ceil64(*truth_start + advance);
+                                                *item = item_index;
+                                                *truth_start = truth;
+                                                *engine_start = justified_x;
+                                                truth - justified_x
+                                            } else {
+                                                *truth_start - *engine_start
+                                            }
+                                        }
+                                    };
                                 let mut stretch_start = run_range.start;
                                 // A CJK character right after a non-CJK one
                                 // paints its INK one share right of its
