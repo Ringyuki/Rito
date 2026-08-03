@@ -307,9 +307,17 @@ fn layout_inputs<'a>(
     font_fallbacks: Option<&FontFallbackPolicy<'_>>,
     style_resolution_mode: StyleResolutionMode,
 ) -> EpubResult<LayoutInputs<'a>> {
+    // The CSS viewport (vh/vw, media queries) is ONE PAGE's content box,
+    // not the reader's spread canvas: the paginated-reader baseline
+    // (epub.js columns, and the pixel oracle's multicol truth) sizes the
+    // html element to the column, so `height: 80vh` on a cover means 80%
+    // of the page content height — measured: 80vh resolved against the
+    // 950px canvas drew the cover 760px tall where the browser draws 680.
     let viewport = Some(crate::css::CssViewport::new(
-        layout_config.viewport_width,
-        layout_config.viewport_height,
+        (layout_config.page_width - layout_config.margin_left - layout_config.margin_right)
+            .max(1.0),
+        (layout_config.page_height - layout_config.margin_top - layout_config.margin_bottom)
+            .max(1.0),
     ));
 
     let mut capabilities = StyleCapabilityReport::default();
