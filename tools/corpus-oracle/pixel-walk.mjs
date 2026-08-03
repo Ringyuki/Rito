@@ -403,7 +403,17 @@ for (const chapter of plan.chapters) {
     let truthFile = file;
     if (!/\.xhtml$/i.test(file)) {
       const sibling = `${file}.walk.xhtml`;
-      if (!existsSync(sibling)) copyFileSync(file, sibling);
+      if (!existsSync(sibling)) {
+        // The engine's source normalizer DROPS control characters XML
+        // forbids (rito-source normalizer); a raw copy with such a byte
+        // makes Chromium's XML parse fatal (yellow error page) and the
+        // whole chapter scores as drift. Strip them the same way.
+        const raw = readFileSync(file);
+        const clean = Buffer.from(
+          [...raw].filter((b) => b >= 0x20 || b === 0x09 || b === 0x0a || b === 0x0d),
+        );
+        writeFileSync(sibling, clean);
+      }
       truthFile = sibling;
     }
     await truth.goto(`file://${truthFile}`, { timeout: 30000 });
