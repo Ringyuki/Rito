@@ -271,12 +271,17 @@ fn append_fragment_display_commands_inner(
                                     side("bottomWidth"),
                                     side("leftWidth"),
                                 );
-                                let (x, y) = (
-                                    origin_x + fragment.rect.x,
-                                    origin_y + fragment.rect.y,
-                                );
+                                // The strips ride the same device-pixel
+                                // edges the border strokes snap to.
+                                let left_edge = (origin_x + fragment.rect.x).round();
+                                let top_edge = (origin_y + fragment.rect.y).round();
+                                let right_edge =
+                                    (origin_x + fragment.rect.x + fragment.rect.width).round();
+                                let bottom_edge =
+                                    (origin_y + fragment.rect.y + fragment.rect.height).round();
+                                let (x, y) = (left_edge, top_edge);
                                 let (width, height) =
-                                    (fragment.rect.width, fragment.rect.height);
+                                    (right_edge - left_edge, bottom_edge - top_edge);
                                 let strip = match edge_index {
                                     0 => (x + left, y + top / 2.0, width - left - right, top / 2.0),
                                     1 => (

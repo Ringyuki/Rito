@@ -41,6 +41,16 @@ function renderStraightBorders(
   width: number,
   height: number,
 ): void {
+  // The browser rasters a border box on whole device pixels — each edge
+  // rounds independently (measured: a 6px groove at fractional x paints
+  // columns [665,671) crisp, where fractional stroking bleeds AA one
+  // column each side).
+  const right0 = Math.round(x + width);
+  const bottom0 = Math.round(y + height);
+  x = Math.round(x);
+  y = Math.round(y);
+  width = right0 - x;
+  height = bottom0 - y;
   const { top, right, bottom, left } = borders;
   ctx.save();
   try {
