@@ -2517,6 +2517,20 @@ fn resolved_font_has_halt(
     false
 }
 
+/// Whether a Parley cluster's resolved font carries the `halt` feature —
+/// the same gate the pair trims apply: Blink's Han kerning (including the
+/// conditional line-end close trim) only adjusts glyphs whose font
+/// declares it. A latin face's curly quote must NOT extend the line
+/// (measured: a Tinos closing quote got the half-width extension and
+/// pulled `men.` plus the quote onto a line the browser broke earlier).
+fn cluster_font_has_halt(cluster: &parley::layout::Cluster<'_, [u8; 4]>) -> bool {
+    let run = cluster.run();
+    let font = run.font();
+    skrifa::FontRef::from_index(font.data.as_ref(), font.index)
+        .map(|font_ref| font_ref_has_halt(&font_ref))
+        .unwrap_or(false)
+}
+
 /// Whether the face declares the OpenType `halt` feature in GSUB or GPOS.
 fn font_ref_has_halt(font: &skrifa::FontRef) -> bool {
     use skrifa::raw::TableProvider as _;
@@ -2607,6 +2621,9 @@ fn rewind_break_count(
             cluster = cluster.next_logical()?;
             continue;
         }
+        if !cluster_font_has_halt(&cluster) {
+            return None;
+        }
         if !line_end_trim_eligible(character) {
             return None;
         }
@@ -2696,6 +2713,9 @@ fn line_end_trim_candidate(
         // The first character that does not fit is the only one Blink
         // considers for the line-end trim.
         if !line_end_trim_eligible(character) {
+            return None;
+        }
+        if !cluster_font_has_halt(&cluster) {
             return None;
         }
         if accepted.contains(&byte) || rejected.contains(&byte) {
