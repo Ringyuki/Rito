@@ -394,7 +394,8 @@ impl TreeBuilder<'_> {
             },
             None,
         );
-        self.strut_styles.insert(id.0, container_inline_style);
+        let strut = self.anonymous_strut_style(container_inline_style)?;
+        self.strut_styles.insert(id.0, strut);
         self.flow_item_sources.insert(id.0, sources);
         built.push(id);
         Ok(())
@@ -620,6 +621,34 @@ impl TreeBuilder<'_> {
         self.inline
             .intern(derived)
             .map_err(|error| EpubError::new(format!("container text style interns: {error}")))
+    }
+
+    /// The strut style for an ANONYMOUS block's inline flow: the parent's
+    /// style with `text-indent` cleared. The browser indents only the
+    /// first line of an element's own block container — a bare inline
+    /// wrapped in an anonymous box starts flush (measured: a block-level
+    /// `<span>` of dashes under an indented div paints at the content
+    /// edge while the engine indented it 1.5em).
+    fn anonymous_strut_style(&mut self, style: StyleId) -> EpubResult<StyleId> {
+        use rito_style_contract as c;
+        let resolved = self
+            .inline
+            .style(style)
+            .map_err(|error| EpubError::new(format!("anonymous strut resolves: {error}")))?;
+        if length_percentage_is_zero(&resolved.text_flow.text_indent.value) {
+            return Ok(style);
+        }
+        let mut derived = resolved.clone();
+        derived.text_flow.text_indent = c::TextIndent {
+            value: c::LengthPercentage::Length(c::CssPx::new(0.0).map_err(|error| {
+                EpubError::new(format!("anonymous strut zero indent: {error:?}"))
+            })?),
+            hanging: derived.text_flow.text_indent.hanging,
+            each_line: derived.text_flow.text_indent.each_line,
+        };
+        self.inline
+            .intern(derived)
+            .map_err(|error| EpubError::new(format!("anonymous strut interns: {error}")))
     }
 
     fn collect_inline(
