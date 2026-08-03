@@ -1304,8 +1304,20 @@ impl FormattingContext for ParleyInlineContext {
                                 // share, a latin word's zero-share gaps).
                                 justify_shares_used += plan.count_at(run_range.start);
                                 let mut stretch_start = run_range.start;
-                                let mut stretch_x =
-                                    run_x + plan.share * f64::from(justify_shares_used);
+                                // A CJK character right after a non-CJK one
+                                // paints its INK one share right of its
+                                // advance position (Blink adds the
+                                // deferred "before" share to the glyph
+                                // offset too); the stretch starting there
+                                // shifts its rect without touching the
+                                // advance accounting, so neighbours stay.
+                                let mut stretch_x = run_x
+                                    + plan.share * f64::from(justify_shares_used)
+                                    + if plan.before_share_at(run_range.start) {
+                                        plan.share
+                                    } else {
+                                        0.0
+                                    };
                                 let mut stretch_natural = 0.0_f64;
                                 let mut stretch_shares = 0u32;
                                 let mut uniform: Option<u32> = None;
@@ -1321,7 +1333,9 @@ impl FormattingContext for ParleyInlineContext {
                                     }
                                     if byte > stretch_start {
                                         let count = plan.count_at(byte);
-                                        if count <= 1
+                                        let ink_shift = plan.before_share_at(byte);
+                                        if !ink_shift
+                                            && count <= 1
                                             && uniform.map_or(true, |value| value == count)
                                         {
                                             uniform = Some(count);
@@ -1338,7 +1352,8 @@ impl FormattingContext for ParleyInlineContext {
                                             justify_shares_used += count;
                                             stretch_start = byte;
                                             stretch_x = natural_x
-                                                + plan.share * f64::from(justify_shares_used);
+                                                + plan.share * f64::from(justify_shares_used)
+                                                + if ink_shift { plan.share } else { 0.0 };
                                             stretch_natural = 0.0;
                                             stretch_shares = 0;
                                             uniform = None;
@@ -2047,6 +2062,14 @@ struct JustifyPlan {
     /// index (into the flow text) of the boundary's right-hand character,
     /// ascending. Boundaries without shares are absent.
     counts: Vec<(usize, u32)>,
+    /// Byte indices of CJK characters that follow a non-CJK character.
+    /// Their deferred "before" share lands in the NEXT boundary's count
+    /// (the advance side), but Blink additionally paints the glyph's INK
+    /// one share to the right (ShapeResult::ApplySpacingOrExpansion adds
+    /// `spacing_before` to the glyph offset as well as the advance), so
+    /// the run starting here shifts its rect without moving its
+    /// neighbours.
+    before_bytes: Vec<usize>,
 }
 
 impl JustifyPlan {
@@ -2055,6 +2078,10 @@ impl JustifyPlan {
             .binary_search_by_key(&byte, |(index, _)| *index)
             .map(|found| self.counts[found].1)
             .unwrap_or(0)
+    }
+
+    fn before_share_at(&self, byte: usize) -> bool {
+        self.before_bytes.binary_search(&byte).is_ok()
     }
 }
 
@@ -2070,6 +2097,7 @@ fn line_justify_plan(
     }
     let content = text.get(range.clone())?.trim_end();
     let mut counts: Vec<(usize, u32)> = Vec::new();
+    let mut before_bytes: Vec<usize> = Vec::new();
     let mut total = 0u32;
     let mut pending = 0u32;
     let mut previous: Option<char> = None;
@@ -2081,6 +2109,7 @@ fn line_justify_plan(
                 count += 1;
             } else if is_cjk_justify(character) {
                 pending += 1;
+                before_bytes.push(range.start + offset);
             }
             if count > 0 {
                 counts.push((range.start + offset, count));
@@ -2104,6 +2133,7 @@ fn line_justify_plan(
     Some(JustifyPlan {
         share: slack / f64::from(total),
         counts,
+        before_bytes,
     })
 }
 
