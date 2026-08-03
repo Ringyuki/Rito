@@ -639,7 +639,7 @@ impl TreeBuilder<'_> {
                     .chars()
                     .all(|ch| matches!(ch, ' ' | '\t' | '\n' | '\r'))
                 {
-                    collector.push_collapsible_whitespace();
+                    collector.push_collapsible_whitespace(inherited);
                     return Ok(());
                 }
                 self.require_inline_capabilities(inherited, false, "text run")?;
@@ -1882,14 +1882,20 @@ struct InlineCollector {
     /// The nearest enclosing `<a href>` destination while collecting.
     current_link: Option<String>,
     pending_space: bool,
+    /// The style of a whitespace-only node awaiting content. `None` for a
+    /// space produced by the previous text node itself (it belongs to
+    /// that item); `Some` for an inter-element space, which must not
+    /// extend a styled span's inline box.
+    pending_space_style: Option<StyleId>,
     has_content: bool,
 }
 
 impl InlineCollector {
     /// Records a run of collapsible white space with no content of its own.
-    fn push_collapsible_whitespace(&mut self) {
+    fn push_collapsible_whitespace(&mut self, style: StyleId) {
         if self.has_content {
             self.pending_space = true;
+            self.pending_space_style = Some(style);
         }
     }
 
@@ -1920,8 +1926,38 @@ impl InlineCollector {
         let mut rest = text;
         if self.pending_space {
             // The space belongs to an earlier node; this node's leading
-            // white space folds into it and disappears.
-            if let Some(InlineItem::Text {
+            // white space folds into it and disappears. An inter-element
+            // space whose style differs from the previous item's stands
+            // alone: appending it would stretch that item's inline box
+            // past the span's real end (measured: a boxed span's border
+            // painted after the following space).
+            let standalone = match (self.pending_space_style, self.items.last()) {
+                (
+                    Some(space_style),
+                    Some(InlineItem::Text {
+                        style: last_style, ..
+                    }),
+                ) => *last_style != space_style,
+                (Some(_), _) => true,
+                (None, _) => false,
+            };
+            if standalone {
+                if let Some(space_style) = self.pending_space_style {
+                    self.items.push(InlineItem::Text {
+                        text: " ".to_owned(),
+                        style: space_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    });
+                    self.sources.push(FlowItemSource {
+                        source_index: None,
+                        source_path: None,
+                        href: self.current_link.clone(),
+                        image_alt: None,
+                        segments: Vec::new(),
+                    });
+                }
+            } else if let Some(InlineItem::Text {
                 text: last,
                 ruby_annotation: None,
                 ..
@@ -1930,6 +1966,7 @@ impl InlineCollector {
                 last.push(' ');
             }
             self.pending_space = false;
+            self.pending_space_style = None;
             rest = rest.trim_start_matches(is_space);
         } else if self.has_content {
             let trimmed = rest.trim_start_matches(is_space);
@@ -2060,6 +2097,7 @@ impl InlineCollector {
             // This node ends in white space; it lands here if any content
             // follows, and collapses away at the end of the flow.
             self.pending_space = true;
+            self.pending_space_style = None;
         }
     }
 
