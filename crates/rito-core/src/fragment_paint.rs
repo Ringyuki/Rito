@@ -847,18 +847,21 @@ fn run_decoration(
         return Ok(None);
     }
     // Combined lines pick the underline; non-solid strokes draw solid.
-    // Underlines hug the painted baseline: the stroke's bottom row is the
-    // baseline row and its thickness grows as max(1, floor(size/10))
-    // (measured against pinned Chromium 2026-08-03, six sizes ×
-    // Tinos-decorated runs: 12-16px → 1px at the baseline row, 20/24px →
-    // 2px, 32px → 3px, always ending at the baseline). The renderer
-    // strokes centered on `y`, so the center sits half a thickness above
-    // the baseline (rect top + 0.8·size).
+    // The underline's top row sits round(size/16) below the painted
+    // baseline and its thickness grows as max(1, floor(size/10))
+    // (measured against pinned Chromium 2026-08-03, seven sizes with a
+    // layout-baseline probe: tops at baseline+1 for 12-20px and
+    // baseline+2 for 24/32px, thickness 1/1/1/1/2/2/3 — the earlier
+    // "hug the baseline" rule read its baseline reference one row high).
+    // The renderer strokes centered on `y`, so the center rides the top
+    // offset plus half a thickness below the baseline (rect top +
+    // 0.8·size).
     let (kind, y, thickness) = if lines.underline {
         let thickness = (font_size / 10.0).floor().max(1.0);
+        let top_offset = (font_size / 16.0).round();
         (
             RunDecorationKind::UNDERLINE,
-            CANVAS_TOP_ASCENT_RATIO * font_size - thickness / 2.0,
+            CANVAS_TOP_ASCENT_RATIO * font_size + top_offset + thickness / 2.0,
             thickness,
         )
     } else {
