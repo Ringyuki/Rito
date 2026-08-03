@@ -437,7 +437,7 @@ for (const chapter of plan.chapters) {
         // exact width (the paginated-reader idiom).
         s.textContent = `@font-face { font-family: "__rito_pin_latin"; src: url("${pinLatin}"); }
 @font-face { font-family: "__rito_pin_cjk"; src: url("${pinCjk}"); }
-html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:100px; column-fill:auto; }
+html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }
 body { margin:0; padding:0; }
 img, svg { max-height: ${contentH}px !important; max-width: 100% !important; }`;
         document.head.insertBefore(s, document.head.firstChild);
@@ -515,7 +515,12 @@ img, svg { max-height: ${contentH}px !important; max-width: 100% !important; }`;
     // cap on chapter length.
     const columns = [];
     for (let k = 0; k <= expected + 1; k += 1) {
-      const x0 = k * (contentW + 100);
+      // The gap must exceed any single line's horizontal overflow: an
+      // unbreakable run (61 fullwidth stars) is ~430px wider than the
+      // column, and with a 100px gap its tail painted into the NEXT
+      // column's screenshot slice as ghost glyphs the engine (which
+      // clips at the page edge) never draws.
+      const x0 = k * (contentW + 3000);
       const docWidth = await truth.evaluate(() => document.documentElement.scrollWidth);
       if (x0 >= docWidth) break;
       await truth.evaluate((x) => window.scrollTo(x, 0), x0);
