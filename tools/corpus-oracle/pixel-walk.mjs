@@ -439,7 +439,7 @@ for (const chapter of plan.chapters) {
 @font-face { font-family: "__rito_pin_cjk"; src: url("${pinCjk}"); }
 html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }
 body { margin:0; padding:0; }
-img, svg { max-height: ${contentH}px !important; max-width: 100% !important; }`;
+img, svg { max-height: ${contentH}px !important; max-width: 100%; }`;
         document.head.insertBefore(s, document.head.firstChild);
         // A 404'd pin silently falls back to the browser's own font and
         // the whole page reads as a defect — assert both faces resolved.
