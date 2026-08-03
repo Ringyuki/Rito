@@ -2022,7 +2022,14 @@ fn is_cjk_justify(character: char) -> bool {
         | 0x4E00..=0x9FFF
         | 0xF900..=0xFAFF
         | 0xFE30..=0xFE4F
-        | 0xFF00..=0xFF60
+        // Blink's CJK symbol table cuts at U+FF1A: the fullwidth
+        // semicolon ；(U+FF1B) neither expands after itself nor takes a
+        // "before" share (measured boundary-by-boundary on the OO；觉
+        // line: the engine's CJK classification minted two phantom
+        // shares there, inflating the denominator 48 → 50 and shifting
+        // every glyph after the first latin run).
+        | 0xFF00..=0xFF1A
+        | 0xFF1C..=0xFF60
         | 0xFFE0..=0xFFE6
         | 0x20000..=0x2FA1F)
 }
