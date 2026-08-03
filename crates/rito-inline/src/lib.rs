@@ -1704,8 +1704,16 @@ impl FormattingContext for ParleyInlineContext {
                         }
                     }
                 }
-                let mut above = 0.0_f64;
-                let mut below = 0.0_f64;
+                // Max over contributors, allowing NEGATIVE halves: a
+                // declared line-height smaller than the strut's grid
+                // envelope puts the baseline BELOW the line box bottom
+                // (h1 at an inherited 19.2px: Blink's box is 19.203125
+                // tall with the baseline 20 down — below is −0.797).
+                // Starting the accumulators at 0.0 silently clamped that
+                // to 0 and grew the line by a pixel, shifting everything
+                // under the heading (measured on the cover colophon).
+                let mut above = f64::NEG_INFINITY;
+                let mut below = f64::NEG_INFINITY;
                 for (resolved, sample, shift, optional) in entries {
                     let Some(metric) = self.host_normal_line(resolved, sample) else {
                         if optional {
