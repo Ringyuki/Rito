@@ -122,7 +122,9 @@ async function measureBrowserHostLineMetrics(
       document.fonts
         .load(
           `${String(request.size)}px ${measuredFamilyList(request)}`,
-          request.sample.length > 0 ? request.sample : 'x',
+          request.sample.length > 0 && request.sample.charCodeAt(0) < 0xe000
+            ? request.sample
+            : '中x',
         )
         .catch(() => undefined),
     ),
@@ -139,10 +141,27 @@ async function measureBrowserHostLineMetrics(
       paragraph.style.cssText =
         `margin:0;padding:0;border:0;line-height:normal;white-space:pre;` +
         `font-family:${measured};font-size:${String(request.size)}px;`;
-      // A zero-sized inline-block sits on the baseline, so its top is the
-      // baseline offset from the line box top. An empty sample leaves the
-      // line with nothing but the strut.
-      paragraph.textContent = sample;
+      // Ruby probes, keyed by private-use sample sentinels: the engine
+      // cannot derive the browser's ruby-annotation stack from font
+      // tables (three fonts, three inconsistent decompositions), so the
+      // host measures it the way it measures normal lines. U+E000 is a
+      // one-line ruby: its baseline is the minimum baseline the
+      // annotation demands. U+E001 is the same ruby forced onto a second
+      // line: its total height exposes how much of the previous line's
+      // under-edge the annotation may reuse.
+      if (sample === '\uE000') {
+        paragraph.innerHTML = '<ruby><rb>中文</rb><rt>an</rt></ruby>中文';
+      } else if (sample === '\uE001') {
+        paragraph.style.width = `${String(request.size * 4)}px`;
+        paragraph.style.whiteSpace = 'normal';
+        paragraph.innerHTML =
+          '中文中文<ruby><rb>中文</rb><rt>an</rt></ruby>';
+      } else {
+        // A zero-sized inline-block sits on the baseline, so its top is
+        // the baseline offset from the line box top. An empty sample
+        // leaves the line with nothing but the strut.
+        paragraph.textContent = sample;
+      }
       const marker = document.createElement('span');
       marker.style.cssText = 'display:inline-block;width:0;height:0';
       paragraph.appendChild(marker);

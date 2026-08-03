@@ -1977,25 +1977,40 @@ impl FormattingContext for ParleyInlineContext {
                         continue;
                     };
                     let fs = f64::from(resolved.font.size.get());
-                    let annotation_size = fs * 0.5;
-                    let annotation_ascent = self
-                        .host_normal_line_sized(resolved, annotation_size, "")
-                        .map_or(annotation_size, |metric| metric.ascent());
+                    // The browser's ruby geometry is measured, not derived:
+                    // the U+E000 host probe is a one-line ruby whose
+                    // baseline IS the minimum baseline the annotation
+                    // demands (verified invariant: independent of
+                    // line-height, 32/32 configurations), and the U+E001
+                    // two-line probe exposes how much of the previous
+                    // line's under-edge the annotation may reuse. Font
+                    // tables cannot substitute: three fonts yielded three
+                    // inconsistent hhea/OS-2 decompositions.
+                    let ruby_one = self.host_normal_line_sized(resolved, fs, "\u{E000}");
+                    let ruby_two = self.host_normal_line_sized(resolved, fs, "\u{E001}");
+                    let plain = self.host_normal_line(resolved, "");
                     let (typo_asc, typo_desc) =
                         base_typo(range, fs).unwrap_or((fs * 0.88, fs * 0.12));
-                    // The measured law (32/32 configurations): the ruby
-                    // line's baseline must clear
-                    //   floor(typoAsc x size)            (base em-over edge)
-                    //   + annotation host grid ascent
-                    //   + round(typoDesc x size / 2)     (annotation's own
-                    //                                     typo descent)
-                    // and a later line may first spend the gap under the
-                    // previous line's round(typoDesc x size) edge.
-                    let required = typo_asc.floor()
-                        + annotation_ascent
-                        + (typo_desc * 0.5).round();
-                    let prev_gap = prev_ruby_below
-                        .map_or(0.0, |below| (below - typo_desc.round()).max(0.0));
+                    let annotation_ascent = self
+                        .host_normal_line_sized(resolved, fs * 0.5, "")
+                        .map_or(fs * 0.5, |metric| metric.ascent());
+                    let required = ruby_one.map_or_else(
+                        // Fallback until the host answers: the table law
+                        // (exact for Source Han and FZBWKS, one px off for
+                        // fonts whose tables disagree with the scaler).
+                        || typo_asc.floor() + annotation_ascent + (typo_desc * 0.5).round(),
+                        |metric| metric.ascent(),
+                    );
+                    let reuse = match (plain, ruby_one, ruby_two) {
+                        (Some(plain), Some(one), Some(two)) => {
+                            // below-edge allowance = below extent minus the
+                            // measured second-line reduction.
+                            (two.height - one.height - plain.ascent()).max(0.0)
+                        }
+                        _ => typo_desc.round(),
+                    };
+                    let prev_gap =
+                        prev_ruby_below.map_or(0.0, |below| (below - reuse).max(0.0));
                     growth = growth.max((required - baseline - prev_gap).max(0.0));
                 }
                 growth
