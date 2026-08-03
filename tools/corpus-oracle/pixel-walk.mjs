@@ -19,7 +19,7 @@
 //   env RITO_READER_URL (default http://localhost:5173/)
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
@@ -394,7 +394,19 @@ for (const chapter of plan.chapters) {
   const file = path.join(opfDir, href);
   const expected = chapter.endPage - chapter.startPage + 1;
   try {
-    await truth.goto(`file://${file}`, { timeout: 30000 });
+    // EPUB content documents are XHTML: a real reader (and the engine)
+    // parses them as XML, which is always standards mode. A calibre
+    // `.html` chapter loaded from file:// would sniff as HTML and, with
+    // no doctype, drop into QUIRKS mode — measured: a tiny-font-only
+    // line collapses its strut there, shifting every later line. Load
+    // through an `.xhtml`-suffixed sibling copy so Chromium parses XML.
+    let truthFile = file;
+    if (!/\.xhtml$/i.test(file)) {
+      const sibling = `${file}.walk.xhtml`;
+      if (!existsSync(sibling)) copyFileSync(file, sibling);
+      truthFile = sibling;
+    }
+    await truth.goto(`file://${truthFile}`, { timeout: 30000 });
     const noteIds = [...footnoteTargets]
       .filter((target) => target.startsWith(`${href}#`))
       .map((target) => target.slice(href.length + 1));
