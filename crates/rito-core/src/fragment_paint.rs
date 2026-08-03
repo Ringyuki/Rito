@@ -56,10 +56,20 @@ pub(crate) struct PaintFamilyPolicy {
 /// calibrating it.
 const CANVAS_TOP_ASCENT_RATIO: f64 = 0.8;
 
-/// Wire-precision JSON number: three decimal places, integral values as
+/// Wire-precision JSON number: six decimal places, integral values as
 /// integers — the rounding every display-command producer shares.
+///
+/// Three decimals proved too coarse for text positions: a run x of
+/// 840.65625 shipped as 840.656, pulling every glyph 0.00025px below its
+/// LayoutUnit position — invisible everywhere except characters whose
+/// position lands exactly on a quarter-pixel raster tie (fraction 1/8,
+/// 3/8, 5/8, 7/8), where the browser rounds the exact value UP and the
+/// depressed value rounded DOWN, flipping the glyph one raster bucket
+/// left on a ~125px page lattice (measured: restoring the lost 0.00025
+/// made the engine's canvas replay bit-identical to the browser's page).
+/// Six decimals encode every 1/64 LayoutUnit position exactly.
 pub(crate) fn number_value(value: f64) -> Value {
-    let rounded = (value * 1000.0).round() / 1000.0;
+    let rounded = (value * 1e6).round() / 1e6;
     if rounded.fract().abs() < f64::EPSILON {
         Value::Number(serde_json::Number::from(rounded as i64))
     } else {
