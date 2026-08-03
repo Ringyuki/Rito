@@ -229,14 +229,14 @@ impl<'a> FragmentChapterEngineSession<'a> {
         query: PageArtifactExactSourceRangeQuery,
     ) -> PageArtifactExactTextRangeResolution {
         let Some(start) =
-            self.address_at_source_point(query.first_page..query.last_page + 1, &query.start)
+            self.address_at_source_point(query.first_page..query.last_page + 1, &query.start, false)
         else {
             return PageArtifactExactTextRangeResolution::Unavailable(
                 TextInteractionUnavailableReason::SourceUnavailable,
             );
         };
         let Some(end) =
-            self.address_at_source_point(query.first_page..query.last_page + 1, &query.end)
+            self.address_at_source_point(query.first_page..query.last_page + 1, &query.end, true)
         else {
             return PageArtifactExactTextRangeResolution::Unavailable(
                 TextInteractionUnavailableReason::SourceUnavailable,
@@ -256,12 +256,31 @@ impl<'a> FragmentChapterEngineSession<'a> {
         &self,
         pages: Range<usize>,
         point: &PageArtifactSourcePoint,
+        prefer_end: bool,
     ) -> Option<TextCaretAddress> {
         if point.node_path.is_empty() {
             return None;
         }
         for page_index in pages {
             let artifact = self.artifact(page_index)?;
+            // A source offset on a stretch seam (a collapsed space the
+            // source map skipped, or the boundary between two runs split
+            // at a space) is ambiguous: it matches the earlier run's
+            // INCLUSIVE end and precedes the later run's start. A range
+            // START snaps forward to the next mapped character so the
+            // seam's space stays out of the selection; a range END keeps
+            // the inclusive-end hit (a selection genuinely ending at a
+            // run's last character). Strict interior hits win outright.
+            let address = |run: &FragmentRunRecord, char_index: u32| TextCaretAddress {
+                page_index,
+                block_index: run.block_index,
+                line_index: run.line_index,
+                run_index: run.run_index,
+                char_index: char_index as usize,
+                affinity: TextCaretAffinity::Downstream,
+            };
+            let mut inclusive: Option<TextCaretAddress> = None;
+            let mut forward: Option<(u32, TextCaretAddress)> = None;
             for run in artifact.interaction_runs() {
                 let Some(source) = run.source.as_ref() else {
                     continue;
@@ -269,16 +288,34 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 if source.path != point.node_path {
                     continue;
                 }
-                if let Some(run_offset) = source.run_offset(point.text_offset as u32) {
-                    return Some(TextCaretAddress {
-                        page_index,
-                        block_index: run.block_index,
-                        line_index: run.line_index,
-                        run_index: run.run_index,
-                        char_index: run_offset as usize,
-                        affinity: TextCaretAffinity::Downstream,
-                    });
+                if let Some(run_offset) = source.run_offset_strict(point.text_offset as u32) {
+                    return Some(address(run, run_offset));
                 }
+                if inclusive.is_none() {
+                    if let Some(run_offset) = source.run_offset(point.text_offset as u32) {
+                        inclusive = Some(address(run, run_offset));
+                    }
+                }
+                if !prefer_end {
+                    if let Some((run_offset, source_start)) =
+                        source.run_offset_at_or_after(point.text_offset as u32)
+                    {
+                        if forward
+                            .as_ref()
+                            .is_none_or(|(best, _)| source_start < *best)
+                        {
+                            forward = Some((source_start, address(run, run_offset)));
+                        }
+                    }
+                }
+            }
+            let fallback = if prefer_end {
+                inclusive
+            } else {
+                forward.map(|(_, address)| address).or(inclusive)
+            };
+            if let Some(address) = fallback {
+                return Some(address);
             }
         }
         None
@@ -580,7 +617,21 @@ impl<'a> FragmentChapterEngineSession<'a> {
                     text_offset: 0,
                 })
         };
-        let source_start = source_point_at(&start);
+        // A start caret on a run's end seam (the split at a space)
+        // belongs to the NEXT run for source purposes: the earlier run's
+        // map would clamp into its collapsed tail and pull the seam's
+        // space into the durable range.
+        let source_start = self
+            .artifact(start.page_index)
+            .and_then(|artifact| {
+                let offset = position_of(artifact, &start)?;
+                artifact
+                    .interaction_runs()
+                    .iter()
+                    .find(|run| run.start == offset && run.end > run.start)
+                    .map(|run| run_source_point(run, 0))
+            })
+            .unwrap_or_else(|| source_point_at(&start));
         let source_end = source_point_at(&end);
         Some(PageArtifactExactTextRange {
             anchor,

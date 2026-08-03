@@ -82,11 +82,18 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
     // Frames paint fragment commands.
     let frame = session.frame(0).expect("spread 0 has a frame");
     assert!(!frame.commands.is_empty());
-    let painted_text = frame
+    // Words paint as separate commands (runs split at spaces so the
+    // canvas never shapes across one); the chapter text arrives as its
+    // words rather than one string.
+    let painted = frame
         .commands
         .iter()
-        .any(|command| format!("{command:?}").contains("chapter one"));
-    assert!(painted_text, "spread 0 paints the first chapter's text");
+        .map(|command| format!("{command:?}"))
+        .collect::<String>();
+    assert!(
+        painted.contains("chapter") && painted.contains("one"),
+        "spread 0 paints the first chapter's text"
+    );
 }
 
 #[test]

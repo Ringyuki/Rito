@@ -89,6 +89,32 @@ impl RunSourceMap {
         }
         None
     }
+
+    /// The run-local offset when a stretch covers the source offset
+    /// STRICTLY inside (an offset on a stretch's end seam is a collapsed
+    /// gap or another run's start, not this run's character).
+    pub(in crate::runtime) fn run_offset_strict(&self, source_offset: u32) -> Option<u32> {
+        for (run_start, source_start, len) in &self.segments {
+            if source_offset >= *source_start && source_offset < source_start + len {
+                return Some(run_start + (source_offset - source_start));
+            }
+        }
+        None
+    }
+
+    /// The first mapped run offset at or after the source offset, with
+    /// its stretch's source start — the forward snap for a caret inside
+    /// a collapsed gap (a space the flow kept but the map skipped).
+    pub(in crate::runtime) fn run_offset_at_or_after(
+        &self,
+        source_offset: u32,
+    ) -> Option<(u32, u32)> {
+        self.segments
+            .iter()
+            .filter(|(_, source_start, _)| *source_start >= source_offset)
+            .min_by_key(|(_, source_start, _)| *source_start)
+            .map(|(run_start, source_start, _)| (*run_start, *source_start))
+    }
 }
 
 /// Query-ready interaction data for one fragment-engine page.

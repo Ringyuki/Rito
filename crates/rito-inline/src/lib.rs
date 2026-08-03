@@ -1287,12 +1287,70 @@ impl FormattingContext for ParleyInlineContext {
                         };
                         match &justify_plan {
                             None => {
-                                emit(
-                                    run_range,
-                                    run_x,
-                                    f64::from(glyph_run.advance()) - box_shed,
-                                    0.0,
-                                );
+                                // The canvas shapes each fillText call on
+                                // its own: its space advances 4.0 where the
+                                // pinned face's is 510/2048 (3.984375), and
+                                // it skips space-adjacent kern pairs the
+                                // browser applies (Tinos `r A` closes
+                                // 0.859px) — every word painted after a
+                                // space drifts right of the browser's ink.
+                                // Splitting the run at space boundaries
+                                // re-anchors each word at the shaped
+                                // position, and no canvas call crosses a
+                                // space. (Justified lines already split
+                                // there: a space boundary carries a share.)
+                                let has_space = flow_text
+                                    .get(run_range.clone())
+                                    .is_some_and(|text| text.contains(' '));
+                                if !has_space {
+                                    emit(
+                                        run_range,
+                                        run_x,
+                                        f64::from(glyph_run.advance()) - box_shed,
+                                        0.0,
+                                    );
+                                } else {
+                                    let mut seg_start = run_range.start;
+                                    let mut seg_x = run_x;
+                                    let mut natural_x = run_x;
+                                    let mut previous_space = false;
+                                    let mut cluster =
+                                        parley::layout::Cluster::from_byte_index(
+                                            &layout,
+                                            run_range.start,
+                                        );
+                                    while let Some(current) = cluster {
+                                        let byte = current.text_range().start;
+                                        if byte >= run_range.end {
+                                            break;
+                                        }
+                                        if previous_space && byte > seg_start {
+                                            emit(
+                                                seg_start..byte,
+                                                seg_x,
+                                                natural_x - seg_x,
+                                                0.0,
+                                            );
+                                            seg_start = byte;
+                                            seg_x = natural_x;
+                                        }
+                                        previous_space = flow_text
+                                            .get(byte..current.text_range().end)
+                                            == Some(" ");
+                                        natural_x += f64::from(current.advance());
+                                        cluster = current.next_logical();
+                                    }
+                                    if seg_start < run_range.end {
+                                        emit(
+                                            seg_start..run_range.end,
+                                            seg_x,
+                                            run_x + f64::from(glyph_run.advance())
+                                                - seg_x
+                                                - box_shed,
+                                            0.0,
+                                        );
+                                    }
+                                }
                             }
                             Some(plan) => {
                                 // Shares at the boundary against the
