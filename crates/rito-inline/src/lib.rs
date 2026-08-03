@@ -1804,6 +1804,31 @@ impl FormattingContext for ParleyInlineContext {
             } else {
                 None
             };
+            // CSS 2.1 §10.8: the paragraph's `normal` strut is one more
+            // contributor around the shared baseline — its host ascent
+            // above, its host descent below — and the line box takes
+            // max(above) + max(below) with the baseline at max(above).
+            // Centering the content envelope inside the strut height
+            // instead sank sub-sized runs' baselines: a 16px paragraph of
+            // 0.75em spans paints baselines at the strut's 14, not the
+            // centered 12 (measured on the calibre colophon idiom, where
+            // every publisher line sat two rows high of the browser). A
+            // DECLARED line-height keeps the centering model — the
+            // browser sizes and places fixed lines from the strut box
+            // (committed rule) — so the envelope only covers `normal`.
+            let strut_envelope: Option<(f64, f64)> = tree
+                .strut_style(root)
+                .or_else(|| {
+                    item_line_heights
+                        .iter()
+                        .flatten()
+                        .next()
+                        .map(|item| item.style)
+                })
+                .and_then(|id| style_tables.and_then(|tables| tables.inline.style(id).ok()))
+                .filter(|resolved| matches!(resolved.font.line_height, LineHeight::Normal))
+                .and_then(|resolved| self.host_normal_line(resolved, ""))
+                .map(|metric| (metric.ascent(), metric.descent()));
             let base_height = if let Some((above, below)) = contributions {
                 above + below
             } else if has_inline_box {
@@ -1821,8 +1846,13 @@ impl FormattingContext for ParleyInlineContext {
                 envelope.max(strut_height.unwrap_or(0.0))
             } else if let Some(declared) = line_declared_height {
                 declared.max(strut_height.unwrap_or(0.0))
-            } else if let Some((host, _)) = host_line {
-                host.max(strut_height.unwrap_or(0.0))
+            } else if let Some((host, host_ascent)) = host_line {
+                match strut_envelope {
+                    Some((strut_ascent, strut_descent)) => {
+                        host_ascent.max(strut_ascent) + (host - host_ascent).max(strut_descent)
+                    }
+                    None => host.max(strut_height.unwrap_or(0.0)),
+                }
             } else if children.is_empty() {
                 // An empty line (a forced break with no content) is sized
                 // by the strut alone; the shaped fallback metric only
@@ -1860,9 +1890,10 @@ impl FormattingContext for ParleyInlineContext {
                 max_rise + f64::from(metrics.ascent).max(host_line.map_or(0.0, |(_, a)| a))
             } else {
                 match host_line {
-                Some((content_height, ascent)) => {
-                    max_rise + ((base_height - content_height) / 2.0).floor() + ascent
-                }
+                Some((content_height, ascent)) => match strut_envelope {
+                    Some((strut_ascent, _)) => max_rise + ascent.max(strut_ascent),
+                    None => max_rise + ((base_height - content_height) / 2.0).floor() + ascent,
+                },
                 None => {
                     let half_leading = (base_height
                         - f64::from(metrics.ascent)

@@ -1134,3 +1134,57 @@ fn add_file(
     writer.start_file(path, options).expect("zip entry starts");
     writer.write_all(bytes).expect("zip entry is written");
 }
+
+#[test]
+fn tmp_pt_margin_probe() {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options: FileOptions<'_, ()> = FileOptions::default();
+    add_file(
+        &mut writer,
+        options,
+        "META-INF/container.xml",
+        br#"<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/package.opf",
+        br#"<?xml version="1.0"?>
+<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>PT Probe</dc:title>
+    <dc:language>en</dc:language>
+    <dc:identifier id="id">pt-probe</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
+    <item id="css" href="stylesheet.css" media-type="text/css"/>
+  </manifest>
+  <spine><itemref idref="chapter"/></spine>
+</package>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/stylesheet.css",
+        br#".calibre_2 { display: block; text-indent: 0; margin: 0 }
+.calibre_10 { display: block; text-align: left; text-indent: 0; margin: 7pt 0 0 }"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/chapter.xhtml",
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="stylesheet.css"/></head><body><p class="calibre_2" id="point-0">PENGUIN BOOKS</p><p class="calibre_10">Published by the Penguin Group</p></body></html>"#,
+    );
+    let epub = writer.finish().expect("zip finalizes").into_inner();
+
+    let mut projection =
+        ReaderSessionProjectionV1::open(epub, SESSION_ID).expect("projection opens");
+    let request = request_wire(SESSION_ID, 1, "chapter.xhtml#point-0");
+    projection.request_artifact(&request).expect("artifact");
+}
