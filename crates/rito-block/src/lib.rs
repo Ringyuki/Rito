@@ -445,15 +445,21 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     block_size,
                     breakable,
                 } => {
+                    // The leaf's own width and horizontal margins resolve
+                    // like any block box (an `<hr>` at `width: 50%;
+                    // margin-left: 1em` occupies half the line, offset —
+                    // it does not span the container).
+                    let leaf_style = container_layout_style(tree, *child_id)?;
+                    let leaf_box = resolve_horizontal_box(leaf_style, content_width)?;
                     let outstanding = block_size - consumed;
                     if outstanding <= available {
                         y += gap;
                         remaining -= gap;
                         fragments.push(leaf_fragment(
                             *child_id,
-                            content_left,
+                            content_left + leaf_box.x,
                             y,
-                            content_width,
+                            leaf_box.border_width,
                             outstanding,
                         ));
                         y += outstanding;
@@ -465,9 +471,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         y += gap;
                         fragments.push(leaf_fragment(
                             *child_id,
-                            content_left,
+                            content_left + leaf_box.x,
                             y,
-                            content_width,
+                            leaf_box.border_width,
                             available,
                         ));
                         let already = block_size - (outstanding - available);

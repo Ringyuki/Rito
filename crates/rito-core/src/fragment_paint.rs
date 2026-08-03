@@ -183,16 +183,42 @@ fn append_fragment_display_commands_inner(
                         // rect it receives; the box can be taller (author
                         // height plus borders flow as box size), so the
                         // painted rect keeps the stroke thickness and
-                        // rides at the box top where the border lives.
-                        commands.push(DisplayCommand::paint_horizontal_rule(
-                            rect_value(
-                                origin_x + fragment.rect.x,
-                                origin_y + fragment.rect.y,
-                                fragment.rect.width,
-                                thickness.min(fragment.rect.height),
-                            ),
-                            serde_json::json!({ "color": color, "style": style }),
-                        ));
+                        // rides at the box top where the border lives. A
+                        // thin inset rule is Chromium's fixed 3D bevel:
+                        // a #9A9A9A top stroke and an #EEEEEE bottom
+                        // stroke, whatever the border color (measured).
+                        let thickness = thickness.min(fragment.rect.height);
+                        if style == &"inset" {
+                            commands.push(DisplayCommand::paint_horizontal_rule(
+                                rect_value(
+                                    origin_x + fragment.rect.x,
+                                    origin_y + fragment.rect.y,
+                                    fragment.rect.width,
+                                    thickness,
+                                ),
+                                serde_json::json!({ "color": "#9a9a9a", "style": "solid" }),
+                            ));
+                            commands.push(DisplayCommand::paint_horizontal_rule(
+                                rect_value(
+                                    origin_x + fragment.rect.x,
+                                    origin_y + fragment.rect.y + fragment.rect.height
+                                        - thickness,
+                                    fragment.rect.width,
+                                    thickness,
+                                ),
+                                serde_json::json!({ "color": "#eeeeee", "style": "solid" }),
+                            ));
+                        } else {
+                            commands.push(DisplayCommand::paint_horizontal_rule(
+                                rect_value(
+                                    origin_x + fragment.rect.x,
+                                    origin_y + fragment.rect.y,
+                                    fragment.rect.width,
+                                    thickness,
+                                ),
+                                serde_json::json!({ "color": color, "style": style }),
+                            ));
+                        }
                     }
                     NodePaint::Box {
                         paint, border_box, ..

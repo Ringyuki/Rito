@@ -744,6 +744,11 @@ impl TreeBuilder<'_> {
             let stroke = match border.style {
                 BorderStyle::Dotted => "dotted",
                 BorderStyle::Dashed => "dashed",
+                // A thin inset rule paints Chromium's fixed 3D bevel pair
+                // (top #9A9A9A, bottom #EEEEEE, border-color ignored —
+                // measured identical for gray, red and slate); the paint
+                // walk expands it into two solid strokes.
+                BorderStyle::Inset | BorderStyle::Groove => "inset",
                 _ => "solid",
             };
             let color = border.color.resolve(resolved.paint.foreground);
