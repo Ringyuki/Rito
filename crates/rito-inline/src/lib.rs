@@ -806,16 +806,25 @@ impl FormattingContext for ParleyInlineContext {
         // the next line (measured: a razor-fit note line breaks as
         // [span ①][whole text item] where greedy would split the text),
         // and `break_next_with_length` reproduces that rewind.
+        // Blink accepts a line that overflows its available width by up to
+        // one LayoutUnit: NGLineBreaker::CanFitOnLine compares against
+        // available_width_.AddEpsilon(). Measured on the Tinos body idiom:
+        // a 626.695-wide line fits a 626.6875 column (threshold scanned to
+        // the 1/64), so a strict compare here wrapped one word early and
+        // drifted whole paragraphs. The epsilon widens only the FIT — the
+        // justify target below keeps the true width, exactly as Blink
+        // justifies to the unwidened line box.
+        const LINE_FIT_EPSILON: f64 = 1.0 / 64.0;
         let break_lines = |layout: &mut parley::Layout<[u8; 4]>,
                           forced: &[(usize, u32)]| {
             if band.is_none() && forced.is_empty() {
-                layout.break_all_lines(Some(space.inline_size as f32));
+                layout.break_all_lines(Some((space.inline_size + LINE_FIT_EPSILON) as f32));
                 return;
             }
             let mut breaker = layout.break_lines();
             breaker
                 .state_mut()
-                .set_layout_max_advance(space.inline_size as f32);
+                .set_layout_max_advance((space.inline_size + LINE_FIT_EPSILON) as f32);
             let mut index = 0usize;
             loop {
                 // Every line gets its advance set explicitly: a forced
@@ -831,12 +840,12 @@ impl FormattingContext for ParleyInlineContext {
                         (space.inline_size, 0.0)
                     };
                     let state = breaker.state_mut();
-                    state.set_line_max_advance(advance as f32);
+                    state.set_line_max_advance((advance + LINE_FIT_EPSILON) as f32);
                     state.set_line_x(offset as f32);
                 } else {
                     breaker
                         .state_mut()
-                        .set_line_max_advance(space.inline_size as f32);
+                        .set_line_max_advance((space.inline_size + LINE_FIT_EPSILON) as f32);
                 }
                 let forced_count = forced
                     .iter()
@@ -954,7 +963,9 @@ impl FormattingContext for ParleyInlineContext {
                 // The text-indent margin narrows the first line's
                 // available advance exactly as it narrowed Parley's fit.
                 let indent = if index == 0 { first_line_indent } else { 0.0 };
-                let max_advance = line_max_advance(line_top) - indent;
+                // The trim candidate models the breaker's fit, so it sees
+                // the same epsilon-widened advance the breaker used.
+                let max_advance = line_max_advance(line_top) + LINE_FIT_EPSILON as f32 - indent;
                 line_top += layout
                     .get(index)
                     .map_or(0.0, |line| f64::from(line.metrics().line_height));
@@ -986,7 +997,8 @@ impl FormattingContext for ParleyInlineContext {
                     let mut rewound = false;
                     for index in 0..layout.len().saturating_sub(1) {
                         let indent = if index == 0 { first_line_indent } else { 0.0 };
-                        let max_advance = f64::from(line_max_advance(line_top) - indent);
+                        let max_advance =
+                            f64::from(line_max_advance(line_top) - indent) + LINE_FIT_EPSILON;
                         line_top += layout
                             .get(index)
                             .map_or(0.0, |line| f64::from(line.metrics().line_height));
