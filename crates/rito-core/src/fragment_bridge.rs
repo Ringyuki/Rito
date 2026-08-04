@@ -2088,6 +2088,21 @@ impl InlineCollector {
         debug_assert!(collapse, "preserved white space fails closed upstream");
         let is_space = |ch: char| matches!(ch, ' ' | '\t' | '\n' | '\r');
         let mut rest = text;
+        // A collapsible space at the start of a line is removed (CSS Text
+        // §4.1.3), and after a forced break the line start is knowable at
+        // collection time: whether the space arrived as an inter-element
+        // run (pending) or as this node's own leading white space, it
+        // vanishes instead of shifting the line (measured: a chapter head
+        // whose source indents the text after `<br/>` sat 0.25em right of
+        // Blink's).
+        if matches!(
+            self.items.last(),
+            Some(InlineItem::Text { text, .. }) if text.ends_with('\n')
+        ) {
+            self.pending_space = false;
+            self.pending_space_style = None;
+            rest = rest.trim_start_matches(is_space);
+        }
         if self.pending_space {
             // The space belongs to an earlier node; this node's leading
             // white space folds into it and disappears. An inter-element
@@ -2972,6 +2987,37 @@ p { margin: 8px 0; }\n\
             ruby_annotation.as_ref().map(|a| a.text.as_str()),
             Some("とうきょう")
         );
+    }
+
+    #[test]
+    fn collapsible_space_after_a_forced_break_is_removed_at_the_line_start() {
+        // CSS Text §4.1.3: collapsible spaces at the start of a line are
+        // removed. Source indentation after `<br/>` is exactly that.
+        let chapter = resolved_chapter_from(
+            "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><title>t</title></head><body>\n  <p>lead<br />\n    <span>tail</span></p>\n</body></html>",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let root = built.tree.node(built.tree.root());
+        let FormattingNodeContent::InlineFlow { items } =
+            &built.tree.node(root.children[0]).content
+        else {
+            panic!("paragraph is an inline flow");
+        };
+        let flow: String = items
+            .iter()
+            .map(|item| match item {
+                InlineItem::Text { text, .. } => text.as_str(),
+                InlineItem::Image { .. } => panic!("no images here"),
+            })
+            .collect();
+        assert_eq!(flow, "lead\ntail", "no space survives the forced break");
     }
 
     #[test]
