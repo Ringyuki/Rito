@@ -555,13 +555,45 @@ fn append_text_run_command(
         }
     };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
-    // A base split across lines carries its WHOLE annotation on the
-    // first segment only; later segments run bare (measured: 黄金妖精/
-    // Leprechaun wrapped as 黄金妖|精 keeps the full rt over 黄金妖 at
-    // that segment's width, and 精 has none).
-    if let Some(annotation) = ruby_annotation.as_ref().filter(|_| start == item_range.start) {
-        let annotation_ratio = f64::from(annotation.size_ratio);
-        let annotation = &annotation.text;
+    // A base split across lines carries the annotation words whose
+    // character midpoints fall over each segment (measured: 正|规勇者
+    // under "Legal Brave" paints Legal on 正's line and Brave on the
+    // next; single-word Leprechaun rides whichever segment holds its
+    // midpoint — the whole annotation for front-heavy splits). The
+    // allocation replays the same pure function layout used.
+    let segment_annotation = ruby_annotation.as_ref().and_then(|annotation| {
+        let total = item_range.end.saturating_sub(item_range.start);
+        if total == 0 {
+            return None;
+        }
+        let seg_start = full_text
+            .get(item_range.start..start)
+            .map_or(0.0, |prefix| prefix.chars().count() as f64);
+        let seg_end = full_text
+            .get(item_range.start..end)
+            .map_or(0.0, |prefix| prefix.chars().count() as f64);
+        let total_chars = full_text
+            .get(item_range.clone())
+            .map_or(0.0, |base| base.chars().count() as f64);
+        if total_chars <= 0.0 {
+            return None;
+        }
+        let allocated = rito_fragment::allocate_ruby_annotation(
+            &annotation.text,
+            seg_start / total_chars,
+            if end >= item_range.end {
+                // The final segment closes the interval so a midpoint
+                // exactly at its end still lands inside.
+                f64::INFINITY
+            } else {
+                seg_end / total_chars
+            },
+        );
+        (!allocated.is_empty()).then_some((allocated, annotation.size_ratio))
+    });
+    if let Some((annotation_text, size_ratio)) = segment_annotation {
+        let annotation_ratio = f64::from(size_ratio);
+        let annotation = &annotation_text;
         // The reader's ruby convention (shared with the retained engine):
         // the annotation paints at half the base font size, centered over
         // the base run's laid-out extent, its bottom edge one pixel above

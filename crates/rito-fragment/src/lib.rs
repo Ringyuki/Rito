@@ -28,8 +28,8 @@ pub use context::{
     CancelFlag, FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
 };
 pub use formatting_tree::{
-    FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree, FormattingTreeStyles,
-    InlineItem, RubyAnnotation,
+    allocate_ruby_annotation, FormattingNode, FormattingNodeContent, FormattingNodeId,
+    FormattingTree, FormattingTreeStyles, InlineItem, RubyAnnotation,
 };
 pub use fragment::{
     BoxFragment, BoxSnap, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFragment,

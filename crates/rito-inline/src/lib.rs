@@ -1147,13 +1147,68 @@ impl FormattingContext for ParleyInlineContext {
                         segment_advance += f64::from(current.advance());
                         cluster = current.next_logical();
                     }
-                    if annotation_width <= segment_advance + LINE_FIT_EPSILON {
+                    // A multi-word annotation splits at its spaces and
+                    // only the words allocated to THIS segment (by
+                    // character-midpoint position) must fit over it —
+                    // 正|规勇者 under "Legal Brave" keeps the split
+                    // because 正 carries only Legal (measured matrix).
+                    let segment_annotation_width = {
+                        let item_index = item_text_ranges
+                            .iter()
+                            .position(|candidate| candidate.start == item_start);
+                        let annotation = item_index.and_then(|index| {
+                            match &tree.node(root).content {
+                                FormattingNodeContent::InlineFlow { items } => {
+                                    match items.get(index) {
+                                        Some(InlineItem::Text {
+                                            ruby_annotation: Some(annotation),
+                                            ..
+                                        }) => Some(annotation.text.clone()),
+                                        _ => None,
+                                    }
+                                }
+                                _ => None,
+                            }
+                        });
+                        let item_range = item_index.map(|index| item_text_ranges[index].clone());
+                        let total_chars = item_range
+                            .as_ref()
+                            .and_then(|item| text.get(item.clone()))
+                            .map_or(0, |base| base.chars().count());
+                        let segment_chars = text
+                            .get(item_start..range.end)
+                            .map_or(0, |segment| segment.chars().count());
+                        match annotation {
+                            Some(annotation) if total_chars > 0 => {
+                                let ratio = segment_chars as f64 / total_chars as f64;
+                                let allocated = rito_fragment::allocate_ruby_annotation(
+                                    &annotation,
+                                    0.0,
+                                    ratio,
+                                );
+                                if allocated == annotation {
+                                    annotation_width
+                                } else if allocated.is_empty() {
+                                    0.0
+                                } else {
+                                    // Approximate the allocated words'
+                                    // advance by character share — exact
+                                    // enough for the fit decision, and
+                                    // both ends stay measurement-free.
+                                    annotation_width * allocated.chars().count() as f64
+                                        / annotation.chars().count().max(1) as f64
+                                }
+                            }
+                            _ => annotation_width,
+                        }
+                    };
+                    if segment_annotation_width <= segment_advance + LINE_FIT_EPSILON {
                         continue;
                     }
                     let metrics = line.metrics();
                     let natural =
                         f64::from(metrics.advance) - f64::from(metrics.trailing_whitespace);
-                    if natural - segment_advance + annotation_width <= max_advance {
+                    if natural - segment_advance + segment_annotation_width <= max_advance {
                         continue;
                     }
                     if item_start <= range.start {
@@ -2203,13 +2258,8 @@ impl FormattingContext for ParleyInlineContext {
             let ruby_growth = {
                 let mut growth = 0.0_f64;
                 for (index, range) in item_text_ranges.iter().enumerate() {
-                    // The line holding the item's FIRST byte is the one
-                    // its annotation sits over — a base split across
-                    // lines keeps the whole annotation on the first
-                    // segment and later segments run bare, so only the
-                    // first line grows.
                     let on_line = line_text_range
-                        .is_some_and(|(start, end)| range.start >= start && range.start < end);
+                        .is_some_and(|(start, end)| range.start < end && start < range.end);
                     if !on_line || range.is_empty() {
                         continue;
                     }
@@ -2221,6 +2271,38 @@ impl FormattingContext for ParleyInlineContext {
                     else {
                         continue;
                     };
+                    // A split base grows only the lines whose segment is
+                    // allocated annotation words (character-midpoint
+                    // rule): 正|规勇者 under "Legal Brave" grows both
+                    // lines, 黄金妖|精 under Leprechaun grows only the
+                    // first.
+                    if let Some((line_start, line_end)) = line_text_range {
+                        let seg_start = range.start.max(line_start);
+                        let seg_end = range.end.min(line_end);
+                        let total_chars = flow_text
+                            .get(range.clone())
+                            .map_or(0.0, |base| base.chars().count() as f64);
+                        if total_chars > 0.0 && (seg_start > range.start || seg_end < range.end) {
+                            let before = flow_text
+                                .get(range.start..seg_start)
+                                .map_or(0.0, |prefix| prefix.chars().count() as f64);
+                            let through = flow_text
+                                .get(range.start..seg_end)
+                                .map_or(0.0, |prefix| prefix.chars().count() as f64);
+                            let allocated = rito_fragment::allocate_ruby_annotation(
+                                &annotation.text,
+                                before / total_chars,
+                                if seg_end >= range.end {
+                                    f64::INFINITY
+                                } else {
+                                    through / total_chars
+                                },
+                            );
+                            if allocated.is_empty() {
+                                continue;
+                            }
+                        }
+                    }
                     let Some(resolved) =
                         style_tables.and_then(|tables| tables.inline.style(*style).ok())
                     else {
@@ -5097,21 +5179,23 @@ running through the quiet forest until the morning light returns.";
             content: FormattingNodeContent::InlineFlow {
                 items: vec![
                     InlineItem::Text {
-                        text: "中中中中".to_owned(),
+                        text: "中中中".to_owned(),
                         style: interned,
                         baseline_shift_px: 0.0,
                         ruby_annotation: None,
                     },
                     InlineItem::Text {
-                        text: "中文".to_owned(),
+                        text: "中文中".to_owned(),
                         style: interned,
                         baseline_shift_px: 0.0,
                         ruby_annotation: Some(rito_fragment::RubyAnnotation {
-                            // Wide enough that a lone first base glyph
-                            // cannot cover it (~46px at 16px vs 32px),
-                            // yet narrower than the whole base (64px),
-                            // so no space-around spread interferes.
-                            text: "wwww".to_owned(),
+                            // A single word: its character midpoint (0.5)
+                            // sits inside the two-of-three-character
+                            // first segment, so the whole annotation
+                            // rides it — at ~81px it overflows the 64px
+                            // segment (yet stays narrower than the 96px
+                            // base, so no space-around spread joins in).
+                            text: "wwwwww".to_owned(),
                             size_ratio: 0.5,
                         }),
                     },
@@ -5128,8 +5212,10 @@ running through the quiet forest until the morning light returns.";
             },
         )
         .expect("inline tree builds");
-        // 165px: four lead glyphs plus the first base glyph fit as plain
-        // text (160), but that segment must carry the ~46px annotation.
+        // 165px: three lead glyphs plus two base glyphs fit as plain
+        // text (160), the split point sits two-thirds into the base, and
+        // the single word's midpoint (0.5) rides that first segment —
+        // which cannot carry the ~81px annotation.
         let outcome = context
             .layout(
                 &tree,
@@ -5139,10 +5225,10 @@ running through the quiet forest until the morning light returns.";
                 &CancelFlag::new(),
             )
             .expect("layout succeeds");
-        let lines = line_texts(&outcome, "中中中中中文");
+        let lines = line_texts(&outcome, "中中中中文中");
         assert_eq!(
             lines,
-            vec!["中中中中".to_owned(), "中文".to_owned()],
+            vec!["中中中".to_owned(), "中文中".to_owned()],
             "the overflowing split rewinds the whole base to the next line"
         );
     }

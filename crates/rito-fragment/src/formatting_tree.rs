@@ -12,6 +12,40 @@ pub struct FormattingNodeId(pub u32);
 /// A ruby base's annotation: the text drawn above the base and the
 /// annotation font size as a ratio of the base size (the `rt` element's
 /// cascaded `font-size`; the UA default is 0.5, publishers commonly
+/// The slice of a ruby annotation that rides one base segment when the
+/// base splits across lines. Measured (word-allocation matrix,
+/// 2026-08-05): a multi-word annotation splits at its spaces, each word
+/// riding the segment its CHARACTER MIDPOINT falls over — the midpoint's
+/// position in the annotation string, as a fraction, against the
+/// segment's span of the base, as a fraction of its characters (正规|勇者
+/// under "Legal Brave" carries Legal|Brave; 正规勇|者 keeps Legal Brave's
+/// Brave on the 者 segment, whose rt box then widens past the single
+/// glyph). A single word — no spaces — rides whichever segment holds its
+/// midpoint, the whole-annotation-on-first-segment behaviour for
+/// front-heavy splits.
+///
+/// Pure over its inputs so layout, line growth, and paint replay the
+/// same allocation without threading extra state.
+pub fn allocate_ruby_annotation(annotation: &str, start_ratio: f64, end_ratio: f64) -> String {
+    let total = annotation.chars().count();
+    if total == 0 {
+        return String::new();
+    }
+    let mut allocated: Vec<&str> = Vec::new();
+    let mut char_position = 0usize;
+    for word in annotation.split(' ') {
+        let len = word.chars().count();
+        if len > 0 {
+            let midpoint = (char_position as f64 + len as f64 / 2.0) / total as f64;
+            if midpoint >= start_ratio && midpoint < end_ratio {
+                allocated.push(word);
+            }
+        }
+        char_position += len + 1;
+    }
+    allocated.join(" ")
+}
+
 /// override it — 0.55em in the measured corpus).
 #[derive(Clone, Debug, PartialEq)]
 pub struct RubyAnnotation {
