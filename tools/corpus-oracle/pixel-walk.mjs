@@ -385,10 +385,17 @@ console.log(`engine pages captured: ${enginePages.size}`);
 
 // ---- Truth side: per chapter, multicol columns of the content box -------
 const truthColumns = new Map(); // idref -> PNG[] (one per column)
-const truth = await browser.newPage({
+// PAGE JavaScript stays OFF: the engine (like EPUB readers generally)
+// never executes book scripts, but a file:// chapter runs them — a
+// publisher's notereplace.js swapped the footnote-marker image for a
+// 【注】 text link and every note-bearing paragraph rewrapped
+// (Playwright's evaluate still works; only the page's own scripts stop).
+const truthContext = await browser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: 1,
+  javaScriptEnabled: false,
 });
+const truth = await truthContext.newPage();
 for (const chapter of plan.chapters) {
   const href = manifestHref.get(chapter.href) ?? chapter.href;
   const file = path.join(opfDir, href);
