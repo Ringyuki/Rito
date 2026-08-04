@@ -2565,23 +2565,7 @@ fn fold_through_collapsing_margins(
                 .rev()
                 .copied()
                 .find(|id| in_flow(nodes, layout, *id));
-            // A float AFTER the last in-flow child anchors at its
-            // hypothetical flow position, which lies BELOW that child's
-            // bottom margin (measured: a title page's hoisted author
-            // block — content, a clearing spacer, then a float with a
-            // large negative margin-top — sat one spacer margin high
-            // when the fold hid the margin from the float's anchor).
-            // The margin stays on the child then; the block engine's
-            // pending-margin chain carries it to the float.
-            let floats_after = last.is_some_and(|last| {
-                children
-                    .iter()
-                    .copied()
-                    .skip_while(|id| *id != last)
-                    .skip(1)
-                    .any(|id| !in_flow(nodes, layout, id))
-            });
-            if let (Some(last), false) = (last, floats_after) {
+            if let Some(last) = last {
                 let last_style = layout
                     .style(nodes[last.0 as usize].style)
                     .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
