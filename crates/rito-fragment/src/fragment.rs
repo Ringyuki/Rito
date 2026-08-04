@@ -84,6 +84,11 @@ pub struct TextFragment {
     /// each side) while justification spacing never widens the
     /// annotation.
     pub ruby_gap_px: f64,
+    /// The overhang each side of a spread ruby's annotation box: the
+    /// edge share, capped at half the annotation size. The annotation
+    /// rect widens by one overhang per side; `ruby_gap_px` spaces the
+    /// base clusters.
+    pub ruby_overhang_px: f64,
     /// Raster anchoring for a run inside a decorated inline box, absent
     /// for bare text (which snaps off the line box alone).
     pub box_snap: Option<BoxSnap>,

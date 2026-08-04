@@ -609,9 +609,9 @@ fn append_text_run_command(
         commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
             text: Value::String(annotation.clone()),
             rect: rect_value(
-                line_x + run.rect.x - run.ruby_gap_px / 2.0,
+                line_x + run.rect.x - run.ruby_overhang_px,
                 em_top - annotation_size - 1.0,
-                run.rect.width + run.ruby_gap_px,
+                run.rect.width + 2.0 * run.ruby_overhang_px,
                 annotation_size,
             ),
             paint: paint.for_ruby(annotation_size),
@@ -1164,6 +1164,7 @@ mod tests {
             box_snap: None,
             justify_px: 0.0,
             ruby_gap_px: 0.0,
+            ruby_overhang_px: 0.0,
         })
     }
 

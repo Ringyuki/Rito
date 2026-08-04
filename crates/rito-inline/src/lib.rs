@@ -56,6 +56,10 @@ struct ParagraphLayout {
     /// identically, and the annotation paints over the grown extent
     /// plus one half-gap of overhang on each side.
     ruby_spreads: std::collections::HashMap<usize, f64>,
+    /// Per spread item: the overhang each side (edge share capped at
+    /// half the annotation size) — the annotation rect grows by it while
+    /// `ruby_spreads` carries the interior gap.
+    ruby_spread_overhangs: std::collections::HashMap<usize, f64>,
     /// Per annotated item index: the shaped advance of its annotation.
     /// A base segment SPLIT onto its own line carries the whole
     /// annotation and widens to at least this advance, which is what the
@@ -655,6 +659,10 @@ impl ParleyInlineContext {
         // base (see `line_justify_plan`), only at its outer boundaries.
         let mut ruby_spreads: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
+        // Per item: the overhang each side of the spread box (edge share,
+        // capped at half the annotation size).
+        let mut ruby_spread_overhangs: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
         // Every annotated item's shaped annotation advance, for the
         // split-fit rule: a base segment split onto its own line carries
         // the WHOLE annotation and widens to at least its advance.
@@ -687,13 +695,29 @@ impl ParleyInlineContext {
                 continue;
             }
             let edge_share = excess / (2.0 * cluster_count as f64);
-            // Past the overhang cap the base stops absorbing excess
-            // and recenters inside the annotation extent instead —
-            // not modeled yet; those rubies keep the unspread base.
-            if edge_share > f64::from(annotation_size) / 2.0 {
-                continue;
-            }
-            let gap = excess / cluster_count as f64;
+            // The overhang each side is capped at half the annotation
+            // size (measured); past the cap the ruby box stops at
+            // annoW − 2·cap and the truncated edge excess folds into
+            // the interior gaps: interior = (box − base)/(n−1)
+            // (measured: 中中中 under a 80.06px annotation with cap 4
+            // spans a 72.06px box with 12.03px interior gaps).
+            let cap = f64::from(annotation_size) / 2.0;
+            let (gap, overhang) = if edge_share > cap {
+                let grown_box = annotation_advance - 2.0 * cap;
+                let gap = if cluster_count >= 2 {
+                    ((grown_box - base_advance) / (cluster_count as f64 - 1.0)).max(0.0)
+                } else {
+                    // A single-cluster base still widens to the capped
+                    // box; the whole growth rides as trailing spacing
+                    // (the glyph paints ~half a gap left of Blink's
+                    // centered position — accepted until measured).
+                    (grown_box - base_advance).max(0.0)
+                };
+                (gap, cap)
+            } else {
+                let gap = excess / cluster_count as f64;
+                (gap, edge_share)
+            };
             if cluster_count >= 2 {
                 let last_cluster_start = base_text
                     .char_indices()
@@ -706,8 +730,18 @@ impl ParleyInlineContext {
                 if last_cluster_start > range.start {
                     ruby_spread_edits.push((range.start..last_cluster_start, author + gap as f32));
                 }
+            } else if gap > 0.0 {
+                // Single cluster: the growth needs a spacing carrier so
+                // the flow advance matches the capped box; trailing
+                // letter-spacing on the one cluster is that carrier.
+                let author = match style.text_flow.letter_spacing {
+                    LengthPercentage::Length(px) => px.get(),
+                    _ => 0.0,
+                };
+                ruby_spread_edits.push((range.clone(), author + gap as f32));
             }
             ruby_spreads.insert(*item_index, gap);
+            ruby_spread_overhangs.insert(*item_index, overhang);
         }
 
         let mut fonts = self.fonts.borrow_mut();
@@ -894,6 +928,7 @@ impl ParleyInlineContext {
             pair_trims,
             item_box_sheds,
             ruby_spreads,
+            ruby_spread_overhangs,
             ruby_annotation_widths,
         })
     }
@@ -1030,8 +1065,15 @@ impl FormattingContext for ParleyInlineContext {
         let mut suppressed_pair_trims: Vec<usize> = Vec::new();
         let mut forced_line_breaks: Vec<(usize, u32)> = Vec::new();
         let mut pending_trim: Option<usize> = None;
-        let (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds, ruby_spreads) =
-            loop {
+        let (
+            layout,
+            alignment,
+            shifted_ranges,
+            first_line_indent,
+            item_box_sheds,
+            ruby_spreads,
+            ruby_spread_overhangs,
+        ) = loop {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
             }
@@ -1044,6 +1086,7 @@ impl FormattingContext for ParleyInlineContext {
                 pair_trims,
                 item_box_sheds,
                 ruby_spreads,
+                ruby_spread_overhangs,
                 ruby_annotation_widths,
             } = self.build_layout(
                 tree,
@@ -1300,6 +1343,7 @@ impl FormattingContext for ParleyInlineContext {
                         first_line_indent,
                         item_box_sheds,
                         ruby_spreads,
+                        ruby_spread_overhangs,
                     );
                 }
             }
@@ -1569,6 +1613,8 @@ impl FormattingContext for ParleyInlineContext {
                         // from it while justify shares never widen the
                         // annotation).
                         let ruby_gap = ruby_spreads.get(&item_index).copied().unwrap_or(0.0);
+                        let ruby_overhang =
+                            ruby_spread_overhangs.get(&item_index).copied().unwrap_or(0.0);
                         let mut emit = |range: std::ops::Range<usize>,
                                         x: f64,
                                         width: f64,
@@ -1586,6 +1632,7 @@ impl FormattingContext for ParleyInlineContext {
                                     text_end: range.end as u32,
                                     justify_px,
                                     ruby_gap_px: ruby_gap,
+                                    ruby_overhang_px: ruby_overhang,
                                     box_snap: run_box_snap,
                                 }),
                                 shift,
