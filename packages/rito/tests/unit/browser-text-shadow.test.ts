@@ -50,8 +50,13 @@ afterEach(() => {
 });
 
 describe('production Canvas text shadows', () => {
-  it('matches reference records with OffscreenCanvas, DPR, spacing, and layered erasure', () => {
-    const snapshot = expectProductionToMatchReference({
+  it('paints pure shadow layers with an off-canvas caster, no glyph erasure', () => {
+    // The scratch holds ONLY shadow ink: the casting glyph paints far
+    // off-canvas with the shadow offset walked back (device space), so
+    // no destination-out erasure runs — erasing by the glyph's own
+    // alpha left color residue on antialiased edges and every shadowed
+    // glyph rimmed darker than the browser's.
+    const snapshot = renderProduction({
       offscreen: 'context',
       dom: 'context',
     });
@@ -64,22 +69,18 @@ describe('production Canvas text shadows', () => {
       getContextCalls: ['2d'],
     });
     expect(snapshot.domCreateElementCalls).toEqual([]);
-    expect(propertyValues(scratch.records, 'shadowColor')).toEqual([
-      '#2244ff',
-      '#cc3300',
-      'transparent',
-    ]);
-    expect(propertyValues(scratch.records, 'shadowBlur')).toEqual([2.1875, 3.5, 0]);
+    expect(propertyValues(scratch.records, 'shadowColor')).toEqual(['#2244ff', '#cc3300']);
+    expect(propertyValues(scratch.records, 'shadowBlur')).toEqual([2.1875, 3.5]);
     expect(propertyValues(scratch.records, 'wordSpacing')).toEqual(['2.5px']);
     expect(propertyValues(scratch.records, 'letterSpacing')).toEqual(['-0.75px']);
-    expect(propertyValues(scratch.records, 'globalCompositeOperation')).toEqual([
-      'destination-out',
-      'source-over',
+    expect(propertyValues(scratch.records, 'globalCompositeOperation')).toEqual([]);
+    expect(propertyValues(scratch.records, 'shadowOffsetY')).toEqual([
+      (6 + 20000) * 1.75,
+      (-3 + 20000) * 1.75,
     ]);
     expect(callArguments(scratch.records, 'fillText')).toEqual([
-      ['shadow text', 7.5, 7],
-      ['shadow text', 7.5, 7],
-      ['shadow text', 7.5, 7],
+      ['shadow text', 7.5, 7 - 20000],
+      ['shadow text', 7.5, 7 - 20000],
     ]);
     expect(callArguments(snapshot.main, 'drawImage')).toEqual([
       [
@@ -96,8 +97,8 @@ describe('production Canvas text shadows', () => {
     ]);
   });
 
-  it('matches reference records through the DOM canvas fallback', () => {
-    const snapshot = expectProductionToMatchReference({
+  it('renders through the DOM canvas fallback', () => {
+    const snapshot = renderProduction({
       offscreen: 'missing',
       dom: 'context',
     });
@@ -130,11 +131,11 @@ describe('production Canvas text shadows', () => {
     expect(callArguments(snapshot.main, 'drawImage')).toEqual([]);
   });
 
-  it('restores scratch compositing when glyph erasure throws', () => {
+  it('propagates a scratch fillText failure without compositing to the main canvas', () => {
     const environment = installScratchCanvasEnvironment({
       offscreen: 'context',
       dom: 'missing',
-      throwOnFillTextCall: 3,
+      throwOnFillTextCall: 2,
     });
     const main = createMainContext();
 
@@ -142,16 +143,14 @@ describe('production Canvas text shadows', () => {
       drawProductionTextShadows(main.ctx, FRAGMENT, FRAGMENT.rect.x, FRAGMENT.rect.y, COLOR);
     }).toThrow('forced scratch fillText failure');
 
-    const scratch = environment.scratch[0];
-    expect(scratch).toBeDefined();
-    expect(propertyValues(scratch?.recorder.records ?? [], 'globalCompositeOperation')).toEqual([
-      'destination-out',
-      'source-over',
-    ]);
-    expect(scratch?.context.globalCompositeOperation).toBe('source-over');
+    expect(environment.scratch[0]).toBeDefined();
     expect(main.getCalls('drawImage')).toEqual([]);
   });
 });
+
+function renderProduction(options: ScratchCanvasEnvironmentOptions): CanvasRecordsSnapshot {
+  return renderWith(drawProductionTextShadows, options);
+}
 
 function expectProductionToMatchReference(
   options: ScratchCanvasEnvironmentOptions,

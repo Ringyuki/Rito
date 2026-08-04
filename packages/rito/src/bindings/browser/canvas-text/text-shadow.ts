@@ -33,7 +33,6 @@ export function drawTextShadows(
   scratch.ctx.scale(pixelRatio, pixelRatio);
   syncTextState(scratch.ctx, ctx, fragment, color);
   renderShadowLayers(scratch.ctx, shadows, fragment.text, padLeft, padTop, pixelRatio);
-  eraseTextGlyph(scratch.ctx, fragment.text, padLeft, padTop);
   ctx.drawImage(
     scratch.canvas,
     0,
@@ -46,6 +45,19 @@ export function drawTextShadows(
     logicalHeight,
   );
 }
+
+/**
+ * The scratch must hold ONLY the shadow ink: the canvas shadow API
+ * always paints the casting glyph too, and erasing it afterwards by its
+ * own alpha left `color x a x (1-a)` residue on every antialiased edge —
+ * the glyph then painted on top brought the edge's color weight to
+ * a + a(1-a) and every shadowed glyph rimmed darker than the browser's.
+ * Painting the caster far off-canvas and walking the shadow offset back
+ * (offsets live in device space, untouched by the transform) leaves the
+ * pure shadow, which the glyph later covers exactly as Blink composites:
+ * shadow underneath, body on top, edges blending through.
+ */
+const SHADOW_CAST_OFFSET = 20000;
 
 function renderShadowLayers(
   ctx: ScratchCanvasContext,
@@ -61,21 +73,8 @@ function renderShadowLayers(
     ctx.shadowColor = shadow.color;
     ctx.shadowBlur = shadow.blur * pixelRatio;
     ctx.shadowOffsetX = shadow.offsetX * pixelRatio;
-    ctx.shadowOffsetY = shadow.offsetY * pixelRatio;
-    ctx.fillText(text, x, y);
-  }
-}
-
-function eraseTextGlyph(ctx: ScratchCanvasContext, text: string, x: number, y: number): void {
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.globalCompositeOperation = 'destination-out';
-  try {
-    ctx.fillText(text, x, y);
-  } finally {
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.shadowOffsetY = (shadow.offsetY + SHADOW_CAST_OFFSET) * pixelRatio;
+    ctx.fillText(text, x, y - SHADOW_CAST_OFFSET);
   }
 }
 
