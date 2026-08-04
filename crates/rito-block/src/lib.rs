@@ -410,10 +410,16 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             }
 
             // Clearance: an in-flow child clears past the floats its
-            // `clear` names; clearance suppresses the margin collapse that
-            // would otherwise apply.
+            // `clear` names. CSS 2.1 §9.5.2 compares the box's
+            // HYPOTHETICAL border-top — its position after the normal
+            // margin collapse — and when the floats reach below it, the
+            // border top lands exactly at the clear position: clearance
+            // swallows the collapsed margin whole (measured: a clearing
+            // spacer's border top == the float's bottom, no margin gap).
             let clear_to = floats.bottom_for(child_style.clear);
-            if clear_to > y {
+            let cleared = !child_resumed
+                && clear_to > y + collapse_margins(pending_margin, top_margin);
+            if cleared {
                 let page_bottom = y + remaining.max(0.0);
                 y = clear_to;
                 remaining = (page_bottom - y).max(0.0);
@@ -427,7 +433,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // adjoining margins belongs; whatever the fold could not
             // resolve there (a percentage has no basis until layout) is
             // still a real margin and is applied here, as a browser does.
-            let gap = if child_resumed {
+            let gap = if child_resumed || cleared {
                 0.0
             } else {
                 collapse_margins(pending_margin, top_margin)

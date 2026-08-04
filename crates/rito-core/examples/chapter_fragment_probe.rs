@@ -71,6 +71,13 @@ struct ProbeLine {
     /// Line box top in content-box coordinates.
     y: f64,
     width: f64,
+    /// Line box height — empty paragraphs and border-only boxes carry
+    /// geometry the text alone cannot show.
+    #[serde(default)]
+    height: f64,
+    /// Source formatting node, to align runs with block structure.
+    #[serde(default)]
+    source: u32,
 }
 
 fn main() {
@@ -211,9 +218,16 @@ fn collect_lines(
                     _ => {}
                 }
             }
-            if last_edge == f64::NEG_INFINITY {
-                return;
-            }
+            // Ink-less lines (empty paragraphs, forced-break struts)
+            // still carry the geometry the block chain stacks on.
+            let (x, width) = if last_edge == f64::NEG_INFINITY {
+                (x_offset + line.rect.x, 0.0)
+            } else {
+                (
+                    x_offset + line.rect.x + first_x,
+                    (last_edge - line.trailing_whitespace - first_x).max(0.0),
+                )
+            };
             let text = if start <= end && start != u32::MAX {
                 full_text[start as usize..end as usize].to_owned()
             } else {
@@ -221,9 +235,11 @@ fn collect_lines(
             };
             lines.push(ProbeLine {
                 text,
-                x: x_offset + line.rect.x + first_x,
+                x,
                 y: y_offset + line.rect.y,
-                width: (last_edge - line.trailing_whitespace - first_x).max(0.0),
+                width,
+                height: line.rect.height,
+                source: line.source.0,
             });
         }
         Fragment::Text(_) | Fragment::Image(_) => {}
