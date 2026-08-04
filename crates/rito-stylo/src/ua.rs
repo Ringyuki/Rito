@@ -90,5 +90,9 @@ bdo, bdo[dir] { unicode-bidi: isolate-override; }
 
 /* Stylo's Servo profile has no ruby/ruby-text display variants. Rito keeps
    ruby box generation as an explicit semantic/layout policy; `rp` alone is
-   hidden here because it is fallback text for non-ruby renderers. */
+   hidden here because it is fallback text for non-ruby renderers. The
+   annotation SIZE is still cascade-driven: the browser's UA sets rt to
+   half the base size, and without this rule a bare `<rt>` inherited the
+   full base size — every unstyled annotation painted double. */
+rt { font-size: 50%; }
 "#;
