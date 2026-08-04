@@ -56,6 +56,11 @@ struct ParagraphLayout {
     /// identically, and the annotation paints over the grown extent
     /// plus one half-gap of overhang on each side.
     ruby_spreads: std::collections::HashMap<usize, f64>,
+    /// Per annotated item index: the shaped advance of its annotation.
+    /// A base segment SPLIT onto its own line carries the whole
+    /// annotation and widens to at least this advance, which is what the
+    /// split-fit rewind checks.
+    ruby_annotation_widths: std::collections::HashMap<usize, f64>,
 }
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -650,6 +655,11 @@ impl ParleyInlineContext {
         // base (see `line_justify_plan`), only at its outer boundaries.
         let mut ruby_spreads: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
+        // Every annotated item's shaped annotation advance, for the
+        // split-fit rule: a base segment split onto its own line carries
+        // the WHOLE annotation and widens to at least its advance.
+        let mut ruby_annotation_widths: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
         let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
         for (range, style, item_index) in &runs {
             let Some(InlineItem::Text {
@@ -671,6 +681,7 @@ impl ParleyInlineContext {
             let annotation_advance =
                 self.measure_styled_advance(style, Some(annotation_size), &annotation.text);
             let base_advance = self.measure_styled_advance(style, None, base_text);
+            ruby_annotation_widths.insert(*item_index, annotation_advance);
             let excess = annotation_advance - base_advance;
             if excess <= 0.01 {
                 continue;
@@ -883,6 +894,7 @@ impl ParleyInlineContext {
             pair_trims,
             item_box_sheds,
             ruby_spreads,
+            ruby_annotation_widths,
         })
     }
 }
@@ -1032,6 +1044,7 @@ impl FormattingContext for ParleyInlineContext {
                 pair_trims,
                 item_box_sheds,
                 ruby_spreads,
+                ruby_annotation_widths,
             } = self.build_layout(
                 tree,
                 root,
@@ -1072,6 +1085,93 @@ impl FormattingContext for ParleyInlineContext {
                 if !confirmed {
                     end_trims.retain(|&trim| trim != byte);
                     rejected_trims.push(byte);
+                    continue;
+                }
+            }
+            // Ruby split-fit, before any trim reasoning: a soft break
+            // inside a ruby base is legal only while the first segment
+            // still fits carrying its WHOLE annotation — the segment
+            // widens to at least the annotation's advance (measured:
+            // 608px of text plus 异 at 16px fit a 627.2px line, but the
+            // segment carries Talent at 23px and Blink sends the ruby
+            // down; 黄金妖|精 stays split because 黄金妖 at 48px covers
+            // Leprechaun's 44px). An overflowing split rewinds the line
+            // to the item start and re-lays.
+            if !ruby_annotation_widths.is_empty() {
+                let mut rewound_ruby = false;
+                let mut line_top = 0.0_f64;
+                for index in 0..layout.len().saturating_sub(1) {
+                    let indent = if index == 0 { first_line_indent } else { 0.0 };
+                    let max_advance =
+                        f64::from(line_max_advance(line_top) - indent) + LINE_FIT_EPSILON;
+                    line_top += layout
+                        .get(index)
+                        .map_or(0.0, |line| f64::from(line.metrics().line_height));
+                    if forced_line_breaks.iter().any(|(line, _)| *line == index) {
+                        continue;
+                    }
+                    let Some(line) = layout.get(index) else {
+                        continue;
+                    };
+                    if line.break_reason() != parley::layout::BreakReason::Regular {
+                        continue;
+                    }
+                    let range = line.text_range();
+                    let Some((item_start, annotation_width)) = item_text_ranges
+                        .iter()
+                        .enumerate()
+                        .find_map(|(item, item_range)| {
+                            (item_range.start < range.end && range.end < item_range.end)
+                                .then(|| {
+                                    ruby_annotation_widths
+                                        .get(&item)
+                                        .map(|width| (item_range.start, *width))
+                                })
+                                .flatten()
+                        })
+                    else {
+                        continue;
+                    };
+                    // The split's first segment must START on this line;
+                    // a base already split earlier has nothing to rewind.
+                    if item_start < range.start {
+                        continue;
+                    }
+                    let mut segment_advance = 0.0_f64;
+                    let mut cluster =
+                        parley::layout::Cluster::from_byte_index(&layout, item_start);
+                    while let Some(current) = cluster {
+                        if current.text_range().start >= range.end {
+                            break;
+                        }
+                        segment_advance += f64::from(current.advance());
+                        cluster = current.next_logical();
+                    }
+                    if annotation_width <= segment_advance + LINE_FIT_EPSILON {
+                        continue;
+                    }
+                    let metrics = line.metrics();
+                    let natural =
+                        f64::from(metrics.advance) - f64::from(metrics.trailing_whitespace);
+                    if natural - segment_advance + annotation_width <= max_advance {
+                        continue;
+                    }
+                    if item_start <= range.start {
+                        continue;
+                    }
+                    let Some(count) = text
+                        .get(range.start..item_start)
+                        .map(|held| held.chars().count())
+                        .filter(|count| *count > 0)
+                        .and_then(|count| u32::try_from(count).ok())
+                    else {
+                        continue;
+                    };
+                    forced_line_breaks.push((index, count));
+                    rewound_ruby = true;
+                    break;
+                }
+                if rewound_ruby {
                     continue;
                 }
             }
@@ -4968,6 +5068,82 @@ running through the quiet forest until the morning light returns.";
             lines,
             vec!["中中中中中".to_owned(), "文".to_owned()],
             "the annotated base breaks at an ordinary character boundary"
+        );
+    }
+
+    /// A split whose first segment cannot carry the whole annotation is
+    /// illegal: the segment widens to at least the annotation's advance,
+    /// and when that overflows the line the ruby moves down intact
+    /// (measured: 异/Talent went down where plain-text fit had room;
+    /// 黄金妖/Leprechaun stayed split because the segment covers it).
+    #[test]
+    fn a_ruby_split_whose_annotation_overflows_rewinds_to_the_item_start() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                .expect("family list"),
+            32.0,
+            0.0,
+        );
+        let mut inline = InlineStyleTableV1::new(1);
+        let interned = inline.intern_for_node(0, style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "中中中中".to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                    InlineItem::Text {
+                        text: "中文".to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                            // Wide enough that a lone first base glyph
+                            // cannot cover it (~46px at 16px vs 32px),
+                            // yet narrower than the whole base (64px),
+                            // so no space-around spread interferes.
+                            text: "wwww".to_owned(),
+                            size_ratio: 0.5,
+                        }),
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        // 165px: four lead glyphs plus the first base glyph fit as plain
+        // text (160), but that segment must carry the ~46px annotation.
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(165.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let lines = line_texts(&outcome, "中中中中中文");
+        assert_eq!(
+            lines,
+            vec!["中中中中".to_owned(), "中文".to_owned()],
+            "the overflowing split rewinds the whole base to the next line"
         );
     }
 
