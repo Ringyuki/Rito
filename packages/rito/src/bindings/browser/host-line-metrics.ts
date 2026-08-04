@@ -157,9 +157,12 @@ async function measureBrowserHostLineMetrics(
         if (sample.startsWith('\uE000')) {
           paragraph.innerHTML = `<ruby><rb>中文</rb>${rt}</ruby>中文`;
         } else {
-          paragraph.style.width = `${String(request.size * 4)}px`;
-          paragraph.style.whiteSpace = 'normal';
-          paragraph.innerHTML = `中文中文<ruby><rb>中文</rb>${rt}</ruby>`;
+          // The two-line probe breaks EXPLICITLY: a width-driven wrap sat
+          // on a fit boundary (content width == container width) and the
+          // measured second-line reuse depended on where the break fell,
+          // which inflated the derived under-edge allowance and made
+          // later-line annotations over-grow.
+          paragraph.innerHTML = `中文中文<br/><ruby><rb>中文</rb>${rt}</ruby>中文`;
         }
       } else {
         // A zero-sized inline-block sits on the baseline, so its top is

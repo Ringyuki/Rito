@@ -1994,7 +1994,13 @@ impl FormattingContext for ParleyInlineContext {
                     let two_key = format!("\u{E001}{:.4}", ratio);
                     let ruby_one = self.host_normal_line_sized(resolved, fs, &one_key);
                     let ruby_two = self.host_normal_line_sized(resolved, fs, &two_key);
-                    let plain = self.host_normal_line(resolved, "");
+                    // The reuse derivation subtracts the two-line probe's
+                    // FIRST-line baseline, and that line is the probe's own
+                    // CJK text — so the term must be the CJK-sample metric,
+                    // not the empty-sample strut (a Latin-first family made
+                    // them differ by four pixels and the derived allowance
+                    // swallowed the whole reuse).
+                    let plain = self.host_normal_line_sized(resolved, fs, "\u{4E2D}");
                     let (typo_asc, typo_desc) =
                         base_typo(range, fs).unwrap_or((fs * 0.88, fs * 0.12));
                     let annotation_ascent = self
