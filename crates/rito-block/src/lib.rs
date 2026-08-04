@@ -4427,6 +4427,93 @@ single line across page boundaries.";
         );
     }
 
+    /// A float's hypothetical flow position sits below the margin chain
+    /// of everything before it — including the margins of a `clear:both`
+    /// paragraph that had nothing to clear (the title-page idiom: content,
+    /// a clearing spacer, then a hoisted float whose big negative
+    /// margin-top anchors off that flow position).
+    #[test]
+    fn float_flow_position_includes_a_clear_paragraphs_margins() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut clear_style = block_style(margin_px(6.4), margin_px(6.4));
+        clear_style.clear = ClearV1::Both;
+        let mut hoisted = block_style(margin_px(-100.0), margin_px(0.0));
+        hoisted.float = FloatV1::Left;
+        let layout = layout_table_with(4, |index| match index {
+            1 => clear_style.clone(),
+            2 => hoisted.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let paragraph = |node_index: usize| FormattingNode {
+            style: node_style_id(&layout, node_index),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: "line".to_owned(),
+                    style: text_style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        };
+        let nodes = vec![
+            paragraph(0),
+            paragraph(1),
+            paragraph(2),
+            FormattingNode {
+                style: node_style_id(&layout, 3),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![
+                    FormattingNodeId(0),
+                    FormattingNodeId(1),
+                    FormattingNodeId(2),
+                ],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(3),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Box(float_box) = &root.children[2] else {
+            panic!("third child is the float box");
+        };
+        // p0: 0..10. clear p: top margin 6.4 → 16.4..26.4, bottom margin
+        // 6.4 pending. The float's hypothetical flow position is
+        // 26.4 + 6.4 = 32.8; its -100 margin-top hoists the border box
+        // to 32.8 - 100 = -67.2.
+        assert!(
+            (float_box.rect.y - (-67.2)).abs() < 0.05,
+            "the float anchors below the clear paragraph's margin chain: {}",
+            float_box.rect.y
+        );
+    }
+
     /// Clearance places the cleared content below the float's bottom
     /// MARGIN edge (CSS 2.1 §9.5.2: "below the bottom outer edge"), not
     /// its border bottom. Measured on the speech-bubble idiom: content
