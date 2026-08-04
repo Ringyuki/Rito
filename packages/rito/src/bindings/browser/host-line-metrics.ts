@@ -162,15 +162,20 @@ async function measureBrowserHostLineMetrics(
         const cjkAnnotation = sentinel === 0xe002 || sentinel === 0xe003 || sentinel === 0xe005;
         const rt = `<rt style="font-size:${String(ratio)}em">${cjkAnnotation ? 'あ' : 'an'}</rt>`;
         if (sentinel === 0xe000 || sentinel === 0xe002) {
-          paragraph.innerHTML = `<ruby><rb>中文</rb>${rt}</ruby>中文`;
+          paragraph.innerHTML = `<ruby><rb>中中</rb>${rt}</ruby>中中`;
         } else {
+          // Probe text repeats one glyph (中, the most universally
+          // covered CJK codepoint) so a decorative embedded face that
+          // lacks some common character (b43's title font misses 文)
+          // cannot leak a fallback font's taller metrics into the
+          // measured geometry.
           // The two-line probe breaks EXPLICITLY: a width-driven wrap sat
           // on a fit boundary (content width == container width) and the
           // measured second-line reuse depended on where the break fell,
           // which inflated the derived under-edge allowance and made
           // later-line annotations over-grow.
           const mixedPrevious = sentinel === 0xe004 || sentinel === 0xe005;
-          const previous = mixedPrevious ? '中文a中文' : '中文中文';
+          const previous = mixedPrevious ? '中中a中中' : '中中中中';
           paragraph.innerHTML = `${previous}<br/><ruby><rb>中文</rb>${rt}</ruby>中文`;
         }
       } else {
