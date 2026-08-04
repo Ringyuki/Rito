@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { RitoCoreWasmFrameCommand } from '@ritojs/core-wasm';
 
 import { renderFrameCommandsToCanvas } from '../../src/bindings/browser/frame-command-renderer';
@@ -68,7 +68,7 @@ describe('browser frame-command Canvas renderer', () => {
     expect(unthemed.getPropertySets('fillStyle').map((set) => set.value)).toEqual(['#ffffff']);
   });
 
-  it('restores executor-owned Canvas state when text paint throws', () => {
+  it('contains a text paint fault: no throw, state restored, fault recorded', () => {
     const mock = createMockCanvasContext();
     const ctx = contextThrowingOn(mock.ctx, 'fillText');
     const commands: readonly RitoCoreWasmFrameCommand[] = [
@@ -87,14 +87,25 @@ describe('browser frame-command Canvas renderer', () => {
       { kind: 'popState' },
     ];
 
-    expect(() => {
-      renderFrameCommandsToCanvas(commands, ctx, {});
-    }).toThrow('paint failed');
+    // A paint fault must never escape the frame walk: an exception here
+    // leaves the spread permanently unpainted and wedges paging into it.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    delete (globalThis as { __ritoRenderFailures?: unknown[] }).__ritoRenderFailures;
+    try {
+      expect(() => {
+        renderFrameCommandsToCanvas(commands, ctx, {});
+      }).not.toThrow();
+    } finally {
+      consoleError.mockRestore();
+    }
     expect(mock.getCalls('save')).toHaveLength(3);
     expect(mock.getCalls('restore')).toHaveLength(3);
+    const failures = (globalThis as { __ritoRenderFailures?: unknown[] }).__ritoRenderFailures;
+    expect(failures).toHaveLength(1);
+    expect(String((failures?.[0] as { message?: string }).message)).toContain('paint failed');
   });
 
-  it('restores ruby-local and executor-owned Canvas state when ruby paint throws', () => {
+  it('contains a ruby paint fault: no throw, ruby-local state restored', () => {
     const mock = createMockCanvasContext();
     const ctx = contextThrowingOn(mock.ctx, 'fillText');
     const commands: readonly RitoCoreWasmFrameCommand[] = [
@@ -111,14 +122,19 @@ describe('browser frame-command Canvas renderer', () => {
       },
     ];
 
-    expect(() => {
-      renderFrameCommandsToCanvas(commands, ctx, {});
-    }).toThrow('paint failed');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      expect(() => {
+        renderFrameCommandsToCanvas(commands, ctx, {});
+      }).not.toThrow();
+    } finally {
+      consoleError.mockRestore();
+    }
     expect(mock.getCalls('save')).toHaveLength(4);
     expect(mock.getCalls('restore')).toHaveLength(4);
   });
 
-  it('restores block-local and executor-owned Canvas state when image paint throws', () => {
+  it('contains an image paint fault: no throw, block-local state restored', () => {
     const mock = createMockCanvasContext();
     const ctx = contextThrowingOn(mock.ctx, 'drawImage');
     const bitmap = { width: 20, height: 30 } as ImageBitmap;
@@ -134,11 +150,16 @@ describe('browser frame-command Canvas renderer', () => {
       },
     ];
 
-    expect(() => {
-      renderFrameCommandsToCanvas(commands, ctx, {
-        resolveImage: () => bitmap,
-      });
-    }).toThrow('paint failed');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      expect(() => {
+        renderFrameCommandsToCanvas(commands, ctx, {
+          resolveImage: () => bitmap,
+        });
+      }).not.toThrow();
+    } finally {
+      consoleError.mockRestore();
+    }
     expect(mock.getCalls('save')).toHaveLength(4);
     expect(mock.getCalls('restore')).toHaveLength(4);
   });

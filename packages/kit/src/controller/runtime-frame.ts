@@ -29,7 +29,19 @@ export function createRuntimeFrameParts(
   transitionDriver: TransitionDriver,
 ): RuntimeFrameParts {
   const contentRenderer: ContentRenderer = (spreadIndex, context) => {
-    return reader.renderSpreadTo(spreadIndex, context);
+    // Last-resort paint boundary: an exception here would leave the
+    // spread permanently unpainted and wedge navigation into it, which
+    // is the worst possible failure mode for a reader. Whatever the
+    // canvas holds is shown, and the fault is reported loudly instead.
+    try {
+      return reader.renderSpreadTo(spreadIndex, context);
+    } catch (error) {
+      console.error(
+        `[rito] spread ${String(spreadIndex)} paint failed; showing degraded content`,
+        error,
+      );
+      return true;
+    }
   };
   const frameDriver = createFrameDriver({
     surface,

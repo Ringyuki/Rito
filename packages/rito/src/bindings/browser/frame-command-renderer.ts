@@ -59,30 +59,33 @@ export function renderFrameCommandsToCanvas(
       ? (canvasCtx.canvas as unknown as { isConnected: boolean }).isConnected
       : false;
   let rendered = 0;
+  let failed = 0;
+  let firstFailure: unknown;
   canvasCtx.save();
   try {
     canvasCtx.scale(options.pixelRatio ?? 1, options.pixelRatio ?? 1);
     for (const command of commands) {
       paintTap?.(command, onScreen);
-      renderCommand(canvasCtx, command, state);
+      // Paint faults are isolated per command: one bad command must not
+      // truncate the frame — and it must never propagate, because an
+      // exception escaping the paint path leaves the spread permanently
+      // "not ready" and paging into it hangs (a rotated shadowed run
+      // once wedged a whole book's navigation this way). The fault is
+      // recorded loudly instead; the canvas keeps everything else.
+      const entryDepth = state.commandSaveDepth;
+      try {
+        renderCommand(canvasCtx, command, state);
+      } catch (error) {
+        failed += 1;
+        firstFailure ??= error;
+        recordRenderFailure(error, command, rendered, commands.length);
+        while (state.commandSaveDepth > entryDepth) {
+          canvasCtx.restore();
+          state.commandSaveDepth -= 1;
+        }
+      }
       rendered += 1;
     }
-  } catch (error) {
-    // A painted frame must never silently truncate: publish the failure
-    // for support diagnostics before propagating it.
-    const scope = globalThis as { __ritoRenderFailures?: unknown[] };
-    scope.__ritoRenderFailures = [
-      ...(scope.__ritoRenderFailures ?? []).slice(-4),
-      {
-        message: String(error),
-        stack: error instanceof Error ? error.stack?.slice(0, 600) : undefined,
-        renderedCommands: rendered,
-        totalCommands: commands.length,
-        failedCommand: JSON.parse(JSON.stringify(commands[rendered] ?? null)) as unknown,
-        at: new Date().toISOString(),
-      },
-    ];
-    throw error;
   } finally {
     while (state.commandSaveDepth > 0) {
       canvasCtx.restore();
@@ -90,6 +93,40 @@ export function renderFrameCommandsToCanvas(
     }
     canvasCtx.restore();
   }
+  if (failed > 0) {
+    console.error(
+      `[rito] frame rendered degraded: ${String(failed)}/${String(commands.length)} paint ` +
+        `commands failed (details in globalThis.__ritoRenderFailures)`,
+      firstFailure,
+    );
+  }
+}
+
+/** Publish a paint fault for support diagnostics, keeping the last few. */
+function recordRenderFailure(
+  error: unknown,
+  command: CoreFrameCommand,
+  commandIndex: number,
+  totalCommands: number,
+): void {
+  const scope = globalThis as { __ritoRenderFailures?: unknown[] };
+  let failedCommand: unknown = null;
+  try {
+    failedCommand = JSON.parse(JSON.stringify(command)) as unknown;
+  } catch {
+    failedCommand = { kind: command.kind };
+  }
+  scope.__ritoRenderFailures = [
+    ...(scope.__ritoRenderFailures ?? []).slice(-9),
+    {
+      message: String(error),
+      stack: error instanceof Error ? error.stack?.slice(0, 600) : undefined,
+      commandIndex,
+      totalCommands,
+      failedCommand,
+      at: new Date().toISOString(),
+    },
+  ];
 }
 
 function createRenderState(options: FrameCommandRenderOptions): RenderState {
