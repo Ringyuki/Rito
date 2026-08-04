@@ -1255,31 +1255,22 @@ impl FormattingContext for ParleyInlineContext {
                             _ => annotation_width,
                         }
                     };
-                    // The segment's box: its INNER edge share overhangs
-                    // the neighbouring text up to the cap, but the LINE
-                    // END side cannot overhang past the line — so
-                    // annoW − min(edge, cap) presses on the line
-                    // (measured both ways: 异/Talent — edge 3.5 under
-                    // cap 4 — still rewinds because 23−3.5 overflows,
-                    // while 咒/Thaumaturgy — edge 13.5 capped to 4 —
-                    // stays at the line end at 42.95−4).
+                    // The segment's box presses its allocated
+                    // annotation's advance on the line, minus the RUBY's
+                    // own spread overhang — an unspread ruby (annotation
+                    // narrower than the whole base) overhangs nothing, so
+                    // its full allocated advance presses (measured:
+                    // 异/Talent rewinds at 19.875 where the segment-local
+                    // half-excess would have squeaked by; spread
+                    // 咒/Thaumaturgy keeps its split at 42.95 − 2.74).
                     let segment_box = {
-                        let seg_chars = text
-                            .get(item_start..range.end)
-                            .map_or(1.0, |segment| segment.chars().count().max(1) as f64);
-                        let excess = segment_annotation_width - segment_advance;
-                        if excess <= 0.0 {
-                            segment_advance
-                        } else {
-                            let edge = excess / (2.0 * seg_chars);
-                            let cap = item_text_ranges
-                                .iter()
-                                .position(|candidate| candidate.start == item_start)
-                                .and_then(|index| ruby_annotation_caps.get(&index))
-                                .copied()
-                                .unwrap_or(f64::INFINITY);
-                            segment_annotation_width - edge.min(cap)
-                        }
+                        let overhang = item_text_ranges
+                            .iter()
+                            .position(|candidate| candidate.start == item_start)
+                            .and_then(|index| ruby_spread_overhangs.get(&index))
+                            .copied()
+                            .unwrap_or(0.0);
+                        (segment_annotation_width - overhang).max(segment_advance)
                     };
                     if segment_box <= segment_advance + LINE_FIT_EPSILON {
                         continue;
