@@ -643,6 +643,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         consumed,
                         available_for_lines,
                         page_is_empty && !padding_squeezed,
+                        space.fragmentainer_size,
                     );
                     if placement.lines.is_empty() && !placement.exhausted {
                         if padding_squeezed {
@@ -1107,6 +1108,7 @@ fn place_lines(
     consumed: f64,
     remaining: f64,
     fragmentainer_is_empty: bool,
+    fragmentainer_size: Option<f64>,
 ) -> LinePlacement {
     // Resumed lines: skip everything a previous fragmentainer consumed.
     let pending: Vec<&Fragment> = lines
@@ -1146,10 +1148,17 @@ fn place_lines(
             take = 0;
         }
         if take == 0 && fragmentainer_is_empty {
-            // An empty fragmentainer must make progress: the constraints
-            // yield rather than loop (and a line taller than the page
-            // still overflows in place, as before).
-            take = fit_count.max(1);
+            // An empty fragmentainer must make progress — but only a
+            // line taller than the WHOLE page overflows in place. A line
+            // that would fit a full fragmentainer yet not this one is
+            // squeezed by ancestor padding/borders: it breaks to the
+            // next page, where the resumed ancestors carry no leading
+            // edges (measured: Blink's 2px-only blank column before a
+            // full-height illustration in a padded figure).
+            let first_height = pending.first().map_or(0.0, |line| line.rect().height);
+            if fragmentainer_size.is_none_or(|size| first_height > size + f64::EPSILON) {
+                take = fit_count.max(1);
+            }
         }
     }
     let mut placed = Vec::new();
