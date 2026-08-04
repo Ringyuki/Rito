@@ -84,7 +84,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         collapse_root_edges: bool,
     ) -> Result<LayoutOutcome, LayoutError> {
         let children = tree.node(container).children.clone();
-        let (start_child, mut resumed_consumed) = resume_point(&children, token)?;
+        let (start_child, mut resumed_consumed, resumed_inside) = resume_point(&children, token)?;
         let resumed = token.is_some();
         let fragmentainer_is_fresh = space.fragmentainer_remaining == space.fragmentainer_size;
         let mut remaining = space.fragmentainer_remaining.unwrap_or(f64::INFINITY);
@@ -222,6 +222,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let consumed = resumed_consumed;
             resumed_consumed = 0.0;
             let child_resumed = resumed && index == start_child;
+            // An Inside resume continues a box whose first fragment
+            // already carried the leading padding — even when it held
+            // ONLY that padding (consumed 0 lines).
+            let child_resumed_inside = child_resumed && resumed_inside;
             let child_style = container_layout_style(tree, *child_id)?;
             let (top_margin, bottom_margin) = vertical_margins(tree, *child_id, content_width)?;
 
@@ -572,8 +576,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         continue;
                     }
                     // The paragraph's own top padding rides its first
-                    // fragment; bottom padding rides the last.
-                    let leading_padding = if consumed == 0.0 {
+                    // fragment; bottom padding rides the last. An Inside
+                    // resume is never the first fragment, even at zero
+                    // consumed lines (the padding-only fragment case).
+                    let leading_padding = if consumed == 0.0 && !child_resumed_inside {
                         hbox.padding_top
                     } else {
                         0.0
@@ -615,9 +621,65 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         cancel,
                     )?;
                     let available_for_lines = (available - leading_padding).max(0.0);
-                    let placement =
-                        place_lines(&lines, consumed, available_for_lines, page_is_empty);
+                    // A fresh page narrowed by the box's own leading
+                    // padding is NOT force-fit territory when the first
+                    // line would fit a full fragmentainer: the break
+                    // lands after the padding — a padding-only fragment
+                    // — and the line opens the next page at full height
+                    // (measured: Blink leaves a 2px-only blank column
+                    // before a full-height illustration whose 850px
+                    // exactly fills the following column).
+                    let padding_squeezed = page_is_empty
+                        && leading_padding > 0.0
+                        && lines.first().is_some_and(|line| {
+                            let height = line.rect().height;
+                            height > available_for_lines + f64::EPSILON
+                                && space
+                                    .fragmentainer_size
+                                    .is_none_or(|size| height <= size + f64::EPSILON)
+                        });
+                    let placement = place_lines(
+                        &lines,
+                        consumed,
+                        available_for_lines,
+                        page_is_empty && !padding_squeezed,
+                    );
                     if placement.lines.is_empty() && !placement.exhausted {
+                        if padding_squeezed {
+                            // The break lands AFTER the leading padding:
+                            // this page keeps a padding-only fragment
+                            // and the first line opens the next
+                            // fragmentainer at full height, where the
+                            // Inside resume carries no leading padding
+                            // (measured: Blink's 2px-only blank column
+                            // before a full-height illustration).
+                            y = layout_unit(y + gap);
+                            remaining -= gap;
+                            fragments.push(Fragment::Box(BoxFragment {
+                                source: *child_id,
+                                rect: FragmentRect {
+                                    x: content_left + hbox.x,
+                                    y,
+                                    width: hbox.border_width,
+                                    height: leading_padding,
+                                },
+                                children: Vec::new(),
+                            }));
+                            y = layout_unit(y + leading_padding);
+                            return Ok(sealed_with_break(
+                                container,
+                                space.inline_size,
+                                y,
+                                fragments,
+                                BreakToken {
+                                    resume_path: vec![*child_id],
+                                    stage: BreakTokenStage::Inside {
+                                        consumed_block_size: consumed,
+                                    },
+                                    pending_floats: std::mem::take(&mut pending_float_breaks),
+                                },
+                            ));
+                        }
                         // Nothing fits: break before (or inside, when
                         // resuming) with the meeting margin truncated.
                         return Ok(sealed_with_break(
@@ -1558,9 +1620,9 @@ fn descend_token(
 fn resume_point(
     children: &[FormattingNodeId],
     token: Option<&BreakToken>,
-) -> Result<(usize, f64), LayoutError> {
+) -> Result<(usize, f64, bool), LayoutError> {
     let Some(token) = token else {
-        return Ok((0, 0.0));
+        return Ok((0, 0.0, false));
     };
     let Some(target) = token.resume_path.first() else {
         if token.pending_floats.is_empty() {
@@ -1569,7 +1631,7 @@ fn resume_point(
             ));
         }
         // Only split floats resume: every in-flow child already finished.
-        return Ok((children.len(), 0.0));
+        return Ok((children.len(), 0.0, false));
     };
     let index = children
         .iter()
@@ -1578,10 +1640,10 @@ fn resume_point(
             LayoutError::Invalid(format!("break token resumes at unknown child {}", target.0))
         })?;
     match token.stage {
-        BreakTokenStage::Before => Ok((index, 0.0)),
+        BreakTokenStage::Before => Ok((index, 0.0, false)),
         BreakTokenStage::Inside {
             consumed_block_size,
-        } => Ok((index, consumed_block_size)),
+        } => Ok((index, consumed_block_size, true)),
     }
 }
 
@@ -4518,6 +4580,103 @@ single line across page boundaries.";
             "the float anchors below the clear paragraph's margin chain: {}",
             float_box.rect.y
         );
+    }
+
+    /// A fresh fragmentainer narrowed by the box's own leading padding
+    /// breaks AFTER the padding when the first line would fit a full
+    /// page: the page keeps a padding-only fragment and the line opens
+    /// the next fragmentainer (measured: Blink's 2px-only blank column
+    /// before a full-height illustration).
+    #[test]
+    fn leading_padding_breaks_alone_when_it_squeezes_a_full_page_line() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut padded = block_style(margin_px(0.0), margin_px(0.0));
+        padded.padding.top = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(2.0).expect("finite"),
+        ));
+        let layout = layout_table_with(2, |index| {
+            if index == 0 {
+                padded.clone()
+            } else {
+                block_style(margin_px(0.0), margin_px(0.0))
+            }
+        });
+        // FixedLineInline lines are 10px tall; a 10px fragmentainer with
+        // a 2px-padded paragraph reproduces the 850-into-852 squeeze.
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "image line".to_owned(),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(1),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let space = ConstraintSpace {
+            inline_size: 100.0,
+            fragmentainer_remaining: Some(10.0),
+            fragmentainer_size: Some(10.0),
+            float_band: None,
+        };
+        let first = context
+            .layout(&tree, tree.root(), &space, None, &CancelFlag::new())
+            .expect("first page lays out");
+        let Fragment::Box(root) = &first.fragments.root else {
+            panic!("root is a box");
+        };
+        let Some(Fragment::Box(paragraph)) = root.children.first() else {
+            panic!("padding-only paragraph fragment exists");
+        };
+        assert!(
+            paragraph.children.is_empty() && (paragraph.rect.height - 2.0).abs() < 0.01,
+            "first fragment holds only the 2px leading padding: h={} lines={}",
+            paragraph.rect.height,
+            paragraph.children.len()
+        );
+        let token = first.continuation.clone().expect("line resumes next page");
+        let second = context
+            .layout(&tree, tree.root(), &space, Some(&token), &CancelFlag::new())
+            .expect("second page lays out");
+        let Fragment::Box(root2) = &second.fragments.root else {
+            panic!("root is a box");
+        };
+        let Some(Fragment::Box(paragraph2)) = root2.children.first() else {
+            panic!("resumed paragraph exists");
+        };
+        assert!(
+            (paragraph2.rect.height - 10.0).abs() < 0.01 && !paragraph2.children.is_empty(),
+            "the resumed fragment holds the full 10px line with no re-applied padding: h={}",
+            paragraph2.rect.height
+        );
+        assert!(second.continuation.is_none(), "the paragraph finishes");
     }
 
     /// Clearance places the cleared content below the float's bottom
