@@ -14,11 +14,19 @@ export function drawTextShadows(
   const { padLeft, padRight, padTop, padBottom } = computeShadowPadding(shadows);
   const logicalWidth = fragment.rect.width + padLeft + padRight;
   const logicalHeight = fragment.rect.height + padTop + padBottom;
-  if (logicalWidth <= 0 || logicalHeight <= 0) return;
+  // Negated comparisons so NaN dimensions also bail out.
+  if (!(logicalWidth > 0) || !(logicalHeight > 0)) return;
 
-  const pixelRatio = ctx.getTransform().a || 1;
-  const physicalWidth = Math.ceil(logicalWidth * pixelRatio);
-  const physicalHeight = Math.ceil(logicalHeight * pixelRatio);
+  // The device scale is the transform's x-axis VECTOR length, not the
+  // bare `a` component: under a 90° rotation `a` is cos(90°) — a signed
+  // near-zero — and scaling by it ceil'd the scratch canvas to zero
+  // size, which made drawImage throw and wedged the spread's paint (a
+  // title page with rotated shadowed text could never finish rendering,
+  // so paging into it hung forever).
+  const transform = ctx.getTransform();
+  const pixelRatio = Math.hypot(transform.a || 0, transform.b || 0) || 1;
+  const physicalWidth = Math.max(1, Math.ceil(logicalWidth * pixelRatio));
+  const physicalHeight = Math.max(1, Math.ceil(logicalHeight * pixelRatio));
   const scratch = createScratchCanvas(physicalWidth, physicalHeight);
   if (!scratch) return;
 
