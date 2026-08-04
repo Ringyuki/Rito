@@ -1255,12 +1255,14 @@ impl FormattingContext for ParleyInlineContext {
                             _ => annotation_width,
                         }
                     };
-                    // The segment's box, like the spread law's: the edge
-                    // shares overhang the neighbours up to the cap, so
-                    // only annoW − 2·min(edge, cap) presses on the line
-                    // (measured: 咒 stays at the line end under
-                    // Thaumaturgy because the capped box fits where the
-                    // raw annotation advance would not).
+                    // The segment's box: its INNER edge share overhangs
+                    // the neighbouring text up to the cap, but the LINE
+                    // END side cannot overhang past the line — so
+                    // annoW − min(edge, cap) presses on the line
+                    // (measured both ways: 异/Talent — edge 3.5 under
+                    // cap 4 — still rewinds because 23−3.5 overflows,
+                    // while 咒/Thaumaturgy — edge 13.5 capped to 4 —
+                    // stays at the line end at 42.95−4).
                     let segment_box = {
                         let seg_chars = text
                             .get(item_start..range.end)
@@ -1276,7 +1278,7 @@ impl FormattingContext for ParleyInlineContext {
                                 .and_then(|index| ruby_annotation_caps.get(&index))
                                 .copied()
                                 .unwrap_or(f64::INFINITY);
-                            segment_annotation_width - 2.0 * edge.min(cap)
+                            segment_annotation_width - edge.min(cap)
                         }
                     };
                     if segment_box <= segment_advance + LINE_FIT_EPSILON {
