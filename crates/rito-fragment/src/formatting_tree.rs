@@ -37,7 +37,11 @@ pub fn allocate_ruby_annotation(annotation: &str, start_ratio: f64, end_ratio: f
         let len = word.chars().count();
         if len > 0 {
             let midpoint = (char_position as f64 + len as f64 / 2.0) / total as f64;
-            if midpoint >= start_ratio && midpoint < end_ratio {
+            // Half-open on the LEFT: a word whose midpoint lands exactly
+            // on the split point rides the EARLIER segment (measured:
+            // 异|禀 under Talent — midpoint 0.5 at a half-way split —
+            // rewinds because Talent presses on 异's segment).
+            if midpoint > start_ratio && midpoint <= end_ratio {
                 allocated.push(word);
             }
         }
@@ -502,6 +506,24 @@ impl Hasher for FnvMixer {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn ruby_annotation_allocation_follows_word_midpoints() {
+        use super::allocate_ruby_annotation as alloc;
+        // 正规|勇者 under "Legal Brave": Legal (midpoint 0.227) rides the
+        // first half, Brave (0.773) the second.
+        assert_eq!(alloc("Legal Brave", 0.0, 0.5), "Legal");
+        assert_eq!(alloc("Legal Brave", 0.5, f64::INFINITY), "Brave");
+        // A single word whose midpoint lands EXACTLY on the split point
+        // rides the earlier segment (异|禀 under Talent rewinds).
+        assert_eq!(alloc("Talent", 0.0, 0.5), "Talent");
+        assert_eq!(alloc("Talent", 0.5, f64::INFINITY), "");
+        // Front-heavy split keeps a single word on the wide first segment.
+        assert_eq!(alloc("Leprechaun", 0.0, 0.75), "Leprechaun");
+        // Six words split three-quarters in: e and f go down.
+        assert_eq!(alloc("a b c d e f", 0.0, 0.75), "a b c d");
+        assert_eq!(alloc("a b c d e f", 0.75, f64::INFINITY), "e f");
+    }
+
     use super::*;
     use rito_style_contract::{
         AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
