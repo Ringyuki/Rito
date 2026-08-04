@@ -12,6 +12,30 @@ export function strokeBorder(
     strokeHairlineDotted(ctx, edge, x1, y1, x2, y2);
     return;
   }
+  // Measured Blink solid-border raster (offset x width matrix,
+  // 2026-08-05): the band is BINARY device rows — it starts at
+  // round(border-box edge) and spans max(1, floor(width)) rows, no
+  // antialiasing at any sub-pixel phase (a 1.5px border is exactly one
+  // full-tone row). Stroking the centerline smeared two AA rows and sat
+  // one row off at fractional tops.
+  if (edge.style === 'solid' && (x1 === x2 || y1 === y2)) {
+    ctx.fillStyle = edge.color;
+    const bandWidth = Math.max(1, Math.floor(edge.width));
+    if (y1 === y2) {
+      const start = Math.round(Math.min(x1, x2));
+      const end = Math.round(Math.max(x1, x2));
+      // The caller hands the CENTERLINE; the band anchors at the
+      // rounded outer edge and spans toward the box interior.
+      const row = Math.round(y1 - edge.width / 2);
+      ctx.fillRect(start, row, end - start, bandWidth);
+    } else {
+      const start = Math.round(Math.min(y1, y2));
+      const end = Math.round(Math.max(y1, y2));
+      const column = Math.round(x1 - edge.width / 2);
+      ctx.fillRect(column, start, bandWidth, end - start);
+    }
+    return;
+  }
   applyStrokeStyle(ctx, edge);
   const snap = edge.width % 2 === 1 ? 0.5 : 0;
   ctx.beginPath();

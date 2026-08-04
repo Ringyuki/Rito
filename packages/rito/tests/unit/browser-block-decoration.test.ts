@@ -40,6 +40,38 @@ describe('production Canvas block decoration', () => {
     expectProductionToMatchReference(testCase);
   });
 
+  it('rasters straight solid edges as binary device-row bands', () => {
+    // Measured Blink raster: a solid edge starts at round(border-box
+    // edge) and fills max(1, floor(width)) full-tone rows — no
+    // centerline stroke, no antialiasing (a 1.5px border is exactly one
+    // row). Non-solid straight edges keep the stroked path.
+    const production = renderProduction({
+      name: 'straight mixed borders with an absent edge',
+      command: blockCommand(
+        {
+          border: {
+            top: { color: '#110000', style: 'solid' },
+            right: { color: '#001100', style: 'dashed' },
+            bottom: { color: '#000011', style: 'dotted' },
+          },
+        },
+        { topWidth: 1.5, rightWidth: 2, bottomWidth: 3, leftWidth: 4 },
+      ),
+    });
+    const fills = production.records.filter(
+      (record) => isCall(record) && record.method === 'fillRect',
+    );
+    // rect x10 y20 w100: the top edge band = round(10)..round(110) at
+    // round(20), one row for the 1.5px width.
+    expect(fills.map((record) => (isCall(record) ? [...record.args] : []))).toContainEqual([
+      10, 20, 100, 1,
+    ]);
+    const strokes = production.records.filter(
+      (record) => isCall(record) && record.method === 'stroke',
+    );
+    expect(strokes.length).toBeGreaterThan(0);
+  });
+
   it('keeps shadow, color, image, and border paint ordering', () => {
     const testCase = combinedDecorationCase();
     expectProductionToMatchReference(testCase);
@@ -157,19 +189,6 @@ function imageCase(
 
 function borderCases(): readonly DecorationCase[] {
   return [
-    {
-      name: 'straight mixed borders with an absent edge',
-      command: blockCommand(
-        {
-          border: {
-            top: { color: '#110000', style: 'solid' },
-            right: { color: '#001100', style: 'dashed' },
-            bottom: { color: '#000011', style: 'dotted' },
-          },
-        },
-        { topWidth: 1, rightWidth: 2, bottomWidth: 3, leftWidth: 4 },
-      ),
-    },
     {
       name: 'uniform rounded solid border',
       command: blockCommand(
