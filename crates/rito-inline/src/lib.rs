@@ -65,6 +65,9 @@ struct ParagraphLayout {
     /// annotation and widens to at least this advance, which is what the
     /// split-fit rewind checks.
     ruby_annotation_widths: std::collections::HashMap<usize, f64>,
+    /// Per annotated item index: the overhang cap (half the annotation
+    /// size), shared by the split-fit box computation.
+    ruby_annotation_caps: std::collections::HashMap<usize, f64>,
 }
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -668,6 +671,10 @@ impl ParleyInlineContext {
         // the WHOLE annotation and widens to at least its advance.
         let mut ruby_annotation_widths: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
+        // Per annotated item: half the annotation font size — the
+        // overhang cap the split-fit box shares with the spread law.
+        let mut ruby_annotation_caps: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
         let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
         for (range, style, item_index) in &runs {
             let Some(InlineItem::Text {
@@ -690,6 +697,7 @@ impl ParleyInlineContext {
                 self.measure_styled_advance(style, Some(annotation_size), &annotation.text);
             let base_advance = self.measure_styled_advance(style, None, base_text);
             ruby_annotation_widths.insert(*item_index, annotation_advance);
+            ruby_annotation_caps.insert(*item_index, f64::from(annotation_size) / 2.0);
             let excess = annotation_advance - base_advance;
             if excess <= 0.01 {
                 continue;
@@ -930,6 +938,7 @@ impl ParleyInlineContext {
             ruby_spreads,
             ruby_spread_overhangs,
             ruby_annotation_widths,
+            ruby_annotation_caps,
         })
     }
 }
@@ -1088,6 +1097,7 @@ impl FormattingContext for ParleyInlineContext {
                 ruby_spreads,
                 ruby_spread_overhangs,
                 ruby_annotation_widths,
+                ruby_annotation_caps,
             } = self.build_layout(
                 tree,
                 root,
@@ -1245,13 +1255,37 @@ impl FormattingContext for ParleyInlineContext {
                             _ => annotation_width,
                         }
                     };
-                    if segment_annotation_width <= segment_advance + LINE_FIT_EPSILON {
+                    // The segment's box, like the spread law's: the edge
+                    // shares overhang the neighbours up to the cap, so
+                    // only annoW − 2·min(edge, cap) presses on the line
+                    // (measured: 咒 stays at the line end under
+                    // Thaumaturgy because the capped box fits where the
+                    // raw annotation advance would not).
+                    let segment_box = {
+                        let seg_chars = text
+                            .get(item_start..range.end)
+                            .map_or(1.0, |segment| segment.chars().count().max(1) as f64);
+                        let excess = segment_annotation_width - segment_advance;
+                        if excess <= 0.0 {
+                            segment_advance
+                        } else {
+                            let edge = excess / (2.0 * seg_chars);
+                            let cap = item_text_ranges
+                                .iter()
+                                .position(|candidate| candidate.start == item_start)
+                                .and_then(|index| ruby_annotation_caps.get(&index))
+                                .copied()
+                                .unwrap_or(f64::INFINITY);
+                            segment_annotation_width - 2.0 * edge.min(cap)
+                        }
+                    };
+                    if segment_box <= segment_advance + LINE_FIT_EPSILON {
                         continue;
                     }
                     let metrics = line.metrics();
                     let natural =
                         f64::from(metrics.advance) - f64::from(metrics.trailing_whitespace);
-                    if natural - segment_advance + segment_annotation_width <= max_advance {
+                    if natural - segment_advance + segment_box <= max_advance {
                         continue;
                     }
                     if item_start <= range.start {
