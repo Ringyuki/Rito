@@ -1013,6 +1013,29 @@ impl FormattingContext for ParleyInlineContext {
             }
             _ => Vec::new(),
         };
+        // A ruby base is one unbreakable column: the browser never breaks
+        // inside a base its annotation spans (measured: a justified line
+        // keeps 异禀/Talent together and sends both to the next line where
+        // greedy breaking would split them). Segmented mono ruby arrives
+        // as one item per base segment, so per-item atomicity is exactly
+        // the column rule.
+        let ruby_item_ranges: Vec<std::ops::Range<usize>> = match &tree.node(root).content {
+            FormattingNodeContent::InlineFlow { items } => items
+                .iter()
+                .zip(&item_text_ranges)
+                .filter(|(item, _)| {
+                    matches!(
+                        item,
+                        InlineItem::Text {
+                            ruby_annotation: Some(_),
+                            ..
+                        }
+                    )
+                })
+                .map(|(_, range)| range.clone())
+                .collect(),
+            _ => Vec::new(),
+        };
         let mut end_trims: Vec<usize> = Vec::new();
         let mut rejected_trims: Vec<usize> = Vec::new();
         let mut suppressed_pair_trims: Vec<usize> = Vec::new();
@@ -1072,6 +1095,48 @@ impl FormattingContext for ParleyInlineContext {
                 if !confirmed {
                     end_trims.retain(|&trim| trim != byte);
                     rejected_trims.push(byte);
+                    continue;
+                }
+            }
+            // Ruby atomicity first, before any trim reasoning: a soft
+            // break landing strictly inside a ruby-annotated item rewinds
+            // that line to the item's start and re-lays. A base that
+            // opens its line stays split (nothing earlier to rewind to —
+            // the overflow split is the browser's behavior too).
+            if !ruby_item_ranges.is_empty() {
+                let mut rewound_ruby = false;
+                for index in 0..layout.len().saturating_sub(1) {
+                    if forced_line_breaks.iter().any(|(line, _)| *line == index) {
+                        continue;
+                    }
+                    let Some(line) = layout.get(index) else {
+                        continue;
+                    };
+                    if line.break_reason() != parley::layout::BreakReason::Regular {
+                        continue;
+                    }
+                    let range = line.text_range();
+                    let Some(item_start) = ruby_item_ranges.iter().find_map(|ruby| {
+                        (ruby.start < range.end && range.end < ruby.end).then_some(ruby.start)
+                    }) else {
+                        continue;
+                    };
+                    if item_start <= range.start {
+                        continue;
+                    }
+                    let Some(count) = text
+                        .get(range.start..item_start)
+                        .map(|held| held.chars().count())
+                        .filter(|count| *count > 0)
+                        .and_then(|count| u32::try_from(count).ok())
+                    else {
+                        continue;
+                    };
+                    forced_line_breaks.push((index, count));
+                    rewound_ruby = true;
+                    break;
+                }
+                if rewound_ruby {
                     continue;
                 }
             }
@@ -4848,6 +4913,78 @@ running through the quiet forest until the morning light returns.";
                 );
             }
         }
+    }
+
+    /// A ruby base never splits across lines: a soft break that would
+    /// land inside the annotated item rewinds the whole base to the next
+    /// line (the browser's ruby column is unbreakable).
+    #[test]
+    fn a_ruby_base_never_breaks_across_lines() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                .expect("family list"),
+            32.0,
+            0.0,
+        );
+        let mut inline = InlineStyleTableV1::new(1);
+        let interned = inline
+            .intern_for_node(0, style)
+            .expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "中中中中".to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                    InlineItem::Text {
+                        text: "中文".to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                            text: "an".to_owned(),
+                            size_ratio: 0.5,
+                        }),
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        // 165px: four 32px lead glyphs plus the first base glyph fit
+        // (160), so a greedy breaker would split the base after 中.
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(165.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let lines = line_texts(&outcome, "中中中中中文");
+        assert_eq!(
+            lines,
+            vec!["中中中中".to_owned(), "中文".to_owned()],
+            "the whole annotated base moves to the next line"
+        );
     }
 
     /// `ruby-align: space-around`: an annotation wider than its base
