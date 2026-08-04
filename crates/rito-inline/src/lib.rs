@@ -48,6 +48,14 @@ struct ParagraphLayout {
     /// widths shed it so the run rect stays the ink advance the painter
     /// grows the inline box from.
     item_box_sheds: std::collections::HashMap<usize, f64>,
+    /// Per item index: the `ruby-align: space-around` interior gap a
+    /// wide annotation opens between its base's clusters. The gap is
+    /// already injected as letter spacing on every base cluster but the
+    /// last, so line breaking sees the spread advance; the emitted
+    /// fragment re-applies it as justify spacing so the painter spreads
+    /// identically, and the annotation paints over the grown extent
+    /// plus one half-gap of overhang on each side.
+    ruby_spreads: std::collections::HashMap<usize, f64>,
 }
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -505,6 +513,43 @@ impl ParleyInlineContext {
         Ok(height)
     }
 
+    /// Shaped advance of `text` under `style`, optionally at an
+    /// overridden font size, from a one-line throwaway layout. Ruby
+    /// spread sizing measures the annotation (at the rt cascade size,
+    /// inheriting everything else) and the base against each other.
+    fn measure_styled_advance(
+        &self,
+        style: &InlineFormattingStyleV1,
+        size_override: Option<f32>,
+        text: &str,
+    ) -> f64 {
+        if text.is_empty() {
+            return 0.0;
+        }
+        let mut sized;
+        let style = match size_override
+            .and_then(|size| rito_style_contract::NonNegativeCssPx::new(size).ok())
+        {
+            Some(size) => {
+                sized = style.clone();
+                sized.font.size = size;
+                &sized
+            }
+            None => style,
+        };
+        let mut fonts = self.fonts.borrow_mut();
+        let mut layouts = self.layouts.borrow_mut();
+        let mut builder = layouts.ranged_builder(&mut fonts, text, 1.0, true);
+        push_item_styles(&mut builder, style, 0..text.len());
+        let mut layout = builder.build(text);
+        layout.break_all_lines(None);
+        let advance = layout
+            .lines()
+            .next()
+            .map_or(0.0, |line| f64::from(line.metrics().advance));
+        advance
+    }
+
     fn build_layout(
         &self,
         tree: &FormattingTree,
@@ -585,6 +630,85 @@ impl ParleyInlineContext {
                         height,
                     });
                 }
+            }
+        }
+
+        // `ruby-align: space-around` (the UA initial value): an annotation
+        // wider than its base spreads the base. Measured Blink law: the
+        // excess E = annotation advance − base advance splits into n equal
+        // shares (n = base cluster count); half a share overhangs the
+        // adjacent text on each side, capped at half the annotation font
+        // size, and a full share opens between each pair of base clusters.
+        // The interior gaps ride per-range letter spacing on all but the
+        // last base cluster so line breaking sees the spread advance; the
+        // emitted fragment re-applies them as justify spacing and the
+        // annotation paints over the grown extent plus the overhangs.
+        // Measured here, before the builder takes the font borrow.
+        // Justified paragraphs keep the unspread base for now: the justify
+        // plan owns their letter spacing, and mixing both spreads on the
+        // one painted spacing value would misplace every cluster.
+        let mut ruby_spreads: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
+        let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
+        let paragraph_justified = items
+            .first()
+            .and_then(|item| {
+                let style_id = match item {
+                    InlineItem::Text { style, .. } | InlineItem::Image { style, .. } => *style,
+                };
+                styles.inline.style(style_id).ok()
+            })
+            .is_some_and(|style| {
+                paragraph_alignment(style.text_flow.text_align) == parley::Alignment::Justify
+            });
+        if !paragraph_justified {
+            for (range, style, item_index) in &runs {
+                let Some(InlineItem::Text {
+                    ruby_annotation: Some(annotation),
+                    ..
+                }) = items.get(*item_index)
+                else {
+                    continue;
+                };
+                if annotation.text.is_empty() || range.is_empty() {
+                    continue;
+                }
+                let base_text = &text[range.clone()];
+                let cluster_count = base_text.chars().count();
+                if cluster_count == 0 {
+                    continue;
+                }
+                let annotation_size = style.font.size.get() * annotation.size_ratio;
+                let annotation_advance =
+                    self.measure_styled_advance(style, Some(annotation_size), &annotation.text);
+                let base_advance = self.measure_styled_advance(style, None, base_text);
+                let excess = annotation_advance - base_advance;
+                if excess <= 0.01 {
+                    continue;
+                }
+                let edge_share = excess / (2.0 * cluster_count as f64);
+                // Past the overhang cap the base stops absorbing excess
+                // and recenters inside the annotation extent instead —
+                // not modeled yet; those rubies keep the unspread base.
+                if edge_share > f64::from(annotation_size) / 2.0 {
+                    continue;
+                }
+                let gap = excess / cluster_count as f64;
+                if cluster_count >= 2 {
+                    let last_cluster_start = base_text
+                        .char_indices()
+                        .next_back()
+                        .map_or(range.start, |(offset, _)| range.start + offset);
+                    let author = match style.text_flow.letter_spacing {
+                        LengthPercentage::Length(px) => px.get(),
+                        _ => 0.0,
+                    };
+                    if last_cluster_start > range.start {
+                        ruby_spread_edits
+                            .push((range.start..last_cluster_start, author + gap as f32));
+                    }
+                }
+                ruby_spreads.insert(*item_index, gap);
             }
         }
 
@@ -728,6 +852,9 @@ impl ParleyInlineContext {
         for (range, gap, author) in box_edits {
             builder.push(StyleProperty::LetterSpacing(author + gap), range);
         }
+        for (range, spacing) in &ruby_spread_edits {
+            builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
+        }
         push_line_end_trims(&mut builder, &text, &runs, end_trims);
         for image_box in image_boxes {
             builder.push_inline_box(image_box);
@@ -768,6 +895,7 @@ impl ParleyInlineContext {
             first_line_indent,
             pair_trims,
             item_box_sheds,
+            ruby_spreads,
         })
     }
 }
@@ -903,7 +1031,8 @@ impl FormattingContext for ParleyInlineContext {
         let mut suppressed_pair_trims: Vec<usize> = Vec::new();
         let mut forced_line_breaks: Vec<(usize, u32)> = Vec::new();
         let mut pending_trim: Option<usize> = None;
-        let (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds) = loop {
+        let (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds, ruby_spreads) =
+            loop {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
             }
@@ -915,6 +1044,7 @@ impl FormattingContext for ParleyInlineContext {
                 first_line_indent,
                 pair_trims,
                 item_box_sheds,
+                ruby_spreads,
             } = self.build_layout(
                 tree,
                 root,
@@ -1021,7 +1151,14 @@ impl FormattingContext for ParleyInlineContext {
                     if rewound {
                         continue;
                     }
-                    break (layout, alignment, shifted_ranges, first_line_indent, item_box_sheds);
+                    break (
+                        layout,
+                        alignment,
+                        shifted_ranges,
+                        first_line_indent,
+                        item_box_sheds,
+                        ruby_spreads,
+                    );
                 }
             }
         };
@@ -1300,6 +1437,11 @@ impl FormattingContext for ParleyInlineContext {
                         } else {
                             0.0
                         };
+                        // A ruby spread's interior gap re-applies at paint
+                        // as justify spacing: the painter's letter-spacing
+                        // matches the shaped gap advances, and the
+                        // annotation extent is re-derived from it.
+                        let ruby_gap = ruby_spreads.get(&item_index).copied().unwrap_or(0.0);
                         match &justify_plan {
                             None => {
                                 // The canvas shapes each fillText call on
@@ -1322,7 +1464,7 @@ impl FormattingContext for ParleyInlineContext {
                                         run_range,
                                         run_x,
                                         f64::from(glyph_run.advance()) - box_shed,
-                                        0.0,
+                                        ruby_gap,
                                     );
                                 } else {
                                     let mut seg_start = run_range.start;
@@ -1344,7 +1486,7 @@ impl FormattingContext for ParleyInlineContext {
                                                 seg_start..byte,
                                                 seg_x,
                                                 natural_x - seg_x,
-                                                0.0,
+                                                ruby_gap,
                                             );
                                             seg_start = byte;
                                             seg_x = natural_x;
@@ -1362,7 +1504,7 @@ impl FormattingContext for ParleyInlineContext {
                                             run_x + f64::from(glyph_run.advance())
                                                 - seg_x
                                                 - box_shed,
-                                            0.0,
+                                            ruby_gap,
                                         );
                                     }
                                 }
@@ -2039,6 +2181,16 @@ impl FormattingContext for ParleyInlineContext {
                      baseline={baseline} height={line_height} max_rise={max_rise} \
                      misses={debug_misses:?}"
                 );
+            }
+            // A spread base's per-range letter spacing splits its glyph
+            // run at the last cluster (the one cluster without a gap).
+            // Painted apart, each piece would repeat the annotation over
+            // its own extent; merged back, one fragment with the gap as
+            // justify spacing paints every cluster at its shaped position
+            // — the trailing gap after the last cluster falls outside the
+            // rect and the canvas never draws it.
+            if !ruby_spreads.is_empty() {
+                merge_ruby_spread_fragments(&mut children, &item_text_ranges, &ruby_spreads);
             }
             let children: Vec<Fragment> = children
                 .into_iter()
@@ -2862,6 +3014,45 @@ fn line_end_trim_eligible(character: char) -> bool {
 /// closing glyph itself — the same mechanism as the pair trims, so the
 /// trimmed character is isolated in its own glyph run and the paint stays
 /// position-exact. The blank right half collapses; the ink does not move.
+/// Re-fuses the text fragments a ruby spread's letter-spacing edit split
+/// apart, so each spread base paints (and carries its annotation) as one
+/// fragment per line. Only adjacent, byte- and geometry-contiguous
+/// fragments inside a single spread item merge; everything else passes
+/// through untouched.
+fn merge_ruby_spread_fragments(
+    children: &mut Vec<(Fragment, f64)>,
+    item_ranges: &[std::ops::Range<usize>],
+    ruby_spreads: &std::collections::HashMap<usize, f64>,
+) {
+    let mut merged: Vec<(Fragment, f64)> = Vec::with_capacity(children.len());
+    for (fragment, shift) in children.drain(..) {
+        let mergeable = match (&fragment, merged.last()) {
+            (Fragment::Text(next), Some((Fragment::Text(previous), previous_shift))) => {
+                next.text_start == previous.text_end
+                    && *previous_shift == shift
+                    && (next.rect.x - (previous.rect.x + previous.rect.width)).abs() < 0.5
+                    && item_ranges.iter().enumerate().any(|(index, range)| {
+                        ruby_spreads.contains_key(&index)
+                            && range.start <= previous.text_start as usize
+                            && next.text_end as usize <= range.end
+                    })
+            }
+            _ => false,
+        };
+        if mergeable {
+            if let (Fragment::Text(next), Some((Fragment::Text(previous), _))) =
+                (&fragment, merged.last_mut())
+            {
+                previous.rect.width = next.rect.x + next.rect.width - previous.rect.x;
+                previous.text_end = next.text_end;
+            }
+            continue;
+        }
+        merged.push((fragment, shift));
+    }
+    *children = merged;
+}
+
 fn push_line_end_trims(
     builder: &mut RangedBuilder<'_, [u8; 4]>,
     text: &str,
@@ -4646,6 +4837,117 @@ running through the quiet forest until the morning light returns.";
                 );
             }
         }
+    }
+
+    /// `ruby-align: space-around`: an annotation wider than its base
+    /// opens the excess as interior gaps between the base clusters (all
+    /// but one share; the rest overhangs), so the base run widens by
+    /// exactly (n−1) gaps and carries the gap as justify spacing.
+    #[test]
+    fn a_wide_ruby_annotation_spreads_its_base_with_interior_gaps() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                .expect("family list"),
+            32.0,
+            0.0,
+        );
+        let ratio = 0.5_f32;
+        let annotation_advance =
+            context.measure_styled_advance(&style, Some(32.0 * ratio), "annotation");
+        let base_advance = context.measure_styled_advance(&style, None, "中文");
+        assert!(
+            annotation_advance > base_advance + 1.0,
+            "fixture must need a spread: annotation {annotation_advance} vs base {base_advance}"
+        );
+        let gap = (annotation_advance - base_advance) / 2.0;
+
+        let mut inline = InlineStyleTableV1::new(1);
+        let interned = inline
+            .intern_for_node(0, style.clone())
+            .expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "中文".to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                            text: "annotation".to_owned(),
+                            size_ratio: ratio,
+                        }),
+                    },
+                    InlineItem::Text {
+                        text: "中文".to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("inline outcome root is a box fragment");
+        };
+        let Some(Fragment::Line(line)) = root.children.first() else {
+            panic!("outcome has a first line");
+        };
+        let runs: Vec<&TextFragment> = line
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Text(run) => Some(run),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(runs.len(), 2, "one run per item");
+        let (ruby_run, plain_run) = (runs[0], runs[1]);
+        assert!(
+            (ruby_run.justify_px - gap).abs() < 0.1,
+            "ruby run carries the interior gap as justify spacing: {} vs {gap}",
+            ruby_run.justify_px
+        );
+        assert_eq!(plain_run.justify_px, 0.0);
+        assert!(
+            (ruby_run.rect.width - (base_advance + gap)).abs() < 0.1,
+            "base spreads by one interior gap (n = 2): width {} vs {}",
+            ruby_run.rect.width,
+            base_advance + gap
+        );
+        assert!(
+            (plain_run.rect.width - base_advance).abs() < 0.1,
+            "the plain neighbour stays at its natural advance"
+        );
+        assert!(
+            (plain_run.rect.x - (ruby_run.rect.x + ruby_run.rect.width)).abs() < 0.1,
+            "the neighbour starts right after the spread base"
+        );
     }
 
 }
