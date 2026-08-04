@@ -935,13 +935,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // question — what the box hands its PARENT, a margin-box
         // contribution (css-sizing-3 §5.2) — so an inline flow's raw
         // content sizes are taken directly, before its own margins are
-        // folded in.
-        let sizes = match tree.node(child_id).content {
-            FormattingNodeContent::InlineFlow { .. } => {
-                self.inline.intrinsic_inline_sizes(tree, child_id)?
-            }
-            _ => self.intrinsic_inline_sizes(tree, child_id)?,
-        };
+        // folded in, and a container's contribution gives its own
+        // horizontal margins back (measured: a title page's float
+        // columns each carrying `margin-left: 0.2em` doubled every
+        // inter-column gap when the margin stayed inside the fit).
         let resolve = |value| resolve_length_percentage(value, content_width);
         let margin_used = [child_style.margin.left, child_style.margin.right]
             .iter()
@@ -950,6 +947,18 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 LengthPercentageOrAuto::Value(value) => resolve(*value),
             })
             .sum::<f64>();
+        let sizes = match tree.node(child_id).content {
+            FormattingNodeContent::InlineFlow { .. } => {
+                self.inline.intrinsic_inline_sizes(tree, child_id)?
+            }
+            _ => {
+                let contribution = self.intrinsic_inline_sizes(tree, child_id)?;
+                IntrinsicInlineSizes {
+                    min_content: (contribution.min_content - margin_used).max(0.0),
+                    max_content: (contribution.max_content - margin_used).max(0.0),
+                }
+            }
+        };
         let padding_left = resolve(child_style.padding.left.value()).max(0.0);
         let padding_right = resolve(child_style.padding.right.value()).max(0.0);
         let available = (content_width - margin_used - padding_left - padding_right).max(0.0);
@@ -4323,6 +4332,97 @@ single line across page boundaries.";
         assert!(
             (float_box.rect.x - (500.0 - 100.0 - 32.0)).abs() < 0.01,
             "the right margin insets the float from the right edge: {}",
+            float_box.rect.x
+        );
+    }
+
+    /// A float that is itself a BLOCK CONTAINER shrinks to its content
+    /// fit too: the container intrinsics hand the parent a margin-box
+    /// contribution, and the float's own margins must come back out of
+    /// the fit (measured: a title page's float:right columns each with
+    /// `margin-left: 0.2em` doubled every inter-column gap).
+    #[test]
+    fn container_float_shrink_to_fit_excludes_its_own_margins() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
+        float_style.float = FloatV1::Right;
+        float_style.margin.left = margin_px(7.0);
+        let layout = layout_table_with(3, |index| {
+            if index == 1 {
+                float_style.clone()
+            } else {
+                block_style(margin_px(0.0), margin_px(0.0))
+            }
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "icon".to_owned(),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            },
+            // The float is a block CONTAINER (paragraph inside), so the
+            // shrink-to-fit path queries container intrinsics.
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Box(float_box) = &root.children[0] else {
+            panic!("float child is a box");
+        };
+        // FixedLineInline reports max-content 100; the container float's
+        // own 7px margin-left must not widen its border box.
+        assert!(
+            (float_box.rect.width - 100.0).abs() < 0.01,
+            "container shrink-to-fit strips the float's own margins: {}",
+            float_box.rect.width
+        );
+        assert!(
+            (float_box.rect.x - (500.0 - 100.0)).abs() < 0.01,
+            "a float:right box hugs the right edge; its margin-left stays outside: {}",
             float_box.rect.x
         );
     }
