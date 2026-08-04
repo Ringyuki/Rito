@@ -27,6 +27,10 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 struct ProbeRequest {
     epub_path: String,
+    /// When set, lay out page by page at this fragmentainer height and
+    /// report each page's lines separately (page index in `page`).
+    #[serde(default)]
+    fragmentainer_size: Option<f64>,
     font_paths: Vec<String>,
     /// Book-embedded faces bound to their `@font-face` declared family
     /// names, exactly as the browser page loads them.
@@ -67,6 +71,9 @@ struct ProbeChapter {
 #[serde(rename_all = "camelCase")]
 struct ProbeLine {
     text: String,
+    /// Page index when paginated probing is on.
+    #[serde(default)]
+    page: u32,
     x: f64,
     /// Line box top in content-box coordinates.
     y: f64,
@@ -141,6 +148,54 @@ fn main() {
                 continue;
             }
         };
+        let paginated = request.fragmentainer_size.map(|size| ConstraintSpace {
+            inline_size: request.content_width_px,
+            fragmentainer_remaining: Some(size),
+            fragmentainer_size: Some(size),
+            float_band: None,
+        });
+        if let Some(page_space) = paginated {
+            let mut lines = Vec::new();
+            let mut token: Option<rito_fragment::BreakToken> = None;
+            let mut page = 0u32;
+            let mut error = None;
+            loop {
+                match engine.layout(
+                    &built.tree,
+                    built.tree.root(),
+                    &page_space,
+                    token.as_ref(),
+                    &cancel,
+                ) {
+                    Ok(outcome) => {
+                        let start = lines.len();
+                        collect_lines(&outcome.fragments.root, &built, 0.0, 0.0, &mut lines);
+                        for line in &mut lines[start..] {
+                            line.page = page;
+                        }
+                        page += 1;
+                        if page > 2000 {
+                            error = Some("pagination did not converge".to_owned());
+                            break;
+                        }
+                        match outcome.continuation {
+                            Some(next) => token = Some(next),
+                            None => break,
+                        }
+                    }
+                    Err(err) => {
+                        error = Some(err.to_string());
+                        break;
+                    }
+                }
+            }
+            chapters.push(ProbeChapter {
+                idref: idref.clone(),
+                error,
+                lines,
+            });
+            continue;
+        }
         match engine.layout(&built.tree, built.tree.root(), &space, None, &cancel) {
             Ok(outcome) => {
                 let mut lines = Vec::new();
@@ -240,6 +295,7 @@ fn collect_lines(
                 width,
                 height: line.rect.height,
                 source: line.source.0,
+                page: 0,
             });
         }
         Fragment::Text(_) | Fragment::Image(_) => {}
