@@ -77,6 +77,13 @@ pub struct TextFragment {
     /// letter spacing. The rect already sits at its justified position;
     /// this spreads the run's own characters apart.
     pub justify_px: f64,
+    /// The `ruby-align: space-around` interior gap a wide annotation
+    /// opened between this run's clusters, painted as additional letter
+    /// spacing like `justify_px`. Kept separate because the annotation
+    /// extent derives from it (one gap of widening, half overhanging
+    /// each side) while justification spacing never widens the
+    /// annotation.
+    pub ruby_gap_px: f64,
     /// Raster anchoring for a run inside a decorated inline box, absent
     /// for bare text (which snaps off the line box alone).
     pub box_snap: Option<BoxSnap>,

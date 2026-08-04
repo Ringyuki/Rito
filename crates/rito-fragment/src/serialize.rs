@@ -97,6 +97,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             out.extend_from_slice(&fragment.text_start.to_le_bytes());
             out.extend_from_slice(&fragment.text_end.to_le_bytes());
             out.extend_from_slice(&fragment.justify_px.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.ruby_gap_px.to_bits().to_le_bytes());
             match &fragment.box_snap {
                 None => out.push(0),
                 Some(snap) => {
@@ -174,6 +175,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
             let text_start = reader.u32()?;
             let text_end = reader.u32()?;
             let justify_px = reader.f64()?;
+            let ruby_gap_px = reader.f64()?;
             let box_snap = match reader.u8()? {
                 0 => None,
                 1 => Some(crate::BoxSnap {
@@ -190,6 +192,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 text_start,
                 text_end,
                 justify_px,
+                ruby_gap_px,
                 box_snap,
             }))
         }
@@ -438,6 +441,7 @@ mod tests {
                             text_end: 42,
                             box_snap: None,
                             justify_px: 0.25,
+                            ruby_gap_px: 1.5,
                         })],
                     })],
                 }),

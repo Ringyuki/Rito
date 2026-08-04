@@ -496,7 +496,10 @@ fn append_text_run_command(
     let mut paint = run_paint(
         style,
         family_policy,
-        run.justify_px,
+        // A ruby spread's interior gap rides the same painted
+        // letter-spacing knob as justify shares (they never coexist on
+        // one run: a spread base receives no interior justification).
+        run.justify_px + run.ruby_gap_px,
         start == item_range.start,
         end == item_range.end,
     )?;
@@ -561,17 +564,19 @@ fn append_text_run_command(
         // the base's paint anchor. A base split across lines repeats its
         // full annotation over each of its runs.
         let annotation_size = font_size * annotation_ratio;
-        // A space-around spread carries its interior gap as the run's
-        // justify spacing: the base advance holds (n−1) gaps, and the
-        // annotation spans one more share — half a gap of overhang past
-        // each base edge — so widening the centered rect by one gap
-        // reconstructs the annotation's exact extent.
+        // A space-around spread base advance holds (n−1) interior gaps,
+        // and the annotation spans one more share — half a gap of
+        // overhang past each base edge — so widening the centered rect
+        // by one gap reconstructs the annotation's exact extent. Justify
+        // spacing (justify_px) deliberately does NOT widen the rect: a
+        // justified narrow-annotation base grows through its own extent
+        // and the annotation only re-centers over it.
         commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
             text: Value::String(annotation.clone()),
             rect: rect_value(
-                line_x + run.rect.x - run.justify_px / 2.0,
+                line_x + run.rect.x - run.ruby_gap_px / 2.0,
                 em_top - annotation_size - 1.0,
-                run.rect.width + run.justify_px,
+                run.rect.width + run.ruby_gap_px,
                 annotation_size,
             ),
             paint: paint.for_ruby(annotation_size),
@@ -1123,6 +1128,7 @@ mod tests {
             text_end: end,
             box_snap: None,
             justify_px: 0.0,
+            ruby_gap_px: 0.0,
         })
     }
 

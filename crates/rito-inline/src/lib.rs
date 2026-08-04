@@ -643,73 +643,60 @@ impl ParleyInlineContext {
         // last base cluster so line breaking sees the spread advance; the
         // emitted fragment re-applies them as justify spacing and the
         // annotation paints over the grown extent plus the overhangs.
-        // Measured here, before the builder takes the font borrow.
-        // Justified paragraphs keep the unspread base for now: the justify
-        // plan owns their letter spacing, and mixing both spreads on the
-        // one painted spacing value would misplace every cluster.
+        // Measured here, before the builder takes the font borrow. A
+        // justified paragraph spreads identically (measured: a justified
+        // wide-annotation ruby is bit-identical to the left-aligned one)
+        // — justification then adds NO opportunities inside the spread
+        // base (see `line_justify_plan`), only at its outer boundaries.
         let mut ruby_spreads: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
         let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
-        let paragraph_justified = items
-            .first()
-            .and_then(|item| {
-                let style_id = match item {
-                    InlineItem::Text { style, .. } | InlineItem::Image { style, .. } => *style,
-                };
-                styles.inline.style(style_id).ok()
-            })
-            .is_some_and(|style| {
-                paragraph_alignment(style.text_flow.text_align) == parley::Alignment::Justify
-            });
-        if !paragraph_justified {
-            for (range, style, item_index) in &runs {
-                let Some(InlineItem::Text {
-                    ruby_annotation: Some(annotation),
-                    ..
-                }) = items.get(*item_index)
-                else {
-                    continue;
-                };
-                if annotation.text.is_empty() || range.is_empty() {
-                    continue;
-                }
-                let base_text = &text[range.clone()];
-                let cluster_count = base_text.chars().count();
-                if cluster_count == 0 {
-                    continue;
-                }
-                let annotation_size = style.font.size.get() * annotation.size_ratio;
-                let annotation_advance =
-                    self.measure_styled_advance(style, Some(annotation_size), &annotation.text);
-                let base_advance = self.measure_styled_advance(style, None, base_text);
-                let excess = annotation_advance - base_advance;
-                if excess <= 0.01 {
-                    continue;
-                }
-                let edge_share = excess / (2.0 * cluster_count as f64);
-                // Past the overhang cap the base stops absorbing excess
-                // and recenters inside the annotation extent instead —
-                // not modeled yet; those rubies keep the unspread base.
-                if edge_share > f64::from(annotation_size) / 2.0 {
-                    continue;
-                }
-                let gap = excess / cluster_count as f64;
-                if cluster_count >= 2 {
-                    let last_cluster_start = base_text
-                        .char_indices()
-                        .next_back()
-                        .map_or(range.start, |(offset, _)| range.start + offset);
-                    let author = match style.text_flow.letter_spacing {
-                        LengthPercentage::Length(px) => px.get(),
-                        _ => 0.0,
-                    };
-                    if last_cluster_start > range.start {
-                        ruby_spread_edits
-                            .push((range.start..last_cluster_start, author + gap as f32));
-                    }
-                }
-                ruby_spreads.insert(*item_index, gap);
+        for (range, style, item_index) in &runs {
+            let Some(InlineItem::Text {
+                ruby_annotation: Some(annotation),
+                ..
+            }) = items.get(*item_index)
+            else {
+                continue;
+            };
+            if annotation.text.is_empty() || range.is_empty() {
+                continue;
             }
+            let base_text = &text[range.clone()];
+            let cluster_count = base_text.chars().count();
+            if cluster_count == 0 {
+                continue;
+            }
+            let annotation_size = style.font.size.get() * annotation.size_ratio;
+            let annotation_advance =
+                self.measure_styled_advance(style, Some(annotation_size), &annotation.text);
+            let base_advance = self.measure_styled_advance(style, None, base_text);
+            let excess = annotation_advance - base_advance;
+            if excess <= 0.01 {
+                continue;
+            }
+            let edge_share = excess / (2.0 * cluster_count as f64);
+            // Past the overhang cap the base stops absorbing excess
+            // and recenters inside the annotation extent instead —
+            // not modeled yet; those rubies keep the unspread base.
+            if edge_share > f64::from(annotation_size) / 2.0 {
+                continue;
+            }
+            let gap = excess / cluster_count as f64;
+            if cluster_count >= 2 {
+                let last_cluster_start = base_text
+                    .char_indices()
+                    .next_back()
+                    .map_or(range.start, |(offset, _)| range.start + offset);
+                let author = match style.text_flow.letter_spacing {
+                    LengthPercentage::Length(px) => px.get(),
+                    _ => 0.0,
+                };
+                if last_cluster_start > range.start {
+                    ruby_spread_edits.push((range.start..last_cluster_start, author + gap as f32));
+                }
+            }
+            ruby_spreads.insert(*item_index, gap);
         }
 
         let mut fonts = self.fonts.borrow_mut();
@@ -1282,7 +1269,13 @@ impl FormattingContext for ParleyInlineContext {
                 .any(|item| matches!(&item, PositionedLayoutItem::InlineBox(_)));
             // Env-gated line forensics for the native probe binary (wasm
             // has no env; the flag simply never sets there).
-            let line_debug = std::env::var_os("RITO_LINE_DEBUG").is_some();
+            // Flow-text ranges of the spread ruby bases: justification must
+        // not open interior opportunities inside them.
+        let spread_ranges: Vec<std::ops::Range<usize>> = ruby_spreads
+            .keys()
+            .filter_map(|index| item_text_ranges.get(*index).cloned())
+            .collect();
+        let line_debug = std::env::var_os("RITO_LINE_DEBUG").is_some();
             let mut debug_misses: Vec<String> = Vec::new();
             let ink_top = f64::from(metrics.block_min_coord);
             let line_x = f64::from(metrics.offset);
@@ -1299,7 +1292,7 @@ impl FormattingContext for ParleyInlineContext {
                 let indent = if range.start == 0 { first_line_indent } else { 0.0 };
                 let target = f64::from(line_max_advance(line_top)) - f64::from(indent);
                 let advance = f64::from(metrics.advance - metrics.trailing_whitespace);
-                line_justify_plan(&flow_text, range, target - advance)
+                line_justify_plan(&flow_text, range, target - advance, &spread_ranges)
             } else {
                 None
             };
@@ -1409,6 +1402,12 @@ impl FormattingContext for ParleyInlineContext {
                             let metric = self.host_normal_line_peek(&resolved, "");
                             item_box_snap(&resolved, metric)
                         });
+                        // A ruby spread's interior gap re-applies at paint
+                        // as extra letter spacing (like justify spacing,
+                        // but kept apart: the annotation extent derives
+                        // from it while justify shares never widen the
+                        // annotation).
+                        let ruby_gap = ruby_spreads.get(&item_index).copied().unwrap_or(0.0);
                         let mut emit = |range: std::ops::Range<usize>,
                                         x: f64,
                                         width: f64,
@@ -1425,6 +1424,7 @@ impl FormattingContext for ParleyInlineContext {
                                     text_start: range.start as u32,
                                     text_end: range.end as u32,
                                     justify_px,
+                                    ruby_gap_px: ruby_gap,
                                     box_snap: run_box_snap,
                                 }),
                                 shift,
@@ -1437,11 +1437,6 @@ impl FormattingContext for ParleyInlineContext {
                         } else {
                             0.0
                         };
-                        // A ruby spread's interior gap re-applies at paint
-                        // as justify spacing: the painter's letter-spacing
-                        // matches the shaped gap advances, and the
-                        // annotation extent is re-derived from it.
-                        let ruby_gap = ruby_spreads.get(&item_index).copied().unwrap_or(0.0);
                         match &justify_plan {
                             None => {
                                 // The canvas shapes each fillText call on
@@ -1464,7 +1459,7 @@ impl FormattingContext for ParleyInlineContext {
                                         run_range,
                                         run_x,
                                         f64::from(glyph_run.advance()) - box_shed,
-                                        ruby_gap,
+                                        0.0,
                                     );
                                 } else {
                                     let mut seg_start = run_range.start;
@@ -1486,7 +1481,7 @@ impl FormattingContext for ParleyInlineContext {
                                                 seg_start..byte,
                                                 seg_x,
                                                 natural_x - seg_x,
-                                                ruby_gap,
+                                                0.0,
                                             );
                                             seg_start = byte;
                                             seg_x = natural_x;
@@ -1504,7 +1499,7 @@ impl FormattingContext for ParleyInlineContext {
                                             run_x + f64::from(glyph_run.advance())
                                                 - seg_x
                                                 - box_shed,
-                                            ruby_gap,
+                                            0.0,
                                         );
                                     }
                                 }
@@ -2449,6 +2444,7 @@ fn line_justify_plan(
     text: &str,
     range: std::ops::Range<usize>,
     slack: f64,
+    spread_ranges: &[std::ops::Range<usize>],
 ) -> Option<JustifyPlan> {
     if !(slack > 0.0) {
         return None;
@@ -2461,6 +2457,21 @@ fn line_justify_plan(
     let mut previous: Option<char> = None;
     for (offset, character) in content.char_indices() {
         if let Some(left) = previous {
+            // A spread ruby base receives NO interior expansion: its
+            // clusters already sit at the annotation-dictated spacing
+            // (measured: a justified wide-annotation ruby is
+            // bit-identical to the left-aligned one, while a
+            // narrow-annotation base justifies like plain text). Only
+            // its outer boundaries carry shares.
+            let boundary = range.start + offset;
+            if spread_ranges
+                .iter()
+                .any(|spread| spread.start < boundary && boundary < spread.end)
+            {
+                pending = 0;
+                previous = Some(character);
+                continue;
+            }
             let mut count = pending;
             pending = 0;
             if justify_expands_after(left) {
@@ -4929,11 +4940,11 @@ running through the quiet forest until the morning light returns.";
         assert_eq!(runs.len(), 2, "one run per item");
         let (ruby_run, plain_run) = (runs[0], runs[1]);
         assert!(
-            (ruby_run.justify_px - gap).abs() < 0.1,
-            "ruby run carries the interior gap as justify spacing: {} vs {gap}",
-            ruby_run.justify_px
+            (ruby_run.ruby_gap_px - gap).abs() < 0.1,
+            "ruby run carries the interior gap: {} vs {gap}",
+            ruby_run.ruby_gap_px
         );
-        assert_eq!(plain_run.justify_px, 0.0);
+        assert_eq!(plain_run.ruby_gap_px, 0.0);
         assert!(
             (ruby_run.rect.width - (base_advance + gap)).abs() < 0.1,
             "base spreads by one interior gap (n = 2): width {} vs {}",
