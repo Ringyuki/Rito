@@ -1013,29 +1013,6 @@ impl FormattingContext for ParleyInlineContext {
             }
             _ => Vec::new(),
         };
-        // A ruby base is one unbreakable column: the browser never breaks
-        // inside a base its annotation spans (measured: a justified line
-        // keeps 异禀/Talent together and sends both to the next line where
-        // greedy breaking would split them). Segmented mono ruby arrives
-        // as one item per base segment, so per-item atomicity is exactly
-        // the column rule.
-        let ruby_item_ranges: Vec<std::ops::Range<usize>> = match &tree.node(root).content {
-            FormattingNodeContent::InlineFlow { items } => items
-                .iter()
-                .zip(&item_text_ranges)
-                .filter(|(item, _)| {
-                    matches!(
-                        item,
-                        InlineItem::Text {
-                            ruby_annotation: Some(_),
-                            ..
-                        }
-                    )
-                })
-                .map(|(_, range)| range.clone())
-                .collect(),
-            _ => Vec::new(),
-        };
         let mut end_trims: Vec<usize> = Vec::new();
         let mut rejected_trims: Vec<usize> = Vec::new();
         let mut suppressed_pair_trims: Vec<usize> = Vec::new();
@@ -1095,48 +1072,6 @@ impl FormattingContext for ParleyInlineContext {
                 if !confirmed {
                     end_trims.retain(|&trim| trim != byte);
                     rejected_trims.push(byte);
-                    continue;
-                }
-            }
-            // Ruby atomicity first, before any trim reasoning: a soft
-            // break landing strictly inside a ruby-annotated item rewinds
-            // that line to the item's start and re-lays. A base that
-            // opens its line stays split (nothing earlier to rewind to —
-            // the overflow split is the browser's behavior too).
-            if !ruby_item_ranges.is_empty() {
-                let mut rewound_ruby = false;
-                for index in 0..layout.len().saturating_sub(1) {
-                    if forced_line_breaks.iter().any(|(line, _)| *line == index) {
-                        continue;
-                    }
-                    let Some(line) = layout.get(index) else {
-                        continue;
-                    };
-                    if line.break_reason() != parley::layout::BreakReason::Regular {
-                        continue;
-                    }
-                    let range = line.text_range();
-                    let Some(item_start) = ruby_item_ranges.iter().find_map(|ruby| {
-                        (ruby.start < range.end && range.end < ruby.end).then_some(ruby.start)
-                    }) else {
-                        continue;
-                    };
-                    if item_start <= range.start {
-                        continue;
-                    }
-                    let Some(count) = text
-                        .get(range.start..item_start)
-                        .map(|held| held.chars().count())
-                        .filter(|count| *count > 0)
-                        .and_then(|count| u32::try_from(count).ok())
-                    else {
-                        continue;
-                    };
-                    forced_line_breaks.push((index, count));
-                    rewound_ruby = true;
-                    break;
-                }
-                if rewound_ruby {
                     continue;
                 }
             }
@@ -2168,8 +2103,13 @@ impl FormattingContext for ParleyInlineContext {
             let ruby_growth = {
                 let mut growth = 0.0_f64;
                 for (index, range) in item_text_ranges.iter().enumerate() {
+                    // The line holding the item's FIRST byte is the one
+                    // its annotation sits over — a base split across
+                    // lines keeps the whole annotation on the first
+                    // segment and later segments run bare, so only the
+                    // first line grows.
                     let on_line = line_text_range
-                        .is_some_and(|(start, end)| range.start < end && start < range.end);
+                        .is_some_and(|(start, end)| range.start >= start && range.start < end);
                     if !on_line || range.is_empty() {
                         continue;
                     }
@@ -4957,11 +4897,12 @@ running through the quiet forest until the morning light returns.";
         }
     }
 
-    /// A ruby base never splits across lines: a soft break that would
-    /// land inside the annotated item rewinds the whole base to the next
-    /// line (the browser's ruby column is unbreakable).
+    /// A ruby base splits across lines like plain CJK text (measured:
+    /// 黄金妖精/Leprechaun wraps as 黄金妖|精 — every base character
+    /// boundary is an ordinary break point; the annotation itself rides
+    /// only the first segment, which the paint layer enforces).
     #[test]
-    fn a_ruby_base_never_breaks_across_lines() {
+    fn a_ruby_base_breaks_across_lines_like_plain_text() {
         let source_han = std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
@@ -5011,7 +4952,8 @@ running through the quiet forest until the morning light returns.";
         )
         .expect("inline tree builds");
         // 165px: four 32px lead glyphs plus the first base glyph fit
-        // (160), so a greedy breaker would split the base after 中.
+        // (160), so the base splits after its first character exactly as
+        // plain text would.
         let outcome = context
             .layout(
                 &tree,
@@ -5024,8 +4966,8 @@ running through the quiet forest until the morning light returns.";
         let lines = line_texts(&outcome, "中中中中中文");
         assert_eq!(
             lines,
-            vec!["中中中中".to_owned(), "中文".to_owned()],
-            "the whole annotated base moves to the next line"
+            vec!["中中中中中".to_owned(), "文".to_owned()],
+            "the annotated base breaks at an ordinary character boundary"
         );
     }
 

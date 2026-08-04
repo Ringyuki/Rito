@@ -555,14 +555,17 @@ fn append_text_run_command(
         }
     };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
-    if let Some(annotation) = ruby_annotation {
+    // A base split across lines carries its WHOLE annotation on the
+    // first segment only; later segments run bare (measured: 黄金妖精/
+    // Leprechaun wrapped as 黄金妖|精 keeps the full rt over 黄金妖 at
+    // that segment's width, and 精 has none).
+    if let Some(annotation) = ruby_annotation.as_ref().filter(|_| start == item_range.start) {
         let annotation_ratio = f64::from(annotation.size_ratio);
         let annotation = &annotation.text;
         // The reader's ruby convention (shared with the retained engine):
         // the annotation paints at half the base font size, centered over
         // the base run's laid-out extent, its bottom edge one pixel above
-        // the base's paint anchor. A base split across lines repeats its
-        // full annotation over each of its runs.
+        // the base's paint anchor.
         let annotation_size = font_size * annotation_ratio;
         // A space-around spread base advance holds (n−1) interior gaps,
         // and the annotation spans one more share — half a gap of
