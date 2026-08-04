@@ -144,17 +144,24 @@ async function measureBrowserHostLineMetrics(
       // Ruby probes, keyed by private-use sample sentinels: the engine
       // cannot derive the browser's ruby-annotation stack from font
       // tables (three fonts, three inconsistent decompositions), so the
-      // host measures it the way it measures normal lines. U+E000 is a
-      // one-line ruby: its baseline is the minimum baseline the
-      // annotation demands. U+E001 is the same ruby forced onto a second
-      // line: its total height exposes how much of the previous line's
-      // under-edge the annotation may reuse.
-      if (sample.startsWith('\uE000') || sample.startsWith('\uE001')) {
+      // host measures it the way it measures normal lines. One-line
+      // probes (E000/E002): the baseline is the minimum baseline the
+      // annotation demands; the sentinel picks the rt face by the
+      // annotation's script. Two-line probes (E001/E003/E004/E005): the
+      // same ruby forced onto a second line; the total height exposes
+      // how much of the previous line's under-edge the annotation may
+      // reuse. E004/E005 put one Latin glyph on the previous line:
+      // measured, a single non-CJK glyph there (a space included)
+      // shrinks the reusable gap by a pixel at 16px, additively with
+      // the annotation-script bit.
+      const sentinel = sample.length > 0 ? sample.charCodeAt(0) : 0;
+      if (sentinel >= 0xe000 && sentinel <= 0xe005) {
         // The tail of the probe key is the annotation size ratio the
         // engine's cascade resolved for the rt element.
         const ratio = Number(sample.slice(1)) || 0.5;
-        const rt = `<rt style="font-size:${String(ratio)}em">an</rt>`;
-        if (sample.startsWith('\uE000')) {
+        const cjkAnnotation = sentinel === 0xe002 || sentinel === 0xe003 || sentinel === 0xe005;
+        const rt = `<rt style="font-size:${String(ratio)}em">${cjkAnnotation ? 'あ' : 'an'}</rt>`;
+        if (sentinel === 0xe000 || sentinel === 0xe002) {
           paragraph.innerHTML = `<ruby><rb>中文</rb>${rt}</ruby>中文`;
         } else {
           // The two-line probe breaks EXPLICITLY: a width-driven wrap sat
@@ -162,7 +169,9 @@ async function measureBrowserHostLineMetrics(
           // measured second-line reuse depended on where the break fell,
           // which inflated the derived under-edge allowance and made
           // later-line annotations over-grow.
-          paragraph.innerHTML = `中文中文<br/><ruby><rb>中文</rb>${rt}</ruby>中文`;
+          const mixedPrevious = sentinel === 0xe004 || sentinel === 0xe005;
+          const previous = mixedPrevious ? '中文a中文' : '中文中文';
+          paragraph.innerHTML = `${previous}<br/><ruby><rb>中文</rb>${rt}</ruby>中文`;
         }
       } else {
         // A zero-sized inline-block sits on the baseline, so its top is

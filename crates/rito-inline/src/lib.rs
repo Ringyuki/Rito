@@ -1326,6 +1326,12 @@ impl FormattingContext for ParleyInlineContext {
         // The previous line's leading below its text, spent by a ruby
         // annotation on the next line before the line has to grow.
         let mut prev_ruby_below: Option<f64> = None;
+        // The distinct fonts that shaped the previous line's glyph runs.
+        // The browser's under-edge allowance depends on the previous
+        // line's font composition (measured: one Latin glyph — a space
+        // included — shrinks the gap a following annotation may reuse by
+        // one pixel at 16px), so the reuse probe must match it.
+        let mut prev_line_fonts: Vec<(u64, u32)> = Vec::new();
         for line in layout.lines() {
             let metrics = line.metrics();
             let line_top = running_top;
@@ -2135,28 +2141,30 @@ impl FormattingContext for ParleyInlineContext {
             // PREVIOUS line leaves under its own typographic-descent edge
             // (its below-baseline extent minus ceil(sTypoDescender x
             // size)). Whatever the baseline still lacks becomes growth.
-            let base_typo = |range: &std::ops::Range<usize>, fs: f64| -> Option<(f64, f64)> {
-                use skrifa::raw::TableProvider as _;
-                for item in line.items() {
-                    let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
-                        continue;
-                    };
-                    let run = glyph_run.run();
-                    let shaped = run.text_range();
-                    if shaped.start >= range.end || range.start >= shaped.end {
-                        continue;
+            let base_typo =
+                |range: &std::ops::Range<usize>, fs: f64| -> Option<(f64, f64, (u64, u32))> {
+                    use skrifa::raw::TableProvider as _;
+                    for item in line.items() {
+                        let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                            continue;
+                        };
+                        let run = glyph_run.run();
+                        let shaped = run.text_range();
+                        if shaped.start >= range.end || range.start >= shaped.end {
+                            continue;
+                        }
+                        let font = run.font();
+                        let font_key = (font.data.id(), font.index);
+                        let font_ref =
+                            skrifa::FontRef::from_index(font.data.as_ref(), font.index).ok()?;
+                        let os2 = font_ref.os2().ok()?;
+                        let upem = f64::from(font_ref.head().ok()?.units_per_em());
+                        let asc = f64::from(os2.s_typo_ascender()) / upem * fs;
+                        let desc = f64::from(-i32::from(os2.s_typo_descender())) / upem * fs;
+                        return Some((asc, desc, font_key));
                     }
-                    let font = run.font();
-                    let font_ref =
-                        skrifa::FontRef::from_index(font.data.as_ref(), font.index).ok()?;
-                    let os2 = font_ref.os2().ok()?;
-                    let upem = f64::from(font_ref.head().ok()?.units_per_em());
-                    let asc = f64::from(os2.s_typo_ascender()) / upem * fs;
-                    let desc = f64::from(-i32::from(os2.s_typo_descender())) / upem * fs;
-                    return Some((asc, desc));
-                }
-                None
-            };
+                    None
+                };
             let ruby_growth = {
                 let mut growth = 0.0_f64;
                 for (index, range) in item_text_ranges.iter().enumerate() {
@@ -2191,9 +2199,35 @@ impl FormattingContext for ParleyInlineContext {
                     // inconsistent hhea/OS-2 decompositions.
                     // The probe key carries the annotation's size ratio so
                     // the host measures the ruby with the rt size the
-                    // cascade actually produced.
-                    let one_key = format!("\u{E000}{:.4}", ratio);
-                    let two_key = format!("\u{E001}{:.4}", ratio);
+                    // cascade actually produced — and the probe's CONTENT
+                    // mirrors two font bits the geometry depends on
+                    // (measured matrix, fs16/rt50%: each shifts growth by
+                    // one pixel, additively): the annotation's script
+                    // picks the rt face, and the PREVIOUS line's font
+                    // composition (any non-CJK glyph, a space included)
+                    // shrinks its reusable under-edge.
+                    let (typo_asc, typo_desc, base_font) = base_typo(range, fs)
+                        .map_or((fs * 0.88, fs * 0.12, None), |(asc, desc, font)| {
+                            (asc, desc, Some(font))
+                        });
+                    let anno_cjk = !annotation.text.is_empty()
+                        && annotation.text.chars().all(|ch| {
+                            matches!(u32::from(ch), 0x2E80..=0x9FFF | 0xF900..=0xFAFF
+                                | 0xFF00..=0xFFEF | 0x20000..=0x3FFFF)
+                        });
+                    let prev_mixed = !prev_line_fonts.is_empty()
+                        && base_font.is_some_and(|base| {
+                            prev_line_fonts.iter().any(|key| *key != base)
+                        });
+                    let one_sentinel = if anno_cjk { '\u{E002}' } else { '\u{E000}' };
+                    let two_sentinel = match (anno_cjk, prev_mixed) {
+                        (false, false) => '\u{E001}',
+                        (true, false) => '\u{E003}',
+                        (false, true) => '\u{E004}',
+                        (true, true) => '\u{E005}',
+                    };
+                    let one_key = format!("{one_sentinel}{ratio:.4}");
+                    let two_key = format!("{two_sentinel}{ratio:.4}");
                     let ruby_one = self.host_normal_line_sized(resolved, fs, &one_key);
                     let ruby_two = self.host_normal_line_sized(resolved, fs, &two_key);
                     // The reuse derivation subtracts the two-line probe's
@@ -2203,8 +2237,6 @@ impl FormattingContext for ParleyInlineContext {
                     // them differ by four pixels and the derived allowance
                     // swallowed the whole reuse).
                     let plain = self.host_normal_line_sized(resolved, fs, "\u{4E2D}");
-                    let (typo_asc, typo_desc) =
-                        base_typo(range, fs).unwrap_or((fs * 0.88, fs * 0.12));
                     let annotation_ascent = self
                         .host_normal_line_sized(resolved, fs * ratio, "")
                         .map_or(fs * ratio, |metric| metric.ascent());
@@ -2233,6 +2265,16 @@ impl FormattingContext for ParleyInlineContext {
             let baseline = baseline + ruby_growth;
             running_top += ruby_growth;
             prev_ruby_below = Some((line_height - baseline).max(0.0));
+            prev_line_fonts.clear();
+            for item in line.items() {
+                if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
+                    let font = glyph_run.run().font();
+                    let key = (font.data.id(), font.index);
+                    if !prev_line_fonts.contains(&key) {
+                        prev_line_fonts.push(key);
+                    }
+                }
+            }
             if line_debug
                 && (has_inline_box || item_shifts.iter().any(|shift| *shift != 0.0))
             {
