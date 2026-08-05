@@ -3871,10 +3871,14 @@ fn image_display_size(
 /// The first-line indent this style asks for, in CSS px. Percentages need a
 /// containing-block basis the inline context does not have; they fail to
 /// zero here and must be resolved by the block container before reaching
-/// this provider.
+/// this provider. Negative values pass through: a hanging indent
+/// (`text-indent: -1em; padding-left: 1em`) out-dents the first line
+/// into the padding and widens its advance by the same amount, exactly
+/// parley's linear indent math (measured on b19's `.po` footnotes:
+/// first line one em left of the continuation lines).
 fn resolved_text_indent(style: &InlineFormattingStyleV1) -> f32 {
     match style.text_flow.text_indent.value {
-        LengthPercentage::Length(px) => px.get().max(0.0),
+        LengthPercentage::Length(px) => px.get(),
         _ => 0.0,
     }
 }
@@ -4439,6 +4443,33 @@ running through the quiet forest until the morning light returns.";
             lines.len(),
             1,
             "mixed-script line with a trailing pair holds one line: {lines:?}"
+        );
+
+        // A NEGATIVE indent (the hanging-indent idiom `text-indent: -1em;
+        // padding-left: 1em`) out-dents the first line and widens its
+        // advance by the same amount: at 160px with indent -16, the first
+        // line holds eleven 16px ideographs starting at x = -16, the
+        // continuation lines ten (measured on b19's `.po` footnotes:
+        // first line one em left of the continuation lines).
+        let text = "永".repeat(25);
+        let outcome = lay_indent(&text, 160.0, -16.0);
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(
+            lines[0],
+            "永".repeat(11),
+            "the widened first line holds one extra ideograph"
+        );
+        assert_eq!(lines[1], "永".repeat(10), "continuation lines are unwidened");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(first_line) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        assert!(
+            (first_line.rect.x - (-16.0)).abs() < 0.1,
+            "the first line box out-dents into the padding: x={}",
+            first_line.rect.x
         );
     }
 
