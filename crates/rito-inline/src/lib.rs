@@ -3124,6 +3124,44 @@ fn font_ref_has_halt(font: &skrifa::FontRef) -> bool {
 /// quantum (1/64 px).
 const LINE_FIT_EPS: f32 = 1.0 / 64.0;
 
+/// Whether the breaker had NO opportunity between `before` and `after` —
+/// content past `before` was dragged down by prohibition, not choice.
+/// Conservative by design: only the prohibitions that produce dragged
+/// tails (word interiors, closers, openers, quote glue) return true;
+/// anything uncertain ends the chain, which merely declines the line-end
+/// extension instead of inventing one Blink would not make.
+fn no_break_opportunity_between(before: char, after: char) -> bool {
+    const OPEN_QUOTES: [char; 2] = ['\u{2018}', '\u{201C}'];
+    const CLOSE_QUOTES: [char; 2] = ['\u{2019}', '\u{201D}'];
+    let word_ish = |c: char| c.is_ascii_alphanumeric() || matches!(c, '\u{00C0}'..='\u{024F}');
+    // Word interior: letters and digits glue (melancholy, 1980).
+    if word_ish(before) && word_ish(after) {
+        return true;
+    }
+    // No break before fullwidth closers/stops or closing quotes.
+    if matches!(
+        fullwidth_punctuation_class(after),
+        PunctuationClass::CloseOrStop
+    ) || CLOSE_QUOTES.contains(&after)
+    {
+        return true;
+    }
+    // No break after fullwidth openers or opening quotes.
+    if matches!(fullwidth_punctuation_class(before), PunctuationClass::Open)
+        || OPEN_QUOTES.contains(&before)
+    {
+        return true;
+    }
+    // Quotes glue to the word characters beside them (UAX-14 QU).
+    if CLOSE_QUOTES.contains(&before) && word_ish(after) {
+        return true;
+    }
+    if word_ish(before) && OPEN_QUOTES.contains(&after) {
+        return true;
+    }
+    false
+}
+
 /// How many glyphs past a soft break the candidate scan follows. The
 /// dragged-down tail is whatever could not break before the closer — an
 /// entire unbreakable Latin word included (measured: 有點melancholy。」,
@@ -3184,12 +3222,23 @@ fn rewind_break_count(
     let mut advance = f64::from(metrics.advance - metrics.trailing_whitespace);
     let next_range = next.text_range();
     let mut cluster = parley::layout::Cluster::from_byte_index(layout, next_range.start)?;
+    let mut previous_character: Option<char> = None;
     for _ in 0..LINE_END_TRIM_SCAN {
         let byte = cluster.text_range().start;
         if byte >= next_range.end {
             return None;
         }
         let character = text[byte..].chars().next()?;
+        // The dragged-down tail ends at the next legal break opportunity:
+        // content past one sits on the next line by choice, not by
+        // prohibition (the scan's start IS the chosen break, so only
+        // later opportunities end the chain).
+        if let Some(previous) = previous_character {
+            if !no_break_opportunity_between(previous, character) {
+                return None;
+            }
+        }
+        previous_character = Some(character);
         let cluster_advance = f64::from(cluster.advance());
         if advance + cluster_advance <= max_advance + f64::from(LINE_FIT_EPS) {
             advance += cluster_advance;
@@ -3271,12 +3320,23 @@ fn line_end_trim_candidate(
     let mut advance = metrics.advance - metrics.trailing_whitespace;
     let next_range = next.text_range();
     let mut cluster = parley::layout::Cluster::from_byte_index(layout, next_range.start)?;
+    let mut previous_character: Option<char> = None;
     for _ in 0..LINE_END_TRIM_SCAN {
         let byte = cluster.text_range().start;
         if byte >= next_range.end {
             return None;
         }
         let character = text[byte..].chars().next()?;
+        // The dragged-down tail ends at the next legal break opportunity:
+        // content past one sits on the next line by choice, not by
+        // prohibition (the scan's start IS the chosen break, so only
+        // later opportunities end the chain).
+        if let Some(previous) = previous_character {
+            if !no_break_opportunity_between(previous, character) {
+                return None;
+            }
+        }
+        previous_character = Some(character);
         let cluster_advance = cluster.advance();
         if advance + cluster_advance <= max_advance + LINE_FIT_EPS {
             // Fits, so it only moved down under a break prohibition; the
