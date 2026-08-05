@@ -702,17 +702,32 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                         ));
                     }
-                    if !placement.lines.is_empty() {
+                    let mut trailing_deferred = false;
+                    let had_lines = !placement.lines.is_empty();
+                    if had_lines {
                         y = layout_unit(y + gap);
                         remaining -= gap;
-                        let trailing_padding = if placement.exhausted {
+                        // Trailing padding that no longer fits after the
+                        // last line (an overflowing monolithic line, or
+                        // lines ending flush with the page bottom)
+                        // continues on the next page as a padding-only
+                        // closing fragment, the way Blink pushes a
+                        // container's bottom padding past an overflowing
+                        // illustration (measured: 2px of `.kuan` padding
+                        // opens the next column, and the following
+                        // sibling's margin stacks after it un-truncated).
+                        let content_height =
+                            leading_padding + (placement.consumed_end - consumed);
+                        let trailing_fits = content_height + hbox.padding_bottom
+                            <= remaining + f64::EPSILON;
+                        trailing_deferred =
+                            placement.exhausted && !trailing_fits && hbox.padding_bottom > 0.0;
+                        let trailing_padding = if placement.exhausted && trailing_fits {
                             hbox.padding_bottom
                         } else {
                             0.0
                         };
-                        let paragraph_height = leading_padding
-                            + (placement.consumed_end - consumed)
-                            + trailing_padding;
+                        let paragraph_height = content_height + trailing_padding;
                         let children: Vec<Fragment> = placement
                             .lines
                             .into_iter()
@@ -740,6 +755,45 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         remaining -= paragraph_height;
                     }
                     if placement.exhausted {
+                        if trailing_deferred {
+                            // The deferred bottom padding resumes as an
+                            // Inside continuation with every line consumed.
+                            return Ok(sealed_with_break(
+                                container,
+                                space.inline_size,
+                                y,
+                                fragments,
+                                BreakToken {
+                                    resume_path: vec![*child_id],
+                                    stage: BreakTokenStage::Inside {
+                                        consumed_block_size: placement.consumed_end,
+                                    },
+                                    pending_floats: std::mem::take(&mut pending_float_breaks),
+                                },
+                            ));
+                        }
+                        if !had_lines && child_resumed_inside && hbox.padding_bottom > 0.0 {
+                            // The padding-only closing fragment: the box's
+                            // content finished on the previous page past
+                            // its bottom, and only the trailing padding
+                            // lands here. It consumes real space, so the
+                            // next sibling's margin stacks after it
+                            // instead of truncating at the page top.
+                            y = layout_unit(y + gap);
+                            remaining -= gap;
+                            fragments.push(Fragment::Box(BoxFragment {
+                                source: *child_id,
+                                rect: FragmentRect {
+                                    x: content_left + hbox.x,
+                                    y,
+                                    width: hbox.border_width,
+                                    height: hbox.padding_bottom,
+                                },
+                                children: Vec::new(),
+                            }));
+                            y = layout_unit(y + hbox.padding_bottom);
+                            remaining -= hbox.padding_bottom;
+                        }
                         pending_margin = bottom_margin;
                         continue;
                     }
@@ -4786,6 +4840,119 @@ single line across page boundaries.";
             paragraph2.rect.height
         );
         assert!(second.continuation.is_none(), "the paragraph finishes");
+    }
+
+    /// Trailing padding that no longer fits after an overflowing
+    /// monolithic line continues on the next page as a padding-only
+    /// closing fragment, and the NEXT sibling's top margin stacks after
+    /// it instead of truncating at the page top (measured: Blink opens
+    /// the post-illustration column with 2px of `.kuan` bottom padding
+    /// followed by the spacer paragraph's full 7.59px margin).
+    #[test]
+    fn deferred_trailing_padding_opens_the_next_page_and_preserves_the_sibling_margin() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut padded = block_style(margin_px(0.0), margin_px(0.0));
+        padded.padding.bottom = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(2.0).expect("finite"),
+        ));
+        let layout = layout_table_with(3, |index| match index {
+            0 => padded.clone(),
+            1 => block_style(margin_px(4.0), margin_px(0.0)),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        // FixedLineInline lines are 10px tall; a 9px fragmentainer makes
+        // the paragraph's line overflow the whole page (force-fit), so
+        // its 2px bottom padding must continue on page 2, followed by
+        // the 3px leaf at its full 4px margin (2 + 4 = 6, 6 + 3 = 9).
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "image line".to_owned(),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::SizedLeaf {
+                    block_size: 3.0,
+                    breakable: false,
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let space = ConstraintSpace {
+            inline_size: 100.0,
+            fragmentainer_remaining: Some(9.0),
+            fragmentainer_size: Some(9.0),
+            float_band: None,
+        };
+        let first = context
+            .layout(&tree, tree.root(), &space, None, &CancelFlag::new())
+            .expect("first page lays out");
+        let Fragment::Box(root) = &first.fragments.root else {
+            panic!("root is a box");
+        };
+        let Some(Fragment::Box(paragraph)) = root.children.first() else {
+            panic!("force-fit paragraph fragment exists");
+        };
+        assert!(
+            (paragraph.rect.height - 10.0).abs() < 0.01,
+            "page 1 holds the overflowing line WITHOUT its bottom padding: h={}",
+            paragraph.rect.height
+        );
+        let token = first.continuation.clone().expect("padding continues");
+        let second = context
+            .layout(&tree, tree.root(), &space, Some(&token), &CancelFlag::new())
+            .expect("second page lays out");
+        let Fragment::Box(root2) = &second.fragments.root else {
+            panic!("root is a box");
+        };
+        let Some(Fragment::Box(padding_tail)) = root2.children.first() else {
+            panic!("padding-only closing fragment exists");
+        };
+        assert!(
+            padding_tail.children.is_empty() && (padding_tail.rect.height - 2.0).abs() < 0.01,
+            "page 2 opens with the 2px padding-only fragment: h={}",
+            padding_tail.rect.height
+        );
+        let Some(Fragment::Box(next)) = root2.children.get(1) else {
+            panic!("the sized leaf follows on page 2");
+        };
+        assert!(
+            (next.rect.y - 6.0).abs() < 0.01,
+            "the sibling's 4px margin stacks after the 2px padding: y={}",
+            next.rect.y
+        );
+        assert!(second.continuation.is_none(), "the chapter finishes");
     }
 
     /// Clearance places the cleared content below the float's bottom
