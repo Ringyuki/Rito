@@ -765,7 +765,7 @@ impl ParleyInlineContext {
         );
         let pair_trims: Vec<(usize, usize)> = punctuation_trims
             .iter()
-            .map(|(range, _)| (range.start, range.end))
+            .map(|trim| (trim.left_byte, trim.right_byte))
             .collect();
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = layouts.ranged_builder(&mut fonts, &text, 1.0, true);
@@ -874,7 +874,23 @@ impl ParleyInlineContext {
             }
         }
         let first_line_indent = first_line_indent + leading_box_indent;
-        for (range, spacing) in punctuation_trims {
+        for trim in punctuation_trims {
+            let range = trim.edit_range;
+            let spacing = match trim.edit {
+                PunctuationTrimEdit::OpenerHalt => {
+                    builder.push(
+                        StyleProperty::FontFeatures(parley::FontFeatures::List(
+                            std::borrow::Cow::Owned(vec![parley::FontFeature::new(
+                                parley::setting::Tag::new(b"halt"),
+                                1,
+                            )]),
+                        )),
+                        range,
+                    );
+                    continue;
+                }
+                PunctuationTrimEdit::LetterSpacing(spacing) => spacing,
+            };
             // A box gap on the same character composes with the trim (the
             // trim value already carries the author spacing).
             let boxed = box_edits
@@ -2888,6 +2904,30 @@ fn cjk_punctuation_trim(left: char, right: char) -> Option<TrimmedGlyph> {
 /// font carries the OpenType `halt` feature (measured: a book-embedded
 /// face without it keeps `。」` at two full advances while the pinned
 /// SourceHan trims), so each trimmed character resolves its font first.
+/// One boundary trim: the pair identity for straddle bookkeeping, the
+/// character range the edit applies to, and the edit itself.
+struct PunctuationTrim {
+    left_byte: usize,
+    right_byte: usize,
+    edit_range: std::ops::Range<usize>,
+    edit: PunctuationTrimEdit,
+}
+
+enum PunctuationTrimEdit {
+    /// A close/stop's blank right half collapses: negative letter-spacing
+    /// on the trimmed character itself (correct fit attribution — the
+    /// credit belongs to the line holding that character).
+    LetterSpacing(f32),
+    /// An opener's blank LEFT half collapses: the OpenType `halt`
+    /// feature on the opener itself, exactly Blink's Han kerning. A
+    /// left-char letter-spacing here would leak the credit into the
+    /// PREVIOUS line's fit at a break boundary (measured: a compressed
+    /// ，squeezed onto the prior line, straddling the pair and killing
+    /// the trim, while Blink's full-width ，broke earlier and kept
+    /// 作，『 together).
+    OpenerHalt,
+}
+
 fn compute_cjk_punctuation_trims(
     fonts: &mut FontContext,
     registered_families: &[String],
@@ -2895,7 +2935,7 @@ fn compute_cjk_punctuation_trims(
     text: &str,
     runs: &[(std::ops::Range<usize>, &InlineFormattingStyleV1, usize)],
     suppressed_pairs: &[usize],
-) -> Vec<(std::ops::Range<usize>, f32)> {
+) -> Vec<PunctuationTrim> {
     fn style_at<'a>(
         cursor: &mut usize,
         runs: &[(std::ops::Range<usize>, &'a InlineFormattingStyleV1, usize)],
@@ -2937,14 +2977,30 @@ fn compute_cjk_punctuation_trims(
                         previous = Some((byte, character));
                         continue;
                     }
-                    let author = match left_style.text_flow.letter_spacing {
-                        LengthPercentage::Length(px) => px.get(),
-                        _ => 0.0,
-                    };
-                    trims.push((
-                        left_byte..byte,
-                        author - 0.5 * trimmed_style.font.size.get(),
-                    ));
+                    match trimmed {
+                        TrimmedGlyph::Left => {
+                            let author = match left_style.text_flow.letter_spacing {
+                                LengthPercentage::Length(px) => px.get(),
+                                _ => 0.0,
+                            };
+                            trims.push(PunctuationTrim {
+                                left_byte,
+                                right_byte: byte,
+                                edit_range: left_byte..byte,
+                                edit: PunctuationTrimEdit::LetterSpacing(
+                                    author - 0.5 * trimmed_style.font.size.get(),
+                                ),
+                            });
+                        }
+                        TrimmedGlyph::Right => {
+                            trims.push(PunctuationTrim {
+                                left_byte,
+                                right_byte: byte,
+                                edit_range: byte..byte + character.len_utf8(),
+                                edit: PunctuationTrimEdit::OpenerHalt,
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -4204,6 +4260,89 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (named - fallback).abs() > 1.0,
             "the named face must shape differently from the fallback: named {named}, fallback {fallback}"
+        );
+    }
+
+    /// An opener's pair trim rides the OPENER (`halt` on 『), never the
+    /// left character's spacing — a left-side credit leaks into the
+    /// previous line's fit at a break boundary (measured on b20: the
+    /// compressed ，squeezed onto the prior line, straddled the pair,
+    /// and the one-way suppression killed the trim; Blink's full-width
+    /// ，breaks 製|作 and 作，『 stays together with 『 at half width).
+    /// Twenty 永 at 16px = 320; with 336 available the comma must NOT
+    /// borrow the opener's half to squeeze in — the line breaks before
+    /// 作 and the next line keeps 作，『 with the trimmed opener.
+    #[test]
+    fn an_opener_pair_trim_never_lends_width_to_the_previous_line() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let lay = |text: &str, width: f64| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(vec![FontFamily::Generic(
+                            rito_style_contract::GenericFontFamily::Serif,
+                        )])
+                        .expect("family list"),
+                        16.0,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            context
+                .layout(
+                    &tree,
+                    FormattingNodeId(0),
+                    &ConstraintSpace::continuous(width),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds")
+        };
+        // 20 永 + 作 + full-width ，= 352; at 344 the OLD left-side
+        // credit made the comma 8px and squeezed 作，onto the line
+        // (splitting the pair from its opener and killing the trim);
+        // the opener-side halt keeps the comma full so 作，『 travels
+        // together, Blink's exact break shape.
+        let text = format!("{}作，『給讀者的挑戰』", "永".repeat(20));
+        let outcome = lay(&text, 344.0);
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(
+            lines[0],
+            "永".repeat(20),
+            "the full-width comma cannot borrow the opener's half"
+        );
+        assert!(
+            lines[1].starts_with("作，『"),
+            "the pair opens the continuation line with its opener: {:?}",
+            lines[1]
         );
     }
 
