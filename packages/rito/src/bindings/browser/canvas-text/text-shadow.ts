@@ -32,7 +32,19 @@ export function drawTextShadows(
 
   scratch.ctx.scale(pixelRatio, pixelRatio);
   syncTextState(scratch.ctx, ctx, fragment, color);
-  renderShadowLayers(scratch.ctx, shadows, fragment.text, padLeft, padTop, pixelRatio);
+  // The caster must sit EXACTLY where the glyph paint will: alphabetic
+  // baseline at em-top + 0.8·size, the same convention as the renderer.
+  // A 'top'-baseline caster hung the shadow fontAscent − 0.8·size lower
+  // than the glyph (4.27px for SourceHan's 1.151em ascent at 12.16px) —
+  // every shadowed note glyph smeared dark below its own strokes.
+  renderShadowLayers(
+    scratch.ctx,
+    shadows,
+    fragment.text,
+    padLeft,
+    padTop + 0.8 * fragment.paint.font.sizePx,
+    pixelRatio,
+  );
   ctx.drawImage(
     scratch.canvas,
     0,
@@ -64,7 +76,7 @@ function renderShadowLayers(
   shadows: readonly CanvasTextShadow[],
   text: string,
   x: number,
-  y: number,
+  baselineY: number,
   pixelRatio: number,
 ): void {
   for (let index = shadows.length - 1; index >= 0; index -= 1) {
@@ -74,7 +86,7 @@ function renderShadowLayers(
     ctx.shadowBlur = shadow.blur * pixelRatio;
     ctx.shadowOffsetX = shadow.offsetX * pixelRatio;
     ctx.shadowOffsetY = (shadow.offsetY + SHADOW_CAST_OFFSET) * pixelRatio;
-    ctx.fillText(text, x, y - SHADOW_CAST_OFFSET);
+    ctx.fillText(text, x, baselineY - SHADOW_CAST_OFFSET);
   }
 }
 
@@ -130,7 +142,7 @@ function syncTextState(
   color: string,
 ): void {
   destination.font = source.font;
-  destination.textBaseline = 'top';
+  destination.textBaseline = 'alphabetic';
   destination.fillStyle = color;
   destination.wordSpacing = canvasSpacingValue(fragment.paint.wordSpacingPx);
   destination.letterSpacing = canvasSpacingValue(fragment.paint.letterSpacingPx);
