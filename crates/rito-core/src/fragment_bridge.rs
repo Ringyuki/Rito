@@ -719,6 +719,25 @@ impl TreeBuilder<'_> {
                     collector.push_hard_break(inherited, ancestor_shift_px);
                     return Ok(());
                 }
+                // Preserved white space bypasses BOTH collapse layers:
+                // the parser pre-collapsed `content` (keeping the raw in
+                // `source_text` when it changed), and the whitespace-only
+                // shortcut below would drop an indent-only run entirely
+                // (measured: a calibre story's four-space paragraph
+                // indents, kept by Blink under `white-space: pre-wrap`).
+                if !self.white_space_collapse(inherited)? {
+                    self.require_inline_capabilities(inherited, false, "text run")?;
+                    collector.push_text(
+                        text.source_text.as_deref().unwrap_or(&text.content),
+                        inherited,
+                        ancestor_shift_px,
+                        false,
+                        None,
+                        text.source_ref.source_node_id.map(|id| id.index()),
+                        Some(text.source_ref.node_path.clone()),
+                    );
+                    return Ok(());
+                }
                 // White-space-only runs collapse away without needing a
                 // style of their own (inter-element formatting text).
                 if text
@@ -1434,9 +1453,12 @@ impl TreeBuilder<'_> {
         };
         match collapse {
             WhiteSpaceCollapse::Collapse => Ok(true),
-            // Preserved white space keeps its spaces; the hard line
-            // structure of `pre` is approximated by the wrapping line
-            // breaker until forced inline breaks land.
+            // Fully implemented: the collector's verbatim path keeps
+            // spaces and segment breaks, and a preserved newline is a
+            // forced break in the inline engine.
+            WhiteSpaceCollapse::Preserve => Ok(false),
+            // Partially preserved modes keep their spaces; their break
+            // subtleties are approximated by the wrapping line breaker.
             other => {
                 self.degrade(format!(
                     "preserved white space approximated (spaces kept, hard breaks wrap): {other:?}"
@@ -1580,7 +1602,12 @@ fn inline_text_capability_violation(
         return Some("text-transform".to_owned());
     }
     match style.text_flow.white_space_collapse {
-        c::WhiteSpaceCollapse::Collapse => {}
+        // Preserve (`pre-wrap`/`pre`) keeps spaces and segment breaks
+        // verbatim through the collector's non-collapsing path; the wrap
+        // axis rides text-wrap separately (measured: a calibre story's
+        // four-space paragraph indents, kept by Blink, erased by the
+        // collapsing fallback — every line of the chapter shifted).
+        c::WhiteSpaceCollapse::Collapse | c::WhiteSpaceCollapse::Preserve => {}
         other => return Some(format!("white-space {other:?}")),
     }
     // text-wrap, word-break, overflow-wrap, and letter/word spacing are
@@ -2085,7 +2112,40 @@ impl InlineCollector {
             image_alt: None,
             segments: Vec::new(),
         };
-        debug_assert!(collapse, "preserved white space fails closed upstream");
+        if !collapse {
+            // `white-space: pre-wrap` — every space and segment break
+            // lands verbatim (Blink keeps a calibre story's four-space
+            // paragraph indents; the collapsing path erased them and
+            // shifted every line of the chapter). A space pending from a
+            // collapse-mode neighbour still materializes first.
+            if text.is_empty() {
+                return;
+            }
+            let utf16 = |value: &str| value.encode_utf16().count() as u32;
+            let mut verbatim = String::with_capacity(text.len() + 1);
+            if self.pending_space {
+                verbatim.push(' ');
+                self.pending_space = false;
+                self.pending_space_style = None;
+            }
+            let lead = utf16(&verbatim);
+            verbatim.push_str(text);
+            let segments = vec![SourceSegment {
+                item_start: lead,
+                source_start: 0,
+                len: utf16(text),
+            }];
+            self.has_content = true;
+            self.append_text_item(
+                verbatim,
+                segments,
+                source,
+                style,
+                baseline_shift_px,
+                ruby_annotation,
+            );
+            return;
+        }
         let is_space = |ch: char| matches!(ch, ' ' | '\t' | '\n' | '\r');
         let mut rest = text;
         // A collapsible space at the start of a line is removed (CSS Text
@@ -2212,65 +2272,14 @@ impl InlineCollector {
         }
         close(&mut open, &mut segments, collapsed_units);
         if !collapsed.is_empty() {
-            // Merge into the previous item when the style and shift are
-            // unchanged, so a paragraph of plain text stays a single
-            // shaping run.
-            // A ruby base never merges with its neighbours: its annotation
-            // attaches to exactly this run's laid-out extent.
-            // Merge identity ignores the mapping segments: two pushes of
-            // the same source node extend one item, their segments
-            // concatenating shifted by the existing item length.
-            let same_source = self.sources.last().is_some_and(|last| {
-                last.source_index == source.source_index
-                    && last.source_path == source.source_path
-                    && last.href == source.href
-                    && last.image_alt == source.image_alt
-            });
-            if let Some(InlineItem::Text {
-                text: last,
-                style: last_style,
-                baseline_shift_px: last_shift,
-                ruby_annotation: last_ruby,
-            }) = self.items.last_mut()
-            {
-                if *last_style == style
-                    && *last_shift == baseline_shift_px
-                    && last_ruby.is_none()
-                    && ruby_annotation.is_none()
-                    && same_source
-                {
-                    let shift = utf16(last);
-                    last.push_str(&collapsed);
-                    if let Some(last_source) = self.sources.last_mut() {
-                        last_source
-                            .segments
-                            .extend(segments.iter().map(|segment| SourceSegment {
-                                item_start: segment.item_start + shift,
-                                ..*segment
-                            }));
-                    }
-                } else {
-                    let mut source = source;
-                    source.segments = segments;
-                    self.items.push(InlineItem::Text {
-                        text: collapsed,
-                        style,
-                        baseline_shift_px,
-                        ruby_annotation,
-                    });
-                    self.sources.push(source);
-                }
-            } else {
-                let mut source = source;
-                source.segments = segments;
-                self.sources.push(source);
-                self.items.push(InlineItem::Text {
-                    text: collapsed,
-                    style,
-                    baseline_shift_px,
-                    ruby_annotation,
-                });
-            }
+            self.append_text_item(
+                collapsed,
+                segments,
+                source,
+                style,
+                baseline_shift_px,
+                ruby_annotation,
+            );
         }
         if trailing_space && self.has_content {
             // This node ends in white space; it lands here if any content
@@ -2278,6 +2287,66 @@ impl InlineCollector {
             self.pending_space = true;
             self.pending_space_style = None;
         }
+    }
+
+    /// Appends one prepared text run, merging into the previous item when
+    /// the style and shift are unchanged so a paragraph of plain text
+    /// stays a single shaping run. A ruby base never merges with its
+    /// neighbours: its annotation attaches to exactly this run's laid-out
+    /// extent. Merge identity ignores the mapping segments: two pushes of
+    /// the same source node extend one item, their segments concatenating
+    /// shifted by the existing item length.
+    fn append_text_item(
+        &mut self,
+        collapsed: String,
+        segments: Vec<SourceSegment>,
+        source: FlowItemSource,
+        style: StyleId,
+        baseline_shift_px: f64,
+        ruby_annotation: Option<rito_fragment::RubyAnnotation>,
+    ) {
+        let utf16 = |value: &str| value.encode_utf16().count() as u32;
+        let same_source = self.sources.last().is_some_and(|last| {
+            last.source_index == source.source_index
+                && last.source_path == source.source_path
+                && last.href == source.href
+                && last.image_alt == source.image_alt
+        });
+        if let Some(InlineItem::Text {
+            text: last,
+            style: last_style,
+            baseline_shift_px: last_shift,
+            ruby_annotation: last_ruby,
+        }) = self.items.last_mut()
+        {
+            if *last_style == style
+                && *last_shift == baseline_shift_px
+                && last_ruby.is_none()
+                && ruby_annotation.is_none()
+                && same_source
+            {
+                let shift = utf16(last);
+                last.push_str(&collapsed);
+                if let Some(last_source) = self.sources.last_mut() {
+                    last_source
+                        .segments
+                        .extend(segments.iter().map(|segment| SourceSegment {
+                            item_start: segment.item_start + shift,
+                            ..*segment
+                        }));
+                }
+                return;
+            }
+        }
+        let mut source = source;
+        source.segments = segments;
+        self.items.push(InlineItem::Text {
+            text: collapsed,
+            style,
+            baseline_shift_px,
+            ruby_annotation,
+        });
+        self.sources.push(source);
     }
 
     /// Appends a forced line break as a preserved newline in the flow text.
@@ -3034,6 +3103,47 @@ p { margin: 8px 0; }\n\
             })
             .collect();
         assert_eq!(flow, "lead\ntail", "no space survives the forced break");
+    }
+
+    #[test]
+    fn pre_wrap_keeps_spaces_and_segment_breaks_verbatim() {
+        // white-space: pre-wrap — Blink keeps a calibre story's
+        // four-space paragraph indents and its interior space runs; a
+        // preserved newline is a forced break like <br/>.
+        let chapter = resolved_chapter_with(
+            "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><title>t</title></head><body><p class=\"pre\">    lead  in\nnext</p></body></html>",
+            "p.pre { white-space: pre-wrap; }",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let root = built.tree.node(built.tree.root());
+        let FormattingNodeContent::InlineFlow { items } =
+            &built.tree.node(root.children[0]).content
+        else {
+            panic!("paragraph is an inline flow");
+        };
+        let flow: String = items
+            .iter()
+            .map(|item| match item {
+                InlineItem::Text { text, .. } => text.as_str(),
+                InlineItem::Image { .. } => panic!("no images here"),
+            })
+            .collect();
+        assert_eq!(
+            flow, "    lead  in\nnext",
+            "spaces and the segment break survive verbatim"
+        );
+        assert!(
+            built.degradations.is_empty(),
+            "pre-wrap is implemented, not degraded: {:?}",
+            built.degradations
+        );
     }
 
     #[test]
