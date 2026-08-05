@@ -3124,10 +3124,13 @@ fn font_ref_has_halt(font: &skrifa::FontRef) -> bool {
 /// quantum (1/64 px).
 const LINE_FIT_EPS: f32 = 1.0 / 64.0;
 
-/// How many glyphs past a soft break the candidate scan follows. Break
-/// prohibitions drag at most a couple of characters down with an
-/// overflowing closer; anything longer is not the pattern this models.
-const LINE_END_TRIM_SCAN: usize = 8;
+/// How many glyphs past a soft break the candidate scan follows. The
+/// dragged-down tail is whatever could not break before the closer — an
+/// entire unbreakable Latin word included (measured: 有點melancholy。」,
+/// where the closer is the 12th cluster past the break and Blink still
+/// extends the line). Blink's ShapeLine has no small bound; this cap
+/// only guards pathological input.
+const LINE_END_TRIM_SCAN: usize = 64;
 
 /// The first character after `line_index`'s soft break that did not fit,
 /// if extending the line by exactly that character with its blank right
@@ -4443,6 +4446,21 @@ running through the quiet forest until the morning light returns.";
             lines.len(),
             1,
             "mixed-script line with a trailing pair holds one line: {lines:?}"
+        );
+
+        // A whole unbreakable Latin word dragged down by its trailing
+        // closer still extends: the candidate 」 sits TWELVE clusters
+        // past the soft break (ten letters, the pair-trimmed 。, then
+        // itself), far beyond the old 8-cluster scan cap (measured:
+        // b20's 有點melancholy。」 packs onto the line with 。 at half
+        // width and 」's blank half overflowing invisibly).
+        let text = format!("{}melancholy。」", "永".repeat(20));
+        let outcome = lay(&text, 430.0);
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(
+            lines.len(),
+            1,
+            "the trailing-punctuation extension reaches past a whole word: {lines:?}"
         );
 
         // A NEGATIVE indent (the hanging-indent idiom `text-indent: -1em;
