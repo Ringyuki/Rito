@@ -622,21 +622,22 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     )?;
                     let available_for_lines = (available - leading_padding).max(0.0);
                     // A fresh page narrowed by the box's own leading
-                    // padding is NOT force-fit territory when the first
-                    // line would fit a full fragmentainer: the break
-                    // lands after the padding — a padding-only fragment
-                    // — and the line opens the next page at full height
-                    // (measured: Blink leaves a 2px-only blank column
-                    // before a full-height illustration whose 850px
-                    // exactly fills the following column).
+                    // padding is NOT force-fit territory: the padding
+                    // edge is a break opportunity, so the break lands
+                    // after the padding — a padding-only fragment — and
+                    // the line opens the next page at full height. This
+                    // holds even when the line will not fit a whole
+                    // fragmentainer either: a monolithic line only
+                    // overflows in place at the very top of an
+                    // unconsumed fragmentainer, which the Inside resume
+                    // provides (measured: Blink leaves a 2px-only blank
+                    // column before a full-height illustration whose
+                    // 854px line box — 850px image plus strut descent —
+                    // overflows the following column invisibly).
                     let padding_squeezed = page_is_empty
                         && leading_padding > 0.0
                         && lines.first().is_some_and(|line| {
-                            let height = line.rect().height;
-                            height > available_for_lines + f64::EPSILON
-                                && space
-                                    .fragmentainer_size
-                                    .is_none_or(|size| height <= size + f64::EPSILON)
+                            line.rect().height > available_for_lines + f64::EPSILON
                         });
                     let placement = place_lines(
                         &lines,
@@ -4683,6 +4684,105 @@ single line across page boundaries.";
         assert!(
             (paragraph2.rect.height - 10.0).abs() < 0.01 && !paragraph2.children.is_empty(),
             "the resumed fragment holds the full 10px line with no re-applied padding: h={}",
+            paragraph2.rect.height
+        );
+        assert!(second.continuation.is_none(), "the paragraph finishes");
+    }
+
+    /// The padding break holds even when the line will not fit a whole
+    /// fragmentainer either: the padding edge is a break opportunity, so
+    /// the squeezed page keeps a padding-only fragment and the
+    /// monolithic line overflows the NEXT page from its very top
+    /// (measured: Blink's 854px image line box — 850px image plus strut
+    /// descent — behind a 2px-only blank column).
+    #[test]
+    fn leading_padding_breaks_even_when_the_line_overflows_a_whole_page() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut padded = block_style(margin_px(0.0), margin_px(0.0));
+        padded.padding.top = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(2.0).expect("finite"),
+        ));
+        let layout = layout_table_with(2, |index| {
+            if index == 0 {
+                padded.clone()
+            } else {
+                block_style(margin_px(0.0), margin_px(0.0))
+            }
+        });
+        // FixedLineInline lines are 10px tall; an 8px fragmentainer makes
+        // the line overflow even a whole fresh page (the 854-into-850
+        // shape), yet the padding must still break alone.
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "image line".to_owned(),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(1),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let space = ConstraintSpace {
+            inline_size: 100.0,
+            fragmentainer_remaining: Some(8.0),
+            fragmentainer_size: Some(8.0),
+            float_band: None,
+        };
+        let first = context
+            .layout(&tree, tree.root(), &space, None, &CancelFlag::new())
+            .expect("first page lays out");
+        let Fragment::Box(root) = &first.fragments.root else {
+            panic!("root is a box");
+        };
+        let Some(Fragment::Box(paragraph)) = root.children.first() else {
+            panic!("padding-only paragraph fragment exists");
+        };
+        assert!(
+            paragraph.children.is_empty() && (paragraph.rect.height - 2.0).abs() < 0.01,
+            "first fragment holds only the 2px leading padding: h={} lines={}",
+            paragraph.rect.height,
+            paragraph.children.len()
+        );
+        let token = first.continuation.clone().expect("line resumes next page");
+        let second = context
+            .layout(&tree, tree.root(), &space, Some(&token), &CancelFlag::new())
+            .expect("second page lays out");
+        let Fragment::Box(root2) = &second.fragments.root else {
+            panic!("root is a box");
+        };
+        let Some(Fragment::Box(paragraph2)) = root2.children.first() else {
+            panic!("resumed paragraph exists");
+        };
+        assert!(
+            (paragraph2.rect.height - 10.0).abs() < 0.01 && !paragraph2.children.is_empty(),
+            "the resumed fragment force-fits the 10px line from the page top: h={}",
             paragraph2.rect.height
         );
         assert!(second.continuation.is_none(), "the paragraph finishes");
