@@ -4303,6 +4303,88 @@ running through the quiet forest until the morning light returns.";
         );
     }
 
+    /// Consecutive forced breaks keep their empty line: Blink lays
+    /// `甲<br/><br/>乙` — and `甲<br/> <br/>乙`, whose interior space the
+    /// line-start collapse removes — as THREE lines, the middle one an
+    /// empty strut-height line (measured 2026-08-05: paragraph height 60
+    /// at line-height 20 for both shapes; the b39 calibre idiom).
+    #[test]
+    fn consecutive_forced_breaks_keep_an_empty_strut_line() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let lay = |text: &str| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(vec![FontFamily::Generic(
+                            rito_style_contract::GenericFontFamily::Serif,
+                        )])
+                        .expect("family list"),
+                        16.0,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            context
+                .layout(
+                    &tree,
+                    FormattingNodeId(0),
+                    &ConstraintSpace::continuous(200.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds")
+        };
+        // The bridge canonicalizes `<br/> <br/>` to "\n\n" (the pending
+        // space drops before the second break lands), so adjacent
+        // newlines are the reachable stream.
+        let outcome = lay("甲\n\n乙");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let heights: Vec<f64> = root
+            .children
+            .iter()
+            .map(|line| line.rect().height)
+            .collect();
+        assert_eq!(
+            heights.len(),
+            3,
+            "consecutive forced breaks lay three lines (middle empty), got {heights:?}"
+        );
+        assert!(
+            (heights[1] - heights[0]).abs() < 0.5,
+            "the empty middle line keeps the strut height: {heights:?}"
+        );
+    }
+
     /// Line-end conditional trim, the Blink `ShapeLine` extension: a
     /// fullwidth closing bracket that is the first glyph past a soft break
     /// to overflow stays on the line with its blank right half trimmed —
