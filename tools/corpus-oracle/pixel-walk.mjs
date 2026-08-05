@@ -364,7 +364,22 @@ for (let attempt = 0; attempt < 2; attempt += 1) {
       await shootSpread(s);
     }
     if (s < totalSpreads - 1) {
-      await reader.keyboard.press('ArrowRight');
+      // A press can be swallowed (measured: b39's image-dominated
+      // single-page spreads dropped one, lagging EVERY later shot by
+      // one spread — the whole book compared against its neighbor).
+      // Verify the reader actually advanced; retry if not.
+      for (let retry = 0; retry < 5; retry += 1) {
+        await reader.keyboard.press('ArrowRight');
+        const arrived = await reader
+          .waitForFunction(
+            (want) => (window.__ritoController.reader.activeSpreadIndex ?? 0) >= want,
+            s + 1,
+            { timeout: 3000 },
+          )
+          .then(() => true)
+          .catch(() => false);
+        if (arrived) break;
+      }
     }
   }
   const settled = await paginationSignature();
