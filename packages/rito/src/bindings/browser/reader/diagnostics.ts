@@ -19,5 +19,7 @@ export function installBrowserReaderDiagnostics(state: BrowserReaderState): void
     }),
     revision: () => state.revisionBundle.revision,
     frame: (spreadIndex: number) => ensureFrameLoaded(state, spreadIndex),
+    chapterFragmentProbe: (idref: string) =>
+      state.worker.chapterFragmentProbe(state.revisionBundle.revision.revisionId, idref),
   };
 }

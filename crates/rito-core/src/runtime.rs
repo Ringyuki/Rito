@@ -14,6 +14,7 @@ mod cleanup;
 mod continuation;
 mod fragment_backend;
 mod fragment_frame;
+mod fragment_probe;
 mod frame;
 mod metadata;
 mod navigation;

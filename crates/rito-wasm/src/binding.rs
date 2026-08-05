@@ -127,6 +127,21 @@ impl RitoWasmDocument {
             .map_err(|error| JsValue::from_str(&format!("report serialization failed: {error}")))
     }
 
+    /// Diagnostic: one chapter's page-by-page ink-less lines through the
+    /// revision's own fragment engine and content box, for diffing the
+    /// wasm pipeline against the native chapter-fragment-probe example.
+    #[wasm_bindgen(js_name = chapterFragmentProbeJson)]
+    pub fn chapter_fragment_probe_json(
+        &self,
+        revision_id: &str,
+        idref: &str,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .document
+            .chapter_fragment_probe_json(revision_id, idref)
+            .map_err(|error| error_to_js_value(WasmRuntimeError::from_engine(error)))
+    }
+
     /// Which backend owns a revision's pagination ("fragment" or
     /// "retained"), for diagnostics.
     #[wasm_bindgen(js_name = revisionPaginationBackend)]

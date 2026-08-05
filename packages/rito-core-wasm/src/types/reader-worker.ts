@@ -120,6 +120,12 @@ export interface RitoCoreWasmReaderWorkerClient
   takeHostLineMetricRequests(): Promise<readonly RitoCoreWasmHostLineMetricRequest[]>;
   /** Injects host-measured `line-height: normal` metrics. */
   setHostLineMetrics(entries: readonly RitoCoreWasmHostLineMetric[]): Promise<void>;
+  /**
+   * Diagnostic: one chapter's page-by-page ink-less lines through the
+   * revision's own fragment engine and content box, for diffing the wasm
+   * pipeline against the native chapter-fragment-probe example.
+   */
+  chapterFragmentProbe(revisionId: string, idref: string): Promise<RitoCoreWasmJsonObject>;
   dispose(): void;
   /** Resolves after in-process release or Worker acknowledgement/forced termination. */
   whenDisposed(): Promise<void>;

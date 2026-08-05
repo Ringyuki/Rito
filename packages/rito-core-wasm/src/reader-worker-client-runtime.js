@@ -264,6 +264,8 @@ function createRitoCoreWasmReaderClient(
       result(request, { kind: 'search', revisionId, request: searchRequest }, 'search'),
     takeHostLineMetricRequests: () =>
       result(request, { kind: 'takeHostLineMetricRequests' }, 'takeHostLineMetricRequests'),
+    chapterFragmentProbe: (revisionId, idref) =>
+      result(request, { kind: 'chapterFragmentProbe', revisionId, idref }, 'chapterFragmentProbe'),
     setHostLineMetrics: async (entries) => {
       const payload = await request({ kind: 'setHostLineMetrics', entries });
       if (payload.kind !== 'setHostLineMetrics') {

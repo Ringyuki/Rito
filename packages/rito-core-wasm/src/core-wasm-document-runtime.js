@@ -90,6 +90,12 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       });
     }
 
+    chapterFragmentProbe(revisionId, idref) {
+      return callRitoCoreWasm('chapterFragmentProbe', () =>
+        JSON.parse(this._inner.chapterFragmentProbeJson(revisionId, idref)),
+      );
+    }
+
     createInitialPreviewRevisionBundle(request) {
       return jsonMethod('createInitialPreviewRevisionBundle', () =>
         this._inner.createInitialPreviewRevisionBundleJson(
@@ -304,6 +310,11 @@ function readerWorkerPayload(document, request) {
     case 'setHostLineMetrics':
       document.setHostLineMetrics(request.entries);
       return { kind: 'setHostLineMetrics' };
+    case 'chapterFragmentProbe':
+      return {
+        kind: 'chapterFragmentProbe',
+        result: document.chapterFragmentProbe(request.revisionId, request.idref),
+      };
     default: {
       const chapterLocal = chapterLocalReaderWorkerPayload(document, request);
       if (chapterLocal !== undefined) return chapterLocal;
