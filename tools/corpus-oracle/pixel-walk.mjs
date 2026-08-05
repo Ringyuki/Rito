@@ -424,27 +424,6 @@ for (const chapter of plan.chapters) {
       truthFile = sibling;
     }
     await truth.goto(`file://${truthFile}`, { timeout: 30000 });
-    if (truthFile !== file) {
-      // A calibre `.html` chapter that is not well-formed XML turns the
-      // `.xhtml` sibling into Chromium's yellow error page (measured:
-      // b39's index_split_012 stops at an unclosed div and every later
-      // chapter compares against truncated truth). The engine's source
-      // normalizer recovers leniently, so the truth must too: parse the
-      // ORIGINAL file with Chromium's HTML recovery, serialize the
-      // repaired DOM back to XHTML, and reload — still XML, still
-      // standards mode, same content the engine sees.
-      const xmlBroken = await truth.evaluate(() =>
-        (document.body?.innerText ?? '').startsWith('This page contains the following errors'),
-      );
-      if (xmlBroken) {
-        await truth.goto(`file://${file}`, { timeout: 30000 });
-        const repaired = await truth.evaluate(() =>
-          new XMLSerializer().serializeToString(document),
-        );
-        writeFileSync(truthFile, repaired);
-        await truth.goto(`file://${truthFile}`, { timeout: 30000 });
-      }
-    }
     const noteIds = [...footnoteTargets]
       .filter((target) => target.startsWith(`${href}#`))
       .map((target) => target.slice(href.length + 1));
