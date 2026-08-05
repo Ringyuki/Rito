@@ -1275,6 +1275,8 @@ mod tests {
                 && after.content == "After"
                 && image.src == "cover.jpg"
         ));
-        assert!(parse_xhtml("<html><body><p><strong>text</p></body></html>").is_err());
+        // Mis-nested inline markup recovers like a browser: the strong
+        // element closes implicitly at its ancestor's close.
+        assert!(parse_xhtml("<html><body><p><strong>text</p></body></html>").is_ok());
     }
 }

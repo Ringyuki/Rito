@@ -267,8 +267,10 @@ fn creates_revision_when_chapter_xhtml_is_malformed() {
         .create_revision(&layout())
         .expect("image preloading does not bypass XHTML recovery");
 
-    assert_eq!(publication.xhtml.chapters[0].warning_count, 1);
-    assert_eq!(publication.xhtml.chapters[0].top_level_count, 0);
+    // The unclosed <p> closes implicitly under tag-pairing recovery —
+    // the chapter lays with its content instead of degrading.
+    assert_eq!(publication.xhtml.chapters[0].warning_count, 0);
+    assert_eq!(publication.xhtml.chapters[0].top_level_count, 1);
     assert!(publication.xhtml.chapters[0].image_sources.is_empty());
     assert_eq!(revision.revision_id, "rev-1");
     assert!(document.has_revision(&revision.revision_id));

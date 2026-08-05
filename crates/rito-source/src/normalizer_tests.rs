@@ -78,3 +78,43 @@ fn normalizes_single_quoted_xml_declarations_and_nbsp() {
         "<?xml version=\"1.0\"?><html>&#160;</html>"
     );
 }
+
+#[test]
+fn repairs_an_unclosed_element_at_its_ancestors_close() {
+    let source = "<html><body><div><p>a</p></body></html>";
+    let repaired = super::repair_mismatched_tags(source).expect("repair applies");
+    assert_eq!(repaired, "<html><body><div><p>a</p></div></body></html>");
+}
+
+#[test]
+fn drops_an_orphan_close_tag() {
+    let source = "<html><body><p>a</p></div></body></html>";
+    let repaired = super::repair_mismatched_tags(source).expect("repair applies");
+    assert_eq!(repaired, "<html><body><p>a</p></body></html>");
+}
+
+#[test]
+fn closes_everything_left_open_at_the_end() {
+    let source = "<html><body><p>a";
+    let repaired = super::repair_mismatched_tags(source).expect("repair applies");
+    assert_eq!(repaired, "<html><body><p>a</p></body></html>");
+}
+
+#[test]
+fn well_formed_markup_needs_no_repair() {
+    let source = "<html><body><p>a</p><br/><img src=\"x\"/></body></html>";
+    assert!(super::repair_mismatched_tags(source).is_none());
+}
+
+#[test]
+fn a_repaired_source_parses_into_a_full_tree() {
+    // The b39 calibre shape: an unclosed div empties the whole chapter
+    // under strict parsing; the recovery attempt must lay the story.
+    let source = "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><div class=\"a\"><p>story</p></body></html>";
+    let arena = crate::SourceArena::from_xhtml(source).expect("recovers");
+    let text: String = arena
+        .descendants(arena.root())
+        .filter_map(|(_, node)| node.as_text().map(str::to_owned))
+        .collect();
+    assert_eq!(text, "story");
+}

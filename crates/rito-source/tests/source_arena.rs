@@ -173,9 +173,16 @@ fn canonical_entrypoint_repairs_supported_legacy_epub_forms() {
 }
 
 #[test]
-fn malformed_non_void_markup_remains_a_strict_xml_error() {
-    assert!(matches!(
-        SourceArena::from_xhtml("<html><body><p><strong>text</p></body></html>"),
-        Err(SourceError::InvalidXml(_))
-    ));
+fn malformed_non_void_markup_recovers_like_a_browser() {
+    // A mis-nested inline element implicitly closes at its ancestor's
+    // close, the way every browser's HTML recovery reads it — a
+    // malformed calibre chapter must lay instead of vanishing from the
+    // book (b39's 生日劵 story, an unclosed div).
+    let arena = SourceArena::from_xhtml("<html><body><p><strong>text</p></body></html>")
+        .expect("recovers");
+    let text: String = arena
+        .descendants(arena.root())
+        .filter_map(|(_, node)| node.as_text().map(str::to_owned))
+        .collect();
+    assert_eq!(text, "text");
 }

@@ -13,6 +13,133 @@ pub(crate) fn normalize_xhtml_source(source: &str) -> Cow<'_, str> {
     sanitize_character_data(normalized)
 }
 
+/// Deepest element nesting the source reaches, measured with the same
+/// error-tolerant tag scan the repair pass uses — a malformed document
+/// must still be depth-bounded (the strict parser and the recovery
+/// recursion both need the guard), and an XML-level error must not abort
+/// the measurement the way a conforming reader would (measured: an
+/// orphan `</html>` stopped quick-xml's scan before the recovery ever
+/// ran, emptying a whole calibre chapter).
+pub(crate) fn max_element_depth(source: &str) -> usize {
+    let mut depth = 0usize;
+    let mut max_depth = 0usize;
+    let mut cursor = 0;
+    while cursor < source.len() {
+        let Some(relative_start) = source[cursor..].find('<') else {
+            break;
+        };
+        let start = cursor + relative_start;
+        if let Some(end) = find_protected_section_end(source, start) {
+            cursor = end;
+            continue;
+        }
+        let Some(tag) = scan_tag(source, start) else {
+            cursor = start + 1;
+            continue;
+        };
+        if !tag.closing && !tag.self_closing && matches!(tag.name.as_str(), "script" | "style") {
+            cursor = find_raw_text_element_end(source, &tag);
+            continue;
+        }
+        if !tag.self_closing && !HTML_VOID_ELEMENTS.contains(&tag.name.as_str()) {
+            if tag.closing {
+                depth = depth.saturating_sub(1);
+            } else {
+                depth += 1;
+                max_depth = max_depth.max(depth);
+            }
+        }
+        cursor = tag.end;
+    }
+    max_depth
+}
+
+/// Repairs mismatched element tags the way a browser's HTML parser
+/// recovers: an element left open when an ancestor closes is closed
+/// implicitly, and a close tag with no matching open element is dropped.
+/// Returns `None` when the source needs no repair, so the strict path
+/// stays byte-identical for well-formed publications — this runs only
+/// after strict parsing has already failed (measured: a calibre chapter
+/// whose unclosed `<div>` made the whole chapter lay empty while a
+/// browser-based reader shows the full story).
+pub(crate) fn repair_mismatched_tags(source: &str) -> Option<String> {
+    enum Repair {
+        InsertClose { at: usize, name: String },
+        Drop(std::ops::Range<usize>),
+    }
+    let mut stack = Vec::<(String, ())>::new();
+    let mut repairs = Vec::<Repair>::new();
+    let mut cursor = 0;
+    while cursor < source.len() {
+        let Some(relative_start) = source[cursor..].find('<') else {
+            break;
+        };
+        let start = cursor + relative_start;
+        if let Some(end) = find_protected_section_end(source, start) {
+            cursor = end;
+            continue;
+        }
+        let Some(tag) = scan_tag(source, start) else {
+            cursor = start + 1;
+            continue;
+        };
+        if !tag.closing && !tag.self_closing && matches!(tag.name.as_str(), "script" | "style") {
+            cursor = find_raw_text_element_end(source, &tag);
+            continue;
+        }
+        if tag.self_closing || (!tag.closing && HTML_VOID_ELEMENTS.contains(&tag.name.as_str())) {
+            cursor = tag.end;
+            continue;
+        }
+        if !tag.closing {
+            stack.push((tag.name.clone(), ()));
+            cursor = tag.end;
+            continue;
+        }
+        match stack.iter().rposition(|(name, ())| *name == tag.name) {
+            None => repairs.push(Repair::Drop(start..tag.end)),
+            Some(index) => {
+                for (name, ()) in stack.drain(index..).skip(1).rev() {
+                    repairs.push(Repair::InsertClose { at: start, name });
+                }
+            }
+        }
+        cursor = tag.end;
+    }
+    for (name, ()) in stack.into_iter().rev() {
+        repairs.push(Repair::InsertClose {
+            at: source.len(),
+            name,
+        });
+    }
+    if repairs.is_empty() {
+        return None;
+    }
+    repairs.sort_by_key(|repair| match repair {
+        Repair::InsertClose { at, .. } => *at,
+        Repair::Drop(range) => range.start,
+    });
+    let mut output = String::with_capacity(source.len() + repairs.len() * 8);
+    let mut copied = 0;
+    for repair in &repairs {
+        match repair {
+            Repair::InsertClose { at, name } => {
+                output.push_str(&source[copied..*at]);
+                copied = *at;
+                output.push_str("</");
+                output.push_str(name);
+                output.push('>');
+            }
+            Repair::Drop(range) => {
+                output.push_str(&source[copied..range.start]);
+                copied = range.end;
+            }
+        }
+    }
+    output.push_str(&source[copied..]);
+    Some(output)
+}
+
 /// Removes XML document-type declarations before the XML parser sees them.
 ///
 /// Rito does not resolve publication DTDs. Keeping the declaration while

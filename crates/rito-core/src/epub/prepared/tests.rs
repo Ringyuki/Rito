@@ -88,9 +88,10 @@ fn undeclared_entity_chapter_parses_with_the_reference_rendered_literally() {
 
 #[test]
 fn unparseable_chapter_still_degrades_to_the_warning_fallback() {
-    // Structurally broken markup (an unclosed non-void element crossing
-    // the document end) is beyond character-level repair.
-    let prepared = parse_loaded_chapter_source(&chapter("<html><body><p>text"));
+    // An unterminated tag (no closing `>`) is beyond both
+    // character-level repair and the tag-pairing recovery (unclosed
+    // ELEMENTS now close implicitly, the way a browser recovers).
+    let prepared = parse_loaded_chapter_source(&chapter("<html><body><p>a <b broken</p></body></html>"));
 
     assert!(prepared.source_arena.is_none());
     assert!(prepared.parsed.nodes.is_empty());

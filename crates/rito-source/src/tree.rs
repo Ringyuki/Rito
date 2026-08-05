@@ -1,4 +1,7 @@
-use crate::{normalizer::normalize_xhtml_source, SourceError};
+use crate::{
+    normalizer::{max_element_depth, normalize_xhtml_source, repair_mismatched_tags},
+    SourceError,
+};
 
 /// Maximum number of parser nodes accepted from one XHTML source.
 pub const MAX_SOURCE_NODES: u32 = 1_000_000;
@@ -114,11 +117,28 @@ impl SourceArena {
     /// Normalizes the legacy EPUB syntax supported by Rito, removes document
     /// type declarations, then strictly parses one bounded XML/XHTML source.
     /// DTD entity expansion is disabled.
+    ///
+    /// A source the strict parse rejects gets ONE recovery attempt with
+    /// mismatched tags repaired the way a browser's HTML parser recovers
+    /// (implicit closes, orphan closes dropped) — a malformed calibre
+    /// chapter must still lay instead of vanishing from the book
+    /// (measured: an unclosed `<div>` emptied a whole short story while
+    /// every browser-based reader shows it).
     pub fn from_xhtml(source: &str) -> Result<Self, SourceError> {
         let normalized = normalize_xhtml_source(source);
         validate_source_depth(normalized.as_ref())?;
+        match Self::parse_normalized(normalized.as_ref()) {
+            Ok(arena) => Ok(arena),
+            Err(strict_error) => match repair_mismatched_tags(normalized.as_ref()) {
+                Some(repaired) => Self::parse_normalized(&repaired).map_err(|_| strict_error),
+                None => Err(strict_error),
+            },
+        }
+    }
+
+    fn parse_normalized(normalized: &str) -> Result<Self, SourceError> {
         let document = roxmltree::Document::parse_with_options(
-            normalized.as_ref(),
+            normalized,
             roxmltree::ParsingOptions {
                 allow_dtd: false,
                 nodes_limit: MAX_SOURCE_NODES,
@@ -363,24 +383,10 @@ pub(crate) fn map_parse_error(error: roxmltree::Error) -> SourceError {
 }
 
 pub(crate) fn validate_source_depth(source: &str) -> Result<(), SourceError> {
-    use quick_xml::events::Event;
-
-    let mut reader = quick_xml::Reader::from_str(source);
-    let mut depth = 0usize;
-    loop {
-        match reader.read_event() {
-            Ok(Event::Start(_)) => {
-                depth += 1;
-                if depth > MAX_SOURCE_DEPTH {
-                    return Err(SourceError::TooDeep);
-                }
-            }
-            Ok(Event::End(_)) => depth = depth.saturating_sub(1),
-            Ok(Event::Eof) => return Ok(()),
-            Ok(_) => {}
-            Err(error) => return Err(SourceError::InvalidXml(error.to_string())),
-        }
+    if max_element_depth(source) > MAX_SOURCE_DEPTH {
+        return Err(SourceError::TooDeep);
     }
+    Ok(())
 }
 
 #[cfg(test)]
