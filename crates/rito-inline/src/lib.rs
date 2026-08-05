@@ -3329,7 +3329,10 @@ fn line_end_trim_candidate(
 /// line-end path even though they pair-trim mid-line. css-text-4
 /// `text-spacing-trim: normal` words the same conditionality: closing
 /// punctuation is set half-width at the end of the line only "if it does
-/// not otherwise fit prior to justification".
+/// not otherwise fit prior to justification". (Re-affirmed 2026-08-05:
+/// synthetic oracles at 16px — left, justify, zh-TW — all send a
+/// trailing 法，pair down instead of trimming the comma; b20's real
+/// `看法，` line stays open evidence, see the task archive.)
 fn line_end_trim_eligible(character: char) -> bool {
     matches!(
         character,
