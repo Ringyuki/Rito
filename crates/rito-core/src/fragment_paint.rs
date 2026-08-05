@@ -623,7 +623,18 @@ fn append_text_run_command(
     }
     commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
         text: Value::String(full_text[start..end].to_owned()),
-        rect: rect_value(line_x + run.rect.x, em_top, run.rect.width, font_size),
+        // A halt-trimmed opener was laid at half width, but the painter
+        // draws the untrimmed glyph whose outline sits one blank half
+        // further right — shift the draw origin left by the removed half
+        // so the ink lands where Blink's halt variant puts it (measured
+        // at 64px: full-width 「 inks at box+41, the halt variant at
+        // box+9 — the outline itself moves left by the trimmed half).
+        rect: rect_value(
+            line_x + run.rect.x - run.opener_trim_px,
+            em_top,
+            run.rect.width + run.opener_trim_px,
+            font_size,
+        ),
         paint,
         line_height_px: Some(number_value(line.rect.height)),
         href: None,
@@ -1164,6 +1175,7 @@ mod tests {
             box_snap: None,
             justify_px: 0.0,
             ruby_gap_px: 0.0,
+            opener_trim_px: 0.0,
             ruby_overhang_px: 0.0,
         })
     }

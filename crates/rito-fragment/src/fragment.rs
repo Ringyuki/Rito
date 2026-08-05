@@ -89,6 +89,13 @@ pub struct TextFragment {
     /// rect widens by one overhang per side; `ruby_gap_px` spaces the
     /// base clusters.
     pub ruby_overhang_px: f64,
+    /// A pair-trimmed opener's removed blank LEFT half (half its font
+    /// size), zero otherwise. Layout shaped the run with the `halt`
+    /// half-width variant, but the painter draws the untrimmed glyph —
+    /// whose outline sits one blank half further right — so it must
+    /// shift the draw origin left by this amount for the ink to land
+    /// where the halt variant puts it.
+    pub opener_trim_px: f64,
     /// Raster anchoring for a run inside a decorated inline box, absent
     /// for bare text (which snaps off the line box alone).
     pub box_snap: Option<BoxSnap>,

@@ -42,6 +42,10 @@ struct ParagraphLayout {
     /// byte): the trim is only valid while both sit on one line, so the
     /// layout loop suppresses any pair a line break separates and re-lays.
     pair_trims: Vec<(usize, usize)>,
+    /// Byte ranges shaped with the opener-side `halt` trim and the half
+    /// width each removed — the painter draws the untrimmed glyph shifted
+    /// left by that amount so its ink lands where the halt variant sits.
+    opener_halt_trims: Vec<(std::ops::Range<usize>, f64)>,
     /// Per item index: advance the item's LAST cluster gained from inline
     /// box gaps (its own trailing padding/border, plus the leading
     /// padding/border of a box opening right after it). Emitted fragment
@@ -874,10 +878,19 @@ impl ParleyInlineContext {
             }
         }
         let first_line_indent = first_line_indent + leading_box_indent;
+        let opener_halt_trims: Vec<(std::ops::Range<usize>, f64)> = punctuation_trims
+            .iter()
+            .filter_map(|trim| match trim.edit {
+                PunctuationTrimEdit::OpenerHalt(half) => {
+                    Some((trim.edit_range.clone(), f64::from(half)))
+                }
+                PunctuationTrimEdit::LetterSpacing(_) => None,
+            })
+            .collect();
         for trim in punctuation_trims {
             let range = trim.edit_range;
             let spacing = match trim.edit {
-                PunctuationTrimEdit::OpenerHalt => {
+                PunctuationTrimEdit::OpenerHalt(_) => {
                     builder.push(
                         StyleProperty::FontFeatures(parley::FontFeatures::List(
                             std::borrow::Cow::Owned(vec![parley::FontFeature::new(
@@ -950,6 +963,7 @@ impl ParleyInlineContext {
             shifted_ranges,
             first_line_indent,
             pair_trims,
+            opener_halt_trims,
             item_box_sheds,
             ruby_spreads,
             ruby_spread_overhangs,
@@ -1098,6 +1112,7 @@ impl FormattingContext for ParleyInlineContext {
             item_box_sheds,
             ruby_spreads,
             ruby_spread_overhangs,
+            opener_halt_trims,
         ) = loop {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
@@ -1109,6 +1124,7 @@ impl FormattingContext for ParleyInlineContext {
                 text,
                 first_line_indent,
                 pair_trims,
+                opener_halt_trims,
                 item_box_sheds,
                 ruby_spreads,
                 ruby_spread_overhangs,
@@ -1396,6 +1412,7 @@ impl FormattingContext for ParleyInlineContext {
                         item_box_sheds,
                         ruby_spreads,
                         ruby_spread_overhangs,
+                        opener_halt_trims,
                     );
                 }
             }
@@ -1667,10 +1684,17 @@ impl FormattingContext for ParleyInlineContext {
                         let ruby_gap = ruby_spreads.get(&item_index).copied().unwrap_or(0.0);
                         let ruby_overhang =
                             ruby_spread_overhangs.get(&item_index).copied().unwrap_or(0.0);
+                        let opener_halt_trims = &opener_halt_trims;
                         let mut emit = |range: std::ops::Range<usize>,
                                         x: f64,
                                         width: f64,
                                         justify_px: f64| {
+                            let opener_trim_px = opener_halt_trims
+                                .iter()
+                                .find(|(halt, _)| {
+                                    halt.start < range.end && range.start < halt.end
+                                })
+                                .map_or(0.0, |(_, half)| *half);
                             children.push((
                                 Fragment::Text(TextFragment {
                                     source: root,
@@ -1685,6 +1709,7 @@ impl FormattingContext for ParleyInlineContext {
                                     justify_px,
                                     ruby_gap_px: ruby_gap,
                                     ruby_overhang_px: ruby_overhang,
+                                    opener_trim_px,
                                     box_snap: run_box_snap,
                                 }),
                                 shift,
@@ -2924,8 +2949,9 @@ enum PunctuationTrimEdit {
     /// PREVIOUS line's fit at a break boundary (measured: a compressed
     /// ，squeezed onto the prior line, straddling the pair and killing
     /// the trim, while Blink's full-width ，broke earlier and kept
-    /// 作，『 together).
-    OpenerHalt,
+    /// 作，『 together). Carries the removed half width (half the
+    /// opener's font size) for the painter's draw-origin compensation.
+    OpenerHalt(f32),
 }
 
 fn compute_cjk_punctuation_trims(
@@ -2997,7 +3023,9 @@ fn compute_cjk_punctuation_trims(
                                 left_byte,
                                 right_byte: byte,
                                 edit_range: byte..byte + character.len_utf8(),
-                                edit: PunctuationTrimEdit::OpenerHalt,
+                                edit: PunctuationTrimEdit::OpenerHalt(
+                                    0.5 * trimmed_style.font.size.get(),
+                                ),
                             });
                         }
                     }
