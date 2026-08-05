@@ -434,7 +434,7 @@ for (const chapter of plan.chapters) {
       // repaired DOM back to XHTML, and reload — still XML, still
       // standards mode, same content the engine sees.
       const xmlBroken = await truth.evaluate(() =>
-        Boolean(document.querySelector('parsererror')),
+        (document.body?.innerText ?? '').startsWith('This page contains the following errors'),
       );
       if (xmlBroken) {
         await truth.goto(`file://${file}`, { timeout: 30000 });
