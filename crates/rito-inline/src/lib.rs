@@ -1053,16 +1053,22 @@ impl ParleyInlineContext {
         if cancel.is_cancelled() {
             return Err(LayoutError::Cancelled);
         }
-        // text-align inherits, so the first item's style carries the
-        // paragraph's alignment (an empty flow never reaches layout).
-        let alignment = items
-            .first()
-            .map(|item| {
-                let style_id = match item {
+        // text-align inherits, so the paragraph's own strut style carries
+        // its alignment; a first-item fallback covers strut-less flows.
+        // The item fallback must NOT read an inline-block's style: the
+        // atom's own text-align (a centered verse card) aligns the atom's
+        // CONTENT, not the host line it rides (measured: Blink keeps the
+        // card at the host paragraph's left edge).
+        let alignment = tree
+            .strut_style(node)
+            .or_else(|| {
+                items.first().map(|item| match item {
                     InlineItem::Text { style, .. }
                     | InlineItem::Image { style, .. }
                     | InlineItem::InlineBlock { style, .. } => *style,
-                };
+                })
+            })
+            .map(|style_id| {
                 styles
                     .inline
                     .style(style_id)
