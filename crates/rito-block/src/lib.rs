@@ -1991,10 +1991,21 @@ fn resolve_horizontal_box(
     containing_width: f64,
 ) -> Result<HorizontalBox, LayoutError> {
     let resolve = |value: LengthPercentage| resolve_length_percentage(value, containing_width);
+    // A used VERTICAL padding edge sits on the LayoutUnit grid by
+    // TRUNCATION toward zero (LayoutUnit's float constructor), like
+    // `resolve_margin` and the container pad path: a 0.1em padding at
+    // 12.16px is 1.216 in CSS arithmetic but 1.203125 in the browser's
+    // box (measured on b20's footnote paragraph: the float
+    // padding-bottom pushed every later paragraph 1/64 down and flipped
+    // a .5-tie line one raster row). The HORIZONTAL edges and widths
+    // deliberately stay untouched: truncating them regressed b1 by a
+    // thousand pixels across dozens of pages (the float fit chain was
+    // the browser-exact one) — their grid story needs its own oracle.
+    let edge = |value: LengthPercentage| (resolve(value) * 64.0).trunc() / 64.0;
     let padding_left = resolve(style.padding.left.value()).max(0.0);
     let padding_right = resolve(style.padding.right.value()).max(0.0);
-    let padding_top = resolve(style.padding.top.value()).max(0.0);
-    let padding_bottom = resolve(style.padding.bottom.value()).max(0.0);
+    let padding_top = edge(style.padding.top.value()).max(0.0);
+    let padding_bottom = edge(style.padding.bottom.value()).max(0.0);
     let margin = |side: LengthPercentageOrAuto| -> Option<f64> {
         match side {
             LengthPercentageOrAuto::Auto => None,
