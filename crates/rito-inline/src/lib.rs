@@ -166,6 +166,26 @@ fn layout_unit(value: f64) -> f64 {
     (value * 64.0).round() / 64.0
 }
 
+/// The used line-box height of a declared line-height, on Blink's grid.
+/// The quantization is TYPE-sensitive (measured, pinned Latin and CJK
+/// faces agree on every case — font metrics never enter): a NUMBER
+/// multiplies the font size and FLOORS to 1/64 (1.35 × 12.16 = 16.416
+/// lays 16.40625; 1.2 × 16 = 19.2 lays 19.1875), while a LENGTH — px,
+/// em, %, all resolved to px at computed-value time — ROUNDS half-up
+/// (line-height: 19.2px lays 19.203125; 1.35em over 12.16px, the same
+/// 16.416, lays 16.421875; 15.8046875px lays 15.8125). The engine's old
+/// uniform round put the b20 note strut two 64ths tall and shifted every
+/// later paragraph in the column by 1/32.
+fn used_declared_line_height(line_height: LineHeight, font_size: f64) -> Option<f64> {
+    match line_height {
+        LineHeight::Number(number) => {
+            Some((f64::from(number.get()) * font_size * 64.0).floor() / 64.0)
+        }
+        LineHeight::Length(px) => Some(layout_unit(f64::from(px.get()))),
+        LineHeight::Normal => None,
+    }
+}
+
 /// The half-leaded baseline offset inside a fixed-height line box, the way
 /// Blink places it: the strut font's integer ascent plus half the leading,
 /// rounded to a whole pixel (measured: Tinos 14/4 under 19.2px lands the
@@ -486,10 +506,11 @@ impl ParleyInlineContext {
             .style(style_id)
             .map_err(|error| LayoutError::Invalid(error.to_string()))?;
         Ok(Some(match style.font.line_height {
-            LineHeight::Number(number) => {
-                f64::from(number.get()) * f64::from(style.font.size.get())
-            }
-            LineHeight::Length(px) => f64::from(px.get()),
+            LineHeight::Number(_) | LineHeight::Length(_) => used_declared_line_height(
+                style.font.line_height,
+                f64::from(style.font.size.get()),
+            )
+            .unwrap_or(0.0),
             LineHeight::Normal => {
                 // The host's measured strut is authoritative; the shaped
                 // fallback only covers hosts that never inject metrics.
@@ -1513,13 +1534,10 @@ impl FormattingContext for ParleyInlineContext {
                         let resolved = style_tables?.inline.style(*style).ok()?;
                         Some(ItemLineHeight {
                             style: *style,
-                            declared: match resolved.font.line_height {
-                                LineHeight::Number(number) => Some(layout_unit(
-                                    f64::from(number.get()) * f64::from(resolved.font.size.get()),
-                                )),
-                                LineHeight::Length(px) => Some(layout_unit(f64::from(px.get()))),
-                                LineHeight::Normal => None,
-                            },
+                            declared: used_declared_line_height(
+                                resolved.font.line_height,
+                                f64::from(resolved.font.size.get()),
+                            ),
                         })
                     }
                     // An image carries its own style so a line holding
@@ -2199,17 +2217,12 @@ impl FormattingContext for ParleyInlineContext {
                     {
                         (asc, desc)
                     } else {
-                        match resolved.font.line_height {
-                            LineHeight::Normal => (asc, desc),
-                            LineHeight::Number(number) => {
-                                let height = layout_unit(
-                                    f64::from(number.get()) * f64::from(resolved.font.size.get()),
-                                );
-                                let a = metric.fixed_baseline(height);
-                                (a, height - a)
-                            }
-                            LineHeight::Length(px) => {
-                                let height = layout_unit(f64::from(px.get()));
+                        match used_declared_line_height(
+                            resolved.font.line_height,
+                            f64::from(resolved.font.size.get()),
+                        ) {
+                            None => (asc, desc),
+                            Some(height) => {
                                 let a = metric.fixed_baseline(height);
                                 (a, height - a)
                             }
@@ -2257,17 +2270,12 @@ impl FormattingContext for ParleyInlineContext {
                             continue;
                         };
                         let (asc, desc) = (metric.ascent(), metric.descent());
-                        let (item_above, item_below) = match resolved.font.line_height {
-                            LineHeight::Normal => (asc, desc),
-                            LineHeight::Number(number) => {
-                                let height = layout_unit(
-                                    f64::from(number.get()) * f64::from(resolved.font.size.get()),
-                                );
-                                let a = metric.fixed_baseline(height);
-                                (a, height - a)
-                            }
-                            LineHeight::Length(px) => {
-                                let height = layout_unit(f64::from(px.get()));
+                        let (item_above, item_below) = match used_declared_line_height(
+                            resolved.font.line_height,
+                            f64::from(resolved.font.size.get()),
+                        ) {
+                            None => (asc, desc),
+                            Some(height) => {
                                 let a = metric.fixed_baseline(height);
                                 (a, height - a)
                             }
@@ -4502,6 +4510,94 @@ running through the quiet forest until the morning light returns.";
         eprintln!("PROBE dot  = {}", shape_width("法。尚"));
         eprintln!("PROBE cma  = {}", shape_width("ウ，可"));
         eprintln!("PROBE q    = {}", shape_width("是『尚』字"));
+    }
+
+    /// The used line-box height quantizes by the DECLARATION TYPE, not
+    /// uniformly: a number floors its product onto the 1/64 grid while a
+    /// length (px/em/%) rounds — measured on pinned Chromium with both
+    /// pin faces agreeing (metrics never enter). The discriminating pair
+    /// is the b20 note strut: `line-height: 1.35` at 12.16px lays lines
+    /// 16.40625 apart, while the SAME 16.416px declared as a length lays
+    /// 16.421875 — the old uniform round drifted every paragraph below
+    /// the note by 1/32 and flipped .5-tie lines a whole raster row.
+    #[test]
+    fn a_number_line_height_floors_and_a_length_rounds() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let line_step = |line_height: LineHeight| {
+            let mut style = plain_paragraph_style(
+                FontFamilies::new(vec![FontFamily::Generic(
+                    rito_style_contract::GenericFontFamily::Serif,
+                )])
+                .expect("family list"),
+                12.16,
+                0.0,
+            );
+            style.font.line_height = line_height;
+            style.font.line_height_is_declared = true;
+            let mut inline = InlineStyleTableV1::new(1);
+            let interned = inline.intern_for_node(0, style).expect("style interns");
+            let tree = FormattingTree::with_styles(
+                vec![FormattingNode {
+                    style: rito_style_contract::LayoutStyleId::from_raw(0),
+                    content: FormattingNodeContent::InlineFlow {
+                        items: vec![InlineItem::Text {
+                            text: "永".repeat(24),
+                            style: interned,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: None,
+                        }],
+                    },
+                    children: Vec::new(),
+                }],
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            let outcome = context
+                .layout(
+                    &tree,
+                    FormattingNodeId(0),
+                    &ConstraintSpace::continuous(200.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("inline outcome root is a box fragment");
+            };
+            let lines: Vec<f64> = root
+                .children
+                .iter()
+                .filter_map(|child| match child {
+                    Fragment::Line(line) => Some(line.rect.y),
+                    _ => None,
+                })
+                .collect();
+            assert!(lines.len() >= 2, "fixture wraps to at least two lines");
+            lines[1] - lines[0]
+        };
+        let number = line_step(LineHeight::Number(
+            rito_style_contract::NonNegativeNumber::new(1.35).expect("finite"),
+        ));
+        assert!(
+            (number - 16.40625).abs() < 1e-9,
+            "number 1.35 × 12.16 floors to 16.40625: {number}"
+        );
+        let length = line_step(LineHeight::Length(
+            rito_style_contract::NonNegativeCssPx::new(16.416).expect("finite"),
+        ));
+        assert!(
+            (length - 16.421875).abs() < 1e-9,
+            "length 16.416px rounds to 16.421875: {length}"
+        );
     }
 
     /// A `<ruby>` edge is a shaping boundary: the base shapes alone, so
