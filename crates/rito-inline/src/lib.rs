@@ -2790,6 +2790,16 @@ impl FormattingContext for ParleyInlineContext {
                         Fragment::Image(image) => {
                             image.rect.y = baseline - shift - image.rect.height;
                         }
+                        // An inline-block atom hangs its own baseline —
+                        // its LAST line's (CSS §10.8.1) — on the line
+                        // baseline, so its top sits that far above it.
+                        Fragment::Box(atom) => {
+                            let mini_baseline = inline_block_baselines
+                                .get(&atom.source.0)
+                                .copied()
+                                .unwrap_or(atom.rect.height);
+                            atom.rect.y = baseline - shift - mini_baseline;
+                        }
                         _ => {}
                     }
                     fragment
