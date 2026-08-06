@@ -33,6 +33,18 @@ struct ProbeLine {
     width: f64,
     height: f64,
     source: u32,
+    runs: Vec<ProbeRun>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProbeRun {
+    text: String,
+    x: f64,
+    width: f64,
+    justify_px: f64,
+    ruby_gap_px: f64,
+    opener_trim_px: f64,
 }
 
 impl RuntimeDocument {
@@ -129,6 +141,7 @@ fn collect_probe_lines(
             let mut end = 0_u32;
             let mut first_x = f64::INFINITY;
             let mut last_edge = f64::NEG_INFINITY;
+            let mut runs = Vec::new();
             for child in &line.children {
                 match child {
                     Fragment::Text(run) => {
@@ -136,6 +149,17 @@ fn collect_probe_lines(
                         end = end.max(run.text_end);
                         first_x = first_x.min(run.rect.x);
                         last_edge = last_edge.max(run.rect.x + run.rect.width);
+                        runs.push(ProbeRun {
+                            text: full_text
+                                .get(run.text_start as usize..run.text_end as usize)
+                                .unwrap_or_default()
+                                .to_owned(),
+                            x: x_offset + line.rect.x + run.rect.x,
+                            width: run.rect.width,
+                            justify_px: run.justify_px,
+                            ruby_gap_px: run.ruby_gap_px,
+                            opener_trim_px: run.opener_trim_px,
+                        });
                     }
                     Fragment::Image(image) => {
                         first_x = first_x.min(image.rect.x);
@@ -165,6 +189,7 @@ fn collect_probe_lines(
                 width,
                 height: line.rect.height,
                 source: line.source.0,
+                runs,
             });
         }
         Fragment::Text(_) | Fragment::Image(_) => {}
