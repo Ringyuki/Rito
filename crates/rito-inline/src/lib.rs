@@ -759,6 +759,8 @@ impl ParleyInlineContext {
         let mut fonts = self.fonts.borrow_mut();
         // Computed before the builder takes the font borrow: the trim
         // gate resolves each trimmed character's font to check `halt`.
+        let inline_box_bytes: Vec<usize> =
+            image_boxes.iter().map(|inline_box| inline_box.index).collect();
         let punctuation_trims = compute_cjk_punctuation_trims(
             &mut fonts,
             &self.registered_families,
@@ -766,6 +768,7 @@ impl ParleyInlineContext {
             &text,
             &runs,
             suppressed_pair_trims,
+            &inline_box_bytes,
         );
         let pair_trims: Vec<(usize, usize)> = punctuation_trims
             .iter()
@@ -3006,6 +3009,7 @@ fn compute_cjk_punctuation_trims(
     text: &str,
     runs: &[(std::ops::Range<usize>, &InlineFormattingStyleV1, usize)],
     suppressed_pairs: &[usize],
+    inline_box_bytes: &[usize],
 ) -> Vec<PunctuationTrim> {
     fn style_at<'a>(
         cursor: &mut usize,
@@ -3028,6 +3032,14 @@ fn compute_cjk_punctuation_trims(
             // glyphs at full width, exactly as the browser trims within
             // lines only.
             if suppressed_pairs.contains(&left_byte) {
+                previous = Some((byte, character));
+                continue;
+            }
+            // An inline box (an image — flow text carries no placeholder
+            // for it) sitting between the two characters separates them:
+            // the browser keeps 的。<img>』at full width while 。』
+            // alone trims (measured on b20's note badge, p143).
+            if inline_box_bytes.contains(&byte) {
                 previous = Some((byte, character));
                 continue;
             }
@@ -4595,6 +4607,166 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (adjacent - 45.6).abs() < 0.05,
             "adjacent ruby bases each shape alone: {adjacent}"
+        );
+    }
+
+    /// An inline image between two fullwidth punctuation glyphs keeps
+    /// them both at full width: the pair 的。<img>』 never trims, while
+    /// the same characters with no box between them trim the 。 to half
+    /// (measured on b20 p143's note badge: Blink paints 的。 full, then
+    /// the badge, then 』 — the engine's flow text carries no
+    /// placeholder for the image, so a text-only adjacency scan saw
+    /// 。』 and halved the 。).
+    #[test]
+    fn an_inline_image_separates_a_punctuation_pair() {
+        use rito_style_contract::{
+            AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
+            LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
+            LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1,
+            MinimumHeightV1, OverflowV1, PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        };
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let lay_text_width = |with_image: bool| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(vec![FontFamily::Generic(
+                            rito_style_contract::GenericFontFamily::Serif,
+                        )])
+                        .expect("family list"),
+                        15.2,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let mut layout = LayoutStyleTableV1::new(1);
+            let auto = LengthPercentageOrAuto::Auto;
+            let zero_padding = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+                CssPx::new(0.0).expect("zero"),
+            ));
+            let image_layout = layout
+                .intern_for_node(
+                    0,
+                    LayoutFormattingStyleV1 {
+                        display: LayoutDisplayV1 {
+                            outside: LayoutDisplayOutsideV1::Inline,
+                            inside: LayoutDisplayInsideV1::Flow,
+                            is_list_item: false,
+                        },
+                        margin: PhysicalSides {
+                            top: auto,
+                            right: auto,
+                            bottom: auto,
+                            left: auto,
+                        },
+                        padding: PhysicalSides {
+                            top: zero_padding,
+                            right: zero_padding,
+                            bottom: zero_padding,
+                            left: zero_padding,
+                        },
+                        box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
+                        justify_content: JustifyContentV1::Normal,
+                        align_items: AlignItemsV1::Normal,
+                        break_before: PageBreakV1::Auto,
+                        break_after: PageBreakV1::Auto,
+                        width: PreferredSizeV1::Auto,
+                        height: PreferredSizeV1::Auto,
+                        max_width: MaximumSizeV1::None,
+                        min_height: MinimumHeightV1::Auto,
+                        max_height: MaximumHeightV1::None,
+                        clear: ClearV1::None,
+                        float: FloatV1::None,
+                        overflow: OverflowV1::Visible,
+                        list_style_type: ListMarkerStyleV1::None,
+                        position: PositionV1::Static,
+                        inset: PhysicalSides {
+                            top: auto,
+                            right: auto,
+                            bottom: auto,
+                            left: auto,
+                        },
+                        vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+                        border_spacing: (
+                            rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                            rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                        ),
+                    },
+                )
+                .expect("layout style interns");
+            let mut items = vec![InlineItem::Text {
+                text: "的。".to_owned(),
+                style,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            }];
+            if with_image {
+                items.push(InlineItem::Image {
+                    src: "images/note.png".to_owned(),
+                    intrinsic_width: 14.0,
+                    intrinsic_height: 14.0,
+                    style,
+                    layout_style: image_layout,
+                    fit_contain: false,
+                    viewport: None,
+                    baseline_shift_px: 0.0,
+                });
+            }
+            items.push(InlineItem::Text {
+                text: "』可".to_owned(),
+                style,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            });
+            let tree = FormattingTree::with_styles(
+                vec![FormattingNode {
+                    style: rito_style_contract::LayoutStyleId::from_raw(0),
+                    content: FormattingNodeContent::InlineFlow { items },
+                    children: Vec::new(),
+                }],
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles { layout, inline },
+            )
+            .expect("inline tree builds");
+            let outcome = context
+                .layout(
+                    &tree,
+                    FormattingNodeId(0),
+                    &ConstraintSpace::continuous(10_000.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("inline outcome root is a box fragment");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            line.children
+                .iter()
+                .filter_map(|child| match child {
+                    Fragment::Text(run) => Some(run.rect.width),
+                    _ => None,
+                })
+                .sum::<f64>()
+        };
+        let trimmed = lay_text_width(false);
+        assert!(
+            (trimmed - 53.2).abs() < 0.05,
+            "with no box between them 。』 trims the 。 to half: {trimmed}"
+        );
+        let separated = lay_text_width(true);
+        assert!(
+            (separated - 60.8).abs() < 0.05,
+            "an image between 。 and 』 keeps both full: {separated}"
         );
     }
 
