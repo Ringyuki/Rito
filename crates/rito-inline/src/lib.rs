@@ -4074,9 +4074,18 @@ fn image_display_size(
 /// into the padding and widens its advance by the same amount, exactly
 /// parley's linear indent math (measured on b19's `.po` footnotes:
 /// first line one em left of the continuation lines).
+/// The used first-line indent on Blink's LayoutUnit grid, TRUNCATED
+/// toward zero exactly like the padding path (LayoutUnit's float
+/// constructor truncates): a 2em indent at 15.2px is 30.4 in CSS
+/// arithmetic but 30.390625 in every Blink line position (measured on
+/// b20 p018: truth glyph x 39.8125 = base 9.421875 + 30.390625, while
+/// the engine's float 30.4 started 0.009375 right — every glyph's
+/// subpixel phase shifted and the whole line lit up as AA diff).
 fn resolved_text_indent(style: &InlineFormattingStyleV1) -> f32 {
     match style.text_flow.text_indent.value {
-        LengthPercentage::Length(px) => px.get(),
+        LengthPercentage::Length(px) => {
+            ((f64::from(px.get()) * 64.0).trunc() / 64.0) as f32
+        }
         _ => 0.0,
     }
 }
