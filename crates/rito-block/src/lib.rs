@@ -814,25 +814,58 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 FormattingNodeContent::Table => {
                     let child_style = container_layout_style(tree, *child_id)?;
                     let hbox = resolve_horizontal_box(child_style, content_width)?;
-                    let table = self.layout_table(tree, *child_id, hbox.border_width, cancel)?;
+                    let placement = if space.fragmentainer_remaining.is_none() {
+                        // Continuous flow: the table lays out whole.
+                        TableFragmentainerPlacement::Placed {
+                            fragment: self.layout_table(
+                                tree,
+                                *child_id,
+                                hbox.border_width,
+                                cancel,
+                            )?,
+                            continuation: None,
+                        }
+                    } else {
+                        let child_token = if child_resumed {
+                            descend_token(token, consumed)?
+                        } else {
+                            None
+                        };
+                        self.layout_table_in_fragmentainer(
+                            tree,
+                            *child_id,
+                            hbox.border_width,
+                            available,
+                            space.fragmentainer_size,
+                            child_token.as_ref(),
+                            page_is_empty,
+                            cancel,
+                        )?
+                    };
+                    let (table, continuation) = match placement {
+                        TableFragmentainerPlacement::BreakBefore => {
+                            return Ok(sealed_with_break(
+                                container,
+                                space.inline_size,
+                                seal_height(y, &floats),
+                                fragments,
+                                BreakToken {
+                                    resume_path: vec![*child_id],
+                                    stage: BreakTokenStage::Before,
+                                    pending_floats: std::mem::take(&mut pending_float_breaks),
+                                },
+                            ));
+                        }
+                        TableFragmentainerPlacement::Placed {
+                            fragment,
+                            continuation,
+                        } => (fragment, continuation),
+                    };
                     // A table shrinks to fit, so its auto margins resolve
                     // against the used width, not the available one: this
                     // is what centers `margin: 0 auto` tables.
                     let table_x = shrink_to_fit_offset(child_style, content_width, table.rect.width);
                     let table_height = table.rect.height;
-                    if table_height > available && !page_is_empty {
-                        return Ok(sealed_with_break(
-                            container,
-                            space.inline_size,
-                            seal_height(y, &floats),
-                            fragments,
-                            BreakToken {
-                                resume_path: vec![*child_id],
-                                stage: BreakTokenStage::Before,
-                                pending_floats: std::mem::take(&mut pending_float_breaks),
-                            },
-                        ));
-                    }
                     y += gap;
                     remaining -= gap;
                     fragments.push(Fragment::Box(BoxFragment {
@@ -847,8 +880,36 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     }));
                     y += table_height;
                     remaining -= table_height;
-                    pending_margin = bottom_margin;
-                    continue;
+                    match continuation {
+                        None => {
+                            pending_margin = bottom_margin;
+                            continue;
+                        }
+                        Some(inner) => {
+                            let mut resume_path =
+                                Vec::with_capacity(inner.resume_path.len() + 1);
+                            resume_path.push(*child_id);
+                            resume_path.extend(inner.resume_path);
+                            let mut pending_floats = std::mem::take(&mut pending_float_breaks);
+                            pending_floats.extend(inner.pending_floats.into_iter().map(
+                                |entry| FloatBreak {
+                                    depth: entry.depth + 1,
+                                    ..entry
+                                },
+                            ));
+                            return Ok(sealed_with_break(
+                                container,
+                                space.inline_size,
+                                y,
+                                fragments,
+                                BreakToken {
+                                    resume_path,
+                                    stage: inner.stage,
+                                    pending_floats,
+                                },
+                            ));
+                        }
+                    }
                 }
                 FormattingNodeContent::TableRow | FormattingNodeContent::TableCell { .. } => {
                     return Err(LayoutError::Invalid(
@@ -1245,12 +1306,60 @@ fn set_fragment_y(fragment: &mut Fragment, y: f64) {
     }
 }
 
+/// One cell in the table grid: its node and column placement.
+struct TableGridCell {
+    node: FormattingNodeId,
+    column: usize,
+    span: usize,
+}
+
+/// The table's sized grid: rows of placed cells over globally sized
+/// columns. Column sizing runs once over the whole table; every row and
+/// every fragment reads the same offsets.
+struct TableGridLayout {
+    rows: Vec<Vec<TableGridCell>>,
+    row_ids: Vec<FormattingNodeId>,
+    offsets: Vec<f64>,
+    table_width: f64,
+    spacing_x: f64,
+    spacing_y: f64,
+}
+
+impl TableGridLayout {
+    /// A cell's border-box width across its column span.
+    fn cell_width(&self, cell: &TableGridCell) -> f64 {
+        self.offsets[cell.column + cell.span] - self.offsets[cell.column] - self.spacing_x
+    }
+}
+
+/// One table's placement attempt into the current fragmentainer.
+enum TableFragmentainerPlacement {
+    /// Nothing of the table fits here; the caller breaks before it.
+    BreakBefore,
+    /// A fragment was produced, with a continuation when content remains.
+    Placed {
+        fragment: BoxFragment,
+        continuation: Option<BreakToken>,
+    },
+}
+
+fn empty_table_fragment(table: FormattingNodeId) -> BoxFragment {
+    BoxFragment {
+        source: table,
+        rect: FragmentRect {
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+        },
+        children: Vec::new(),
+    }
+}
+
 impl<I: FormattingContext> BlockFormattingContext<I> {
     /// Lays a table out whole: CSS automatic column sizing over the
     /// cells' intrinsic widths (a spanning cell spreads its demand evenly),
     /// shrink-to-fit table width, each row as tall as its tallest cell.
-    /// Fragmentation is at the table's granularity in this version — the
-    /// caller breaks before the table when it does not fit.
     fn layout_table(
         &self,
         tree: &FormattingTree,
@@ -1258,12 +1367,255 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         available_width: f64,
         cancel: &CancelFlag,
     ) -> Result<BoxFragment, LayoutError> {
-        struct GridCell {
-            node: FormattingNodeId,
-            column: usize,
-            span: usize,
+        let Some(grid) = self.table_grid(tree, table, available_width)? else {
+            return Ok(empty_table_fragment(table));
+        };
+        let mut rows = Vec::with_capacity(grid.rows.len());
+        let mut y = grid.spacing_y;
+        for row_index in 0..grid.rows.len() {
+            if cancel.is_cancelled() {
+                return Err(LayoutError::Cancelled);
+            }
+            let mut row = self.layout_table_row(tree, &grid, row_index, cancel)?;
+            let row_height = row.rect.height;
+            row.rect.y = y;
+            rows.push(Fragment::Box(row));
+            y += row_height + grid.spacing_y;
         }
-        let mut grid: Vec<Vec<GridCell>> = Vec::new();
+        Ok(BoxFragment {
+            source: table,
+            rect: FragmentRect {
+                x: 0.0,
+                y: 0.0,
+                width: grid.table_width,
+                height: y,
+            },
+            children: rows,
+        })
+    }
+
+    /// Lays a table into the current fragmentainer the way a browser
+    /// fragments one: rows fill the remaining space; a single-cell row
+    /// that straddles the edge breaks INSIDE the cell, whose content
+    /// fragments like any block container (a page-tall wrapper table's
+    /// TOC splits between its paragraphs, measured on Blink); a
+    /// multi-cell row breaks between rows, since parallel cell
+    /// resumption is not modelled. Column sizing stays global over the
+    /// whole table — fragmentation never re-sizes columns.
+    #[allow(clippy::too_many_arguments)]
+    fn layout_table_in_fragmentainer(
+        &self,
+        tree: &FormattingTree,
+        table: FormattingNodeId,
+        available_width: f64,
+        budget: f64,
+        fragmentainer_size: Option<f64>,
+        token: Option<&BreakToken>,
+        page_is_empty: bool,
+        cancel: &CancelFlag,
+    ) -> Result<TableFragmentainerPlacement, LayoutError> {
+        let Some(grid) = self.table_grid(tree, table, available_width)? else {
+            return Ok(TableFragmentainerPlacement::Placed {
+                fragment: empty_table_fragment(table),
+                continuation: None,
+            });
+        };
+        // Decode the resume point: the token names the interrupted row,
+        // then the interrupted cell with its own inner path. Two levels
+        // strip off; split floats ride down rebased the same two levels.
+        let mut start_row = 0usize;
+        let mut cell_token: Option<BreakToken> = None;
+        if let Some(token) = token {
+            let Some(row_id) = token.resume_path.first() else {
+                return Err(LayoutError::Invalid(
+                    "a table break token must name the interrupted row".to_owned(),
+                ));
+            };
+            start_row = grid
+                .row_ids
+                .iter()
+                .position(|id| id == row_id)
+                .ok_or_else(|| {
+                    LayoutError::Invalid("table break token names a foreign row".to_owned())
+                })?;
+            if token.resume_path.len() >= 2 {
+                if grid.rows[start_row].len() != 1 {
+                    return Err(LayoutError::Invalid(
+                        "a table break token resumes inside a cell only in a single-cell row"
+                            .to_owned(),
+                    ));
+                }
+                cell_token = Some(BreakToken {
+                    resume_path: token.resume_path[2..].to_vec(),
+                    stage: token.stage,
+                    pending_floats: token
+                        .pending_floats
+                        .iter()
+                        .filter(|entry| entry.depth >= 2)
+                        .map(|entry| FloatBreak {
+                            child: entry.child,
+                            token: entry.token.clone(),
+                            depth: entry.depth - 2,
+                        })
+                        .collect(),
+                });
+            }
+        }
+        let mut y = if token.is_some() { 0.0 } else { grid.spacing_y };
+        let mut rows_out: Vec<Fragment> = Vec::new();
+        let mut continuation: Option<BreakToken> = None;
+        for row_index in start_row..grid.rows.len() {
+            if cancel.is_cancelled() {
+                return Err(LayoutError::Cancelled);
+            }
+            let row_id = grid.row_ids[row_index];
+            let row = &grid.rows[row_index];
+            let resuming_cell = row_index == start_row && cell_token.is_some();
+            if !resuming_cell {
+                let mut row_fragment = self.layout_table_row(tree, &grid, row_index, cancel)?;
+                let row_height = row_fragment.rect.height;
+                if y + row_height <= budget {
+                    row_fragment.rect.y = y;
+                    rows_out.push(Fragment::Box(row_fragment));
+                    y += row_height + grid.spacing_y;
+                    continue;
+                }
+                if row.len() != 1 {
+                    if rows_out.is_empty() && !page_is_empty {
+                        return Ok(TableFragmentainerPlacement::BreakBefore);
+                    }
+                    if rows_out.is_empty() {
+                        // A multi-cell row taller than an empty page
+                        // places whole so pagination always progresses.
+                        row_fragment.rect.y = y;
+                        rows_out.push(Fragment::Box(row_fragment));
+                        y += row_height + grid.spacing_y;
+                        continue;
+                    }
+                    continuation = Some(BreakToken {
+                        resume_path: vec![row_id],
+                        stage: BreakTokenStage::Before,
+                        pending_floats: Vec::new(),
+                    });
+                    break;
+                }
+            }
+            // A single-cell row at the fragmentainer edge, or resuming
+            // across one: the cell's content fragments in place.
+            let cell = &row[0];
+            let cell_width = grid.cell_width(cell);
+            let cell_budget = (budget - y).max(0.0);
+            let inner_token = if resuming_cell { cell_token.take() } else { None };
+            // A cell opening a fresh page owns it outright — its interior
+            // sees a fresh fragmentainer, so the force-placement that
+            // guarantees pagination progress applies inside it too.
+            let cell_fragmentainer_size = if resuming_cell || (page_is_empty && rows_out.is_empty())
+            {
+                Some(cell_budget)
+            } else {
+                fragmentainer_size
+            };
+            let outcome = self.layout_container(
+                tree,
+                cell.node,
+                &ConstraintSpace {
+                    inline_size: cell_width,
+                    fragmentainer_remaining: Some(cell_budget),
+                    fragmentainer_size: cell_fragmentainer_size,
+                    float_band: None,
+                },
+                inner_token.as_ref(),
+                cancel,
+                false,
+            )?;
+            let Fragment::Box(mut cell_root) = outcome.fragments.root else {
+                return Err(LayoutError::Invalid(
+                    "cell layout must produce a box fragment".to_owned(),
+                ));
+            };
+            let nothing_fit = !resuming_cell
+                && cell_root.children.is_empty()
+                && cell_root.rect.height <= 0.0
+                && outcome.continuation.is_some();
+            if nothing_fit {
+                if rows_out.is_empty() {
+                    return Ok(TableFragmentainerPlacement::BreakBefore);
+                }
+                continuation = Some(BreakToken {
+                    resume_path: vec![row_id],
+                    stage: BreakTokenStage::Before,
+                    pending_floats: Vec::new(),
+                });
+                break;
+            }
+            cell_root.source = cell.node;
+            cell_root.rect.x = grid.offsets[cell.column] - grid.spacing_x;
+            cell_root.rect.width = cell_width;
+            cell_root.rect.y = 0.0;
+            let fragment_height = cell_root.rect.height;
+            rows_out.push(Fragment::Box(BoxFragment {
+                source: row_id,
+                rect: FragmentRect {
+                    x: grid.spacing_x,
+                    y,
+                    width: (grid.table_width - 2.0 * grid.spacing_x).max(0.0),
+                    height: fragment_height,
+                },
+                children: vec![Fragment::Box(cell_root)],
+            }));
+            y += fragment_height;
+            match outcome.continuation {
+                Some(inner) => {
+                    let mut resume_path = Vec::with_capacity(inner.resume_path.len() + 2);
+                    resume_path.push(row_id);
+                    resume_path.push(cell.node);
+                    resume_path.extend(inner.resume_path);
+                    continuation = Some(BreakToken {
+                        resume_path,
+                        stage: inner.stage,
+                        pending_floats: inner
+                            .pending_floats
+                            .into_iter()
+                            .map(|entry| FloatBreak {
+                                depth: entry.depth + 2,
+                                ..entry
+                            })
+                            .collect(),
+                    });
+                    break;
+                }
+                None => {
+                    y += grid.spacing_y;
+                }
+            }
+        }
+        Ok(TableFragmentainerPlacement::Placed {
+            fragment: BoxFragment {
+                source: table,
+                rect: FragmentRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: grid.table_width,
+                    height: y,
+                },
+                children: rows_out,
+            },
+            continuation,
+        })
+    }
+
+    /// Builds the table's grid and sizes its columns: CSS automatic
+    /// column sizing over the cells' intrinsic widths (a spanning cell
+    /// spreads its demand evenly), shrink-to-fit table width. `None`
+    /// when the table has no columns at all.
+    fn table_grid(
+        &self,
+        tree: &FormattingTree,
+        table: FormattingNodeId,
+        available_width: f64,
+    ) -> Result<Option<TableGridLayout>, LayoutError> {
+        let mut rows: Vec<Vec<TableGridCell>> = Vec::new();
+        let mut row_ids: Vec<FormattingNodeId> = Vec::new();
         let mut column_count = 0usize;
         for row_id in &tree.node(table).children {
             let FormattingNodeContent::TableRow = tree.node(*row_id).content else {
@@ -1281,7 +1633,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     ));
                 };
                 let span = (col_span as usize).max(1);
-                cells.push(GridCell {
+                cells.push(TableGridCell {
                     node: *cell_id,
                     column,
                     span,
@@ -1289,19 +1641,11 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 column += span;
             }
             column_count = column_count.max(column);
-            grid.push(cells);
+            rows.push(cells);
+            row_ids.push(*row_id);
         }
         if column_count == 0 {
-            return Ok(BoxFragment {
-                source: table,
-                rect: FragmentRect {
-                    x: 0.0,
-                    y: 0.0,
-                    width: 0.0,
-                    height: 0.0,
-                },
-                children: Vec::new(),
-            });
+            return Ok(None);
         }
         let mut min_widths = vec![0.0_f64; column_count];
         let mut max_widths = vec![0.0_f64; column_count];
@@ -1310,7 +1654,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // than widening the column with their own content maximum.
         let mut specified_widths = vec![None::<f64>; column_count];
         let mut column_percentages = vec![None::<f64>; column_count];
-        for row in &grid {
+        for row in &rows {
             for cell in row {
                 let sizes = self.cell_intrinsic_sizes(tree, cell.node)?;
                 let share = cell.span as f64;
@@ -1357,7 +1701,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             })
             .collect();
         let assignable = assignable_table_width(&constraints, content_available);
-        let mut columns = distribute_columns(&constraints, assignable);
+        let columns = distribute_columns(&constraints, assignable);
         // Separate-borders spacing sits between every pair of cells and
         // around the grid, so a column's offset carries one gap per
         // preceding column plus the leading edge.
@@ -1367,82 +1711,83 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             offsets[index + 1] = offsets[index] + columns[index] + spacing_x;
         }
         let table_width = offsets[column_count];
+        Ok(Some(TableGridLayout {
+            rows,
+            row_ids,
+            offsets,
+            table_width,
+            spacing_x,
+            spacing_y,
+        }))
+    }
 
-        let mut rows = Vec::with_capacity(grid.len());
-        let mut y = spacing_y;
-        for (row_index, row) in grid.iter().enumerate() {
-            if cancel.is_cancelled() {
-                return Err(LayoutError::Cancelled);
-            }
-            let row_id = tree.node(table).children[row_index];
-            let mut cell_fragments = Vec::with_capacity(row.len());
-            let mut cell_heights = Vec::with_capacity(row.len());
-            let mut row_height = 0.0_f64;
-            for cell in row {
-                    let cell_width = offsets[cell.column + cell.span]
-                    - offsets[cell.column]
-                    - spacing_x;
-                let outcome = self.layout_container(
-                    tree,
-                    cell.node,
-                    &ConstraintSpace::continuous(cell_width),
-                    None,
-                    cancel,
-                    false,
-                )?;
-                let Fragment::Box(mut cell_root) = outcome.fragments.root else {
-                    return Err(LayoutError::Invalid(
-                        "cell layout must produce a box fragment".to_owned(),
-                    ));
-                };
-                cell_root.source = cell.node;
-                cell_root.rect.x = offsets[cell.column] - spacing_x;
-                cell_root.rect.width = cell_width;
-                row_height = row_height.max(cell_root.rect.height);
-                cell_heights.push(cell_root.rect.height);
-                cell_fragments.push(cell_root);
-            }
-            // Cells stretch to the row height, matching the separate-border
-            // table model's uniform row boxes, and align their content
-            // inside that box per `vertical-align`. Baseline alignment
-            // falls back to the top edge until cell baselines are tracked.
-            for (cell_root, content_height) in cell_fragments.iter_mut().zip(&cell_heights) {
-                let free = (row_height - content_height).max(0.0);
-                let shift = match container_layout_style(tree, cell_root.source)?.vertical_align {
-                    rito_style_contract::CellVerticalAlignV1::Middle => free / 2.0,
-                    rito_style_contract::CellVerticalAlignV1::Bottom => free,
-                    rito_style_contract::CellVerticalAlignV1::Top
-                    | rito_style_contract::CellVerticalAlignV1::Baseline => 0.0,
-                };
-                if shift > 0.0 {
-                    for child in &mut cell_root.children {
-                        translate_fragment(child, 0.0, shift);
-                    }
+    /// Lays one row out whole in continuous flow: each cell a block
+    /// container at its column width, the row as tall as its tallest
+    /// cell. The fragment sits at the row's x offset with y left at
+    /// zero for the caller to place.
+    fn layout_table_row(
+        &self,
+        tree: &FormattingTree,
+        grid: &TableGridLayout,
+        row_index: usize,
+        cancel: &CancelFlag,
+    ) -> Result<BoxFragment, LayoutError> {
+        let row_id = grid.row_ids[row_index];
+        let row = &grid.rows[row_index];
+        let mut cell_fragments = Vec::with_capacity(row.len());
+        let mut cell_heights = Vec::with_capacity(row.len());
+        let mut row_height = 0.0_f64;
+        for cell in row {
+            let cell_width = grid.cell_width(cell);
+            let outcome = self.layout_container(
+                tree,
+                cell.node,
+                &ConstraintSpace::continuous(cell_width),
+                None,
+                cancel,
+                false,
+            )?;
+            let Fragment::Box(mut cell_root) = outcome.fragments.root else {
+                return Err(LayoutError::Invalid(
+                    "cell layout must produce a box fragment".to_owned(),
+                ));
+            };
+            cell_root.source = cell.node;
+            cell_root.rect.x = grid.offsets[cell.column] - grid.spacing_x;
+            cell_root.rect.width = cell_width;
+            row_height = row_height.max(cell_root.rect.height);
+            cell_heights.push(cell_root.rect.height);
+            cell_fragments.push(cell_root);
+        }
+        // Cells stretch to the row height, matching the separate-border
+        // table model's uniform row boxes, and align their content
+        // inside that box per `vertical-align`. Baseline alignment
+        // falls back to the top edge until cell baselines are tracked.
+        for (cell_root, content_height) in cell_fragments.iter_mut().zip(&cell_heights) {
+            let free = (row_height - content_height).max(0.0);
+            let shift = match container_layout_style(tree, cell_root.source)?.vertical_align {
+                rito_style_contract::CellVerticalAlignV1::Middle => free / 2.0,
+                rito_style_contract::CellVerticalAlignV1::Bottom => free,
+                rito_style_contract::CellVerticalAlignV1::Top
+                | rito_style_contract::CellVerticalAlignV1::Baseline => 0.0,
+            };
+            if shift > 0.0 {
+                for child in &mut cell_root.children {
+                    translate_fragment(child, 0.0, shift);
                 }
-                cell_root.rect.height = row_height;
-                cell_root.rect.y = 0.0;
             }
-            rows.push(Fragment::Box(BoxFragment {
-                source: row_id,
-                rect: FragmentRect {
-                    x: spacing_x,
-                    y,
-                    width: (table_width - 2.0 * spacing_x).max(0.0),
-                    height: row_height,
-                },
-                children: cell_fragments.into_iter().map(Fragment::Box).collect(),
-            }));
-            y += row_height + spacing_y;
+            cell_root.rect.height = row_height;
+            cell_root.rect.y = 0.0;
         }
         Ok(BoxFragment {
-            source: table,
+            source: row_id,
             rect: FragmentRect {
-                x: 0.0,
+                x: grid.spacing_x,
                 y: 0.0,
-                width: table_width,
-                height: y,
+                width: (grid.table_width - 2.0 * grid.spacing_x).max(0.0),
+                height: row_height,
             },
-            children: rows,
+            children: cell_fragments.into_iter().map(Fragment::Box).collect(),
         })
     }
 
@@ -2667,6 +3012,165 @@ mod tests {
             panic!("container roots are box fragments");
         };
         &root.children
+    }
+
+    /// Builds a tree whose root holds one table: `rows` gives, per row,
+    /// the paragraph line counts of each cell (single-line paragraphs
+    /// through `FixedLineInline`, so every count is 10 px of content).
+    fn table_tree(rows: &[&[&[usize]]]) -> FormattingTree {
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut nodes: Vec<FormattingNode> = Vec::new();
+        let mut row_ids = Vec::new();
+        let mut node_total = 0usize;
+        for row in rows {
+            let mut cell_ids = Vec::new();
+            for cell in *row {
+                let mut paragraph_ids = Vec::new();
+                for count in *cell {
+                    nodes.push(FormattingNode {
+                        style: LayoutStyleId::from_raw(0),
+                        content: FormattingNodeContent::InlineFlow {
+                            items: (0..*count)
+                                .map(|line| InlineItem::Text {
+                                    text: format!("line {line}"),
+                                    style: text_style,
+                                    baseline_shift_px: 0.0,
+                                    ruby_annotation: None,
+                                })
+                                .collect(),
+                        },
+                        children: Vec::new(),
+                    });
+                    paragraph_ids.push(FormattingNodeId(node_total as u32));
+                    node_total += 1;
+                }
+                nodes.push(FormattingNode {
+                    style: LayoutStyleId::from_raw(0),
+                    content: FormattingNodeContent::TableCell { col_span: 1 },
+                    children: paragraph_ids,
+                });
+                cell_ids.push(FormattingNodeId(node_total as u32));
+                node_total += 1;
+            }
+            nodes.push(FormattingNode {
+                style: LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::TableRow,
+                children: cell_ids,
+            });
+            row_ids.push(FormattingNodeId(node_total as u32));
+            node_total += 1;
+        }
+        nodes.push(FormattingNode {
+            style: LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::Table,
+            children: row_ids,
+        });
+        let table_id = FormattingNodeId(node_total as u32);
+        node_total += 1;
+        nodes.push(FormattingNode {
+            style: LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::BlockContainer,
+            children: vec![table_id],
+        });
+        let root = FormattingNodeId(node_total as u32);
+        let mut layout = LayoutStyleTableV1::new(0);
+        let plain = layout
+            .intern(block_style(margin_px(0.0), margin_px(0.0)))
+            .expect("style interns");
+        assert_eq!(plain, LayoutStyleId::from_raw(0));
+        FormattingTree::with_styles(
+            nodes,
+            root,
+            FormattingTreeStyles {
+                layout,
+                inline,
+            },
+        )
+        .expect("tree builds")
+    }
+
+    fn table_fragment(outcome: &LayoutOutcome) -> &BoxFragment {
+        let children = box_children(outcome);
+        assert_eq!(children.len(), 1, "each page holds one table fragment");
+        let Fragment::Box(table) = &children[0] else {
+            panic!("table fragments are boxes");
+        };
+        table
+    }
+
+    #[test]
+    fn a_page_tall_single_cell_table_fragments_between_its_paragraphs() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        // One row, one cell, six single-line paragraphs (60 px) through
+        // 25 px fragmentainers: the cell's content fragments like any
+        // block flow — 2 + 2 + 2 paragraphs — instead of the table
+        // deferring whole and clipping (the spider-TOC defect shape).
+        let tree = table_tree(&[&[&[1, 1, 1, 1, 1, 1]]]);
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 25.0));
+        assert_eq!(pages.len(), 3);
+        for page in &pages {
+            let table = table_fragment(page);
+            assert!((table.rect.height - 20.0).abs() < 1e-9, "each table fragment holds two 10px paragraphs, got {}", table.rect.height);
+            let Fragment::Box(row) = &table.children[0] else {
+                panic!("row fragments are boxes");
+            };
+            let Fragment::Box(cell) = &row.children[0] else {
+                panic!("cell fragments are boxes");
+            };
+            assert_eq!(cell.children.len(), 2);
+            // Resumed fragments start flush at the fragmentainer top.
+            assert!(table.rect.y.abs() < 1e-9);
+            assert!(row.rect.y.abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn a_multi_cell_row_breaks_between_rows() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        // Three 10px rows of two cells each through 25 px fragmentainers:
+        // multi-cell rows fragment between rows — 2 rows, then 1.
+        let tree = table_tree(&[&[&[1], &[1]], &[&[1], &[1]], &[&[1], &[1]]]);
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 25.0));
+        assert_eq!(pages.len(), 2);
+        let first = table_fragment(&pages[0]);
+        assert_eq!(first.children.len(), 2);
+        assert!((first.rect.height - 20.0).abs() < 1e-9);
+        let second = table_fragment(&pages[1]);
+        assert_eq!(second.children.len(), 1);
+        assert!((second.rect.height - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_fitting_table_places_whole_and_continuous_flow_never_fragments() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let tree = table_tree(&[&[&[1, 1, 1, 1, 1, 1]]]);
+        // Continuous flow: one whole 60px table.
+        let continuous = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(100.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("lays out");
+        assert!(continuous.continuation.is_none());
+        assert!((table_fragment(&continuous).rect.height - 60.0).abs() < 1e-9);
+        // A fragmentainer tall enough holds it whole too.
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 80.0));
+        assert_eq!(pages.len(), 1);
+        assert!((table_fragment(&pages[0]).rect.height - 60.0).abs() < 1e-9);
     }
 
     #[test]
