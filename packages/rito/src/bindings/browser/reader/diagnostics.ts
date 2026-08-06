@@ -1,4 +1,5 @@
 import { cachedHostLineMetricEntries } from '../host-line-metrics';
+import { frameImageResourcesAreSettled } from '../resources';
 import { ensureFrameLoaded } from './frame-cache';
 import type { BrowserReaderState } from './types';
 
@@ -19,6 +20,23 @@ export function installBrowserReaderDiagnostics(state: BrowserReaderState): void
     }),
     revision: () => state.revisionBundle.revision,
     frame: (spreadIndex: number) => ensureFrameLoaded(state, spreadIndex),
+    // Whether every image the spread's frame references has settled
+    // (decoded into the bitmap cache, or terminally failed). The paint
+    // path deliberately keeps the PREVIOUS canvas when a bitmap is not
+    // ready yet (degrade-never-block), so a harness that screenshots on
+    // spread arrival can capture the prior spread's image as a ghost —
+    // it must await this probe first.
+    spreadImagesSettled: async (spreadIndex: number) => {
+      const frame = await ensureFrameLoaded(state, spreadIndex);
+      if (!frame) return false;
+      const revision = state.revisionHandle;
+      if (!revision) return false;
+      const hrefs = frame.resourceRefs.images;
+      if (hrefs.length === 0) return true;
+      // Settled covers terminal failures too: a failed image never
+      // repaints, so waiting beyond settlement would only hang.
+      return frameImageResourcesAreSettled(state, revision, hrefs);
+    },
     chapterFragmentProbe: (idref: string) =>
       state.worker.chapterFragmentProbe(state.revisionBundle.revision.revisionId, idref),
   };

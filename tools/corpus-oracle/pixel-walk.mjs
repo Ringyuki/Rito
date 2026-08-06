@@ -247,6 +247,23 @@ const tapSpread = async (spreadIndex) => {
   console.log(`[tap] page ${TAP_PAGE}: ${log.length} commands (organic pass)`);
 };
 const shootSpread = async (spreadIndex) => {
+  // The paint path deliberately keeps the PREVIOUS canvas while a
+  // spread's image bitmaps are still decoding (degrade-never-block), so
+  // a screenshot on arrival can capture the prior spread's image as a
+  // ghost (measured on b39: id22's page shot the id23 illustration —
+  // 13.jpg — three walks in a row, a 257k phantom account). Await image
+  // settlement, then one more beat for the invalidation repaint. A
+  // timeout falls through: a terminally failed image never repaints.
+  await reader
+    .waitForFunction(
+      (s) => globalThis.__ritoReaderDiagnostics?.spreadImagesSettled?.(s) ?? true,
+      spreadIndex,
+      { timeout: 20000 },
+    )
+    .catch(() => {
+      console.log(`[images] spread ${spreadIndex}: settlement timed out; shooting anyway`);
+    });
+  await reader.waitForTimeout(250);
   // The first paint after a dist/wasm rebuild can stall while vite
   // re-optimizes; one long-timeout retry absorbs it.
   const shot = await canvas.screenshot({ timeout: 90000 }).catch(async () => {
