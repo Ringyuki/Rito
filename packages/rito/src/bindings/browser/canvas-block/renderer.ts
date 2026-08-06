@@ -59,5 +59,14 @@ function fillBackgroundColor(
     ctx.fill();
     return;
   }
-  ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+  // A plain background rasters on whole device pixels, each edge
+  // rounding independently — the same binary band the border law uses.
+  // A float fill at x 57.65625 bled 34% white over the frame's already
+  // binary 1px border column and greyed it to 88/255 (measured on b39's
+  // interview frame; Blink keeps the border column untouched).
+  const right = Math.round(rect.x + rect.width);
+  const bottom = Math.round(rect.y + rect.height);
+  const left = Math.round(rect.x);
+  const top = Math.round(rect.y);
+  ctx.fillRect(left, top, right - left, bottom - top);
 }
