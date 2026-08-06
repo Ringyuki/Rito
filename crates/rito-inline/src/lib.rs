@@ -645,6 +645,7 @@ impl ParleyInlineContext {
                     intrinsic_width,
                     intrinsic_height,
                     layout_style,
+                    viewport,
                     ..
                 } => {
                     let layout_style = styles
@@ -658,6 +659,7 @@ impl ParleyInlineContext {
                         available_inline_size,
                         available_block_size,
                         percentage_images,
+                        *viewport,
                     )?;
                     image_boxes.push(InlineBox {
                         id: item_index as u64,
@@ -3926,6 +3928,7 @@ fn image_display_size(
     available_inline_size: Option<f64>,
     available_block_size: Option<f64>,
     percentage_images: PercentageImageSizing,
+    viewport: Option<(f64, f64)>,
 ) -> Result<(f32, f32), LayoutError> {
     // A percentage with no basis appears only in intrinsic (min/max-
     // content) sizing, where resolving it would be circular. CSS makes
@@ -3959,14 +3962,17 @@ fn image_display_size(
     // not its width, and computes to `auto` when that height is indefinite
     // (CSS 2.1 §10.5) — which is the usual case in a continuous flow. Only
     // a length is definite here.
+    // The containing block's height is INDEFINITE in a continuous flow,
+    // so a percentage height computes to auto (CSS 2.1 §10.5) — the
+    // `available_block_size` here is the reader's page CLAMP, not a
+    // definite containing height (measured on b77's svg-wrapped plates:
+    // height=100% resolved against the 850 clamp blew every plate to
+    // full page, where the browser lays 627.219 × width·viewBox-ratio).
     let resolve_block = |value: LengthPercentage| -> Option<f64> {
         match value {
             LengthPercentage::Length(px) => Some(f64::from(px.get())),
-            LengthPercentage::Percentage(ratio) => {
-                available_block_size.map(|basis| f64::from(ratio.ratio()) * basis)
-            }
-            LengthPercentage::Linear { length, percentage } => available_block_size
-                .map(|basis| f64::from(length.get()) + f64::from(percentage.ratio()) * basis),
+            LengthPercentage::Percentage(_) => None,
+            LengthPercentage::Linear { .. } => None,
         }
     };
     let preferred = |value: PreferredSizeV1,
@@ -3985,7 +3991,17 @@ fn image_display_size(
             ))),
         }
     };
-    let ratio = if intrinsic_width > 0.0 && intrinsic_height > 0.0 {
+    // The ELEMENT box of an svg-folded image sizes by the svg's own
+    // viewBox ratio, not the inner raster's (they differ on covers:
+    // viewBox 1434x2048 vs raster 1119x1600); the raster then
+    // contain-fits inside via `fit_contain` at paint time.
+    let ratio = if let Some((viewport_width, viewport_height)) = viewport {
+        if viewport_width > 0.0 && viewport_height > 0.0 {
+            viewport_height / viewport_width
+        } else {
+            1.0
+        }
+    } else if intrinsic_width > 0.0 && intrinsic_height > 0.0 {
         intrinsic_height / intrinsic_width
     } else {
         1.0
