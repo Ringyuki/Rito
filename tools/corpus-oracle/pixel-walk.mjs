@@ -264,6 +264,22 @@ const shootSpread = async (spreadIndex) => {
       console.log(`[images] spread ${spreadIndex}: settlement timed out; shooting anyway`);
     });
   await reader.waitForTimeout(250);
+  // The canvas repaint after a page turn is asynchronous: press-verify
+  // confirms the INDEX moved, but a spread with large contain-fit plates
+  // can still show the previous spread's pixels for hundreds of ms
+  // (measured on gimai v03: every colour page shot the prior plate while
+  // the live canvas, given ~700ms, was correct). Poll a thin strip until
+  // two consecutive samples agree; time-box it so a static page costs
+  // one extra sample only.
+  {
+    let previous = null;
+    for (let settle = 0; settle < 10; settle += 1) {
+      const sample = await canvas.screenshot({ timeout: 30000 }).catch(() => null);
+      if (sample !== null && previous !== null && sample.equals(previous)) break;
+      previous = sample;
+      await reader.waitForTimeout(300);
+    }
+  }
   // The first paint after a dist/wasm rebuild can stall while vite
   // re-optimizes; one long-timeout retry absorbs it.
   const shot = await canvas.screenshot({ timeout: 90000 }).catch(async () => {
