@@ -2350,16 +2350,30 @@ impl InlineCollector {
     }
 
     /// Appends a forced line break as a preserved newline in the flow text.
+    ///
+    /// The break keeps its own inherited style: a `<br>` is an inline
+    /// element whose font participates in the envelope of the line it
+    /// ends (measured on b39's id210: a 16px-span's leading <br> after a
+    /// 12px line grows that line's box from 20.2031 to 21.2031 — folding
+    /// the newline into the previous 12px item lost the pixel and shifted
+    /// the whole rest of the page). Same-styled breaks still fold into
+    /// the previous run so the common case stays one item.
     fn push_hard_break(&mut self, style: StyleId, baseline_shift_px: f64) {
         self.pending_space = false;
         if let Some(InlineItem::Text {
             text: last,
             ruby_annotation: None,
+            style: last_style,
             ..
         }) = self.items.last_mut()
         {
-            last.push('\n');
-        } else {
+            if *last_style == style {
+                last.push('\n');
+                self.has_content = true;
+                return;
+            }
+        }
+        {
             self.sources.push(FlowItemSource {
                 source_index: None,
                 source_path: None,

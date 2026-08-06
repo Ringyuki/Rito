@@ -2004,6 +2004,16 @@ impl FormattingContext for ParleyInlineContext {
                         Some((lo, hi)) => (lo.min(start), hi.max(end)),
                         None => (start, end),
                     })
+                })
+                // An empty line (a lone forced break) has no text
+                // fragments, but the break that ends it still sizes its
+                // box (measured on b39 id210: the 16px <br><br> empty
+                // line is 20.2031, not the bare 19.2031 strut) — fall
+                // back to the layout line's own byte range so the
+                // break-item predicate below can find it.
+                .or_else(|| {
+                    let range = line.text_range();
+                    Some((range.start, range.end))
                 });
             // Host font metrics for this line: the content height
             // (ascent + descent) and ascent the host's scaler grid-fits
@@ -2032,9 +2042,17 @@ impl FormattingContext for ParleyInlineContext {
             // fallback covers this pass.
             let mut contributors: Vec<(rito_style_contract::StyleId, &str)> = Vec::new();
             for (index, range) in item_text_ranges.iter().enumerate() {
+                // The ending forced break contributes too (see the
+                // entries loop below): a <br>'s style sizes the line it
+                // ends even though Parley's line range stops before it.
                 let on_line = line_image_items.contains(&index)
                     || line_text_range.is_some_and(|(start, end)| {
-                        range.start < end && start < range.end
+                        (range.start < end && start < range.end)
+                            || (range.start <= end
+                                && end < range.end
+                                && flow_text
+                                    .get(end..)
+                                    .is_some_and(|rest| rest.starts_with('\n')))
                     });
                 if !on_line {
                     continue;
@@ -2136,8 +2154,22 @@ impl FormattingContext for ParleyInlineContext {
                     }
                 }
                 for (index, range) in item_text_ranges.iter().enumerate() {
-                    let on_line = line_text_range
-                        .is_some_and(|(start, end)| range.start < end && start < range.end);
+                    // A forced break belongs to the line it ENDS: Parley's
+                    // line range stops before the newline, but the <br>'s
+                    // own style still sizes that line's box in Blink
+                    // (measured on b39 id210: a 16px span's leading <br>
+                    // after a 12px line grows the box 20.2031 → 21.2031,
+                    // and the EMPTY line its second <br> forms is 20.2031
+                    // tall, not the bare strut) — so an item also joins
+                    // when it holds the newline sitting at the line's end.
+                    let on_line = line_text_range.is_some_and(|(start, end)| {
+                        (range.start < end && start < range.end)
+                            || (range.start <= end
+                                && end < range.end
+                                && flow_text.get(end..).is_some_and(|rest| {
+                                    rest.starts_with('\n')
+                                }))
+                    });
                     if !on_line || range.is_empty() {
                         continue;
                     }
