@@ -807,6 +807,37 @@ impl ParleyInlineContext {
                 StyleProperty::Brush((*item_index as u32).to_le_bytes()),
                 range.clone(),
             );
+            // A <ruby> element's edge is a SHAPING boundary in Blink: the
+            // base shapes alone, so a kern pair straddling the edge never
+            // applies (measured: <ruby>ウ</ruby>，spans the full 加0.08em
+            // where plain/span/b ウ，closes it; the b20 Shou line's slack
+            // grew 1.216px through exactly that pair). A <span> edge does
+            // NOT break shaping. Parley only splits shaped runs where
+            // font features (or size/locale/spacing) change, so the base
+            // carries a no-op feature — an explicitly-off `halt` (off is
+            // its default: zero shaping effect) — to force the split.
+            // Alternating with `vhal` (also off, inert in horizontal
+            // flow) keeps DIRECTLY adjacent mono-ruby bases from merging
+            // with each other.
+            let is_ruby = matches!(
+                items.get(*item_index),
+                Some(InlineItem::Text {
+                    ruby_annotation: Some(_),
+                    ..
+                })
+            );
+            if is_ruby {
+                let tag = if item_index % 2 == 0 { b"halt" } else { b"vhal" };
+                builder.push(
+                    StyleProperty::FontFeatures(parley::FontFeatures::List(
+                        std::borrow::Cow::Owned(vec![parley::FontFeature::new(
+                            parley::setting::Tag::new(tag),
+                            0,
+                        )]),
+                    )),
+                    range.clone(),
+                );
+            }
         }
         // Inline box advances: a span's horizontal padding and borders
         // widen the gap at each box boundary. The gap rides as letter
@@ -2852,6 +2883,20 @@ fn line_justify_plan(
     if total == 0 {
         return None;
     }
+    if std::env::var_os("RITO_JUST_DEBUG").is_some() {
+        let sample: String = content.chars().take(6).collect();
+        eprintln!(
+            "[plan] '{sample}' slack={slack} total={total} share={} counts={:?}",
+            slack / f64::from(total),
+            counts
+                .iter()
+                .map(|(byte, count)| {
+                    let ch = text[*byte..].chars().next().unwrap_or(' ');
+                    (ch, *count)
+                })
+                .collect::<Vec<_>>()
+        );
+    }
     Some(JustifyPlan {
         share: slack / f64::from(total),
         counts,
@@ -4371,6 +4416,185 @@ running through the quiet forest until the morning light returns.";
             lines[1].starts_with("作，『"),
             "the pair opens the continuation line with its opener: {:?}",
             lines[1]
+        );
+    }
+
+    /// TEMP probe.
+    #[test]
+    fn line_natural_probe() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let shape_width = |text: &str| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(vec![FontFamily::Generic(
+                            rito_style_contract::GenericFontFamily::Serif,
+                        )])
+                        .expect("family list"),
+                        15.2,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            let outcome = context
+                .layout(
+                    &tree,
+                    FormattingNodeId(0),
+                    &ConstraintSpace::continuous(10_000.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("inline outcome root is a box fragment");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            line.children
+                .iter()
+                .map(|child| child.rect().width)
+                .sum::<f64>()
+        };
+        let full = "「要注意的是『尚』字的唸法。尚子的尚是唸作ショウ，可是名片哥的名字就不一定";
+        eprintln!("PROBE full = {}", shape_width(full));
+        eprintln!("PROBE open = {}", shape_width("「要注意"));
+        eprintln!("PROBE dot  = {}", shape_width("法。尚"));
+        eprintln!("PROBE cma  = {}", shape_width("ウ，可"));
+        eprintln!("PROBE q    = {}", shape_width("是『尚』字"));
+    }
+
+    /// A `<ruby>` edge is a shaping boundary: the base shapes alone, so
+    /// a kern pair straddling the edge never applies. Measured on the
+    /// pinned SourceHan at 15.2px: plain (and `<span>`-split) ウ，可
+    /// closes to 44.39 through the ウ，kern pair, while
+    /// `<ruby>ウ</ruby>，可 spans the full 45.61 — Blink shapes the ruby
+    /// base independently. The b20 Shou line's slack grew 1.216px (and
+    /// its justify share 0.83 vs Blink's 0.80) through exactly this
+    /// leaked pair.
+    #[test]
+    fn a_ruby_edge_is_a_shaping_boundary() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let lay = |items_of: &dyn Fn(rito_style_contract::StyleId) -> Vec<InlineItem>| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(vec![FontFamily::Generic(
+                            rito_style_contract::GenericFontFamily::Serif,
+                        )])
+                        .expect("family list"),
+                        15.2,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let tree = FormattingTree::with_styles(
+                vec![FormattingNode {
+                    style: rito_style_contract::LayoutStyleId::from_raw(0),
+                    content: FormattingNodeContent::InlineFlow {
+                        items: items_of(style),
+                    },
+                    children: Vec::new(),
+                }],
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            let outcome = context
+                .layout(
+                    &tree,
+                    FormattingNodeId(0),
+                    &ConstraintSpace::continuous(10_000.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("inline outcome root is a box fragment");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            line.children
+                .iter()
+                .map(|child| child.rect().width)
+                .sum::<f64>()
+        };
+        let text_item =
+            |text: &str, annotation: Option<&str>, style| InlineItem::Text {
+                text: text.to_owned(),
+                style,
+                baseline_shift_px: 0.0,
+                ruby_annotation: annotation.map(|note| rito_fragment::RubyAnnotation {
+                    text: note.to_owned(),
+                    size_ratio: 0.5,
+                }),
+            };
+        let merged = lay(&|style| vec![text_item("ウ，可", None, style)]);
+        assert!(
+            (merged - 44.384).abs() < 0.05,
+            "one shaped run applies the ウ，kern: {merged}"
+        );
+        // Same characters, but ウ is a ruby base: the pair must NOT kern.
+        let split = lay(&|style| {
+            vec![
+                text_item("ウ", Some("u"), style),
+                text_item("，可", None, style),
+            ]
+        });
+        assert!(
+            (split - 45.6).abs() < 0.05,
+            "a ruby edge breaks the kern pair: {split}"
+        );
+        // Two directly adjacent mono-ruby bases stay separate runs too.
+        let adjacent = lay(&|style| {
+            vec![
+                text_item("ウ", Some("u"), style),
+                text_item("，", Some("x"), style),
+                text_item("可", None, style),
+            ]
+        });
+        assert!(
+            (adjacent - 45.6).abs() < 0.05,
+            "adjacent ruby bases each shape alone: {adjacent}"
         );
     }
 
