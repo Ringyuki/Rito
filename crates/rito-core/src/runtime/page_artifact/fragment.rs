@@ -436,6 +436,12 @@ impl ArtifactBuilder<'_> {
                                 href: source.and_then(|source| source.href.clone()),
                             });
                         }
+                        Fragment::Box(_) => {
+                            // An inline-block atom riding the line: its
+                            // mini paragraph serializes like any nested
+                            // box, in the line's coordinates.
+                            self.collect(child, block_index, line_index, line_x, line_y);
+                        }
                         _ => {}
                     }
                 }
@@ -674,7 +680,7 @@ fn fragment_subtree_text(tree: &rito_fragment::FormattingTree, fragment: &Fragme
                     .iter()
                     .filter_map(|item| match item {
                         InlineItem::Text { text, .. } => Some(text.as_str()),
-                        InlineItem::Image { .. } => None,
+                        InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => None,
                     })
                     .collect();
                 for child in &line.children {

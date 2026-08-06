@@ -251,7 +251,7 @@ fn collect_lines(
                 .iter()
                 .filter_map(|item| match item {
                     InlineItem::Text { text, .. } => Some(text.as_str()),
-                    InlineItem::Image { .. } => None,
+                    InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => None,
                 })
                 .collect();
             let mut start = u32::MAX;

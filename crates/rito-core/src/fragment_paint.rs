@@ -433,9 +433,28 @@ fn append_line_commands(
             Fragment::Image(image) => {
                 append_image_command(commands, items, image, line_x, line_y)?;
             }
-            Fragment::Box(_) | Fragment::Line(_) => {
+            Fragment::Box(atom) => {
+                // An inline-block atom riding the line: its mini
+                // paragraph's lines paint in the atom's frame. Box
+                // decorations on the atom itself are not modelled yet.
+                for inner in &atom.children {
+                    let Fragment::Line(inner_line) = inner else {
+                        continue;
+                    };
+                    append_line_commands(
+                        commands,
+                        tree,
+                        inner_line,
+                        line_x + atom.rect.x,
+                        line_y + atom.rect.y,
+                        family_policy,
+                        snap_origin_y,
+                    )?;
+                }
+            }
+            Fragment::Line(_) => {
                 return Err(EpubError::new(
-                    "line boxes contain only text and image fragments",
+                    "line boxes contain only text, image, and inline-block fragments",
                 ));
             }
         }

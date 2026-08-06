@@ -807,6 +807,36 @@ impl TreeBuilder<'_> {
                     Some(href) => Some(collector.current_link.replace(href)),
                     None => None,
                 };
+                // A `display: inline-block` span is an ATOMIC inline: its
+                // content becomes a hidden mini-paragraph node the inline
+                // engine lays out recursively at shrink-to-fit width
+                // (CSS 2.1 §10.3.5), riding the host line as one box whose
+                // baseline is its last line's (§10.8.1). Content that is
+                // not inline-only falls back to plain flattening.
+                let layout_style_id = self.layout_style_id(source_index, &element.tag);
+                let is_inline_block = self
+                    .layout
+                    .style(layout_style_id)
+                    .map(|resolved| {
+                        resolved.display.outside == LayoutDisplayOutsideV1::Inline
+                            && resolved.display.inside == LayoutDisplayInsideV1::FlowRoot
+                    })
+                    .unwrap_or(false);
+                if is_inline_block
+                    && self.collect_inline_block(
+                        element,
+                        source_index,
+                        style,
+                        layout_style_id,
+                        shift,
+                        collector,
+                    )?
+                {
+                    if let Some(saved) = saved_link {
+                        collector.current_link = saved;
+                    }
+                    return Ok(());
+                }
                 for child in &element.children {
                     self.collect_inline(child, style, shift, collector)?;
                 }
@@ -823,6 +853,63 @@ impl TreeBuilder<'_> {
                 element.tag
             ))),
         }
+    }
+
+    /// Builds one `display: inline-block` span into an atomic inline: a
+    /// hidden mini-paragraph node holding its (inline-only) content, and
+    /// an `InlineItem::InlineBlock` referencing it. Returns `false` —
+    /// pushing nothing — when the content is not representable as a flow
+    /// (a block child inside), so the caller flattens instead. A failed
+    /// attempt may leave orphan nodes in the arena; they are unreachable
+    /// and ids are never reused, so they cost only their bytes.
+    fn collect_inline_block(
+        &mut self,
+        element: &ElementNode,
+        source_index: usize,
+        style: StyleId,
+        layout_style: LayoutStyleId,
+        baseline_shift_px: f64,
+        collector: &mut InlineCollector,
+    ) -> EpubResult<bool> {
+        let mut sub = self.inline_collector();
+        sub.current_link = collector.current_link.clone();
+        for child in &element.children {
+            if let Err(error) = self.collect_inline(child, style, 0.0, &mut sub) {
+                self.degrade(format!(
+                    "<{}> inline-block content not inline-only ({error:?}); flattened",
+                    element.tag
+                ));
+                return Ok(false);
+            }
+        }
+        let (items, sources) = sub.finish();
+        if items.is_empty() {
+            // An empty inline-block has no ink and no last-line baseline;
+            // the flattening path yields the same nothing.
+            return Ok(false);
+        }
+        let node = self.push_node(
+            FormattingNode {
+                style: layout_style,
+                content: FormattingNodeContent::InlineFlow { items },
+                children: Vec::new(),
+            },
+            Some(source_index),
+        );
+        self.strut_styles.insert(node.0, style);
+        self.flow_item_sources.insert(node.0, sources);
+        collector.push_image(
+            InlineItem::InlineBlock {
+                node,
+                style,
+                layout_style,
+                baseline_shift_px,
+            },
+            source_index,
+            element.source_ref.node_path.clone(),
+            "",
+        );
+        Ok(true)
     }
 
     /// Builds one `<hr>`: a fixed-height leaf whose visible line is a
@@ -3061,7 +3148,9 @@ p { margin: 8px 0; }\n\
                     text.as_str(),
                     ruby_annotation.as_ref().map(|a| a.text.as_str()),
                 ),
-                InlineItem::Image { .. } => panic!("no images here"),
+                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                    panic!("no atomic items here")
+                }
             })
             .collect();
         assert_eq!(
@@ -3113,7 +3202,9 @@ p { margin: 8px 0; }\n\
             .iter()
             .map(|item| match item {
                 InlineItem::Text { text, .. } => text.as_str(),
-                InlineItem::Image { .. } => panic!("no images here"),
+                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                    panic!("no atomic items here")
+                }
             })
             .collect();
         assert_eq!(flow, "lead\ntail", "no space survives the forced break");
@@ -3146,7 +3237,9 @@ p { margin: 8px 0; }\n\
             .iter()
             .map(|item| match item {
                 InlineItem::Text { text, .. } => text.as_str(),
-                InlineItem::Image { .. } => panic!("no images here"),
+                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                    panic!("no atomic items here")
+                }
             })
             .collect();
         assert_eq!(
@@ -3217,7 +3310,9 @@ p { margin: 8px 0; }\n\
                     text.as_str(),
                     ruby_annotation.as_ref().map(|a| a.text.as_str()),
                 ),
-                InlineItem::Image { .. } => panic!("no images here"),
+                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                    panic!("no atomic items here")
+                }
             })
             .collect();
         assert_eq!(runs, vec![("漢", Some("かん")), ("字", Some("じ"))],);
@@ -3455,7 +3550,9 @@ p { margin: 8px 0; }\n\
             .iter()
             .map(|item| match item {
                 InlineItem::Text { text, .. } => text.as_str(),
-                InlineItem::Image { .. } => panic!("no images in this paragraph"),
+                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                    panic!("no atomic items in this paragraph")
+                }
             })
             .collect();
         assert_eq!(
@@ -3635,7 +3732,7 @@ p { margin: 8px 0; }\n\
                         .iter()
                         .filter_map(|item| match item {
                             InlineItem::Text { text, .. } => Some(text.as_str()),
-                            InlineItem::Image { .. } => None,
+                            InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => None,
                         })
                         .collect();
                     let mut start = u32::MAX;

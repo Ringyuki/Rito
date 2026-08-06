@@ -72,6 +72,14 @@ struct ParagraphLayout {
     /// Per annotated item index: the overhang cap (half the annotation
     /// size), shared by the split-fit box computation.
     ruby_annotation_caps: std::collections::HashMap<usize, f64>,
+    /// Laid-out inline-block atoms by item index: the mini paragraph's
+    /// baseline (its LAST line's, from the box top) and its fragment,
+    /// emitted at the inline box's position during line assembly.
+    inline_block_boxes: std::collections::HashMap<u64, (f64, rito_fragment::BoxFragment)>,
+    /// The same atoms' baselines by hidden-node id, surviving the
+    /// per-line emission so the line envelope can read them after the
+    /// fragment moved into the line.
+    inline_block_baselines: std::collections::HashMap<u32, f64>,
 }
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -495,9 +503,9 @@ impl ParleyInlineContext {
         let style_id = match tree.strut_style(node) {
             Some(style) => style,
             None => match items.first() {
-                Some(InlineItem::Text { style, .. }) | Some(InlineItem::Image { style, .. }) => {
-                    *style
-                }
+                Some(InlineItem::Text { style, .. })
+                | Some(InlineItem::Image { style, .. })
+                | Some(InlineItem::InlineBlock { style, .. }) => *style,
                 None => return Ok(None),
             },
         };
@@ -615,6 +623,18 @@ impl ParleyInlineContext {
         let mut runs = Vec::with_capacity(items.len());
         let mut shifted_ranges: Vec<(std::ops::Range<usize>, f64)> = Vec::new();
         let mut image_boxes = Vec::new();
+        // Laid-out inline-block atoms by item index: the mini paragraph's
+        // baseline (its LAST line's, from the box top) and its fragment,
+        // emitted at the inline box's position during line assembly.
+        let mut inline_block_boxes: std::collections::HashMap<
+            u64,
+            (f64, rito_fragment::BoxFragment),
+        > = std::collections::HashMap::new();
+        // The same atoms' baselines by hidden-node id, surviving the
+        // per-line emission so the line envelope can read them after the
+        // fragment moved into the line.
+        let mut inline_block_baselines: std::collections::HashMap<u32, f64> =
+            std::collections::HashMap::new();
         // Blink consults its pair-preference table only under
         // `word-break: normal`; `break-all`/`keep-all` change the break
         // opportunities the table would otherwise veto.
@@ -668,6 +688,49 @@ impl ParleyInlineContext {
                         width,
                         height,
                     });
+                }
+                InlineItem::InlineBlock { node, .. } => {
+                    // The atomic inline is its own mini paragraph, laid
+                    // out recursively through the full pipeline at CSS
+                    // 2.1 §10.3.5 shrink-to-fit width against the host.
+                    let sizes = self.intrinsic_inline_sizes(tree, *node)?;
+                    let available = available_inline_size.unwrap_or(sizes.max_content);
+                    let width = sizes.max_content.min(sizes.min_content.max(available));
+                    let outcome = FormattingContext::layout(
+                        self,
+                        tree,
+                        *node,
+                        &ConstraintSpace::continuous(width),
+                        None,
+                        cancel,
+                    )?;
+                    let rito_fragment::Fragment::Box(root_box) = outcome.fragments.root else {
+                        return Err(LayoutError::Invalid(
+                            "inline-block layout must produce a box fragment".to_owned(),
+                        ));
+                    };
+                    // The atom's baseline is its LAST line's baseline
+                    // (CSS §10.8.1); a line-less box uses its bottom.
+                    let baseline = root_box
+                        .children
+                        .iter()
+                        .rev()
+                        .find_map(|child| match child {
+                            rito_fragment::Fragment::Line(line) => {
+                                Some(line.rect.y + line.baseline)
+                            }
+                            _ => None,
+                        })
+                        .unwrap_or(root_box.rect.height);
+                    image_boxes.push(InlineBox {
+                        id: item_index as u64,
+                        kind: InlineBoxKind::InFlow,
+                        index: text.len(),
+                        width: root_box.rect.width as f32,
+                        height: root_box.rect.height as f32,
+                    });
+                    inline_block_baselines.insert(node.0, baseline);
+                    inline_block_boxes.insert(item_index as u64, (baseline, root_box));
                 }
             }
         }
@@ -812,7 +875,9 @@ impl ParleyInlineContext {
             .strut_style(node)
             .or_else(|| {
                 items.first().and_then(|item| match item {
-                    InlineItem::Text { style, .. } | InlineItem::Image { style, .. } => Some(*style),
+                    InlineItem::Text { style, .. }
+                    | InlineItem::Image { style, .. }
+                    | InlineItem::InlineBlock { style, .. } => Some(*style),
                 })
             })
             .and_then(|style_id| styles.inline.style(style_id).ok())
@@ -994,7 +1059,9 @@ impl ParleyInlineContext {
             .first()
             .map(|item| {
                 let style_id = match item {
-                    InlineItem::Text { style, .. } | InlineItem::Image { style, .. } => *style,
+                    InlineItem::Text { style, .. }
+                    | InlineItem::Image { style, .. }
+                    | InlineItem::InlineBlock { style, .. } => *style,
                 };
                 styles
                     .inline
@@ -1019,6 +1086,8 @@ impl ParleyInlineContext {
             alignment,
             shifted_ranges,
             first_line_indent,
+            inline_block_boxes,
+            inline_block_baselines,
             pair_trims,
             opener_halt_trims,
             item_box_sheds,
@@ -1150,7 +1219,9 @@ impl FormattingContext for ParleyInlineContext {
                             cursor += text.len();
                             start..cursor
                         }
-                        InlineItem::Image { .. } => cursor..cursor,
+                        InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                            cursor..cursor
+                        }
                     })
                     .collect()
             }
@@ -1170,6 +1241,8 @@ impl FormattingContext for ParleyInlineContext {
             ruby_spreads,
             ruby_spread_overhangs,
             opener_halt_trims,
+            mut inline_block_boxes,
+            inline_block_baselines,
         ) = loop {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
@@ -1187,6 +1260,8 @@ impl FormattingContext for ParleyInlineContext {
                 ruby_spread_overhangs,
                 ruby_annotation_widths,
                 ruby_annotation_caps,
+                inline_block_boxes,
+                inline_block_baselines,
             } = self.build_layout(
                 tree,
                 root,
@@ -1470,6 +1545,8 @@ impl FormattingContext for ParleyInlineContext {
                         ruby_spreads,
                         ruby_spread_overhangs,
                         opener_halt_trims,
+                        inline_block_boxes,
+                        inline_block_baselines,
                     );
                 }
             }
@@ -1502,6 +1579,9 @@ impl FormattingContext for ParleyInlineContext {
                     }
                     | InlineItem::Image {
                         baseline_shift_px, ..
+                    }
+                    | InlineItem::InlineBlock {
+                        baseline_shift_px, ..
                     } => *baseline_shift_px,
                 })
                 .collect(),
@@ -1523,7 +1603,7 @@ impl FormattingContext for ParleyInlineContext {
                 .iter()
                 .map(|item| match item {
                     InlineItem::Text { text, .. } => text.as_str(),
-                    InlineItem::Image { .. } => "",
+                    InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => "",
                 })
                 .collect(),
             _ => String::new(),
@@ -1544,11 +1624,13 @@ impl FormattingContext for ParleyInlineContext {
                     }
                     // An image carries its own style so a line holding
                     // only images can still find the host metrics that
-                    // size the space around it.
-                    InlineItem::Image { style, .. } => Some(ItemLineHeight {
-                        style: *style,
-                        declared: None,
-                    }),
+                    // size the space around it; an inline-block the same.
+                    InlineItem::Image { style, .. } | InlineItem::InlineBlock { style, .. } => {
+                        Some(ItemLineHeight {
+                            style: *style,
+                            declared: None,
+                        })
+                    }
                 })
                 .collect(),
             _ => Vec::new(),
@@ -1957,28 +2039,52 @@ impl FormattingContext for ParleyInlineContext {
                         }
                     }
                     PositionedLayoutItem::InlineBox(inline_box) => {
-                        // Every inline box is an atomic image item. Its
-                        // vertical position is measured in Parley's ink
-                        // coordinates, so it maps into the line box through
-                        // the ink top.
+                        // An atomic inline item — an image, or a laid-out
+                        // inline-block. Its vertical position is measured
+                        // in Parley's ink coordinates, so it maps into the
+                        // line box through the ink top.
                         let shift = item_shifts
                             .get(inline_box.id as usize)
                             .copied()
                             .unwrap_or(0.0);
                         max_rise = max_rise.max(shift);
-                        children.push((
-                            Fragment::Image(rito_fragment::ImageFragment {
-                                source: root,
-                                rect: FragmentRect {
-                                    x: f64::from(inline_box.x) - line_x,
-                                    y: f64::from(inline_box.y) - ink_top,
-                                    width: f64::from(inline_box.width),
-                                    height: f64::from(inline_box.height),
-                                },
-                                item_index: inline_box.id as u32,
-                            }),
-                            shift,
-                        ));
+                        if let Some((baseline, mini)) =
+                            inline_block_boxes.remove(&inline_box.id)
+                        {
+                            // Parley rests the box bottom on the text
+                            // baseline; an inline-block instead hangs its
+                            // LAST line's baseline there (CSS §10.8.1),
+                            // so the box drops by its own descent.
+                            let height = f64::from(inline_box.height);
+                            children.push((
+                                Fragment::Box(rito_fragment::BoxFragment {
+                                    source: mini.source,
+                                    rect: FragmentRect {
+                                        x: f64::from(inline_box.x) - line_x,
+                                        y: f64::from(inline_box.y) - ink_top
+                                            + (height - baseline),
+                                        width: f64::from(inline_box.width),
+                                        height,
+                                    },
+                                    children: mini.children,
+                                }),
+                                shift,
+                            ));
+                        } else {
+                            children.push((
+                                Fragment::Image(rito_fragment::ImageFragment {
+                                    source: root,
+                                    rect: FragmentRect {
+                                        x: f64::from(inline_box.x) - line_x,
+                                        y: f64::from(inline_box.y) - ink_top,
+                                        width: f64::from(inline_box.width),
+                                        height: f64::from(inline_box.height),
+                                    },
+                                    item_index: inline_box.id as u32,
+                                }),
+                                shift,
+                            ));
+                        }
                     }
                 }
             }
@@ -2317,6 +2423,50 @@ impl FormattingContext for ParleyInlineContext {
                         above = above.max(item_above + shift);
                         below = below.max(item_below - shift);
                     }
+                }
+                // An inline-block atom: its box straddles the baseline —
+                // its LAST line's baseline rests on the shared one, so it
+                // contributes (baseline, height − baseline) around it,
+                // plus its inherited strut like any enclosing inline box.
+                for (fragment, shift) in &children {
+                    let Fragment::Box(atom) = fragment else {
+                        continue;
+                    };
+                    let baseline = inline_block_baselines
+                        .get(&atom.source.0)
+                        .copied()
+                        .unwrap_or(atom.rect.height);
+                    above = above.max(baseline + shift);
+                    below = below.max((atom.rect.height - baseline) - shift);
+                    let item_style = tree_items.iter().find_map(|item| match item {
+                        InlineItem::InlineBlock { node, style, .. } if node.0 == atom.source.0 => {
+                            Some(*style)
+                        }
+                        _ => None,
+                    });
+                    let resolved = item_style.and_then(|style_id| {
+                        style_tables.and_then(|tables| tables.inline.style(style_id).ok())
+                    });
+                    let Some(resolved) = resolved else {
+                        continue;
+                    };
+                    let Some(metric) = self.host_normal_line(resolved, "") else {
+                        complete = false;
+                        continue;
+                    };
+                    let (asc, desc) = (metric.ascent(), metric.descent());
+                    let (item_above, item_below) = match used_declared_line_height(
+                        resolved.font.line_height,
+                        f64::from(resolved.font.size.get()),
+                    ) {
+                        None => (asc, desc),
+                        Some(height) => {
+                            let a = metric.fixed_baseline(height);
+                            (a, height - a)
+                        }
+                    };
+                    above = above.max(item_above + shift);
+                    below = below.max(item_below - shift);
                 }
                 (complete && above + below > 0.0).then_some((above, below))
             } else {
@@ -3172,7 +3322,9 @@ fn list_marker_geometry(
     let style_id = match tree.strut_style(node) {
         Some(style) => style,
         None => match items.first() {
-            Some(InlineItem::Text { style, .. }) | Some(InlineItem::Image { style, .. }) => *style,
+            Some(InlineItem::Text { style, .. })
+            | Some(InlineItem::Image { style, .. })
+            | Some(InlineItem::InlineBlock { style, .. }) => *style,
             None => return None,
         },
     };

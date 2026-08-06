@@ -111,6 +111,26 @@ pub enum InlineItem {
         /// bleed fills the inner sliver, not the outer margins.
         viewport: Option<(f64, f64)>,
     },
+    /// An inline-block whose content is itself inline-only: an atomic
+    /// inline laid out as its own mini paragraph (shrink-to-fit width,
+    /// its own text-align and line-height), sitting in the host line
+    /// with its baseline at its LAST line's baseline (CSS §10.8.1).
+    /// Inline-blocks holding block children fail closed upstream.
+    InlineBlock {
+        /// The mini paragraph: a hidden `InlineFlow` node in the same
+        /// tree (reachable only through this item, never a block child).
+        /// The provider lays it out recursively at shrink-to-fit width.
+        node: FormattingNodeId,
+        /// The box's own inline style (the span's), for strut and
+        /// alignment fallbacks in the host paragraph.
+        style: StyleId,
+        /// Typed reference into the tree's layout style table for the
+        /// block-level knobs (text-align, line-height, padding).
+        layout_style: LayoutStyleId,
+        /// Accumulated baseline shift from `vertical-align` on ancestor
+        /// inline boxes, CSS px; positive raises the box.
+        baseline_shift_px: f64,
+    },
 }
 
 /// Content carried by one formatting node.
@@ -224,28 +244,48 @@ impl FormattingTree {
         styles: FormattingTreeStyles,
     ) -> Result<Self, String> {
         validate_structure(&nodes, root)?;
+        fn validate_item(
+            styles: &FormattingTreeStyles,
+            index: usize,
+            item: &InlineItem,
+        ) -> Result<(), String> {
+            match item {
+                InlineItem::Text { style, .. } => {
+                    styles.inline.style(*style).map_err(|error| {
+                        format!("formatting node {index} references an inline style outside the tree's table: {error}")
+                    })?;
+                }
+                InlineItem::Image {
+                    style,
+                    layout_style,
+                    ..
+                } => {
+                    styles.inline.style(*style).map_err(|error| {
+                        format!("formatting node {index} references an inline style outside the tree's table: {error}")
+                    })?;
+                    styles.layout.style(*layout_style).map_err(|error| {
+                        format!("formatting node {index} references a layout style outside the tree's table: {error}")
+                    })?;
+                }
+                InlineItem::InlineBlock {
+                    style,
+                    layout_style,
+                    ..
+                } => {
+                    styles.inline.style(*style).map_err(|error| {
+                        format!("formatting node {index} references an inline style outside the tree's table: {error}")
+                    })?;
+                    styles.layout.style(*layout_style).map_err(|error| {
+                        format!("formatting node {index} references a layout style outside the tree's table: {error}")
+                    })?;
+                }
+            }
+            Ok(())
+        }
         for (index, node) in nodes.iter().enumerate() {
             if let FormattingNodeContent::InlineFlow { items } = &node.content {
                 for item in items {
-                    match item {
-                        InlineItem::Text { style, .. } => {
-                            styles.inline.style(*style).map_err(|error| {
-                                format!("formatting node {index} references an inline style outside the tree's table: {error}")
-                            })?;
-                        }
-                        InlineItem::Image {
-                            style,
-                            layout_style,
-                            ..
-                        } => {
-                            styles.inline.style(*style).map_err(|error| {
-                                format!("formatting node {index} references an inline style outside the tree's table: {error}")
-                            })?;
-                            styles.layout.style(*layout_style).map_err(|error| {
-                                format!("formatting node {index} references a layout style outside the tree's table: {error}")
-                            })?;
-                        }
-                    }
+                    validate_item(&styles, index, item)?;
                 }
             }
         }
@@ -364,7 +404,7 @@ fn fingerprint(
             FormattingNodeContent::InlineFlow { items } => {
                 mixer.mix(&[2]);
                 mixer.mix(&(items.len() as u32).to_le_bytes());
-                for item in items {
+                fn mix_item(mixer: &mut FnvMixer, item: &InlineItem) {
                     match item {
                         InlineItem::Text {
                             text,
@@ -412,7 +452,22 @@ fn fingerprint(
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
                             mixer.mix(&[u8::from(*fit_contain)]);
                         }
+                        InlineItem::InlineBlock {
+                            node,
+                            style,
+                            layout_style,
+                            baseline_shift_px,
+                        } => {
+                            mixer.mix(&[4]);
+                            mixer.mix(&node.0.to_le_bytes());
+                            mixer.mix(&style.raw().to_le_bytes());
+                            mixer.mix(&layout_style.raw().to_le_bytes());
+                            mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
+                        }
                     }
+                }
+                for item in items {
+                    mix_item(&mut mixer, item);
                 }
             }
         }
