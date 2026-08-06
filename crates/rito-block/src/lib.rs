@@ -705,6 +705,41 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     let mut trailing_deferred = false;
                     let had_lines = !placement.lines.is_empty();
                     if had_lines {
+                        let content_height =
+                            leading_padding + (placement.consumed_end - consumed);
+                        let trailing_fits = content_height + hbox.padding_bottom
+                            <= remaining - gap + f64::EPSILON;
+                        // A box whose every line fits but whose trailing
+                        // padding does not moves WHOLE to the next page
+                        // when it can: Blink prefers the class-A break
+                        // before the box over the padding-only closing
+                        // fragment (measured: a one-line TOC entry whose
+                        // line ends at 849.08/850 with 1.59 of trailing
+                        // padding opens the next column whole). The
+                        // padding-only fragment remains for boxes with no
+                        // whole-box alternative — resumed, taller than a
+                        // fresh page, or opening an empty one.
+                        if placement.exhausted
+                            && !trailing_fits
+                            && hbox.padding_bottom > 0.0
+                            && !child_resumed
+                            && !page_is_empty
+                            && space.fragmentainer_size.is_some_and(|size| {
+                                content_height + hbox.padding_bottom <= size + f64::EPSILON
+                            })
+                        {
+                            return Ok(sealed_with_break(
+                                container,
+                                space.inline_size,
+                                seal_height(y, &floats),
+                                fragments,
+                                BreakToken {
+                                    resume_path: vec![*child_id],
+                                    stage: BreakTokenStage::Before,
+                                    pending_floats: std::mem::take(&mut pending_float_breaks),
+                                },
+                            ));
+                        }
                         y = layout_unit(y + gap);
                         remaining -= gap;
                         // Trailing padding that no longer fits after the
@@ -716,10 +751,6 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // illustration (measured: 2px of `.kuan` padding
                         // opens the next column, and the following
                         // sibling's margin stacks after it un-truncated).
-                        let content_height =
-                            leading_padding + (placement.consumed_end - consumed);
-                        let trailing_fits = content_height + hbox.padding_bottom
-                            <= remaining + f64::EPSILON;
                         trailing_deferred =
                             placement.exhausted && !trailing_fits && hbox.padding_bottom > 0.0;
                         let trailing_padding = if placement.exhausted && trailing_fits {
@@ -3171,6 +3202,147 @@ mod tests {
         let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 80.0));
         assert_eq!(pages.len(), 1);
         assert!((table_fragment(&pages[0]).rect.height - 60.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_box_whose_trailing_padding_misses_moves_whole_when_it_can() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut padded = block_style(margin_px(0.0), margin_px(0.0));
+        padded.padding.bottom = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(8.0).expect("finite"),
+        ));
+        let layout = layout_table_with(3, |index| match index {
+            1 => padded.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let paragraph = |count: usize| FormattingNodeContent::InlineFlow {
+            items: (0..count)
+                .map(|line| InlineItem::Text {
+                    text: format!("line {line}"),
+                    style: text_style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                })
+                .collect(),
+        };
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: paragraph(1),
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: paragraph(1),
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        // 10px line, then a box of one 10px line plus 8px trailing
+        // padding, through 25px fragmentainers: the second box's line
+        // fits (20 <= 25) but its padding does not (28 > 25) — the box
+        // moves whole, not just its padding (the TOC-entry law).
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 25.0));
+        assert_eq!(pages.len(), 2);
+        assert_eq!(box_children(&pages[0]).len(), 1);
+        let Fragment::Box(moved) = &box_children(&pages[1])[0] else {
+            panic!("paragraph fragments are boxes");
+        };
+        assert!(moved.rect.y.abs() < 1e-9);
+        assert!(
+            (moved.rect.height - 18.0).abs() < 1e-9,
+            "line plus trailing padding travel together, got {}",
+            moved.rect.height
+        );
+        assert_eq!(moved.children.len(), 1);
+    }
+
+    #[test]
+    fn trailing_padding_still_defers_when_the_box_opens_the_page() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut padded = block_style(margin_px(0.0), margin_px(0.0));
+        padded.padding.bottom = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(8.0).expect("finite"),
+        ));
+        let layout = layout_table_with(2, |index| match index {
+            0 => padded.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: (0..2)
+                        .map(|line| InlineItem::Text {
+                            text: format!("line {line}"),
+                            style: text_style,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: None,
+                        })
+                        .collect(),
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(1),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        // The padded box OPENS its page: moving it whole would recreate
+        // the same state, so the padding-only closing fragment stands.
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 25.0));
+        assert_eq!(pages.len(), 2);
+        let Fragment::Box(head) = &box_children(&pages[0])[0] else {
+            panic!("paragraph fragments are boxes");
+        };
+        assert_eq!(head.children.len(), 2);
+        assert!((head.rect.height - 20.0).abs() < 1e-9);
+        let Fragment::Box(tail) = &box_children(&pages[1])[0] else {
+            panic!("paragraph fragments are boxes");
+        };
+        assert!(tail.children.is_empty());
+        assert!((tail.rect.height - 8.0).abs() < 1e-9);
     }
 
     #[test]
