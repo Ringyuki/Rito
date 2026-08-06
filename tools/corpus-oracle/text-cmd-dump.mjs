@@ -41,9 +41,9 @@ for (let s = 0; s < total; s += 1) {
   await page.waitForTimeout(60);
 }
 await page.waitForTimeout(2000);
-// Walk back to the target spread: frames far from the current one may
+// Walk back ONTO the target spread: frames far from the current one may
 // be evicted, and the diagnostics read the cached frame.
-for (let s = total; s > SPREAD; s -= 1) {
+for (let s = total - 1; s > SPREAD; s -= 1) {
   await page.keyboard.press('ArrowLeft');
   await page.waitForTimeout(60);
 }
