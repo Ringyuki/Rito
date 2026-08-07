@@ -131,7 +131,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         let mut fragments = Vec::new();
         // The margin below the previous in-flow child, awaiting collapse
         // with the next child's top margin.
-        let mut pending_margin = 0.0_f64;
+        let mut pending_margin = PendingMargin::ZERO;
         // A `break-after: always` on the previous in-flow child forces a
         // fragmentainer break before the next one.
         let mut pending_forced_break = false;
@@ -267,7 +267,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 // margins never collapse with siblings (§8.3.1). The
                 // pending margin is NOT consumed: in-flow margins keep
                 // collapsing straight through the float.
-                let flow_y = y + pending_margin.max(0.0);
+                let flow_y = y + pending_margin.resolve().max(0.0);
                 let fy_probe = floats.probe_y(occupy_width, flow_y, content_width);
                 let fits = space.fragmentainer_remaining.is_none()
                     || fy_probe + occupy_height <= page_bottom + 1e-6;
@@ -422,12 +422,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // spacer's border top == the float's bottom, no margin gap).
             let clear_to = floats.bottom_for(child_style.clear);
             let cleared = !child_resumed
-                && clear_to > y + collapse_margins(pending_margin, top_margin);
+                && clear_to > y + pending_margin.join(top_margin).resolve();
             if cleared {
                 let page_bottom = y + remaining.max(0.0);
                 y = clear_to;
                 remaining = (page_bottom - y).max(0.0);
-                pending_margin = 0.0;
+                pending_margin = PendingMargin::ZERO;
             }
 
             // A margin that meets an unforced break is truncated to zero,
@@ -440,7 +440,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let gap = if child_resumed || cleared {
                 0.0
             } else {
-                collapse_margins(pending_margin, top_margin)
+                pending_margin.join(top_margin).resolve()
             };
             let page_is_empty = fragments.is_empty() && fragmentainer_is_fresh;
             let gap = if page_is_empty {
@@ -474,7 +474,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         ));
                         y += outstanding;
                         remaining -= outstanding;
-                        pending_margin = bottom_margin;
+                        pending_margin = PendingMargin::from_margin(bottom_margin);
                         continue;
                     }
                     if *breakable && available > 0.0 {
@@ -572,7 +572,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             children: Vec::new(),
                         }));
-                        pending_margin = collapse_margins(gap, bottom_margin);
+                        pending_margin = pending_margin.join(top_margin).join(bottom_margin);
                         continue;
                     }
                     // The paragraph's own top padding rides its first
@@ -825,7 +825,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             y = layout_unit(y + hbox.padding_bottom);
                             remaining -= hbox.padding_bottom;
                         }
-                        pending_margin = bottom_margin;
+                        pending_margin = PendingMargin::from_margin(bottom_margin);
                         continue;
                     }
                     return Ok(sealed_with_break(
@@ -913,7 +913,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     remaining -= table_height;
                     match continuation {
                         None => {
-                            pending_margin = bottom_margin;
+                            pending_margin = PendingMargin::from_margin(bottom_margin);
                             continue;
                         }
                         Some(inner) => {
@@ -1006,7 +1006,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             children: Vec::new(),
                         }));
-                        pending_margin = collapse_margins(gap, bottom_margin);
+                        pending_margin = pending_margin.join(top_margin).join(bottom_margin);
                         continue;
                     }
                     {
@@ -1041,7 +1041,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     }
                     match outcome.continuation {
                         None => {
-                            pending_margin = bottom_margin;
+                            pending_margin = PendingMargin::from_margin(bottom_margin);
                             continue;
                         }
                         Some(inner) => {
@@ -1094,8 +1094,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // the full through-collapse protocol lands); at a fragmentainer edge
         // it truncates rather than forcing another page.
         if !collapse_root_edges {
-            y += pending_margin.min(remaining.max(0.0));
-            remaining -= pending_margin;
+            let resolved_pending = pending_margin.resolve();
+            y += resolved_pending.min(remaining.max(0.0));
+            remaining -= resolved_pending;
         }
         // The container's bottom padding closes its final fragment,
         // truncated at a fragmentainer edge like a meeting margin.
@@ -2747,6 +2748,46 @@ fn collapse_margins(first: f64, second: f64) -> f64 {
     first.max(second).max(0.0) + first.min(second).min(0.0)
 }
 
+/// The margin set awaiting collapse below the previous in-flow child.
+/// CSS 8.3.1 collapses ADJOINING margins as a SET — the largest positive
+/// plus the most negative — which a pairwise fold gets wrong on
+/// mixed-sign chains (measured: a UA +1em `<p>` top against authored
+/// −0.8em bottoms through empty paragraphs collapses to 3.2px in Blink,
+/// where folding pairwise 3.2 → −9.6 → 6.4 shifted every section of the
+/// Durarara books).
+#[derive(Clone, Copy)]
+struct PendingMargin {
+    positive: f64,
+    negative: f64,
+}
+
+impl PendingMargin {
+    const ZERO: Self = Self {
+        positive: 0.0,
+        negative: 0.0,
+    };
+
+    fn from_margin(margin: f64) -> Self {
+        Self {
+            positive: margin.max(0.0),
+            negative: margin.min(0.0),
+        }
+    }
+
+    /// Adds one adjoining margin to the set.
+    fn join(self, margin: f64) -> Self {
+        Self {
+            positive: self.positive.max(margin.max(0.0)),
+            negative: self.negative.min(margin.min(0.0)),
+        }
+    }
+
+    /// The set's collapsed value.
+    fn resolve(self) -> f64 {
+        self.positive + self.negative
+    }
+}
+
 fn leaf_fragment(source: FormattingNodeId, x: f64, y: f64, width: f64, height: f64) -> Fragment {
     Fragment::Box(BoxFragment {
         source,
@@ -3351,6 +3392,95 @@ mod tests {
         };
         assert!(tail.children.is_empty());
         assert!((tail.rect.height - 8.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn mixed_sign_margins_collapse_as_a_set_through_empty_blocks() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        // Every paragraph: +16 top (the UA <p> margin), −12.8 bottom (an
+        // authored −0.8em). An EMPTY paragraph sits between two one-line
+        // paragraphs, so the set between their line boxes is
+        // {+16, −12.8, +16, −12.8} → 16 − 12.8 = 3.2 (CSS 8.3.1).
+        // A pairwise fold gives 6.4 (3.2 → −9.6 → 6.4) — the Durarara
+        // account.
+        let layout = layout_table_with(4, |_| block_style(margin_px(16.0), margin_px(-12.8)));
+        let paragraph = |count: usize| FormattingNodeContent::InlineFlow {
+            items: (0..count)
+                .map(|line| InlineItem::Text {
+                    text: format!("line {line}"),
+                    style: text_style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                })
+                .collect(),
+        };
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: paragraph(1),
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: paragraph(0),
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: paragraph(1),
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 3),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(1), FormattingNodeId(2)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(3),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(100.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("lays out");
+        let children = box_children(&outcome);
+        let Fragment::Box(first) = &children[0] else {
+            panic!("paragraph fragments are boxes");
+        };
+        let Fragment::Box(second) = &children[2] else {
+            panic!("paragraph fragments are boxes");
+        };
+        // The root collapses its leading edge, so the first paragraph's
+        // escaping top margin leaves it at the container top.
+        let first_bottom = first.rect.y + first.rect.height;
+        // 3.2 lands on the layout grid as 3.203125 — the exact gap the
+        // truth probe measures between the Durarara section head and its
+        // following empty paragraph.
+        assert!(
+            (second.rect.y - (first_bottom + 3.2)).abs() < 0.01,
+            "set-wise collapse 16 − 12.8 = 3.2, got gap {}",
+            second.rect.y - first_bottom
+        );
     }
 
     #[test]
