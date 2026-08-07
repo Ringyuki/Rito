@@ -1295,16 +1295,24 @@ fn place_lines(
             take = 0;
         }
         if take == 0 && fragmentainer_is_empty {
-            // An empty fragmentainer must make progress — but only a
-            // line taller than the WHOLE page overflows in place. A line
-            // that would fit a full fragmentainer yet not this one is
-            // squeezed by ancestor padding/borders: it breaks to the
-            // next page, where the resumed ancestors carry no leading
-            // edges (measured: Blink's 2px-only blank column before a
-            // full-height illustration in a padded figure).
-            let first_height = pending.first().map_or(0.0, |line| line.rect().height);
-            if fragmentainer_size.is_none_or(|size| first_height > size + f64::EPSILON) {
-                take = fit_count.max(1);
+            // An empty fragmentainer must make progress. Orphans yields
+            // first: lines that FIT a fresh page place even when the
+            // paragraph cannot keep its orphan count together — a pair
+            // of page-tall plate lines splits one per page, and breaking
+            // before them again would never advance (b110's 人物介绍
+            // page hung the reader exactly here). A line taller than the
+            // WHOLE page overflows in place; one merely squeezed by
+            // ancestor padding/borders breaks to the next page, where
+            // the resumed ancestors carry no leading edges (measured:
+            // Blink's 2px-only blank column before a full-height
+            // illustration in a padded figure).
+            if fit_count > 0 {
+                take = fit_count;
+            } else {
+                let first_height = pending.first().map_or(0.0, |line| line.rect().height);
+                if fragmentainer_size.is_none_or(|size| first_height > size + f64::EPSILON) {
+                    take = 1;
+                }
             }
         }
     }
@@ -3343,6 +3351,25 @@ mod tests {
         };
         assert!(tail.children.is_empty());
         assert!((tail.rect.height - 8.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn page_tall_line_pairs_paginate_one_per_page() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        // Two 10px lines through a 15px fragmentainer: only one line fits
+        // a fresh page, and orphans (2) would forbid placing it alone —
+        // an empty page must make progress instead, one line per page
+        // (the b110 hang: two page-tall plate lines looped forever).
+        let tree = paragraph_counts_tree(&[2]);
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 15.0));
+        assert_eq!(pages.len(), 2);
+        for page in &pages {
+            let children = box_children(page);
+            let Fragment::Box(paragraph) = &children[0] else {
+                panic!("paragraph fragments are boxes");
+            };
+            assert_eq!(paragraph.children.len(), 1);
+        }
     }
 
     #[test]
