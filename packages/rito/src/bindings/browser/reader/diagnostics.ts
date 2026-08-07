@@ -39,5 +39,13 @@ export function installBrowserReaderDiagnostics(state: BrowserReaderState): void
     },
     chapterFragmentProbe: (idref: string) =>
       state.worker.chapterFragmentProbe(state.revisionBundle.revision.revisionId, idref),
+    // Per-image cache state, for wrong-plate forensics: whether the
+    // bitmap decoded, a load is in flight, or a terminal failure was
+    // recorded (with its reason).
+    imageState: (href: string) => ({
+      decoded: state.images.has(href),
+      pending: state.pendingImageLoads.has(href),
+      failure: state.imageResourceFailures.get(href) ?? null,
+    }),
   };
 }
