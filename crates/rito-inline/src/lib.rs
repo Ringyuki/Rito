@@ -1782,11 +1782,18 @@ impl FormattingContext for ParleyInlineContext {
                             // fallback per character, so a run the engine
                             // shapes with one font can be two fonts there.
                             let mut seen_scripts: Vec<u16> = Vec::new();
+                            // An ideographic space is a GLYPH here, not
+                            // white space: its resolved (CJK) font sizes
+                            // the line in Blink — a "　　1" heading line
+                            // measures 23, the CJK strut, not the Latin
+                            // digit's 18 (measured on the shinmai article
+                            // books, where dropping it shifted every
+                            // chapter 4px from the second block on).
                             for character in flow_text
                                 .get(run_range.clone())
                                 .unwrap_or_default()
                                 .chars()
-                                .filter(|c| !c.is_whitespace())
+                                .filter(|c| !c.is_whitespace() || *c == '\u{3000}')
                             {
                                 let script = char_script(character);
                                 if seen_scripts.contains(&script) {
