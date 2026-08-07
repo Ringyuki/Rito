@@ -1165,6 +1165,14 @@ impl TreeBuilder<'_> {
         // edge-column class lives in the 0.35px band between the viewBox
         // content edge and the raster edge — whatever the browser paints
         // there needs a reduced svg-letterbox probe before any change.
+        // `vertical-align: top` pins the image to the line-box top,
+        // stepping OUT of whatever baseline-shift chain wraps it (the
+        // zhangyue footnote badge sits inside <sup> yet hugs the line
+        // top in Blink; the sup's strut still raises the envelope).
+        let align_top = matches!(
+            resolved.fragment.baseline_shift,
+            rito_style_contract::BaselineShift::Top
+        );
         collector.push_image(
             InlineItem::Image {
                 src: image.src.clone(),
@@ -1174,6 +1182,7 @@ impl TreeBuilder<'_> {
                 layout_style,
                 fit_contain: image.svg_contain,
                 viewport: image.svg_viewport,
+                align_top,
                 baseline_shift_px: ancestor_shift_px
                     + resolved_baseline_shift(
                         resolved,

@@ -2392,10 +2392,23 @@ impl FormattingContext for ParleyInlineContext {
                 // (measured: a footnote marker image alone inside a
                 // 12px <sup> still grows the line by the sup strut raised
                 // with it, 0.6px above what the image box alone gives).
+                let mut top_aligned_heights: Vec<f64> = Vec::new();
                 for (fragment, shift) in &children {
                     if let Fragment::Image(image) = fragment {
-                        above = above.max(image.rect.height + shift);
-                        below = below.max(-shift);
+                        let align_top = tree_items
+                            .get(image.item_index as usize)
+                            .is_some_and(|item| {
+                                matches!(item, InlineItem::Image { align_top: true, .. })
+                            });
+                        if align_top {
+                            // A top-aligned box sits outside the baseline
+                            // envelope; it only grows the line DOWNWARD
+                            // when taller than it (handled after the max).
+                            top_aligned_heights.push(image.rect.height);
+                        } else {
+                            above = above.max(image.rect.height + shift);
+                            below = below.max(-shift);
+                        }
                         let item = tree_items
                             .get(image.item_index as usize)
                             .and_then(|item| match item {
@@ -2480,6 +2493,16 @@ impl FormattingContext for ParleyInlineContext {
                     };
                     above = above.max(item_above + shift);
                     below = below.max(item_below - shift);
+                }
+                // A `vertical-align: top` box hangs from the line-box top
+                // and grows the line DOWNWARD only when taller than the
+                // baseline envelope (the badge stays inside the sup-strut
+                // envelope; a tall top-aligned plate would extend below).
+                for top_height in &top_aligned_heights {
+                    let line_height = above + below;
+                    if *top_height > line_height {
+                        below += top_height - line_height;
+                    }
                 }
                 (complete && above + below > 0.0).then_some((above, below))
             } else {
@@ -2795,7 +2818,18 @@ impl FormattingContext for ParleyInlineContext {
                         // tallest thing on the line; whenever the strut
                         // reaches higher, the image has to come down.
                         Fragment::Image(image) => {
-                            image.rect.y = baseline - shift - image.rect.height;
+                            let align_top = tree_items
+                                .get(image.item_index as usize)
+                                .is_some_and(|item| {
+                                    matches!(item, InlineItem::Image { align_top: true, .. })
+                                });
+                            image.rect.y = if align_top {
+                                // `vertical-align: top` pins to the line
+                                // box top, outside the shift chain.
+                                0.0
+                            } else {
+                                baseline - shift - image.rect.height
+                            };
                         }
                         // An inline-block atom hangs its own baseline —
                         // its LAST line's (CSS §10.8.1) — on the line

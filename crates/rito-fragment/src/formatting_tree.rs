@@ -110,6 +110,12 @@ pub enum InlineItem {
         /// first, then the raster letterboxes inside it — and clamp
         /// bleed fills the inner sliver, not the outer margins.
         viewport: Option<(f64, f64)>,
+        /// `vertical-align: top`: the box pins to the line-box top,
+        /// ignoring the baseline-shift chain it sits in (a footnote
+        /// badge inside `<sup>` stays at the line top while the sup's
+        /// strut still raises the envelope). It only grows the line
+        /// DOWNWARD when taller than the baseline envelope.
+        align_top: bool,
     },
     /// An inline-block whose content is itself inline-only: an atomic
     /// inline laid out as its own mini paragraph (shrink-to-fit width,
@@ -436,6 +442,7 @@ fn fingerprint(
                             baseline_shift_px,
                             fit_contain,
                             viewport,
+                            align_top,
                         } => {
                             mixer.mix(&[1]);
                             mixer.mix(&(src.len() as u32).to_le_bytes());
@@ -451,6 +458,7 @@ fn fingerprint(
                             mixer.mix(&layout_style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
                             mixer.mix(&[u8::from(*fit_contain)]);
+                            mixer.mix(&[u8::from(*align_top)]);
                         }
                         InlineItem::InlineBlock {
                             node,
