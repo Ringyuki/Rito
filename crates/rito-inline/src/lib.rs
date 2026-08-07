@@ -3152,7 +3152,13 @@ fn fullwidth_punctuation_class(character: char) -> PunctuationClass {
         | '｠' | '。' | '、' | '，' | '．' | '：' | '；' | '’' | '”' => {
             PunctuationClass::CloseOrStop
         }
-        '・' => PunctuationClass::Middle,
+        // The ideographic space is fullwidth-punctuation CONTEXT: an
+        // opener after it halts (　「 = 16+8) and a close/stop before it
+        // halts (』　 = 8+16), while the space itself never trims —
+        // 　　 and 　、 stay full (measured 6-pair matrix, 2026-08-08).
+        // The Middle class carries exactly that trigger-but-never-
+        // trimmed behaviour.
+        '・' | '　' => PunctuationClass::Middle,
         _ => PunctuationClass::Other,
     }
 }
