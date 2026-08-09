@@ -82,6 +82,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         token: Option<&BreakToken>,
         cancel: &CancelFlag,
         collapse_root_edges: bool,
+        // The parent already joined this container's first-in-flow-child
+        // top-margin chain into its own collapse set (§8.3.1 through-
+        // collapse); the chain is spent and must not re-apply inside.
+        leading_margin_consumed: bool,
     ) -> Result<LayoutOutcome, LayoutError> {
         let children = tree.node(container).children.clone();
         let (start_child, mut resumed_consumed, resumed_inside) = resume_point(&children, token)?;
@@ -132,6 +136,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // The margin below the previous in-flow child, awaiting collapse
         // with the next child's top margin.
         let mut pending_margin = PendingMargin::ZERO;
+        // Arms until the first in-flow child; a resumed container starts
+        // flush anyway (margins truncate at unforced breaks).
+        let mut leading_margin_armed = leading_margin_consumed && !resumed;
         // A `break-after: always` on the previous in-flow child forces a
         // fragmentainer break before the next one.
         let mut pending_forced_break = false;
@@ -228,6 +235,21 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let child_resumed_inside = child_resumed && resumed_inside;
             let child_style = container_layout_style(tree, *child_id)?;
             let (top_margin, bottom_margin) = vertical_margins(tree, *child_id, content_width)?;
+            // §8.3.1 through-collapse, layout half: an in-flow child's top
+            // margin joins its first-in-flow-descendant chain (whatever
+            // the bridge could not fold — percentages resolve only now).
+            // When the parent consumed THIS container's leading chain,
+            // the first in-flow child's whole set is spent.
+            let top_set = through_collapsed_top(tree, *child_id, content_width)?;
+            let leading_spent = leading_margin_armed && child_style.float == FloatV1::None;
+            let (top_margin, top_set) = if leading_spent && !child_resumed {
+                (0.0, PendingMargin::ZERO)
+            } else {
+                (top_margin, top_set)
+            };
+            if leading_spent {
+                leading_margin_armed = false;
+            }
 
             // Floated children leave the flow: they are placed against the
             // content edges, never advance `y`, and never split. In-flow
@@ -422,7 +444,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // spacer's border top == the float's bottom, no margin gap).
             let clear_to = floats.bottom_for(child_style.clear);
             let cleared = !child_resumed
-                && clear_to > y + pending_margin.join(top_margin).resolve();
+                && clear_to > y + pending_margin.merge(top_set).resolve();
             if cleared {
                 let page_bottom = y + remaining.max(0.0);
                 y = clear_to;
@@ -440,7 +462,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let gap = if child_resumed || cleared {
                 0.0
             } else {
-                pending_margin.join(top_margin).resolve()
+                pending_margin.merge(top_set).resolve()
             };
             let page_is_empty = fragments.is_empty() && fragmentainer_is_fresh;
             let gap = if page_is_empty {
@@ -572,7 +594,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             children: Vec::new(),
                         }));
-                        pending_margin = pending_margin.join(top_margin).join(bottom_margin);
+                        pending_margin = pending_margin.merge(top_set).join(bottom_margin);
                         continue;
                     }
                     // The paragraph's own top padding rides its first
@@ -968,6 +990,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             floats.band_at(y + gap, content_width)
                         },
                     };
+                    // Mirror of through_collapsed_top's descent predicate:
+                    // when the child's leading chain joined THIS loop's
+                    // collapse set, its first in-flow child must start
+                    // flush inside.
+                    let child_leading_consumed = !child_resumed
+                        && !is_flow_root(child_style)
+                        && hbox.padding_top == 0.0;
                     let outcome = self.layout_container(
                         tree,
                         *child_id,
@@ -975,6 +1004,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         child_token.as_ref(),
                         cancel,
                         false,
+                        child_leading_consumed,
                     )?;
                     let Fragment::Box(child_root) = outcome.fragments.root else {
                         return Err(LayoutError::Invalid(
@@ -1006,7 +1036,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             children: Vec::new(),
                         }));
-                        pending_margin = pending_margin.join(top_margin).join(bottom_margin);
+                        pending_margin = pending_margin.merge(top_set).join(bottom_margin);
                         continue;
                     }
                     {
@@ -1567,6 +1597,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 inner_token.as_ref(),
                 cancel,
                 false,
+                false,
             )?;
             let Fragment::Box(mut cell_root) = outcome.fragments.root else {
                 return Err(LayoutError::Invalid(
@@ -1786,6 +1817,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 None,
                 cancel,
                 false,
+                false,
             )?;
             let Fragment::Box(mut cell_root) = outcome.fragments.root else {
                 return Err(LayoutError::Invalid(
@@ -1889,7 +1921,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
     ) -> Result<LayoutOutcome, LayoutError> {
         match &tree.node(node).content {
             FormattingNodeContent::BlockContainer => {
-                self.layout_container(tree, node, space, token, cancel, true)
+                self.layout_container(tree, node, space, token, cancel, true, false)
             }
             FormattingNodeContent::InlineFlow { .. } => {
                 // `space.inline_size` is the border-box width by contract
@@ -2707,6 +2739,65 @@ fn vertical_margins(
     ))
 }
 
+/// The adjoining top-margin SET of an in-flow child: its own top margin
+/// joined with its first-in-flow-descendant chain wherever CSS 2 §8.3.1
+/// collapses them through — no top padding on the box, and no new
+/// formatting context. The bridge folds every statically-resolvable case
+/// of this cascade before layout and zeroes the absorbed children, so the
+/// chain normally contributes nothing extra; a percentage margin has no
+/// basis until now, and whatever the fold left behind joins here
+/// (measured on b59 contents2: `div { margin-top: 2%; }` around a
+/// UA-margined `<h4>` — Blink absorbs the resolved 2% into the larger
+/// heading margin via the set max; stacking them sat the block 13px low).
+fn through_collapsed_top(
+    tree: &FormattingTree,
+    child: FormattingNodeId,
+    containing_width: f64,
+) -> Result<PendingMargin, LayoutError> {
+    let styles = tree.styles().ok_or_else(|| {
+        LayoutError::Invalid("block layout requires the tree to carry style tables".to_owned())
+    })?;
+    let style_of = |id: FormattingNodeId| -> Result<&LayoutFormattingStyleV1, LayoutError> {
+        styles
+            .layout
+            .style(tree.node(id).style)
+            .map_err(|error| LayoutError::Invalid(error.to_string()))
+    };
+    let mut set = PendingMargin::ZERO;
+    let mut node = child;
+    let mut width = containing_width;
+    loop {
+        let style = style_of(node)?;
+        set = set.join(resolve_margin(style.margin.top, width));
+        if !matches!(
+            tree.node(node).content,
+            FormattingNodeContent::BlockContainer
+        ) || is_flow_root(style)
+        {
+            break;
+        }
+        let Ok(hbox) = resolve_horizontal_box(style, width) else {
+            break;
+        };
+        if hbox.padding_top != 0.0 {
+            break;
+        }
+        let mut first = None;
+        for id in &tree.node(node).children {
+            if style_of(*id)?.float == FloatV1::None {
+                first = Some(*id);
+                break;
+            }
+        }
+        let Some(first) = first else {
+            break;
+        };
+        width = hbox.content_width;
+        node = first;
+    }
+    Ok(set)
+}
+
 fn resolve_margin(value: LengthPercentageOrAuto, inline_size: f64) -> f64 {
     match value {
         LengthPercentageOrAuto::Auto => 0.0,
@@ -2779,6 +2870,15 @@ impl PendingMargin {
         Self {
             positive: self.positive.max(margin.max(0.0)),
             negative: self.negative.min(margin.min(0.0)),
+        }
+    }
+
+    /// Unions two adjoining sets: still one max of positives and one min
+    /// of negatives (CSS 2 §8.3.1 treats every member alike).
+    fn merge(self, other: Self) -> Self {
+        Self {
+            positive: self.positive.max(other.positive),
+            negative: self.negative.min(other.negative),
         }
     }
 
@@ -3480,6 +3580,190 @@ mod tests {
             (second.rect.y - (first_bottom + 3.2)).abs() < 0.01,
             "set-wise collapse 16 − 12.8 = 3.2, got gap {}",
             second.rect.y - first_bottom
+        );
+    }
+
+    #[test]
+    fn a_percentage_parent_margin_collapses_with_its_first_child_at_layout() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        // The b59 contents pattern: `div { margin-top: 2%; }` around a
+        // heading with a larger length margin. The bridge cannot fold a
+        // percentage (no basis before layout); CSS 2 §8.3.1 still
+        // collapses the pair — at 400px the heading's 20px absorbs the
+        // resolved 8px via the set max. Stacking them was the +13px
+        // account.
+        let percent_margin = LengthPercentageOrAuto::Value(LengthPercentage::Percentage(
+            rito_style_contract::Percentage::from_percent(2.0).expect("finite percentage"),
+        ));
+        let layout = layout_table_with(3, |index| match index {
+            0 => block_style(margin_px(20.0), margin_px(0.0)),
+            1 => block_style(percent_margin, margin_px(0.0)),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let paragraph = |count: usize| FormattingNodeContent::InlineFlow {
+            items: (0..count)
+                .map(|line| InlineItem::Text {
+                    text: format!("line {line}"),
+                    style: text_style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                })
+                .collect(),
+        };
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: paragraph(1),
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(400.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("lays out");
+        let children = box_children(&outcome);
+        let Fragment::Box(wrapper) = &children[0] else {
+            panic!("container fragments are boxes");
+        };
+        assert!(
+            (wrapper.rect.y - 20.0).abs() < 1e-9,
+            "collapsed set max(8, 20) positions the wrapper, got {}",
+            wrapper.rect.y
+        );
+        let Fragment::Box(heading) = &wrapper.children[0] else {
+            panic!("paragraph fragments are boxes");
+        };
+        assert!(
+            heading.rect.y.abs() < 1e-9,
+            "the consumed child margin starts flush inside, got {}",
+            heading.rect.y
+        );
+    }
+
+    #[test]
+    fn a_padded_percentage_parent_keeps_its_child_margin_inside() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        // Padding on the meeting edge blocks the through-collapse
+        // (CSS 2 §8.3.1): the wrapper keeps only its own resolved 2%,
+        // and the heading margin applies inside, below the padding.
+        let percent_margin = LengthPercentageOrAuto::Value(LengthPercentage::Percentage(
+            rito_style_contract::Percentage::from_percent(2.0).expect("finite percentage"),
+        ));
+        let mut padded = block_style(percent_margin, margin_px(0.0));
+        padded.padding.top = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(1.0).expect("finite"),
+        ));
+        let layout = layout_table_with(3, |index| match index {
+            0 => block_style(margin_px(20.0), margin_px(0.0)),
+            1 => padded.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let paragraph = |count: usize| FormattingNodeContent::InlineFlow {
+            items: (0..count)
+                .map(|line| InlineItem::Text {
+                    text: format!("line {line}"),
+                    style: text_style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                })
+                .collect(),
+        };
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: paragraph(1),
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 2),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(1)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(2),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(400.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("lays out");
+        let children = box_children(&outcome);
+        let Fragment::Box(wrapper) = &children[0] else {
+            panic!("container fragments are boxes");
+        };
+        // 2% rides an f32 ratio (0.0199999996…), so 400 × it lands just
+        // under 8 and LayoutUnit truncation keeps 511/64 — the same
+        // arithmetic Blink performs.
+        assert!(
+            (wrapper.rect.y - 7.984375).abs() < 1e-9,
+            "the padded wrapper keeps only its own 2%, got {}",
+            wrapper.rect.y
+        );
+        let Fragment::Box(heading) = &wrapper.children[0] else {
+            panic!("paragraph fragments are boxes");
+        };
+        assert!(
+            (heading.rect.y - 21.0).abs() < 1e-9,
+            "padding 1 plus the heading's own 20 stay inside, got {}",
+            heading.rect.y
         );
     }
 
