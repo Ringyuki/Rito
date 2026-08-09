@@ -2,6 +2,7 @@ import { decodeBrowserReaderFrame } from './frame';
 import {
   frameImageResourcesAreLoadingOrSettled,
   frameImageResourcesAreSettled,
+  markSpreadImageResourcesSettled,
   preloadFrameResourceBytes,
   recordMissingFrameImageResources,
   type BrowserReaderMissingFrameResource,
@@ -248,22 +249,6 @@ function frameWindowMissingResources(
     readonly missingResources?: readonly BrowserReaderMissingFrameResource[] | undefined;
   } = spread;
   return transport.missingResources ?? [];
-}
-
-function markSpreadImageResourcesSettled(
-  state: BrowserReaderState,
-  revision: BrowserReaderRevisionHandle,
-  spreadIndex: number,
-): boolean {
-  const key = JSON.stringify([
-    revision.workerSessionId,
-    revision.revisionId,
-    revision.revisionVersion,
-    spreadIndex,
-  ]);
-  if (state.settledImageResourceSpreads.has(key)) return false;
-  state.settledImageResourceSpreads.add(key);
-  return true;
 }
 
 function completedWindowMatches(

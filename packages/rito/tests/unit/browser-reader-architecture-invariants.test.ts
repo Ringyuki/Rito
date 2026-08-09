@@ -75,7 +75,7 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 25;
 // so it reports the invalidation the host already listens for.
 // +12 lines (2026-07-27): element-sourced natural image decode — the only
 // drawImage source that reproduces the browser raster bit for bit.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3240;
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3310;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.

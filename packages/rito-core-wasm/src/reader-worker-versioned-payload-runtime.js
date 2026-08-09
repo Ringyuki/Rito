@@ -166,14 +166,29 @@ export function warmVersionedReaderFrameWindow(document, requestedRevision, spre
         // One unreadable frame (evicted by a relayout between plan and
         // read) must not abort the window: sibling spreads' bytes ride in
         // the same response. The fault stays observable so a frame that
-        // never arrives is attributable, not silent.
+        // never arrives is attributable, not silent. Only the DOCUMENT
+        // reads degrade — the handle validations after them are protocol
+        // guarantees, and a mismatch is a forged or stale response that
+        // must abort the window (releasing its leases) like any other.
         frames: prefetched.value.plan.spreadIndexes.flatMap((index) => {
+          let metadata;
+          let bytes;
           try {
-            return [readVersionedFrameBuffer(document, revision, index)];
+            metadata = document.getFrameCommandBufferMetadataAtRevision(revision, index);
+            bytes = document.readFrameCommandBufferAtRevision(revision, index);
           } catch (error) {
+            // Only engine-coded errors degrade (a frame genuinely
+            // unavailable). Envelope-validator protocol violations reach
+            // here normalized to 'internal-error' — a forged or stale
+            // response — and must abort the window like any other.
+            if (typeof error?.code !== 'string' || error.code === 'internal-error') throw error;
             frameFaults.push({ spreadIndex: index, message: String(error).slice(0, 400) });
             return [];
           }
+          requireSameHandle(revision, metadata.revision, 'warmFrameWindowAtRevision metadata');
+          requireFrameMetadata(metadata.value, revision, index, 'warmFrameWindowAtRevision');
+          requireSameHandle(revision, bytes.revision, 'warmFrameWindowAtRevision bytes');
+          return [{ metadata: metadata.value, bytes: bytes.value }];
         }),
         spreads: prefetched.value.spreads.map((spread) => {
           const transferred = readVersionedResourcePayloadBytes(
@@ -619,15 +634,6 @@ function readFrameBufferAtRevision(document, revision, spreadIndex) {
     revision: expected,
     result: { metadata: metadata.value, bytes: bytes.value },
   };
-}
-
-function readVersionedFrameBuffer(document, revision, spreadIndex) {
-  const metadata = document.getFrameCommandBufferMetadataAtRevision(revision, spreadIndex);
-  requireSameHandle(revision, metadata.revision, 'warmFrameWindowAtRevision metadata');
-  requireFrameMetadata(metadata.value, revision, spreadIndex, 'warmFrameWindowAtRevision');
-  const bytes = document.readFrameCommandBufferAtRevision(revision, spreadIndex);
-  requireSameHandle(revision, bytes.revision, 'warmFrameWindowAtRevision bytes');
-  return { metadata: metadata.value, bytes: bytes.value };
 }
 
 function requireFrameMetadata(metadata, revision, spreadIndex, operation) {

@@ -137,6 +137,27 @@ export function recordMissingFrameImageResources(
   }
 }
 
+/**
+ * Once-only latch for "this spread's images all settled" notifications,
+ * shared by every delivery lane (frame-window preload, render-time
+ * self-heal) so a spread wakes its listeners exactly once per revision.
+ */
+export function markSpreadImageResourcesSettled(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  spreadIndex: number,
+): boolean {
+  const key = JSON.stringify([
+    revision.workerSessionId,
+    revision.revisionId,
+    revision.revisionVersion,
+    spreadIndex,
+  ]);
+  if (state.settledImageResourceSpreads.has(key)) return false;
+  state.settledImageResourceSpreads.add(key);
+  return true;
+}
+
 export function frameImageResourcesAreLoadingOrSettled(
   state: BrowserReaderState,
   revision: BrowserReaderRevisionHandle,
@@ -204,10 +225,15 @@ export function ensureFrameImageResourceLoaded(state: BrowserReaderState, href: 
     task.then(() => {
       if (state.pendingImageLoads.get(href) === tracked) state.pendingImageLoads.delete(href);
       if (state.disposed) return;
-      // Decoded or terminally failed, the spread can now paint (with or
-      // without the image); wake everyone holding the previous canvas.
+      // Decoded or terminally failed, a fully-settled spread can now
+      // paint (with or without the image). The shared once-latch keeps
+      // this quiet when the frame-window lane already woke the spread.
       for (const [spreadIndex, frame] of state.frames) {
-        if (frame.resourceRefs.images.includes(href)) {
+        if (
+          frame.resourceRefs.images.includes(href) &&
+          frameImageResourcesAreSettled(state, revision, frame.resourceRefs.images) &&
+          markSpreadImageResourcesSettled(state, revision, spreadIndex)
+        ) {
           notifySpreadContentInvalidated(state, spreadIndex);
         }
       }
