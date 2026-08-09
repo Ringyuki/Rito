@@ -5085,6 +5085,7 @@ running through the quiet forest until the morning light returns.";
                     fit_contain: false,
                     viewport: None,
                     baseline_shift_px: 0.0,
+                    align_top: false,
                 });
             }
             items.push(InlineItem::Text {
@@ -5907,6 +5908,7 @@ running through the quiet forest until the morning light returns.";
                         fit_contain: false,
                         viewport: None,
                         baseline_shift_px: 6.328125,
+                        align_top: false,
                     },
                     InlineItem::Text {
                         text: "，甘夏老师".to_owned(),
@@ -6042,6 +6044,7 @@ running through the quiet forest until the morning light returns.";
                         fit_contain: false,
                         viewport: None,
                         baseline_shift_px: 0.0,
+                        align_top: false,
                     },
                     InlineItem::Text {
                         text: " after the picture.".to_owned(),
