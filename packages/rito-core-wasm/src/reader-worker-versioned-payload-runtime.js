@@ -158,13 +158,23 @@ export function warmVersionedReaderFrameWindow(document, requestedRevision, spre
   requireSameHandle(revision, prefetched.revision, operation);
   try {
     requireFrameWindowRevision(prefetched.value, revision, spreadIndex, operation);
+    const frameFaults = [];
     return {
       revision,
       value: {
         plan: prefetched.value.plan,
-        frames: prefetched.value.plan.spreadIndexes.map((index) =>
-          readVersionedFrameBuffer(document, revision, index),
-        ),
+        // One unreadable frame (evicted by a relayout between plan and
+        // read) must not abort the window: sibling spreads' bytes ride in
+        // the same response. The fault stays observable so a frame that
+        // never arrives is attributable, not silent.
+        frames: prefetched.value.plan.spreadIndexes.flatMap((index) => {
+          try {
+            return [readVersionedFrameBuffer(document, revision, index)];
+          } catch (error) {
+            frameFaults.push({ spreadIndex: index, message: String(error).slice(0, 400) });
+            return [];
+          }
+        }),
         spreads: prefetched.value.spreads.map((spread) => {
           const transferred = readVersionedResourcePayloadBytes(
             document,
@@ -175,8 +185,12 @@ export function warmVersionedReaderFrameWindow(document, requestedRevision, spre
             spreadIndex: spread.spreadIndex,
             resources: transferred.resources,
             missingResources: [...spread.missingResources, ...transferred.missingResources],
+            ...(typeof spread.prefetchError === 'string'
+              ? { prefetchError: spread.prefetchError }
+              : {}),
           };
         }),
+        ...(frameFaults.length > 0 ? { frameFaults } : {}),
       },
     };
   } catch (error) {

@@ -123,6 +123,7 @@ export function applyBrowserReaderFrameWindow(
   if (!frameWindow || state.disposed || !isCurrentRevisionHandle(state, revision)) {
     return;
   }
+  recordFrameWindowFaults(frameWindow);
   cacheFrameBuffers(state, revision, frameWindow.frames, options);
   for (const spread of frameWindow.spreads) {
     const missingResources = frameWindowMissingResources(spread);
@@ -211,6 +212,33 @@ function frameWindowIsCompleted(
     frame !== undefined &&
     frameImageResourcesAreLoadingOrSettled(state, revision, frame.resourceRefs.images)
   );
+}
+
+/**
+ * A window that arrives with degraded members (a spread whose resources
+ * could not be enumerated, a frame that could not be read) still applies —
+ * but the faults must stay observable: a silently partial window is exactly
+ * how a stranded canvas becomes undiagnosable.
+ */
+function recordFrameWindowFaults(frameWindow: BrowserReaderFrameWindowWarmResult): void {
+  const faults = [
+    ...(frameWindow.frameFaults ?? []).map((fault) => ({
+      kind: 'frame',
+      spreadIndex: fault.spreadIndex,
+      message: fault.message,
+    })),
+    ...frameWindow.spreads.flatMap((spread) =>
+      typeof spread.prefetchError === 'string'
+        ? [{ kind: 'prefetch', spreadIndex: spread.spreadIndex, message: spread.prefetchError }]
+        : [],
+    ),
+  ];
+  if (faults.length === 0) return;
+  const scope = globalThis as { __ritoFrameWindowFaults?: unknown[] };
+  scope.__ritoFrameWindowFaults = [
+    ...(scope.__ritoFrameWindowFaults ?? []).slice(-19),
+    ...faults.map((fault) => ({ ...fault, at: new Date().toISOString() })),
+  ];
 }
 
 function frameWindowMissingResources(

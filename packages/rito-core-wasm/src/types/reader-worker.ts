@@ -319,13 +319,24 @@ export interface RitoCoreWasmReaderResourceBytes {
 
 export interface RitoCoreWasmReaderFrameWindowWarmResult {
   readonly plan: RitoCoreWasmFrameResourceWarmPlan;
+  /**
+   * Planned frames that could be read. A frame that failed to read is
+   * omitted (and noted in frameFaults) instead of aborting the window.
+   */
   readonly frames: readonly RitoCoreWasmReaderFrameBuffer[];
   readonly spreads: readonly {
     readonly spreadIndex: number;
     readonly resources: readonly RitoCoreWasmReaderResourceBytes[];
     /** Terminal resource failures; callers must not retry this exact revision. */
     readonly missingResources: readonly RitoCoreWasmMissingResource[];
+    /**
+     * The spread's resources could not be enumerated at all (not terminal:
+     * a later warm or an on-demand read may still succeed).
+     */
+    readonly prefetchError?: string;
   }[];
+  /** Planned frames that failed to read, kept observable for diagnostics. */
+  readonly frameFaults?: readonly { readonly spreadIndex: number; readonly message: string }[];
 }
 
 export interface RitoCoreWasmReaderTocTarget {

@@ -59,6 +59,11 @@ pub struct WasmFrameResourcePrefetchResponse {
     pub spread_index: usize,
     pub payloads: Vec<RuntimeResourceTransferPayload>,
     pub missing_resources: Vec<WasmMissingResource>,
+    /// A spread whose resource hrefs could not be enumerated at all
+    /// (as opposed to individual resources missing). The window still
+    /// delivers its sibling spreads; the reader loads this one on demand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prefetch_error: Option<String>,
     pub pending_transfer_count: usize,
 }
 

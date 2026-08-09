@@ -4,7 +4,10 @@ import {
   type BrowserReaderDecodedImage,
 } from './decoded-image-cache';
 import { createCanvasImageResolver } from './image-href-resolver';
-import { throwIfBrowserReaderImageResourceFailed } from './resources';
+import {
+  ensureFrameImageResourceLoaded,
+  throwIfBrowserReaderImageResourceFailed,
+} from './resources';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader-layout';
@@ -118,6 +121,11 @@ function requiredFrameImagesAreReady(
     if (resolveImage(href) === undefined) {
       throwIfBrowserReaderImageResourceFailed(state, href);
       ready = false;
+      // Two recovery lanes: the frame window re-warms siblings, and the
+      // direct read covers a bitmap the window machinery never delivered
+      // (an aborted prefetch, an evicted decode). Without the second lane
+      // a spread can hold the previous canvas forever.
+      ensureFrameImageResourceLoaded(state, href);
       void warmBrowserReaderFrameWindow(state, index);
     }
   }

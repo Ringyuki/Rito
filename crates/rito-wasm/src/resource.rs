@@ -57,7 +57,19 @@ impl WasmRuntimeDocument {
                 .map_err(WasmRuntimeError::from_engine)?;
             let mut spreads = Vec::new();
             for spread_index in plan.spread_indexes.clone() {
-                let spread = self.prefetch_frame_resources(revision_id, spread_index)?;
+                // One spread failing to enumerate (a frame not warm yet, a
+                // relayout race) must not abort the window: the visible
+                // spread's bytes ride in the same response, and losing them
+                // strands its canvas on the previous image forever.
+                let spread = match self.prefetch_frame_resources(revision_id, spread_index) {
+                    Ok(spread) => spread,
+                    Err(error) => degraded_frame_resource_prefetch(
+                        revision_id.to_owned(),
+                        spread_index,
+                        &error,
+                        self.pending_resource_transfer_count(),
+                    ),
+                };
                 new_transfer_ids.extend(
                     spread
                         .payloads
@@ -151,8 +163,25 @@ impl WasmRuntimeDocument {
             spread_index,
             payloads,
             missing_resources,
+            prefetch_error: None,
             pending_transfer_count: self.pending_resource_transfer_count(),
         })
+    }
+}
+
+pub(crate) fn degraded_frame_resource_prefetch(
+    revision_id: String,
+    spread_index: usize,
+    error: &WasmRuntimeError,
+    pending_transfer_count: usize,
+) -> WasmFrameResourcePrefetchResponse {
+    WasmFrameResourcePrefetchResponse {
+        revision_id,
+        spread_index,
+        payloads: Vec::new(),
+        missing_resources: Vec::new(),
+        prefetch_error: Some(error.message().to_owned()),
+        pending_transfer_count,
     }
 }
 

@@ -4,7 +4,7 @@ use rito_core::runtime::{
 
 use super::revision_handle;
 use crate::{
-    resource::rollback_new_transfers_on_error,
+    resource::{degraded_frame_resource_prefetch, rollback_new_transfers_on_error},
     wire::{
         parse_resource_prefetch_request, serialize_json, WasmFrameResourcePrefetchResponse,
         WasmMissingResource, WasmPlannedFrameResourcePrefetchResponse,
@@ -69,7 +69,19 @@ impl WasmRuntimeDocument {
                 .value;
             let mut spreads = Vec::new();
             for spread_index in plan.spread_indexes.clone() {
-                let spread = self.prefetch_frame_resources_at(&handle, spread_index)?;
+                // One spread failing to enumerate (a frame not warm yet, a
+                // relayout race) must not abort the window: the visible
+                // spread's bytes ride in the same response, and losing them
+                // strands its canvas on the previous image forever.
+                let spread = match self.prefetch_frame_resources_at(&handle, spread_index) {
+                    Ok(spread) => spread,
+                    Err(error) => degraded_frame_resource_prefetch(
+                        handle.revision_id.clone(),
+                        spread_index,
+                        &error,
+                        self.pending_resource_transfer_count(),
+                    ),
+                };
                 new_transfer_ids.extend(
                     spread
                         .payloads
@@ -149,6 +161,7 @@ impl WasmRuntimeDocument {
             spread_index,
             payloads,
             missing_resources,
+            prefetch_error: None,
             pending_transfer_count: self.pending_resource_transfer_count(),
         })
     }

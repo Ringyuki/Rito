@@ -16,6 +16,7 @@ import {
   ensureHostGenericSerifMetrics,
 } from './font-metrics';
 import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
+import { trackBrowserReaderHostTask } from './reader-host-tasks';
 import { prepareBrowserReaderRevisionFonts } from './publication-fonts';
 import {
   BrowserReaderImageResourceError,
@@ -156,6 +157,61 @@ export function frameImageResourcesAreSettled(
 ): boolean {
   return hrefs.every(
     (href) => state.images.has(href) || imageFailureAtRevision(state, revision, href) !== undefined,
+  );
+}
+
+/**
+ * Render-time self-heal: a bitmap that is neither decoded, loading, nor
+ * terminally failed was never delivered at all — a frame-window prefetch
+ * that aborted, an evicted decode, a keying miss. Fetch its bytes
+ * directly so a spread can never be stranded painting the previous
+ * canvas (degrade-never-block). Terminal failures record so the paint
+ * path stops waiting; successes invalidate every cached frame that
+ * references the image.
+ */
+export function ensureFrameImageResourceLoaded(state: BrowserReaderState, href: string): void {
+  const revision = state.revisionHandle;
+  if (!revision || state.disposed) return;
+  if (
+    state.images.has(href) ||
+    state.pendingImageLoads.has(href) ||
+    imageFailureAtRevision(state, revision, href) !== undefined
+  ) {
+    return;
+  }
+  const worker = state.worker;
+  if (worker.sessionId !== revision.workerSessionId || !isCurrentRevisionHandle(state, revision)) {
+    return;
+  }
+  const task: Promise<BrowserReaderImageLoadOutcome> = worker
+    .readResourceAtRevision(coreRevisionHandle(revision), 'image', href)
+    .then(
+      ({ value }) => loadImageBytes(state, href, value.payload.mediaType, value.bytes),
+      (error): BrowserReaderImageLoadOutcome => ({
+        status: 'failed',
+        reason: 'resource-unavailable',
+        detail: String(error).slice(0, 400),
+      }),
+    )
+    .then((outcome) => {
+      if (outcome.status === 'failed') recordImageFailure(state, revision, href, outcome);
+      return outcome;
+    });
+  const tracked = { task };
+  state.pendingImageLoads.set(href, tracked);
+  void trackBrowserReaderHostTask(
+    state,
+    task.then(() => {
+      if (state.pendingImageLoads.get(href) === tracked) state.pendingImageLoads.delete(href);
+      if (state.disposed) return;
+      // Decoded or terminally failed, the spread can now paint (with or
+      // without the image); wake everyone holding the previous canvas.
+      for (const [spreadIndex, frame] of state.frames) {
+        if (frame.resourceRefs.images.includes(href)) {
+          notifySpreadContentInvalidated(state, spreadIndex);
+        }
+      }
+    }),
   );
 }
 
