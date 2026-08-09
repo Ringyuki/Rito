@@ -78,9 +78,12 @@ describe('production Canvas text shadows', () => {
       (6 + 20000) * 1.75,
       (-3 + 20000) * 1.75,
     ]);
+    // The caster anchors at the alphabetic baseline: padTop 7 plus
+    // 0.8 × 18px, the renderer's shared convention (adfff36e — a
+    // top-baseline caster hung every shadow fontAscent − 0.8em low).
     expect(callArguments(scratch.records, 'fillText')).toEqual([
-      ['shadow text', 7.5, 7 - 20000],
-      ['shadow text', 7.5, 7 - 20000],
+      ['shadow text', 7.5, 7 + 0.8 * 18 - 20000],
+      ['shadow text', 7.5, 7 + 0.8 * 18 - 20000],
     ]);
     expect(callArguments(snapshot.main, 'drawImage')).toEqual([
       [
