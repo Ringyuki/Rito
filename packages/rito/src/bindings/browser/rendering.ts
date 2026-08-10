@@ -5,8 +5,8 @@ import {
 } from './decoded-image-cache';
 import { createCanvasImageResolver } from './image-href-resolver';
 import {
+  browserReaderImageResourceFailed,
   ensureFrameImageResourceLoaded,
-  throwIfBrowserReaderImageResourceFailed,
 } from './resources';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
@@ -119,7 +119,11 @@ function requiredFrameImagesAreReady(
   let ready = true;
   for (const href of frame.resourceRefs.images) {
     if (resolveImage(href) === undefined) {
-      throwIfBrowserReaderImageResourceFailed(state, href);
+      // A terminally-failed image paints as absence, exactly like the
+      // browser: it neither gates readiness nor re-warms (and it must
+      // never throw — an exception here rode up the navigation stack and
+      // wedged the forward page turn forever on b69's missing 015 plate).
+      if (browserReaderImageResourceFailed(state, href)) continue;
       ready = false;
       // Two recovery lanes: the frame window re-warms siblings, and the
       // direct read covers a bitmap the window machinery never delivered

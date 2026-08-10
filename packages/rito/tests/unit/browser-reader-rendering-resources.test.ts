@@ -91,7 +91,7 @@ describe('Browser reader resource-backed rendering', () => {
     expect(ctx.drawImage).toHaveBeenCalledOnce();
   });
 
-  it('throws the exact terminal image failure before clearing or warming again', () => {
+  it('paints a spread without its terminally failed image and never re-warms', () => {
     const warmFrameWindow = vi.fn();
     const failure = new BrowserReaderImageResourceError('decode-failed', 'cover.png', 'rev-1', 0);
     const state = createState({
@@ -113,9 +113,13 @@ describe('Browser reader resource-backed rendering', () => {
     });
     const ctx = fakeCanvasContext();
 
-    expect(() => renderSpreadToContext(state, 0, ctx)).toThrow(failure);
+    // A terminal failure paints as absence, like a browser's broken
+    // image: the page still renders (a throw here once rode up the
+    // navigation stack and wedged the forward page turn forever), and
+    // the terminal record keeps the warm lane quiet.
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
 
-    expect(ctx.clearRect).not.toHaveBeenCalled();
+    expect(ctx.clearRect).toHaveBeenCalledOnce();
     expect(warmFrameWindow).not.toHaveBeenCalled();
   });
 

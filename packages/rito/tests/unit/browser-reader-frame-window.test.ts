@@ -9,7 +9,6 @@ import { applyBrowserReaderRevisionState } from '../../src/bindings/browser/read
 import { prepareBrowserReaderBoundedFrameCache } from '../../src/bindings/browser/bounded-frame-cache';
 import {
   preloadFrameResourceBytes,
-  throwIfBrowserReaderImageResourceFailed,
 } from '../../src/bindings/browser/resources';
 import { BrowserReaderImageResourceError } from '../../src/bindings/browser/image-resource-error';
 import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/browser/chapter-local-preview/state';
@@ -512,9 +511,7 @@ describe('Browser reader frame window adapter', () => {
     expect(createImageBitmap).toHaveBeenCalledOnce();
     expect(warmFrameWindow).toHaveBeenCalledOnce();
     expect(invalidated).toEqual([1]);
-    expect(() => {
-      throwIfBrowserReaderImageResourceFailed(state, 'cover.png');
-    }).toThrow(
+    expect(state.imageResourceFailures.get('cover.png')?.error).toEqual(
       expect.objectContaining<Partial<BrowserReaderImageResourceError>>({
         name: 'BrowserReaderImageResourceError',
         code: 'image-resource-unavailable',
@@ -553,9 +550,7 @@ describe('Browser reader frame window adapter', () => {
     expect(globalThis.createImageBitmap).not.toHaveBeenCalled();
     expect(warmFrameWindow).toHaveBeenCalledOnce();
     expect(invalidated).toEqual([1]);
-    expect(() => {
-      throwIfBrowserReaderImageResourceFailed(state, 'cover.png');
-    }).toThrow(
+    expect(state.imageResourceFailures.get('cover.png')?.error).toEqual(
       expect.objectContaining<Partial<BrowserReaderImageResourceError>>({
         reason: 'resource-unavailable',
         detail: 'resource is absent',
@@ -585,9 +580,7 @@ describe('Browser reader frame window adapter', () => {
     await flushPromises();
 
     expect(invalidated).toEqual([1]);
-    expect(() => {
-      throwIfBrowserReaderImageResourceFailed(state, 'cover.png');
-    }).toThrow(
+    expect(state.imageResourceFailures.get('cover.png')?.error).toEqual(
       expect.objectContaining<Partial<BrowserReaderImageResourceError>>({
         reason: 'unsupported-runtime',
       }),

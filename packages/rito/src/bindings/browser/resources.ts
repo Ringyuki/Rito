@@ -241,15 +241,20 @@ export function ensureFrameImageResourceLoaded(state: BrowserReaderState, href: 
   );
 }
 
-/** Called before painting so a terminal resource never becomes an endless false/warm loop. */
-export function throwIfBrowserReaderImageResourceFailed(
+/**
+ * Whether the image failed terminally at the current revision. Such a
+ * resource paints as absence, exactly like a browser with a broken
+ * image: it never gates readiness (no endless false/warm loop) and it
+ * never blocks a page turn (throwing here rode up the navigation stack
+ * and wedged the forward turn forever on a missing plate).
+ */
+export function browserReaderImageResourceFailed(
   state: BrowserReaderState,
   href: string,
-): void {
+): boolean {
   const revision = state.revisionHandle;
-  if (!revision) return;
-  const failure = imageFailureAtRevision(state, revision, href);
-  if (failure) throw failure.error;
+  if (!revision) return false;
+  return imageFailureAtRevision(state, revision, href) !== undefined;
 }
 
 export async function getImageObjectUrl(

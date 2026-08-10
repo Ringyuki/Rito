@@ -129,7 +129,17 @@ impl WasmRuntimeDocument {
         let mut missing_resources = Vec::new();
         for (kind, href) in resources {
             match self.store_resource_transfer_at(handle, kind, &href) {
-                Ok(payload) => payloads.push(payload.value),
+                // The payload href is the caller's cache key and must echo
+                // the REQUESTED spelling: a frame references its images
+                // chapter-relative ("../Images/009.jpg") while the store
+                // resolves to a canonical path ("Images/009.jpg"), and a
+                // canonical echo strands the decoded bitmap under a key
+                // the paint path never looks up (b69 spread 136: the art
+                // plate never painted, the previous canvas held forever).
+                Ok(mut payload) => {
+                    payload.value.href = href;
+                    payloads.push(payload.value);
+                }
                 Err(error) => missing_resources.push(WasmMissingResource {
                     kind,
                     href,
