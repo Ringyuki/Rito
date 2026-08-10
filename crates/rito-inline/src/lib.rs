@@ -3132,6 +3132,14 @@ impl FormattingContext for ParleyInlineContext {
 fn cjk_aware_chromium_break_override(context: parley::LineBreakContext) -> Option<bool> {
     const OPEN_QUOTES: [char; 2] = ['\u{2018}', '\u{201C}'];
     const CLOSE_QUOTES: [char; 2] = ['\u{2019}', '\u{201D}'];
+    // U+2500 BOX DRAWINGS LIGHT HORIZONTAL is the CJK novel dash (──):
+    // UAX-14 class AI, which ICU resolves to ID under a CJK locale, so
+    // Blink breaks between the pair (b93 truth: the first ─ closes the
+    // line, the second opens the next). Parley's default table keeps AI
+    // as AL and carried the pair as a word.
+    if context.before == '\u{2500}' && context.after == '\u{2500}' {
+        return Some(true);
+    }
     if OPEN_QUOTES.contains(&context.after)
         && is_cjk_context(context.before)
         && fullwidth_punctuation_class(context.before) != PunctuationClass::Open
@@ -4801,6 +4809,55 @@ running through the quiet forest until the morning light returns.";
         assert!(lines.len() > 2, "expected multiple lines, got {lines:?}");
         assert_eq!(lines.concat(), text);
         assert!(outcome.continuation.is_none());
+    }
+
+    /// The CJK novel dash pair ── (U+2500, UAX-14 class AI) breaks
+    /// between the two dashes like an ideograph pair: ICU resolves AI to
+    /// ID under a CJK locale and Blink splits ── across the line boundary
+    /// (b93 truth: the first ─ closes the line, the second opens the
+    /// next). Parley's default AL classification carried the pair whole.
+    #[test]
+    fn a_box_drawing_dash_pair_breaks_between_the_dashes() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let (tree, text) = paragraph_tree("中中──中中", 0.0);
+        let natural = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(10_000.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("natural layout succeeds");
+        let Fragment::Box(root) = &natural.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        let full_width: f64 = line.children.iter().map(|child| child.rect().width).sum();
+        // Fit exactly three of the five glyphs: the only lawful break at
+        // that budget lands INSIDE the dash pair.
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(full_width * 3.0 / 5.0 + 0.5),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("narrow layout succeeds");
+        let lines = line_texts(&outcome, &text);
+        assert_eq!(
+            lines,
+            vec!["中中─".to_owned(), "─中中".to_owned()],
+            "the dash pair must split across the boundary"
+        );
     }
 
     /// A registered named font must win over the pinned fallback when the
