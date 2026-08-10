@@ -265,12 +265,67 @@ function strokeBorder(
   x2: number,
   y2: number,
 ): void {
+  if (edge.style === 'dotted' && (edge.width === 1 || edge.width === 2) && (x1 === x2 || y1 === y2)) {
+    strokeBinaryDotted(ctx, edge, x1, y1, x2, y2);
+    return;
+  }
   applyStrokeStyle(ctx, edge);
   const snap = edge.width % 2 === 1 ? 0.5 : 0;
   ctx.beginPath();
   ctx.moveTo(Math.round(x1) + snap, Math.round(y1) + snap);
   ctx.lineTo(Math.round(x2) + snap, Math.round(y2) + snap);
   ctx.stroke();
+}
+
+// Thin dotted edges raster as BINARY square dots of side = the border
+// width: one dot anchors at the start, the rest at the end every
+// 2×width, the first interval absorbing the parity remainder (mirrors
+// the production pen — both pens change together).
+function strokeBinaryDotted(
+  ctx: CanvasRenderingContext2D,
+  edge: RenderBorderEdge,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): void {
+  ctx.fillStyle = edge.color;
+  const size = Math.round(edge.width);
+  const horizontal = y1 === y2;
+  const start = Math.round(horizontal ? x1 : y1);
+  const end = Math.round(horizontal ? x2 : y2);
+  const row = Math.round((horizontal ? y1 : x1) - edge.width / 2);
+  const span = end - start;
+  const dot = (offset: number) => {
+    if (horizontal) {
+      ctx.fillRect(start + offset, row, size, size);
+    } else {
+      ctx.fillRect(row, start + offset, size, size);
+    }
+  };
+  dot(0);
+  if (size === 1) {
+    // Hairline (2026-07-28 probe): dots every 2px anchored at BOTH
+    // ends, an even span resolving the parity clash with a double dot
+    // at the start — offsets {0,1,3,5,…,L−1}; odd {0,2,…,L−1}.
+    let from = 2;
+    if (span > 1 && span % 2 === 0) {
+      dot(1);
+      from = 3;
+    }
+    for (let offset = from; offset < span; offset += 2) {
+      dot(offset);
+    }
+    return;
+  }
+  // 2px (b52 writing-pad probe, 2026-08-10): a dot flush at EACH end,
+  // and a regular period-4 interior series at 3+4k leaving a 1px gap
+  // against both end dots (measured offsets 0,3,7,…,635,638 on a
+  // 640px rule — 161 binary 2×2 dots).
+  dot(span - size);
+  for (let offset = size + 1; offset <= span - 2 * size - 1; offset += 2 * size) {
+    dot(offset);
+  }
 }
 
 function applyStrokeStyle(ctx: CanvasRenderingContext2D, edge: RenderBorderEdge): void {
