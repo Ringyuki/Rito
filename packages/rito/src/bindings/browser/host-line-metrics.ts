@@ -155,14 +155,33 @@ async function measureBrowserHostLineMetrics(
       // shrinks the reusable gap by a pixel at 16px, additively with
       // the annotation-script bit.
       const sentinel = sample.length > 0 ? sample.charCodeAt(0) : 0;
-      if (sentinel >= 0xe000 && sentinel <= 0xe005) {
+      if (sentinel >= 0xe000 && sentinel <= 0xe00b) {
         // The tail of the probe key is the annotation size ratio the
         // engine's cascade resolved for the rt element.
         const ratio = Number(sample.slice(1)) || 0.5;
-        const cjkAnnotation = sentinel === 0xe002 || sentinel === 0xe003 || sentinel === 0xe005;
+        const cjkAnnotation =
+          sentinel === 0xe002 ||
+          sentinel === 0xe003 ||
+          sentinel === 0xe005 ||
+          sentinel === 0xe007 ||
+          sentinel === 0xe009 ||
+          sentinel === 0xe00b;
+        // E006-E00B mirror E000-E005 with a LATIN base: the ruby base
+        // resolves the latin face, whose annotation stack sits one pixel
+        // lower than the CJK face's (measured: Tinos base 16px rt 0.5 —
+        // baseline 21 vs 22; the b96 long-base ruby paragraph is 26px in
+        // Blink where a CJK base gets 27).
+        const latinBase = sentinel >= 0xe006;
         const rt = `<rt style="font-size:${String(ratio)}em">${cjkAnnotation ? 'あ' : 'an'}</rt>`;
-        if (sentinel === 0xe000 || sentinel === 0xe002) {
-          paragraph.innerHTML = `<ruby><rb>中中</rb>${rt}</ruby>中中`;
+        if (
+          sentinel === 0xe000 ||
+          sentinel === 0xe002 ||
+          sentinel === 0xe006 ||
+          sentinel === 0xe007
+        ) {
+          paragraph.innerHTML = latinBase
+            ? `<ruby><rb>ab ab</rb>${rt}</ruby>ab`
+            : `<ruby><rb>中中</rb>${rt}</ruby>中中`;
         } else {
           // Probe text repeats one glyph (中, the most universally
           // covered CJK codepoint) so a decorative embedded face that
@@ -174,9 +193,15 @@ async function measureBrowserHostLineMetrics(
           // measured second-line reuse depended on where the break fell,
           // which inflated the derived under-edge allowance and made
           // later-line annotations over-grow.
-          const mixedPrevious = sentinel === 0xe004 || sentinel === 0xe005;
+          const mixedPrevious =
+            sentinel === 0xe004 ||
+            sentinel === 0xe005 ||
+            sentinel === 0xe00a ||
+            sentinel === 0xe00b;
           const previous = mixedPrevious ? '中中a中中' : '中中中中';
-          paragraph.innerHTML = `${previous}<br/><ruby><rb>中文</rb>${rt}</ruby>中文`;
+          paragraph.innerHTML = latinBase
+            ? `${previous}<br/><ruby><rb>ab ab</rb>${rt}</ruby>ab`
+            : `${previous}<br/><ruby><rb>中文</rb>${rt}</ruby>中文`;
         }
       } else {
         // A zero-sized inline-block sits on the baseline, so its top is

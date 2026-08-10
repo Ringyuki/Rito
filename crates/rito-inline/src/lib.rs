@@ -2718,21 +2718,40 @@ impl FormattingContext for ParleyInlineContext {
                         .map_or((fs * 0.88, fs * 0.12, None), |(asc, desc, font)| {
                             (asc, desc, Some(font))
                         });
-                    let anno_cjk = !annotation.text.is_empty()
-                        && annotation.text.chars().all(|ch| {
-                            matches!(u32::from(ch), 0x2E80..=0x9FFF | 0xF900..=0xFAFF
-                                | 0xFF00..=0xFFEF | 0x20000..=0x3FFFF)
-                        });
+                    let is_cjk = |ch: char| {
+                        matches!(u32::from(ch), 0x2E80..=0x9FFF | 0xF900..=0xFAFF
+                            | 0xFF00..=0xFFEF | 0x20000..=0x3FFFF)
+                    };
+                    let anno_cjk =
+                        !annotation.text.is_empty() && annotation.text.chars().all(is_cjk);
+                    // The BASE's script picks the probed base face too: a
+                    // pure-latin base resolves the latin pin, whose
+                    // annotation stack sits one pixel lower than the CJK
+                    // face's (measured on the b96 long-base ruby: Blink's
+                    // latin-base paragraph is 26px where a CJK base gets
+                    // 27). E006-E00B mirror E000-E005 with a latin rb.
+                    let base_latin = flow_text
+                        .get(range.clone())
+                        .is_some_and(|base| !base.chars().any(is_cjk));
                     let prev_mixed = !prev_line_fonts.is_empty()
                         && base_font.is_some_and(|base| {
                             prev_line_fonts.iter().any(|key| *key != base)
                         });
-                    let one_sentinel = if anno_cjk { '\u{E002}' } else { '\u{E000}' };
-                    let two_sentinel = match (anno_cjk, prev_mixed) {
-                        (false, false) => '\u{E001}',
-                        (true, false) => '\u{E003}',
-                        (false, true) => '\u{E004}',
-                        (true, true) => '\u{E005}',
+                    let one_sentinel = match (base_latin, anno_cjk) {
+                        (false, false) => '\u{E000}',
+                        (false, true) => '\u{E002}',
+                        (true, false) => '\u{E006}',
+                        (true, true) => '\u{E007}',
+                    };
+                    let two_sentinel = match (base_latin, anno_cjk, prev_mixed) {
+                        (false, false, false) => '\u{E001}',
+                        (false, true, false) => '\u{E003}',
+                        (false, false, true) => '\u{E004}',
+                        (false, true, true) => '\u{E005}',
+                        (true, false, false) => '\u{E008}',
+                        (true, true, false) => '\u{E009}',
+                        (true, false, true) => '\u{E00A}',
+                        (true, true, true) => '\u{E00B}',
                     };
                     let one_key = format!("{one_sentinel}{ratio:.4}");
                     let two_key = format!("{two_sentinel}{ratio:.4}");
