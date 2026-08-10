@@ -538,6 +538,27 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                         ));
                     }
+                    // A monolith that WOULD fit a fresh fragmentainer breaks
+                    // to one even though this page holds nothing but leading
+                    // padding: Blink pushes a full-page plate past the
+                    // chapter opener's collapsed margin and leaves the first
+                    // page blank (b117 gallery — force-placing here ran the
+                    // whole chapter one page early). Strictly-more room on
+                    // the fresh page guarantees termination.
+                    let fresh_capacity = space.fragmentainer_size.unwrap_or(f64::INFINITY);
+                    if outstanding <= fresh_capacity && available < fresh_capacity {
+                        return Ok(sealed_with_break(
+                            container,
+                            space.inline_size,
+                            y,
+                            fragments,
+                            BreakToken {
+                                resume_path: vec![*child_id],
+                                stage: BreakTokenStage::Before,
+                                pending_floats: std::mem::take(&mut pending_float_breaks),
+                            },
+                        ));
+                    }
                     // Monolithic child taller than a fresh fragmentainer:
                     // place it whole so pagination always progresses.
                     y += gap;
@@ -3968,6 +3989,93 @@ mod tests {
         };
         assert_eq!(rest.children.len(), 3);
         assert!((rest.rect.y).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_full_page_monolith_breaks_past_the_opener_padding() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut padded = block_style(margin_px(0.0), margin_px(0.0));
+        padded.padding.top = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(10.0).expect("finite"),
+        ));
+        let layout = layout_table_with(2, |index| match index {
+            1 => padded.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::SizedLeaf {
+                    block_size: 100.0,
+                    breakable: false,
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(1),
+            FormattingTreeStyles { layout, inline: InlineStyleTableV1::new(1) },
+        )
+        .expect("tree builds");
+        // A 100px monolith under 10px of opener padding in 100px pages:
+        // Blink leaves the opener blank and places the plate on a fresh
+        // page (the b117 gallery's leading blank), never force-placing it
+        // 10px down.
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 100.0));
+        assert_eq!(pages.len(), 2);
+        assert!(box_children(&pages[0]).is_empty(), "the opener stays blank");
+        let second = box_children(&pages[1]);
+        assert_eq!(second.len(), 1);
+        let Fragment::Box(leaf) = &second[0] else {
+            panic!("leaf fragment is a box");
+        };
+        assert!(leaf.rect.y.abs() < 1e-9);
+        assert!((leaf.rect.height - 100.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_monolith_taller_than_any_page_still_force_places() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut padded = block_style(margin_px(0.0), margin_px(0.0));
+        padded.padding.top = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(10.0).expect("finite"),
+        ));
+        let layout = layout_table_with(2, |index| match index {
+            1 => padded.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::SizedLeaf {
+                    block_size: 120.0,
+                    breakable: false,
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(1),
+            FormattingTreeStyles { layout, inline: InlineStyleTableV1::new(1) },
+        )
+        .expect("tree builds");
+        // Taller than ANY page: a break buys nothing, so it places whole
+        // on the opener exactly as before — progress over blank churn.
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 100.0));
+        assert_eq!(pages.len(), 1);
+        assert_eq!(box_children(&pages[0]).len(), 1);
     }
 
     #[test]
