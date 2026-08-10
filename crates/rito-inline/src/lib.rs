@@ -98,14 +98,6 @@ pub struct ParleyInlineContext {
     fonts: RefCell<FontContext>,
     layouts: RefCell<LayoutContext<[u8; 4]>>,
     registered_families: Vec<String>,
-    /// Blob ids of the constructor's font blobs, in call order — the
-    /// handle `alias_font_blob` uses to bind DOM alias names.
-    blob_ids: Vec<u64>,
-    /// DOM-resolvable family name per font blob id: the name a painted
-    /// run must reference for the host canvas to resolve the SAME face
-    /// shaping used (name-table name for plain blobs, the declared
-    /// family for named fonts, the pinned alias when bound).
-    font_blob_names: RefCell<std::collections::HashMap<u64, std::sync::Arc<str>>>,
     /// `line-height: normal` strut heights per inline style, measured by
     /// shaping with the style's own resolved font (what a browser's strut
     /// does), cached because struts repeat per paragraph.
@@ -321,12 +313,8 @@ impl ParleyInlineContext {
         });
         let mut registered_families = Vec::new();
         let mut fallback_ids = Vec::new();
-        let mut blob_ids = Vec::new();
-        let mut font_blob_names = std::collections::HashMap::new();
         for (index, bytes) in font_blobs.into_iter().enumerate() {
-            let blob: parley::fontique::Blob<u8> = bytes.into();
-            blob_ids.push(blob.id());
-            let registered = collection.register_fonts(blob, None);
+            let registered = collection.register_fonts(bytes.into(), None);
             if registered.is_empty() {
                 return Err(format!("font blob {index} registered no font face"));
             }
@@ -336,10 +324,6 @@ impl ParleyInlineContext {
                 }
                 if let Some(name) = collection.family_name(family_id) {
                     let name = name.to_string();
-                    if !font_blob_names.contains_key(&blob_ids[index]) {
-                        font_blob_names
-                            .insert(blob_ids[index], std::sync::Arc::<str>::from(name.as_str()));
-                    }
                     if !registered_families.contains(&name) {
                         registered_families.push(name);
                     }
@@ -355,8 +339,6 @@ impl ParleyInlineContext {
             fonts: RefCell::new(fonts),
             layouts: RefCell::new(LayoutContext::new()),
             registered_families,
-            blob_ids,
-            font_blob_names: RefCell::new(font_blob_names),
             normal_strut_cache: RefCell::new(std::collections::HashMap::new()),
             host_line_metrics: RefCell::new(std::collections::HashMap::new()),
             host_metric_requests: RefCell::new(std::collections::BTreeSet::new()),
@@ -364,19 +346,6 @@ impl ParleyInlineContext {
             halt_feature_cache: RefCell::new(std::collections::HashMap::new()),
             metrics_generation: std::cell::Cell::new(0),
         })
-    }
-
-    /// Overrides the DOM-resolvable family name for the `index`-th blob
-    /// passed to `new` — the pinned faces register in the host DOM under
-    /// policy aliases (`__RitoPinned_<sha256>`), not their name-table
-    /// names, and painted runs must reference the name the host can
-    /// resolve.
-    pub fn alias_font_blob(&self, index: usize, name: &str) {
-        if let Some(id) = self.blob_ids.get(index) {
-            self.font_blob_names
-                .borrow_mut()
-                .insert(*id, std::sync::Arc::from(name));
-        }
     }
 
     /// Injects one host-measured `line-height: normal` metric.
@@ -497,12 +466,8 @@ impl ParleyInlineContext {
     /// internal family name.
     pub fn register_named_font(&mut self, family_name: &str, bytes: Vec<u8>) -> Result<(), String> {
         let fonts = self.fonts.get_mut();
-        let blob: parley::fontique::Blob<u8> = bytes.into();
-        self.font_blob_names
-            .get_mut()
-            .insert(blob.id(), std::sync::Arc::from(family_name));
         let registered = fonts.collection.register_fonts(
-            blob,
+            bytes.into(),
             Some(parley::fontique::FontInfoOverride {
                 family_name: Some(family_name),
                 width: None,
@@ -1944,15 +1909,6 @@ impl FormattingContext for ParleyInlineContext {
                         let ruby_overhang =
                             ruby_spread_overhangs.get(&item_index).copied().unwrap_or(0.0);
                         let opener_halt_trims = &opener_halt_trims;
-                        // The face SHAPING resolved for this run, by the
-                        // name the host DOM can resolve — the painter
-                        // prefixes it so an isolated fillText picks the
-                        // same face the itemizer chose in context.
-                        let shaped_family = self
-                            .font_blob_names
-                            .borrow()
-                            .get(&glyph_run.run().font().data.id())
-                            .cloned();
                         let mut emit = |range: std::ops::Range<usize>,
                                         x: f64,
                                         width: f64,
@@ -1979,7 +1935,6 @@ impl FormattingContext for ParleyInlineContext {
                                     ruby_overhang_px: ruby_overhang,
                                     opener_trim_px,
                                     box_snap: run_box_snap,
-                                    shaped_family: shaped_family.clone(),
                                 }),
                                 shift,
                             ));

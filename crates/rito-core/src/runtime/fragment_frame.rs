@@ -63,12 +63,6 @@ impl RuntimeDocument {
                     return None;
                 }
                 let mut context = ParleyInlineContext::new(pinned).ok()?;
-                // Painted runs reference the face SHAPING resolved by the
-                // name the host DOM registered — for the pinned faces
-                // that is the policy alias, not the name-table name.
-                for (index, face) in self.pinned_font_policy.summary().faces.iter().enumerate() {
-                    context.alias_font_blob(index, &face.family_alias);
-                }
                 for source in self.resolved_font_face_sources() {
                     let resource = self.document.fonts.get(source.resource_index())?;
                     context

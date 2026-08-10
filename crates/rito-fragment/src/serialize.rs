@@ -114,15 +114,6 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                     }
                 }
             }
-            match &fragment.shaped_family {
-                None => out.push(0),
-                Some(family) => {
-                    out.push(1);
-                    let bytes = family.as_bytes();
-                    out.extend_from_slice(&(bytes.len() as u16).to_le_bytes());
-                    out.extend_from_slice(bytes);
-                }
-            }
         }
         Fragment::Image(fragment) => {
             out.push(FRAGMENT_TAG_IMAGE);
@@ -199,16 +190,6 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 }),
                 tag => return Err(format!("unknown text box-snap tag {tag}")),
             };
-            let shaped_family = match reader.u8()? {
-                0 => None,
-                1 => {
-                    let len = u16::from_le_bytes(reader.take(2)?.try_into().unwrap()) as usize;
-                    let text = std::str::from_utf8(reader.take(len)?)
-                        .map_err(|_| "shaped family is not utf-8".to_owned())?;
-                    Some(std::sync::Arc::from(text))
-                }
-                tag => return Err(format!("unknown shaped-family tag {tag}")),
-            };
             Ok(Fragment::Text(TextFragment {
                 source,
                 rect,
@@ -219,7 +200,6 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 ruby_overhang_px,
                 opener_trim_px,
                 box_snap,
-                shaped_family,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -469,7 +449,6 @@ mod tests {
                             justify_px: 0.25,
                             ruby_gap_px: 1.5,
                             opener_trim_px: 0.0,
-                            shaped_family: Some(std::sync::Arc::from("Round Trip Face")),
                             ruby_overhang_px: 0.75,
                         })],
                     })],
