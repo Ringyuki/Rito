@@ -1125,17 +1125,29 @@ impl TreeBuilder<'_> {
         if self.is_display_none(source_index, "image") {
             return Ok(());
         }
-        let (width, height) = match self.image_dimensions.get(&image.src) {
-            Some(dimensions) => *dimensions,
+        let dimensions = self.image_dimensions.get(&image.src).copied();
+        let (width, height) = match dimensions {
+            Some(dimensions) => dimensions,
             None => {
-                // An undecodable or missing image renders as a minimal
-                // placeholder box, the way a browser shows its broken-image
-                // state, instead of refusing the chapter.
+                // A missing or undecodable image lays out as Chromium's
+                // broken-image placeholder instead of refusing the chapter.
+                // Measured (pinned-face oracle): a 16×16 icon, followed by
+                // the alt text in the element's own style when alt is
+                // non-empty (alt "015" at 16px → 40×18: icon 16 + three
+                // 8px digits; the pair participates in inline layout, so a
+                // centered row of art + missing plate shifts by half the
+                // placeholder — the b69 finale page's 19px displacement).
+                // An empty alt collapses in Chromium (0×0); the 1×1 here
+                // is the closest the atom pipeline represents.
                 self.degrade(format!(
                     "image dimensions unavailable, placeholder rendered: {}",
                     image.src
                 ));
-                (1, 1)
+                if image.alt.is_empty() {
+                    (1, 1)
+                } else {
+                    (16, 16)
+                }
             }
         };
         let style = self.inline_style_id(source_index, "image");
@@ -1173,6 +1185,14 @@ impl TreeBuilder<'_> {
             resolved.fragment.baseline_shift,
             rito_style_contract::BaselineShift::Top
         );
+        let baseline_shift_px = ancestor_shift_px
+            + resolved_baseline_shift(
+                resolved,
+                self.inline
+                    .style(inherited)
+                    .map(|parent| f64::from(parent.font.size.get()))
+                    .map_err(|error| EpubError::new(format!("image parent style: {error}")))?,
+            );
         collector.push_image(
             InlineItem::Image {
                 src: image.src.clone(),
@@ -1183,21 +1203,26 @@ impl TreeBuilder<'_> {
                 fit_contain: image.svg_contain,
                 viewport: image.svg_viewport,
                 align_top,
-                baseline_shift_px: ancestor_shift_px
-                    + resolved_baseline_shift(
-                        resolved,
-                        self.inline
-                            .style(inherited)
-                            .map(|parent| f64::from(parent.font.size.get()))
-                            .map_err(|error| {
-                                EpubError::new(format!("image parent style: {error}"))
-                            })?,
-                    ),
+                baseline_shift_px,
             },
             source_index,
             image.source_ref.node_path.clone(),
             &image.alt,
         );
+        if dimensions.is_none() && !image.alt.is_empty() {
+            // The placeholder's alt text follows the icon inline, in the
+            // image element's own style — exactly the run Chromium lays
+            // out for a broken image.
+            collector.push_text(
+                &image.alt,
+                style,
+                baseline_shift_px,
+                true,
+                None,
+                Some(source_index),
+                Some(image.source_ref.node_path.clone()),
+            );
+        }
         Ok(())
     }
 
