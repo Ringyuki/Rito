@@ -647,6 +647,7 @@ impl ParleyInlineContext {
         // `word-break: normal`; `break-all`/`keep-all` change the break
         // opportunities the table would otherwise veto.
         let mut chromium_tailoring = true;
+        let mut break_all = false;
         for (item_index, item) in items.iter().enumerate() {
             match item {
                 InlineItem::Text {
@@ -666,6 +667,9 @@ impl ParleyInlineContext {
                         .map_err(|error| LayoutError::Invalid(error.to_string()))?;
                     if style.text_flow.word_break != rito_style_contract::WordBreak::Normal {
                         chromium_tailoring = false;
+                    }
+                    if style.text_flow.word_break == rito_style_contract::WordBreak::BreakAll {
+                        break_all = true;
                     }
                     runs.push((start..text.len(), style, item_index));
                 }
@@ -891,6 +895,8 @@ impl ParleyInlineContext {
         // its CJK-context treatment of ambiguous curly quotes.
         if chromium_tailoring {
             builder.set_line_break_override(Some(&cjk_aware_chromium_break_override));
+        } else if break_all {
+            builder.set_line_break_override(Some(&break_all_box_dash_override));
         }
         // `text-indent` is the block container's own inherited property and
         // indents its first line whatever sits on it — a line holding only
@@ -3129,17 +3135,24 @@ impl FormattingContext for ParleyInlineContext {
 /// curly quote like a closing bracket (opportunity after, none before).
 /// CJK dialogue in translated novels hangs on this. Everything else
 /// defers to Parley's Chromium ASCII table.
-fn cjk_aware_chromium_break_override(context: parley::LineBreakContext) -> Option<bool> {
-    const OPEN_QUOTES: [char; 2] = ['\u{2018}', '\u{201C}'];
-    const CLOSE_QUOTES: [char; 2] = ['\u{2019}', '\u{201D}'];
-    // U+2500 BOX DRAWINGS LIGHT HORIZONTAL is the CJK novel dash (──):
-    // UAX-14 class AI, which ICU resolves to ID under a CJK locale, so
-    // Blink breaks between the pair (b93 truth: the first ─ closes the
-    // line, the second opens the next). Parley's default table keeps AI
-    // as AL and carried the pair as a word.
+/// Fills the one gap in Parley's `word-break: break-all` relaxation.
+///
+/// Under break-all Parley already breaks between latin letters (a|b) and
+/// before the prolonged sound mark (ず|ー), but it still carries the CJK
+/// novel dash pair ── (U+2500 BOX DRAWINGS LIGHT HORIZONTAL) as one
+/// unbreakable word, while Blink splits it across the line boundary
+/// (b93 truth: the first ─ closes the line, the second opens the next).
+/// Everything else defers to Parley's break-all logic.
+fn break_all_box_dash_override(context: parley::LineBreakContext) -> Option<bool> {
     if context.before == '\u{2500}' && context.after == '\u{2500}' {
         return Some(true);
     }
+    None
+}
+
+fn cjk_aware_chromium_break_override(context: parley::LineBreakContext) -> Option<bool> {
+    const OPEN_QUOTES: [char; 2] = ['\u{2018}', '\u{201C}'];
+    const CLOSE_QUOTES: [char; 2] = ['\u{2019}', '\u{201D}'];
     if OPEN_QUOTES.contains(&context.after)
         && is_cjk_context(context.before)
         && fullwidth_punctuation_class(context.before) != PunctuationClass::Open
@@ -4811,53 +4824,88 @@ running through the quiet forest until the morning light returns.";
         assert!(outcome.continuation.is_none());
     }
 
-    /// The CJK novel dash pair ── (U+2500, UAX-14 class AI) breaks
-    /// between the two dashes like an ideograph pair: ICU resolves AI to
-    /// ID under a CJK locale and Blink splits ── across the line boundary
-    /// (b93 truth: the first ─ closes the line, the second opens the
-    /// next). Parley's default AL classification carried the pair whole.
+    /// `word-break: break-all` splits the CJK novel dash pair ──
+    /// (U+2500) across the line boundary like Blink (b93 truth: the
+    /// first ─ closes the line, the second opens the next). The latin
+    /// and prolonged-sound cases pin Parley's own break-all relaxation
+    /// so a parley upgrade that regresses them is caught here.
     #[test]
-    fn a_box_drawing_dash_pair_breaks_between_the_dashes() {
+    fn break_all_splits_the_dash_pair_and_keeps_parley_relaxations() {
         let source_han = std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
         ))
         .expect("pinned serif reads");
         let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
-        let (tree, text) = paragraph_tree("中中──中中", 0.0);
-        let natural = context
-            .layout(
-                &tree,
-                tree.root(),
-                &ConstraintSpace::continuous(10_000.0),
-                None,
-                &CancelFlag::new(),
+        for text in ["中中──中中", "中中ab中中", "中中ずー中中"] {
+            let mut style = plain_paragraph_style(
+                rito_style_contract::FontFamilies::new(vec![FontFamily::Named(
+                    FontFamilyName::new("NoSuchFace"),
+                )])
+                .expect("family list"),
+                16.0,
+                0.0,
+            );
+            style.text_flow.word_break = rito_style_contract::WordBreak::BreakAll;
+            let mut inline = InlineStyleTableV1::new(1);
+            let style_id = inline.intern_for_node(0, style).expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
             )
-            .expect("natural layout succeeds");
-        let Fragment::Box(root) = &natural.fragments.root else {
-            panic!("root is a box");
-        };
-        let Fragment::Line(line) = &root.children[0] else {
-            panic!("first child is a line");
-        };
-        let full_width: f64 = line.children.iter().map(|child| child.rect().width).sum();
-        // Fit exactly three of the five glyphs: the only lawful break at
-        // that budget lands INSIDE the dash pair.
-        let outcome = context
-            .layout(
-                &tree,
-                tree.root(),
-                &ConstraintSpace::continuous(full_width * 3.0 / 5.0 + 0.5),
-                None,
-                &CancelFlag::new(),
-            )
-            .expect("narrow layout succeeds");
-        let lines = line_texts(&outcome, &text);
-        assert_eq!(
-            lines,
-            vec!["中中─".to_owned(), "─中中".to_owned()],
-            "the dash pair must split across the boundary"
-        );
+            .expect("inline tree builds");
+            let natural = context
+                .layout(
+                    &tree,
+                    tree.root(),
+                    &ConstraintSpace::continuous(10_000.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("natural layout succeeds");
+            let Fragment::Box(root) = &natural.fragments.root else {
+                panic!("root is a box");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            let full_width: f64 = line.children.iter().map(|child| child.rect().width).sum();
+            let outcome = context
+                .layout(
+                    &tree,
+                    tree.root(),
+                    &ConstraintSpace::continuous(full_width * 3.0 / 6.0 + 0.5),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("narrow layout succeeds");
+            let lines = line_texts(&outcome, text);
+            match text {
+                "中中──中中" => assert_eq!(
+                    lines,
+                    vec!["中中─".to_owned(), "─中中".to_owned()],
+                    "break-all must split the dash pair"
+                ),
+                "中中ab中中" => assert_eq!(lines.first().map(String::as_str), Some("中中a")),
+                _ => assert_eq!(lines.first().map(String::as_str), Some("中中ず")),
+            }
+        }
     }
 
     /// A registered named font must win over the pinned fallback when the
