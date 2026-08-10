@@ -80,6 +80,12 @@ struct ParagraphLayout {
     /// per-line emission so the line envelope can read them after the
     /// fragment moved into the line.
     inline_block_baselines: std::collections::HashMap<u32, f64>,
+    /// Per image atom id: the (left, right) edge insets from the image
+    /// element's own border, absorbed as padding by the bridge. The atom's
+    /// advance spans them; the raster paints inside (measured on the b60
+    /// cover's 1px flank borders — dropping them shifted the whole plate
+    /// one pixel against Blink).
+    image_edge_insets: std::collections::HashMap<u64, (f64, f64)>,
 }
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -635,6 +641,8 @@ impl ParleyInlineContext {
         // fragment moved into the line.
         let mut inline_block_baselines: std::collections::HashMap<u32, f64> =
             std::collections::HashMap::new();
+        let mut image_edge_insets: std::collections::HashMap<u64, (f64, f64)> =
+            std::collections::HashMap::new();
         // Blink consults its pair-preference table only under
         // `word-break: normal`; `break-all`/`keep-all` change the break
         // opportunities the table would otherwise veto.
@@ -681,11 +689,28 @@ impl ParleyInlineContext {
                         percentage_images,
                         *viewport,
                     )?;
+                    // The image element's own flank borders (absorbed as
+                    // padding by the bridge) widen the atom's advance; the
+                    // raster paints inside them (measured on the b60
+                    // cover's `border: none solid` — dropping the 1px
+                    // flanks shifted the whole plate against Blink).
+                    let edge = |side: rito_style_contract::NonNegativeLengthPercentage| {
+                        match side.value() {
+                            LengthPercentage::Length(px) => f64::from(px.get()).max(0.0),
+                            _ => 0.0,
+                        }
+                    };
+                    let inset_left = edge(layout_style.padding.left);
+                    let inset_right = edge(layout_style.padding.right);
+                    if inset_left > 0.0 || inset_right > 0.0 {
+                        image_edge_insets
+                            .insert(item_index as u64, (inset_left, inset_right));
+                    }
                     image_boxes.push(InlineBox {
                         id: item_index as u64,
                         kind: InlineBoxKind::InFlow,
                         index: text.len(),
-                        width,
+                        width: width + (inset_left + inset_right) as f32,
                         height,
                     });
                 }
@@ -1094,6 +1119,7 @@ impl ParleyInlineContext {
             first_line_indent,
             inline_block_boxes,
             inline_block_baselines,
+            image_edge_insets,
             pair_trims,
             opener_halt_trims,
             item_box_sheds,
@@ -1249,6 +1275,7 @@ impl FormattingContext for ParleyInlineContext {
             opener_halt_trims,
             mut inline_block_boxes,
             inline_block_baselines,
+            image_edge_insets,
         ) = loop {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
@@ -1268,6 +1295,7 @@ impl FormattingContext for ParleyInlineContext {
                 ruby_annotation_caps,
                 inline_block_boxes,
                 inline_block_baselines,
+                image_edge_insets,
             } = self.build_layout(
                 tree,
                 root,
@@ -1553,6 +1581,7 @@ impl FormattingContext for ParleyInlineContext {
                         opener_halt_trims,
                         inline_block_boxes,
                         inline_block_baselines,
+                        image_edge_insets,
                     );
                 }
             }
@@ -2084,13 +2113,21 @@ impl FormattingContext for ParleyInlineContext {
                                 shift,
                             ));
                         } else {
+                            // The atom's advance spans the element's flank
+                            // borders; the raster rect sits inside them.
+                            let (inset_left, inset_right) = image_edge_insets
+                                .get(&inline_box.id)
+                                .copied()
+                                .unwrap_or((0.0, 0.0));
                             children.push((
                                 Fragment::Image(rito_fragment::ImageFragment {
                                     source: root,
                                     rect: FragmentRect {
-                                        x: f64::from(inline_box.x) - line_x,
+                                        x: f64::from(inline_box.x) - line_x + inset_left,
                                         y: f64::from(inline_box.y) - ink_top,
-                                        width: f64::from(inline_box.width),
+                                        width: f64::from(inline_box.width)
+                                            - inset_left
+                                            - inset_right,
                                         height: f64::from(inline_box.height),
                                     },
                                     item_index: inline_box.id as u32,
