@@ -2337,6 +2337,13 @@ impl FormattingContext for ParleyInlineContext {
                                 let item = item_line_heights.get(index)?.as_ref()?;
                                 let resolved =
                                     style_tables?.inline.style(item.style).ok()?;
+                                // A span that DECLARES its own line-height
+                                // keeps the fixed-box path (measured exact on
+                                // b1's .postil-b1, line-height 1.2); the probe
+                                // models only the inherited-line-height idiom.
+                                if resolved.font.line_height_is_declared {
+                                    return None;
+                                }
                                 let ratio =
                                     f64::from(resolved.font.size.get()) / strut_size;
                                 let sentinel = if *shift > 0.0 {
@@ -5925,6 +5932,10 @@ running through the quiet forest until the morning light returns.";
             .expect("style interns");
         let mut span_style = main_style.clone();
         span_style.font.size = px(12.8);
+        // The span INHERITS the paragraph's line-height (value carried,
+        // declared flag off) — the probe models exactly this idiom; a
+        // span declaring its own line-height keeps the fixed-box path.
+        span_style.font.line_height_is_declared = false;
         let span = inline
             .intern_for_node(1, span_style)
             .expect("style interns");
