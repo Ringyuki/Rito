@@ -97,6 +97,10 @@ pub(crate) struct FragmentPaintContext<'a> {
     pub(crate) family_policy: Option<&'a PaintFamilyPolicy>,
     /// Layout-inert per-node paint the bridge collected (rules today).
     pub(crate) node_paints: Option<&'a BTreeMap<u32, NodePaint>>,
+    /// Flank border strokes for inline images, keyed by the `<img>`
+    /// element's source index; widths are the absorbed border widths
+    /// (top, right, bottom, left) layout reserved as padding.
+    pub(crate) image_border_paints: Option<&'a BTreeMap<u32, (NodePaint, [f64; 4])>>,
 }
 
 /// Walks a laid-out fragment tree and appends the display commands that
@@ -347,6 +351,7 @@ fn append_fragment_display_commands_inner(
             origin_x,
             origin_y,
             context.family_policy,
+            context.image_border_paints,
             snap_origin_y,
         ),
         Fragment::Text(_) | Fragment::Image(_) => Err(EpubError::new(
@@ -363,6 +368,7 @@ fn append_line_commands(
     origin_x: f64,
     origin_y: f64,
     family_policy: Option<&PaintFamilyPolicy>,
+    image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     snap_origin_y: f64,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
@@ -431,7 +437,7 @@ fn append_line_commands(
                 )?;
             }
             Fragment::Image(image) => {
-                append_image_command(commands, items, image, line_x, line_y)?;
+                append_image_command(commands, items, image, line_x, line_y, image_border_paints)?;
             }
             Fragment::Box(atom) => {
                 // An inline-block atom riding the line: its mini
@@ -448,6 +454,7 @@ fn append_line_commands(
                         line_x + atom.rect.x,
                         line_y + atom.rect.y,
                         family_policy,
+                        image_border_paints,
                         snap_origin_y,
                     )?;
                 }
@@ -669,9 +676,11 @@ fn append_image_command(
     image: &ImageFragment,
     line_x: f64,
     line_y: f64,
+    image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
 ) -> EpubResult<()> {
     let Some(InlineItem::Image {
         src,
+        source,
         intrinsic_width,
         intrinsic_height,
         fit_contain,
@@ -684,6 +693,30 @@ fn append_image_command(
             image.item_index
         )));
     };
+    // The image's own border: layout absorbed the widths as padding (the
+    // atom's advance spans the flanks, the raster sits inside), and the
+    // stroke paints here through the same block-decoration channel a
+    // bordered <div> uses — the border box is the raster rect expanded
+    // back out by the absorbed widths (b60's cover: two 1px `none solid`
+    // flank columns, 850px tall each, were the whole page account).
+    if let Some((
+        NodePaint::Box {
+            paint, border_box, ..
+        },
+        widths,
+    )) = image_border_paints.and_then(|paints| paints.get(source))
+    {
+        commands.push(DisplayCommand::paint_block(
+            rect_value(
+                line_x + image.rect.x - widths[3],
+                line_y + image.rect.y - widths[0],
+                image.rect.width + widths[3] + widths[1],
+                image.rect.height + widths[0] + widths[2],
+            ),
+            paint.clone(),
+            border_box.clone(),
+        ));
+    }
     // A folded SVG viewport keeps its resolved box, and the content
     // letterboxes inside it preserving the intrinsic ratio (SVG 2 §8.6,
     // preserveAspectRatio `meet`); only `none` stretches. The layout box
@@ -1262,6 +1295,7 @@ mod tests {
             0.0,
             0.0,
             FragmentPaintContext {
+                image_border_paints: None,
                 family_policy: None,
                 node_paints: Some(&node_paints),
             },
@@ -1367,6 +1401,7 @@ mod tests {
             0.0,
             0.0,
             FragmentPaintContext {
+                image_border_paints: None,
                 family_policy: None,
                 node_paints: Some(&paints),
             },
@@ -1398,6 +1433,7 @@ mod tests {
             0.0,
             0.0,
             FragmentPaintContext {
+                image_border_paints: None,
                 family_policy: Some(&policy),
                 node_paints: None,
             },
@@ -1515,6 +1551,7 @@ mod tests {
             style: LayoutStyleId::from_raw(0),
             content: FormattingNodeContent::InlineFlow {
                 items: vec![InlineItem::Image {
+                    source: 0,
                     src: "images/portrait.png".to_owned(),
                     intrinsic_width: 40.0,
                     intrinsic_height: 30.0,

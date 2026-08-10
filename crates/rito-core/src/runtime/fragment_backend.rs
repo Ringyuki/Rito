@@ -269,6 +269,7 @@ impl RuntimeDocument {
                 FragmentPaintContext {
                     family_policy: Some(&family_policy),
                     node_paints: Some(&built.node_paints),
+                    image_border_paints: Some(&built.image_border_paints),
                 },
                 &CancelFlag::new(),
             )

@@ -86,6 +86,10 @@ pub enum InlineItem {
         /// Resource reference of the image source, as authored (the
         /// consumer resolves it against the publication's resources).
         src: String,
+        /// Source index of the `<img>` element in the document tree —
+        /// the key its layout-inert paint (flank border strokes) is
+        /// registered under. Zero when synthetic (tests, placeholders).
+        source: u32,
         /// Intrinsic pixel width of the image source.
         intrinsic_width: f64,
         /// Intrinsic pixel height of the image source.
@@ -435,6 +439,7 @@ fn fingerprint(
                         }
                         InlineItem::Image {
                             src,
+                            source,
                             intrinsic_width,
                             intrinsic_height,
                             style,
@@ -447,6 +452,7 @@ fn fingerprint(
                             mixer.mix(&[1]);
                             mixer.mix(&(src.len() as u32).to_le_bytes());
                             mixer.mix(src.as_bytes());
+                            mixer.mix(&source.to_le_bytes());
                             mixer.mix(&intrinsic_width.to_bits().to_le_bytes());
                             mixer.mix(&intrinsic_height.to_bits().to_le_bytes());
                             if let Some((viewport_width, viewport_height)) = viewport {

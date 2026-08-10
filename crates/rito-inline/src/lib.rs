@@ -5331,6 +5331,7 @@ running through the quiet forest until the morning light returns.";
             }];
             if with_image {
                 items.push(InlineItem::Image {
+                    source: 0,
                     src: "images/note.png".to_owned(),
                     intrinsic_width: 14.0,
                     intrinsic_height: 14.0,
@@ -6293,6 +6294,7 @@ running through the quiet forest until the morning light returns.";
                         ruby_annotation: None,
                     },
                     InlineItem::Image {
+                    source: 0,
                         src: "images/note.png".to_owned(),
                         intrinsic_width: 500.0,
                         intrinsic_height: 500.0,
@@ -6429,6 +6431,7 @@ running through the quiet forest until the morning light returns.";
                         ruby_annotation: None,
                     },
                     InlineItem::Image {
+                    source: 0,
                         src: "images/figure.png".to_owned(),
                         intrinsic_width: 40.0,
                         intrinsic_height: 30.0,

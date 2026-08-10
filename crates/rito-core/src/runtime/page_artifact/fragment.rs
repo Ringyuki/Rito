@@ -783,6 +783,7 @@ mod tests {
         .expect("tree builds");
         ChapterFormattingTree {
             tree,
+            image_border_paints: BTreeMap::new(),
             source_nodes: vec![None, None],
             node_paints: BTreeMap::new(),
             page_background: None,

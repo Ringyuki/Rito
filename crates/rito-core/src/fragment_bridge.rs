@@ -46,6 +46,12 @@ pub struct ChapterFormattingTree {
     /// engine already sized, and a painter that does not understand an
     /// entry must fail closed rather than skip it.
     pub node_paints: BTreeMap<u32, NodePaint>,
+    /// Flank border strokes for inline images, keyed by the `<img>`
+    /// element's SOURCE index (images have no formatting node). The
+    /// widths are the absorbed border widths (top, right, bottom, left);
+    /// layout reserved them as padding, the painter strokes them around
+    /// the raster rect.
+    pub image_border_paints: BTreeMap<u32, (NodePaint, [f64; 4])>,
     /// The chapter body's own background color, when it has one. This is
     /// the page background — the frame producer washes each page with it
     /// — matching how the retained pipeline hoists a body background onto
@@ -174,6 +180,7 @@ pub fn build_chapter_formatting_tree(
         nodes: Vec::new(),
         source_nodes: Vec::new(),
         node_paints: BTreeMap::new(),
+        image_border_paints: BTreeMap::new(),
         flow_item_sources: BTreeMap::new(),
         node_anchors: BTreeMap::new(),
         source_anchors: BTreeMap::new(),
@@ -225,6 +232,7 @@ pub fn build_chapter_formatting_tree(
         nodes: mut formatting_nodes,
         source_nodes,
         node_paints,
+        image_border_paints,
         flow_item_sources,
         node_anchors,
         node_links,
@@ -246,6 +254,7 @@ pub fn build_chapter_formatting_tree(
         tree,
         source_nodes,
         node_paints,
+        image_border_paints,
         page_background,
         page_background_image,
         flow_item_sources,
@@ -268,6 +277,7 @@ struct TreeBuilder<'a> {
     nodes: Vec<FormattingNode>,
     source_nodes: Vec<Option<usize>>,
     node_paints: BTreeMap<u32, NodePaint>,
+    image_border_paints: BTreeMap<u32, (NodePaint, [f64; 4])>,
     flow_item_sources: BTreeMap<u32, Vec<FlowItemSource>>,
     node_anchors: BTreeMap<u32, String>,
     source_anchors: BTreeMap<usize, String>,
@@ -1162,7 +1172,9 @@ impl TreeBuilder<'_> {
         // inside (measured on the b60 cover's 1px `none solid` flanks —
         // dropping them shifted the whole plate one pixel against Blink).
         let layout_style = match self.block_box_paint_plan(source_index, "image")? {
-            Some((_, widths)) if widths.iter().any(|width| *width > 0.0) => {
+            Some((paint, widths)) if widths.iter().any(|width| *width > 0.0) => {
+                self.image_border_paints
+                    .insert(source_index as u32, (paint, widths));
                 self.style_with_border_padding(layout_style, widths, "image")?
             }
             _ => layout_style,
@@ -1211,6 +1223,7 @@ impl TreeBuilder<'_> {
         collector.push_image(
             InlineItem::Image {
                 src: image.src.clone(),
+                source: source_index as u32,
                 intrinsic_width: f64::from(width),
                 intrinsic_height: f64::from(height),
                 style,
@@ -2960,6 +2973,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         tree,
         source_nodes: vec![None],
         node_paints: BTreeMap::new(),
+        image_border_paints: BTreeMap::new(),
         page_background: None,
         page_background_image: None,
         flow_item_sources: BTreeMap::new(),
