@@ -288,10 +288,6 @@ function paintImage(
   const bitmap = state.resolveImage(command.src);
   if (!bitmap) return;
   const { rect } = command;
-  // Chromium's DOM raster downscales replaced images with its high-
-  // quality filter; the canvas default ('low') hardens anime linework
-  // past the raster floor. Match the browser, like the production path.
-  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(bitmap, rect.x, rect.y, rect.width, rect.height);
 }
 
