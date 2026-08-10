@@ -299,6 +299,11 @@ function paintImage(
 ): void {
   const bitmap = resolveImage(command.src);
   if (!bitmap) return;
+  // Chromium's DOM raster downscales replaced images with its high-
+  // quality filter; the canvas default ('low') hardens anime linework
+  // past the raster floor on every colour plate (b116: 34 plates of
+  // pure edge disagreement at identical geometry). Match the browser.
+  ctx.imageSmoothingQuality = 'high';
   const { rect, sourceRect } = command;
   // The rect arrives pre-snapped where Blink snaps (plain replaced
   // images; SVG-folded content stays fractional) — see the engine's
