@@ -3335,6 +3335,92 @@ mod tests {
         .expect("tree builds")
     }
 
+    #[test]
+    fn border_spacing_wraps_the_single_row_once_per_side() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut spaced = block_style(margin_px(0.0), margin_px(0.0));
+        spaced.border_spacing = (
+            rito_style_contract::NonNegativeCssPx::new(2.0).expect("finite"),
+            rito_style_contract::NonNegativeCssPx::new(2.0).expect("finite"),
+        );
+        let layout = layout_table_with(2, |index| match index {
+            1 => spaced.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: (0..6)
+                        .map(|line| InlineItem::Text {
+                            text: format!("line {line}"),
+                            style: text_style,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: None,
+                        })
+                        .collect(),
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::TableCell { col_span: 1 },
+                children: vec![FormattingNodeId(0)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::TableRow,
+                children: vec![FormattingNodeId(1)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::Table,
+                children: vec![FormattingNodeId(2)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(3)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(4),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(100.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("lays out");
+        // Separate-borders model (measured on the b60 cards): the 2px
+        // spacing separates the row from the table edge exactly once per
+        // side — 60px of lines wrap to 64, never 68.
+        let table = table_fragment(&outcome);
+        assert!(
+            (table.rect.height - 64.0).abs() < 1e-9,
+            "spacing wraps once per side, got {}",
+            table.rect.height
+        );
+    }
+
     fn table_fragment(outcome: &LayoutOutcome) -> &BoxFragment {
         let children = box_children(outcome);
         assert_eq!(children.len(), 1, "each page holds one table fragment");
