@@ -888,13 +888,20 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 FormattingNodeContent::Table => {
                     let child_style = container_layout_style(tree, *child_id)?;
                     let hbox = resolve_horizontal_box(child_style, content_width)?;
+                    // The table's own padding (its absorbed border included)
+                    // wraps the grid: the grid sizes columns inside the
+                    // content box and the fragment grows back to the border
+                    // box, exactly like any container. Leading padding rides
+                    // the first fragment only; trailing rides the last.
+                    let pad_top = if child_resumed { 0.0 } else { hbox.padding_top };
+                    let grid_width = hbox.content_width;
                     let placement = if space.fragmentainer_remaining.is_none() {
                         // Continuous flow: the table lays out whole.
                         TableFragmentainerPlacement::Placed {
                             fragment: self.layout_table(
                                 tree,
                                 *child_id,
-                                hbox.border_width,
+                                grid_width,
                                 cancel,
                             )?,
                             continuation: None,
@@ -908,8 +915,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         self.layout_table_in_fragmentainer(
                             tree,
                             *child_id,
-                            hbox.border_width,
-                            available,
+                            grid_width,
+                            (available - pad_top).max(0.0),
                             space.fragmentainer_size,
                             child_token.as_ref(),
                             page_is_empty,
@@ -935,11 +942,30 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             continuation,
                         } => (fragment, continuation),
                     };
+                    // The border box wraps the grid: rows shift inside by
+                    // the leading padding, the trailing padding rides the
+                    // LAST fragment only.
+                    let pad_bottom = if continuation.is_none() {
+                        hbox.padding_bottom
+                    } else {
+                        0.0
+                    };
+                    let mut table = table;
+                    if hbox.padding_left > 0.0 || pad_top > 0.0 {
+                        for child in &mut table.children {
+                            let rect = child.rect();
+                            let (cx, cy) = (rect.x + hbox.padding_left, rect.y + pad_top);
+                            set_fragment_position(child, cx, cy);
+                        }
+                    }
+                    let padding_right =
+                        (hbox.border_width - hbox.padding_left - hbox.content_width).max(0.0);
+                    let border_width = table.rect.width + hbox.padding_left + padding_right;
                     // A table shrinks to fit, so its auto margins resolve
                     // against the used width, not the available one: this
                     // is what centers `margin: 0 auto` tables.
-                    let table_x = shrink_to_fit_offset(child_style, content_width, table.rect.width);
-                    let table_height = table.rect.height;
+                    let table_x = shrink_to_fit_offset(child_style, content_width, border_width);
+                    let table_height = table.rect.height + pad_top + pad_bottom;
                     y += gap;
                     remaining -= gap;
                     fragments.push(Fragment::Box(BoxFragment {
@@ -947,7 +973,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         rect: FragmentRect {
                             x: content_left + table_x,
                             y,
-                            width: table.rect.width,
+                            width: border_width,
                             height: table_height,
                         },
                         children: table.children,
