@@ -1259,6 +1259,25 @@ impl FormattingContext for ParleyInlineContext {
             }
             _ => Vec::new(),
         };
+        // Flow-text positions of in-flow atomic inlines (images, inline
+        // blocks): they occupy no flow bytes, but Blink counts them as
+        // ideographs on both sides when enumerating justification
+        // opportunities, and their justified x rides the shares before
+        // them like any glyph.
+        let atom_positions: Vec<usize> = match &tree.node(root).content {
+            FormattingNodeContent::InlineFlow { items } => items
+                .iter()
+                .zip(item_text_ranges.iter())
+                .filter(|(item, _)| {
+                    matches!(
+                        item,
+                        InlineItem::Image { .. } | InlineItem::InlineBlock { .. }
+                    )
+                })
+                .map(|(_, range)| range.start)
+                .collect(),
+            _ => Vec::new(),
+        };
         let mut end_trims: Vec<usize> = Vec::new();
         let mut rejected_trims: Vec<usize> = Vec::new();
         let mut suppressed_pair_trims: Vec<usize> = Vec::new();
@@ -1737,7 +1756,13 @@ impl FormattingContext for ParleyInlineContext {
                 let indent = if range.start == 0 { first_line_indent } else { 0.0 };
                 let target = f64::from(line_max_advance(line_top)) - f64::from(indent);
                 let advance = f64::from(metrics.advance - metrics.trailing_whitespace);
-                line_justify_plan(&flow_text, range, target - advance, &spread_ranges)
+                line_justify_plan(
+                    &flow_text,
+                    range,
+                    target - advance,
+                    &spread_ranges,
+                    &atom_positions,
+                )
             } else {
                 None
             };
@@ -1771,6 +1796,27 @@ impl FormattingContext for ParleyInlineContext {
             // finalized (a browser's line box contains its risen content).
             let mut children: Vec<(Fragment, f64)> = Vec::new();
             let mut max_rise = 0.0_f64;
+            // Ordinal per flow position for atoms sharing a byte (two
+            // adjacent images), so each looks up its own share count.
+            let mut atom_ordinals: std::collections::HashMap<usize, usize> =
+                std::collections::HashMap::new();
+            // The justified x offset of an atomic inline: Parley places
+            // the box at its NATURAL advance; the shares consumed before
+            // the atom (its left boundary included) shift it right, the
+            // same way every glyph's advance carries its expansion —
+            // measured on b20's note badge, which painted 5.67px (run1's
+            // whole expansion) left of Blink until this ride-along.
+            let mut atom_justify = |id: u64| -> f64 {
+                let (Some(plan), Some(range)) =
+                    (&justify_plan, item_text_ranges.get(id as usize))
+                else {
+                    return 0.0;
+                };
+                let ordinal = atom_ordinals.entry(range.start).or_insert(0);
+                let shares = plan.atom_shares_at(range.start, *ordinal);
+                *ordinal += 1;
+                shares.map_or(0.0, |shares| plan.share * f64::from(shares))
+            };
             // Every text run on this line, as (inline item, sample
             // character for the font shaping resolved). A run whose
             // characters the declared family cannot serve resolves to a
@@ -2098,11 +2144,12 @@ impl FormattingContext for ParleyInlineContext {
                             // LAST line's baseline there (CSS §10.8.1),
                             // so the box drops by its own descent.
                             let height = f64::from(inline_box.height);
+                            let justified = atom_justify(inline_box.id);
                             children.push((
                                 Fragment::Box(rito_fragment::BoxFragment {
                                     source: mini.source,
                                     rect: FragmentRect {
-                                        x: f64::from(inline_box.x) - line_x,
+                                        x: f64::from(inline_box.x) - line_x + justified,
                                         y: f64::from(inline_box.y) - ink_top
                                             + (height - baseline),
                                         width: f64::from(inline_box.width),
@@ -2119,11 +2166,14 @@ impl FormattingContext for ParleyInlineContext {
                                 .get(&inline_box.id)
                                 .copied()
                                 .unwrap_or((0.0, 0.0));
+                            let justified = atom_justify(inline_box.id);
                             children.push((
                                 Fragment::Image(rito_fragment::ImageFragment {
                                     source: root,
                                     rect: FragmentRect {
-                                        x: f64::from(inline_box.x) - line_x + inset_left,
+                                        x: f64::from(inline_box.x) - line_x
+                                            + inset_left
+                                            + justified,
                                         y: f64::from(inline_box.y) - ink_top,
                                         width: f64::from(inline_box.width)
                                             - inset_left
@@ -3188,6 +3238,14 @@ struct JustifyPlan {
     /// the run starting here shifts its rect without moving its
     /// neighbours.
     before_bytes: Vec<usize>,
+    /// Per in-flow atom on the line, in flow order: (flow-text position,
+    /// shares accumulated up to AND INCLUDING the atom's left boundary).
+    /// The atom's justified x adds `share × shares` — measured on b20's
+    /// note badge: the image sits at the END of its prefix's EXPANDED
+    /// advance (the [text-atom] boundary's share rides the preceding
+    /// glyph), while the [atom-text] boundary's share shifts the
+    /// following run only.
+    atom_shares: Vec<(usize, u32)>,
 }
 
 impl JustifyPlan {
@@ -3201,6 +3259,16 @@ impl JustifyPlan {
     fn before_share_at(&self, byte: usize) -> bool {
         self.before_bytes.binary_search(&byte).is_ok()
     }
+
+    /// Shares carried by the `ordinal`-th atom at `position` (flow-text
+    /// byte), or `None` when the atom sits outside the plan's line.
+    fn atom_shares_at(&self, position: usize, ordinal: usize) -> Option<u32> {
+        self.atom_shares
+            .iter()
+            .filter(|(byte, _)| *byte == position)
+            .nth(ordinal)
+            .map(|(_, shares)| *shares)
+    }
 }
 
 /// Builds the expansion plan for one line, or `None` when the line has no
@@ -3210,18 +3278,67 @@ fn line_justify_plan(
     range: std::ops::Range<usize>,
     slack: f64,
     spread_ranges: &[std::ops::Range<usize>],
+    atom_positions: &[usize],
 ) -> Option<JustifyPlan> {
     if !(slack > 0.0) {
         return None;
     }
     let content = text.get(range.clone())?.trim_end();
+    let content_end = range.start + content.len();
     let mut counts: Vec<(usize, u32)> = Vec::new();
     let mut before_bytes: Vec<usize> = Vec::new();
+    let mut atom_shares: Vec<(usize, u32)> = Vec::new();
     let mut total = 0u32;
     let mut pending = 0u32;
-    let mut previous: Option<char> = None;
-    for (offset, character) in content.char_indices() {
-        if let Some(left) = previous {
+    // The left neighbour of the next boundary: a character, or an atomic
+    // inline. Blink counts an atomic inline (an image, an inline-block)
+    // as an ideograph on BOTH sides — measured on b20's badge line, the
+    // truth carries a share at [text-atom] AND at [atom-text] where the
+    // engine's text-only walk saw one adjacency.
+    enum Left {
+        Char(char),
+        Atom,
+    }
+    let expands_after = |left: &Left| match left {
+        Left::Char(character) => justify_expands_after(*character),
+        Left::Atom => true,
+    };
+    let mut previous: Option<Left> = None;
+    let mut atoms = atom_positions
+        .iter()
+        .copied()
+        .filter(|position| range.start < *position && *position <= content_end)
+        .peekable();
+    let mut walk = content.char_indices().peekable();
+    loop {
+        let boundary = match walk.peek() {
+            Some((offset, _)) => range.start + offset,
+            None => content_end,
+        };
+        // Atoms sitting at this boundary join the walk as ideographs:
+        // the [left, atom] boundary's share is counted here and also
+        // recorded as the atom's own placement share.
+        while atoms.peek() == Some(&boundary) {
+            atoms.next();
+            let mut count = 0u32;
+            if let Some(left) = &previous {
+                count = pending;
+                pending = 0;
+                if expands_after(left) {
+                    count += 1;
+                }
+            }
+            atom_shares.push((boundary, total + count));
+            if count > 0 {
+                counts.push((boundary, count));
+                total += count;
+            }
+            previous = Some(Left::Atom);
+        }
+        let Some((offset, character)) = walk.next() else {
+            break;
+        };
+        if let Some(left) = &previous {
             // A spread ruby base receives NO interior expansion: its
             // clusters already sit at the annotation-dictated spacing
             // (measured: a justified wide-annotation ruby is
@@ -3234,23 +3351,30 @@ fn line_justify_plan(
                 .any(|spread| spread.start < boundary && boundary < spread.end)
             {
                 pending = 0;
-                previous = Some(character);
+                previous = Some(Left::Char(character));
                 continue;
             }
             let mut count = pending;
             pending = 0;
-            if justify_expands_after(left) {
+            if expands_after(left) {
                 count += 1;
             } else if is_cjk_justify(character) {
                 pending += 1;
-                before_bytes.push(range.start + offset);
+                before_bytes.push(boundary);
             }
             if count > 0 {
-                counts.push((range.start + offset, count));
+                // An atom at this byte may have deposited its own count
+                // already; the counts vec stays unique-keyed for the
+                // binary search.
+                if let Some(entry) = counts.last_mut().filter(|(byte, _)| *byte == boundary) {
+                    entry.1 += count;
+                } else {
+                    counts.push((boundary, count));
+                }
                 total += count;
             }
         }
-        previous = Some(character);
+        previous = Some(Left::Char(character));
     }
     // A share deferred into the line's end has nowhere to land, but
     // Blink still counts it in the denominator: a justified line ending
@@ -3282,6 +3406,7 @@ fn line_justify_plan(
         share: slack / f64::from(total),
         counts,
         before_bytes,
+        atom_shares,
     })
 }
 
@@ -5908,6 +6033,36 @@ running through the quiet forest until the morning light returns.";
     #[test]
     fn empty_font_registration_fails_closed() {
         assert!(ParleyInlineContext::new(vec![vec![0_u8; 4]]).is_err());
+    }
+
+    #[test]
+    fn an_atomic_inline_counts_as_an_ideograph_in_the_justify_plan() {
+        // 34th law, b20's note badge: Blink enumerates a justification
+        // opportunity on BOTH sides of an in-flow atomic inline (the
+        // truth's comma after the badge carries a double share), and the
+        // atom's own justified x rides the shares before it — its left
+        // boundary included (the badge sits at the END of the preceding
+        // run's EXPANDED advance).
+        let text = "中中，中";
+        let atoms = vec![6usize];
+        let plan =
+            line_justify_plan(text, 0..text.len(), 5.0, &[], &atoms).expect("plan builds");
+        assert_eq!(plan.share, 1.25, "4 opportunities: both atom sides count");
+        assert_eq!(plan.count_at(3), 1);
+        assert_eq!(
+            plan.count_at(6),
+            2,
+            "the atom boundary and its right boundary merge at the comma's key"
+        );
+        assert_eq!(plan.count_at(9), 1);
+        assert_eq!(
+            plan.atom_shares_at(6, 0),
+            Some(2),
+            "one share before the atom plus its own left boundary"
+        );
+        let control =
+            line_justify_plan(text, 0..text.len(), 5.0, &[], &[]).expect("control plan builds");
+        assert_eq!(control.share, 5.0 / 3.0, "without the atom: 3 opportunities");
     }
 
     #[test]
