@@ -426,6 +426,18 @@ impl TreeBuilder<'_> {
                 .style(style)
                 .map_err(|error| EpubError::new(format!("block style resolves: {error}")))?;
             if resolved.display.inside == LayoutDisplayInsideV1::Table {
+                // A table's own border reserves space like any
+                // container's: the widths become padding on the derived
+                // style (the stroke ink is a later phase, like the image
+                // flanks). b60's character cards are 2px-framed tables —
+                // the early return here used to skip the absorb and every
+                // card ran four pixels short.
+                let style = match self.block_box_paint_plan(source_index, &element.tag)? {
+                    Some((_, widths)) if widths.iter().any(|width| *width > 0.0) => {
+                        self.style_with_border_padding(style, widths, &element.tag)?
+                    }
+                    _ => style,
+                };
                 return self.build_table(element, source_index, style);
             }
         }
