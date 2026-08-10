@@ -521,6 +521,7 @@ fn append_text_run_command(
         run.justify_px + run.ruby_gap_px,
         start == item_range.start,
         end == item_range.end,
+        run.shaped_family.as_deref(),
     )?;
     let font_size = f64::from(style.font.size.get());
     // The run's baseline is the line's, raised by the item's own shift;
@@ -795,6 +796,7 @@ fn run_paint(
     justify_px: f64,
     box_start: bool,
     box_end: bool,
+    shaped_family: Option<&str>,
 ) -> EpubResult<RunPaint> {
     let paint = &style.paint;
     let color = css_color(paint.foreground)?;
@@ -829,7 +831,21 @@ fn run_paint(
                 },
                 weight: f64::from(style.font.weight.get()),
                 size_px: font_size,
-                family: paint_family_stack(style, family_policy)?,
+                // The face SHAPING resolved leads the painted stack: a
+                // run painted in isolation loses the script context the
+                // browser's itemizer used, and the bare list can resolve
+                // a DIFFERENT face for the same characters (b69's ……
+                // between Han glyphs: the DOM keeps the CJK face, a bare
+                // fillText picks the earlier Latin one — same advance
+                // slot, different dots).
+                family: match shaped_family {
+                    Some(shaped) => format!(
+                        "\"{}\", {}",
+                        shaped.replace('"', "\\\""),
+                        paint_family_stack(style, family_policy)?
+                    ),
+                    None => paint_family_stack(style, family_policy)?,
+                },
             },
             word_spacing_px: spacing_px(style.text_flow.word_spacing)?,
             // Justification spacing rides the same painter knob as author
@@ -1192,6 +1208,7 @@ mod tests {
             text_start: start,
             text_end: end,
             box_snap: None,
+            shaped_family: None,
             justify_px: 0.0,
             ruby_gap_px: 0.0,
             opener_trim_px: 0.0,

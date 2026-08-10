@@ -99,6 +99,15 @@ pub struct TextFragment {
     /// Raster anchoring for a run inside a decorated inline box, absent
     /// for bare text (which snaps off the line box alone).
     pub box_snap: Option<BoxSnap>,
+    /// The DOM-registered family name of the face SHAPING resolved for
+    /// this run, when the layout knows it. The painter prefixes it to
+    /// the CSS family list so the canvas picks the same face: a run
+    /// painted in isolation loses the script context the browser's
+    /// itemizer used (measured on b69's `……`: parley and the DOM both
+    /// resolve the CJK face between Han glyphs, but a bare
+    /// fillText('……') resolves the earlier Latin face — same 32px
+    /// advance slot, different dots).
+    pub shaped_family: Option<std::sync::Arc<str>>,
 }
 
 /// The vertical anchor a decorated inline box gives the runs inside it.
