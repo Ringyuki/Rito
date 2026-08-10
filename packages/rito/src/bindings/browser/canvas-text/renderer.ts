@@ -54,8 +54,21 @@ export function drawCanvasRubyFragment(
     ctx.wordSpacing = '0px';
     ctx.letterSpacing = '0px';
     const measured = ctx.measureText(ruby.text);
-    const x = ruby.rect.x + (ruby.rect.width - measured.width) / 2;
-    ctx.fillText(ruby.text, x, ruby.rect.y);
+    const glyphs = [...ruby.text].length;
+    const free = ruby.rect.width - measured.width;
+    // `ruby-align: space-around` on the annotation (measured on the b96
+    // long-base ruby: free 66.77px over 9 glyphs → 3.709px at each edge,
+    // 7.418px between neighbours): the free width splits into one share
+    // per glyph, half a share at each edge. A wide annotation's rect
+    // already equals its own advance (free ≈ 0), so this reduces to the
+    // packed centering it always had.
+    if (glyphs > 1 && free > 0.01) {
+      ctx.letterSpacing = `${free / glyphs}px`;
+      ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
+    } else {
+      const x = ruby.rect.x + (ruby.rect.width - measured.width) / 2;
+      ctx.fillText(ruby.text, x, ruby.rect.y);
+    }
   } finally {
     ctx.restore();
   }

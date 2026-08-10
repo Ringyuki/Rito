@@ -76,11 +76,20 @@ export function drawRubyFragment(
   ctx.textBaseline = 'top';
   ctx.wordSpacing = '0px';
   ctx.letterSpacing = '0px';
-  // Center the annotation horizontally over its pre-computed bounds.
   const measured = ctx.measureText(ruby.text);
-  const rubyX = ruby.rect.x + (ruby.rect.width - measured.width) / 2;
-  const rubyY = ruby.rect.y;
-  ctx.fillText(ruby.text, rubyX, rubyY);
+  const glyphs = [...ruby.text].length;
+  const free = ruby.rect.width - measured.width;
+  // `ruby-align: space-around` on the annotation, mirroring the browser
+  // frame-command renderer: the free width splits into one share per
+  // glyph, half a share at each edge; a wide annotation (free ≈ 0)
+  // reduces to the packed centering it always had.
+  if (glyphs > 1 && free > 0.01) {
+    ctx.letterSpacing = `${free / glyphs}px`;
+    ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
+  } else {
+    const rubyX = ruby.rect.x + (ruby.rect.width - measured.width) / 2;
+    ctx.fillText(ruby.text, rubyX, ruby.rect.y);
+  }
   ctx.restore();
 }
 

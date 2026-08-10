@@ -255,9 +255,10 @@ describe('Phase 2 — ruby annotation render', () => {
     // 2 base text fills + 1 annotation fill = 3
     expect(fillTexts).toHaveLength(3);
     const annotationCall = fillTexts[2];
-    // measured = 3 × 10 = 30; rubyX = 0 + 10 + (32 - 30)/2 = 11
+    // measured = 3 × 10 = 30; ruby-align space-around distributes the
+    // 2px free width as one share per glyph: rubyX = 0 + 10 + 2/6.
     expect(annotationCall?.args[0]).toBe('かんじ');
-    expect(annotationCall?.args[1]).toBe(11);
+    expect(annotationCall?.args[1]).toBe(10 + 2 / 6);
   });
 
   it('two separate RubyAnnotations produce two labels', () => {

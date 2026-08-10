@@ -156,9 +156,11 @@ describe('production Canvas text renderer', () => {
     const result = expectRubyParity(ruby, COLOR_OVERRIDE);
 
     expect(result.getCalls('measureText')[0]?.args).toEqual(['rt']);
-    expect(result.getCalls('fillText')[0]?.args).toEqual(['rt', 29, 20]);
+    // ruby-align space-around: 38px free over 2 glyphs — 9.5px at each
+    // edge (x = 10 + 9.5), 19px between (the letter spacing).
+    expect(result.getCalls('fillText')[0]?.args).toEqual(['rt', 19.5, 20]);
     expect(lastProperty(result, 'wordSpacing')).toBe('0px');
-    expect(lastProperty(result, 'letterSpacing')).toBe('0px');
+    expect(lastProperty(result, 'letterSpacing')).toBe('19px');
     expect(lastProperty(result, 'fillStyle')).toBe('rgb(32, 32, 0)');
   });
 
