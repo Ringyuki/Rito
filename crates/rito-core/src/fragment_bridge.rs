@@ -1152,6 +1152,17 @@ impl TreeBuilder<'_> {
         };
         let style = self.inline_style_id(source_index, "image");
         let layout_style = self.layout_style_id(source_index, "image");
+        // The image's own border reserves space exactly like a
+        // container's: its widths become padding on the derived layout
+        // style, the atom's advance spans them, and the raster paints
+        // inside (measured on the b60 cover's 1px `none solid` flanks —
+        // dropping them shifted the whole plate one pixel against Blink).
+        let layout_style = match self.block_box_paint_plan(source_index, "image")? {
+            Some((_, widths)) if widths.iter().any(|width| *width > 0.0) => {
+                self.style_with_border_padding(layout_style, widths, "image")?
+            }
+            _ => layout_style,
+        };
         self.require_image_capabilities(layout_style)?;
         self.require_inline_capabilities(style, true, "image")?;
         let resolved = self
