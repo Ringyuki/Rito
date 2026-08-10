@@ -648,6 +648,7 @@ impl ParleyInlineContext {
         // opportunities the table would otherwise veto.
         let mut chromium_tailoring = true;
         let mut break_all = false;
+        let mut strict_kinsoku = false;
         for (item_index, item) in items.iter().enumerate() {
             match item {
                 InlineItem::Text {
@@ -670,6 +671,9 @@ impl ParleyInlineContext {
                     }
                     if style.text_flow.word_break == rito_style_contract::WordBreak::BreakAll {
                         break_all = true;
+                    }
+                    if style.text_flow.line_break == rito_style_contract::LineBreak::Strict {
+                        strict_kinsoku = true;
                     }
                     runs.push((start..text.len(), style, item_index));
                 }
@@ -894,7 +898,11 @@ impl ParleyInlineContext {
         // The pinned-browser baseline: Chromium's ASCII break tailoring plus
         // its CJK-context treatment of ambiguous curly quotes.
         if chromium_tailoring {
-            builder.set_line_break_override(Some(&cjk_aware_chromium_break_override));
+            if strict_kinsoku {
+                builder.set_line_break_override(Some(&cjk_aware_chromium_break_override_strict));
+            } else {
+                builder.set_line_break_override(Some(&cjk_aware_chromium_break_override));
+            }
         } else if break_all {
             builder.set_line_break_override(Some(&break_all_box_dash_override));
         }
@@ -3151,6 +3159,42 @@ fn break_all_box_dash_override(context: parley::LineBreakContext) -> Option<bool
 }
 
 fn cjk_aware_chromium_break_override(context: parley::LineBreakContext) -> Option<bool> {
+    if let Some(verdict) = cjk_quote_reclassification(context) {
+        return Some(verdict);
+    }
+    // Blink's default line-break (auto/normal/loose — measured matrix
+    // zh-CN/ja/en × auto/normal/loose, 2026-08-11) resolves the UAX-14
+    // CJ class (small kana + the prolonged sound mark) to ID: the
+    // character may START a line (b39 truth: あず|ーる splits with ー
+    // opening the next line). Parley keeps CJ as NS, so the pair
+    // retreated whole. Only `line-break: strict` keeps the prohibition —
+    // that path installs the strict variant below.
+    if is_cj_conditional_starter(context.after)
+        && is_cjk_context(context.before)
+        && !['\u{2018}', '\u{201C}'].contains(&context.before)
+        && fullwidth_punctuation_class(context.before) != PunctuationClass::Open
+    {
+        return Some(true);
+    }
+    (parley::CHROMIUM_LINE_BREAK_OVERRIDE)(context)
+}
+
+/// The `line-break: strict` variant: Chromium's quote reclassification
+/// without the CJ line-start relaxation (strict keeps CJ as NS, measured
+/// PAIR-RETREATS on the same matrix).
+fn cjk_aware_chromium_break_override_strict(context: parley::LineBreakContext) -> Option<bool> {
+    if let Some(verdict) = cjk_quote_reclassification(context) {
+        return Some(verdict);
+    }
+    (parley::CHROMIUM_LINE_BREAK_OVERRIDE)(context)
+}
+
+/// UAX-14 gives the curly quotes class QU (no break on either side), but
+/// Blink reclassifies them in CJK context: an opening curly quote breaks
+/// like an opening bracket (opportunity before, none after) and a closing
+/// curly quote like a closing bracket (opportunity after, none before).
+/// CJK dialogue in translated novels hangs on this.
+fn cjk_quote_reclassification(context: parley::LineBreakContext) -> Option<bool> {
     const OPEN_QUOTES: [char; 2] = ['\u{2018}', '\u{201C}'];
     const CLOSE_QUOTES: [char; 2] = ['\u{2019}', '\u{201D}'];
     if OPEN_QUOTES.contains(&context.after)
@@ -3168,7 +3212,21 @@ fn cjk_aware_chromium_break_override(context: parley::LineBreakContext) -> Optio
     {
         return Some(true);
     }
-    (parley::CHROMIUM_LINE_BREAK_OVERRIDE)(context)
+    None
+}
+
+/// The UAX-14 CJ class: small kana and the katakana-hiragana prolonged
+/// sound mark, whose line-start prohibition is conditional on
+/// `line-break` strictness.
+fn is_cj_conditional_starter(character: char) -> bool {
+    matches!(u32::from(character),
+        0x3041 | 0x3043 | 0x3045 | 0x3047 | 0x3049
+        | 0x3063 | 0x3083 | 0x3085 | 0x3087 | 0x308E | 0x3095 | 0x3096
+        | 0x30A1 | 0x30A3 | 0x30A5 | 0x30A7 | 0x30A9
+        | 0x30C3 | 0x30E3 | 0x30E5 | 0x30E7 | 0x30EE | 0x30F5 | 0x30F6
+        | 0x30FC
+        | 0x31F0..=0x31FF
+        | 0xFF67..=0xFF70)
 }
 
 /// Whether the character puts the boundary in CJK typographic context.
@@ -4906,6 +4964,91 @@ running through the quiet forest until the morning light returns.";
                 _ => assert_eq!(lines.first().map(String::as_str), Some("中中ず")),
             }
         }
+    }
+
+    /// Blink's default line-break lets the UAX-14 CJ class (small kana,
+    /// prolonged sound mark) START a line — measured across zh-CN/ja/en
+    /// × auto/normal/loose; only `line-break: strict` keeps the NS
+    /// prohibition and retreats the pair (b39 truth: あず|ーる splits).
+    #[test]
+    fn a_cj_starter_may_open_a_line_unless_strict() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let layout_lines = |line_break: rito_style_contract::LineBreak| {
+            let text = "中中中ずー中";
+            let mut style = plain_paragraph_style(
+                rito_style_contract::FontFamilies::new(vec![FontFamily::Named(
+                    FontFamilyName::new("NoSuchFace"),
+                )])
+                .expect("family list"),
+                16.0,
+                0.0,
+            );
+            style.text_flow.line_break = line_break;
+            let mut inline = InlineStyleTableV1::new(1);
+            let style_id = inline.intern_for_node(0, style).expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            let natural = context
+                .layout(
+                    &tree,
+                    tree.root(),
+                    &ConstraintSpace::continuous(10_000.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("natural layout succeeds");
+            let Fragment::Box(root) = &natural.fragments.root else {
+                panic!("root is a box");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            let full_width: f64 = line.children.iter().map(|child| child.rect().width).sum();
+            let outcome = context
+                .layout(
+                    &tree,
+                    tree.root(),
+                    &ConstraintSpace::continuous(full_width * 4.0 / 6.0 + 0.5),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("narrow layout succeeds");
+            line_texts(&outcome, text)
+        };
+        assert_eq!(
+            layout_lines(rito_style_contract::LineBreak::Auto),
+            vec!["中中中ず".to_owned(), "ー中".to_owned()],
+            "default strictness lets the prolonged sound mark open a line"
+        );
+        assert_eq!(
+            layout_lines(rito_style_contract::LineBreak::Strict),
+            vec!["中中中".to_owned(), "ずー中".to_owned()],
+            "strict keeps the NS prohibition and retreats the pair"
+        );
     }
 
     /// A registered named font must win over the pinned fallback when the
