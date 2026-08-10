@@ -161,7 +161,7 @@ fn append_page(
             page_background_color(page).unwrap_or("#ffffff"),
         ));
     }
-    append_page_background_image(commands, page);
+    append_page_background_image(commands, page, layout_config);
     commands.push(DisplayCommand::push_state());
     commands.push(DisplayCommand::clip_rect(
         rect_value(0.0, 0.0, page.width, page.height),
@@ -180,12 +180,25 @@ fn append_page(
     commands.push(DisplayCommand::pop_state());
 }
 
-fn append_page_background_image(commands: &mut Vec<DisplayCommand>, page: &DisplayListPage) {
+fn append_page_background_image(
+    commands: &mut Vec<DisplayCommand>,
+    page: &DisplayListPage,
+    layout_config: &LayoutConfig,
+) {
     let Some(paint) = page_background_image_paint(page) else {
         return;
     };
+    // The body's box is the page CONTENT box: percentage background sizes
+    // and edge-anchored positions resolve against it, not the page canvas
+    // (Blink anchors the propagated image to the body box; the margins
+    // stay outside the positioning area).
     commands.push(DisplayCommand::paint_block(
-        rect_value(0.0, 0.0, page.width, page.height),
+        rect_value(
+            layout_config.margin_left,
+            layout_config.margin_top,
+            page.width - layout_config.margin_left - layout_config.margin_right,
+            page.height - layout_config.margin_top - layout_config.margin_bottom,
+        ),
         paint,
         None,
     ));
@@ -703,7 +716,7 @@ mod tests {
     }
 
     #[test]
-    fn emits_page_background_image_as_full_page_block_paint_and_resource_ref() {
+    fn emits_page_background_image_as_content_box_block_paint_and_resource_ref() {
         let page = RuntimePage {
             index: 0,
             width: 400.0,
@@ -748,7 +761,7 @@ mod tests {
             values[image_index],
             json!({
                 "kind": "paintBlock",
-                "rect": { "x": 0, "y": 0, "width": 400, "height": 600 },
+                "rect": { "x": 16, "y": 16, "width": 368, "height": 568 },
                 "paint": {
                     "background": {
                         "image": "Images/page.png",

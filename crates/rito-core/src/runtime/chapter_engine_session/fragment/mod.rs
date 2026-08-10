@@ -128,8 +128,18 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 chapter.page_background.as_deref().unwrap_or("#ffffff"),
             ));
             if let Some(paint) = &chapter.page_background_image {
+                // The body's box is the page CONTENT box: percentage
+                // background sizes and edge-anchored positions resolve
+                // against it, not the page canvas (Blink anchors the
+                // propagated image to the body box; the margins stay
+                // outside the positioning area).
                 commands.push(DisplayCommand::paint_block(
-                    rect_value(0.0, 0.0, metadata.width, metadata.height),
+                    rect_value(
+                        config.margin_left,
+                        config.margin_top,
+                        metadata.width - config.margin_left - config.margin_right,
+                        metadata.height - config.margin_top - config.margin_bottom,
+                    ),
                     paint.clone(),
                     None,
                 ));
