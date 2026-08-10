@@ -1360,11 +1360,19 @@ fn place_lines(
             // illustration in a padded figure).
             if fit_count > 0 {
                 take = fit_count;
-            } else {
-                let first_height = pending.first().map_or(0.0, |line| line.rect().height);
-                if fragmentainer_size.is_none_or(|size| first_height > size + f64::EPSILON) {
-                    take = 1;
-                }
+            } else if fragmentainer_size.is_none_or(|size| remaining + f64::EPSILON >= size) {
+                // Force-placement is progress of last resort, and only at
+                // the top of a fragmentainer nothing has shortened. When
+                // ancestor edges squeezed this page, the line breaks to the
+                // next one and overflows THERE if it must: Blink pushes an
+                // 854px plate line (850px image plus strut descent) past a
+                // margin-shortened opener, leaves the opener blank, and
+                // lets the line overflow the fresh column invisibly —
+                // b117's gallery ran one page early when the taller-than-
+                // page test alone forced it onto the shortened opener. On
+                // the resumed page `remaining == size`, so this branch
+                // fires and progress is guaranteed.
+                take = 1;
             }
         }
     }
@@ -4076,6 +4084,74 @@ mod tests {
         let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 100.0));
         assert_eq!(pages.len(), 1);
         assert_eq!(box_children(&pages[0]).len(), 1);
+    }
+
+    #[test]
+    fn a_page_tall_line_breaks_past_a_padding_shortened_opener() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut padded = block_style(margin_px(0.0), margin_px(0.0));
+        padded.padding.top = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(2.0).expect("finite"),
+        ));
+        let layout = layout_table_with(2, |index| match index {
+            1 => padded.clone(),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let nodes = vec![
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "plate".to_owned(),
+                        style: text_style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(1),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        // A 10px line through 8px fragmentainers with a 2px padded opener:
+        // the line is taller than ANY page, but the opener is also
+        // shortened — Blink breaks past it (blank opener) and lets the
+        // line overflow the FRESH page invisibly, never the padded one
+        // (the b117 gallery's leading blank).
+        let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 8.0));
+        assert_eq!(pages.len(), 2);
+        assert!(
+            box_children(&pages[0]).is_empty(),
+            "the shortened opener stays blank"
+        );
+        let second = box_children(&pages[1]);
+        assert_eq!(second.len(), 1);
+        let Fragment::Box(paragraph) = &second[0] else {
+            panic!("paragraph fragment is a box");
+        };
+        assert!(paragraph.rect.y.abs() < 1e-9);
+        assert_eq!(paragraph.children.len(), 1, "the line overflows in place");
     }
 
     #[test]
