@@ -962,14 +962,18 @@ impl TreeBuilder<'_> {
             let color = border.color.resolve(resolved.paint.foreground);
             (f64::from(border.resolved_width.get()), stroke, color)
         } else {
-            (1.0, "solid", resolved.paint.foreground)
+            // No author border: the UA default is `border: 1px inset`, so
+            // the rule is Chromium's bevel pair over a two-pixel box
+            // (b52 profile pages: every block below a bare <hr> sat one
+            // pixel high under the old one-pixel model).
+            (1.0, "inset", resolved.paint.foreground)
         };
         // The box the rule occupies in flow follows the CSS box model: an
         // author `height` is the content height, and both horizontal
         // borders add to it (the book-measured 3px cascade: a
         // `height: 2px; border: 1px inset` rule flows 4px tall in Blink
-        // while the stroke stays 1px). Without author borders the classic
-        // one-pixel line keeps its one-pixel box.
+        // while the stroke stays 1px). Without author borders the UA
+        // 1px-inset pair still spans two pixels of flow.
         let block_size = if use_border {
             let bottom = resolved.fragment.border.bottom;
             let bottom_width = if matches!(bottom.style, BorderStyle::None | BorderStyle::Hidden) {
@@ -993,7 +997,7 @@ impl TreeBuilder<'_> {
                 .unwrap_or(0.0);
             thickness + author_height + bottom_width
         } else {
-            thickness
+            thickness * 2.0
         };
         let color = crate::style::absolute_color(color)
             .map_err(|error| EpubError::new(format!("hr stroke color: {error:?}")))?;
@@ -3416,19 +3420,22 @@ p { margin: 8px 0; }\n\
                 thickness: 2.0,
             }),
         );
+        // A bare <hr> keeps the UA `border: 1px inset` pair: a two-pixel
+        // flow box whose stroke is the fixed bevel (the color rides along
+        // but the inset paint ignores it).
         let plain = built.tree.node(root.children[1]);
         assert!(matches!(
             plain.content,
             FormattingNodeContent::SizedLeaf {
                 block_size,
                 breakable: false,
-            } if block_size == 1.0
+            } if block_size == 2.0
         ));
         assert_eq!(
             built.node_paints.get(&root.children[1].0),
             Some(&NodePaint::Rule {
                 color: "#223344".to_owned(),
-                style: "solid",
+                style: "inset",
                 thickness: 1.0,
             }),
         );
