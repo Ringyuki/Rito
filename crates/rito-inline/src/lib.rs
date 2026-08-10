@@ -2286,6 +2286,7 @@ impl FormattingContext for ParleyInlineContext {
                 // the baseline at 15 for empty, Latin and CJK samples
                 // alike).
                 let mut entries: Vec<(&InlineFormattingStyleV1, &str, f64, bool)> = Vec::new();
+                let mut strut_resolved: Option<&InlineFormattingStyleV1> = None;
                 match tree.strut_style(root).or_else(|| {
                     item_line_heights
                         .iter()
@@ -2296,7 +2297,10 @@ impl FormattingContext for ParleyInlineContext {
                     Some(strut_style_id) => match style_tables
                         .and_then(|tables| tables.inline.style(strut_style_id).ok())
                     {
-                        Some(resolved) => entries.push((resolved, "", 0.0, false)),
+                        Some(resolved) => {
+                            strut_resolved = Some(resolved);
+                            entries.push((resolved, "", 0.0, false));
+                        }
                         None => {
                             complete = false;
                             if line_debug {
@@ -2311,6 +2315,45 @@ impl FormattingContext for ParleyInlineContext {
                         }
                     }
                 }
+                // A super/sub-shifted span's line envelope is MEASURED, not
+                // derived: Blink quantizes the shifted box's above-baseline
+                // contribution onto whole pixels through interplay no font
+                // table exposes (a 64-configuration oracle matrix refused
+                // every closed form; the raise itself IS floor64(S/3)+1,
+                // identical to ours — only the envelope term diverges, +2
+                // on b74's 0.8em bold ① marker). The U+E00C/U+E00D probes
+                // measure the exact paragraph idiom — strut font and
+                // line-height with the span raised inside — so the metric's
+                // baseline/height ARE the line's (above, below) with the
+                // raise already embedded.
+                let sup_samples: Vec<(usize, String)> = strut_resolved
+                    .map(|strut| {
+                        let strut_size = f64::from(strut.font.size.get());
+                        item_shifts
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, shift)| **shift != 0.0)
+                            .filter_map(|(index, shift)| {
+                                let item = item_line_heights.get(index)?.as_ref()?;
+                                let resolved =
+                                    style_tables?.inline.style(item.style).ok()?;
+                                let ratio =
+                                    f64::from(resolved.font.size.get()) / strut_size;
+                                let sentinel = if *shift > 0.0 {
+                                    '\u{E00C}'
+                                } else {
+                                    '\u{E00D}'
+                                };
+                                let line_height = used_declared_line_height(
+                                    strut.font.line_height,
+                                    strut_size,
+                                )
+                                .map_or_else(|| "n".to_owned(), |px| format!("{px}"));
+                                Some((index, format!("{sentinel}{ratio:.4}:{line_height}")))
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
                 for (index, range) in item_text_ranges.iter().enumerate() {
                     // A forced break belongs to the line it ENDS: Parley's
                     // line range stops before the newline, but the <br>'s
@@ -2344,6 +2387,22 @@ impl FormattingContext for ParleyInlineContext {
                         continue;
                     };
                     let shift = item_shifts.get(index).copied().unwrap_or(0.0);
+                    if shift != 0.0 {
+                        if let Some((strut, key)) = strut_resolved.zip(
+                            sup_samples
+                                .iter()
+                                .find(|(sample_index, _)| *sample_index == index)
+                                .map(|(_, key)| key.as_str()),
+                        ) {
+                            entries.push((strut, key, 0.0, false));
+                            if self.host_normal_line_peek(strut, key).is_some() {
+                                // The measured envelope replaces the computed
+                                // fallback entirely — the fallback's normal-line
+                                // ascent overshoots Blink's quantized term.
+                                continue;
+                            }
+                        }
+                    }
                     entries.push((resolved, "", shift, false));
                     // Run-font samples join the entries under `normal`
                     // line-height, and for SHIFTED items too: a raised
@@ -2402,7 +2461,14 @@ impl FormattingContext for ParleyInlineContext {
                     // normal-ascent 14 + raise, where the fixed-height
                     // model overshot by two rows (measured; totals agreed
                     // and only the baseline moved).
-                    let (item_above, item_below) = if shift != 0.0
+                    let (item_above, item_below) = if sample.starts_with('\u{E00C}')
+                        || sample.starts_with('\u{E00D}')
+                    {
+                        // Host-measured super/sub line envelope: the probe's
+                        // baseline/height are the line's above/below with the
+                        // raise already embedded (shift is 0 on this entry).
+                        (asc, desc)
+                    } else if shift != 0.0
                         && !resolved.font.line_height_is_declared
                     {
                         (asc, desc)
@@ -5835,6 +5901,111 @@ running through the quiet forest until the morning light returns.";
     #[test]
     fn empty_font_registration_fails_closed() {
         assert!(ParleyInlineContext::new(vec![vec![0_u8; 4]]).is_err());
+    }
+
+    #[test]
+    fn a_super_shifted_span_uses_the_host_measured_line_envelope() {
+        // 33rd law: Blink quantizes a raised span's above-baseline line
+        // contribution onto whole pixels through interplay no font table
+        // exposes (a 64-configuration oracle matrix refused every closed
+        // form — b74's 0.8em bold ① marker line measures 26.125 with the
+        // baseline at 21.328125 where the computed fallback gives
+        // 28.125). The engine records a U+E00C probe keyed by the span's
+        // size ratio and the strut's used line-height; once the host
+        // answers, the measured envelope replaces the computed one.
+        let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(2);
+        let mut main_style = tinos_style(0.0);
+        main_style.font.line_height = LineHeight::Length(
+            rito_style_contract::NonNegativeCssPx::new(20.796875).expect("finite line height"),
+        );
+        main_style.font.line_height_is_declared = true;
+        let main = inline
+            .intern_for_node(0, main_style.clone())
+            .expect("style interns");
+        let mut span_style = main_style.clone();
+        span_style.font.size = px(12.8);
+        let span = inline
+            .intern_for_node(1, span_style)
+            .expect("style interns");
+        context.set_host_line_metric(
+            &host_family_key(&main_style),
+            16.0,
+            "",
+            HostNormalLineMetric {
+                height: 23.0,
+                baseline: 18.0,
+                grid: Some((18.0, 5.0)),
+            },
+        );
+        let items = vec![
+            InlineItem::Text {
+                text: "ab ".to_owned(),
+                style: main,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            },
+            InlineItem::Text {
+                text: "1".to_owned(),
+                style: span,
+                baseline_shift_px: 6.328125,
+                ruby_annotation: None,
+            },
+            InlineItem::Text {
+                text: " ab".to_owned(),
+                style: main,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow { items },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let constraint = ConstraintSpace::continuous(10_000.0);
+        let sup_key = "\u{E00C}0.8000:20.796875";
+        let _ = context
+            .layout(&tree, FormattingNodeId(0), &constraint, None, &CancelFlag::new())
+            .expect("first layout succeeds");
+        let requests = context.take_host_metric_requests();
+        assert!(
+            requests
+                .iter()
+                .any(|(_, size, sample)| *size == 16.0 && sample == sup_key),
+            "the sup probe is requested at the strut size: {requests:?}"
+        );
+        context.set_host_line_metric(
+            &host_family_key(&main_style),
+            16.0,
+            sup_key,
+            HostNormalLineMetric {
+                height: 26.125,
+                baseline: 21.328125,
+                grid: None,
+            },
+        );
+        let outcome = context
+            .layout(&tree, FormattingNodeId(0), &constraint, None, &CancelFlag::new())
+            .expect("measured layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        assert_eq!(
+            line.rect.height, 26.125,
+            "the host-measured sup envelope sizes the line"
+        );
     }
 
     #[test]

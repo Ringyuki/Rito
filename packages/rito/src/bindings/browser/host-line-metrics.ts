@@ -155,7 +155,25 @@ async function measureBrowserHostLineMetrics(
       // shrinks the reusable gap by a pixel at 16px, additively with
       // the annotation-script bit.
       const sentinel = sample.length > 0 ? sample.charCodeAt(0) : 0;
-      if (sentinel >= 0xe000 && sentinel <= 0xe00b) {
+      if (sentinel === 0xe00c || sentinel === 0xe00d) {
+        // Super/sub probes: the engine cannot derive Blink's quantized
+        // above-baseline contribution of a raised span from font tables
+        // (an oracle matrix refused every closed form), so the host
+        // measures the exact idiom — strut text with the shifted span
+        // inside, at the strut's used line-height. The key tail is
+        // "<span-size ratio>:<used line-height px | n>"; the measured
+        // baseline/height are the line's envelope with the raise
+        // embedded.
+        const [ratioPart, lineHeightPart] = sample.slice(1).split(':');
+        const ratio = Number(ratioPart) || 0.8;
+        if (lineHeightPart !== undefined && lineHeightPart !== 'n') {
+          paragraph.style.lineHeight = `${String(Number(lineHeightPart))}px`;
+        }
+        const align = sentinel === 0xe00c ? 'super' : 'sub';
+        paragraph.innerHTML =
+          `中中<span style="font-size:${String(ratio)}em;` +
+          `vertical-align:${align};font-weight:bold">①</span>中`;
+      } else if (sentinel >= 0xe000 && sentinel <= 0xe00b) {
         // The tail of the probe key is the annotation size ratio the
         // engine's cascade resolved for the rt element.
         const ratio = Number(sample.slice(1)) || 0.5;
