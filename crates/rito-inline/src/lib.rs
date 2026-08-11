@@ -1756,7 +1756,39 @@ impl FormattingContext for ParleyInlineContext {
         let line_debug = std::env::var_os("RITO_LINE_DEBUG").is_some();
             let mut debug_misses: Vec<String> = Vec::new();
             let ink_top = f64::from(metrics.block_min_coord);
-            let line_x = f64::from(metrics.offset);
+            // css-text: trailing white space HANGS at the line end and is
+            // excluded from alignment (while intrinsic/table sizing keeps
+            // it — measured, u3000-hang oracle: a shrink-to-fit table box
+            // keeps three trailing U+3000 but the centered line inside it
+            // drops them, inking dead-centre). Parley's own exclusion
+            // covers only its whitespace class (ASCII spaces) — the
+            // ideographic space slips through and shifted b52's centered
+            // title left by half its run. The uncovered hang is the
+            // Unicode-whitespace tail minus what parley already excluded.
+            let hang_uncovered = {
+                let range = line.text_range();
+                let content = flow_text.get(range.clone()).unwrap_or_default();
+                let mut hang = 0.0_f64;
+                let mut byte = range.end;
+                for character in content.chars().rev() {
+                    if !character.is_whitespace() {
+                        break;
+                    }
+                    byte -= character.len_utf8();
+                    if let Some(cluster) =
+                        parley::layout::Cluster::from_byte_index(&layout, byte)
+                    {
+                        hang += f64::from(cluster.advance());
+                    }
+                }
+                (hang - f64::from(metrics.trailing_whitespace)).max(0.0)
+            };
+            let line_x = f64::from(metrics.offset)
+                + match alignment {
+                    parley::Alignment::Center => hang_uncovered / 2.0,
+                    parley::Alignment::End | parley::Alignment::Right => hang_uncovered,
+                    _ => 0.0,
+                };
             // A justified line spreads its slack equally across Blink's
             // expansion opportunities (see `line_justify_plan`); the
             // paragraph's last line and forced breaks keep the start edge.
@@ -1769,7 +1801,11 @@ impl FormattingContext for ParleyInlineContext {
                 let range = line.text_range();
                 let indent = if range.start == 0 { first_line_indent } else { 0.0 };
                 let target = f64::from(line_max_advance(line_top)) - f64::from(indent);
-                let advance = f64::from(metrics.advance - metrics.trailing_whitespace);
+                // The hanging U+3000 tail leaves the measure like parley's
+                // own trailing whitespace does: Blink justifies the line's
+                // content to the full measure with the spaces hung outside.
+                let advance =
+                    f64::from(metrics.advance - metrics.trailing_whitespace) - hang_uncovered;
                 line_justify_plan(
                     &flow_text,
                     range,
@@ -4970,6 +5006,94 @@ running through the quiet forest until the morning light returns.";
     /// 705x1000 cover under `img { width: 100% }` resolves 640x907.8 and
     /// shrinks to 599.25x850 — never the axis-independent squash to
     /// 640x850 that stretched b52's cover in the reader.
+    /// A trailing U+3000 run HANGS at the line end: excluded from
+    /// centered/right alignment (while shrink-to-fit boxes keep it —
+    /// u3000-hang oracle, b52 Next-2-w: the table box spans 的+3 U+3000
+    /// wide, yet Blink inks 的 dead-centre; parley only excludes its own
+    /// ASCII whitespace class, which the control rows pin).
+    #[test]
+    fn a_trailing_ideographic_space_run_hangs_out_of_alignment() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let line_x = |text: &str, align: TextAlign| -> f64 {
+            let mut style = plain_paragraph_style(
+                rito_style_contract::FontFamilies::new(vec![FontFamily::Named(
+                    FontFamilyName::new("NoSuchFace"),
+                )])
+                .expect("family list"),
+                40.0,
+                0.0,
+            );
+            style.text_flow.text_align = align;
+            let mut inline = InlineStyleTableV1::new(1);
+            let style_id = inline.intern_for_node(0, style).expect("style interns");
+            let nodes = vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }];
+            let tree = FormattingTree::with_styles(
+                nodes,
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles {
+                    layout: LayoutStyleTableV1::new(0),
+                    inline,
+                },
+            )
+            .expect("inline tree builds");
+            let outcome = context
+                .layout(
+                    &tree,
+                    tree.root(),
+                    &ConstraintSpace::continuous(640.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("root is a box");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            line.rect.x
+        };
+        let bare = line_x("\u{7684}", TextAlign::Center);
+        // Three trailing U+3000 leave the centering: the glyph inks where
+        // the bare control does. Before the law the line centered at
+        // (640-160)/2 = 240, sixty pixels left of the truth.
+        let hung = line_x("\u{7684}\u{3000}\u{3000}\u{3000}", TextAlign::Center);
+        assert!(
+            (hung - bare).abs() < 1e-3,
+            "centered line must ignore the hung tail: bare {bare}, hung {hung}"
+        );
+        // Parley already drops trailing ASCII spaces — the shift must not
+        // double-count them.
+        let ascii = line_x("\u{7684}   ", TextAlign::Center);
+        assert!(
+            (ascii - bare).abs() < 1e-3,
+            "ascii trailing spaces stay parley's own: bare {bare}, ascii {ascii}"
+        );
+        // Right alignment hangs the tail past the edge: 的 stays flush.
+        let right_bare = line_x("\u{7684}", TextAlign::Right);
+        let right_hung = line_x("\u{7684}\u{3000}", TextAlign::Right);
+        assert!(
+            (right_hung - right_bare).abs() < 1e-3,
+            "right-aligned line must hang the tail: bare {right_bare}, hung {right_hung}"
+        );
+    }
+
     #[test]
     fn the_page_clamp_scales_the_authored_image_box_uniformly() {
         use rito_style_contract::{
