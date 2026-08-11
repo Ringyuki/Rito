@@ -79,8 +79,16 @@ export function resolveRoundedBorderGeometry(
   radiusY: number,
 ): RoundedBorderGeometry {
   const { top, right, bottom, left } = borders;
-  const cornerRadiusX = Math.min(radiusX, width / 2);
-  const cornerRadiusY = Math.min(radiusY, height / 2);
+  // CSS Backgrounds §5.5 overlap scaling: both axes shrink by ONE factor
+  // when a short edge would make adjacent corners cross (per-axis clamps
+  // turned wide badges into ellipses where Blink draws stadiums).
+  const overlap = Math.min(
+    1,
+    radiusX > 0 ? width / (2 * radiusX) : 1,
+    radiusY > 0 ? height / (2 * radiusY) : 1,
+  );
+  const cornerRadiusX = radiusX * overlap;
+  const cornerRadiusY = radiusY * overlap;
   const maxBorder = Math.max(top.width, right.width, bottom.width, left.width);
   return {
     x,

@@ -1,4 +1,14 @@
 /**
+ * Overlap scale for one uniform radius pair (CSS Backgrounds §5.5): when
+ * either axis would make adjacent corners cross on a short edge, BOTH
+ * axes shrink by the same factor (mirrors the production pen — per-axis
+ * clamps turned wide badges into ellipses where Blink draws stadiums).
+ */
+function roundedOverlapScale(w: number, h: number, rx: number, ry: number): number {
+  return Math.min(1, rx > 0 ? w / (2 * rx) : 1, ry > 0 ? h / (2 * ry) : 1);
+}
+
+/**
  * Trace a rounded rectangle path (clockwise). When `ry` differs from `rx`,
  * corners are elliptical arcs, matching CSS percentage border-radius.
  */
@@ -11,8 +21,9 @@ export function traceRoundedRect(
   rx: number,
   ry: number = rx,
 ): void {
-  const crx = Math.min(rx, w / 2);
-  const cry = Math.min(ry, h / 2);
+  const scale = roundedOverlapScale(w, h, rx, ry);
+  const crx = rx * scale;
+  const cry = ry * scale;
   ctx.beginPath();
   if (crx === cry) {
     traceCircularRoundedRect(ctx, x, y, w, h, crx);
@@ -32,8 +43,9 @@ export function traceBoxPathCCW(
   radius: number,
   radiusY: number = radius,
 ): void {
-  const rx = Math.min(radius, w / 2);
-  const ry = Math.min(radiusY, h / 2);
+  const scale = roundedOverlapScale(w, h, radius, radiusY);
+  const rx = radius * scale;
+  const ry = radiusY * scale;
   if (rx <= 0 && ry <= 0) {
     traceRectCCW(ctx, x, y, w, h);
     return;

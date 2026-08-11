@@ -188,16 +188,20 @@ describe('browser frame-command Canvas renderer', () => {
       expectedEllipse: 4,
     },
     {
+      // CSS Backgrounds §5.5: an oversized radius shrinks BOTH axes by
+      // one overlap factor (99 → 5 on a 20x10 box), so the corners stay
+      // CIRCULAR and the box renders as a stadium — never the per-axis
+      // clamp's 10x5 ellipse.
       name: 'oversized radius',
       radius: { rx: 99, ry: 99 },
       expectedRect: 0,
-      expectedArc: 0,
-      expectedEllipse: 4,
-      expectedFirstEllipse: [12, 8, 10, 5, 0, -Math.PI / 2, 0],
+      expectedArc: 4,
+      expectedEllipse: 0,
+      expectedArcRadius: 5,
     },
   ])(
     'matches the reference $name clip path',
-    ({ radius, expectedRect, expectedArc, expectedEllipse, expectedFirstEllipse }) => {
+    ({ radius, expectedRect, expectedArc, expectedEllipse, expectedFirstEllipse, expectedArcRadius }) => {
       const command: RitoCoreWasmFrameCommand = {
         kind: 'clipRect',
         rect: { x: 2, y: 3, width: 20, height: 10 },
@@ -220,6 +224,9 @@ describe('browser frame-command Canvas renderer', () => {
       expect(production.getCalls('closePath')).toHaveLength(expectedRect === 0 ? 1 : 0);
       if (expectedFirstEllipse) {
         expect(production.getCalls('ellipse')[0]?.args).toEqual(expectedFirstEllipse);
+      }
+      if (expectedArcRadius !== undefined) {
+        expect(production.getCalls('arcTo')[0]?.args[4]).toBe(expectedArcRadius);
       }
     },
   );
