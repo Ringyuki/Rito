@@ -4564,10 +4564,11 @@ fn image_display_size(
     }
     let width_percentage_without_basis = percentage_without_basis.get();
     // With BOTH axes author-specified the aspect ratio is out of the
-    // picture: max-width/max-height (and the page clamp) constrain each
-    // axis independently, distortion included (measured: a 723x1 strip
-    // declared 538395x1430 renders 626.6875x850 in the browser — a
-    // full-page stretch — not the ratio-preserving 626.69x1.66).
+    // picture: max-width/max-height constrain each axis independently,
+    // distortion included (measured: a 723x1 strip declared 538395x1430
+    // stretches full-page in the browser, not ratio-preserving). The
+    // reader PAGE clamp below is different: it scales the authored box
+    // uniformly, keeping whatever ratio the author resolved.
     let (mut width, mut height) = match (preferred_width, preferred_height) {
         (Some(width), Some(height)) => (width, height),
         (Some(width), None) => (width, width * ratio),
@@ -4595,28 +4596,27 @@ fn image_display_size(
         }
     }
     // Reader UA policy, declared rather than implicit: a replaced element
-    // never exceeds one page. Every paginated reader applies some form of
-    // it (epub.js injects `max-width`/`max-height: 100%`), because a
-    // browser's own answer — paint at CSS size and let the viewport clip —
-    // loses content the reader can never scroll to. The browser baseline
-    // is measured with the same rule injected, so the comparison stays
-    // like for like.
+    // never exceeds one page, and the page clamp scales the AUTHORED box
+    // uniformly — both axes by one factor — so the clamp never distorts
+    // (b52's 705x1000 cover under `img{width:100%}` squashed 640x907.8
+    // into 640x850 when the axes clamped independently; the reader is the
+    // product surface and a stretched cover is a defect, whatever a
+    // browser under an injected max-height would do). A box the author
+    // deliberately distorted keeps its authored ratio while shrinking.
+    // The truth harness mirrors this exact policy per element.
     if let Some(page_height) = available_block_size {
+        let mut scale = 1.0_f64;
         if height > page_height && height > 0.0 && page_height > 0.0 {
-            let scale = page_height / height;
-            height = page_height;
-            if preferred_width.is_none() {
-                width *= scale;
-            }
+            scale = scale.min(page_height / height);
         }
         if let Some(page_width) = available_inline_size {
             if width > page_width && width > 0.0 && page_width > 0.0 {
-                let scale = page_width / width;
-                width = page_width;
-                if preferred_height.is_none() {
-                    height *= scale;
-                }
+                scale = scale.min(page_width / width);
             }
+        }
+        if scale < 1.0 {
+            width *= scale;
+            height *= scale;
         }
     }
     // Blink stores used lengths as LayoutUnits: the resolved size floors
@@ -4964,6 +4964,88 @@ running through the quiet forest until the morning light returns.";
                 _ => assert_eq!(lines.first().map(String::as_str), Some("中中ず")),
             }
         }
+    }
+
+    /// The reader page clamp scales the authored box UNIFORMLY: a
+    /// 705x1000 cover under `img { width: 100% }` resolves 640x907.8 and
+    /// shrinks to 599.25x850 — never the axis-independent squash to
+    /// 640x850 that stretched b52's cover in the reader.
+    #[test]
+    fn the_page_clamp_scales_the_authored_image_box_uniformly() {
+        use rito_style_contract::{
+            AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
+            LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1,
+            LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1,
+            MinimumHeightV1, OverflowV1, PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        };
+        let auto = LengthPercentageOrAuto::Auto;
+        let zero_padding = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(0.0).expect("zero"),
+        ));
+        let style = LayoutFormattingStyleV1 {
+            display: LayoutDisplayV1 {
+                outside: LayoutDisplayOutsideV1::Inline,
+                inside: LayoutDisplayInsideV1::Flow,
+                is_list_item: false,
+            },
+            margin: PhysicalSides {
+                top: auto,
+                right: auto,
+                bottom: auto,
+                left: auto,
+            },
+            padding: PhysicalSides {
+                top: zero_padding,
+                right: zero_padding,
+                bottom: zero_padding,
+                left: zero_padding,
+            },
+            box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
+            justify_content: JustifyContentV1::Normal,
+            align_items: AlignItemsV1::Normal,
+            break_before: PageBreakV1::Auto,
+            break_after: PageBreakV1::Auto,
+            width: PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+                LengthPercentage::Percentage(
+                    rito_style_contract::Percentage::from_ratio(1.0).expect("finite"),
+                ),
+            )),
+            height: PreferredSizeV1::Auto,
+            max_width: MaximumSizeV1::None,
+            min_height: MinimumHeightV1::Auto,
+            max_height: MaximumHeightV1::None,
+            clear: ClearV1::None,
+            float: FloatV1::None,
+            overflow: OverflowV1::Visible,
+            list_style_type: ListMarkerStyleV1::None,
+            position: PositionV1::Static,
+            inset: PhysicalSides {
+                top: auto,
+                right: auto,
+                bottom: auto,
+                left: auto,
+            },
+            vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+            border_spacing: (
+                rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+            ),
+        };
+        let (width, height) = image_display_size(
+            705.0,
+            1000.0,
+            &style,
+            Some(640.0),
+            Some(850.0),
+            PercentageImageSizing::Intrinsic,
+            None,
+        )
+        .expect("cover sizes");
+        assert_eq!(height, 850.0, "the clamp pins the tall axis to the page");
+        assert!(
+            (f64::from(width) - 599.25).abs() < 0.02,
+            "the width shrinks by the same factor (authored ratio kept), got {width}"
+        );
     }
 
     /// Blink's default line-break lets the UAX-14 CJ class (small kana,
