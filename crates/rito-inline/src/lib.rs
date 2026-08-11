@@ -2070,15 +2070,20 @@ impl FormattingContext for ParleyInlineContext {
                                     };
                                 let mut stretch_start = run_range.start;
                                 // A CJK character right after a non-CJK one
-                                // paints its INK one share right of its
-                                // advance position (Blink adds the
-                                // deferred "before" share to the glyph
-                                // offset too); the stretch starting there
-                                // shifts its rect without touching the
-                                // advance accounting, so neighbours stay.
+                                // paints its INK one share LEFT of its
+                                // advance position (47th law, ink-shift
+                                // oracle at 16px and 48px: 他 after ……
+                                // sits at advance − 1.00 share, plain
+                                // neighbours flush at ±0.02; the earlier
+                                // "+1 share right" reading of Blink's
+                                // ApplySpacing was never pixel-verified
+                                // on a deferral line and is refuted); the
+                                // stretch starting there shifts its rect
+                                // without touching the advance
+                                // accounting, so neighbours stay.
                                 let mut stretch_x = run_x
                                     + plan.share * f64::from(justify_shares_used)
-                                    + if plan.before_share_at(run_range.start) {
+                                    - if plan.before_share_at(run_range.start) {
                                         plan.share
                                     } else {
                                         0.0
@@ -2118,7 +2123,7 @@ impl FormattingContext for ParleyInlineContext {
                                             stretch_start = byte;
                                             stretch_x = natural_x
                                                 + plan.share * f64::from(justify_shares_used)
-                                                + if ink_shift { plan.share } else { 0.0 };
+                                                - if ink_shift { plan.share } else { 0.0 };
                                             stretch_natural = 0.0;
                                             stretch_shares = 0;
                                             uniform = None;
@@ -3312,8 +3317,11 @@ struct JustifyPlan {
     /// Byte indices of CJK characters that follow a non-CJK character.
     /// Their deferred "before" share lands in the NEXT boundary's count
     /// (the advance side), but Blink additionally paints the glyph's INK
-    /// one share to the right (ShapeResult::ApplySpacingOrExpansion adds
-    /// `spacing_before` to the glyph offset as well as the advance), so
+    /// one share to the LEFT of its advance box (47th law, measured with
+    /// the ink-shift oracle at 16px and 48px on punct-left ……他 and
+    /// latin-left t花: the deferred glyph's ink sits at advance − 1.00
+    /// share while every neighbour is flush, so the ink gap before it
+    /// compresses by one share and the gap after it opens by three), so
     /// the run starting here shifts its rect without moving its
     /// neighbours.
     before_bytes: Vec<usize>,
@@ -4964,6 +4972,102 @@ running through the quiet forest until the morning light returns.";
                 _ => assert_eq!(lines.first().map(String::as_str), Some("中中ず")),
             }
         }
+    }
+
+    /// 47th law: a deferred "before" share — a CJK character right of a
+    /// non-expansive one — paints its INK one share LEFT of its advance
+    /// box (ink-shift oracle at 16px and 48px, punct-left ……他 and
+    /// latin-left t花: the deferred glyph's ink sits at advance − 1.00
+    /// share while every neighbour is flush). The advance chain keeps
+    /// the …|他 boundary at zero and doubles 他|中, so only the deferred
+    /// stretch's rect moves.
+    #[test]
+    fn a_deferred_share_paints_its_ink_one_share_left_of_its_advance() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let text = "中中……他中中中中";
+        let mut style = plain_paragraph_style(
+            rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
+                "NoSuchFace",
+            ))])
+            .expect("family list"),
+            16.0,
+            0.0,
+        );
+        style.text_flow.text_align = TextAlign::Justify;
+        let mut inline = InlineStyleTableV1::new(1);
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: text.to_owned(),
+                    style: style_id,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        // Line 1 is 中中……他中中 (natural 112) inside 115: slack 3 over
+        // five opportunities (中|中, 中|…, 他|中 carries the deferred
+        // share double, 中|中) — share 0.6.
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(115.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        let runs: Vec<(&str, f64)> = line
+            .children
+            .iter()
+            .map(|child| {
+                let Fragment::Text(run) = child else {
+                    panic!("line children are text fragments");
+                };
+                (
+                    &text[run.text_start as usize..run.text_end as usize],
+                    run.rect.x,
+                )
+            })
+            .collect();
+        assert_eq!(
+            runs.iter().map(|(piece, _)| *piece).collect::<Vec<_>>(),
+            vec!["中中…", "…", "他", "中中"],
+            "zero-share boundaries, the deferred char and the double-share boundary all cut"
+        );
+        assert!(
+            (runs[2].1 - 64.6).abs() < 1e-6,
+            "他 inks at natural 64 + 2 used shares (1.2) − the deferred share (0.6), got {}",
+            runs[2].1
+        );
+        assert!(
+            (runs[3].1 - 82.4).abs() < 1e-6,
+            "the following stretch stays on the advance chain, got {}",
+            runs[3].1
+        );
     }
 
     /// The reader page clamp scales the authored box UNIFORMLY: a
