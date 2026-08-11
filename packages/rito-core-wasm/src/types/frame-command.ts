@@ -185,7 +185,7 @@ export interface RitoCoreWasmBlockBorderPaint {
 
 export interface RitoCoreWasmBorderPaintEdge {
   readonly color: string;
-  readonly style: 'solid' | 'dotted' | 'dashed';
+  readonly style: 'solid' | 'dotted' | 'dashed' | 'double';
 }
 
 export interface RitoCoreWasmBlockRadius {
@@ -290,5 +290,5 @@ export interface RitoCoreWasmRunBorderEdge {
 
 export interface RitoCoreWasmHorizontalRulePaint {
   readonly color: string;
-  readonly style: 'solid' | 'dotted' | 'dashed';
+  readonly style: 'solid' | 'dotted' | 'dashed' | 'double';
 }

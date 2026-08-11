@@ -237,7 +237,9 @@ function supportedBorderStyle(
   style: RitoReaderBorderEdgePaintV1['style'],
 ): CoreBorderEdge['style'] | undefined {
   if (style === 'none' || style === 'hidden') return undefined;
-  if (style === 'solid' || style === 'dotted' || style === 'dashed') return style;
+  if (style === 'solid' || style === 'dotted' || style === 'dashed' || style === 'double') {
+    return style;
+  }
   return unsupported(`border-style:${style}`);
 }
 

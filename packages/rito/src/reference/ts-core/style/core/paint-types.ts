@@ -52,5 +52,5 @@ export interface MeasurePaint {
  * that Phase 2 will consume via BlockPaint.border. */
 export interface BorderPaintEdge {
   readonly color: string;
-  readonly style: 'solid' | 'dotted' | 'dashed';
+  readonly style: 'solid' | 'dotted' | 'dashed' | 'double';
 }

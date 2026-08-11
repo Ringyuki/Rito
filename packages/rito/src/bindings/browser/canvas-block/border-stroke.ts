@@ -12,6 +12,22 @@ export function strokeBorder(
     strokeBinaryDotted(ctx, edge, x1, y1, x2, y2);
     return;
   }
+  // Blink's double border: two lines of a third each with a third of
+  // gap. The caller hands the CENTERLINE of the whole border band; the
+  // two sub-lines run at ±width/3 around it (centerlines at width/6 and
+  // 5·width/6 from the outer edge), each stroked as its own solid band.
+  if (edge.style === 'double' && (x1 === x2 || y1 === y2)) {
+    const third = edge.width / 3;
+    const line: RenderBorderEdge = { ...edge, width: third, style: 'solid' };
+    if (y1 === y2) {
+      strokeBorder(ctx, line, x1, y1 - third, x2, y2 - third);
+      strokeBorder(ctx, line, x1, y1 + third, x2, y2 + third);
+    } else {
+      strokeBorder(ctx, line, x1 - third, y1, x2 - third, y2);
+      strokeBorder(ctx, line, x1 + third, y1, x2 + third, y2);
+    }
+    return;
+  }
   // Measured Blink solid-border raster (offset x width matrix,
   // 2026-08-05): the band is BINARY device rows — it starts at
   // round(border-box edge) and spans max(1, floor(width)) rows, no

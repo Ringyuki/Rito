@@ -214,7 +214,7 @@ export interface TextShadow {
 export interface BorderSide {
   readonly width: number;
   readonly color: string;
-  readonly style: 'solid' | 'dotted' | 'dashed' | 'none';
+  readonly style: 'solid' | 'dotted' | 'dashed' | 'double' | 'none';
 }
 
 /** CSS cascade origin tracked by the internal style resolver. */

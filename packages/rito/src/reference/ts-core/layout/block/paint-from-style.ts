@@ -87,7 +87,7 @@ function extractRadius(style: ComputedStyle): BlockRadius | undefined {
 interface BorderSide {
   readonly width: number;
   readonly color: string;
-  readonly style: 'solid' | 'dotted' | 'dashed' | 'none';
+  readonly style: 'solid' | 'dotted' | 'dashed' | 'double' | 'none';
 }
 
 function edgeWidth(side: BorderSide): number {

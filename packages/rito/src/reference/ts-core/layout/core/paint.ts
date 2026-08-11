@@ -145,7 +145,7 @@ export interface RunPaint {
 /** Paint for a single <hr> element. */
 export interface HrPaint {
   readonly color: string;
-  readonly style: 'solid' | 'dotted' | 'dashed';
+  readonly style: 'solid' | 'dotted' | 'dashed' | 'double';
 }
 
 /** Page-level paint (per-chapter body background etc). */

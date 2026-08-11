@@ -423,7 +423,7 @@ describe('Browser Reader v1 Canvas presenter', () => {
               opcode: 8,
               rect: { x: 0, y: 0, width: 40, height: 40 },
               paint: {
-                border: { top: { color: srgb(0, 0, 0), style: 'double' } },
+                border: { top: { color: srgb(0, 0, 0), style: 'groove' } },
                 boxShadows: [],
               },
               borderBox: { topWidth: 3, rightWidth: 0, bottomWidth: 0, leftWidth: 0 },
@@ -436,7 +436,7 @@ describe('Browser Reader v1 Canvas presenter', () => {
 
     await expect(presenter.prepare(unsupported)).rejects.toEqual(
       expect.objectContaining<Partial<BrowserReaderCanvasUnsupportedErrorV1>>({
-        feature: 'border-style:double',
+        feature: 'border-style:groove',
       }),
     );
     expect(readResource).not.toHaveBeenCalled();

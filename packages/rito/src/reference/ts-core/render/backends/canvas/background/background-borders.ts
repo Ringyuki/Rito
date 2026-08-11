@@ -5,7 +5,7 @@ import { traceBoxPathCCW, traceRoundedRect } from './background-paths';
 interface RenderBorderEdge {
   readonly width: number;
   readonly color: string;
-  readonly style: 'solid' | 'dotted' | 'dashed';
+  readonly style: 'solid' | 'dotted' | 'dashed' | 'double';
 }
 
 interface RenderBorders {
@@ -146,8 +146,38 @@ function renderUniformRoundedBorder(
   ry: number,
 ): void {
   ctx.save();
+  // Ink lives INSIDE the border box (centerline half a width in from the
+  // rounded outer path); double = two third-width lines with a third of
+  // gap — both mirror the production pen.
+  if (edge.style === 'double') {
+    const third = edge.width / 3;
+    applyStrokeStyle(ctx, { ...edge, width: third });
+    for (const inset of [third / 2, edge.width - third / 2]) {
+      traceRoundedRect(
+        ctx,
+        x + inset,
+        y + inset,
+        w - 2 * inset,
+        h - 2 * inset,
+        Math.max(0, rx - inset),
+        Math.max(0, ry - inset),
+      );
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
+  const inset = edge.width / 2;
   applyStrokeStyle(ctx, edge);
-  traceRoundedRect(ctx, x, y, w, h, rx, ry);
+  traceRoundedRect(
+    ctx,
+    x + inset,
+    y + inset,
+    w - 2 * inset,
+    h - 2 * inset,
+    Math.max(0, rx - inset),
+    Math.max(0, ry - inset),
+  );
   ctx.stroke();
   ctx.restore();
 }
@@ -269,6 +299,20 @@ function strokeBorder(
     strokeBinaryDotted(ctx, edge, x1, y1, x2, y2);
     return;
   }
+  // Blink's double border: two lines of a third each with a third of
+  // gap around the handed centerline (mirrors the production pen).
+  if (edge.style === 'double' && (x1 === x2 || y1 === y2)) {
+    const third = edge.width / 3;
+    const line: RenderBorderEdge = { ...edge, width: third, style: 'solid' };
+    if (y1 === y2) {
+      strokeBorder(ctx, line, x1, y1 - third, x2, y2 - third);
+      strokeBorder(ctx, line, x1, y1 + third, x2, y2 + third);
+    } else {
+      strokeBorder(ctx, line, x1 - third, y1, x2 - third, y2);
+      strokeBorder(ctx, line, x1 + third, y1, x2 + third, y2);
+    }
+    return;
+  }
   applyStrokeStyle(ctx, edge);
   const snap = edge.width % 2 === 1 ? 0.5 : 0;
   ctx.beginPath();
@@ -342,7 +386,7 @@ function applyStrokeStyle(ctx: CanvasRenderingContext2D, edge: RenderBorderEdge)
   ctx.lineCap = 'butt';
 }
 
-function getDashPattern(style: 'solid' | 'dotted' | 'dashed', width: number): number[] {
+function getDashPattern(style: RenderBorderEdge['style'], width: number): number[] {
   if (style === 'dotted') return [0.001, width * 1.5];
   if (style === 'dashed') return [width * 3, width * 2];
   return [];

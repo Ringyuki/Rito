@@ -118,8 +118,43 @@ function renderUniformRoundedBorder(
 ): void {
   ctx.save();
   try {
+    // The border ink lives INSIDE the border box: the stroke centerline
+    // sits half a width in from the rounded outer path, matching the
+    // straight-edge path (which insets by width/2) and Blink's ink span
+    // from the border-box edge to the padding-box edge. Stroking the
+    // outer path itself hung half the ink outside the box and lit every
+    // bubble outline up as a shifted ring (b52 Next-w).
+    if (edge.style === 'double') {
+      // Blink's double: two lines of a third each, a third of gap — the
+      // outer line's centerline sits width/6 in from the outer path, the
+      // inner line's width/6 out from the padding path.
+      const third = edge.width / 3;
+      applyStrokeStyle(ctx, { ...edge, width: third });
+      for (const inset of [third / 2, edge.width - third / 2]) {
+        traceRoundedRect(
+          ctx,
+          x + inset,
+          y + inset,
+          width - 2 * inset,
+          height - 2 * inset,
+          Math.max(0, radiusX - inset),
+          Math.max(0, radiusY - inset),
+        );
+        ctx.stroke();
+      }
+      return;
+    }
+    const inset = edge.width / 2;
     applyStrokeStyle(ctx, edge);
-    traceRoundedRect(ctx, x, y, width, height, radiusX, radiusY);
+    traceRoundedRect(
+      ctx,
+      x + inset,
+      y + inset,
+      width - 2 * inset,
+      height - 2 * inset,
+      Math.max(0, radiusX - inset),
+      Math.max(0, radiusY - inset),
+    );
     ctx.stroke();
   } finally {
     ctx.restore();

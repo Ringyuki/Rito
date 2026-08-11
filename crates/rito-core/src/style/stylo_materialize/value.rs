@@ -380,15 +380,15 @@ fn border_edge(edge: BorderEdge, foreground: AbsoluteColor) -> Result<Value> {
         BorderStyle::Dotted => "dotted",
         BorderStyle::Dashed => "dashed",
         BorderStyle::Solid => "solid",
-        // The current Canvas paint contract has no 3D/double border
-        // primitives. Preserve computed width and color and use the same
-        // solid-line compatibility used by the retired parser for
-        // double/groove/ridge; inset/outset receive that stable fallback too.
-        BorderStyle::Double
-        | BorderStyle::Groove
-        | BorderStyle::Ridge
-        | BorderStyle::Inset
-        | BorderStyle::Outset => "solid",
+        // Double passes through: the pens stroke it as Blink does — two
+        // lines of a third each with a third of gap (b52's kuang badges
+        // rendered as one solid band under the old solid collapse). The
+        // remaining 3D styles keep the solid-line compatibility used by
+        // the retired parser.
+        BorderStyle::Double => "double",
+        BorderStyle::Groove | BorderStyle::Ridge | BorderStyle::Inset | BorderStyle::Outset => {
+            "solid"
+        }
     };
     Ok(json!({
         "width": snap_f32_decimal(f64::from(edge.resolved_width.get())),

@@ -90,7 +90,7 @@ function borderFromStyle(style: ComputedStyle, fragment: Fragment): RunBorder | 
 interface BorderSide {
   readonly width: number;
   readonly color: string;
-  readonly style: 'solid' | 'dotted' | 'dashed' | 'none';
+  readonly style: 'solid' | 'dotted' | 'dashed' | 'double' | 'none';
 }
 
 function drawableEdge(side: BorderSide): RunBorderEdge | undefined {
