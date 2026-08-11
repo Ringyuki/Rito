@@ -15,3 +15,6 @@ benchmarks/css-engine-spike/results/**/*.jsonl
 **/pubspec.lock
 packages/rito_flutter/doc/api/
 packages/rito_flutter/native/
+# pixel-walk artifacts: unpacked truth books (often intentionally
+# malformed) and captures — formatting them breaks the oracle
+tools/corpus-oracle/walk-*/
