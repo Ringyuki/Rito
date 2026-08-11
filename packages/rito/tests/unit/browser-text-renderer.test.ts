@@ -72,6 +72,37 @@ describe('production Canvas text renderer', () => {
     expect(lastProperty(result, 'fillStyle')).toBe(expected);
   });
 
+  it('paints each glyph at floor64 of the cumulative advance at fractional font sizes', () => {
+    // 45th law (35th re-land, NATURAL runs only): an off-grid font size
+    // (12.16 = 0.8em of 15.2) drifts the float cumulative advance off
+    // Blink's LayoutUnit grid; the DOM paints each glyph at floor64 of
+    // that cumulative (21/21 oracle positions). Mock glyph width =
+    // 12.16 × 0.6 = 7.296 → floors 0, 466/64, 933/64.
+    const result = expectTextParity(
+      textFragment({ font: { ...BASE_PAINT.font, sizePx: 12.16 } }, '中中中'),
+    );
+    const calls = result.getCalls('fillText').map((call) => call.args);
+    expect(calls).toEqual([
+      ['中', 10, 20 + 0.8 * 12.16],
+      ['中', 10 + 466 / 64, 20 + 0.8 * 12.16],
+      ['中', 10 + 933 / 64, 20 + 0.8 * 12.16],
+    ]);
+  });
+
+  it('keeps the whole-run fillText at grid-aligned font sizes', () => {
+    const result = expectTextParity(
+      textFragment({ font: { ...BASE_PAINT.font, sizePx: 16 } }, '中中中'),
+    );
+    expect(result.getCalls('fillText')).toHaveLength(1);
+  });
+
+  it('keeps the whole-run fillText when a justify share or letter spacing rides the run', () => {
+    const result = expectTextParity(
+      textFragment({ font: { ...BASE_PAINT.font, sizePx: 12.16 }, letterSpacingPx: 0.5 }, '中中中'),
+    );
+    expect(result.getCalls('fillText')).toHaveLength(1);
+  });
+
   it('matches a rounded inline background with padding', () => {
     const result = expectTextParity(
       textFragment({

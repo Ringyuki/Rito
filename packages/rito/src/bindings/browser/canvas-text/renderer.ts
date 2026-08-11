@@ -30,7 +30,12 @@ export function drawCanvasTextFragment(
   // row and is then BIT-IDENTICAL to Blink's DOM text raster; 'top' never
   // matches at any sub-pixel phase. The rect's em-top encodes
   // baseline - 0.8*size (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
-  ctx.fillText(fragment.text, x, y + 0.8 * paint.font.sizePx);
+  const baseline = y + 0.8 * paint.font.sizePx;
+  if (textRidesTheLayoutGrid(paint.font.sizePx, paint.wordSpacingPx, paint.letterSpacingPx)) {
+    drawTextOnLayoutGrid(ctx, fragment.text, x, baseline);
+  } else {
+    ctx.fillText(fragment.text, x, baseline);
+  }
 
   const { decoration } = paint;
   if (decoration) {
@@ -71,6 +76,50 @@ export function drawCanvasRubyFragment(
     }
   } finally {
     ctx.restore();
+  }
+}
+
+/**
+ * Whether the run's glyph positions must be snapped onto Blink's
+ * LayoutUnit grid glyph by glyph. At an INTEGER font size a CJK run's
+ * float advances stay on the grid and one fillText is already
+ * bit-identical to the DOM raster; a FRACTIONAL size (em cascades like
+ * 0.95em of 16 → 15.2) drifts off it, and Blink paints each glyph at
+ * floor64 of the float cumulative advance (measured: identical rasters
+ * at integer positions, a 98px one-glyph divergence at x=20.4256).
+ * SCOPE — NATURAL runs only: any letter spacing (author spacing or a
+ * folded justify share) keeps the whole-run path, because the justify
+ * phase basis is not yet aligned with the DOM's (the unrestricted
+ * version net-regressed b20 by +0.7% through justified-line AA flips);
+ * word-spacing runs also keep it (canvas applies wordSpacing
+ * internally and manual placement would double it).
+ */
+function textRidesTheLayoutGrid(
+  sizePx: number,
+  wordSpacingPx: number | undefined,
+  letterSpacingPx: number | undefined,
+): boolean {
+  return (sizePx * 64) % 1 !== 0 && !wordSpacingPx && !letterSpacingPx;
+}
+
+/**
+ * Paints each glyph at floor64 of the float cumulative advance —
+ * Blink's exact per-glyph placement rule (21/21 positions matched on
+ * the 12.16px oracle line; per-glyph-rounded sums diverge). Kerning
+ * between glyphs is dropped by per-glyph measurement — exact for CJK,
+ * approximate for latin runs at fractional sizes.
+ */
+function drawTextOnLayoutGrid(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  baseline: number,
+): void {
+  let cumulative = 0;
+  for (const glyph of text) {
+    const snapped = Math.floor(cumulative * 64) / 64;
+    ctx.fillText(glyph, x + snapped, baseline);
+    cumulative += ctx.measureText(glyph).width;
   }
 }
 
