@@ -50,21 +50,7 @@ export function drawTextFragment(
     drawTextShadows(ctx, fragment, x, y, color);
   }
 
-  // Fractional font sizes drift off Blink's LayoutUnit grid; each glyph
-  // of a NATURAL run (no letter/word spacing — author spacing and folded
-  // justify shares keep the whole-run path until the justify phase basis
-  // is aligned) paints at floor64 of the float cumulative advance
-  // (mirrors the production pen — both pens change together).
-  if ((paint.font.sizePx * 64) % 1 !== 0 && !paint.wordSpacingPx && !paint.letterSpacingPx) {
-    let cumulative = 0;
-    for (const glyph of fragment.text) {
-      const snapped = Math.floor(cumulative * 64) / 64;
-      ctx.fillText(glyph, x + snapped, mainBaseline);
-      cumulative += ctx.measureText(glyph).width;
-    }
-  } else {
-    ctx.fillText(fragment.text, x, mainBaseline);
-  }
+  ctx.fillText(fragment.text, x, mainBaseline);
 
   // Pre-computed decoration geometry — render just strokes the line.
   const decoration = paint.decoration;
