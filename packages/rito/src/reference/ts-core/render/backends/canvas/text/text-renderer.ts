@@ -82,8 +82,19 @@ export function drawRubyFragment(
   // `ruby-align: space-around` on the annotation, mirroring the browser
   // frame-command renderer: the free width splits into one share per
   // glyph, half a share at each edge; a wide annotation (free ≈ 0)
-  // reduces to the packed centering it always had.
-  if (glyphs > 1 && free > 0.01) {
+  // reduces to the packed centering it always had. A LATIN word
+  // annotation is one justification unit and centers whole (mirrors the
+  // production pen — both pens change together).
+  const expands = [...ruby.text].some((glyph) => {
+    const code = glyph.codePointAt(0) ?? 0;
+    return (
+      (code >= 0x2e80 && code <= 0x9fff) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xff00 && code <= 0xffef) ||
+      (code >= 0x20000 && code <= 0x3ffff)
+    );
+  });
+  if (glyphs > 1 && free > 0.01 && expands) {
     ctx.letterSpacing = `${free / glyphs}px`;
     ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
   } else {

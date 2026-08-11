@@ -61,8 +61,12 @@ export function drawCanvasRubyFragment(
     // 7.418px between neighbours): the free width splits into one share
     // per glyph, half a share at each edge. A wide annotation's rect
     // already equals its own advance (free ≈ 0), so this reduces to the
-    // packed centering it always had.
-    if (glyphs > 1 && free > 0.01) {
+    // packed centering it always had. A LATIN word annotation is ONE
+    // justification unit — no intra-word expansion — so it centers whole
+    // (measured on b20's ショウコ/Shouko rubies: natural-width word,
+    // free/2 = 13.7px at each edge, interior steps natural 5.33px; the
+    // per-glyph spread scattered the letters across the base).
+    if (glyphs > 1 && free > 0.01 && rubyAnnotationExpands(ruby.text)) {
       ctx.letterSpacing = `${free / glyphs}px`;
       ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
     } else {
@@ -72,6 +76,27 @@ export function drawCanvasRubyFragment(
   } finally {
     ctx.restore();
   }
+}
+
+/**
+ * Whether the annotation text carries per-glyph justification
+ * opportunities: CJK glyphs expand glyph-by-glyph; a pure non-CJK word
+ * has none and centers as a unit (Blink's justify opportunity classes
+ * applied inside the annotation box).
+ */
+function rubyAnnotationExpands(text: string): boolean {
+  for (const glyph of text) {
+    const code = glyph.codePointAt(0) ?? 0;
+    if (
+      (code >= 0x2e80 && code <= 0x9fff) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xff00 && code <= 0xffef) ||
+      (code >= 0x20000 && code <= 0x3ffff)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function effectiveTextColor(

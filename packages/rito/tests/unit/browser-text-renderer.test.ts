@@ -156,12 +156,28 @@ describe('production Canvas text renderer', () => {
     const result = expectRubyParity(ruby, COLOR_OVERRIDE);
 
     expect(result.getCalls('measureText')[0]?.args).toEqual(['rt']);
-    // ruby-align space-around: 38px free over 2 glyphs — 9.5px at each
-    // edge (x = 10 + 9.5), 19px between (the letter spacing).
-    expect(result.getCalls('fillText')[0]?.args).toEqual(['rt', 19.5, 20]);
+    // 46th law: a LATIN annotation is one justification unit — no
+    // intra-word space-around — so the word centers whole: 38px free →
+    // x = 10 + 19, letter spacing stays zero (measured on b20's
+    // Shouko rubies: natural word width, free/2 at each edge).
+    expect(result.getCalls('fillText')[0]?.args).toEqual(['rt', 29, 20]);
     expect(lastProperty(result, 'wordSpacing')).toBe('0px');
-    expect(lastProperty(result, 'letterSpacing')).toBe('19px');
+    expect(lastProperty(result, 'letterSpacing')).toBe('0px');
     expect(lastProperty(result, 'fillStyle')).toBe('rgb(32, 32, 0)');
+  });
+
+  it('spreads a CJK annotation space-around per glyph', () => {
+    const ruby = rubyFragment(
+      {
+        font: { style: 'normal', weight: 400, sizePx: 10, family: 'serif' },
+      },
+      'かな',
+    );
+    const result = expectRubyParity(ruby);
+    // CJK annotations keep the 28th-law per-glyph distribution: 38px
+    // free over 2 glyphs — 9.5px at each edge, 19px between.
+    expect(result.getCalls('fillText')[0]?.args).toEqual(['かな', 19.5, 20]);
+    expect(lastProperty(result, 'letterSpacing')).toBe('19px');
   });
 
   it.each(localFailureCases())(
