@@ -499,13 +499,12 @@ for (const chapter of plan.chapters) {
     await truth.evaluate(
       async ({ contentW, contentH, pinLatin, pinCjk, noteIds }) => {
         const s = document.createElement('style');
-        // The multicol pagination baseline, plus the reader's image policy
-        // mirrored exactly (rito-inline image_display_size): the clamp to
-        // one page is UNCONDITIONAL in the engine — it applies after
-        // author sizing — so it is !important here. It also cannot be the
-        // author's own \`max-height: 100%\`, which in a continuous flow has
-        // an indefinite basis and computes to none (CSS 2.1 §10.7); the
-        // engine resolves that percentage against the page instead.
+        // The multicol pagination baseline. The reader's image page
+        // clamp is mirrored PER ELEMENT below (uniform box scaling) —
+        // a blanket \`max-height !important\` here once squashed every
+        // author-width oversized image the same way a defective engine
+        // policy did, and the diff went blind to the whole class (b52's
+        // stretched cover scored bf=2).
         // The container is EXACTLY one column wide: multicol stretches
         // its columns to fill the container, so a loose viewport-width
         // container would silently widen every column past the engine's
@@ -515,8 +514,45 @@ for (const chapter of plan.chapters) {
 @font-face { font-family: "__rito_pin_cjk"; src: url("${pinCjk}"); }
 html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }
 body { margin:0; padding:0; }
-img, svg { max-height: ${contentH}px !important; max-width: 100%; }`;
+img, svg { max-width: 100%; }`;
         document.head.insertBefore(s, document.head.firstChild);
+        // Reader UA policy mirror (rito-inline image_display_size), in
+        // two aspect-preserving halves: the WIDTH cap is the plain
+        // `max-width: 100%` above (a replaced element never exceeds its
+        // container; Blink shrinks the auto cross axis with it), and the
+        // HEIGHT clamp is applied per element below, scaling the measured
+        // box uniformly. The old blanket `max-height !important` squashed
+        // every author-width oversized image the same way the engine's
+        // old axis-independent clamp did, and the diff went blind to the
+        // whole class (b52's stretched cover scored bf=2). Measure every
+        // replaced box under the book's own CSS first, then pin the
+        // scaled sizes, so reflow from one fix cannot skew the next
+        // measurement.
+        {
+          const replaced = [...document.querySelectorAll('img, svg')];
+          await Promise.all(
+            replaced
+              .filter((el) => el.tagName === 'IMG' && !el.complete)
+              .map(
+                (el) =>
+                  new Promise((done) => {
+                    el.addEventListener('load', done, { once: true });
+                    el.addEventListener('error', done, { once: true });
+                  }),
+              ),
+          );
+          const fits = replaced.map((el) => {
+            const rect = el.getBoundingClientRect();
+            return { el, width: rect.width, height: rect.height };
+          });
+          for (const { el, width, height } of fits) {
+            if (!(width > 0) || !(height > 0)) continue;
+            const scale = contentH / height;
+            if (scale >= 1) continue;
+            el.style.setProperty('width', `${width * scale}px`, 'important');
+            el.style.setProperty('height', `${contentH}px`, 'important');
+          }
+        }
         // A 404'd pin silently falls back to the browser's own font and
         // the whole page reads as a defect — assert both faces resolved.
         await document.fonts.load('16px "__rito_pin_latin"', 'H');
