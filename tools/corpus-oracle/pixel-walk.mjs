@@ -543,14 +543,37 @@ img, svg { max-width: 100%; }`;
           );
           const fits = replaced.map((el) => {
             const rect = el.getBoundingClientRect();
-            return { el, width: rect.width, height: rect.height };
+            const cs = getComputedStyle(el);
+            const edge = (name) => parseFloat(cs.getPropertyValue(name)) || 0;
+            const extraX =
+              edge('border-left-width') +
+              edge('border-right-width') +
+              edge('padding-left') +
+              edge('padding-right');
+            const extraY =
+              edge('border-top-width') +
+              edge('border-bottom-width') +
+              edge('padding-top') +
+              edge('padding-bottom');
+            // The clamp scales the CONTENT box; borders and padding stay
+            // at author size outside it (the engine absorbs an image's
+            // border into flank padding around the raster — b60's
+            // 1px-bordered cover measured 2px wide when the border-box
+            // was scaled as if it were content).
+            return {
+              el,
+              width: rect.width - extraX,
+              height: rect.height - extraY,
+              extraY,
+            };
           });
-          for (const { el, width, height } of fits) {
+          for (const { el, width, height, extraY } of fits) {
             if (!(width > 0) || !(height > 0)) continue;
-            const scale = contentH / height;
+            const budget = contentH - extraY;
+            const scale = budget / height;
             if (scale >= 1) continue;
             el.style.setProperty('width', `${width * scale}px`, 'important');
-            el.style.setProperty('height', `${contentH}px`, 'important');
+            el.style.setProperty('height', `${budget}px`, 'important');
           }
         }
         // A 404'd pin silently falls back to the browser's own font and
