@@ -1783,7 +1783,13 @@ impl FormattingContext for ParleyInlineContext {
                 }
                 (hang - f64::from(metrics.trailing_whitespace)).max(0.0)
             };
-            let line_x = f64::from(metrics.offset)
+            let parley_line_x = f64::from(metrics.offset);
+            // The hang shift moves the PAINTED line: children below are
+            // relativized against parley's own aligned offset so the
+            // shift survives into net positions (the first landing
+            // relativized against the shifted value and cancelled itself
+            // to a pixel-null — asserted by the paint-position test).
+            let line_x = parley_line_x
                 + match alignment {
                     parley::Alignment::Center => hang_uncovered / 2.0,
                     parley::Alignment::End | parley::Alignment::Right => hang_uncovered,
@@ -1937,7 +1943,7 @@ impl FormattingContext for ParleyInlineContext {
                         }
                         let shift = shift_for_range(&run_range);
                         max_rise = max_rise.max(shift);
-                        let run_x = f64::from(glyph_run.offset()) - line_x;
+                        let run_x = f64::from(glyph_run.offset()) - parley_line_x;
                         // A run inside a bordered/padded span carries the
                         // box's raster anchor: the browser snaps the
                         // decorated box to its own device row and hangs
@@ -2199,7 +2205,7 @@ impl FormattingContext for ParleyInlineContext {
                                 Fragment::Box(rito_fragment::BoxFragment {
                                     source: mini.source,
                                     rect: FragmentRect {
-                                        x: f64::from(inline_box.x) - line_x + justified,
+                                        x: f64::from(inline_box.x) - parley_line_x + justified,
                                         y: f64::from(inline_box.y) - ink_top
                                             + (height - baseline),
                                         width: f64::from(inline_box.width),
@@ -2221,7 +2227,7 @@ impl FormattingContext for ParleyInlineContext {
                                 Fragment::Image(rito_fragment::ImageFragment {
                                     source: root,
                                     rect: FragmentRect {
-                                        x: f64::from(inline_box.x) - line_x
+                                        x: f64::from(inline_box.x) - parley_line_x
                                             + inset_left
                                             + justified,
                                         y: f64::from(inline_box.y) - ink_top,
@@ -5067,7 +5073,13 @@ running through the quiet forest until the morning light returns.";
             let Fragment::Line(line) = &root.children[0] else {
                 panic!("first child is a line");
             };
-            line.rect.x
+            let Some(Fragment::Text(run)) = line.children.first() else {
+                panic!("line has a text run");
+            };
+            // The NET paint position (line + child) is the observable —
+            // the first landing shifted the line box while the children
+            // compensated against it, cancelling to a pixel-null.
+            line.rect.x + run.rect.x
         };
         let bare = line_x("\u{7684}", TextAlign::Center);
         // Three trailing U+3000 leave the centering: the glyph inks where
@@ -5091,6 +5103,63 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (right_hung - right_bare).abs() < 1e-3,
             "right-aligned line must hang the tail: bare {right_bare}, hung {right_hung}"
+        );
+    }
+
+    #[test]
+    fn the_b52_title_cell_centers_its_ink_with_the_tail_hung() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(4);
+        let families = || rito_style_contract::FontFamilies::new(vec![FontFamily::Named(
+            FontFamilyName::new("NoSuchFace"),
+        )]).expect("family list");
+        let mut items = Vec::new();
+        for (index, (text, size)) in [("为", 40.0), ("美", 48.0), ("好", 48.0), ("的\u{3000}\u{3000}\u{3000}", 40.0)].into_iter().enumerate() {
+            let mut style = plain_paragraph_style(families(), size, 0.0);
+            style.text_flow.text_align = TextAlign::Center;
+            let style_id = inline.intern_for_node(index, style).expect("style interns");
+            items.push(InlineItem::Text {
+                text: text.to_owned(),
+                style: style_id,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            });
+        }
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow { items },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(&tree, tree.root(), &ConstraintSpace::continuous(319.055), None, &CancelFlag::new())
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else { panic!() };
+        let Fragment::Line(line) = &root.children[0] else { panic!() };
+        let Some(Fragment::Text(first)) = line.children.first() else {
+            panic!("line has runs");
+        };
+        // Cell width 319.055 (parley fit epsilon rides the container),
+        // content 296 with a 120px hung tail: the visible ink centers at
+        // (319.055 - (296 - 120)) / 2 = 71.5 — the b52 truth puts 为 at
+        // page 282 = table 210.47 + 71.5.
+        let net = line.rect.x + first.rect.x;
+        assert!(
+            (net - 71.535).abs() < 0.02,
+            "为 must ink at the hang-centered offset, got {net}"
         );
     }
 
