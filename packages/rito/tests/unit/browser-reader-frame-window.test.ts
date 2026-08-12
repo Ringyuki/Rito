@@ -7,9 +7,7 @@ import {
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import { applyBrowserReaderRevisionState } from '../../src/bindings/browser/reader/revision';
 import { prepareBrowserReaderBoundedFrameCache } from '../../src/bindings/browser/bounded-frame-cache';
-import {
-  preloadFrameResourceBytes,
-} from '../../src/bindings/browser/resources';
+import { preloadFrameResourceBytes } from '../../src/bindings/browser/resources';
 import { BrowserReaderImageResourceError } from '../../src/bindings/browser/image-resource-error';
 import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/browser/chapter-local-preview/state';
 import type {

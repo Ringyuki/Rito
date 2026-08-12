@@ -53,7 +53,12 @@ const rows = await page.evaluate((count) => {
     const dot = meas(stop, stop + 1);
     const bracket = meas(stop + 1, stop + 2);
     const m = meas(text.indexOf('m'), text.indexOf('m') + 1);
-    out.push({ dotW: dot.w, bracketW: bracket.w, sameLine: dot.top === m.top, lines: meas(0, text.length) });
+    out.push({
+      dotW: dot.w,
+      bracketW: bracket.w,
+      sameLine: dot.top === m.top,
+      lines: meas(0, text.length),
+    });
   }
   return out;
 }, cases.length);

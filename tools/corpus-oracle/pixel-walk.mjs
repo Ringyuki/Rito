@@ -481,9 +481,7 @@ for (const chapter of plan.chapters) {
       // ORIGINAL file with Chromium's HTML recovery, serialize the
       // repaired DOM back to XHTML, and reload — still XML, still
       // standards mode, same content the engine sees.
-      const xmlBroken = await truth.evaluate(() =>
-        Boolean(document.querySelector('parsererror')),
-      );
+      const xmlBroken = await truth.evaluate(() => Boolean(document.querySelector('parsererror')));
       if (xmlBroken) {
         await truth.goto(`file://${file}`, { timeout: 30000 });
         const repaired = await truth.evaluate(() =>

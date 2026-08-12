@@ -12,7 +12,10 @@ const SPREADS = Number(spreadCountArg ?? 8);
 const BASE = process.env.RITO_READER_URL ?? 'http://localhost:5173/';
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1500, height: 950 }, deviceScaleFactor: 1 });
+const page = await browser.newPage({
+  viewport: { width: 1500, height: 950 },
+  deviceScaleFactor: 1,
+});
 await page.goto(BASE);
 let lastNav = Date.now();
 page.on('load', () => {

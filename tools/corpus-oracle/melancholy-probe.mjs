@@ -36,7 +36,14 @@ img, svg { max-height: ${contentH}px !important; max-width: 100%; }`;
     await document.fonts.load('16px "__rito_pin_latin"', 'H');
     await document.fonts.load('16px "__rito_pin_cjk"', '试');
     await document.fonts.ready;
-    const generic = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui']);
+    const generic = new Set([
+      'serif',
+      'sans-serif',
+      'monospace',
+      'cursive',
+      'fantasy',
+      'system-ui',
+    ]);
     const bookFaces = new Set(
       [...document.fonts]
         .map((face) => face.family.replaceAll('"', '').toLowerCase())
@@ -91,7 +98,12 @@ const data = await truth.evaluate((marker) => {
     range.setStart(node, i);
     range.setEnd(node, i + 1);
     const r = range.getBoundingClientRect();
-    chars.push({ ch: text[i], x: +r.left.toFixed(3), w: +r.width.toFixed(3), top: +r.top.toFixed(1) });
+    chars.push({
+      ch: text[i],
+      x: +r.left.toFixed(3),
+      w: +r.width.toFixed(3),
+      top: +r.top.toFixed(1),
+    });
   }
   const paragraph = node.parentElement;
   const cs = getComputedStyle(paragraph);

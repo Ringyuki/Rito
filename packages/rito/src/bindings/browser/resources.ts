@@ -248,10 +248,7 @@ export function ensureFrameImageResourceLoaded(state: BrowserReaderState, href: 
  * never blocks a page turn (throwing here rode up the navigation stack
  * and wedged the forward turn forever on a missing plate).
  */
-export function browserReaderImageResourceFailed(
-  state: BrowserReaderState,
-  href: string,
-): boolean {
+export function browserReaderImageResourceFailed(state: BrowserReaderState, href: string): boolean {
   const revision = state.revisionHandle;
   if (!revision) return false;
   return imageFailureAtRevision(state, revision, href) !== undefined;

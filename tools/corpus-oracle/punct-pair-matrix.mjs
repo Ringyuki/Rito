@@ -53,8 +53,7 @@ pairs.forEach(({ ca, a, cb, b }, i) => {
   if (!seen.has(key)) seen.set(key, new Map());
   const m = seen.get(key);
   m.set(verdict, (m.get(verdict) ?? 0) + 1);
-  if (rows[i].a > 11 !== (label(rows[i].a) === 'full'))
-    console.log('odd', a, b, rows[i]);
+  if (rows[i].a > 11 !== (label(rows[i].a) === 'full')) console.log('odd', a, b, rows[i]);
 });
 for (const [key, verdicts] of seen) {
   const parts = [...verdicts.entries()].map(([v, n]) => `${v}(${n})`).join(' ');

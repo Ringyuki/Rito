@@ -4,10 +4,7 @@ import {
   type BrowserReaderDecodedImage,
 } from './decoded-image-cache';
 import { createCanvasImageResolver } from './image-href-resolver';
-import {
-  browserReaderImageResourceFailed,
-  ensureFrameImageResourceLoaded,
-} from './resources';
+import { browserReaderImageResourceFailed, ensureFrameImageResourceLoaded } from './resources';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader-layout';

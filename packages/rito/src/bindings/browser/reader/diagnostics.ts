@@ -71,8 +71,7 @@ export function installBrowserReaderDiagnostics(state: BrowserReaderState): void
           missing: spread.missingResources.map(
             (missing) => `${missing.href}: ${missing.message.slice(0, 80)}`,
           ),
-          prefetchError:
-            (spread as { prefetchError?: string }).prefetchError ?? null,
+          prefetchError: (spread as { prefetchError?: string }).prefetchError ?? null,
         })),
       };
     },

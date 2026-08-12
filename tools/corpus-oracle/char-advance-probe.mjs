@@ -44,7 +44,14 @@ img, svg { max-height: ${contentH}px !important; max-width: 100%; }`;
     await document.fonts.load('16px "__rito_pin_latin"', 'H');
     await document.fonts.load('16px "__rito_pin_cjk"', '试');
     await document.fonts.ready;
-    const generic = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui']);
+    const generic = new Set([
+      'serif',
+      'sans-serif',
+      'monospace',
+      'cursive',
+      'fantasy',
+      'system-ui',
+    ]);
     const bookFaces = new Set(
       [...document.fonts]
         .map((face) => face.family.replaceAll('"', '').toLowerCase())
