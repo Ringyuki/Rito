@@ -602,6 +602,15 @@ impl TreeBuilder<'_> {
         };
         let zero_edge =
             |edge: &c::BorderEdge| f64::from(edge.resolved_width.get()) == 0.0;
+        // Margins strip too (49th law): the container's own margins are
+        // block-level geometry; left on the borrowed text style they
+        // would re-enter layout as inline box gaps on every paragraph
+        // run (the first landing turned b1's every indented paragraph
+        // into a doubled-margin reflow, 14,937 -> 2.65M).
+        let inert_margin = |side: &c::LengthPercentageOrAuto| match side {
+            c::LengthPercentageOrAuto::Auto => true,
+            c::LengthPercentageOrAuto::Value(value) => length_percentage_is_zero(value),
+        };
         let fragment = &resolved.fragment;
         if zero_side(&fragment.padding.top)
             && zero_side(&fragment.padding.right)
@@ -611,6 +620,10 @@ impl TreeBuilder<'_> {
             && zero_edge(&fragment.border.right)
             && zero_edge(&fragment.border.bottom)
             && zero_edge(&fragment.border.left)
+            && inert_margin(&fragment.margin.top)
+            && inert_margin(&fragment.margin.right)
+            && inert_margin(&fragment.margin.bottom)
+            && inert_margin(&fragment.margin.left)
         {
             return Ok(style);
         }
@@ -632,6 +645,15 @@ impl TreeBuilder<'_> {
         clear(&mut derived.fragment.border.right);
         clear(&mut derived.fragment.border.bottom);
         clear(&mut derived.fragment.border.left);
+        let zero_margin = c::LengthPercentageOrAuto::Value(c::LengthPercentage::Length(
+            c::CssPx::new(0.0).map_err(|error| {
+                EpubError::new(format!("container text style zero margin: {error:?}"))
+            })?,
+        ));
+        derived.fragment.margin.top = zero_margin;
+        derived.fragment.margin.right = zero_margin;
+        derived.fragment.margin.bottom = zero_margin;
+        derived.fragment.margin.left = zero_margin;
         self.inline
             .intern(derived)
             .map_err(|error| EpubError::new(format!("container text style interns: {error}")))
@@ -2098,23 +2120,12 @@ fn inline_box_capability_violation(
     if !style.paint.transform.is_none() {
         return Some("inline transform".to_owned());
     }
-    // Inline margins still displace glyphs the layout does not model;
-    // inline padding and borders are implemented (advance edits at the
-    // box boundaries, painted as the run's grown inline box).
-    let margin_inert = |side: &c::LengthPercentageOrAuto| match side {
-        c::LengthPercentageOrAuto::Auto => true,
-        c::LengthPercentageOrAuto::Value(value) => length_percentage_is_zero(value),
-    };
-    for (side, name) in [
-        (&style.fragment.margin.left, "margin-left"),
-        (&style.fragment.margin.right, "margin-right"),
-        (&style.fragment.margin.top, "margin-top"),
-        (&style.fragment.margin.bottom, "margin-bottom"),
-    ] {
-        if !margin_inert(side) {
-            return Some(format!("inline {name}"));
-        }
-    }
+    // Inline horizontal margins are modeled (49th law): they displace
+    // the inline box like padding/border gaps — advance edits at the box
+    // boundaries, a line indent for a span opening a forced-break line —
+    // while staying outside the painted box; percentages resolve against
+    // the containing block. Vertical margins have no effect on inline
+    // boxes in CSS, so dropping them matches the browser.
     // Percentage padding has no inline expression; lengths are modeled.
     for (side, name) in [
         (&style.fragment.padding.top, "padding-top"),

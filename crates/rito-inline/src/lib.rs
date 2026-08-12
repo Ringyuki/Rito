@@ -52,6 +52,14 @@ struct ParagraphLayout {
     /// widths shed it so the run rect stays the ink advance the painter
     /// grows the inline box from.
     item_box_sheds: std::collections::HashMap<usize, f64>,
+    /// Per forced-break line start (flow-text byte): the box lead
+    /// (margin, padding, border) of a span opening that line. A lead
+    /// riding the previous character's letter spacing would widen the
+    /// PREVIOUS line across a `<br/>`; Blink indents the span's own line
+    /// (u3000/inline-margin oracle: margin box at x=30, padding glyph at
+    /// +30, both on the span's line), so the line loop shifts the whole
+    /// line instead.
+    forced_line_indents: std::collections::HashMap<usize, f64>,
     /// Per item index: the `ruby-align: space-around` interior gap a
     /// wide annotation opens between its base's clusters. The gap is
     /// already injected as letter spacing on every base cluster but the
@@ -981,6 +989,8 @@ impl ParleyInlineContext {
         let mut box_edits: Vec<(std::ops::Range<usize>, f32, f32)> = Vec::new();
         let mut leading_box_indent = 0.0_f32;
         let mut item_box_sheds: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+        let mut forced_line_indents: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
         {
             let box_side = |value: &rito_style_contract::NonNegativeLengthPercentage| match value
                 .value()
@@ -1000,14 +1010,30 @@ impl ParleyInlineContext {
                 LengthPercentage::Length(px) => px.get(),
                 _ => 0.0,
             };
+            // 49th law: inline horizontal margins displace the inline box
+            // exactly like padding/border gaps, but stay OUTSIDE the
+            // painted box (the pen grows the box by paint padding only).
+            // Percentages resolve against the containing block's inline
+            // size; vertical inline margins have no effect in CSS.
+            let margin_side = |value: &rito_style_contract::LengthPercentageOrAuto| match value {
+                rito_style_contract::LengthPercentageOrAuto::Auto => 0.0_f32,
+                rito_style_contract::LengthPercentageOrAuto::Value(inner) => match inner {
+                    LengthPercentage::Length(px) => px.get(),
+                    LengthPercentage::Percentage(pct) => available_inline_size
+                        .map_or(0.0, |basis| pct.ratio() * basis as f32),
+                    _ => 0.0,
+                },
+            };
             for (index, (range, style, item_index)) in runs.iter().enumerate() {
                 if range.is_empty() {
                     continue;
                 }
                 let lead = box_side(&style.fragment.padding.left)
-                    + edge_width(&style.fragment.border.left);
+                    + edge_width(&style.fragment.border.left)
+                    + margin_side(&style.fragment.margin.left);
                 let trail = box_side(&style.fragment.padding.right)
-                    + edge_width(&style.fragment.border.right);
+                    + edge_width(&style.fragment.border.right)
+                    + margin_side(&style.fragment.margin.right);
                 if trail > 0.0 {
                     if let Some((last, _)) = text[range.clone()].char_indices().last() {
                         box_edits.push((range.start + last..range.end, trail, author(style)));
@@ -1017,6 +1043,15 @@ impl ParleyInlineContext {
                 if lead > 0.0 {
                     if range.start == 0 {
                         leading_box_indent += lead;
+                    } else if text.as_bytes().get(range.start - 1) == Some(&b'\n') {
+                        // The span opens a forced-break line: the lead
+                        // indents that line (a previous-char edit would
+                        // widen the line ABOVE). Breaking does not see
+                        // the reserved width — an indented long span may
+                        // overfit vs Blink; b60-style badge lines hold
+                        // one glyph and are exact.
+                        *forced_line_indents.entry(range.start).or_insert(0.0) +=
+                            f64::from(lead);
                     } else if let Some((prev_range, prev_style, prev_item)) = runs
                         .get(..index)
                         .and_then(|earlier| {
@@ -1137,6 +1172,7 @@ impl ParleyInlineContext {
             pair_trims,
             opener_halt_trims,
             item_box_sheds,
+            forced_line_indents,
             ruby_spreads,
             ruby_spread_overhangs,
             ruby_annotation_widths,
@@ -1303,6 +1339,7 @@ impl FormattingContext for ParleyInlineContext {
             shifted_ranges,
             first_line_indent,
             item_box_sheds,
+            forced_line_indents,
             ruby_spreads,
             ruby_spread_overhangs,
             opener_halt_trims,
@@ -1322,6 +1359,7 @@ impl FormattingContext for ParleyInlineContext {
                 pair_trims,
                 opener_halt_trims,
                 item_box_sheds,
+                forced_line_indents,
                 ruby_spreads,
                 ruby_spread_overhangs,
                 ruby_annotation_widths,
@@ -1609,6 +1647,7 @@ impl FormattingContext for ParleyInlineContext {
                         shifted_ranges,
                         first_line_indent,
                         item_box_sheds,
+                        forced_line_indents,
                         ruby_spreads,
                         ruby_spread_overhangs,
                         opener_halt_trims,
@@ -1783,6 +1822,13 @@ impl FormattingContext for ParleyInlineContext {
                 }
                 (hang - f64::from(metrics.trailing_whitespace)).max(0.0)
             };
+            // A span opening this forced-break line indents it by its box
+            // lead (49th law: margins/padding/border of a post-<br/> span
+            // land on the span's own line).
+            let forced_indent = forced_line_indents
+                .get(&line.text_range().start)
+                .copied()
+                .unwrap_or(0.0);
             let parley_line_x = f64::from(metrics.offset);
             // The hang shift moves the PAINTED line: children below are
             // relativized against parley's own aligned offset so the
@@ -1790,6 +1836,7 @@ impl FormattingContext for ParleyInlineContext {
             // relativized against the shifted value and cancelled itself
             // to a pixel-null — asserted by the paint-position test).
             let line_x = parley_line_x
+                + forced_indent
                 + match alignment {
                     parley::Alignment::Center => hang_uncovered / 2.0,
                     parley::Alignment::End | parley::Alignment::Right => hang_uncovered,
@@ -1806,7 +1853,8 @@ impl FormattingContext for ParleyInlineContext {
                 ) {
                 let range = line.text_range();
                 let indent = if range.start == 0 { first_line_indent } else { 0.0 };
-                let target = f64::from(line_max_advance(line_top)) - f64::from(indent);
+                let target =
+                    f64::from(line_max_advance(line_top)) - f64::from(indent) - forced_indent;
                 // The hanging U+3000 tail leaves the measure like parley's
                 // own trailing whitespace does: Blink justifies the line's
                 // content to the full measure with the spaces hung outside.
@@ -5160,6 +5208,144 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (net - 71.535).abs() < 0.02,
             "为 must ink at the hang-centered offset, got {net}"
+        );
+    }
+
+    #[test]
+    fn observe_symbol_fallback_advances() {
+        let tinos = tinos_bytes();
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![tinos, source_han]).expect("context builds");
+        let text = "解决○∠五世代";
+        let style = plain_paragraph_style(
+            rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
+                "NoSuchFace",
+            ))])
+            .expect("family list"),
+            16.0,
+            0.0,
+        );
+        let mut inline = InlineStyleTableV1::new(1);
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: text.to_owned(),
+                    style: style_id,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(&tree, tree.root(), &ConstraintSpace::continuous(640.0), None, &CancelFlag::new())
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else { panic!() };
+        let Fragment::Line(line) = &root.children[0] else { panic!() };
+        for child in &line.children {
+            if let Fragment::Text(run) = child {
+                eprintln!("[sym] '{}' x={:.4} w={:.4}",
+                    &text[run.text_start as usize..run.text_end as usize], run.rect.x, run.rect.width);
+            }
+        }
+    }
+
+    /// 49th law: an inline horizontal margin displaces the inline box —
+    /// and a span opening a forced-break line indents its OWN line by
+    /// the lead (inline-margin oracle: margin-left 30% in a 100px block
+    /// puts the box at x=30 on the span's line, the previous line
+    /// untouched; the pre-law engine either rejected the style outright
+    /// or would have widened the line above).
+    #[test]
+    fn an_inline_margin_indents_its_forced_break_line() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(2);
+        let families = || rito_style_contract::FontFamilies::new(vec![FontFamily::Named(
+            FontFamilyName::new("NoSuchFace"),
+        )]).expect("family list");
+        let plain = inline
+            .intern_for_node(0, plain_paragraph_style(families(), 32.0, 0.0))
+            .expect("style interns");
+        let mut badge_style = plain_paragraph_style(families(), 22.4, 0.0);
+        badge_style.fragment.margin.left = rito_style_contract::LengthPercentageOrAuto::Value(
+            LengthPercentage::Percentage(
+                rito_style_contract::Percentage::from_ratio(0.3).expect("finite ratio"),
+            ),
+        );
+        let badge = inline.intern_for_node(1, badge_style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "王\n".to_owned(),
+                        style: plain,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                    InlineItem::Text {
+                        text: "的".to_owned(),
+                        style: badge,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(&tree, tree.root(), &ConstraintSpace::continuous(100.0), None, &CancelFlag::new())
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let line_net = |line: &Fragment| -> f64 {
+            let Fragment::Line(line) = line else {
+                panic!("line fragment");
+            };
+            let Some(Fragment::Text(run)) = line.children.first() else {
+                panic!("line has a run");
+            };
+            line.rect.x + run.rect.x
+        };
+        assert!(
+            line_net(&root.children[0]).abs() < 1e-3,
+            "the line above stays flush, got {}",
+            line_net(&root.children[0])
+        );
+        assert!(
+            (line_net(&root.children[1]) - 30.0).abs() < 1e-3,
+            "the badge line indents by 30% of the container, got {}",
+            line_net(&root.children[1])
         );
     }
 
