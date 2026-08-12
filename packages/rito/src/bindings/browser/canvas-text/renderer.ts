@@ -30,7 +30,12 @@ export function drawCanvasTextFragment(
   // row and is then BIT-IDENTICAL to Blink's DOM text raster; 'top' never
   // matches at any sub-pixel phase. The rect's em-top encodes
   // baseline - 0.8*size (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
-  ctx.fillText(fragment.text, x, y + 0.8 * paint.font.sizePx);
+  const baseline = y + 0.8 * paint.font.sizePx;
+  if (textRidesTheLayoutGrid(paint.font.sizePx, paint.wordSpacingPx)) {
+    drawTextOnLayoutGrid(ctx, fragment.text, x, baseline, paint.letterSpacingPx ?? 0);
+  } else {
+    ctx.fillText(fragment.text, x, baseline);
+  }
 
   const { decoration } = paint;
   if (decoration) {
@@ -54,7 +59,7 @@ export function drawCanvasRubyFragment(
     ctx.wordSpacing = '0px';
     ctx.letterSpacing = '0px';
     const measured = ctx.measureText(ruby.text);
-    const glyphs = [...ruby.text].length;
+    const glyphs = Array.from(ruby.text).length;
     const free = ruby.rect.width - measured.width;
     // `ruby-align: space-around` on the annotation (measured on the b96
     // long-base ruby: free 66.77px over 9 glyphs → 3.709px at each edge,
@@ -67,7 +72,7 @@ export function drawCanvasRubyFragment(
     // free/2 = 13.7px at each edge, interior steps natural 5.33px; the
     // per-glyph spread scattered the letters across the base).
     if (glyphs > 1 && free > 0.01 && rubyAnnotationExpands(ruby.text)) {
-      ctx.letterSpacing = `${free / glyphs}px`;
+      ctx.letterSpacing = `${String(free / glyphs)}px`;
       ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
     } else {
       const x = ruby.rect.x + (ruby.rect.width - measured.width) / 2;
@@ -97,6 +102,53 @@ function rubyAnnotationExpands(text: string): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Whether the run's glyph positions must be snapped onto Blink's
+ * LayoutUnit grid glyph by glyph. At an INTEGER font size a CJK run's
+ * float advances stay on the grid and one fillText is already
+ * bit-identical to the DOM raster; a FRACTIONAL size (em cascades like
+ * 0.95em of 16 → 15.2, 0.8em of 15.2 → 12.16) drifts off it, and Blink
+ * paints each glyph at floor64 of the float cumulative advance — the
+ * drift flips subpixel AA variants a whole-run fillText cannot
+ * reproduce (measured: identical rasters at integer positions, a
+ * 98px one-glyph divergence at x=20.4256). Word-spacing runs keep the
+ * whole-run path: canvas applies wordSpacing internally and manual
+ * placement would double it.
+ */
+function textRidesTheLayoutGrid(sizePx: number, wordSpacingPx: number | undefined): boolean {
+  return (sizePx * 64) % 1 !== 0 && !wordSpacingPx;
+}
+
+/**
+ * Paints each glyph at floor64 of the float cumulative advance —
+ * Blink's exact per-glyph placement rule (21/21 positions matched on
+ * the 12.16px oracle line; per-glyph-rounded sums diverge). Justify
+ * shares ride letterSpacingPx (fragment_paint folds them together) and
+ * join the cumulative before the floor, which reproduces the measured
+ * truth expansion map (26/64 base with +1/64 remainders diffused).
+ * Kerning between glyphs is dropped by per-glyph measurement — exact
+ * for CJK, approximate for latin runs at fractional sizes.
+ */
+function drawTextOnLayoutGrid(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  baseline: number,
+  spacingPx: number,
+): void {
+  const previousSpacing = ctx.letterSpacing;
+  ctx.letterSpacing = '0px';
+  let cumulative = 0;
+  let index = 0;
+  for (const glyph of text) {
+    const snapped = Math.floor((cumulative + spacingPx * index) * 64) / 64;
+    ctx.fillText(glyph, x + snapped, baseline);
+    cumulative += ctx.measureText(glyph).width;
+    index += 1;
+  }
+  ctx.letterSpacing = previousSpacing;
 }
 
 function effectiveTextColor(

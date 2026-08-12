@@ -188,6 +188,25 @@ fn layout_unit(value: f64) -> f64 {
     (value * 64.0).round() / 64.0
 }
 
+/// Truncates onto the LayoutUnit grid. Blink's inline layout FLOORS the
+/// positions it derives from float accumulation — the alignment offset
+/// and every glyph position inside a run (Range oracle, 2026-08-12: a
+/// right-aligned 4×15.2px line starts at floor64(579.2) = 579.1875, and
+/// per-char x within a run walks floor64 of the float cumulative
+/// advance).
+fn layout_unit_floor(value: f64) -> f64 {
+    (value * 64.0).floor() / 64.0
+}
+
+/// Rounds UP onto the LayoutUnit grid. A style-item boundary re-anchors
+/// the NEXT item's start at ceil64 of the running float end (Range
+/// oracle, 2026-08-12: adjacent 15.2px spans put the second run at
+/// 45.609375 = ceil64(45.6), where floor would sit at 45.59375; the
+/// justified emit path measured the same rule on a 12px superscript).
+fn layout_unit_ceil(value: f64) -> f64 {
+    (value * 64.0).ceil() / 64.0
+}
+
 /// The used line-box height of a declared line-height, on Blink's grid.
 /// The quantization is TYPE-sensitive (measured, pinned Latin and CJK
 /// faces agree on every case — font metrics never enter): a NUMBER
@@ -1856,13 +1875,20 @@ impl FormattingContext for ParleyInlineContext {
             // shift survives into net positions (the first landing
             // relativized against the shifted value and cancelled itself
             // to a pixel-null — asserted by the paint-position test).
-            let line_x = parley_line_x
-                + forced_indent
-                + match alignment {
-                    parley::Alignment::Center => hang_uncovered / 2.0,
-                    parley::Alignment::End | parley::Alignment::Right => hang_uncovered,
-                    _ => 0.0,
-                };
+            // Blink truncates the alignment offset onto the LayoutUnit
+            // grid (Range oracle, 2026-08-12: a right-aligned 4×15.2px
+            // line starts at 579.1875 = floor64(640 − 60.8), the .8
+            // fraction discriminating floor from round; center behaves
+            // alike). The line's content width itself stays float.
+            let line_x = layout_unit_floor(
+                parley_line_x
+                    + forced_indent
+                    + match alignment {
+                        parley::Alignment::Center => hang_uncovered / 2.0,
+                        parley::Alignment::End | parley::Alignment::Right => hang_uncovered,
+                        _ => 0.0,
+                    },
+            );
             // A justified line spreads its slack equally across Blink's
             // expansion opportunities (see `line_justify_plan`); the
             // paragraph's last line and forced breaks keep the start edge.
@@ -1915,6 +1941,12 @@ impl FormattingContext for ParleyInlineContext {
             // (item index, truth item start, engine item start) for the
             // LayoutUnit item cursor on justified lines.
             let mut justify_item_track: Option<(usize, f64, f64)> = None;
+            // The same LayoutUnit item cursor for UNJUSTIFIED lines: a
+            // style-item boundary re-anchors the next item's start at
+            // ceil64 of the running float end (Range oracle, 2026-08-12:
+            // adjacent 15.2px spans put the second run at 45.609375 =
+            // ceil64(45.6)), while interiors keep the float accumulation.
+            let mut natural_item_track: Option<(usize, f64, f64)> = None;
             // Collect the line's content first, remembering each child's
             // baseline shift, so the line box can grow by however far
             // shifted content rises above the strut before positions are
@@ -2085,6 +2117,32 @@ impl FormattingContext for ParleyInlineContext {
                                 // position, and no canvas call crosses a
                                 // space. (Justified lines already split
                                 // there: a space boundary carries a share.)
+                                // A style-item boundary re-anchors this
+                                // run at ceil64 of the running float end
+                                // (the same LayoutUnit item cursor the
+                                // justified branch keeps); interiors and
+                                // same-item fallback runs continue the
+                                // float accumulation from the anchored
+                                // start.
+                                let run_x = match &mut natural_item_track {
+                                    slot @ None => {
+                                        *slot = Some((item_index, run_x, run_x));
+                                        run_x
+                                    }
+                                    Some((item, truth_start, engine_start)) => {
+                                        if *item != item_index {
+                                            let advance = run_x - *engine_start;
+                                            let truth =
+                                                layout_unit_ceil(*truth_start + advance);
+                                            *item = item_index;
+                                            *truth_start = truth;
+                                            *engine_start = run_x;
+                                            truth
+                                        } else {
+                                            *truth_start + (run_x - *engine_start)
+                                        }
+                                    }
+                                };
                                 let has_space = flow_text
                                     .get(run_range.clone())
                                     .is_some_and(|text| text.contains(' '));
@@ -5229,6 +5287,155 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (net - 71.535).abs() < 0.02,
             "为 must ink at the hang-centered offset, got {net}"
+        );
+    }
+
+    /// #71 campaign, R3 (Range oracle 2026-08-12): a style-item boundary
+    /// re-anchors the next item's run at CEIL64 of the running float end.
+    /// Adjacent 15.2px spans 中文测|试字排版: Blink starts the second run
+    /// at 45.609375 = ceil64(3 × 15.2), where the raw float continuation
+    /// would sit at 45.6 (floor64 45.59375).
+    #[test]
+    fn a_span_boundary_re_anchors_at_ceil64_of_the_float_end() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(2);
+        let families = || {
+            rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
+                "NoSuchFace",
+            ))])
+            .expect("family list")
+        };
+        let mut items = Vec::new();
+        for (index, text) in ["中文测", "试字排版"].into_iter().enumerate() {
+            let style = plain_paragraph_style(families(), 15.2, 0.0);
+            let style_id = inline.intern_for_node(index, style).expect("style interns");
+            items.push(InlineItem::Text {
+                text: text.to_owned(),
+                style: style_id,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            });
+        }
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow { items },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(640.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!()
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!()
+        };
+        let runs: Vec<f64> = line
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Text(run) => Some(line.rect.x + run.rect.x),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(runs.len(), 2, "two spans, two runs");
+        assert!(
+            runs[0].abs() < 1e-9,
+            "first run at the line start, got {}",
+            runs[0]
+        );
+        assert!(
+            (runs[1] - 45.609375).abs() < 1e-9,
+            "second run anchors at ceil64(45.6) = 45.609375, got {}",
+            runs[1]
+        );
+    }
+
+    /// #71 campaign, R2 (Range oracle 2026-08-12): the alignment offset
+    /// truncates onto the LayoutUnit grid — a centered 4×15.2px line in a
+    /// 640px block starts at 289.59375 = floor64((640 − 60.8) / 2).
+    #[test]
+    fn a_centered_line_floors_its_alignment_offset_to_the_layout_grid() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let mut style = plain_paragraph_style(
+            rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
+                "NoSuchFace",
+            ))])
+            .expect("family list"),
+            15.2,
+            0.0,
+        );
+        style.text_flow.text_align = TextAlign::Center;
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: "中文测试".to_owned(),
+                    style: style_id,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(640.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!()
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!()
+        };
+        let Some(Fragment::Text(first)) = line.children.first() else {
+            panic!("line has a run");
+        };
+        let net = line.rect.x + first.rect.x;
+        assert!(
+            (net - 289.59375).abs() < 1e-6,
+            "centered line starts at floor64(289.6) = 289.59375, got {net}"
         );
     }
 

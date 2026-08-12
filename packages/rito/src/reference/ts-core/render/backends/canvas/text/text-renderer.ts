@@ -50,7 +50,25 @@ export function drawTextFragment(
     drawTextShadows(ctx, fragment, x, y, color);
   }
 
-  ctx.fillText(fragment.text, x, mainBaseline);
+  // Fractional font sizes drift off Blink's LayoutUnit grid; each glyph
+  // then paints at floor64 of the float cumulative advance (mirrors the
+  // production pen — both pens change together).
+  if ((paint.font.sizePx * 64) % 1 !== 0 && !paint.wordSpacingPx) {
+    const previousSpacing = ctx.letterSpacing;
+    ctx.letterSpacing = '0px';
+    const spacingPx = paint.letterSpacingPx ?? 0;
+    let cumulative = 0;
+    let index = 0;
+    for (const glyph of fragment.text) {
+      const snapped = Math.floor((cumulative + spacingPx * index) * 64) / 64;
+      ctx.fillText(glyph, x + snapped, mainBaseline);
+      cumulative += ctx.measureText(glyph).width;
+      index += 1;
+    }
+    ctx.letterSpacing = previousSpacing;
+  } else {
+    ctx.fillText(fragment.text, x, mainBaseline);
+  }
 
   // Pre-computed decoration geometry — render just strokes the line.
   const decoration = paint.decoration;
@@ -77,7 +95,7 @@ export function drawRubyFragment(
   ctx.wordSpacing = '0px';
   ctx.letterSpacing = '0px';
   const measured = ctx.measureText(ruby.text);
-  const glyphs = [...ruby.text].length;
+  const glyphs = Array.from(ruby.text).length;
   const free = ruby.rect.width - measured.width;
   // `ruby-align: space-around` on the annotation, mirroring the browser
   // frame-command renderer: the free width splits into one share per
@@ -85,7 +103,7 @@ export function drawRubyFragment(
   // reduces to the packed centering it always had. A LATIN word
   // annotation is one justification unit and centers whole (mirrors the
   // production pen — both pens change together).
-  const expands = [...ruby.text].some((glyph) => {
+  const expands = Array.from(ruby.text).some((glyph) => {
     const code = glyph.codePointAt(0) ?? 0;
     return (
       (code >= 0x2e80 && code <= 0x9fff) ||
@@ -95,7 +113,7 @@ export function drawRubyFragment(
     );
   });
   if (glyphs > 1 && free > 0.01 && expands) {
-    ctx.letterSpacing = `${free / glyphs}px`;
+    ctx.letterSpacing = `${String(free / glyphs)}px`;
     ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
   } else {
     const rubyX = ruby.rect.x + (ruby.rect.width - measured.width) / 2;
