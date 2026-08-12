@@ -2708,6 +2708,20 @@ fn fold_through_collapsing_margins(
         if style.overflow != OverflowV1::Visible {
             return Ok(());
         }
+        // A flow root seals its margins: a FLOAT (or explicit flow-root)
+        // container establishes a new block formatting context, so its
+        // first child's margin stays INSIDE the box instead of lifting
+        // onto it (bridge-level replica: a float holding a 21px-margined
+        // h1 must sit at flow position 0 with the heading 21px inside —
+        // the unguarded fold parked the float itself at 21).
+        if style.float != FloatV1::None
+            || matches!(
+                style.display.inside,
+                rito_style_contract::LayoutDisplayInsideV1::FlowRoot
+            )
+        {
+            return Ok(());
+        }
         fn in_flow(
             nodes: &[FormattingNode],
             layout: &mut LayoutStyleTableV1,
@@ -3749,6 +3763,141 @@ p { margin: 8px 0; }\n\
             .flatten()
             .any(|source| source.href.is_none());
         assert!(unlinked, "the plain paragraph stays link-free");
+    }
+
+    /// #85 full replica with PERCENTAGE margins (the b60 title exactly:
+    /// % margins are unfoldable, so the flow-root fold guard is not in
+    /// play — this observes where the +13.4 line drift enters the
+    /// bridge+layout pipeline).
+    #[test]
+    fn observe_percent_margin_float_lines() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <div class="t1">
+    <h1>X</h1>
+  </div>
+
+  <div class="t2">
+    <h2>2</h2>
+  </div>
+</body></html>"#,
+            "body { margin-left: 1%; margin-right: 1%; line-height: 130%; } .t1 { float: right; margin-top: 4%; margin-left: 10%; width: 48px; } .t2 { float: right; margin-top: 28%; margin-left: 10%; width: 48px; } h1 { font-size: 32px; line-height: 100%; } h2 { font-size: 30.4px; }",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let engine = BlockFormattingContext::new(
+            ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+        );
+        let cancel = CancelFlag::new();
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(640.0),
+                None,
+                &cancel,
+            )
+            .expect("lays out");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root box");
+        };
+        let float_boxes: Vec<(f64, f64)> = root
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Box(float_box) => {
+                    let inner = float_box.children.iter().find_map(|inner| match inner {
+                        Fragment::Box(heading) => Some(heading.rect.y),
+                        _ => None,
+                    });
+                    Some((float_box.rect.y, inner.unwrap_or(f64::NAN)))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(float_boxes.len(), 2, "two floats");
+        // The float sits at its own %-margin (basis = the containing
+        // block, 4% / 28% of 627.2) and the heading's UA margin applies
+        // ONCE inside — the pre-law inner layout re-resolved the float's
+        // %-margin against the float's own 48px width and stacked it onto
+        // the heading (h1 +1.9, h2 +13.4; truth line tops 46.518/200.841).
+        assert!((float_boxes[0].0 - 25.0781).abs() < 0.02, "t1 y {}", float_boxes[0].0);
+        assert!((float_boxes[0].1 - 21.4375).abs() < 0.02, "h1 inner y {}", float_boxes[0].1);
+        assert!((float_boxes[1].0 - 175.6094).abs() < 0.02, "t2 y {}", float_boxes[1].0);
+        assert!((float_boxes[1].1 - 25.2188).abs() < 0.05, "h2 inner y {}", float_boxes[1].1);
+    }
+
+    /// #85 phantom-fy probe at BRIDGE level: the b60 title skeleton
+    /// (two right floats with whitespace text between the divs, each
+    /// holding a margined heading). CSS: the second float's border top =
+    /// its own margin-top (flow position 0). The runtime probe measured
+    /// the real page drifting +13.4 here — this test decides whether the
+    /// phantom lives in the bridge+layout pipeline or upstream.
+    #[test]
+    fn observe_title_float_ys() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <div class="t1">
+    <h1>X</h1>
+  </div>
+
+  <div class="t2">
+    <h2>2</h2>
+  </div>
+</body></html>"#,
+            ".t1 { float: right; width: 48px; } .t2 { float: right; margin-top: 100px; width: 48px; } h1 { margin: 21px 0; font-size: 32px; } h2 { margin: 25px 0; font-size: 30px; }",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let engine = BlockFormattingContext::new(
+            ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+        );
+        let cancel = CancelFlag::new();
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(600.0),
+                None,
+                &cancel,
+            )
+            .expect("lays out");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root box");
+        };
+        let mut float_ys: Vec<f64> = Vec::new();
+        for child in &root.children {
+            if let Fragment::Box(inner) = child {
+                eprintln!("[t85] box source={} y={:.4} h={:.4}", inner.source.0, inner.rect.y, inner.rect.height);
+                float_ys.push(inner.rect.y);
+            }
+            if let Fragment::Line(line) = child {
+                eprintln!("[t85] stray line y={:.4}", line.rect.y);
+            }
+        }
+        assert!(float_ys.len() >= 2, "two float boxes present");
+        assert!(
+            float_ys[0].abs() < 1e-6,
+            "first float at flow 0, got {}",
+            float_ys[0]
+        );
+        assert!(
+            (float_ys[1] - 100.0).abs() < 1e-6,
+            "second float at its own margin-top 100, got {}",
+            float_ys[1]
+        );
     }
 
     #[test]

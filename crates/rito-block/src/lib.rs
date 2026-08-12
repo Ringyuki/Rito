@@ -264,7 +264,25 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 };
                 let margin_right = margin_side(child_style.margin.right);
                 let child_space = ConstraintSpace::continuous(hbox.border_width);
-                let outcome = self.layout(tree, *child_id, &child_space, None, cancel)?;
+                // The float's own margins are THIS placement's business
+                // (fragment y = fy + top_margin): the inner layout must
+                // not re-apply the root margin the collapse_root_edges
+                // path adds for chapter bodies — it re-resolved the
+                // float's %-margin against the float's own width and
+                // stacked it onto the first heading (b60 title: h2 landed
+                // 28% x 48 = 13.4px low inside its float).
+                let outcome = match &tree.node(*child_id).content {
+                    FormattingNodeContent::BlockContainer => self.layout_container(
+                        tree,
+                        *child_id,
+                        &child_space,
+                        None,
+                        cancel,
+                        false,
+                        false,
+                    )?,
+                    _ => self.layout(tree, *child_id, &child_space, None, cancel)?,
+                };
                 let Fragment::Box(child_root) = outcome.fragments.root else {
                     return Err(LayoutError::Invalid(
                         "float layout must produce a box fragment root".to_owned(),
@@ -5088,6 +5106,115 @@ mod tests {
 
     /// Paired float columns like a character-introduction page: 49% left
     /// and 49% right, different heights, followed by nothing.
+    /// #85 phantom-fy replica: two successive right floats, the second
+    /// with a margin-top and each holding a margined paragraph. Its
+    /// fragment y must be exactly its own margin-top (fy = flow position
+    /// 0): the b60 title probe showed the second/third float's y drifting
+    /// +13.4/+60.8 beyond that.
+    #[test]
+    fn a_later_float_keeps_its_flow_position_y() {
+        use rito_style_contract::FloatV1;
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut float_one = block_style(margin_px(0.0), margin_px(0.0));
+        float_one.float = FloatV1::Right;
+        float_one.width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+            LengthPercentage::Length(CssPx::new(48.0).expect("finite")),
+        ));
+        let mut float_two = block_style(margin_px(100.0), margin_px(0.0));
+        float_two.float = FloatV1::Right;
+        float_two.width = float_one.width;
+        let layout = layout_table_with(5, |index| match index {
+            0 => float_one,
+            1 => float_two,
+            2 | 3 => block_style(margin_px(20.0), margin_px(0.0)),
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let paragraph = |node_index: usize| FormattingNode {
+            style: node_style_id(&layout, node_index),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: "line".to_owned(),
+                    style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        };
+        let nodes = vec![
+            paragraph(2),
+            paragraph(3),
+            FormattingNode {
+                style: node_style_id(&layout, 0),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 1),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(1)],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 4),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(2), FormattingNodeId(3)],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(4),
+            rito_fragment::FormattingTreeStyles {
+                layout,
+                inline,
+            },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(600.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root box");
+        };
+        let float_ys: Vec<(u32, f64)> = root
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Box(inner) => Some((inner.source.0, inner.rect.y)),
+                _ => None,
+            })
+            .collect();
+        let first = float_ys.iter().find(|(id, _)| *id == 2).expect("float one");
+        let second = float_ys.iter().find(|(id, _)| *id == 3).expect("float two");
+        assert!(
+            first.1.abs() < 1e-6,
+            "first float sits at its flow position 0, got {}",
+            first.1
+        );
+        assert!(
+            (second.1 - 100.0).abs() < 1e-6,
+            "second float sits at flow 0 + its margin-top 100, got {}",
+            second.1
+        );
+    }
+
     #[test]
     fn paired_float_columns_split_and_resume_side_by_side_across_pages() {
         use rito_style_contract::{FloatV1, NonNegativeLengthPercentage, Percentage};
