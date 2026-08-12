@@ -287,7 +287,7 @@ function fillSolidRoundedSide(
   ctx.fill('evenodd');
 }
 
-function strokeBorder(
+export function strokeBorder(
   ctx: CanvasRenderingContext2D,
   edge: RenderBorderEdge,
   x1: number,
@@ -295,7 +295,11 @@ function strokeBorder(
   x2: number,
   y2: number,
 ): void {
-  if (edge.style === 'dotted' && (edge.width === 1 || edge.width === 2) && (x1 === x2 || y1 === y2)) {
+  if (
+    edge.style === 'dotted' &&
+    (edge.width === 1 || edge.width === 2) &&
+    (x1 === x2 || y1 === y2)
+  ) {
     strokeBinaryDotted(ctx, edge, x1, y1, x2, y2);
     return;
   }

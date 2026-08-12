@@ -68,6 +68,36 @@ describe('browser frame-command Canvas renderer', () => {
     expect(unthemed.getPropertySets('fillStyle').map((set) => set.value)).toEqual(['#ffffff']);
   });
 
+  it('rasters a 2px dotted rule as binary square dots like a border edge', () => {
+    // b74 title: `hr { border-top: 2px dotted green }` — Blink paints the
+    // same binary 2×2-dot raster it uses for dotted block borders (dots at
+    // 0 and span−2, interior series at 3+4k). The old rule-local stroke
+    // (1.5px round-cap dash) inked pale, small, tightly packed dots.
+    const commands: readonly RitoCoreWasmFrameCommand[] = [
+      {
+        kind: 'paintHorizontalRule',
+        rect: { x: 40, y: 80, width: 20, height: 2 },
+        paint: { color: '#008000', style: 'dotted' },
+      },
+    ];
+
+    const mock = createMockCanvasContext();
+    renderFrameCommandsToCanvas(commands, mock.ctx, { pixelRatio: 1 });
+
+    expect(mock.getCalls('stroke')).toHaveLength(0);
+    expect(mock.getPropertySets('fillStyle').map((set) => set.value)).toEqual(['#008000']);
+    // span 20 from x=40: dot(0)=40, dot(span−2)=58, interior 3+4k → 43, 47, 51, 55.
+    const dots = mock.getCalls('fillRect').map((call) => call.args);
+    expect(dots).toEqual([
+      [40, 80, 2, 2],
+      [58, 80, 2, 2],
+      [43, 80, 2, 2],
+      [47, 80, 2, 2],
+      [51, 80, 2, 2],
+      [55, 80, 2, 2],
+    ]);
+  });
+
   it('contains a text paint fault: no throw, state restored, fault recorded', () => {
     const mock = createMockCanvasContext();
     const ctx = contextThrowingOn(mock.ctx, 'fillText');
@@ -201,7 +231,14 @@ describe('browser frame-command Canvas renderer', () => {
     },
   ])(
     'matches the reference $name clip path',
-    ({ radius, expectedRect, expectedArc, expectedEllipse, expectedFirstEllipse, expectedArcRadius }) => {
+    ({
+      radius,
+      expectedRect,
+      expectedArc,
+      expectedEllipse,
+      expectedFirstEllipse,
+      expectedArcRadius,
+    }) => {
       const command: RitoCoreWasmFrameCommand = {
         kind: 'clipRect',
         rect: { x: 2, y: 3, width: 20, height: 10 },

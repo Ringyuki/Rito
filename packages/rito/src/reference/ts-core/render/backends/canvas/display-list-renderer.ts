@@ -13,6 +13,7 @@ import type {
   PaintTextCommand,
 } from '../../display-list';
 import { renderBlockDecoration, traceRoundedRect } from './background/background-renderer';
+import { strokeBorder } from './background/background-borders';
 import { createCanvasImageResolver } from './image-resolver';
 import { drawRubyFragment, drawTextFragment } from './text/text-renderer';
 import { isBookOwnedPageGround, isOpaqueColor } from '../../../utils/color';
@@ -296,21 +297,23 @@ function paintHorizontalRule(
   command: PaintHorizontalRuleCommand,
 ): void {
   const { rect, paint } = command;
+  // A styled rule is a border edge in Blink (the <hr>'s border-top), so
+  // dotted/dashed/double stroke through the same measured border model
+  // as block borders — binary dot raster and the double pair included.
+  if (paint.style !== 'solid') {
+    const edge = { width: rect.height, color: paint.color, style: paint.style };
+    const centerY = rect.y + rect.height / 2;
+    ctx.save();
+    strokeBorder(ctx, edge, rect.x, centerY, rect.x + rect.width, centerY);
+    ctx.restore();
+    return;
+  }
   const rawY = rect.y + rect.height / 2;
   const snap = rect.height % 2 === 1 ? 0.5 : 0;
   const y = Math.round(rawY) + snap;
   ctx.save();
   ctx.strokeStyle = paint.color;
-  if (paint.style === 'dotted') {
-    ctx.lineWidth = rect.height * 0.75;
-    ctx.setLineDash([0.001, rect.height * 1.5]);
-    ctx.lineCap = 'round';
-  } else if (paint.style === 'dashed') {
-    ctx.lineWidth = rect.height;
-    ctx.setLineDash([rect.height * 3, rect.height * 2]);
-  } else {
-    ctx.lineWidth = rect.height;
-  }
+  ctx.lineWidth = rect.height;
   ctx.beginPath();
   ctx.moveTo(Math.round(rect.x), y);
   ctx.lineTo(Math.round(rect.x + rect.width), y);

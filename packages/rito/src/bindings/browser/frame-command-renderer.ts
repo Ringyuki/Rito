@@ -1,5 +1,6 @@
 import type { CoreFrameCommand } from './core-contracts';
 import { renderCanvasBlockDecoration } from './canvas-block/renderer';
+import { strokeBorder } from './canvas-block/border-stroke';
 import { traceRoundedRect } from './canvas-path';
 import { drawCanvasRubyFragment, drawCanvasTextFragment } from './canvas-text/renderer';
 import type { CanvasTextColorOverride } from './canvas-text/types';
@@ -110,12 +111,13 @@ function recordRenderFailure(
   totalCommands: number,
 ): void {
   const scope = globalThis as { __ritoRenderFailures?: unknown[] };
-  let failedCommand: unknown = null;
-  try {
-    failedCommand = JSON.parse(JSON.stringify(command)) as unknown;
-  } catch {
-    failedCommand = { kind: command.kind };
-  }
+  const failedCommand: unknown = (() => {
+    try {
+      return JSON.parse(JSON.stringify(command)) as unknown;
+    } catch {
+      return { kind: command.kind };
+    }
+  })();
   scope.__ritoRenderFailures = [
     ...(scope.__ritoRenderFailures ?? []).slice(-9),
     {
@@ -323,18 +325,26 @@ function paintImage(
 
 function paintHorizontalRule(ctx: CanvasRenderingContext2D, command: HorizontalRuleCommand): void {
   const { rect, paint } = command;
+  // A styled rule is a border edge in Blink (the <hr>'s border-top), so
+  // dotted/dashed/double stroke through the same measured border model
+  // as block borders — binary dot raster and the double pair included.
+  if (paint.style !== 'solid') {
+    const edge = { width: rect.height, color: paint.color, style: paint.style };
+    const centerY = rect.y + rect.height / 2;
+    ctx.save();
+    try {
+      strokeBorder(ctx, edge, rect.x, centerY, rect.x + rect.width, centerY);
+    } finally {
+      ctx.restore();
+    }
+    return;
+  }
   const rawY = rect.y + rect.height / 2;
   const y = Math.round(rawY) + (rect.height % 2 === 1 ? 0.5 : 0);
   ctx.save();
   try {
     ctx.strokeStyle = paint.color;
-    ctx.lineWidth = paint.style === 'dotted' ? rect.height * 0.75 : rect.height;
-    if (paint.style === 'dotted') {
-      ctx.setLineDash([0.001, rect.height * 1.5]);
-      ctx.lineCap = 'round';
-    } else if (paint.style === 'dashed') {
-      ctx.setLineDash([rect.height * 3, rect.height * 2]);
-    }
+    ctx.lineWidth = rect.height;
     ctx.beginPath();
     ctx.moveTo(Math.round(rect.x), y);
     ctx.lineTo(Math.round(rect.x + rect.width), y);
