@@ -148,7 +148,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // resumes in its own band at the top of the next fragmentainer.
         // An incoming band is an ancestor's float still excluding content
         // at this container's origin: its own floats stack beside it.
-        let mut floats = FloatBands::from_incoming(space.float_band);
+        let mut floats = FloatBands::from_incoming(space.float_band, content_width);
         // Floats this container placed, reported outward when it is not a
         // formatting-context root: CSS keeps them excluding content in the
         // ancestor root, not at this box's edge.
@@ -2251,56 +2251,118 @@ fn is_flow_root(style: &LayoutFormattingStyleV1) -> bool {
 /// bottom, whichever is lower (the container is a flow root and contains
 /// its floats).
 fn seal_height(y: f64, floats: &FloatBands) -> f64 {
-    y.max(floats.left_bottom).max(floats.right_bottom)
+    y.max(floats.left_bottom()).max(floats.right_bottom())
 }
 
 /// Active float occupancy inside one container, in flow coordinates.
 ///
-/// The supported profile is placed float boxes (paired columns, decorative
-/// side boxes): floats stack horizontally in a band while they fit, start
-/// a new band below both sides when they do not, and in-flow content after
-/// them must clear — line boxes never shorten around a float here, they
-/// fail closed instead.
+/// Each placed float is kept as its own margin box (50th law): a new
+/// float starts at its hypothetical flow position and stacks against the
+/// floats STILL ACTIVE at its own y — CSS 2.1 §9.5.1 — instead of the
+/// retired single-band model whose cumulative occupied widths chained
+/// every float of a page into one x-run (measured on b60's title: the
+/// third column belongs at the second column's margin edge because the
+/// first two have expired at its y, 474.89 exact, where the band chain
+/// parked it at 508.4).
 struct FloatBands {
-    /// Occupied width on the left side of the current band.
-    left_occupied: f64,
-    /// Occupied width on the right side of the current band.
-    right_occupied: f64,
-    /// Top of the current band, flow coordinates.
-    band_top: f64,
-    /// Deepest bottom edge of any left float.
-    left_bottom: f64,
-    /// Deepest bottom edge of any right float.
-    right_bottom: f64,
+    /// Every float box this container has placed or adopted, in source
+    /// order. `x0..x1` is the SIGNED margin-box interval exactly as
+    /// handed back to the placement caller (negative margins can invert
+    /// it); queries normalize per box.
+    boxes: Vec<PlacedFloatBox>,
+    /// Highest top any next float may take (§9.5.1 rule 5: a float is
+    /// never higher than an earlier float's top).
+    floor_y: f64,
+}
+
+struct PlacedFloatBox {
+    right_side: bool,
+    x0: f64,
+    x1: f64,
+    top: f64,
+    bottom: f64,
 }
 
 impl FloatBands {
     fn new() -> Self {
         Self {
-            left_occupied: 0.0,
-            right_occupied: 0.0,
-            band_top: 0.0,
-            left_bottom: f64::NEG_INFINITY,
-            right_bottom: f64::NEG_INFINITY,
+            boxes: Vec::new(),
+            floor_y: f64::NEG_INFINITY,
         }
     }
 
     fn has_active(&self, flow_y: f64) -> bool {
-        self.left_bottom > flow_y || self.right_bottom > flow_y
+        self.boxes.iter().any(|b| b.bottom > flow_y + 1e-6)
+    }
+
+    fn left_bottom(&self) -> f64 {
+        self.boxes
+            .iter()
+            .filter(|b| !b.right_side)
+            .map(|b| b.bottom)
+            .fold(f64::NEG_INFINITY, f64::max)
+    }
+
+    fn right_bottom(&self) -> f64 {
+        self.boxes
+            .iter()
+            .filter(|b| b.right_side)
+            .map(|b| b.bottom)
+            .fold(f64::NEG_INFINITY, f64::max)
+    }
+
+    /// Rightmost active-left-float edge at `y` (the left content limit).
+    fn left_edge(&self, y: f64) -> f64 {
+        self.boxes
+            .iter()
+            .filter(|b| !b.right_side && b.bottom > y + 1e-6)
+            .map(|b| b.x0.max(b.x1))
+            .fold(0.0, f64::max)
+    }
+
+    /// Leftmost active-right-float edge at `y` (the right content limit).
+    fn right_edge(&self, y: f64, content_width: f64) -> f64 {
+        self.boxes
+            .iter()
+            .filter(|b| b.right_side && b.bottom > y + 1e-6)
+            .map(|b| b.x0.min(b.x1))
+            .fold(content_width, f64::min)
+    }
+
+    /// The earliest y past `y` where an active box expires (the next
+    /// band edge), if any.
+    fn next_band_edge(&self, y: f64) -> Option<f64> {
+        self.boxes
+            .iter()
+            .filter(|b| b.bottom > y + 1e-6)
+            .map(|b| b.bottom)
+            .fold(None, |lowest: Option<f64>, bottom| {
+                Some(lowest.map_or(bottom, |value| value.min(bottom)))
+            })
     }
 
     /// Seeds the bands with an ancestor's exclusion at this container's
     /// origin, so floats placed here stack beside it instead of on top.
-    fn from_incoming(band: Option<rito_fragment::FloatBand>) -> Self {
+    fn from_incoming(band: Option<rito_fragment::FloatBand>, content_width: f64) -> Self {
         let mut bands = Self::new();
         if let Some(band) = band {
-            bands.left_occupied = band.left_inset;
-            bands.right_occupied = band.right_inset;
             if band.left_inset > 0.0 {
-                bands.left_bottom = band.bottom;
+                bands.boxes.push(PlacedFloatBox {
+                    right_side: false,
+                    x0: 0.0,
+                    x1: band.left_inset,
+                    top: f64::NEG_INFINITY,
+                    bottom: band.bottom,
+                });
             }
             if band.right_inset > 0.0 {
-                bands.right_bottom = band.bottom;
+                bands.boxes.push(PlacedFloatBox {
+                    right_side: true,
+                    x0: content_width - band.right_inset,
+                    x1: content_width,
+                    top: f64::NEG_INFINITY,
+                    bottom: band.bottom,
+                });
             }
         }
         bands
@@ -2309,35 +2371,36 @@ impl FloatBands {
     /// Registers a float that escaped a descendant container so it keeps
     /// excluding content in this one.
     fn adopt(&mut self, float: rito_fragment::EscapedFloat, content_width: f64) {
-        let _ = content_width;
         if float.right_side {
-            self.right_occupied = self.right_occupied.max(float.width);
-            self.right_bottom = self.right_bottom.max(float.bottom);
+            self.boxes.push(PlacedFloatBox {
+                right_side: true,
+                x0: content_width - float.width,
+                x1: content_width,
+                top: float.top,
+                bottom: float.bottom,
+            });
         } else {
-            self.left_occupied = self.left_occupied.max(float.width);
-            self.left_bottom = self.left_bottom.max(float.bottom);
+            self.boxes.push(PlacedFloatBox {
+                right_side: false,
+                x0: 0.0,
+                x1: float.width,
+                top: float.top,
+                bottom: float.bottom,
+            });
         }
-        self.band_top = self.band_top.max(float.top);
+        self.floor_y = self.floor_y.max(float.top);
     }
 
     /// The exclusion an in-flow paragraph starting at `flow_y` sees: how
     /// much inline space each side withholds, and how far down the band
     /// reaches. `None` once no float overlaps that position.
     fn band_at(&self, flow_y: f64, content_width: f64) -> Option<rito_fragment::FloatBand> {
-        let bottom = self.left_bottom.max(self.right_bottom);
+        let bottom = self.left_bottom().max(self.right_bottom());
         if bottom <= flow_y + 1e-6 {
             return None;
         }
-        let left_inset = if self.left_bottom > flow_y + 1e-6 {
-            self.left_occupied
-        } else {
-            0.0
-        };
-        let right_inset = if self.right_bottom > flow_y + 1e-6 {
-            self.right_occupied
-        } else {
-            0.0
-        };
+        let left_inset = self.left_edge(flow_y);
+        let right_inset = (content_width - self.right_edge(flow_y, content_width)).max(0.0);
         if left_inset + right_inset <= 0.0 || left_inset + right_inset >= content_width {
             return None;
         }
@@ -2351,33 +2414,31 @@ impl FloatBands {
     fn bottom_for(&self, clear: ClearV1) -> f64 {
         match clear {
             ClearV1::None => f64::NEG_INFINITY,
-            ClearV1::Left => self.left_bottom,
-            ClearV1::Right => self.right_bottom,
-            ClearV1::Both => self.left_bottom.max(self.right_bottom),
+            ClearV1::Left => self.left_bottom(),
+            ClearV1::Right => self.right_bottom(),
+            ClearV1::Both => self.left_bottom().max(self.right_bottom()),
         }
     }
 
     /// The band top a float of `width` would land on, starting no higher
     /// than `flow_y`, without committing anything.
     fn probe_y(&self, width: f64, flow_y: f64, content_width: f64) -> f64 {
-        let mut left_occupied = self.left_occupied;
-        let mut right_occupied = self.right_occupied;
-        let mut band_top = self.band_top;
-        if flow_y > band_top {
-            if self.left_bottom <= flow_y && self.right_bottom <= flow_y {
-                left_occupied = 0.0;
-                right_occupied = 0.0;
+        let mut y = flow_y.max(self.floor_y);
+        loop {
+            let left = self.left_edge(y);
+            let right = self.right_edge(y, content_width);
+            if right - left + 1e-6 >= width || !self.has_active(y) {
+                return y;
             }
-            band_top = band_top.max(flow_y);
+            match self.next_band_edge(y) {
+                Some(edge) if edge > y => y = edge,
+                _ => return y,
+            }
         }
-        if left_occupied + right_occupied + width > content_width + 1e-6 {
-            band_top = self.left_bottom.max(self.right_bottom).max(band_top);
-        }
-        band_top
     }
 
     /// Places one float of `width`, starting no higher than `flow_y`.
-    /// Returns the border-box x (content-area relative) and y.
+    /// Returns the margin-box x (content-area relative) and y.
     fn place(
         &mut self,
         side: FloatV1,
@@ -2386,38 +2447,19 @@ impl FloatBands {
         flow_y: f64,
         content_width: f64,
     ) -> (f64, f64) {
-        if flow_y > self.band_top {
-            // Flow advanced past this band: floats placed from here start
-            // a fresh band at the flow position.
-            if self.left_bottom <= flow_y && self.right_bottom <= flow_y {
-                self.left_occupied = 0.0;
-                self.right_occupied = 0.0;
-            }
-            self.band_top = self.band_top.max(flow_y);
-        }
-        let fits = self.left_occupied + self.right_occupied + width <= content_width + 1e-6;
-        if !fits {
-            // New band below everything currently floated.
-            self.band_top = self.left_bottom.max(self.right_bottom).max(self.band_top);
-            self.left_occupied = 0.0;
-            self.right_occupied = 0.0;
-        }
-        let y = self.band_top;
-        debug_assert!((y - self.band_top).abs() < 1e-9);
+        let y = self.probe_y(width, flow_y, content_width);
         let x = match side {
-            FloatV1::Left => {
-                let x = self.left_occupied;
-                self.left_occupied += width;
-                self.left_bottom = self.left_bottom.max(y + height);
-                x
-            }
-            FloatV1::Right | FloatV1::None => {
-                let x = content_width - self.right_occupied - width;
-                self.right_occupied += width;
-                self.right_bottom = self.right_bottom.max(y + height);
-                x
-            }
+            FloatV1::Left => self.left_edge(y),
+            FloatV1::Right | FloatV1::None => self.right_edge(y, content_width) - width,
         };
+        self.boxes.push(PlacedFloatBox {
+            right_side: !matches!(side, FloatV1::Left),
+            x0: x,
+            x1: x + width,
+            top: y,
+            bottom: y + height,
+        });
+        self.floor_y = self.floor_y.max(y);
         (x, y)
     }
 }
@@ -3013,6 +3055,48 @@ fn sealed(
 
 #[cfg(test)]
 mod tests {
+
+    /// 50th law: floats place individually per CSS 9.5.1 — each stacks
+    /// against the floats still ACTIVE at its own position, not into a
+    /// cumulative band chain. Replica of b60's title page (element-box
+    /// oracle, basis 627.219 = body content after 1% side padding; margin
+    /// boxes carry SIGNED widths — two negative margins in the set):
+    /// title2 belongs at title1's margin edge because title1-1 has
+    /// expired vertically, and title3 at title2's edge likewise. The old
+    /// band chain parked title2 at 439.3 (paint 508.4) where Blink puts
+    /// it at 405.78 (paint 474.89 exact).
+    #[test]
+    fn floats_stack_against_the_active_set_not_a_band_chain() {
+        let cw = 627.219;
+        let mut floats = FloatBands::new();
+        let close = |value: f64, expect: f64| (value - expect).abs() < 1e-3;
+        // title1: ml 62.719 + w 48; margin box spans mt 25.078 + h 205.875.
+        let (x1, y1) = floats.place(FloatV1::Right, 110.719, 230.953, 0.0, cw);
+        assert!(close(x1, 516.5) && close(y1, 0.0), "title1 at ({x1}, {y1})");
+        // title1-1: ml -81.531 + w 48 (negative outer width!), bottom 163.953.
+        let (x2, y2) = floats.place(FloatV1::Right, -33.531, 163.953, 0.0, cw);
+        assert!(close(x2, 550.031) && close(y2, 0.0), "title1-1 at ({x2}, {y2})");
+        // title2: same outer shape as title1, bottom 246.844.
+        let (x3, y3) = floats.place(FloatV1::Right, 110.719, 246.844, 0.0, cw);
+        assert!(close(x3, 405.781) && close(y3, 0.0), "title2 at ({x3}, {y3})");
+        // title3: w 160 + mr -188.156 (right-overhang), bottom 317.5.
+        let (x4, y4) = floats.place(FloatV1::Right, -28.156, 317.5, 0.0, cw);
+        assert!(close(x4, 433.937) && close(y4, 0.0), "title3 at ({x4}, {y4})");
+    }
+
+    /// A float too wide for the space beside active floats steps down to
+    /// the next band edge (the earliest active bottom), preserving the
+    /// old model's fits-below behavior.
+    #[test]
+    fn an_unfitting_float_steps_below_the_blocking_band() {
+        let mut floats = FloatBands::new();
+        let (x1, y1) = floats.place(FloatV1::Left, 300.0, 100.0, 0.0, 400.0);
+        assert!((x1, y1) == (0.0, 0.0));
+        let (x2, y2) = floats.place(FloatV1::Right, 200.0, 50.0, 0.0, 400.0);
+        assert!((x2 - 200.0).abs() < 1e-9 && (y2 - 100.0).abs() < 1e-9,
+            "second float steps below the first, got ({x2}, {y2})");
+    }
+
     use super::*;
     use rito_fragment::{FormattingNode, FormattingTreeStyles, InlineItem, LineFragment};
     use rito_inline::{plain_paragraph_style, ParleyInlineContext};
