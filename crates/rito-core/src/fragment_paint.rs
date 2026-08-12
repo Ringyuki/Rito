@@ -875,7 +875,17 @@ fn run_paint(
         },
         color,
         background_color,
-        background_radius: None,
+        // One uniform radius slot, first-shorthand-component convention
+        // (same contract as the block materializer): the pen's overlap
+        // scale clamps an oversized value to the inline box, so b60's
+        // border-radius:50px badge rounds to the circle Blink draws
+        // instead of the square the hardcoded None left behind.
+        background_radius: match style.fragment.border_radii.top_left.horizontal.value() {
+            rito_style_contract::LengthPercentage::Length(value) if value.get() > 0.0 => {
+                Some(f64::from(value.get()))
+            }
+            _ => None,
+        },
         text_shadows: Arc::from(text_shadows),
         decoration: run_decoration(style, font_size)?,
         padding: run_box_padding(style, box_start, box_end),
