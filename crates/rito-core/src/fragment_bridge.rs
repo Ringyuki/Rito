@@ -2098,12 +2098,23 @@ fn inline_box_capability_violation(
     if !style.paint.transform.is_none() {
         return Some("inline transform".to_owned());
     }
-    // Inline horizontal margins are modeled (49th law): they displace
-    // the inline box like padding/border gaps — advance edits at the box
-    // boundaries, a line indent for a span opening a forced-break line —
-    // while staying outside the painted box; percentages resolve against
-    // the containing block. Vertical margins have no effect on inline
-    // boxes in CSS, so dropping them matches the browser.
+    // Inline margins still displace glyphs the layout does not model;
+    // inline padding and borders are implemented (advance edits at the
+    // box boundaries, painted as the run's grown inline box).
+    let margin_inert = |side: &c::LengthPercentageOrAuto| match side {
+        c::LengthPercentageOrAuto::Auto => true,
+        c::LengthPercentageOrAuto::Value(value) => length_percentage_is_zero(value),
+    };
+    for (side, name) in [
+        (&style.fragment.margin.left, "margin-left"),
+        (&style.fragment.margin.right, "margin-right"),
+        (&style.fragment.margin.top, "margin-top"),
+        (&style.fragment.margin.bottom, "margin-bottom"),
+    ] {
+        if !margin_inert(side) {
+            return Some(format!("inline {name}"));
+        }
+    }
     // Percentage padding has no inline expression; lengths are modeled.
     for (side, name) in [
         (&style.fragment.padding.top, "padding-top"),
