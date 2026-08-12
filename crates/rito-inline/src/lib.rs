@@ -3491,7 +3491,14 @@ fn line_justify_plan(
     }
     let expands_after = |left: &Left| match left {
         Left::Char(character) => justify_expands_after(*character),
-        Left::Atom => true,
+        // An atomic inline is NON-expansive on its trailing side: the
+        // b20 badge line's truth map gives [atom|，] ZERO shares and
+        // ，|有 TWO — the following CJK char's before-share defers one
+        // boundary late, exactly the 47th-law machinery. (The 34th-law
+        // reading that an atom expands on both sides overfit its line;
+        // the leading [text|atom] boundary DOES expand via the left
+        // character's own class.)
+        Left::Atom => false,
     };
     let mut previous: Option<Left> = None;
     let mut atoms = atom_positions
@@ -6874,25 +6881,26 @@ running through the quiet forest until the morning light returns.";
     }
 
     #[test]
-    fn an_atomic_inline_counts_as_an_ideograph_in_the_justify_plan() {
-        // 34th law, b20's note badge: Blink enumerates a justification
-        // opportunity on BOTH sides of an in-flow atomic inline (the
-        // truth's comma after the badge carries a double share), and the
-        // atom's own justified x rides the shares before it — its left
-        // boundary included (the badge sits at the END of the preceding
-        // run's EXPANDED advance).
+    fn an_atomic_inline_expands_before_but_defers_after() {
+        // 34th law amended by the b20 badge-line truth map (2026-08-13):
+        // the [text|atom] boundary expands (the badge sits at the END of
+        // the preceding run's EXPANDED advance), but the atom is
+        // NON-expansive on its trailing side — [atom|，] carries ZERO and
+        // the comma's deferred before-share lands one boundary late
+        // (，|next carries TWO). The total stays 4, so the share value is
+        // unchanged; only the comma's own x shifts one share left.
         let text = "中中，中";
         let atoms = vec![6usize];
         let plan =
             line_justify_plan(text, 0..text.len(), 5.0, &[], &atoms).expect("plan builds");
-        assert_eq!(plan.share, 1.25, "4 opportunities: both atom sides count");
+        assert_eq!(plan.share, 1.25, "4 opportunities: deferral keeps the total");
         assert_eq!(plan.count_at(3), 1);
         assert_eq!(
             plan.count_at(6),
-            2,
-            "the atom boundary and its right boundary merge at the comma's key"
+            1,
+            "only the [text|atom] boundary at the comma's key; [atom|，] defers"
         );
-        assert_eq!(plan.count_at(9), 1);
+        assert_eq!(plan.count_at(9), 2, "the deferred share lands after the comma");
         assert_eq!(
             plan.atom_shares_at(6, 0),
             Some(2),
