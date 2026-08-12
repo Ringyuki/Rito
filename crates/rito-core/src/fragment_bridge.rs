@@ -3900,6 +3900,72 @@ p { margin: 8px 0; }\n\
         );
     }
 
+    /// Observation (b74 title, 53rd-law candidate): a text-carrying div
+    /// with a fixed `height` must flow at padding + height (Blink: the
+    /// `.book-rank` pill is 24 + 30 = 54 tall, its line overflowing
+    /// visibly), not at its natural line height. The pixel walk measured
+    /// the three blocks below the rank sitting 9.2px high — exactly
+    /// 30 − 20.8 (the fixed height replaced by one 130% line).
+    #[test]
+    fn observe_fixed_height_text_div_flow() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <div class="a">x</div>
+  <div class="rank">I</div>
+  <div class="b">y</div>
+</body></html>"#,
+            "body { line-height: 130%; } .rank { height: 30px; padding-top: 24px; font-size: 24px; }",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let engine = BlockFormattingContext::new(
+            ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+        );
+        let cancel = CancelFlag::new();
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(600.0),
+                None,
+                &cancel,
+            )
+            .expect("lays out");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root box");
+        };
+        let mut tops: Vec<f64> = Vec::new();
+        for child in &root.children {
+            match child {
+                Fragment::Box(inner) => {
+                    eprintln!(
+                        "[t-rank] box source={} y={:.4} h={:.4}",
+                        inner.source.0, inner.rect.y, inner.rect.height
+                    );
+                    tops.push(inner.rect.y);
+                }
+                Fragment::Line(line) => {
+                    eprintln!("[t-rank] line y={:.4} h={:.4}", line.rect.y, line.rect.height);
+                    tops.push(line.rect.y);
+                }
+                _ => {}
+            }
+        }
+        assert!(tops.len() >= 3, "three blocks present");
+        let last = *tops.last().expect("last block top");
+        // Blink: .a line 20.8, .rank flows 24 + 30 = 54 → .b at 74.8.
+        assert!(
+            (last - 74.8).abs() < 0.05,
+            "the block after the fixed-height div flows at 74.8, got {last}"
+        );
+    }
+
     #[test]
     fn real_chapter_paginates_losslessly_through_the_new_engine() {
         let chapter = resolved_chapter();

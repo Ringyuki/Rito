@@ -819,7 +819,26 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         } else {
                             0.0
                         };
-                        let paragraph_height = content_height + trailing_padding;
+                        // A specified height fixes the paragraph's
+                        // border-box height exactly like a block
+                        // container's: short content leaves empty space,
+                        // tall lines overflow visibly (b74's title pill,
+                        // `height: 30px; padding-top: 1em` around a 20.8px
+                        // line, flows 54px tall in Blink). It applies when
+                        // the whole box lands in this fragment; split
+                        // boxes keep per-fragment content heights.
+                        let whole_box_here =
+                            consumed == 0.0 && placement.exhausted && !trailing_deferred;
+                        let fixed_height = if whole_box_here {
+                            resolve_fixed_height(
+                                child_style,
+                                hbox.padding_top + hbox.padding_bottom,
+                            )?
+                        } else {
+                            None
+                        };
+                        let paragraph_height =
+                            fixed_height.unwrap_or(content_height + trailing_padding);
                         let children: Vec<Fragment> = placement
                             .lines
                             .into_iter()
@@ -2013,7 +2032,16 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 let padding_right = pad(style.padding.right);
                 let padding_top = pad(style.padding.top);
                 let padding_bottom = pad(style.padding.bottom);
-                if padding_left + padding_right + padding_top + padding_bottom == 0.0 {
+                // A paragraph with a specified height flows at that
+                // border-box height exactly like a block container: short
+                // content leaves empty space, tall lines overflow visibly
+                // (b74's title pill: `height: 30px; padding-top: 1em` flows
+                // 54px tall around a 20.8px line).
+                let fixed_height =
+                    resolve_fixed_height(&style, padding_top + padding_bottom)?;
+                if padding_left + padding_right + padding_top + padding_bottom == 0.0
+                    && fixed_height.is_none()
+                {
                     return self.inline.layout(tree, node, space, token, cancel);
                 }
                 // A resumed paragraph left its top padding on its first
@@ -2045,6 +2073,11 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 }
                 root.rect.width = space.inline_size;
                 root.rect.height += leading + trailing;
+                if let Some(fixed) = fixed_height {
+                    if outcome.continuation.is_none() {
+                        root.rect.height = fixed;
+                    }
+                }
                 Ok(outcome)
             }
             FormattingNodeContent::SizedLeaf { .. } => Err(LayoutError::Invalid(
