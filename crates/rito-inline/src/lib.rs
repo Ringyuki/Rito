@@ -1073,6 +1073,27 @@ impl ParleyInlineContext {
                 }
             }
         }
+        // Coincident box edits sum: one character can carry BOTH its own
+        // box's trailing gap and the next box's leading gap (b74's title
+        // cards — four adjacent bordered spans). Pushed separately they
+        // land on the same builder range and the later LetterSpacing
+        // OVERWRITES the earlier, silently dropping one gap (every
+        // non-final card lost its 4px trail). The author spacing on both
+        // edits comes from the same character's style, so merging keeps
+        // it single-counted.
+        {
+            let mut coalesced: Vec<(std::ops::Range<usize>, f32, f32)> = Vec::new();
+            for (range, gap, author) in box_edits.drain(..) {
+                if let Some(existing) =
+                    coalesced.iter_mut().find(|(seen, ..)| *seen == range)
+                {
+                    existing.1 += gap;
+                } else {
+                    coalesced.push((range, gap, author));
+                }
+            }
+            box_edits = coalesced;
+        }
         let first_line_indent = first_line_indent + leading_box_indent;
         let opener_halt_trims: Vec<(std::ops::Range<usize>, f64)> = punctuation_trims
             .iter()
@@ -5208,6 +5229,113 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (net - 71.535).abs() < 0.02,
             "为 must ink at the hang-centered offset, got {net}"
+        );
+    }
+
+    /// Observation (b74 title writer cards): four adjacent bordered spans
+    /// (`border: 1px; margin-right: 3px`, one 25px CJK glyph each) raster
+    /// in Blink as 27px boxes at a 30px pitch. The pixel walk measured the
+    /// engine's NON-FINAL cards 4px narrow (dark 21 vs 25) at a 26px
+    /// pitch, the final card exact — this prints the run rects to locate
+    /// where the 4px goes missing.
+    #[test]
+    fn observe_adjacent_bordered_span_run_boxes() {
+        use rito_style_contract::{BorderEdge, BorderStyle, NonNegativeCssPx};
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(4);
+        let families = || {
+            rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
+                "NoSuchFace",
+            ))])
+            .expect("family list")
+        };
+        let mut items = Vec::new();
+        for (index, text) in ["瑞", "智", "士", "记"].into_iter().enumerate() {
+            let mut style = plain_paragraph_style(families(), 25.0, 0.0);
+            style.text_flow.text_align = TextAlign::Right;
+            let edge = BorderEdge {
+                resolved_width: NonNegativeCssPx::new(1.0).expect("one px"),
+                style: BorderStyle::Solid,
+                color: style.paint.foreground.into(),
+            };
+            style.fragment.border = rito_style_contract::BorderEdges {
+                top: edge,
+                right: edge,
+                bottom: edge,
+                left: edge,
+            };
+            style.fragment.margin.right = rito_style_contract::LengthPercentageOrAuto::Value(
+                LengthPercentage::Length(rito_style_contract::CssPx::new(3.0).expect("finite")),
+            );
+            let style_id = inline.intern_for_node(index, style).expect("style interns");
+            items.push(InlineItem::Text {
+                text: text.to_owned(),
+                style: style_id,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            });
+        }
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow { items },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(600.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!()
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!()
+        };
+        let mut runs: Vec<(f64, f64)> = Vec::new();
+        for child in &line.children {
+            if let Fragment::Text(run) = child {
+                eprintln!(
+                    "[cards] run x={:.3} w={:.3} net_x={:.3}",
+                    run.rect.x,
+                    run.rect.width,
+                    line.rect.x + run.rect.x
+                );
+                runs.push((line.rect.x + run.rect.x, run.rect.width));
+            }
+        }
+        assert_eq!(runs.len(), 4, "four card runs");
+        // Blink: each card's painted box is glyph 25 + 2×1 border = 27,
+        // pitch 30 (27 + 3 margin). The run rect is the CONTENT box (25
+        // wide); the pen grows it by the border for paint. Every card —
+        // not just the last — keeps its full 25px content width.
+        for (index, (_, width)) in runs.iter().enumerate() {
+            assert!(
+                (width - 25.0).abs() < 0.05,
+                "card {index} content box must be 25 wide, got {width}"
+            );
+        }
+        let pitch0 = runs[1].0 - runs[0].0;
+        assert!(
+            (pitch0 - 30.0).abs() < 0.05,
+            "card pitch must be 30 (27 box + 3 margin), got {pitch0}"
         );
     }
 
