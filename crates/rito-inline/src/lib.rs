@@ -6269,11 +6269,16 @@ running through the quiet forest until the morning light returns.";
         );
         style.font.line_height_is_declared = true;
         let family = host_family_key(&style);
+        // The TRUE host values (pins VERIFIED loaded — a setContent page
+        // silently drops file:// faces and an earlier round measured the
+        // system fallback: 中 16 vs the real 17, E000 24 vs 25). The
+        // composition lands the same pitch either way because the errors
+        // cancelled, but the anchors must carry the real numbers.
         for (sample, height, baseline) in [
-            ("", 21.0, 16.0),
-            ("中", 21.0, 16.0),
-            ("\u{E000}0.7000", 29.0, 24.0),
-            ("\u{E001}0.7000", 48.0, 43.0),
+            ("", 18.0, 14.0),
+            ("中", 21.0, 17.0),
+            ("\u{E000}0.7000", 29.0, 25.0),
+            ("\u{E001}0.7000", 48.0, 44.0),
         ] {
             context.set_host_line_metric(
                 &family,
@@ -6282,7 +6287,7 @@ running through the quiet forest until the morning light returns.";
                 HostNormalLineMetric {
                     height,
                     baseline,
-                    grid: Some((16.0, 5.0)),
+                    grid: Some((14.0, 3.0)),
                 },
             );
         }
