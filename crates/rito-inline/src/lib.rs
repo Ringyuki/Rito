@@ -6238,6 +6238,193 @@ running through the quiet forest until the morning light returns.";
         );
     }
 
+    /// #71 advance-sum autopsy: the b20 badge line replica. Truth
+    /// (b20-line.json, Range per-char): 14 chars 居然能一人給一套這麼合適的振袖
+    /// + note badge (w 13.671875) + ，有錢人果然猛。… on a justified
+    /// 15.2px line of width 590.78125; the ， inks at 247.640625 from
+    /// the line start (= floor64 of the float cumulative). If the
+    /// engine's float basis (advances + share + atom accounting)
+    /// matches Blink's, its un-floored ， x must sit in [truth,
+    /// truth + 1/64).
+    #[test]
+    fn the_badge_line_replica_matches_the_truth_comma_position() {
+        use rito_style_contract::{
+            AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
+            LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
+            LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1,
+            MinimumHeightV1, OverflowV1, PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        };
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(
+                rito_style_contract::GenericFontFamily::Serif,
+            )])
+            .expect("family list"),
+            15.2,
+            0.0,
+        );
+        style.text_flow.text_align = TextAlign::Justify;
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let mut layout = LayoutStyleTableV1::new(1);
+        let auto = LengthPercentageOrAuto::Auto;
+        let zero_padding = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(0.0).expect("zero"),
+        ));
+        let image_layout = layout
+            .intern_for_node(
+                0,
+                LayoutFormattingStyleV1 {
+                    display: LayoutDisplayV1 {
+                        outside: LayoutDisplayOutsideV1::Inline,
+                        inside: LayoutDisplayInsideV1::Flow,
+                        is_list_item: false,
+                    },
+                    margin: PhysicalSides {
+                        top: auto,
+                        right: auto,
+                        bottom: auto,
+                        left: auto,
+                    },
+                    padding: PhysicalSides {
+                        top: zero_padding,
+                        right: zero_padding,
+                        bottom: zero_padding,
+                        left: zero_padding,
+                    },
+                    box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
+                    justify_content: JustifyContentV1::Normal,
+                    align_items: AlignItemsV1::Normal,
+                    break_before: PageBreakV1::Auto,
+                    break_after: PageBreakV1::Auto,
+                    width: PreferredSizeV1::Auto,
+                    height: PreferredSizeV1::Auto,
+                    max_width: MaximumSizeV1::None,
+                    min_height: MinimumHeightV1::Auto,
+                    max_height: MaximumHeightV1::None,
+                    clear: ClearV1::None,
+                    float: FloatV1::None,
+                    overflow: OverflowV1::Visible,
+                    list_style_type: ListMarkerStyleV1::None,
+                    position: PositionV1::Static,
+                    inset: PhysicalSides {
+                        top: auto,
+                        right: auto,
+                        bottom: auto,
+                        left: auto,
+                    },
+                    vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+                    border_spacing: (
+                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                        rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                    ),
+                },
+            )
+            .expect("layout style interns");
+        let items = vec![
+            InlineItem::Text {
+                text: "居然能一人給一套這麼合適的振袖".to_owned(),
+                style: style_id,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            },
+            InlineItem::Image {
+                source: 0,
+                src: "images/note.png".to_owned(),
+                intrinsic_width: 13.671875,
+                intrinsic_height: 13.671875,
+                style: style_id,
+                layout_style: image_layout,
+                viewport: None,
+                baseline_shift_px: 0.0,
+                align_top: false,
+                fit_contain: false,
+            },
+            InlineItem::Text {
+                text: "，有錢人果然猛。不過鶴屋學姊不管做出什麼事好中中中中中".to_owned(),
+                style: style_id,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow { items },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles { layout, inline },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &ConstraintSpace::continuous(590.78125),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("first line");
+        };
+        let mut comma_x = None;
+        for child in &line.children {
+            match child {
+                Fragment::Text(run) => {
+                    eprintln!(
+                        "[badge] run x={:.6} w={:.6} justify={:.6} bytes {}..{}",
+                        run.rect.x, run.rect.width, run.justify_px, run.text_start, run.text_end
+                    );
+                    if run.text_start == 42 + 3 * 5 {
+                        // byte offset of ，: 14 CJK chars × 3 bytes = 42?
+                        // (computed below instead)
+                    }
+                }
+                Fragment::Image(image) => {
+                    eprintln!("[badge] atom x={:.6} w={:.6}", image.rect.x, image.rect.width);
+                }
+                _ => {}
+            }
+        }
+        // The ， is the first char of the third item: flow-text byte 45
+        // (15 chars × 3 bytes; the atom adds no text bytes). Its fragment
+        // x is the PAINT position — the 47th law shifts a deferred char's
+        // ink one share right of its advance box — while the truth
+        // (Range) measured the LAYOUT box, so the comparison subtracts
+        // one share.
+        let mut share = None;
+        for child in &line.children {
+            if let Fragment::Text(run) = child {
+                if run.text_start == 0 {
+                    share = Some(run.justify_px);
+                }
+                if run.text_start == 45 {
+                    comma_x = Some(line.rect.x + run.rect.x);
+                }
+            }
+        }
+        let comma_x = comma_x.expect("， starts a run at byte 45");
+        let share = share.expect("the first run carries the uniform share");
+        let layout_x = comma_x - share;
+        eprintln!(
+            "[badge] comma ink x = {comma_x:.6}, layout x = {layout_x:.6} (truth 247.640625)"
+        );
+        assert!(
+            (layout_x - 247.640625).abs() < 0.02,
+            "the ，'s advance-box position must match the truth Range x, got {layout_x}"
+        );
+    }
+
     /// Adjacent fullwidth punctuation loses the blank half at the
     /// boundary, exactly as pinned Chromium's default
     /// `text-spacing-trim: normal` measures: each trimming pair shortens
