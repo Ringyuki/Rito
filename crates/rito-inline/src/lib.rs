@@ -3071,7 +3071,22 @@ impl FormattingContext for ParleyInlineContext {
                         prev_ruby_below.map_or(0.0, |below| (below - reuse).max(0.0));
                     growth = growth.max((required - baseline - prev_gap).max(0.0));
                 }
-                growth
+                // 57th law: the browser pushes a growing FIRST line down
+                // by a WHOLE pixel count — ceil of the baseline deficit —
+                // while an interior line's growth keeps its analytic
+                // value. Measured (pins verified, four line-heights at
+                // fs 15.2 / rt 0.7 latin): opener pushes 10/9/8/6 at lh
+                // 19.765625/22/24/28.109375 == ceil(25 − natural baseline)
+                // 4/4, while the lh-19.765625 INTERIOR line measures
+                // 7.234375 exactly — un-ceiled (the only fractional
+                // interior case in the matrix). b20's un-ceiled openers
+                // sat 0.55px high and binned to −1 rows on half the
+                // dialog lines.
+                if prev_ruby_below.is_none() {
+                    growth.ceil()
+                } else {
+                    growth
+                }
             };
             let line_height = line_height + ruby_growth;
             let baseline = baseline + ruby_growth;
@@ -6384,6 +6399,111 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (after - 19.765625).abs() < 0.01,
             "the line after the ruby returns to the strut pitch, got {after}"
+        );
+        // 57th law, the OPENER arm: a first-line ruby pushes down by the
+        // whole-pixel ceil of its baseline deficit (truth at this config:
+        // ceil(25 − 15.3828) = 10; measured 10/9/8/6 across four
+        // line-heights). Lay the same flow with the ruby item first.
+        let mut inline2 = InlineStyleTableV1::new(1);
+        let mut style2 = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(
+                rito_style_contract::GenericFontFamily::Serif,
+            )])
+            .expect("family list"),
+            15.2,
+            0.0,
+        );
+        style2.font.line_height = LineHeight::Length(
+            rito_style_contract::NonNegativeCssPx::new(19.765625).expect("finite line height"),
+        );
+        style2.font.line_height_is_declared = true;
+        let family2 = host_family_key(&style2);
+        for (sample, height, baseline) in [
+            ("", 18.0, 14.0),
+            ("中", 21.0, 17.0),
+            ("\u{E000}0.7000", 29.0, 25.0),
+            ("\u{E001}0.7000", 48.0, 44.0),
+        ] {
+            context.set_host_line_metric(
+                &family2,
+                15.2,
+                sample,
+                HostNormalLineMetric {
+                    height,
+                    baseline,
+                    grid: Some((14.0, 3.0)),
+                },
+            );
+        }
+        let style2_id = inline2.intern_for_node(0, style2).expect("style interns");
+        let tree2 = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![
+                        InlineItem::Text {
+                            text: "ショウコ".to_owned(),
+                            style: style2_id,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                                text: "Shouko".to_owned(),
+                                size_ratio: 0.7,
+                            }),
+                        },
+                        InlineItem::Text {
+                            text: "的名字是寫作尚子吧後續文字排版測試".to_owned(),
+                            style: style2_id,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: None,
+                        },
+                    ],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline: inline2,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome2 = context
+            .layout(
+                &tree2,
+                tree2.root(),
+                &ConstraintSpace::continuous(180.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root2) = &outcome2.fragments.root else {
+            panic!()
+        };
+        let opener_tops: Vec<f64> = root2
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Line(line) => line.children.iter().find_map(|inner| match inner {
+                    Fragment::Text(run) => Some(line.rect.y + run.rect.y),
+                    _ => None,
+                }),
+                _ => None,
+            })
+            .collect();
+        // The control flow (no annotation) puts its first char top at some
+        // V; the opener-ruby flow must sit at V + 10 exactly. V itself is
+        // model-internal, so assert via the SECOND line instead: it sits
+        // one natural pitch below the pushed first line, so
+        // opener_line2 − opener_line1 = 19.765625 while the push shows in
+        // the first line's absolute top being 10 above-baseline-shifted —
+        // captured by comparing against the interior flow's line-0 top
+        // plus the ceil'd deficit.
+        let interior_line0 = char_tops[0];
+        let push = opener_tops[0] - interior_line0;
+        eprintln!("[rubyline] opener push = {push:.6}");
+        assert!(
+            (push - 10.0).abs() < 0.01,
+            "the opener ruby line pushes down by ceil(25 − 15.3828) = 10, got {push}"
         );
     }
 
