@@ -575,9 +575,18 @@ fn append_text_run_command(
             baseline
         }
         None => {
+            // 58th law: the within-line baseline stage CEILS. A
+            // ruby-grown interior line carries a FRACTIONAL within-line
+            // baseline (b20 chapter3: strut 15 + growth 6.484375 =
+            // 21.484375) and Blink paints it one row DOWN from the
+            // round — line top 553.1875 + baseline 22, pitch 27 vs the
+            // engine's rounded 21/pitch 26 (walk capture ink rows, paint
+            // axis). The footnote-marker probe that established the
+            // two-stage model (baseline 20.71875 → 21) is consistent:
+            // round and ceil agree there, and on every integer baseline.
             snap_origin_y
                 + (line_y - snap_origin_y).round()
-                + (line.baseline - baseline_shift_px).round()
+                + (line.baseline - baseline_shift_px).ceil()
         }
     };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
