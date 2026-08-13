@@ -1927,6 +1927,16 @@ impl FormattingContext for ParleyInlineContext {
             // (item index, truth item start, engine item start) for the
             // LayoutUnit item cursor on justified lines.
             let mut justify_item_track: Option<(usize, f64, f64)> = None;
+            // The same LayoutUnit item cursor for UNJUSTIFIED lines at
+            // OFF-GRID font sizes: a style-item boundary re-anchors the
+            // next item's start at the ceiling of the running float end
+            // on the 1/64 grid (Range-measured: adjacent 15.2px spans
+            // put the second run at 45.609375 = ceil64(45.6), where the
+            // raw float continuation sits at 45.6); interiors keep the
+            // float accumulation from the anchored start. Integer sizes
+            // stay on the raw floats — their advances already sit on
+            // the grid and re-anchoring there moved verified rows.
+            let mut natural_item_track: Option<(usize, f64, f64)> = None;
             // Collect the line's content first, remembering each child's
             // baseline shift, so the line box can grow by however far
             // shifted content rises above the strut before positions are
@@ -2097,6 +2107,32 @@ impl FormattingContext for ParleyInlineContext {
                                 // position, and no canvas call crosses a
                                 // space. (Justified lines already split
                                 // there: a space boundary carries a share.)
+                                let off_grid_size =
+                                    (f64::from(glyph_run.run().font_size()) * 64.0) % 1.0 != 0.0;
+                                let run_x = if off_grid_size {
+                                    match &mut natural_item_track {
+                                        slot @ None => {
+                                            *slot = Some((item_index, run_x, run_x));
+                                            run_x
+                                        }
+                                        Some((item, truth_start, engine_start)) => {
+                                            if *item != item_index {
+                                                let advance = run_x - *engine_start;
+                                                let truth = ((*truth_start + advance) * 64.0)
+                                                    .ceil()
+                                                    / 64.0;
+                                                *item = item_index;
+                                                *truth_start = truth;
+                                                *engine_start = run_x;
+                                                truth
+                                            } else {
+                                                *truth_start + (run_x - *engine_start)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    run_x
+                                };
                                 let has_space = flow_text
                                     .get(run_range.clone())
                                     .is_some_and(|text| text.contains(' '));
