@@ -200,8 +200,20 @@ fn layout_unit(value: f64) -> f64 {
 /// later paragraph in the column by 1/32.
 fn used_declared_line_height(line_height: LineHeight, font_size: f64) -> Option<f64> {
     match line_height {
+        // The number multiplies the font size AFTER it snaps to the
+        // LayoutUnit grid by rounding; the product then floors. Measured
+        // in Chromium across 14 font sizes (five content shapes each,
+        // content-independent): every on-grid size matches a plain
+        // floored product, while off-grid sizes discriminate in both
+        // directions — 24.32×1.35 lays 32.8125 = floor64(1.35 ×
+        // round64(24.32)=24.3125), one 64th SHORTER than the floored raw
+        // product, and 30.4×1.35 lays 41.046875, one 64th TALLER (13.3,
+        // 17.1, 19.55 likewise). A real book's 1.6em divider paragraphs
+        // under 0.95em body sizing sat one 64th tall per divider and
+        // pushed a mid-page line across a device-row boundary.
         LineHeight::Number(number) => {
-            Some((f64::from(number.get()) * font_size * 64.0).floor() / 64.0)
+            let grid_font_size = (font_size * 64.0).round() / 64.0;
+            Some((f64::from(number.get()) * grid_font_size * 64.0).floor() / 64.0)
         }
         LineHeight::Length(px) => Some(layout_unit(f64::from(px.get()))),
         LineHeight::Normal => None,
@@ -5984,6 +5996,29 @@ running through the quiet forest until the morning light returns.";
             (length - 16.421875).abs() < 1e-9,
             "length 16.416px rounds to 16.421875: {length}"
         );
+    }
+
+    /// A number line-height multiplies the GRID-ROUNDED font size, then
+    /// floors the product (measured in Chromium across 14 sizes,
+    /// content-independent). Off-grid sizes discriminate in both
+    /// directions from a plain floored product: 24.32 lands SHORTER
+    /// (32.8125, not 32.828125) and 30.4 lands TALLER (41.046875, not
+    /// 41.03125); on-grid sizes are unchanged. A real book's 1.6em
+    /// divider paragraph in a 0.95em article was one 64th tall, pushing
+    /// a mid-page line onto the wrong device row.
+    #[test]
+    fn a_number_line_height_multiplies_the_grid_rounded_font_size() {
+        let number = LineHeight::Number(
+            rito_style_contract::NonNegativeNumber::new(1.35).expect("finite"),
+        );
+        let used = |font_size: f32| {
+            used_declared_line_height(number, f64::from(font_size)).expect("declared")
+        };
+        assert_eq!(used(24.32), 32.8125, "24.32 rounds down to 24.3125 first");
+        assert_eq!(used(30.4), 41.046875, "30.4 rounds up to 30.40625 first");
+        assert_eq!(used(17.1), 23.0625, "17.1 rounds down to 17.09375 first");
+        assert_eq!(used(15.2), 20.515625, "15.203125 keeps the historic value");
+        assert_eq!(used(16.0), 21.59375, "an on-grid size is a plain product");
     }
 
     /// A `<ruby>` edge is a shaping boundary: the base shapes alone, so
