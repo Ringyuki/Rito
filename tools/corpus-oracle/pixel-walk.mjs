@@ -19,7 +19,7 @@
 //   env RITO_READER_URL (default http://localhost:5173/)
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
@@ -50,6 +50,35 @@ const container = readFileSync(path.join(unpackDir, 'META-INF/container.xml'), '
 const opfRel = /full-path="([^"]+)"/.exec(container)?.[1];
 const opfPath = path.join(unpackDir, opfRel);
 const opfDir = path.dirname(opfPath);
+// Book faces with a REAL url() source, scanned NODE-SIDE: a file:// page
+// cannot read a linked stylesheet's cssRules (cross-origin under the
+// default file origin policy — the in-page scan silently came up empty
+// and the family rewrite dropped every named family, real embedded fonts
+// included; a book set entirely in its own faces lost them all on the
+// truth side while the reader used them, shifting whole pages).
+const bookFaceFamilies = (() => {
+  const families = new Set();
+  const walkDir = (dir) => {
+    for (const entry of require2('node:fs').readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walkDir(full);
+        continue;
+      }
+      if (!/\.(css|xhtml|html|htm)$/i.test(entry.name)) continue;
+      const text = readFileSync(full, 'utf8');
+      for (const block of text.matchAll(/@font-face\s*\{([^}]*)\}/gi)) {
+        const body = block[1];
+        if (!/url\(\s*["']?(?!res:)/i.test(body)) continue;
+        const family = /font-family\s*:\s*["']?([^;"'}]+)/i.exec(body)?.[1]?.trim().toLowerCase();
+        if (family && !family.startsWith('__rito_pin')) families.add(family);
+      }
+    }
+  };
+  walkDir(unpackDir);
+  return [...families];
+})();
+console.log(`book faces with real sources: ${bookFaceFamilies.join(', ') || '(none)'}`);
 // The reader's chapterMap keys are manifest item IDS (idrefs), not paths;
 // the OPF manifest maps them onto real hrefs (e.g. Text/Theatre08.xhtml).
 const manifestHref = new Map();
@@ -495,7 +524,7 @@ for (const chapter of plan.chapters) {
       .filter((target) => target.startsWith(`${href}#`))
       .map((target) => target.slice(href.length + 1));
     await truth.evaluate(
-      async ({ contentW, contentH, pinLatin, pinCjk, noteIds }) => {
+      async ({ contentW, contentH, pinLatin, pinCjk, noteIds, bookFaceFamilies }) => {
         const s = document.createElement('style');
         // The multicol pagination baseline. The reader's image page
         // clamp is mirrored PER ELEMENT below (uniform box scaling) —
@@ -606,7 +635,10 @@ img, svg { max-width: 100%; }`;
         // running the truth CAN (b20's TS-Default rendered its ruby kana
         // in the system Heiti while the engine used the pin), so a
         // local()-resolvable face silently un-equalizes the two sides.
-        const bookFaces = new Set();
+        // Scanned node-side from the unpacked book: linked stylesheets
+        // are cross-origin to a file:// page, so an in-page cssRules
+        // walk reads nothing here.
+        const bookFaces = new Set(bookFaceFamilies);
         for (const sheet of document.styleSheets) {
           let rules;
           try {
@@ -652,6 +684,14 @@ img, svg { max-width: 100%; }`;
           if (tail === undefined || !generic.has(tail)) parts.push('serif');
           element.style.setProperty('font-family', parts.join(', '), 'important');
         }
+        // Kept book faces must actually LOAD before capture: applying a
+        // family via the rewrite does not itself start the fetch until
+        // a layout uses it, and fonts.ready resolves against loads that
+        // have already started.
+        for (const family of bookFaces) {
+          await document.fonts.load(`16px "${family}"`, '试A');
+        }
+        await document.fonts.ready;
         // Rito feature mirror: referenced footnote bodies leave the flow.
         for (const id of noteIds) {
           const el = document.getElementById(id);
@@ -663,7 +703,7 @@ img, svg { max-width: 100%; }`;
         }
         await document.fonts.ready;
       },
-      { contentW, contentH, pinLatin: PIN_LATIN, pinCjk: PIN_CJK, noteIds },
+      { contentW, contentH, pinLatin: PIN_LATIN, pinCjk: PIN_CJK, noteIds, bookFaceFamilies },
     );
     await truth.waitForTimeout(250);
     // One screenshot per column, scrolled into view — no viewport-width
