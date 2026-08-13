@@ -3435,6 +3435,14 @@ fn is_cjk_context(character: char) -> bool {
 fn is_cjk_justify(character: char) -> bool {
     matches!(u32::from(character),
         0x2460..=0x24FF
+        // Geometric shapes and the star pair count as CJK symbols in the
+        // browser's justify classes (measured share-after on a 20-symbol
+        // matrix: \u{25A0}\u{25B2}\u{25B3}\u{25C7}\u{25CB}\u{25CE}\u{25CF}
+        // and \u{2605}\u{2606} each open one share; math operators
+        // \u{2220}\u{2252}\u{2260}, \u{00D7}\u{00F7}, the em dash, the
+        // ellipsis, and Greek letters open none).
+        | 0x25A0..=0x25FF
+        | 0x2605..=0x2606
         | 0x2E80..=0x2EFF
         | 0x3000..=0x303F
         | 0x3041..=0x30FF
@@ -6039,6 +6047,22 @@ running through the quiet forest until the morning light returns.";
             (length - 16.421875).abs() < 1e-9,
             "length 16.416px rounds to 16.421875: {length}"
         );
+    }
+
+    /// The browser's justify classes admit geometric shapes and the
+    /// star pair as CJK symbols (measured on a 20-symbol matrix: each of
+    /// the shapes opens one share after itself; math operators, the em
+    /// dash, the ellipsis, and Greek letters open none — a dialogue line
+    /// with a circled-symbol grade drifted 0.022px per glyph because the
+    /// missing share inflated every other share on the line).
+    #[test]
+    fn geometric_shapes_open_a_justify_share_and_math_operators_do_not() {
+        assert!(justify_expands_after('\u{25CB}'), "circle expands after");
+        assert!(justify_expands_after('\u{25A0}'), "square expands after");
+        assert!(justify_expands_after('\u{2605}'), "star expands after");
+        assert!(!justify_expands_after('\u{2220}'), "angle stays non-expansive");
+        assert!(!justify_expands_after('\u{2014}'), "em dash stays non-expansive");
+        assert!(!justify_expands_after('\u{03B1}'), "Greek alpha stays non-expansive");
     }
 
     /// A number line-height multiplies the GRID-ROUNDED font size, then
