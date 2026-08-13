@@ -1010,7 +1010,7 @@ impl ParleyInlineContext {
                 LengthPercentage::Length(px) => px.get(),
                 _ => 0.0,
             };
-            // 49th law: inline horizontal margins displace the inline box
+            // Inline horizontal margins displace the inline box
             // exactly like padding/border gaps, but stay OUTSIDE the
             // painted box (the pen grows the box by paint padding only).
             // Percentages resolve against the containing block's inline
@@ -1844,8 +1844,8 @@ impl FormattingContext for ParleyInlineContext {
                 (hang - f64::from(metrics.trailing_whitespace)).max(0.0)
             };
             // A span opening this forced-break line indents it by its box
-            // lead (49th law: margins/padding/border of a post-<br/> span
-            // land on the span's own line).
+            // lead (margins/padding/border of a post-<br/> span land on
+            // the span's own line).
             let forced_indent = forced_line_indents
                 .get(&line.text_range().start)
                 .copied()
@@ -3071,7 +3071,7 @@ impl FormattingContext for ParleyInlineContext {
                         prev_ruby_below.map_or(0.0, |below| (below - reuse).max(0.0));
                     growth = growth.max((required - baseline - prev_gap).max(0.0));
                 }
-                // 57th law: the browser pushes a growing FIRST line down
+                // The browser pushes a growing FIRST line down
                 // by a WHOLE pixel count — ceil of the baseline deficit —
                 // while an interior line's growth keeps its analytic
                 // value. Measured (pins verified, four line-heights at
@@ -3184,6 +3184,7 @@ impl FormattingContext for ParleyInlineContext {
                 },
                 baseline,
                 trailing_whitespace: f64::from(metrics.trailing_whitespace),
+                ruby_growth,
                 marker,
                 children,
             }));
@@ -3506,13 +3507,13 @@ fn line_justify_plan(
     }
     let expands_after = |left: &Left| match left {
         Left::Char(character) => justify_expands_after(*character),
-        // An atomic inline is NON-expansive on its trailing side: the
-        // b20 badge line's truth map gives [atom|，] ZERO shares and
-        // ，|有 TWO — the following CJK char's before-share defers one
-        // boundary late, exactly the 47th-law machinery. (The 34th-law
-        // reading that an atom expands on both sides overfit its line;
-        // the leading [text|atom] boundary DOES expand via the left
-        // character's own class.)
+        // An atomic inline is NON-expansive on its trailing side: a
+        // Chromium justify map on a badge line gives [atom|，] ZERO
+        // shares and ，|有 TWO — the following CJK char's before-share
+        // defers one boundary late, the usual deferral machinery. (An
+        // earlier reading that an atom expands on both sides overfit
+        // its line; the leading [text|atom] boundary DOES expand via
+        // the left character's own class.)
         Left::Atom => false,
     };
     let mut previous: Option<Left> = None;
@@ -5415,11 +5416,11 @@ running through the quiet forest until the morning light returns.";
         }
     }
 
-    /// 49th law: an inline horizontal margin displaces the inline box —
+    /// An inline horizontal margin displaces the inline box —
     /// and a span opening a forced-break line indents its OWN line by
     /// the lead (inline-margin oracle: margin-left 30% in a 100px block
     /// puts the box at x=30 on the span's line, the previous line
-    /// untouched; the pre-law engine either rejected the style outright
+    /// untouched; the engine previously either rejected the style outright
     /// or would have widened the line above).
     #[test]
     fn an_inline_margin_indents_its_forced_break_line() {
@@ -6400,8 +6401,8 @@ running through the quiet forest until the morning light returns.";
             (after - 19.765625).abs() < 0.01,
             "the line after the ruby returns to the strut pitch, got {after}"
         );
-        // 57th law, the OPENER arm: a first-line ruby pushes down by the
-        // whole-pixel ceil of its baseline deficit (truth at this config:
+        // The opener arm: a first-line ruby pushes down by the
+        // whole-pixel ceil of its baseline deficit (Chromium at this config:
         // ceil(25 − 15.3828) = 10; measured 10/9/8/6 across four
         // line-heights). Lay the same flow with the ruby item first.
         let mut inline2 = InlineStyleTableV1::new(1);
@@ -6798,7 +6799,7 @@ running through the quiet forest until the morning light returns.";
         }
         // The ， is the first char of the third item: flow-text byte 45
         // (15 chars × 3 bytes; the atom adds no text bytes). Its fragment
-        // x is the PAINT position — the 47th law shifts a deferred char's
+        // x is the PAINT position — the justify pen shifts a deferred char's
         // ink one share right of its advance box — while the truth
         // (Range) measured the LAYOUT box, so the comparison subtracts
         // one share.
@@ -7469,7 +7470,7 @@ running through the quiet forest until the morning light returns.";
 
     #[test]
     fn an_atomic_inline_expands_before_but_defers_after() {
-        // 34th law amended by the b20 badge-line truth map (2026-08-13):
+        // Measured against a Chromium badge-line justify map (2026-08-13):
         // the [text|atom] boundary expands (the badge sits at the END of
         // the preceding run's EXPANDED advance), but the atom is
         // NON-expansive on its trailing side — [atom|，] carries ZERO and
@@ -7500,10 +7501,10 @@ running through the quiet forest until the morning light returns.";
 
     #[test]
     fn a_super_shifted_span_uses_the_host_measured_line_envelope() {
-        // 33rd law: Blink quantizes a raised span's above-baseline line
+        // Blink quantizes a raised span's above-baseline line
         // contribution onto whole pixels through interplay no font table
         // exposes (a 64-configuration oracle matrix refused every closed
-        // form — b74's 0.8em bold ① marker line measures 26.125 with the
+        // form — a real book's 0.8em bold ① marker line measures 26.125 with the
         // baseline at 21.328125 where the computed fallback gives
         // 28.125). The engine records a U+E00C probe keyed by the span's
         // size ratio and the strut's used line-height; once the host

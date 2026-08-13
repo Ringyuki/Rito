@@ -76,6 +76,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             encode_rect(&fragment.rect, out);
             out.extend_from_slice(&fragment.baseline.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.trailing_whitespace.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.ruby_growth.to_bits().to_le_bytes());
             match &fragment.marker {
                 None => out.push(0),
                 Some(marker) => {
@@ -150,6 +151,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
         FRAGMENT_TAG_LINE => {
             let baseline = reader.f64()?;
             let trailing_whitespace = reader.f64()?;
+            let ruby_growth = reader.f64()?;
             let marker = match reader.u8()? {
                 0 => None,
                 1 => Some(crate::MarkerFragment {
@@ -169,6 +171,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 rect,
                 baseline,
                 trailing_whitespace,
+                ruby_growth,
                 marker,
                 children,
             }))
@@ -435,6 +438,7 @@ mod tests {
                         },
                         baseline: 14.8,
                         trailing_whitespace: 4.25,
+                        ruby_growth: 1.5,
                         children: vec![Fragment::Text(TextFragment {
                             source: FormattingNodeId(0),
                             rect: FragmentRect {

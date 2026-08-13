@@ -44,6 +44,11 @@ pub struct LineFragment {
     /// the visible ink extent subtract this from the rect width, matching
     /// how CSS hangs whitespace at the end of a line.
     pub trailing_whitespace: f64,
+    /// The ruby-annotation reserve folded into `baseline`. The paint
+    /// snap treats this share separately — the annotation reserves whole
+    /// device rows (ceil) while the strut part keeps the two-stage
+    /// round. Zero on lines without ruby growth.
+    pub ruby_growth: f64,
     /// Text (and later inline-box) fragments in visual order.
     pub children: Vec<Fragment>,
 }

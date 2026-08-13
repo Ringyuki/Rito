@@ -575,20 +575,23 @@ fn append_text_run_command(
             baseline
         }
         None => {
-            // 58th law: bare text snaps in ONE stage — the physical
-            // baseline rounds once in the snap origin's space. Every
-            // probe behind the old two-stage model had an integer
-            // component (integer line top or integer within-line
-            // baseline), where round(T)+round(B) == round(T+B); the
-            // discriminating case is both-fractional. Measured both
-            // ways: a ruby-grown b20 line (top 553.1875 + baseline
-            // 21.484375) rasters at 575 = round(574.671875), one row
-            // BELOW the two-stage 553+21 (walk capture ink rows, paint
-            // axis); b1's body lines (integer tops, fractional
-            // baselines < .5) hold their long-verified rows, which a
-            // per-stage ceil broke corpus-wide (+150k).
+            // The ruby-annotation reserve inside the baseline rasters on
+            // WHOLE device rows (ceil) while the strut part keeps the
+            // two-stage round. Measured against Chromium across three
+            // books: plain text with fractional line tops AND fractional
+            // strut baselines matches only round(top)+round(baseline) —
+            // a single round of the physical baseline shifted half of
+            // one book's lines, a per-stage ceil all of them; a
+            // ruby-grown interior line (top 553.1875, baseline 15 +
+            // growth 6.484375) rasters at 575 = 553 + 15 +
+            // ceil(6.484375), one row below the plain round. The
+            // interior growth keeps its analytic fraction at LAYOUT
+            // (Range-measured pitch 27.0 = 20.515625 + 6.484375
+            // exactly), so the ceil lives here in the paint translation.
             snap_origin_y
-                + (line_y - snap_origin_y + line.baseline - baseline_shift_px).round()
+                + (line_y - snap_origin_y).round()
+                + (line.baseline - baseline_shift_px - line.ruby_growth).round()
+                + line.ruby_growth.ceil()
         }
     };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
@@ -1273,6 +1276,7 @@ mod tests {
                 },
                 baseline: 13.0,
                 trailing_whitespace: 0.0,
+                ruby_growth: 0.0,
                 children,
             })],
         })

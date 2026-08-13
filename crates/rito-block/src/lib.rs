@@ -2307,7 +2307,7 @@ fn seal_height(y: f64, floats: &FloatBands) -> f64 {
 
 /// Active float occupancy inside one container, in flow coordinates.
 ///
-/// Each placed float is kept as its own margin box (50th law): a new
+/// Each placed float is kept as its own margin box: a new
 /// float starts at its hypothetical flow position and stacks against the
 /// floats STILL ACTIVE at its own y — CSS 2.1 §9.5.1 — instead of the
 /// retired single-band model whose cumulative occupied widths chained
@@ -3107,7 +3107,7 @@ fn sealed(
 #[cfg(test)]
 mod tests {
 
-    /// 50th law: floats place individually per CSS 9.5.1 — each stacks
+    /// Floats place individually per CSS 9.5.1 — each stacks
     /// against the floats still ACTIVE at its own position, not into a
     /// cumulative band chain. Replica of b60's title page (element-box
     /// oracle, basis 627.219 = body content after 1% side padding; margin
@@ -3274,6 +3274,7 @@ mod tests {
                         },
                         baseline: 8.0,
                         trailing_whitespace: 0.0,
+                        ruby_growth: 0.0,
                         children: Vec::new(),
                     })
                 })
@@ -3688,7 +3689,7 @@ mod tests {
         // 10px line, then a box of one 10px line plus 8px trailing
         // padding, through 25px fragmentainers: the second box's line
         // fits (20 <= 25) but its padding does not (28 > 25) — the box
-        // moves whole, not just its padding (the TOC-entry law).
+        // moves whole, not just its padding (measured on multi-page TOCs).
         let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 25.0));
         assert_eq!(pages.len(), 2);
         assert_eq!(box_children(&pages[0]).len(), 1);
@@ -4928,6 +4929,7 @@ mod tests {
                             },
                             baseline: 16.0,
                             trailing_whitespace: 0.0,
+                            ruby_growth: 0.0,
                             children: Vec::new(),
                         })
                     })
