@@ -72,6 +72,41 @@ describe('production Canvas text renderer', () => {
     expect(lastProperty(result, 'fillStyle')).toBe(expected);
   });
 
+  it('paints each glyph at floor64 of the cumulative advance at fractional font sizes', () => {
+    // 35th law: an off-grid font size (12.16 = 0.8em of 15.2) drifts the
+    // float cumulative advance off Blink's LayoutUnit grid; the DOM
+    // paints each glyph at floor64 of that cumulative (21/21 oracle
+    // positions), so the pen does too. Mock glyph width = 12.16 × 0.6 =
+    // 7.296 → floors 0, 466/64, 933/64.
+    const result = expectTextParity(
+      textFragment({ font: { ...BASE_PAINT.font, sizePx: 12.16 } }, '中中中'),
+    );
+    const calls = result.getCalls('fillText').map((call) => call.args);
+    expect(calls).toEqual([
+      ['中', 10, 20 + 0.8 * 12.16],
+      ['中', 10 + 466 / 64, 20 + 0.8 * 12.16],
+      ['中', 10 + 933 / 64, 20 + 0.8 * 12.16],
+    ]);
+  });
+
+  it('keeps the whole-run fillText at grid-aligned font sizes', () => {
+    const result = expectTextParity(
+      textFragment({ font: { ...BASE_PAINT.font, sizePx: 16 } }, '中中中'),
+    );
+    expect(result.getCalls('fillText')).toHaveLength(1);
+  });
+
+  it('keeps the whole-run fillText for runs holding non-CJK glyphs', () => {
+    // Latin words kern; per-glyph measurement would misplace them, so a
+    // mixed run stays on the whole-run path even at a fractional size
+    // (measured: a Trial-and-Error title line grew a 674px band under
+    // the unconditional per-glyph pen).
+    const result = expectTextParity(
+      textFragment({ font: { ...BASE_PAINT.font, sizePx: 12.16 } }, 'Trial'),
+    );
+    expect(result.getCalls('fillText')).toHaveLength(1);
+  });
+
   it('matches a rounded inline background with padding', () => {
     const result = expectTextParity(
       textFragment({
