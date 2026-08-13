@@ -602,7 +602,7 @@ impl TreeBuilder<'_> {
         };
         let zero_edge =
             |edge: &c::BorderEdge| f64::from(edge.resolved_width.get()) == 0.0;
-        // Margins strip too (49th law): the container's own margins are
+        // Margins strip too: the container's own margins are
         // block-level geometry; left on the borrowed text style they
         // would re-enter layout as inline box gaps on every paragraph
         // run (the first landing turned b1's every indented paragraph
@@ -2120,7 +2120,7 @@ fn inline_box_capability_violation(
     if !style.paint.transform.is_none() {
         return Some("inline transform".to_owned());
     }
-    // Inline horizontal margins are modeled (49th law): they displace
+    // Inline horizontal margins are modeled: they displace
     // the inline box like padding/border gaps — advance edits at the box
     // boundaries, a line indent for a span opening a forced-break line —
     // while staying outside the painted box; percentages resolve against
@@ -3824,7 +3824,7 @@ p { margin: 8px 0; }\n\
         assert_eq!(float_boxes.len(), 2, "two floats");
         // The float sits at its own %-margin (basis = the containing
         // block, 4% / 28% of 627.2) and the heading's UA margin applies
-        // ONCE inside — the pre-law inner layout re-resolved the float's
+        // ONCE inside — the previous inner layout re-resolved the float's
         // %-margin against the float's own 48px width and stacked it onto
         // the heading (h1 +1.9, h2 +13.4; truth line tops 46.518/200.841).
         assert!((float_boxes[0].0 - 25.0781).abs() < 0.02, "t1 y {}", float_boxes[0].0);
@@ -3900,7 +3900,7 @@ p { margin: 8px 0; }\n\
         );
     }
 
-    /// Observation (b74 title, 53rd-law candidate): a text-carrying div
+    /// Observation (a real book's title page): a text-carrying div
     /// with a fixed `height` must flow at padding + height (Blink: the
     /// `.book-rank` pill is 24 + 30 = 54 tall, its line overflowing
     /// visibly), not at its natural line height. The pixel walk measured
