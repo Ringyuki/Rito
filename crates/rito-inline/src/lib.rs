@@ -6238,6 +6238,150 @@ running through the quiet forest until the morning light returns.";
         );
     }
 
+    /// The b20 ruby-line pitch replica (chapter3 dialog, fs 15.2,
+    /// rt 0.7em latin, line-height 130% = 19.765625 declared). Truth
+    /// (Chromium replicas of the exact host probe DOM + a 3-line
+    /// paragraph, 2026-08-13): E000@0.7 = {29, 24}, E001@0.7 = {48, 43},
+    /// 中@normal = {21, 16}, and the mid-paragraph ruby line's pitch is
+    /// 27.0 (line tops 1 / 28 / 47.75). With those host answers injected,
+    /// the engine's composition must land the same 27 — hand-checked:
+    /// required 24 − strut baseline 14 − prev_gap (5.765625 − reuse 3)
+    /// = growth 7.234375; 19.765625 + 7.234375 = 27.
+    #[test]
+    fn the_b20_ruby_line_pitch_matches_truth_with_injected_host_metrics() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(
+                rito_style_contract::GenericFontFamily::Serif,
+            )])
+            .expect("family list"),
+            15.2,
+            0.0,
+        );
+        style.font.line_height = LineHeight::Length(
+            rito_style_contract::NonNegativeCssPx::new(19.765625).expect("finite line height"),
+        );
+        style.font.line_height_is_declared = true;
+        let family = host_family_key(&style);
+        for (sample, height, baseline) in [
+            ("", 21.0, 16.0),
+            ("中", 21.0, 16.0),
+            ("\u{E000}0.7000", 29.0, 24.0),
+            ("\u{E001}0.7000", 48.0, 43.0),
+        ] {
+            context.set_host_line_metric(
+                &family,
+                15.2,
+                sample,
+                HostNormalLineMetric {
+                    height,
+                    baseline,
+                    grid: Some((16.0, 5.0)),
+                },
+            );
+        }
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let items = vec![
+            InlineItem::Text {
+                text: "中文排版測試字符排版".to_owned(),
+                style: style_id,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            },
+            InlineItem::Text {
+                text: "ショウイチ".to_owned(),
+                style: style_id,
+                baseline_shift_px: 0.0,
+                ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                    text: "Shouichi".to_owned(),
+                    size_ratio: 0.7,
+                }),
+            },
+            InlineItem::Text {
+                text: "後續文字排版測試字符文字".to_owned(),
+                style: style_id,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow { items },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(180.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!()
+        };
+        let tops: Vec<f64> = root
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Line(line) => Some(line.rect.y),
+                _ => None,
+            })
+            .collect();
+        for (index, child) in root.children.iter().enumerate() {
+            if let Fragment::Line(line) = child {
+                eprintln!(
+                    "[rubyline] line {index} top {:.6} h {:.6}",
+                    line.rect.y, line.rect.height
+                );
+            }
+        }
+        assert!(tops.len() >= 3, "three lines lay out");
+        // Truth measured CHAR tops (Range), not line-box tops: the
+        // engine keeps the ruby line's box top natural and moves the
+        // TEXT inside down by the growth, so the comparable quantity is
+        // the first text fragment's net y per line.
+        let char_tops: Vec<f64> = root
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Line(line) => line.children.iter().find_map(|inner| match inner {
+                    Fragment::Text(run) => Some(line.rect.y + run.rect.y),
+                    _ => None,
+                }),
+                _ => None,
+            })
+            .collect();
+        for (index, top) in char_tops.iter().enumerate() {
+            eprintln!("[rubyline] char top {index}: {top:.6}");
+        }
+        let pitch = char_tops[1] - char_tops[0];
+        assert!(
+            (pitch - 27.0).abs() < 0.01,
+            "the ruby line's char pitch must be 27 like Blink, got {pitch}"
+        );
+        let after = char_tops[2] - char_tops[1];
+        assert!(
+            (after - 19.765625).abs() < 0.01,
+            "the line after the ruby returns to the strut pitch, got {after}"
+        );
+    }
+
     /// #71 advance-sum autopsy: the b20 badge line replica. Truth
     /// (b20-line.json, Range per-char): 14 chars 居然能一人給一套這麼合適的振袖
     /// + note badge (w 13.671875) + ，有錢人果然猛。… on a justified
