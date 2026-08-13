@@ -599,11 +599,33 @@ img, svg { max-width: 100%; }`;
           'fantasy',
           'system-ui',
         ]);
-        const bookFaces = new Set(
-          [...document.fonts]
-            .map((face) => face.family.replaceAll('"', '').toLowerCase())
-            .filter((name) => !name.startsWith('__rito_pin')),
-        );
+        // A book face counts only when its @font-face carries a REAL
+        // url() source (an embedded font file). Publisher "system font"
+        // stacks declare local(黑体/微软雅黑/…) plus dead reader-device
+        // res:// urls — the engine can never resolve those, but a Mac
+        // running the truth CAN (b20's TS-Default rendered its ruby kana
+        // in the system Heiti while the engine used the pin), so a
+        // local()-resolvable face silently un-equalizes the two sides.
+        const bookFaces = new Set();
+        for (const sheet of document.styleSheets) {
+          let rules;
+          try {
+            rules = sheet.cssRules;
+          } catch {
+            continue;
+          }
+          for (const rule of rules) {
+            if (!(rule instanceof CSSFontFaceRule)) continue;
+            const src = rule.style.getPropertyValue('src');
+            if (!/url\(\s*["']?(?!res:)/i.test(src)) continue;
+            const family = rule.style
+              .getPropertyValue('font-family')
+              .replaceAll('"', '')
+              .toLowerCase()
+              .trim();
+            if (family && !family.startsWith('__rito_pin')) bookFaces.add(family);
+          }
+        }
         const pins = ['"__rito_pin_latin"', '"__rito_pin_cjk"'];
         for (const element of [document.documentElement, ...document.querySelectorAll('*')]) {
           const list = getComputedStyle(element).fontFamily;
