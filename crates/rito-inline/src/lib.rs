@@ -3317,12 +3317,35 @@ impl FormattingContext for ParleyInlineContext {
         // its 7th character because the column took only the text width).
         // The negative side stays out of min-content so a hanging indent
         // cannot squeeze a column below its widest unbreakable unit.
+        // ONLY the CSS text-indent counts: the layout-time first-line
+        // indent also folds in a leading inline box's padding/border,
+        // which the measured run widths already include — adding that
+        // component again double-counts it (a padded leading box on the
+        // b52 title page grew its table column and rescaled the cell's
+        // image).
         let min_text = f64::from(shrunk.layout.calculate_content_widths().min);
         let max_text = f64::from(intrinsic.layout.calculate_content_widths().max);
+        let css_indent = tree
+            .strut_style(node)
+            .or_else(|| match &tree.node(node).content {
+                FormattingNodeContent::InlineFlow { items } => {
+                    items.first().and_then(|item| match item {
+                        InlineItem::Text { style, .. }
+                        | InlineItem::Image { style, .. }
+                        | InlineItem::InlineBlock { style, .. } => Some(*style),
+                    })
+                }
+                _ => None,
+            })
+            .and_then(|style_id| {
+                tree.styles()
+                    .and_then(|styles| styles.inline.style(style_id).ok())
+            })
+            .map_or(0.0_f32, |style| resolved_text_indent(&style));
         let indent = if intrinsic.text.is_empty() && max_text <= 0.0 {
             0.0
         } else {
-            f64::from(intrinsic.first_line_indent)
+            f64::from(css_indent)
         };
         let min_content = min_text + indent.max(0.0);
         Ok(IntrinsicInlineSizes {
