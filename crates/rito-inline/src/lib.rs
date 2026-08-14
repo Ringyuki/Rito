@@ -1868,20 +1868,13 @@ impl FormattingContext for ParleyInlineContext {
             // shift survives into net positions (the first landing
             // relativized against the shifted value and cancelled itself
             // to a pixel-null — asserted by the paint-position test).
-            // An alignment offset lands on the LayoutUnit grid by
-            // FLOORING (Range-measured: a right-aligned 4-glyph 15.2px
-            // line starts at 579.1875 = floor64(579.2), the .8 fraction
-            // discriminating floor from round; centering behaves alike).
-            // Start-aligned lines carry no offset and keep raw floats.
-            let line_x = match alignment {
-                parley::Alignment::Center => {
-                    ((parley_line_x + forced_indent + hang_uncovered / 2.0) * 64.0).floor() / 64.0
-                }
-                parley::Alignment::End | parley::Alignment::Right => {
-                    ((parley_line_x + forced_indent + hang_uncovered) * 64.0).floor() / 64.0
-                }
-                _ => parley_line_x + forced_indent,
-            };
+            let line_x = parley_line_x
+                + forced_indent
+                + match alignment {
+                    parley::Alignment::Center => hang_uncovered / 2.0,
+                    parley::Alignment::End | parley::Alignment::Right => hang_uncovered,
+                    _ => 0.0,
+                };
             // A justified line spreads its slack equally across Blink's
             // expansion opportunities (see `line_justify_plan`); the
             // paragraph's last line and forced breaks keep the start edge.
