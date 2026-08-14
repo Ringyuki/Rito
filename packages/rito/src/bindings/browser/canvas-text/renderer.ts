@@ -171,12 +171,8 @@ function drawTextOnLayoutGrid(
   let cumulative = 0;
   let index = 0;
   for (const glyph of text) {
-    // The floor lands on the ABSOLUTE 1/64 grid: the run anchor itself
-    // can sit off-grid (a preceding latin word's kerned advance), and
-    // flooring run-relative offsets from such an anchor puts every
-    // glyph one grid phase away from the browser's absolute cells.
-    const snapped = Math.floor((x + cumulative + spacingPx * index) * 64) / 64;
-    ctx.fillText(glyph, snapped, baseline);
+    const snapped = Math.floor((cumulative + spacingPx * index) * 64) / 64;
+    ctx.fillText(glyph, x + snapped, baseline);
     cumulative += ctx.measureText(glyph).width;
     index += 1;
   }
