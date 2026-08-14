@@ -1970,7 +1970,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         let mut sizes = self.intrinsic_inline_sizes(tree, cell)?;
         let style = container_layout_style(tree, cell)?;
         let pad = |side: rito_style_contract::NonNegativeLengthPercentage| match side.value() {
-            LengthPercentage::Length(px) => f64::from(px.get()),
+            // Used paddings sit on the LayoutUnit grid (truncation).
+            LengthPercentage::Length(px) => (f64::from(px.get()) * 64.0).trunc() / 64.0,
             _ => 0.0,
         };
         let padding = pad(style.padding.left) + pad(style.padding.right);
@@ -2028,8 +2029,13 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 let pad = |side: rito_style_contract::NonNegativeLengthPercentage| {
                     resolve_length_percentage(side.value(), space.inline_size).max(0.0)
                 };
-                let padding_left = pad(style.padding.left);
-                let padding_right = pad(style.padding.right);
+                // Used paddings sit on the LayoutUnit grid (truncation);
+                // the untruncated 1em/0.1em pair at 12.16px widened the
+                // line's available advance by 1/64 and skewed every
+                // justify share on b19's note paragraphs.
+                let grid = |px: f64| (px * 64.0).trunc() / 64.0;
+                let padding_left = grid(pad(style.padding.left));
+                let padding_right = grid(pad(style.padding.right));
                 let padding_top = pad(style.padding.top);
                 let padding_bottom = pad(style.padding.bottom);
                 // A paragraph with a specified height flows at that
@@ -2252,7 +2258,8 @@ fn own_width_contribution(
     }
     let style = container_layout_style(tree, node)?;
     let pad = |side: rito_style_contract::NonNegativeLengthPercentage| match side.value() {
-        LengthPercentage::Length(px) => f64::from(px.get()),
+        // Used paddings sit on the LayoutUnit grid (truncation).
+        LengthPercentage::Length(px) => (f64::from(px.get()) * 64.0).trunc() / 64.0,
         _ => 0.0,
     };
     if let rito_style_contract::PreferredSizeV1::Value(width) = style.width {
@@ -2556,19 +2563,18 @@ fn resolve_horizontal_box(
     containing_width: f64,
 ) -> Result<HorizontalBox, LayoutError> {
     let resolve = |value: LengthPercentage| resolve_length_percentage(value, containing_width);
-    // A used VERTICAL padding edge sits on the LayoutUnit grid by
-    // TRUNCATION toward zero (LayoutUnit's float constructor), like
+    // A used padding edge sits on the LayoutUnit grid by TRUNCATION
+    // toward zero (LayoutUnit's float constructor), like
     // `resolve_margin` and the container pad path: a 0.1em padding at
     // 12.16px is 1.216 in CSS arithmetic but 1.203125 in the browser's
-    // box (measured on b20's footnote paragraph: the float
-    // padding-bottom pushed every later paragraph 1/64 down and flipped
-    // a .5-tie line one raster row). The HORIZONTAL edges and widths
-    // deliberately stay untouched: truncating them regressed b1 by a
-    // thousand pixels across dozens of pages (the float fit chain was
-    // the browser-exact one) — their grid story needs its own oracle.
+    // box (vertical measured on b20's footnote paragraph; horizontal
+    // measured on b19's note paragraph, whose content width is
+    // 581.15625 − trunc64(12.16) − trunc64(1.216) = 567.796875 exactly —
+    // the untruncated subtraction lands 1/64 wide and skews every
+    // justify share on the block's lines).
     let edge = |value: LengthPercentage| (resolve(value) * 64.0).trunc() / 64.0;
-    let padding_left = resolve(style.padding.left.value()).max(0.0);
-    let padding_right = resolve(style.padding.right.value()).max(0.0);
+    let padding_left = edge(style.padding.left.value()).max(0.0);
+    let padding_right = edge(style.padding.right.value()).max(0.0);
     let padding_top = edge(style.padding.top.value()).max(0.0);
     let padding_bottom = edge(style.padding.bottom.value()).max(0.0);
     let margin = |side: LengthPercentageOrAuto| -> Option<f64> {
@@ -3170,6 +3176,33 @@ mod tests {
         NonNegativeLengthPercentage::new(LengthPercentage::Length(
             CssPx::new(0.0).expect("zero length"),
         ))
+    }
+
+    #[test]
+    fn horizontal_padding_truncates_onto_the_layout_unit_grid() {
+        // b19 note paragraph: padding 1em/0.1em at 12.16px resolves to
+        // 12.16/1.216 in CSS arithmetic, but the used box subtracts the
+        // truncated 12.15625/1.203125 — content width 567.796875, not
+        // 567.78025.
+        let mut style = block_style(margin_px(0.0), margin_px(0.0));
+        let pad = |px: f32| {
+            NonNegativeLengthPercentage::new(LengthPercentage::Length(
+                CssPx::new(px).expect("padding length"),
+            ))
+        };
+        style.padding.left = pad(12.16);
+        style.padding.right = pad(1.216);
+        let hbox = resolve_horizontal_box(&style, 581.15625).expect("box resolves");
+        assert!(
+            (hbox.padding_left - 12.15625).abs() < 1e-9,
+            "left {}",
+            hbox.padding_left
+        );
+        assert!(
+            (hbox.content_width - 567.796875).abs() < 1e-9,
+            "content {}",
+            hbox.content_width
+        );
     }
 
     fn block_style(
