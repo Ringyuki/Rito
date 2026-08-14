@@ -540,7 +540,7 @@ for (const chapter of plan.chapters) {
         s.textContent = `@font-face { font-family: "__rito_pin_latin"; src: url("${pinLatin}"); }
 @font-face { font-family: "__rito_pin_cjk"; src: url("${pinCjk}"); }
 html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }
-body { margin:0; padding:0; }
+body { margin:0; padding:0; position:relative; }
 img, svg { max-width: 100%; }`;
         document.head.insertBefore(s, document.head.firstChild);
         // Reader UA policy mirror (rito-inline image_display_size), in
@@ -706,9 +706,20 @@ img, svg { max-width: 100%; }`;
       { contentW, contentH, pinLatin: PIN_LATIN, pinCjk: PIN_CJK, noteIds, bookFaceFamilies },
     );
     await truth.waitForTimeout(250);
-    // One screenshot per column, scrolled into view — no viewport-width
-    // cap on chapter length.
+    // One screenshot per column. Each column is brought to the viewport by
+    // a negative margin on the root element, NOT by scrolling: scrolling
+    // leaves display-list glyph origins at layout coordinates, and beyond
+    // x = 2^18 = 262,144 a float32 glyph origin can no longer represent
+    // the 1/64px layout grid (its ulp grows to 1/32px), so far columns
+    // raster with quantized glyph positions that near-origin rendering —
+    // and the engine, which paints every page at the canvas origin —
+    // never shows. Measured: any column past x=262,144 captured via
+    // scroll differs from the same content in column 0 by ~700
+    // beyond-floor pixels/page; captured via root margin shift it is
+    // bit-identical. body is position:relative so absolutely positioned
+    // book content anchors to the shifted page box, not the viewport.
     const columns = [];
+    const docWidth = await truth.evaluate(() => document.documentElement.scrollWidth);
     for (let k = 0; k <= expected + 1; k += 1) {
       // The gap must exceed any single line's horizontal overflow: an
       // unbreakable run (61 fullwidth stars) is ~430px wider than the
@@ -716,23 +727,19 @@ img, svg { max-width: 100%; }`;
       // column's screenshot slice as ghost glyphs the engine (which
       // clips at the page edge) never draws.
       const x0 = k * (contentW + 3000);
-      const docWidth = await truth.evaluate(() => document.documentElement.scrollWidth);
       if (x0 >= docWidth) break;
-      await truth.evaluate((x) => window.scrollTo(x, 0), x0);
-      const scrolled = await truth.evaluate(() => window.scrollX);
-      const clipX = x0 - scrolled;
-      if (clipX + contentW > contentW + 200) break;
+      await truth.evaluate((x) => {
+        document.documentElement.style.marginLeft = `-${x}px`;
+      }, x0);
       // Capture the right page margin too: an unbreakable line overflows
       // its column and PAINTS across the page's right margin band, which
       // the engine (clipping at the page edge) also shows. A content-wide
       // clip amputated that band and scored the engine's overflow ink as
-      // phantom diff. The clip is clamped to the viewport; a clamped last
-      // column loses only pixels the composite pads with page ground.
-      const clipW = Math.min(contentW + MARGIN, contentW + 200 - clipX);
+      // phantom diff.
       columns.push(
         PNG.sync.read(
           await truth.screenshot({
-            clip: { x: clipX, y: 0, width: clipW, height: contentH },
+            clip: { x: 0, y: 0, width: contentW + MARGIN, height: contentH },
           }),
         ),
       );
