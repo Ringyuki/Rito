@@ -3310,9 +3310,24 @@ impl FormattingContext for ParleyInlineContext {
             &[],
             &CancelFlag::new(),
         )?;
+        // text-indent joins the first line's intrinsic contribution, as in
+        // Chromium: a table cell whose one line carries a 2em indent
+        // measures indent + text, and a column sized without the indent
+        // wraps that line (b20 contents: a 9-ideograph title broke after
+        // its 7th character because the column took only the text width).
+        // The negative side stays out of min-content so a hanging indent
+        // cannot squeeze a column below its widest unbreakable unit.
+        let min_text = f64::from(shrunk.layout.calculate_content_widths().min);
+        let max_text = f64::from(intrinsic.layout.calculate_content_widths().max);
+        let indent = if intrinsic.text.is_empty() && max_text <= 0.0 {
+            0.0
+        } else {
+            f64::from(intrinsic.first_line_indent)
+        };
+        let min_content = min_text + indent.max(0.0);
         Ok(IntrinsicInlineSizes {
-            min_content: f64::from(shrunk.layout.calculate_content_widths().min),
-            max_content: f64::from(intrinsic.layout.calculate_content_widths().max),
+            min_content,
+            max_content: (max_text + indent).max(min_content),
         })
     }
 }
@@ -7563,6 +7578,31 @@ running through the quiet forest until the morning light returns.";
             panic!("root is a box");
         };
         assert_eq!(root.children.len(), 1, "max-content width fits one line");
+    }
+
+    #[test]
+    fn text_indent_joins_intrinsic_widths() {
+        let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+        let (plain_tree, _) = paragraph_tree(SAMPLE, 0.0);
+        let plain = context
+            .intrinsic_inline_sizes(&plain_tree, FormattingNodeId(0))
+            .expect("plain sizes");
+        let (indented_tree, _) = paragraph_tree(SAMPLE, 32.0);
+        let indented = context
+            .intrinsic_inline_sizes(&indented_tree, FormattingNodeId(0))
+            .expect("indented sizes");
+        assert!(
+            (indented.max_content - plain.max_content - 32.0).abs() < 0.01,
+            "max-content grows by the indent: {} vs {}",
+            indented.max_content,
+            plain.max_content
+        );
+        assert!(
+            (indented.min_content - plain.min_content - 32.0).abs() < 0.01,
+            "min-content grows by the indent: {} vs {}",
+            indented.min_content,
+            plain.min_content
+        );
     }
 
     #[test]
