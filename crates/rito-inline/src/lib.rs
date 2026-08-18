@@ -989,6 +989,43 @@ impl ParleyInlineContext {
                 );
             }
         }
+        // A space takes the FIRST family of its stack in the browser
+        // (every face covers U+0020), while parley merges a space into
+        // the neighbouring script run: a space between a CJK glyph and
+        // a latin word shaped with the CJK face's 0.232em space where
+        // the browser uses the latin face's 0.25em, and the rest of the
+        // line walked 0.27px apart. An inert-off font feature forces a
+        // CJK-adjacent space into its own shaping run, which then
+        // resolves against the stack head. Latin-neighbour spaces stay
+        // merged so cross-space kern pairs (Tinos `r A`) keep applying
+        // like the browser's.
+        {
+            let chars: Vec<(usize, char)> = text.char_indices().collect();
+            for (position, (byte, character)) in chars.iter().enumerate() {
+                if *character != ' ' {
+                    continue;
+                }
+                let prev_cjk = position
+                    .checked_sub(1)
+                    .and_then(|index| chars.get(index))
+                    .is_some_and(|(_, prev)| is_cjk_context(*prev));
+                let next_cjk = chars
+                    .get(position + 1)
+                    .is_some_and(|(_, next)| is_cjk_context(*next));
+                if prev_cjk || next_cjk {
+                    builder.push(
+                        StyleProperty::FontFeatures(parley::FontFeatures::List(
+                            std::borrow::Cow::Owned(vec![parley::FontFeature::new(
+                                parley::setting::Tag::new(b"smcp"),
+                                0,
+                            )]),
+                        )),
+                        *byte..*byte + 1,
+                    );
+                }
+            }
+        }
+
         // Inline box advances: a span's horizontal padding and borders
         // widen the gap at each box boundary. The gap rides as letter
         // spacing on the character left of the boundary (the same
