@@ -225,14 +225,15 @@ pub(crate) fn select_stylo_sources(
     if !has_external_source {
         for source in stylesheet_ledger.sources() {
             let source_index = stylesheets.len();
-            inventory_selected_css(
-                source_index,
+            let expanded = expand_css_imports(
+                source.text(),
                 source.href(),
-                source.text(),
-                &mut capabilities,
-            )?;
+                stylesheet_ledger,
+                &mut vec![normalize_path(source.href())],
+            );
+            inventory_selected_css(source_index, source.href(), &expanded, &mut capabilities)?;
             stylesheets.push(StylesheetInput::author(
-                source.text(),
+                expanded,
                 publication_url(source.href()),
             ));
         }
@@ -273,8 +274,20 @@ pub(crate) fn select_stylo_sources(
                 (selected.text(), publication_url(&resolved_href))
             }
         };
-        inventory_selected_css(source_index, &base_url, css, &mut capabilities)?;
-        stylesheets.push(StylesheetInput::author(css, base_url));
+        let import_base = match source {
+            AuthorStylesheetSource::Embedded { .. } => chapter_href.to_owned(),
+            AuthorStylesheetSource::External { href, .. } => {
+                resolve_stylesheet_href(chapter_href, href)
+            }
+        };
+        let expanded = expand_css_imports(
+            css,
+            &import_base,
+            stylesheet_ledger,
+            &mut vec![normalize_path(&import_base)],
+        );
+        inventory_selected_css(source_index, &base_url, &expanded, &mut capabilities)?;
+        stylesheets.push(StylesheetInput::author(expanded, base_url));
     }
     Ok(StyloSourceSelection {
         document_url,
@@ -444,6 +457,125 @@ fn reject_source_issues(
         });
     }
     Ok(())
+}
+
+
+/// Expands a sheet's `@import` rules by inlining the imported
+/// publication sheet's text at the rule's position, recursively. CSS
+/// honours imports only in the sheet's prelude — before any rule other
+/// than `@charset`/`@import` — and so does this expansion; later
+/// `@import` text stays put and drops in the parser like the browser's.
+/// A missing target, an import cycle, or a media list naming anything
+/// beyond `all`/`screen` drops the import the way the browser would in
+/// this environment. Without the expansion a publication styled through
+/// `@import` chains lost its entire author cascade (a real book's
+/// paragraphs fell to UA defaults: `line-height: normal`, uncollapsed
+/// 1em margins, no text-indent — every page paginated apart from the
+/// browser's).
+/// Skips a CSS comment body, returning the index after `*/` (or the end).
+fn skip_css_comment(bytes: &[u8], mut index: usize) -> usize {
+    while index + 1 < bytes.len() {
+        if bytes[index] == b'*' && bytes[index + 1] == b'/' {
+            return index + 2;
+        }
+        index += 1;
+    }
+    bytes.len()
+}
+
+fn expand_css_imports(
+    css: &str,
+    sheet_href: &str,
+    ledger: &StylesheetSourceLedger,
+    seen: &mut Vec<String>,
+) -> String {
+    if seen.len() > 8 {
+        return css.to_owned();
+    }
+    let bytes = css.as_bytes();
+    let mut out = String::with_capacity(css.len());
+    let mut index = 0;
+    loop {
+        let rest_start = index;
+        // Skip prelude whitespace and comments, copying them through.
+        while index < bytes.len() {
+            if bytes[index].is_ascii_whitespace() {
+                index += 1;
+                continue;
+            }
+            if bytes[index..].starts_with(b"/*") {
+                index = skip_css_comment(bytes, index + 2);
+                continue;
+            }
+            break;
+        }
+        out.push_str(&css[rest_start..index]);
+        let lower = css[index..].as_bytes();
+        if lower.len() >= 8 && css[index..index + 8].eq_ignore_ascii_case("@charset") {
+            let end = css[index..].find(';').map_or(css.len(), |at| index + at + 1);
+            out.push_str(&css[index..end]);
+            index = end;
+            continue;
+        }
+        if !(lower.len() >= 7 && css[index..index + 7].eq_ignore_ascii_case("@import")) {
+            out.push_str(&css[index..]);
+            return out;
+        }
+        let end = css[index..].find(';').map_or(css.len(), |at| index + at + 1);
+        let statement = &css[index + 7..end.saturating_sub(1).max(index + 7)];
+        index = end;
+        let Some((target, media)) = parse_import_target(statement) else {
+            continue;
+        };
+        let media = media.trim();
+        if !media.is_empty()
+            && !media
+                .split(',')
+                .all(|entry| matches!(entry.trim().to_ascii_lowercase().as_str(), "all" | "screen"))
+        {
+            continue;
+        }
+        let sheet_dir = opf_dir(sheet_href);
+        let resolved = if target.starts_with('/') {
+            normalize_path(target.trim_start_matches('/'))
+        } else {
+            normalize_path(&join_epub_href(sheet_dir, &target))
+        };
+        if seen.iter().any(|entry| *entry == resolved) {
+            continue;
+        }
+        let Some(imported) = ledger
+            .sources()
+            .iter()
+            .find(|candidate| normalize_path(candidate.href()) == resolved)
+        else {
+            continue;
+        };
+        seen.push(resolved);
+        let expanded = expand_css_imports(imported.text(), imported.href(), ledger, seen);
+        out.push_str(&expanded);
+        out.push('\n');
+    }
+}
+
+/// The import target (unquoted) and the trailing media text of one
+/// `@import` statement body (everything between `@import` and `;`).
+fn parse_import_target(statement: &str) -> Option<(String, String)> {
+    let trimmed = statement.trim_start();
+    if trimmed.len() >= 4 && trimmed[..4].eq_ignore_ascii_case("url(") {
+        let inner_start = 4;
+        let close = trimmed.find(')')?;
+        let inner = trimmed[inner_start..close].trim();
+        let target = inner.trim_matches('"').trim_matches('\'');
+        return Some((target.to_owned(), trimmed[close + 1..].to_owned()));
+    }
+    let quote = trimmed.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let body = &trimmed[1..];
+    let close = body.find(quote)?;
+    Some((body[..close].to_owned(), body[close + 1..].to_owned()))
 }
 
 fn resolve_stylesheet_href(chapter_href: &str, stylesheet_href: &str) -> String {
