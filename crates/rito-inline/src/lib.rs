@@ -1893,6 +1893,13 @@ impl FormattingContext for ParleyInlineContext {
                 // content to the full measure with the spaces hung outside.
                 let advance =
                     f64::from(metrics.advance - metrics.trailing_whitespace) - hang_uncovered;
+                // The line width joins the slack rounded UP onto the 1/64
+                // grid: a 38-glyph 15.2px line (raw 577.6) justifies at
+                // share (590.765625 - ceil64(577.6)) / 37 = 0.3555743 in
+                // the browser, not raw 0.3558218 — the raw share drifts
+                // far enough by line end to flip glyph raster phases,
+                // while on-grid widths (40 glyphs = 608) agree bit-exactly.
+                let advance = (advance * 64.0).ceil() / 64.0;
                 line_justify_plan(
                     &flow_text,
                     range,
