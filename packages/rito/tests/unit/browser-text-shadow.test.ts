@@ -81,22 +81,17 @@ describe('production Canvas text shadows', () => {
     // The caster anchors at the alphabetic baseline: padTop 7 plus
     // 0.8 × 18px, the renderer's shared convention (adfff36e — a
     // top-baseline caster hung every shadow fontAscent − 0.8em low).
+    // The fragment's fractional DEVICE phase renders inside the scratch
+    // (device x 1.75 × 22.5 = 39.375 → fraction 0.375/1.75 logical) and
+    // the blit lands on integer device pixels — a fractional-position
+    // drawImage resampled the shadow bitmap bilinearly and smeared
+    // every shadowed glyph's edges wider than the browser's.
     expect(callArguments(scratch.records, 'fillText')).toEqual([
-      ['shadow text', 7.5, 7 + 0.8 * 18 - 20000],
-      ['shadow text', 7.5, 7 + 0.8 * 18 - 20000],
+      ['shadow text', 7.5 + 0.375 / 1.75, 7 + 0.8 * 18 - 20000],
+      ['shadow text', 7.5 + 0.375 / 1.75, 7 + 0.8 * 18 - 20000],
     ]);
     expect(callArguments(snapshot.main, 'drawImage')).toEqual([
-      [
-        { scratchCanvas: 0, kind: 'offscreen', width: 117, height: 63 },
-        0,
-        0,
-        117,
-        63,
-        22.5,
-        33,
-        66.75,
-        36,
-      ],
+      [{ scratchCanvas: 0, kind: 'offscreen', width: 117, height: 63 }, 39, 33],
     ]);
   });
 

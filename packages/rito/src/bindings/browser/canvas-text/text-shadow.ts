@@ -25,6 +25,16 @@ export function drawTextShadows(
   // so paging into it hung forever).
   const transform = ctx.getTransform();
   const pixelRatio = Math.hypot(transform.a || 0, transform.b || 0) || 1;
+  const rotated = Math.abs(transform.b || 0) > 1e-6 || Math.abs(transform.c || 0) > 1e-6;
+  if (!rotated) {
+    drawSnappedShadows(ctx, transform, fragment, x, y, color, shadows, {
+      padLeft,
+      padRight,
+      padTop,
+      padBottom,
+    });
+    return;
+  }
   const physicalWidth = Math.max(1, Math.ceil(logicalWidth * pixelRatio));
   const physicalHeight = Math.max(1, Math.ceil(logicalHeight * pixelRatio));
   const scratch = createScratchCanvas(physicalWidth, physicalHeight);
@@ -69,6 +79,65 @@ export function drawTextShadows(
  * pure shadow, which the glyph later covers exactly as Blink composites:
  * shadow underneath, body on top, edges blending through.
  */
+/**
+ * Blit the scratch 1:1 onto integer device pixels and render the
+ * fragment's fractional device phase INSIDE the scratch: a blit at the
+ * raw fractional position resampled the whole shadow bitmap bilinearly,
+ * smearing every shadowed glyph's edges ~a phase wider than the
+ * browser's shadow (measured on 12.16px note lines with
+ * `text-shadow: 0 0 1px`: edge fringes read 70 vs the browser's 25 at
+ * the same pixel while stem cores matched).
+ */
+function drawSnappedShadows(
+  ctx: CanvasRenderingContext2D,
+  transform: DOMMatrix,
+  fragment: CanvasTextFragment,
+  x: number,
+  y: number,
+  color: string,
+  shadows: readonly CanvasTextShadow[],
+  { padLeft, padRight, padTop, padBottom }: ShadowPadding,
+): void {
+  const logicalWidth = fragment.rect.width + padLeft + padRight;
+  const logicalHeight = fragment.rect.height + padTop + padBottom;
+  // Mocked transforms may carry only `a`; default the rest to identity.
+  // Partial transforms (mocks, detached contexts) fall back to identity
+  // components so the snap math stays finite.
+  const component = (value: number, fallback: number): number =>
+    Number.isFinite(value) ? value : fallback;
+  const a = component(transform.a, 1);
+  const b = component(transform.b, 0);
+  const c = component(transform.c, 0);
+  const d = component(transform.d, 1);
+  const e = component(transform.e, 0);
+  const f = component(transform.f, 0);
+  const pixelRatio = Math.hypot(a || 0, b || 0) || 1;
+  const deviceX = a * (x - padLeft) + c * (y - padTop) + e;
+  const deviceY = b * (x - padLeft) + d * (y - padTop) + f;
+  const deviceXInt = Math.floor(deviceX);
+  const deviceYInt = Math.floor(deviceY);
+  const fractionX = (deviceX - deviceXInt) / pixelRatio;
+  const fractionY = (deviceY - deviceYInt) / pixelRatio;
+  const physicalWidth = Math.max(1, Math.ceil(logicalWidth * pixelRatio));
+  const physicalHeight = Math.max(1, Math.ceil(logicalHeight * pixelRatio));
+  const scratch = createScratchCanvas(physicalWidth, physicalHeight);
+  if (!scratch) return;
+  scratch.ctx.scale(pixelRatio, pixelRatio);
+  syncTextState(scratch.ctx, ctx, fragment, color);
+  renderShadowLayers(
+    scratch.ctx,
+    shadows,
+    fragment.text,
+    padLeft + fractionX,
+    padTop + fractionY + 0.8 * fragment.paint.font.sizePx,
+    pixelRatio,
+  );
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(scratch.canvas, deviceXInt, deviceYInt);
+  ctx.restore();
+}
+
 const SHADOW_CAST_OFFSET = 20000;
 
 function renderShadowLayers(
