@@ -1891,15 +1891,54 @@ impl FormattingContext for ParleyInlineContext {
                 // The hanging U+3000 tail leaves the measure like parley's
                 // own trailing whitespace does: Blink justifies the line's
                 // content to the full measure with the spaces hung outside.
-                let advance =
-                    f64::from(metrics.advance - metrics.trailing_whitespace) - hang_uncovered;
-                // The line width joins the slack rounded UP onto the 1/64
-                // grid: a 38-glyph 15.2px line (raw 577.6) justifies at
-                // share (590.765625 - ceil64(577.6)) / 37 = 0.3555743 in
-                // the browser, not raw 0.3558218 — the raw share drifts
-                // far enough by line end to flip glyph raster phases,
-                // while on-grid widths (40 glyphs = 608) agree bit-exactly.
-                let advance = (advance * 64.0).ceil() / 64.0;
+                // The line width joins the slack as the sum of its STYLE
+                // ITEMS' advances, each rounded UP onto the 1/64 grid
+                // (DOM-measured: a 14+13+10-glyph three-span 15.2px line
+                // justifies at share (590.765625 - Σ ceil64(item))/36
+                // with zero pixel diff, while both the raw float width
+                // and ceil64 of the whole advance leave glyphs one
+                // raster phase off; a font-fallback split inside ONE
+                // element does not round — the next run continues at the
+                // float advance, caret floor64(15.19998) = 15.1875).
+                // (key, advance, ceils) per piece: an atomic inline's used
+                // width is already a LayoutUnit value and joins the sum
+                // as-is — rounding it up moved every following glyph on
+                // the noteref-image lines one grid phase right of the
+                // browser; only shaped text widths round up.
+                let mut item_advances: Vec<(u32, f64, bool)> = Vec::new();
+                for item in line.items() {
+                    let (key, width, ceils) = match item {
+                        PositionedLayoutItem::GlyphRun(glyph_run) => (
+                            u32::from_le_bytes(glyph_run.style().brush),
+                            f64::from(glyph_run.advance()),
+                            true,
+                        ),
+                        PositionedLayoutItem::InlineBox(inline_box) => (
+                            u32::MAX - inline_box.id as u32,
+                            f64::from(inline_box.width),
+                            false,
+                        ),
+                    };
+                    match item_advances.last_mut() {
+                        Some((last, sum, _)) if *last == key => *sum += width,
+                        _ => item_advances.push((key, width, ceils)),
+                    }
+                }
+                // Trailing whitespace and the hanging tail sit on the
+                // line's last item; they leave before the rounding.
+                if let Some((_, sum, _)) = item_advances.last_mut() {
+                    *sum -= f64::from(metrics.trailing_whitespace) + hang_uncovered;
+                }
+                let advance: f64 = item_advances
+                    .iter()
+                    .map(|(_, sum, ceils)| {
+                        if *ceils {
+                            (sum * 64.0).ceil() / 64.0
+                        } else {
+                            *sum
+                        }
+                    })
+                    .sum();
                 line_justify_plan(
                     &flow_text,
                     range,
