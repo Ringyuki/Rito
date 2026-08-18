@@ -4422,10 +4422,28 @@ fn push_line_end_trims(
             _ => 0.0,
         };
         builder.push(
-            StyleProperty::LetterSpacing(author - 0.5 * style.font.size.get()),
+            StyleProperty::LetterSpacing(author - 0.5 * shaping_font_size(style.font.size.get())),
             byte..byte + character.len_utf8(),
         );
     }
+}
+
+/// The browser shapes at the computed font size truncated toward zero
+/// onto the 1/100 px grid (measured with a pinned 1000-upem face:
+/// 15.9999, 15.999 and 15.995 all shape at 15.99 — a 39-glyph line lands
+/// 0.39px short of the full-precision width; 15.9375 shapes at 15.93 and
+/// 17.06667 at 17.06, never rounding up; 15.2, 12.16 and 16.01 pass
+/// through unchanged). The computed size arrives as f32, whose dust sits
+/// ~2e-6 below the stylesheet's decimal value, so hundredths within 1e-3
+/// of an integer snap there before the truncation.
+fn shaping_font_size(size: f32) -> f32 {
+    let hundredths = f64::from(size) * 100.0;
+    let quantized = if (hundredths.round() - hundredths).abs() < 1e-3 {
+        hundredths.round()
+    } else {
+        hundredths.trunc()
+    };
+    (quantized / 100.0) as f32
 }
 
 fn push_item_styles(
@@ -4439,7 +4457,7 @@ fn push_item_styles(
         range.clone(),
     );
     builder.push(
-        StyleProperty::FontSize(style.font.size.get()),
+        StyleProperty::FontSize(shaping_font_size(style.font.size.get())),
         range.clone(),
     );
     builder.push(
