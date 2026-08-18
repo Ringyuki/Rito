@@ -1933,7 +1933,18 @@ impl FormattingContext for ParleyInlineContext {
                     .iter()
                     .map(|(_, sum, ceils)| {
                         if *ceils {
-                            (sum * 64.0).ceil() / 64.0
+                            // The shaper's advances carry a small positive
+                            // dust (measured: a 40-glyph 15.2px line whose
+                            // exact width is 608 sums to 608.000183, about
+                            // +5e-6 per glyph), while the browser's width
+                            // for the same line stays at-or-below the
+                            // grid; ceiling the raw sum bumped such lines
+                            // a whole 1/64 and their smaller share drifted
+                            // glyphs across raster half-buckets mid-line.
+                            // The margin only changes sums within ~1e-3
+                            // ABOVE a grid point — real off-grid widths
+                            // sit ≥ 1/128 away and keep their ceil.
+                            ((sum - 1.0 / 1024.0) * 64.0).ceil() / 64.0
                         } else {
                             *sum
                         }
