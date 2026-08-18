@@ -2580,7 +2580,13 @@ fn resolve_horizontal_box(
     let margin = |side: LengthPercentageOrAuto| -> Option<f64> {
         match side {
             LengthPercentageOrAuto::Auto => None,
-            LengthPercentageOrAuto::Value(value) => Some(resolve(value)),
+            // Used margins truncate onto the LayoutUnit grid like the
+            // paddings above (measured: margin-left 1.9% of 627.21875
+            // is 11.917156 in CSS arithmetic, 11.90625 in the browser's
+            // box — round would give 11.921875; the raw value left every
+            // line of a 1%-margined paragraph 0.42/64 off the grid and
+            // its glyphs a raster phase adrift).
+            LengthPercentageOrAuto::Value(value) => Some((resolve(value) * 64.0).trunc() / 64.0),
         }
     };
     let margin_left = margin(style.margin.left);
@@ -2831,8 +2837,10 @@ fn shrink_to_fit_offset(
     let margin = |side: LengthPercentageOrAuto| -> Option<f64> {
         match side {
             LengthPercentageOrAuto::Auto => None,
+            // Used margins truncate onto the LayoutUnit grid, matching
+            // `resolve_horizontal_box` and `resolve_margin`.
             LengthPercentageOrAuto::Value(value) => {
-                Some(resolve_length_percentage(value, containing_width))
+                Some((resolve_length_percentage(value, containing_width) * 64.0).trunc() / 64.0)
             }
         }
     };
