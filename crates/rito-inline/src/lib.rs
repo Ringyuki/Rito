@@ -1993,7 +1993,7 @@ impl FormattingContext for ParleyInlineContext {
             // float accumulation from the anchored start. Integer sizes
             // stay on the raw floats — their advances already sit on
             // the grid and re-anchoring there moved verified rows.
-            let mut natural_item_track: Option<(usize, f64, f64)> = None;
+            let mut natural_item_track: Option<(usize, f64, f64, f64)> = None;
             // Collect the line's content first, remembering each child's
             // baseline shift, so the line box can grow by however far
             // shifted content rises above the strut before positions are
@@ -2164,31 +2164,61 @@ impl FormattingContext for ParleyInlineContext {
                                 // position, and no canvas call crosses a
                                 // space. (Justified lines already split
                                 // there: a space boundary carries a share.)
-                                let off_grid_size =
-                                    (f64::from(glyph_run.run().font_size()) * 64.0) % 1.0 != 0.0;
-                                let run_x = if off_grid_size {
-                                    match &mut natural_item_track {
-                                        slot @ None => {
-                                            *slot = Some((item_index, run_x, run_x));
-                                            run_x
-                                        }
-                                        Some((item, truth_start, engine_start)) => {
-                                            if *item != item_index {
-                                                let advance = run_x - *engine_start;
-                                                let truth = ((*truth_start + advance) * 64.0)
-                                                    .ceil()
-                                                    / 64.0;
-                                                *item = item_index;
-                                                *truth_start = truth;
-                                                *engine_start = run_x;
-                                                truth
+                                // Every style-item boundary re-anchors:
+                                // the browser holds each ITEM's shaped
+                                // width on the LayoutUnit grid (a
+                                // truncated 11.99px superscript span
+                                // starts its 14px successor at +12.0 =
+                                // ceil64 of the span's width), while
+                                // inter-item gaps (span margins, inline
+                                // boxes) and the chain's own fractional
+                                // origin pass through untouched — a
+                                // mixed-size title whose items are all
+                                // grid-exact keeps its float origin
+                                // (position-ceiling it moved a 24px
+                                // title word 0.4/64 right of the
+                                // browser). The width ceil carries the
+                                // shaper-dust margin so an on-grid item
+                                // width plus float dust stays a no-op.
+                                let run_advance = f64::from(glyph_run.advance());
+                                let run_x = match &mut natural_item_track {
+                                    slot @ None => {
+                                        *slot =
+                                            Some((item_index, run_x, run_x, run_advance));
+                                        run_x
+                                    }
+                                    Some((item, truth_start, engine_start, item_width)) => {
+                                        if *item != item_index {
+                                            let delta = run_x - *engine_start;
+                                            let gap = delta - *item_width;
+                                            let ceiled = ((*item_width - 1.0 / 1024.0) * 64.0)
+                                                .ceil()
+                                                / 64.0;
+                                            // Only a genuinely off-grid item
+                                            // width anchors; a grid width
+                                            // plus shaper dust keeps the
+                                            // engine's float chain (title
+                                            // spans with exact 24px glyphs
+                                            // matched the browser bit-for-
+                                            // bit before any anchoring).
+                                            let width = if ceiled - *item_width > 1.0 / 1024.0 {
+                                                ceiled
                                             } else {
-                                                *truth_start + (run_x - *engine_start)
-                                            }
+                                                *item_width
+                                            };
+                                            let truth = *truth_start + width + gap;
+                                            *item = item_index;
+                                            *truth_start = truth;
+                                            *engine_start = run_x;
+                                            *item_width = run_advance;
+                                            truth
+                                        } else {
+                                            let truth =
+                                                *truth_start + (run_x - *engine_start);
+                                            *item_width += run_advance;
+                                            truth
                                         }
                                     }
-                                } else {
-                                    run_x
                                 };
                                 let has_space = flow_text
                                     .get(run_range.clone())
@@ -2264,7 +2294,10 @@ impl FormattingContext for ParleyInlineContext {
                                 // of the browser's raster ties.
                                 let justified_x = run_x
                                     + plan.share * f64::from(justify_shares_used);
-                                let ceil64 = |value: f64| (value * 64.0).ceil() / 64.0;
+                                // Shaper-dust margin like the natural
+                                // cursor: an on-grid item end plus float
+                                // dust must not bump a whole 1/64.
+                                let ceil64 = |value: f64| ((value - 1.0 / 1024.0) * 64.0).ceil() / 64.0;
                                 let run_x = run_x
                                     + match &mut justify_item_track {
                                         slot @ None => {
