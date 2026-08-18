@@ -150,7 +150,7 @@ impl PendingLineFinalizer {
             self.stage = LineFinalizeStage::ExtractRuby;
             return;
         }
-        let extra = self.max_width - self.geometry.line_width;
+        let extra = self.max_width - (self.geometry.line_width * 64.0).ceil() / 64.0; // slack vs ceil64 width: raw-width share drifts glyph raster phases by line end
         let text_justify = base_style
             .get("textJustify")
             .and_then(Value::as_str)
@@ -174,7 +174,7 @@ impl PendingLineFinalizer {
             .expect("justify analysis is initialized")
             .advance(&self.runs, work)?;
         self.justify = None;
-        let extra = self.max_width - self.geometry.line_width;
+        let extra = self.max_width - (self.geometry.line_width * 64.0).ceil() / 64.0; // slack vs ceil64 width: raw-width share drifts glyph raster phases by line end
         self.distribution = PendingJustifyDistribution::new(plan, extra);
         self.stage = if self.distribution.is_some() {
             LineFinalizeStage::DistributeJustify
