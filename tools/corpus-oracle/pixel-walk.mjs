@@ -45,7 +45,13 @@ mkdirSync(path.join(outDir, 'truth'), { recursive: true });
 // ---- Unpack the pristine book for the truth side ------------------------
 const unpackDir = path.join(outDir, 'book');
 mkdirSync(unpackDir, { recursive: true });
-execFileSync('unzip', ['-o', '-q', bookPath, '-d', unpackDir]);
+// unzip exits 1 for warnings (an epub with junk bytes before the zip
+// header still extracts); only a missing container afterwards is fatal.
+try {
+  execFileSync('unzip', ['-o', '-q', bookPath, '-d', unpackDir]);
+} catch (error) {
+  if (!existsSync(path.join(unpackDir, 'META-INF/container.xml'))) throw error;
+}
 const container = readFileSync(path.join(unpackDir, 'META-INF/container.xml'), 'utf8');
 const opfRel = /full-path="([^"]+)"/.exec(container)?.[1];
 const opfPath = path.join(unpackDir, opfRel);
@@ -689,7 +695,10 @@ img, svg { max-width: 100%; }`;
         // a layout uses it, and fonts.ready resolves against loads that
         // have already started.
         for (const family of bookFaces) {
-          await document.fonts.load(`16px "${family}"`, '试A');
+          // A corrupt embedded face rejects the load with a NetworkError;
+          // both engines fall to the next family in that case, so the
+          // truth must too instead of blanking the whole chapter.
+          await document.fonts.load(`16px "${family}"`, '试A').catch(() => undefined);
         }
         await document.fonts.ready;
         // Rito feature mirror: referenced footnote bodies leave the flow.
