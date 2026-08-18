@@ -554,13 +554,15 @@ img, svg { max-width: 100%; }`;
         // `max-width: 100%` above (a replaced element never exceeds its
         // container; Blink shrinks the auto cross axis with it), and the
         // HEIGHT clamp is applied per element below, scaling the measured
-        // box uniformly. The old blanket `max-height !important` squashed
-        // every author-width oversized image the same way the engine's
-        // old axis-independent clamp did, and the diff went blind to the
-        // whole class (b52's stretched cover scored bf=2). Measure every
-        // replaced box under the book's own CSS first, then pin the
-        // scaled sizes, so reflow from one fix cannot skew the next
-        // measurement.
+        // box uniformly. EXCEPT a both-axes-authored image: the injected
+        // cap would re-resolve it the Blink way (width capped, authored
+        // height held, box DISTORTED) before the clamp — a 708x996-styled
+        // plate fit to 546x850 where the engine's uniform page clamp of
+        // the authored box lays 604x850. Detection is empirical: lifting
+        // the injected cap widens the box while the height stays put.
+        // Measure every replaced box under the book's own CSS first,
+        // then pin the scaled sizes, so reflow from one fix cannot skew
+        // the next measurement.
         {
           const replaced = [...document.querySelectorAll('img, svg')];
           await Promise.all(
@@ -576,6 +578,9 @@ img, svg { max-width: 100%; }`;
           );
           const fits = replaced.map((el) => {
             const rect = el.getBoundingClientRect();
+            el.style.setProperty('max-width', 'none', 'important');
+            const freeRect = el.getBoundingClientRect();
+            el.style.removeProperty('max-width');
             const cs = getComputedStyle(el);
             const edge = (name) => parseFloat(cs.getPropertyValue(name)) || 0;
             const extraX =
@@ -597,16 +602,28 @@ img, svg { max-width: 100%; }`;
               el,
               width: rect.width - extraX,
               height: rect.height - extraY,
+              freeWidth: freeRect.width - extraX,
+              freeHeight: freeRect.height - extraY,
+              extraX,
               extraY,
             };
           });
-          for (const { el, width, height, extraY } of fits) {
+          for (const { el, width, height, freeWidth, freeHeight, extraX, extraY } of fits) {
             if (!(width > 0) || !(height > 0)) continue;
-            const budget = contentH - extraY;
-            const scale = budget / height;
+            const budgetY = contentH - extraY;
+            const authoredDistortion =
+              freeWidth - width > 0.5 && Math.abs(freeHeight - height) < 0.5;
+            if (authoredDistortion) {
+              const budgetX = contentW - extraX;
+              const scale = Math.min(1, budgetX / freeWidth, budgetY / freeHeight);
+              el.style.setProperty('width', `${freeWidth * scale}px`, 'important');
+              el.style.setProperty('height', `${freeHeight * scale}px`, 'important');
+              continue;
+            }
+            const scale = budgetY / height;
             if (scale >= 1) continue;
             el.style.setProperty('width', `${width * scale}px`, 'important');
-            el.style.setProperty('height', `${budget}px`, 'important');
+            el.style.setProperty('height', `${budgetY}px`, 'important');
           }
         }
         // A 404'd pin silently falls back to the browser's own font and
