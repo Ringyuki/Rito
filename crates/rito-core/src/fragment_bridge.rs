@@ -492,6 +492,7 @@ impl TreeBuilder<'_> {
             // apply), it just has no line boxes.
             let inline_style = self.inline_style_id(source_index, &element.tag);
             let inline_style = self.container_text_style(inline_style)?;
+            let inline_style = self.flex_centered_text_style(source_index, inline_style)?;
             let mut collector = self.inline_collector();
             for child in &element.children {
                 self.collect_inline(child, inline_style, 0.0, &mut collector)?;
@@ -581,6 +582,39 @@ impl TreeBuilder<'_> {
         self.layout
             .intern(derived)
             .map_err(|error| EpubError::new(format!("{what} border style interns: {error}")))
+    }
+
+    /// A degraded flex container with `justify-content: center` lays its
+    /// inline-level children as a CENTERED flow: for a single-line flex
+    /// row, main-axis centering and text-align:center produce the same
+    /// line geometry (measured on b2's `.illus` plates — the browser
+    /// centers the img inside the 627px line; the plain block degrade
+    /// left it at the line start, 45px off).
+    fn flex_centered_text_style(
+        &mut self,
+        source_index: usize,
+        strut: StyleId,
+    ) -> EpubResult<StyleId> {
+        let Ok(layout_style) = self.layout.style_for_node(source_index) else {
+            return Ok(strut);
+        };
+        if layout_style.display.inside != LayoutDisplayInsideV1::Flex
+            || layout_style.justify_content != JustifyContentV1::Center
+        {
+            return Ok(strut);
+        }
+        let resolved = self
+            .inline
+            .style(strut)
+            .map_err(|error| EpubError::new(format!("flex flow style resolves: {error}")))?;
+        if resolved.text_flow.text_align == rito_style_contract::TextAlign::Center {
+            return Ok(strut);
+        }
+        let mut derived = resolved.clone();
+        derived.text_flow.text_align = rito_style_contract::TextAlign::Center;
+        self.inline
+            .intern(derived)
+            .map_err(|error| EpubError::new(format!("flex flow style interns: {error}")))
     }
 
     /// Collects inline-level content into styled text items. `inherited` is

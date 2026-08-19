@@ -627,6 +627,7 @@ impl ParleyInlineContext {
         node: FormattingNodeId,
         available_inline_size: Option<f64>,
         available_block_size: Option<f64>,
+        containing_block_size: Option<f64>,
         percentage_images: PercentageImageSizing,
         end_trims: &[usize],
         suppressed_pair_trims: &[usize],
@@ -714,6 +715,7 @@ impl ParleyInlineContext {
                         layout_style,
                         available_inline_size,
                         available_block_size,
+                        containing_block_size,
                         percentage_images,
                         *viewport,
                     )?;
@@ -1442,6 +1444,7 @@ impl FormattingContext for ParleyInlineContext {
                 root,
                 Some(space.inline_size),
                 space.fragmentainer_size,
+                space.containing_block_size,
                 PercentageImageSizing::Intrinsic,
                 &end_trims,
                 &suppressed_pair_trims,
@@ -3424,6 +3427,7 @@ impl FormattingContext for ParleyInlineContext {
             node,
             None,
             None,
+            None,
             PercentageImageSizing::Shrunk,
             &[],
             &[],
@@ -3432,6 +3436,7 @@ impl FormattingContext for ParleyInlineContext {
         let intrinsic = self.build_layout(
             tree,
             node,
+            None,
             None,
             None,
             PercentageImageSizing::Intrinsic,
@@ -4859,6 +4864,7 @@ fn image_display_size(
     layout_style: &LayoutFormattingStyleV1,
     available_inline_size: Option<f64>,
     available_block_size: Option<f64>,
+    containing_block_size: Option<f64>,
     percentage_images: PercentageImageSizing,
     viewport: Option<(f64, f64)>,
 ) -> Result<(f32, f32), LayoutError> {
@@ -4900,11 +4906,19 @@ fn image_display_size(
     // definite containing height (measured on b77's svg-wrapped plates:
     // height=100% resolved against the 850 clamp blew every plate to
     // full page, where the browser lays 627.219 × width·viewBox-ratio).
+    // When the containing block resolved a FIXED height, that content
+    // height is definite and percentages resolve against it (measured on
+    // b2's plates: `height: 90vh` on the wrapper makes the img's
+    // `max-height: 100%` bite at 765px where the indefinite-flow rule
+    // left it at the 850px page clamp — one blank page per plate).
     let resolve_block = |value: LengthPercentage| -> Option<f64> {
         match value {
             LengthPercentage::Length(px) => Some(f64::from(px.get())),
-            LengthPercentage::Percentage(_) => None,
-            LengthPercentage::Linear { .. } => None,
+            LengthPercentage::Percentage(ratio) => {
+                containing_block_size.map(|basis| f64::from(ratio.ratio()) * basis)
+            }
+            LengthPercentage::Linear { length, percentage } => containing_block_size
+                .map(|basis| f64::from(length.get()) + f64::from(percentage.ratio()) * basis),
         }
     };
     let preferred = |value: PreferredSizeV1,
@@ -4976,6 +4990,25 @@ fn image_display_size(
                 if preferred_height.is_none() {
                     height *= scale;
                 }
+            }
+        }
+    }
+    // `max-height` mirrors `max-width`: a length always binds; a
+    // percentage binds only against a definite containing height. The
+    // clamp rescales only the AUTO cross axis, like the max-width arm.
+    let max_height_cap = match layout_style.max_height {
+        rito_style_contract::MaximumHeightV1::None => None,
+        rito_style_contract::MaximumHeightV1::Length(px) => Some(f64::from(px.get())),
+        rito_style_contract::MaximumHeightV1::Percentage(ratio) => {
+            containing_block_size.map(|basis| f64::from(ratio.ratio()) * basis)
+        }
+    };
+    if let Some(cap) = max_height_cap {
+        if height > cap && height > 0.0 {
+            let scale = cap / height;
+            height = cap;
+            if preferred_width.is_none() {
+                width *= scale;
             }
         }
     }
@@ -5818,6 +5851,7 @@ running through the quiet forest until the morning light returns.";
             &style,
             Some(640.0),
             Some(850.0),
+            None,
             PercentageImageSizing::Intrinsic,
             None,
         )

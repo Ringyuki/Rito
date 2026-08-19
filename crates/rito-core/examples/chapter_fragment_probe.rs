@@ -185,6 +185,7 @@ fn main() {
             fragmentainer_remaining: Some(size),
             fragmentainer_size: Some(size),
             float_band: None,
+            containing_block_size: None,
         });
         if let Some(page_space) = paginated {
             let mut lines = Vec::new();

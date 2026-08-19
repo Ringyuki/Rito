@@ -180,6 +180,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     fragmentainer_remaining: Some(available),
                     fragmentainer_size: space.fragmentainer_size,
                     float_band: None,
+                    containing_block_size: None,
                 };
                 let outcome =
                     self.layout(tree, child_id, &sub_space, Some(&float_break.token), cancel)?;
@@ -352,6 +353,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         fragmentainer_remaining: Some(head_available),
                         fragmentainer_size: space.fragmentainer_size,
                         float_band: None,
+                        containing_block_size: None,
                     };
                     let outcome = self.layout(tree, *child_id, &sub_space, None, cancel)?;
                     let Fragment::Box(head_root) = outcome.fragments.root else {
@@ -673,11 +675,22 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 },
                             )
                         });
+                    // A fixed-height paragraph is a DEFINITE containing
+                    // block for its replaced children: percentage block
+                    // sizes resolve against its content height.
+                    let definite_content_height = resolve_fixed_height(
+                        child_style,
+                        hbox.padding_top + hbox.padding_bottom,
+                    )?
+                    .map(|fixed| {
+                        (fixed - hbox.padding_top - hbox.padding_bottom).max(0.0)
+                    });
                     let lines = self.inline_lines(
                         tree,
                         *child_id,
                         hbox.content_width,
                         space.fragmentainer_size,
+                        definite_content_height,
                         band,
                         cancel,
                     )?;
@@ -839,6 +852,30 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         };
                         let paragraph_height =
                             fixed_height.unwrap_or(content_height + trailing_padding);
+                        // A degraded flex container with `align-items:
+                        // center` and a fixed height centers its (single
+                        // flex line of) content on the cross axis: lines
+                        // shorter than the content box shift down by half
+                        // the slack (measured on b2's landscape plates —
+                        // a 449px img in the 765px `.illus` box inks at
+                        // top+158 in the browser, exactly (765-449)/2).
+                        let cross_center = if whole_box_here
+                            && child_style.display.inside
+                                == rito_style_contract::LayoutDisplayInsideV1::Flex
+                            && child_style.align_items
+                                == rito_style_contract::AlignItemsV1::Center
+                        {
+                            fixed_height
+                                .map(|fixed| {
+                                    let content_box = fixed
+                                        - hbox.padding_top
+                                        - hbox.padding_bottom;
+                                    ((content_box - content_height) / 2.0).max(0.0)
+                                })
+                                .unwrap_or(0.0)
+                        } else {
+                            0.0
+                        };
                         let children: Vec<Fragment> = placement
                             .lines
                             .into_iter()
@@ -847,7 +884,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 set_fragment_position(
                                     &mut line,
                                     rect.x + hbox.padding_left,
-                                    rect.y + leading_padding,
+                                    rect.y + leading_padding + cross_center,
                                 );
                                 line
                             })
@@ -1073,6 +1110,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         } else {
                             floats.band_at(y + gap, content_width)
                         },
+                        containing_block_size: None,
                     };
                     // Mirror of through_collapsed_top's descent predicate:
                     // when the child's leading chain joined THIS loop's
@@ -1318,6 +1356,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         node: FormattingNodeId,
         inline_size: f64,
         page_block_size: Option<f64>,
+        containing_block_size: Option<f64>,
         float_band: Option<rito_fragment::FloatBand>,
         cancel: &CancelFlag,
     ) -> Result<Vec<Fragment>, LayoutError> {
@@ -1330,6 +1369,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             fragmentainer_remaining: None,
             fragmentainer_size: page_block_size,
             float_band,
+            containing_block_size,
         };
         let outcome = self
             .inline_cache
@@ -1685,6 +1725,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     fragmentainer_remaining: Some(cell_budget),
                     fragmentainer_size: cell_fragmentainer_size,
                     float_band: None,
+                    containing_block_size: None,
                 },
                 inner_token.as_ref(),
                 cancel,
@@ -2048,7 +2089,17 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 if padding_left + padding_right + padding_top + padding_bottom == 0.0
                     && fixed_height.is_none()
                 {
-                    return self.inline.layout(tree, node, space, token, cancel);
+                    // The flow's own block is its children's containing
+                    // block; with an auto height it is indefinite, so a
+                    // stale ancestor height must not leak through.
+                    if space.containing_block_size.is_none() {
+                        return self.inline.layout(tree, node, space, token, cancel);
+                    }
+                    let cleared = ConstraintSpace {
+                        containing_block_size: None,
+                        ..*space
+                    };
+                    return self.inline.layout(tree, node, &cleared, token, cancel);
                 }
                 // A resumed paragraph left its top padding on its first
                 // fragment, exactly like a resumed block container.
@@ -2060,6 +2111,12 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                         .map(|remaining| (remaining - leading).max(0.0)),
                     fragmentainer_size: space.fragmentainer_size,
                     float_band: space.float_band,
+                    // A fixed height makes this flow's block a DEFINITE
+                    // containing block: percentage block sizes on its
+                    // replaced children resolve against the content
+                    // height (border-box minus the vertical padding).
+                    containing_block_size: fixed_height
+                        .map(|fixed| (fixed - padding_top - padding_bottom).max(0.0)),
                 };
                 let mut outcome = self.inline.layout(tree, node, &sub_space, token, cancel)?;
                 // Bottom padding rides the last fragment only.
@@ -6420,6 +6477,7 @@ single line across page boundaries.";
             fragmentainer_remaining: Some(10.0),
             fragmentainer_size: Some(10.0),
             float_band: None,
+            containing_block_size: None,
         };
         let first = context
             .layout(&tree, tree.root(), &space, None, &CancelFlag::new())
@@ -6519,6 +6577,7 @@ single line across page boundaries.";
             fragmentainer_remaining: Some(8.0),
             fragmentainer_size: Some(8.0),
             float_band: None,
+            containing_block_size: None,
         };
         let first = context
             .layout(&tree, tree.root(), &space, None, &CancelFlag::new())
@@ -6625,6 +6684,7 @@ single line across page boundaries.";
             fragmentainer_remaining: Some(9.0),
             fragmentainer_size: Some(9.0),
             float_band: None,
+            containing_block_size: None,
         };
         let first = context
             .layout(&tree, tree.root(), &space, None, &CancelFlag::new())

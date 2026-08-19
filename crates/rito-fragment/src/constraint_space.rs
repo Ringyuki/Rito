@@ -22,6 +22,12 @@ pub struct ConstraintSpace {
     /// uses the full inline size, exactly as CSS floats shorten line
     /// boxes rather than displacing the block box.
     pub float_band: Option<FloatBand>,
+    /// The containing block's DEFINITE content height, when the parent
+    /// resolved a fixed `height`. Percentage block sizes on replaced
+    /// children resolve against it (CSS 2.1 §10.5); absent, they behave
+    /// as auto. Distinct from `fragmentainer_size`, which is the page
+    /// clamp, not a containing block.
+    pub containing_block_size: Option<f64>,
 }
 
 /// One band of float exclusion at the top of a layout's block axis.
@@ -43,6 +49,7 @@ impl ConstraintSpace {
             fragmentainer_remaining: None,
             fragmentainer_size: None,
             float_band: None,
+            containing_block_size: None,
         }
     }
 
@@ -53,6 +60,7 @@ impl ConstraintSpace {
             fragmentainer_remaining: Some(fragmentainer_size),
             fragmentainer_size: Some(fragmentainer_size),
             float_band: None,
+            containing_block_size: None,
         }
     }
 }
