@@ -1134,6 +1134,37 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         ));
                     };
                     if child_root.children.is_empty()
+                        && child_root.rect.height > 0.0
+                        && outcome.continuation.is_some()
+                        && !child_resumed
+                        && space.fragmentainer_remaining.is_some()
+                        && !(fragments.is_empty() && fragmentainer_is_fresh)
+                    {
+                        // A childless head — the box opened with its
+                        // leading border/padding but placed NO content —
+                        // on a page that already holds something: the
+                        // browser moves the WHOLE box to the next
+                        // fragmentainer instead (measured on b53's
+                        // bordered chat box: the 9px padding sliver at
+                        // the page bottom was engine-only, the browser
+                        // broke clean before the border). The padding-only
+                        // head is real only when the box opens an
+                        // otherwise EMPTY fragmentainer — b19's 2px-only
+                        // blank column before a full-height illustration
+                        // — which the fresh-page guard preserves.
+                        return Ok(sealed_with_break(
+                            container,
+                            space.inline_size,
+                            seal_height(y, &floats),
+                            fragments,
+                            BreakToken {
+                                resume_path: vec![*child_id],
+                                stage: BreakTokenStage::Before,
+                                pending_floats: std::mem::take(&mut pending_float_breaks),
+                            },
+                        ));
+                    }
+                    if child_root.children.is_empty()
                         && child_root.rect.height <= 0.0
                         && outcome.continuation.is_none()
                     {
