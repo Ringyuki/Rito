@@ -104,6 +104,11 @@ pub struct TextFragment {
     /// Raster anchoring for a run inside a decorated inline box, absent
     /// for bare text (which snaps off the line box alone).
     pub box_snap: Option<BoxSnap>,
+    /// `ruby-align: center` under a WIDE annotation: the packed base
+    /// glyphs paint this far right of the run origin — half the flow
+    /// advance the trailing carrier added — so they sit centered in the
+    /// stretched ruby base box. Zero everywhere else.
+    pub ruby_center_shift_px: f64,
 }
 
 /// The vertical anchor a decorated inline box gives the runs inside it.

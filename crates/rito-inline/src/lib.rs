@@ -80,6 +80,9 @@ struct ParagraphLayout {
     /// Per annotated item index: the overhang cap (half the annotation
     /// size), shared by the split-fit box computation.
     ruby_annotation_caps: std::collections::HashMap<usize, f64>,
+    /// Per item: the paint-side right shift centering a packed base
+    /// under its wide `ruby-align: center` annotation.
+    ruby_center_shifts: std::collections::HashMap<usize, f64>,
     /// Laid-out inline-block atoms by item index: the mini paragraph's
     /// baseline (its LAST line's, from the box top) and its fragment,
     /// emitted at the inline box's position during line assembly.
@@ -821,6 +824,10 @@ impl ParleyInlineContext {
         let mut ruby_annotation_caps: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
         let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
+        // Per item: the paint-side right shift centering a packed base
+        // under its wide `ruby-align: center` annotation.
+        let mut ruby_center_shifts: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
         for (range, style, item_index) in &runs {
             let Some(InlineItem::Text {
                 ruby_annotation: Some(annotation),
@@ -845,6 +852,74 @@ impl ParleyInlineContext {
             ruby_annotation_caps.insert(*item_index, f64::from(annotation_size) / 2.0);
             let excess = annotation_advance - base_advance;
             if excess <= 0.01 {
+                continue;
+            }
+            if style.text_flow.ruby_align == rito_style_contract::RubyAlign::Center
+                && style.text_flow.text_align != TextAlign::Justify
+            {
+                // Gate: on JUSTIFIED body text the legacy spread account
+                // (calibrated on b42's justified pages) still tracks the
+                // browser closer than this column model — b9's dense
+                // name-ruby line regressed 4.7k under it while the
+                // centered openers healed. The center column law applies
+                // to non-justified contexts (titles, centered lines).
+                // `ruby-align: center` under a WIDE annotation (measured
+                // matrix, FZBWKS 16px/rt 0.55-0.7-0.4): the rb box
+                // stretches to the annotation width with the base glyphs
+                // packed centered inside; the annotation OVERHANGS an
+                // adjacent text neighbor by min(floor(annoSize/2),
+                // excess/4) per side — zero against a flow edge or an
+                // adjacent ruby — and the flow column narrows to
+                // annoW − ovL − ovR. The advance delta rides a trailing
+                // carrier; the painter shifts the packed base right by
+                // delta/2 so it centers in the stretched box.
+                let is_ruby_item = |index: Option<usize>| {
+                    index
+                        .and_then(|index| items.get(index))
+                        .is_some_and(|item| {
+                            matches!(item, InlineItem::Text { ruby_annotation: Some(_), .. })
+                        })
+                };
+                let neighbor_item = |byte: Option<usize>| {
+                    byte.and_then(|byte| {
+                        runs.iter()
+                            .find(|(other, _, _)| other.contains(&byte))
+                            .map(|(_, _, other_index)| *other_index)
+                    })
+                };
+                let prev_byte = text[..range.start].char_indices().next_back().map(|(i, _)| i);
+                let next_byte = (range.end < text.len()).then_some(range.end);
+                let cap = f64::from(annotation_size / 2.0).floor();
+                let side = |byte: Option<usize>| {
+                    if byte.is_none() || is_ruby_item(neighbor_item(byte)) {
+                        0.0
+                    } else {
+                        cap.min(excess / 4.0)
+                    }
+                };
+                let overhang_left = side(prev_byte);
+                let overhang_right = side(next_byte);
+                let delta = (excess - overhang_left - overhang_right).max(0.0);
+                if delta > 0.0 {
+                    let author = match style.text_flow.letter_spacing {
+                        LengthPercentage::Length(px) => px.get(),
+                        _ => 0.0,
+                    };
+                    let last_cluster_start = base_text
+                        .char_indices()
+                        .next_back()
+                        .map_or(range.start, |(offset, _)| range.start + offset);
+                    ruby_spread_edits
+                        .push((last_cluster_start..range.end, author + delta as f32));
+                }
+                ruby_spreads.insert(*item_index, 0.0);
+                // The annotation extends the run rect by the shift on the
+                // left and (excess − shift) on the right; the symmetric
+                // paint formula (x − ov, width + 2ov) reproduces it with
+                // ov = (excess − delta)/2 only when the overhangs are
+                // symmetric — the line-edge asymmetry is accepted dust.
+                ruby_spread_overhangs.insert(*item_index, (excess - delta) / 2.0);
+                ruby_center_shifts.insert(*item_index, delta / 2.0);
                 continue;
             }
             let edge_share = excess / (2.0 * cluster_count as f64);
@@ -1249,6 +1324,7 @@ impl ParleyInlineContext {
             ruby_spread_overhangs,
             ruby_annotation_widths,
             ruby_annotation_caps,
+            ruby_center_shifts,
         })
     }
 }
@@ -1414,6 +1490,7 @@ impl FormattingContext for ParleyInlineContext {
             forced_line_indents,
             ruby_spreads,
             ruby_spread_overhangs,
+            ruby_center_shifts,
             opener_halt_trims,
             mut inline_block_boxes,
             inline_block_baselines,
@@ -1436,6 +1513,7 @@ impl FormattingContext for ParleyInlineContext {
                 ruby_spread_overhangs,
                 ruby_annotation_widths,
                 ruby_annotation_caps,
+                ruby_center_shifts,
                 inline_block_boxes,
                 inline_block_baselines,
                 image_edge_insets,
@@ -1723,6 +1801,7 @@ impl FormattingContext for ParleyInlineContext {
                         forced_line_indents,
                         ruby_spreads,
                         ruby_spread_overhangs,
+                        ruby_center_shifts,
                         opener_halt_trims,
                         inline_block_boxes,
                         inline_block_baselines,
@@ -2179,6 +2258,10 @@ impl FormattingContext for ParleyInlineContext {
                                     ruby_overhang_px: ruby_overhang,
                                     opener_trim_px,
                                     box_snap: run_box_snap,
+                                    ruby_center_shift_px: ruby_center_shifts
+                                        .get(&item_index)
+                                        .copied()
+                                        .unwrap_or(0.0),
                                 }),
                                 shift,
                             ));

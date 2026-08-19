@@ -678,7 +678,7 @@ fn append_text_run_command(
         // at 64px: full-width 「 inks at box+41, the halt variant at
         // box+9 — the outline itself moves left by the trimmed half).
         rect: rect_value(
-            line_x + run.rect.x - run.opener_trim_px,
+            line_x + run.rect.x - run.opener_trim_px + run.ruby_center_shift_px,
             em_top,
             run.rect.width + run.opener_trim_px,
             font_size,
@@ -1272,6 +1272,7 @@ mod tests {
             text_start: start,
             text_end: end,
             box_snap: None,
+            ruby_center_shift_px: 0.0,
             justify_px: 0.0,
             ruby_gap_px: 0.0,
             opener_trim_px: 0.0,
