@@ -102,6 +102,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             out.extend_from_slice(&fragment.ruby_overhang_px.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.opener_trim_px.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.ruby_center_shift_px.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.ruby_overhang_right_px.to_bits().to_le_bytes());
             match &fragment.box_snap {
                 None => out.push(0),
                 Some(snap) => {
@@ -185,6 +186,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
             let ruby_overhang_px = reader.f64()?;
             let opener_trim_px = reader.f64()?;
             let ruby_center_shift_px = reader.f64()?;
+            let ruby_overhang_right_px = reader.f64()?;
             let box_snap = match reader.u8()? {
                 0 => None,
                 1 => Some(crate::BoxSnap {
@@ -206,6 +208,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 opener_trim_px,
                 box_snap,
                 ruby_center_shift_px,
+                ruby_overhang_right_px,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -458,6 +461,7 @@ mod tests {
                             ruby_gap_px: 1.5,
                             opener_trim_px: 0.0,
                             ruby_overhang_px: 0.75,
+                            ruby_overhang_right_px: 0.75,
                         })],
                     })],
                 }),

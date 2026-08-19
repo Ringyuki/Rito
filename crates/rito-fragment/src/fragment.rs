@@ -109,6 +109,11 @@ pub struct TextFragment {
     /// advance the trailing carrier added — so they sit centered in the
     /// stretched ruby base box. Zero everywhere else.
     pub ruby_center_shift_px: f64,
+    /// The RIGHT-side annotation overhang when it differs from
+    /// `ruby_overhang_px`: a side blocked from overhanging (an adjacent
+    /// ruby, a flow edge) absorbs its edge share into the column instead
+    /// and paints no overhang there.
+    pub ruby_overhang_right_px: f64,
 }
 
 /// The vertical anchor a decorated inline box gives the runs inside it.

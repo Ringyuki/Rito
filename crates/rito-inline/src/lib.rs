@@ -68,10 +68,13 @@ struct ParagraphLayout {
     /// identically, and the annotation paints over the grown extent
     /// plus one half-gap of overhang on each side.
     ruby_spreads: std::collections::HashMap<usize, f64>,
-    /// Per spread item: the overhang each side (edge share capped at
-    /// half the annotation size) — the annotation rect grows by it while
-    /// `ruby_spreads` carries the interior gap.
+    /// Per spread item: the LEFT overhang (edge share capped at half the
+    /// annotation size, zero against a blocked side) — the annotation
+    /// rect grows by it while `ruby_spreads` carries the interior gap.
     ruby_spread_overhangs: std::collections::HashMap<usize, f64>,
+    /// Per spread item: the RIGHT overhang (same law as the left; the
+    /// two differ when only one side may overhang).
+    ruby_spread_overhangs_right: std::collections::HashMap<usize, f64>,
     /// Per annotated item index: the shaped advance of its annotation.
     /// A base segment SPLIT onto its own line carries the whole
     /// annotation and widens to at least this advance, which is what the
@@ -814,6 +817,8 @@ impl ParleyInlineContext {
         // capped at half the annotation size).
         let mut ruby_spread_overhangs: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
+        let mut ruby_spread_overhangs_right: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
         // Every annotated item's shaped annotation advance, for the
         // split-fit rule: a base segment split onto its own line carries
         // the WHOLE annotation and widens to at least its advance.
@@ -854,6 +859,22 @@ impl ParleyInlineContext {
             if excess <= 0.01 {
                 continue;
             }
+            let is_ruby_item = |index: Option<usize>| {
+                index
+                    .and_then(|index| items.get(index))
+                    .is_some_and(|item| {
+                        matches!(item, InlineItem::Text { ruby_annotation: Some(_), .. })
+                    })
+            };
+            let neighbor_item = |byte: Option<usize>| {
+                byte.and_then(|byte| {
+                    runs.iter()
+                        .find(|(other, _, _)| other.contains(&byte))
+                        .map(|(_, _, other_index)| *other_index)
+                })
+            };
+            let prev_byte = text[..range.start].char_indices().next_back().map(|(i, _)| i);
+            let next_byte = (range.end < text.len()).then_some(range.end);
             if style.text_flow.ruby_align == rito_style_contract::RubyAlign::Center
                 && style.text_flow.text_align != TextAlign::Justify
             {
@@ -873,22 +894,6 @@ impl ParleyInlineContext {
                 // annoW − ovL − ovR. The advance delta rides a trailing
                 // carrier; the painter shifts the packed base right by
                 // delta/2 so it centers in the stretched box.
-                let is_ruby_item = |index: Option<usize>| {
-                    index
-                        .and_then(|index| items.get(index))
-                        .is_some_and(|item| {
-                            matches!(item, InlineItem::Text { ruby_annotation: Some(_), .. })
-                        })
-                };
-                let neighbor_item = |byte: Option<usize>| {
-                    byte.and_then(|byte| {
-                        runs.iter()
-                            .find(|(other, _, _)| other.contains(&byte))
-                            .map(|(_, _, other_index)| *other_index)
-                    })
-                };
-                let prev_byte = text[..range.start].char_indices().next_back().map(|(i, _)| i);
-                let next_byte = (range.end < text.len()).then_some(range.end);
                 let cap = f64::from(annotation_size / 2.0).floor();
                 let side = |byte: Option<usize>| {
                     if byte.is_none() || is_ruby_item(neighbor_item(byte)) {
@@ -919,57 +924,72 @@ impl ParleyInlineContext {
                 // ov = (excess − delta)/2 only when the overhangs are
                 // symmetric — the line-edge asymmetry is accepted dust.
                 ruby_spread_overhangs.insert(*item_index, (excess - delta) / 2.0);
+                ruby_spread_overhangs_right.insert(*item_index, (excess - delta) / 2.0);
                 ruby_center_shifts.insert(*item_index, delta / 2.0);
                 continue;
             }
+            // `ruby-align: space-around` per-side accounting (measured on
+            // pinned Chromium, pinned faces: 「小(tsuku)月(chan)」 pairs):
+            // the excess splits into n shares, half a share per edge and
+            // one share per interior gap. An edge OVERHANGS its neighbor
+            // (capped at half the annotation size; the cap remainder
+            // folds into the interior gaps — b42's long-annotation law)
+            // only when that neighbor is overhang-eligible; against an
+            // adjacent ruby or the flow edge the half share is ABSORBED
+            // into the column instead — the base shifts right by the
+            // left absorption and the flow advance grows by both (a
+            // lone wide ruby between text keeps column = base width;
+            // an adjacent pair widens each column by its inner half).
             let edge_share = excess / (2.0 * cluster_count as f64);
-            // The overhang each side is capped at half the annotation
-            // size (measured); past the cap the ruby box stops at
-            // annoW − 2·cap and the truncated edge excess folds into
-            // the interior gaps: interior = (box − base)/(n−1)
-            // (measured: 中中中 under a 80.06px annotation with cap 4
-            // spans a 72.06px box with 12.03px interior gaps).
             let cap = f64::from(annotation_size) / 2.0;
-            let (gap, overhang) = if edge_share > cap {
-                let grown_box = annotation_advance - 2.0 * cap;
-                let gap = if cluster_count >= 2 {
-                    ((grown_box - base_advance) / (cluster_count as f64 - 1.0)).max(0.0)
-                } else {
-                    // A single-cluster base still widens to the capped
-                    // box; the whole growth rides as trailing spacing
-                    // (the glyph paints ~half a gap left of Blink's
-                    // centered position — accepted until measured).
-                    (grown_box - base_advance).max(0.0)
-                };
-                (gap, cap)
-            } else {
-                let gap = excess / cluster_count as f64;
-                (gap, edge_share)
+            let eligible = |byte: Option<usize>| {
+                byte.is_some() && !is_ruby_item(neighbor_item(byte))
             };
-            if cluster_count >= 2 {
-                let last_cluster_start = base_text
-                    .char_indices()
-                    .next_back()
-                    .map_or(range.start, |(offset, _)| range.start + offset);
-                let author = match style.text_flow.letter_spacing {
-                    LengthPercentage::Length(px) => px.get(),
-                    _ => 0.0,
-                };
-                if last_cluster_start > range.start {
-                    ruby_spread_edits.push((range.start..last_cluster_start, author + gap as f32));
-                }
-            } else if gap > 0.0 {
-                // Single cluster: the growth needs a spacing carrier so
-                // the flow advance matches the capped box; trailing
-                // letter-spacing on the one cluster is that carrier.
-                let author = match style.text_flow.letter_spacing {
-                    LengthPercentage::Length(px) => px.get(),
-                    _ => 0.0,
-                };
-                ruby_spread_edits.push((range.clone(), author + gap as f32));
+            let (mut overhang_left, mut fold_left, mut absorbed_left) = (0.0, 0.0, edge_share);
+            if eligible(prev_byte) {
+                overhang_left = edge_share.min(cap);
+                fold_left = edge_share - overhang_left;
+                absorbed_left = 0.0;
+            }
+            let (mut overhang_right, mut fold_right, mut absorbed_right) =
+                (0.0, 0.0, edge_share);
+            if eligible(next_byte) {
+                overhang_right = edge_share.min(cap);
+                fold_right = edge_share - overhang_right;
+                absorbed_right = 0.0;
+            }
+            let gap = if cluster_count >= 2 {
+                excess / cluster_count as f64
+                    + (fold_left + fold_right) / (cluster_count as f64 - 1.0)
+            } else {
+                // No interior on a single cluster: cap remainders join
+                // the edge absorption instead.
+                absorbed_left += fold_left;
+                absorbed_right += fold_right;
+                0.0
+            };
+            let author = match style.text_flow.letter_spacing {
+                LengthPercentage::Length(px) => px.get(),
+                _ => 0.0,
+            };
+            let last_cluster_start = base_text
+                .char_indices()
+                .next_back()
+                .map_or(range.start, |(offset, _)| range.start + offset);
+            if cluster_count >= 2 && last_cluster_start > range.start && gap > 0.0 {
+                ruby_spread_edits.push((range.start..last_cluster_start, author + gap as f32));
+            }
+            let edge_carrier = absorbed_left + absorbed_right;
+            if edge_carrier > 0.0 {
+                ruby_spread_edits
+                    .push((last_cluster_start..range.end, author + edge_carrier as f32));
+            }
+            if absorbed_left > 0.0 {
+                ruby_center_shifts.insert(*item_index, absorbed_left);
             }
             ruby_spreads.insert(*item_index, gap);
-            ruby_spread_overhangs.insert(*item_index, overhang);
+            ruby_spread_overhangs.insert(*item_index, overhang_left);
+            ruby_spread_overhangs_right.insert(*item_index, overhang_right);
         }
 
         let mut fonts = self.fonts.borrow_mut();
@@ -1322,6 +1342,7 @@ impl ParleyInlineContext {
             forced_line_indents,
             ruby_spreads,
             ruby_spread_overhangs,
+            ruby_spread_overhangs_right,
             ruby_annotation_widths,
             ruby_annotation_caps,
             ruby_center_shifts,
@@ -1490,6 +1511,7 @@ impl FormattingContext for ParleyInlineContext {
             forced_line_indents,
             ruby_spreads,
             ruby_spread_overhangs,
+            ruby_spread_overhangs_right,
             ruby_center_shifts,
             opener_halt_trims,
             mut inline_block_boxes,
@@ -1511,6 +1533,7 @@ impl FormattingContext for ParleyInlineContext {
                 forced_line_indents,
                 ruby_spreads,
                 ruby_spread_overhangs,
+                ruby_spread_overhangs_right,
                 ruby_annotation_widths,
                 ruby_annotation_caps,
                 ruby_center_shifts,
@@ -1801,6 +1824,7 @@ impl FormattingContext for ParleyInlineContext {
                         forced_line_indents,
                         ruby_spreads,
                         ruby_spread_overhangs,
+                        ruby_spread_overhangs_right,
                         ruby_center_shifts,
                         opener_halt_trims,
                         inline_block_boxes,
@@ -2231,6 +2255,10 @@ impl FormattingContext for ParleyInlineContext {
                         let ruby_gap = ruby_spreads.get(&item_index).copied().unwrap_or(0.0);
                         let ruby_overhang =
                             ruby_spread_overhangs.get(&item_index).copied().unwrap_or(0.0);
+                        let ruby_overhang_right = ruby_spread_overhangs_right
+                            .get(&item_index)
+                            .copied()
+                            .unwrap_or(ruby_overhang);
                         let opener_halt_trims = &opener_halt_trims;
                         let mut emit = |range: std::ops::Range<usize>,
                                         x: f64,
@@ -2256,6 +2284,7 @@ impl FormattingContext for ParleyInlineContext {
                                     justify_px,
                                     ruby_gap_px: ruby_gap,
                                     ruby_overhang_px: ruby_overhang,
+                                    ruby_overhang_right_px: ruby_overhang_right,
                                     opener_trim_px,
                                     box_snap: run_box_snap,
                                     ruby_center_shift_px: ruby_center_shifts
@@ -8753,11 +8782,15 @@ running through the quiet forest until the morning light returns.";
             ruby_run.ruby_gap_px
         );
         assert_eq!(plain_run.ruby_gap_px, 0.0);
+        // The ruby sits at the paragraph start: the left edge share
+        // cannot overhang the flow edge and is absorbed into the column;
+        // the right edge share overhangs the plain neighbour paint-only.
+        let absorbed_left = (annotation_advance - base_advance) / 4.0;
         assert!(
-            (ruby_run.rect.width - (base_advance + gap)).abs() < 0.1,
-            "base spreads by one interior gap (n = 2): width {} vs {}",
+            (ruby_run.rect.width - (base_advance + gap + absorbed_left)).abs() < 0.1,
+            "base spreads by one interior gap plus the absorbed flow-edge share (n = 2): width {} vs {}",
             ruby_run.rect.width,
-            base_advance + gap
+            base_advance + gap + absorbed_left
         );
         assert!(
             (plain_run.rect.width - base_advance).abs() < 0.1,
