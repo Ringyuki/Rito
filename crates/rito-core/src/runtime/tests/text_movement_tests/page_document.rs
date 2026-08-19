@@ -199,7 +199,7 @@ fn forced_page_document(
 ) -> (RuntimeDocument, RuntimeRevisionHandle) {
     let body = (0..page_count)
         .map(|index| {
-            let page_break = (index + 1 < page_count).then_some("page-break-after: always;");
+            let page_break = (index + 1 < page_count).then_some("break-after: column;");
             format!(
                 r#"<p style="font-family: serif; {}">page marker {index}</p>"#,
                 page_break.unwrap_or_default()

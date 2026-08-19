@@ -154,8 +154,8 @@ fn page_break_aliases_use_one_stylo_cascade_and_distinct_table_keys() {
                 <div id="specific" class="specific">specific</div>
                 <div id="source-order">source order</div>
                 <div id="important">important</div>
-                <div id="inline" style="page-break-before: always">inline</div>
-                <div id="variable" style="--forced-break: page; break-after: var(--forced-break)">variable</div>
+                <div id="inline" style="break-before: column">inline</div>
+                <div id="variable" style="--forced-break: column; break-after: var(--forced-break)">variable</div>
             </body></html>"#,
         )
         .expect("fixture XHTML parses"),
@@ -163,9 +163,9 @@ fn page_break_aliases_use_one_stylo_cascade_and_distinct_table_keys() {
     let mut document = document(
         Arc::clone(&source),
         "div.specific { break-before: auto; } \
-         .specific { page-break-before: always; } \
-         #source-order { page-break-before: auto; break-before: page; } \
-         #important { page-break-before: auto; break-before: always !important; \
+         .specific { break-before: column; } \
+         #source-order { page-break-before: auto; break-before: column; } \
+         #important { page-break-before: auto; break-before: column !important; \
                       page-break-before: auto; } \
          #inline { break-before: auto; }",
     );
@@ -190,6 +190,33 @@ fn page_break_aliases_use_one_stylo_cascade_and_distinct_table_keys() {
         .node_style_id(source.find_element_by_id("variable").unwrap().index())
         .unwrap();
     assert_ne!(source_order_id, variable_id);
+}
+
+#[test]
+fn page_and_always_forced_breaks_are_ignored_like_the_column_context_ignores_them() {
+    let source = Arc::new(
+        SourceArena::from_xhtml(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><body>
+                <div id="page" style="page-break-before: always">page</div>
+                <div id="modern" style="break-after: always">modern</div>
+                <div id="paged" style="break-before: page">paged</div>
+            </body></html>"#,
+        )
+        .expect("fixture XHTML parses"),
+    );
+    let mut document = document(Arc::clone(&source), "");
+    let projection = document.resolve_production_slice_v1().unwrap();
+    let table = projection.layout().table();
+    let style = |id: &str| {
+        let node = source.find_element_by_id(id).expect("fixture id exists");
+        table.style_for_node(node.index()).unwrap()
+    };
+    // Measured in Chromium's continuous multicol (the reader's
+    // fragmentation context): generic and page forced breaks never
+    // break a column; only the `column` keyword does.
+    assert_eq!(style("page").break_before, PageBreakV1::Auto);
+    assert_eq!(style("modern").break_after, PageBreakV1::Auto);
+    assert_eq!(style("paged").break_before, PageBreakV1::Auto);
 }
 
 #[test]

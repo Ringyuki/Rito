@@ -262,7 +262,7 @@ fn pinned_document(bytes: &[u8], font: Vec<u8>) -> RuntimeDocument {
 fn incomplete_chapter_fixture() -> (RuntimeDocument, RuntimeRevisionHandle, TextCaretAddress) {
     let bytes = content_epub(
         "en",
-        r#"<p style="font-family: serif; page-break-after: always">first</p><p style="font-family: serif; page-break-after: always">second</p><p style="font-family: serif">third</p>"#,
+        r#"<p style="font-family: serif; break-after: column">first</p><p style="font-family: serif; break-after: column">second</p><p style="font-family: serif">third</p>"#,
         "",
         None,
     );

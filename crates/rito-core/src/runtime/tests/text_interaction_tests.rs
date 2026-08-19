@@ -534,7 +534,7 @@ fn exact_source_range_waits_for_both_endpoints_to_be_paginated() {
 fn bounded_follow_up_rebinds_an_old_address_to_a_live_point_atomically() {
     let bytes = content_epub(
         "en",
-        r#"<p style="font-family: serif; page-break-after: always">first</p><p style="font-family: serif; page-break-after: always">second</p><p style="font-family: serif">third</p>"#,
+        r#"<p style="font-family: serif; break-after: column">first</p><p style="font-family: serif; break-after: column">second</p><p style="font-family: serif">third</p>"#,
         "",
         None,
     );

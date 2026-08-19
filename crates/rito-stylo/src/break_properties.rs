@@ -6,12 +6,12 @@ use style_traits::ToCss;
 
 pub(crate) const REGISTRATION_STYLESHEET: &str = r#"
 @property --rito-internal-break-before-v1 {
-  syntax: "auto | always | page | avoid | left | right";
+  syntax: "auto | always | page | avoid | left | right | column";
   inherits: false;
   initial-value: auto;
 }
 @property --rito-internal-break-after-v1 {
-  syntax: "auto | always | page | avoid | left | right";
+  syntax: "auto | always | page | avoid | left | right | column";
   inherits: false;
   initial-value: auto;
 }
@@ -61,6 +61,16 @@ pub(crate) fn project(styles: &ComputedValues, edge: BreakEdge) -> Option<PageBr
     if value.eq_ignore_ascii_case("auto") {
         Some(PageBreakV1::Auto)
     } else if value.eq_ignore_ascii_case("always") || value.eq_ignore_ascii_case("page") {
+        // The reader's fragmentainer is a COLUMN context (the pixel
+        // oracle's multicol truth). Measured: Chromium's continuous
+        // multicol ignores generic and page forced breaks entirely —
+        // followers stay in the same column for `break-after: always`,
+        // `break-after: page`, and both legacy aliases; only the
+        // `column` keyword breaks. Honoring them sealed a fragmentainer
+        // per mid-chapter plate (b2's .illus: one blank page before and
+        // one after every interior illustration, chapter drift -6).
+        Some(PageBreakV1::Auto)
+    } else if value.eq_ignore_ascii_case("column") {
         Some(PageBreakV1::Always)
     } else {
         // The retired consumer ignored avoid/left/right. Reject them instead

@@ -240,8 +240,8 @@ fn height_float_and_overflow_use_the_typed_stylo_layout_bridge() {
 fn page_break_aliases_materialize_from_stylo_without_legacy_css() {
     let document = document_with_stylesheet(
         "styles/main.css",
-        "#standard { break-before: page; page-break-after: always; } \
-         #legacy { page-break-before: always; break-after: page; } \
+        "#standard { break-before: column; page-break-after: always; } \
+         #legacy { page-break-before: always; break-after: column; } \
          #inline { break-before: auto; break-after: auto; }",
     );
     let base = prepare_loaded_document_base(&document);
@@ -249,16 +249,23 @@ fn page_break_aliases_materialize_from_stylo_without_legacy_css() {
         "chapter-1.xhtml",
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body>
             <p id="standard">standard</p><p id="legacy">legacy</p>
-            <p id="inline" style="page-break-before: always; break-after: page">inline</p>
+            <p id="inline" style="break-before: column; break-after: column">inline</p>
         </body></html>"#,
     ));
 
     let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    for id in ["standard", "legacy", "inline"] {
-        let paragraph = find_id(&resolved, id).expect("styled paragraph");
-        assert_eq!(paragraph.style["pageBreakBefore"], json!("always"));
-        assert_eq!(paragraph.style["pageBreakAfter"], json!("always"));
-    }
+    // Only the `column` keyword forces a break in the reader's column
+    // context; page/always aliases are ignored like Chromium's
+    // continuous multicol ignores them.
+    let standard = find_id(&resolved, "standard").expect("styled paragraph");
+    assert_eq!(standard.style["pageBreakBefore"], json!("always"));
+    assert_eq!(standard.style["pageBreakAfter"], json!("auto"));
+    let legacy = find_id(&resolved, "legacy").expect("styled paragraph");
+    assert_eq!(legacy.style["pageBreakBefore"], json!("auto"));
+    assert_eq!(legacy.style["pageBreakAfter"], json!("always"));
+    let inline = find_id(&resolved, "inline").expect("styled paragraph");
+    assert_eq!(inline.style["pageBreakBefore"], json!("always"));
+    assert_eq!(inline.style["pageBreakAfter"], json!("always"));
     assert!(base
         .stylesheet_ledger
         .legacy_artifacts_if_initialized()
