@@ -360,19 +360,107 @@ impl TreeBuilder<'_> {
     ) -> EpubResult<Vec<FormattingNodeId>> {
         let mut built = Vec::new();
         let mut pending_inline: Vec<&DocumentNode> = Vec::new();
-        for child in children {
+        let mut index = 0;
+        while index < children.len() {
+            let child = &children[index];
             match child {
                 DocumentNode::Block(element) => {
                     self.flush_inline_run(&mut pending_inline, container_inline_style, &mut built)?;
+                    if let Some((consumed, id)) = self.rebuild_block_anchor(&children[index..])? {
+                        if let Some(id) = id {
+                            built.push(id);
+                        }
+                        index += consumed;
+                        continue;
+                    }
                     if let Some(id) = self.build_block(element)? {
                         built.push(id);
                     }
                 }
                 inline_level => pending_inline.push(inline_level),
             }
+            index += 1;
         }
         self.flush_inline_run(&mut pending_inline, container_inline_style, &mut built)?;
         Ok(built)
+    }
+
+    /// Restores the box of a `display: block` anchor the parser unwrapped.
+    ///
+    /// The parse-time hoist cannot see styles, so a block-child `<a>` is
+    /// flattened and its class-derived box lost (b2's TOC entries each
+    /// shrank by the `.toc a` padding). Consecutive siblings hoisted from
+    /// one anchor regroup under a synthetic block carrying the anchor's
+    /// computed layout style; an anchor whose computed display stays
+    /// inline keeps the flattened shape, which is what CSS renders for a
+    /// true inline wrapper around blocks.
+    fn rebuild_block_anchor(
+        &mut self,
+        siblings: &[DocumentNode],
+    ) -> EpubResult<Option<(usize, Option<FormattingNodeId>)>> {
+        let DocumentNode::Block(first) = &siblings[0] else {
+            return Ok(None);
+        };
+        let Some(anchor) = first.anchor_ref.clone() else {
+            return Ok(None);
+        };
+        let Some(anchor_id) = anchor.source_node_id else {
+            return Ok(None);
+        };
+        let Ok(anchor_layout) = self.layout.style_for_node(anchor_id.index()) else {
+            return Ok(None);
+        };
+        if anchor_layout.display.outside != LayoutDisplayOutsideV1::Block {
+            return Ok(None);
+        }
+        // The hoist preserved the anchor's whitespace-only text nodes
+        // between its blocks; they must not split the group (they
+        // collapse to nothing inside the wrapper exactly as they did in
+        // the flat shape — splitting on them wrapped every <p> in its
+        // own padded box and doubled the anchor padding per entry).
+        let mut consumed = 0;
+        let mut scan = 0;
+        while scan < siblings.len() {
+            match &siblings[scan] {
+                DocumentNode::Block(block)
+                    if block
+                        .anchor_ref
+                        .as_ref()
+                        .and_then(|reference| reference.source_node_id)
+                        == Some(anchor_id) =>
+                {
+                    scan += 1;
+                    consumed = scan;
+                }
+                DocumentNode::Text(text) if text.content.trim().is_empty() => {
+                    scan += 1;
+                }
+                _ => break,
+            }
+        }
+        let children = siblings[..consumed]
+            .iter()
+            .map(|node| match node {
+                DocumentNode::Block(block) => {
+                    let mut block = block.clone();
+                    // The regroup consumed the marker; a stale one would
+                    // regroup again inside the synthetic wrapper forever.
+                    block.anchor_ref = None;
+                    DocumentNode::Block(block)
+                }
+                other => other.clone(),
+            })
+            .collect();
+        let synthetic = ElementNode {
+            tag: "a".to_owned(),
+            // The hrefs already ride the hoisted blocks; repeating them
+            // on the wrapper would double the link surface.
+            attributes: None,
+            children,
+            source_ref: anchor,
+            anchor_ref: None,
+        };
+        Ok(Some((consumed, self.build_block(&synthetic)?)))
     }
 
     /// Wraps a pending run of inline-level siblings in an anonymous inline

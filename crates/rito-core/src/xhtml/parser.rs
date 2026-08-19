@@ -402,6 +402,7 @@ fn convert_element(
                 &node_path,
             ),
             source_ref,
+            anchor_ref: None,
         })),
         TagClassification::Inline if tag == "br" => {
             Some(text_node("\n".to_owned(), node_path, element.id))
@@ -419,6 +420,7 @@ fn convert_element(
                 &node_path,
             ),
             source_ref,
+            anchor_ref: None,
         })),
     }
 }
@@ -591,6 +593,7 @@ fn merge_unwrapped_child(child: &DocumentNode, inline: &ElementNode) -> Document
 
     DocumentNode::Block(ElementNode {
         attributes: merged,
+        anchor_ref: Some(inline.source_ref.clone()),
         ..block.clone()
     })
 }

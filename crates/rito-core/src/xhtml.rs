@@ -140,6 +140,13 @@ pub struct ElementNode {
     pub attributes: Option<ElementAttributes>,
     pub children: Vec<DocumentNode>,
     pub source_ref: SourceRef,
+    /// When the parser hoisted this block out of an inline wrapper (a
+    /// block-child `<a>`), the wrapper's source identity. The style
+    /// layer regroups consecutive siblings that share one anchor and
+    /// restores the wrapper's box when its computed display is block —
+    /// the parse-time unwrap cannot see styles, and dropping a
+    /// `display:block` anchor's padding shrank every TOC entry.
+    pub anchor_ref: Option<SourceRef>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
