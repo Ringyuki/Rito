@@ -66,10 +66,13 @@ describe('production Canvas block decoration', () => {
     expect(fills.map((record) => (isCall(record) ? [...record.args] : []))).toContainEqual([
       10, 20, 100, 1,
     ]);
+    // The 3px dotted bottom edge paints measured circles, not a stroke.
+    const arcs = production.records.filter((record) => isCall(record) && record.method === 'arc');
+    expect(arcs.length).toBeGreaterThan(0);
     const strokes = production.records.filter(
       (record) => isCall(record) && record.method === 'stroke',
     );
-    expect(strokes.length).toBeGreaterThan(0);
+    expect(strokes.length).toBe(0);
   });
 
   it('keeps shadow, color, image, and border paint ordering', () => {
@@ -313,9 +316,9 @@ function throwingPaintCases(): readonly {
     {
       name: 'straight border stroke',
       method: 'stroke',
-      // A 3px dotted edge is outside both binary arms (dotted 1-2px,
-      // dashed) and still exercises the stroked path.
-      command: blockCommand({ border: uniformBorder('#111111', 'dotted') }, uniformBorderBox(3)),
+      // A fractional-width dotted edge is outside every measured arm
+      // (dotted 1-2px, dotted >= 3px, dashed) and still strokes.
+      command: blockCommand({ border: uniformBorder('#111111', 'dotted') }, uniformBorderBox(1.5)),
     },
     {
       name: 'split rounded border fill',

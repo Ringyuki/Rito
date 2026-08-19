@@ -20,6 +20,10 @@ export function strokeBorder(
     strokeMeasuredDashed(ctx, edge, x1, y1, x2, y2);
     return;
   }
+  if (edge.style === 'dotted' && edge.width >= 3 && (x1 === x2 || y1 === y2)) {
+    strokeMeasuredDotCircles(ctx, edge, x1, y1, x2, y2);
+    return;
+  }
   // Blink's double border: two lines of a third each with a third of
   // gap. The caller hands the CENTERLINE of the whole border band; the
   // two sub-lines run at ±width/3 around it (centerlines at width/6 and
@@ -66,6 +70,52 @@ export function strokeBorder(
   ctx.moveTo(Math.round(x1) + snap, Math.round(y1) + snap);
   ctx.lineTo(Math.round(x2) + snap, Math.round(y2) + snap);
   ctx.stroke();
+}
+
+// Measured against pinned Chromium (b126 contents rules, 2026-08-20): a
+// THICK dotted edge (width >= 3) rasters as round dots of diameter =
+// width on a 2-width pitch, stretched so a dot sits flush at BOTH ends:
+// n = floor((L + w) / 2w), centers at start + w/2 + k(L - w)/(n - 1)
+// (measured on the 3px rule: 55 dots across 328px at 6.0185 pitch, and
+// the 6px rule's 12px cadence; the [0.001, 1.5w] stroke drew 0.75w dots
+// on a 1.5w pitch — 73 dots where the browser draws 55).
+function strokeMeasuredDotCircles(
+  ctx: CanvasRenderingContext2D,
+  edge: RenderBorderEdge,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): void {
+  ctx.fillStyle = edge.color;
+  const horizontal = y1 === y2;
+  const start = Math.round(horizontal ? Math.min(x1, x2) : Math.min(y1, y2));
+  const end = Math.round(horizontal ? Math.max(x1, x2) : Math.max(y1, y2));
+  // The caller hands the CENTERLINE; the dot row centers on it.
+  const center = horizontal ? y1 : x1;
+  const span = end - start;
+  const radius = edge.width / 2;
+  const count = Math.floor((span + edge.width) / (2 * edge.width));
+  if (count <= 1) {
+    ctx.beginPath();
+    ctx.arc(
+      horizontal ? start + radius : center,
+      horizontal ? center : start + radius,
+      radius,
+      0,
+      2 * Math.PI,
+    );
+    ctx.fill();
+    return;
+  }
+  const pitch = (span - edge.width) / (count - 1);
+  ctx.beginPath();
+  for (let index = 0; index < count; index += 1) {
+    const at = start + radius + index * pitch;
+    ctx.moveTo((horizontal ? at : center) + radius, horizontal ? center : at);
+    ctx.arc(horizontal ? at : center, horizontal ? center : at, radius, 0, 2 * Math.PI);
+  }
+  ctx.fill();
 }
 
 // Measured against pinned Chromium (b9 TOC dashed rules, 2026-08-19): a
