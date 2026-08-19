@@ -80,6 +80,11 @@ struct ParagraphLayout {
     /// Per annotated item index: the overhang cap (half the annotation
     /// size), shared by the split-fit box computation.
     ruby_annotation_caps: std::collections::HashMap<usize, f64>,
+    /// Per annotated item: the annotation line-box height, its
+    /// half-leading, and the base face's LayoutUnit-floored rect ascent
+    /// — the static inputs of the annotation snap (the per-line grown
+    /// baseline joins at fragment collection).
+    ruby_annotation_snap_bases: std::collections::HashMap<usize, (f64, f64, f64)>,
     /// Laid-out inline-block atoms by item index: the mini paragraph's
     /// baseline (its LAST line's, from the box top) and its fragment,
     /// emitted at the inline box's position during line assembly.
@@ -588,6 +593,75 @@ impl ParleyInlineContext {
     /// overridden font size, from a one-line throwaway layout. Ruby
     /// spread sizing measures the annotation (at the rt cascade size,
     /// inheriting everything else) and the base against each other.
+    /// The face parley shapes `sample` with under this style (at an
+    /// optional size override) — the identity used to gate face-locked
+    /// paint conventions.
+    fn styled_run_font(
+        &self,
+        style: &InlineFormattingStyleV1,
+        size_override: Option<f32>,
+        sample: &str,
+    ) -> Option<(u64, u32)> {
+        if sample.is_empty() {
+            return None;
+        }
+        let mut sized;
+        let style = match size_override
+            .and_then(|size| rito_style_contract::NonNegativeCssPx::new(size).ok())
+        {
+            Some(size) => {
+                sized = style.clone();
+                sized.font.size = size;
+                &sized
+            }
+            None => style,
+        };
+        let mut fonts = self.fonts.borrow_mut();
+        let mut layouts = self.layouts.borrow_mut();
+        let mut builder = layouts.ranged_builder(&mut fonts, sample, 1.0, true);
+        push_item_styles(&mut builder, style, 0..sample.len());
+        let mut layout = builder.build(sample);
+        layout.break_all_lines(None);
+        let line = layout.lines().next()?;
+        let glyph_run = line.items().find_map(|item| match item {
+            PositionedLayoutItem::GlyphRun(run) => Some(run),
+            _ => None,
+        })?;
+        let font = glyph_run.run().font();
+        Some((font.data.id(), font.index))
+    }
+
+    /// The primary face's hhea ascent for this style at its font size,
+    /// floored to the LayoutUnit grid — the browser's text-rect ascent,
+    /// which positions the base text top a ruby annotation abuts.
+    fn styled_rect_ascent(
+        &self,
+        style: &InlineFormattingStyleV1,
+        sample: &str,
+    ) -> Option<f64> {
+        use skrifa::raw::TableProvider as _;
+        if sample.is_empty() {
+            return None;
+        }
+        let mut fonts = self.fonts.borrow_mut();
+        let mut layouts = self.layouts.borrow_mut();
+        let mut builder = layouts.ranged_builder(&mut fonts, sample, 1.0, true);
+        push_item_styles(&mut builder, style, 0..sample.len());
+        let mut layout = builder.build(sample);
+        layout.break_all_lines(None);
+        let line = layout.lines().next()?;
+        let glyph_run = line.items().find_map(|item| match item {
+            PositionedLayoutItem::GlyphRun(run) => Some(run),
+            _ => None,
+        })?;
+        let font = glyph_run.run().font();
+        let font_ref = skrifa::FontRef::from_index(font.data.as_ref(), font.index).ok()?;
+        let upem = f64::from(font_ref.head().ok()?.units_per_em());
+        let ascent = f64::from(font_ref.hhea().ok()?.ascender().to_i16()) / upem
+            * f64::from(style.font.size.get());
+        Some((ascent * 64.0).floor() / 64.0)
+    }
+
     fn measure_styled_advance(
         &self,
         style: &InlineFormattingStyleV1,
@@ -818,6 +892,8 @@ impl ParleyInlineContext {
             std::collections::HashMap::new();
         // Per annotated item: half the annotation font size — the
         // overhang cap the split-fit box shares with the spread law.
+        let mut ruby_annotation_snap_bases: std::collections::HashMap<usize, (f64, f64, f64)> =
+            std::collections::HashMap::new();
         let mut ruby_annotation_caps: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
         let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
@@ -843,6 +919,44 @@ impl ParleyInlineContext {
             let base_advance = self.measure_styled_advance(style, None, base_text);
             ruby_annotation_widths.insert(*item_index, annotation_advance);
             ruby_annotation_caps.insert(*item_index, f64::from(annotation_size) / 2.0);
+            {
+                // The annotation's own line box (strut at the annotation
+                // size) and the base face's rect ascent: the annotation
+                // box bottom abuts the base TEXT top + 1 (measured on the
+                // dual-pipeline ruby probe: rtT = rbT + 1 − strut on all
+                // eleven rubies), so the painter can round the physical
+                // box top to a device row like the browser's own
+                // annotation line.
+                let anno_size = f64::from(annotation_size);
+                let metric = self.host_normal_line_sized(style, anno_size, "");
+                let line_h = metric.map_or((anno_size * 1.25).ceil(), |m| m.height);
+                let leading = metric
+                    .and_then(|m| m.grid)
+                    .map_or(0.0, |(grid_ascent, grid_descent)| {
+                        ((line_h - grid_ascent - grid_descent) / 2.0).max(0.0)
+                    });
+                let sample = base_text.chars().next().map(|c| c.to_string());
+                let base_sample = sample.as_deref().unwrap_or("\u{4E2D}");
+                // The snap models the annotation as a line of its OWN
+                // strut face; when the annotation glyphs fall back to a
+                // DIFFERENT face (kana over a Han-only book face), the
+                // glyph anchor no longer coincides with the strut box and
+                // the legacy base-anchored convention stays (its numbers
+                // were calibrated on exactly those books).
+                let base_font = self.styled_run_font(style, None, base_sample);
+                let annotation_font =
+                    self.styled_run_font(style, Some(annotation_size), &annotation.text);
+                if base_font.is_some() && base_font == annotation_font {
+                    let rect_ascent = self
+                        .styled_rect_ascent(style, base_sample)
+                        .unwrap_or_else(|| {
+                            let fallback = f64::from(style.font.size.get()) * 0.9;
+                            (fallback * 64.0).floor() / 64.0
+                        });
+                    ruby_annotation_snap_bases
+                        .insert(*item_index, (line_h, leading, rect_ascent));
+                }
+            }
             let excess = annotation_advance - base_advance;
             if excess <= 0.01 {
                 continue;
@@ -1249,6 +1363,7 @@ impl ParleyInlineContext {
             ruby_spread_overhangs,
             ruby_annotation_widths,
             ruby_annotation_caps,
+            ruby_annotation_snap_bases,
         })
     }
 }
@@ -1414,6 +1529,7 @@ impl FormattingContext for ParleyInlineContext {
             forced_line_indents,
             ruby_spreads,
             ruby_spread_overhangs,
+            ruby_annotation_snap_bases,
             opener_halt_trims,
             mut inline_block_boxes,
             inline_block_baselines,
@@ -1436,6 +1552,7 @@ impl FormattingContext for ParleyInlineContext {
                 ruby_spread_overhangs,
                 ruby_annotation_widths,
                 ruby_annotation_caps,
+                ruby_annotation_snap_bases,
                 inline_block_boxes,
                 inline_block_baselines,
                 image_edge_insets,
@@ -1723,6 +1840,7 @@ impl FormattingContext for ParleyInlineContext {
                         forced_line_indents,
                         ruby_spreads,
                         ruby_spread_overhangs,
+                        ruby_annotation_snap_bases,
                         opener_halt_trims,
                         inline_block_boxes,
                         inline_block_baselines,
@@ -2179,6 +2297,17 @@ impl FormattingContext for ParleyInlineContext {
                                     ruby_overhang_px: ruby_overhang,
                                     opener_trim_px,
                                     box_snap: run_box_snap,
+                                    ruby_annotation_snap: ruby_annotation_snap_bases
+                                        .get(&item_index)
+                                        .map(|(line_h, leading, rect_ascent)| {
+                                            // The static part; the collect
+                                            // stage adds the line's grown
+                                            // baseline once it is known.
+                                            rito_fragment::RubyAnnotationSnap {
+                                                line_top: 1.0 - line_h - rect_ascent,
+                                                leading: *leading,
+                                            }
+                                        }),
                                 }),
                                 shift,
                             ));
@@ -3236,9 +3365,9 @@ impl FormattingContext for ParleyInlineContext {
                     // them differ by four pixels and the derived allowance
                     // swallowed the whole reuse).
                     let plain = self.host_normal_line_sized(resolved, fs, "\u{4E2D}");
-                    let annotation_ascent = self
-                        .host_normal_line_sized(resolved, fs * ratio, "")
-                        .map_or(fs * ratio, |metric| metric.ascent());
+let annotation_line = self.host_normal_line_sized(resolved, fs * ratio, "");
+                    let annotation_ascent =
+                        annotation_line.map_or(fs * ratio, |metric| metric.ascent());
                     let required = ruby_one.map_or_else(
                         // Fallback until the host answers: the table law
                         // (exact for Source Han and FZBWKS, one px off for
@@ -3316,6 +3445,14 @@ impl FormattingContext for ParleyInlineContext {
                         Fragment::Text(text) => {
                             text.rect.y = adjust;
                             text.rect.height = base_height;
+                            if let Some(snap) = &mut text.ruby_annotation_snap {
+                                // The static part carried 1 − line_h −
+                                // rect_ascent; the line's GROWN baseline
+                                // completes the annotation line-box top
+                                // (line-relative): growth + natural
+                                // baseline − rect ascent + 1 − line_h.
+                                snap.line_top += baseline;
+                            }
                         }
                         // An atomic inline sits on the line's baseline:
                         // its bottom margin edge rests there, however tall

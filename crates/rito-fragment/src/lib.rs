@@ -32,7 +32,7 @@ pub use formatting_tree::{
     FormattingTree, FormattingTreeStyles, InlineItem, RubyAnnotation,
 };
 pub use fragment::{
-    BoxFragment, BoxSnap, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFragment,
+    BoxFragment, BoxSnap, RubyAnnotationSnap, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFragment,
     MarkerFragment, TextFragment,
 };
 pub use serialize::{decode_layout_outcome, encode_layout_outcome};

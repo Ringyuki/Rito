@@ -646,11 +646,21 @@ fn append_text_run_command(
         // spacing (justify_px) deliberately does NOT widen the rect: a
         // justified narrow-annotation base grows through its own extent
         // and the annotation only re-centers over it.
+        // The annotation is its own LINE BOX: its physical top rounds to
+        // a device row and the glyphs hang at the half-leading below —
+        // independent of the base line's snap (measured on the
+        // dual-pipeline ruby probe: the base-anchored convention sat one
+        // row high on half the phases). The legacy anchor stays as the
+        // fallback for runs laid before the snap traveled.
+        let annotation_y = match &run.ruby_annotation_snap {
+            Some(snap) => (line_y + snap.line_top).round() + snap.leading,
+            None => em_top - annotation_size - 1.0,
+        };
         commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
             text: Value::String(annotation.clone()),
             rect: rect_value(
                 line_x + run.rect.x - run.ruby_overhang_px,
-                em_top - annotation_size - 1.0,
+                annotation_y,
                 run.rect.width + 2.0 * run.ruby_overhang_px,
                 annotation_size,
             ),
@@ -1272,6 +1282,7 @@ mod tests {
             text_start: start,
             text_end: end,
             box_snap: None,
+            ruby_annotation_snap: None,
             justify_px: 0.0,
             ruby_gap_px: 0.0,
             opener_trim_px: 0.0,
