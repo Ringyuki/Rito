@@ -74,11 +74,12 @@ export function strokeBorder(
 
 // Measured against pinned Chromium (b126 contents rules, 2026-08-20): a
 // THICK dotted edge (width >= 3) rasters as round dots of diameter =
-// width on a 2-width pitch, stretched so a dot sits flush at BOTH ends:
-// n = floor((L + w) / 2w), centers at start + w/2 + k(L - w)/(n - 1)
-// (measured on the 3px rule: 55 dots across 328px at 6.0185 pitch, and
-// the 6px rule's 12px cadence; the [0.001, 1.5w] stroke drew 0.75w dots
-// on a 1.5w pitch — 73 dots where the browser draws 55).
+// width on an EXACT 2-width pitch anchored at the start only — centers
+// at start + w/2 + 2wk, n = floor((L - w) / 2w) + 1, the end simply
+// keeps the remainder (the 6px rule measured 45 of 52 gaps at exactly
+// 12.0, mean 11.99; a stretched (L - w)/(n - 1) pitch of 12.038 drifted
+// a full pixel by mid-line). The [0.001, 1.5w] stroke drew 0.75w dots
+// on a 1.5w pitch — 73 dots where the browser draws 55.
 function strokeMeasuredDotCircles(
   ctx: CanvasRenderingContext2D,
   edge: RenderBorderEdge,
@@ -95,7 +96,7 @@ function strokeMeasuredDotCircles(
   const center = horizontal ? y1 : x1;
   const span = end - start;
   const radius = edge.width / 2;
-  const count = Math.floor((span + edge.width) / (2 * edge.width));
+  const count = Math.floor((span - edge.width) / (2 * edge.width)) + 1;
   if (count <= 1) {
     ctx.beginPath();
     ctx.arc(
@@ -108,7 +109,7 @@ function strokeMeasuredDotCircles(
     ctx.fill();
     return;
   }
-  const pitch = (span - edge.width) / (count - 1);
+  const pitch = 2 * edge.width;
   ctx.beginPath();
   for (let index = 0; index < count; index += 1) {
     const at = start + radius + index * pitch;

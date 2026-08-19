@@ -330,9 +330,9 @@ export function strokeBorder(
 }
 
 // Thick dotted edges (width >= 3) raster as round dots of diameter =
-// width on a 2-width pitch stretched to anchor a dot flush at both
-// ends: n = floor((L + w) / 2w), centers at start + w/2 + k(L − w)/(n − 1)
-// (mirrors the production pen — both pens change together).
+// width on an exact 2-width pitch anchored at the start only: centers
+// at start + w/2 + 2wk, n = floor((L − w) / 2w) + 1, remainder left at
+// the end (mirrors the production pen — both pens change together).
 function strokeMeasuredDotCircles(
   ctx: CanvasRenderingContext2D,
   edge: RenderBorderEdge,
@@ -348,7 +348,7 @@ function strokeMeasuredDotCircles(
   const center = horizontal ? y1 : x1;
   const span = end - start;
   const radius = edge.width / 2;
-  const count = Math.floor((span + edge.width) / (2 * edge.width));
+  const count = Math.floor((span - edge.width) / (2 * edge.width)) + 1;
   if (count <= 1) {
     ctx.beginPath();
     ctx.arc(
@@ -361,7 +361,7 @@ function strokeMeasuredDotCircles(
     ctx.fill();
     return;
   }
-  const pitch = (span - edge.width) / (count - 1);
+  const pitch = 2 * edge.width;
   ctx.beginPath();
   for (let index = 0; index < count; index += 1) {
     const at = start + radius + index * pitch;
