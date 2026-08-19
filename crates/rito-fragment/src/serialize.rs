@@ -115,15 +115,6 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                     }
                 }
             }
-            match &fragment.ruby_annotation_snap {
-                None => out.push(0),
-                Some(snap) => {
-                    out.push(1);
-                    for value in [snap.line_top, snap.leading] {
-                        out.extend_from_slice(&value.to_bits().to_le_bytes());
-                    }
-                }
-            }
         }
         Fragment::Image(fragment) => {
             out.push(FRAGMENT_TAG_IMAGE);
@@ -202,14 +193,6 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 }),
                 tag => return Err(format!("unknown text box-snap tag {tag}")),
             };
-            let ruby_annotation_snap = match reader.u8()? {
-                0 => None,
-                1 => Some(crate::RubyAnnotationSnap {
-                    line_top: reader.f64()?,
-                    leading: reader.f64()?,
-                }),
-                tag => return Err(format!("unknown ruby annotation snap tag {tag}")),
-            };
             Ok(Fragment::Text(TextFragment {
                 source,
                 rect,
@@ -220,7 +203,6 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 ruby_overhang_px,
                 opener_trim_px,
                 box_snap,
-                ruby_annotation_snap,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -468,7 +450,6 @@ mod tests {
                             text_start: 0,
                             text_end: 42,
                             box_snap: None,
-                            ruby_annotation_snap: None,
                             justify_px: 0.25,
                             ruby_gap_px: 1.5,
                             opener_trim_px: 0.0,

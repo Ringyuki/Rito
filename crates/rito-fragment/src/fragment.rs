@@ -104,26 +104,6 @@ pub struct TextFragment {
     /// Raster anchoring for a run inside a decorated inline box, absent
     /// for bare text (which snaps off the line box alone).
     pub box_snap: Option<BoxSnap>,
-    /// Raster anchoring for this run's ruby annotation, when it has one:
-    /// the annotation is its own line box and rounds to a device row
-    /// independently of the base line's snap.
-    pub ruby_annotation_snap: Option<RubyAnnotationSnap>,
-}
-
-/// The ruby annotation's line-box geometry, in LINE-relative layout
-/// coordinates. The painter rounds the physical line-box top to a device
-/// row and hangs the glyphs at the half-leading below, mirroring how the
-/// browser rasters the annotation as its own line (measured on the
-/// dual-pipeline ruby probe: painted annotation row = round(annotation
-/// line-box top) at every phase, where the base-anchored convention sat
-/// one row high on half of them).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RubyAnnotationSnap {
-    /// Line-relative layout top of the annotation's line box.
-    pub line_top: f64,
-    /// Half-leading between the annotation's line box and its glyph em
-    /// box; the glyph top anchor sits this far below the rounded row.
-    pub leading: f64,
 }
 
 /// The vertical anchor a decorated inline box gives the runs inside it.
