@@ -575,23 +575,23 @@ fn append_text_run_command(
             baseline
         }
         None => {
-            // The ruby-annotation reserve inside the baseline rasters on
-            // WHOLE device rows (ceil) while the strut part keeps the
-            // two-stage round. Measured against Chromium across three
-            // books: plain text with fractional line tops AND fractional
-            // strut baselines matches only round(top)+round(baseline) —
-            // a single round of the physical baseline shifted half of
-            // one book's lines, a per-stage ceil all of them; a
-            // ruby-grown interior line (top 553.1875, baseline 15 +
-            // growth 6.484375) rasters at 575 = 553 + 15 +
-            // ceil(6.484375), one row below the plain round. The
-            // interior growth keeps its analytic fraction at LAYOUT
-            // (Range-measured pitch 27.0 = 20.515625 + 6.484375
-            // exactly), so the ceil lives here in the paint translation.
+            // The ruby-annotation growth belongs to the LINE BOX TOP:
+            // the browser shifts the grown line down by the analytic
+            // growth and then rasters it exactly like a plain line —
+            // round(top + growth) + round(natural baseline). Measured
+            // on the dual-pipeline ruby probe (six line-top phases,
+            // FZBWKS 16px/rt 0.55, lh 20.8, interior growth 5.2): the
+            // painted pitch from the previous plain line is the integer
+            // layout pitch 26 at EVERY phase, where folding the growth
+            // into the baseline and ceiling it painted 27 on five of
+            // the six phases. The historical interior case (top
+            // 553.1875, baseline 15, growth 6.484375 rastering at 575)
+            // satisfies this law too: round(559.671875) + 15 = 575 —
+            // the earlier per-stage-ceil reading fit that one point but
+            // not the phase sweep.
             snap_origin_y
-                + (line_y - snap_origin_y).round()
+                + (line_y + line.ruby_growth - snap_origin_y).round()
                 + (line.baseline - baseline_shift_px - line.ruby_growth).round()
-                + line.ruby_growth.ceil()
         }
     };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
