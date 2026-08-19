@@ -865,12 +865,47 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             && child_style.align_items
                                 == rito_style_contract::AlignItemsV1::Center
                         {
+                            // The flex ITEM is what centers, not the line
+                            // box: a replaced item's box excludes the
+                            // strut descent the line adds below it, so a
+                            // single-image flex centers by the IMAGE
+                            // height (measured on b2's .kuchie plates:
+                            // 447.8px image in the 765px box inks at
+                            // top+158 = (765-447.8)/2 rounded; centering
+                            // the line's 455px sat the plate 2.6px high).
+                            let single_image_height = {
+                                let mut image_height: Option<f64> = None;
+                                let mut other_content = false;
+                                for line in &placement.lines {
+                                    let Fragment::Line(line) = line else {
+                                        other_content = true;
+                                        continue;
+                                    };
+                                    for child in &line.children {
+                                        match child {
+                                            Fragment::Image(image) => {
+                                                image_height = match image_height {
+                                                    None => Some(image.rect.height),
+                                                    Some(_) => {
+                                                        other_content = true;
+                                                        None
+                                                    }
+                                                };
+                                            }
+                                            _ => other_content = true,
+                                        }
+                                    }
+                                }
+                                if other_content { None } else { image_height }
+                            };
                             fixed_height
                                 .map(|fixed| {
                                     let content_box = fixed
                                         - hbox.padding_top
                                         - hbox.padding_bottom;
-                                    ((content_box - content_height) / 2.0).max(0.0)
+                                    let item = single_image_height
+                                        .unwrap_or(content_height);
+                                    ((content_box - item) / 2.0).max(0.0)
                                 })
                                 .unwrap_or(0.0)
                         } else {
