@@ -16,6 +16,10 @@ export function strokeBorder(
     strokeBinaryDotted(ctx, edge, x1, y1, x2, y2);
     return;
   }
+  if (edge.style === 'dashed' && (x1 === x2 || y1 === y2)) {
+    strokeMeasuredDashed(ctx, edge, x1, y1, x2, y2);
+    return;
+  }
   // Blink's double border: two lines of a third each with a third of
   // gap. The caller hands the CENTERLINE of the whole border band; the
   // two sub-lines run at ±width/3 around it (centerlines at width/6 and
@@ -62,6 +66,52 @@ export function strokeBorder(
   ctx.moveTo(Math.round(x1) + snap, Math.round(y1) + snap);
   ctx.lineTo(Math.round(x2) + snap, Math.round(y2) + snap);
   ctx.stroke();
+}
+
+// Measured against pinned Chromium (b9 TOC dashed rules, 2026-08-19): a
+// dashed edge rasters on the SAME binary device band as a solid one
+// (round(outer edge), max(1, floor(width)) rows — the stroked
+// centerline sat one row low and smeared), and the cadence is the
+// browser's STRETCHED pattern: base dash 3w with base gap 2w picks the
+// dash count n = floor((L + 2w) / 5w), then the gap stretches to
+// (L − 3wn)/(n − 1) so a full dash lands flush at BOTH ends (measured:
+// 56 dashes across a 280px rule — gap 2.036, mostly 2 device columns
+// with two 3s where the fraction accumulates). Dash extents stay
+// fractional along the run axis; their AA ends match the browser's.
+function strokeMeasuredDashed(
+  ctx: CanvasRenderingContext2D,
+  edge: RenderBorderEdge,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): void {
+  ctx.fillStyle = edge.color;
+  const bandWidth = Math.max(1, Math.floor(edge.width));
+  const horizontal = y1 === y2;
+  const start = Math.round(horizontal ? Math.min(x1, x2) : Math.min(y1, y2));
+  const end = Math.round(horizontal ? Math.max(x1, x2) : Math.max(y1, y2));
+  // The caller hands the CENTERLINE; the band anchors at the rounded
+  // border-box edge, exactly like the solid arm.
+  const row = Math.round((horizontal ? y1 : x1) - edge.width / 2);
+  const span = end - start;
+  const dash = 3 * edge.width;
+  const count = Math.floor((span + 2 * edge.width) / (5 * edge.width));
+  const put = (at: number, length: number) => {
+    if (horizontal) {
+      ctx.fillRect(at, row, length, bandWidth);
+    } else {
+      ctx.fillRect(row, at, bandWidth, length);
+    }
+  };
+  if (count <= 1 || span <= dash) {
+    put(start, Math.min(span, dash));
+    return;
+  }
+  const gap = (span - dash * count) / (count - 1);
+  for (let index = 0; index < count; index += 1) {
+    put(start + index * (dash + gap), dash);
+  }
 }
 
 // Measured against pinned Chromium (dotted-border probes, 2026-07-28 and

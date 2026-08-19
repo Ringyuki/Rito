@@ -313,7 +313,9 @@ function throwingPaintCases(): readonly {
     {
       name: 'straight border stroke',
       method: 'stroke',
-      command: blockCommand({ border: uniformBorder('#111111', 'dashed') }, uniformBorderBox(2)),
+      // A 3px dotted edge is outside both binary arms (dotted 1-2px,
+      // dashed) and still exercises the stroked path.
+      command: blockCommand({ border: uniformBorder('#111111', 'dotted') }, uniformBorderBox(3)),
     },
     {
       name: 'split rounded border fill',
