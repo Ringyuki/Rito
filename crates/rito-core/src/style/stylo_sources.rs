@@ -510,14 +510,18 @@ fn expand_css_imports(
             break;
         }
         out.push_str(&css[rest_start..index]);
-        let lower = css[index..].as_bytes();
-        if lower.len() >= 8 && css[index..index + 8].eq_ignore_ascii_case("@charset") {
+        // Rule-name probes compare BYTES: a str slice at a fixed byte
+        // width panics when it lands inside a multibyte char (b11's
+        // `.co1/*格伦*/` opens with 6 ASCII bytes and the probe's 8th
+        // byte fell inside 格 — the whole book failed to open).
+        let rest = &bytes[index..];
+        if rest.len() >= 8 && rest[..8].eq_ignore_ascii_case(b"@charset") {
             let end = css[index..].find(';').map_or(css.len(), |at| index + at + 1);
             out.push_str(&css[index..end]);
             index = end;
             continue;
         }
-        if !(lower.len() >= 7 && css[index..index + 7].eq_ignore_ascii_case("@import")) {
+        if !(rest.len() >= 7 && rest[..7].eq_ignore_ascii_case(b"@import")) {
             out.push_str(&css[index..]);
             return out;
         }
@@ -1394,6 +1398,19 @@ mod tests {
                 Err(InventoryRejection::UnsupportedProperty(name)) if name == "list-style"
             ));
         }
+    }
+
+    #[test]
+    fn import_expansion_probes_rule_names_on_char_boundaries() {
+        // b11's sheet opens with a multibyte comment and a selector whose
+        // trailing comment puts a CJK char across the 8-byte probe edge
+        // (`.co1/*格` is 6 ASCII bytes + 格's first byte) — a str-slice
+        // probe panicked inside 格 and the whole book failed to open.
+        let ledger = ledger(&[]);
+        let css = "/*彩插字体颜色*/\n.co1/*格伦*/{ color: #FFF; }";
+        let mut seen = Vec::new();
+        let expanded = super::expand_css_imports(css, "Styles/book.css", &ledger, &mut seen);
+        assert_eq!(expanded, css);
     }
 
     #[test]
