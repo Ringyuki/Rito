@@ -295,16 +295,12 @@ export function strokeBorder(
   x2: number,
   y2: number,
 ): void {
-  if (
-    edge.style === 'dotted' &&
-    (edge.width === 1 || edge.width === 2) &&
-    (x1 === x2 || y1 === y2)
-  ) {
-    strokeBinaryDotted(ctx, edge, x1, y1, x2, y2);
-    return;
-  }
-  if (edge.style === 'dotted' && edge.width >= 3 && (x1 === x2 || y1 === y2)) {
-    strokeMeasuredDotCircles(ctx, edge, x1, y1, x2, y2);
+  if (edge.style === 'dotted' && Math.round(edge.width) >= 1 && (x1 === x2 || y1 === y2)) {
+    if (Math.round(edge.width) <= 3) {
+      strokeBinaryDotted(ctx, edge, x1, y1, x2, y2);
+    } else {
+      strokeMeasuredDotCircles(ctx, edge, x1, y1, x2, y2);
+    }
     return;
   }
   // Blink's double border: two lines of a third each with a third of
@@ -329,10 +325,10 @@ export function strokeBorder(
   ctx.stroke();
 }
 
-// Thick dotted edges (width >= 3) raster as round dots of diameter =
-// width on an exact 2-width pitch anchored at the start only: centers
-// at start + w/2 + 2wk, n = floor((L − w) / 2w) + 1, remainder left at
-// the end (mirrors the production pen — both pens change together).
+// Chromium's thick-dotted stroke (width rounding above 3): round dots
+// spaced by the gap closest to one width between dots, pitch = width +
+// gap - 0.01, dots from span start + w/2 (mirrors the production pen -
+// both pens change together).
 function strokeMeasuredDotCircles(
   ctx: CanvasRenderingContext2D,
   edge: RenderBorderEdge,
@@ -347,34 +343,37 @@ function strokeMeasuredDotCircles(
   const end = Math.round(horizontal ? Math.max(x1, x2) : Math.max(y1, y2));
   const center = horizontal ? y1 : x1;
   const span = end - start;
+  const dashWidth = Math.round(edge.width);
   const radius = edge.width / 2;
-  const count = Math.floor((span - edge.width) / (2 * edge.width)) + 1;
-  if (count <= 1) {
-    ctx.beginPath();
-    ctx.arc(
-      horizontal ? start + radius : center,
-      horizontal ? center : start + radius,
-      radius,
-      0,
-      2 * Math.PI,
-    );
+  const drawDot = (at: number) => {
+    ctx.moveTo((horizontal ? at : center) + radius, horizontal ? center : at);
+    ctx.arc(horizontal ? at : center, horizontal ? center : at, radius, 0, 2 * Math.PI);
+  };
+  ctx.beginPath();
+  const minDashes = Math.floor((span + dashWidth) / (2 * dashWidth));
+  const maxDashes = minDashes + 1;
+  const minGap = (span - minDashes * dashWidth) / (minDashes - 1);
+  const maxGap = (span - maxDashes * dashWidth) / (maxDashes - 1);
+  const useMin = maxGap <= 0 || Math.abs(minGap - dashWidth) < Math.abs(maxGap - dashWidth);
+  const count = useMin ? minDashes : maxDashes;
+  const gap = useMin ? minGap : maxGap;
+  if (span < 2 * dashWidth || count <= 1 || !Number.isFinite(gap)) {
+    drawDot(start + dashWidth / 2);
     ctx.fill();
     return;
   }
-  const pitch = 2 * edge.width;
-  ctx.beginPath();
+  const pitch = dashWidth + gap - 0.01;
   for (let index = 0; index < count; index += 1) {
-    const at = start + radius + index * pitch;
-    ctx.moveTo((horizontal ? at : center) + radius, horizontal ? center : at);
-    ctx.arc(horizontal ? at : center, horizontal ? center : at, radius, 0, 2 * Math.PI);
+    drawDot(start + dashWidth / 2 + index * pitch);
   }
   ctx.fill();
 }
 
-// Thin dotted edges raster as BINARY square dots of side = the border
-// width: one dot anchors at the start, the rest at the end every
-// 2×width, the first interval absorbing the parity remainder (mirrors
-// the production pen — both pens change together).
+// Chromium's thin-dotted stroke (width rounding to 1-3): binary square
+// dashes of side = the rounded width on an exact 2-width period from the
+// span start, plus the endpoint-enforcement table keyed on span % 4
+// (width 2) and span % 6 (width 3); width 1 enforces only on even spans
+// (mirrors the production pen - both pens change together).
 function strokeBinaryDotted(
   ctx: CanvasRenderingContext2D,
   edge: RenderBorderEdge,
@@ -386,39 +385,60 @@ function strokeBinaryDotted(
   ctx.fillStyle = edge.color;
   const size = Math.round(edge.width);
   const horizontal = y1 === y2;
-  const start = Math.round(horizontal ? x1 : y1);
-  const end = Math.round(horizontal ? x2 : y2);
+  const start = Math.round(horizontal ? Math.min(x1, x2) : Math.min(y1, y2));
+  const end = Math.round(horizontal ? Math.max(x1, x2) : Math.max(y1, y2));
   const row = Math.round((horizontal ? y1 : x1) - edge.width / 2);
+  const band = Math.max(1, Math.floor(edge.width));
   const span = end - start;
-  const dot = (offset: number) => {
+  const put = (offset: number, length: number) => {
+    if (length <= 0) return;
     if (horizontal) {
-      ctx.fillRect(start + offset, row, size, size);
+      ctx.fillRect(start + offset, row, length, band);
     } else {
-      ctx.fillRect(row, start + offset, size, size);
+      ctx.fillRect(row, start + offset, band, length);
     }
   };
-  dot(0);
-  if (size === 1) {
-    // Hairline (2026-07-28 probe): dots every 2px anchored at BOTH
-    // ends, an even span resolving the parity clash with a double dot
-    // at the start — offsets {0,1,3,5,…,L−1}; odd {0,2,…,L−1}.
-    let from = 2;
-    if (span > 1 && span % 2 === 0) {
-      dot(1);
-      from = 3;
-    }
-    for (let offset = from; offset < span; offset += 2) {
-      dot(offset);
-    }
-    return;
+  const mod4 = span % 4;
+  const mod6 = span % 6;
+  let useStartDot = false;
+  let startDotGrowth = 0;
+  let startLineOffset = 0;
+  let useEndDot = false;
+  let endDotGrowth = 0;
+  if ((size === 1 && span % 2 === 0) || (size === 3 && mod6 === 0)) {
+    useStartDot = true;
+    startDotGrowth = 1;
+    startLineOffset = 1;
   }
-  // 2px (b52 writing-pad probe, 2026-08-10): a dot flush at EACH end,
-  // and a regular period-4 interior series at 3+4k leaving a 1px gap
-  // against both end dots (measured offsets 0,3,7,…,635,638 on a
-  // 640px rule — 161 binary 2×2 dots).
-  dot(span - size);
-  for (let offset = size + 1; offset <= span - 2 * size - 1; offset += 2 * size) {
-    dot(offset);
+  if ((size === 2 && (mod4 === 0 || mod4 === 1)) || (size === 3 && (mod6 === 1 || mod6 === 2))) {
+    useStartDot = true;
+    startLineOffset = -1;
+  }
+  if ((size === 2 && mod4 === 0) || (size === 3 && mod6 === 1)) {
+    useEndDot = true;
+  }
+  if ((size === 2 && mod4 === 3) || (size === 3 && (mod6 === 4 || mod6 === 5))) {
+    useStartDot = true;
+    startLineOffset = 1;
+  }
+  if (size === 3 && mod6 === 5) {
+    useEndDot = true;
+  } else if (size === 3 && mod6 === 0) {
+    useEndDot = true;
+    endDotGrowth = 1;
+  }
+  let lineStart = 0;
+  let lineEnd = span;
+  if (useStartDot) {
+    put(0, size + startDotGrowth);
+    lineStart = 2 * size + startLineOffset;
+  }
+  if (useEndDot) {
+    put(span - size - endDotGrowth, size + endDotGrowth);
+    lineEnd = span - (size + endDotGrowth + 1);
+  }
+  for (let offset = lineStart; offset < lineEnd; offset += 2 * size) {
+    put(offset, Math.min(size, lineEnd - offset));
   }
 }
 

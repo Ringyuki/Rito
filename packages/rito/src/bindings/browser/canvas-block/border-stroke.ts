@@ -8,20 +8,16 @@ export function strokeBorder(
   x2: number,
   y2: number,
 ): void {
-  if (
-    edge.style === 'dotted' &&
-    (edge.width === 1 || edge.width === 2) &&
-    (x1 === x2 || y1 === y2)
-  ) {
-    strokeBinaryDotted(ctx, edge, x1, y1, x2, y2);
+  if (edge.style === 'dotted' && Math.round(edge.width) >= 1 && (x1 === x2 || y1 === y2)) {
+    if (Math.round(edge.width) <= 3) {
+      strokeBinaryDotted(ctx, edge, x1, y1, x2, y2);
+    } else {
+      strokeMeasuredDotCircles(ctx, edge, x1, y1, x2, y2);
+    }
     return;
   }
   if (edge.style === 'dashed' && (x1 === x2 || y1 === y2)) {
     strokeMeasuredDashed(ctx, edge, x1, y1, x2, y2);
-    return;
-  }
-  if (edge.style === 'dotted' && edge.width >= 3 && (x1 === x2 || y1 === y2)) {
-    strokeMeasuredDotCircles(ctx, edge, x1, y1, x2, y2);
     return;
   }
   // Blink's double border: two lines of a third each with a third of
@@ -72,14 +68,15 @@ export function strokeBorder(
   ctx.stroke();
 }
 
-// Measured against pinned Chromium (b126 contents rules, 2026-08-20): a
-// THICK dotted edge (width >= 3) rasters as round dots of diameter =
-// width on an EXACT 2-width pitch anchored at the start only — centers
-// at start + w/2 + 2wk, n = floor((L - w) / 2w) + 1, the end simply
-// keeps the remainder (the 6px rule measured 45 of 52 gaps at exactly
-// 12.0, mean 11.99; a stretched (L - w)/(n - 1) pitch of 12.038 drifted
-// a full pixel by mid-line). The [0.001, 1.5w] stroke drew 0.75w dots
-// on a 1.5w pitch — 73 dots where the browser draws 55.
+// Chromium's thick-dotted stroke (width rounding above 3): round dots of
+// diameter = width, spaced by the gap that best approximates one width
+// between dots. With L the snapped span and w the rounded width, the dot
+// count is n = floor((L + w) / 2w) or n + 1 — whichever count's implied
+// gap (L - n*w)/(n - 1) lies closer to w — and the pitch is w + gap
+// minus a 0.01 epsilon that guarantees the final dot survives float
+// accumulation. Dots start at the span start + w/2 (verified on the b126
+// 6px rule: pitch 11.9515 across 52 gaps, a half-pixel staircase every
+// ~10 dots against any exact-pitch grid).
 function strokeMeasuredDotCircles(
   ctx: CanvasRenderingContext2D,
   edge: RenderBorderEdge,
@@ -95,26 +92,30 @@ function strokeMeasuredDotCircles(
   // The caller hands the CENTERLINE; the dot row centers on it.
   const center = horizontal ? y1 : x1;
   const span = end - start;
+  // Spacing follows the rounded width; the dot itself keeps the true
+  // stroke diameter.
+  const dashWidth = Math.round(edge.width);
   const radius = edge.width / 2;
-  const count = Math.floor((span - edge.width) / (2 * edge.width)) + 1;
-  if (count <= 1) {
-    ctx.beginPath();
-    ctx.arc(
-      horizontal ? start + radius : center,
-      horizontal ? center : start + radius,
-      radius,
-      0,
-      2 * Math.PI,
-    );
+  const drawDot = (at: number) => {
+    ctx.moveTo((horizontal ? at : center) + radius, horizontal ? center : at);
+    ctx.arc(horizontal ? at : center, horizontal ? center : at, radius, 0, 2 * Math.PI);
+  };
+  ctx.beginPath();
+  const minDashes = Math.floor((span + dashWidth) / (2 * dashWidth));
+  const maxDashes = minDashes + 1;
+  const minGap = (span - minDashes * dashWidth) / (minDashes - 1);
+  const maxGap = (span - maxDashes * dashWidth) / (maxDashes - 1);
+  const useMin = maxGap <= 0 || Math.abs(minGap - dashWidth) < Math.abs(maxGap - dashWidth);
+  const count = useMin ? minDashes : maxDashes;
+  const gap = useMin ? minGap : maxGap;
+  if (span < 2 * dashWidth || count <= 1 || !Number.isFinite(gap)) {
+    drawDot(start + dashWidth / 2);
     ctx.fill();
     return;
   }
-  const pitch = 2 * edge.width;
-  ctx.beginPath();
+  const pitch = dashWidth + gap - 0.01;
   for (let index = 0; index < count; index += 1) {
-    const at = start + radius + index * pitch;
-    ctx.moveTo((horizontal ? at : center) + radius, horizontal ? center : at);
-    ctx.arc(horizontal ? at : center, horizontal ? center : at, radius, 0, 2 * Math.PI);
+    drawDot(start + dashWidth / 2 + index * pitch);
   }
   ctx.fill();
 }
@@ -165,15 +166,16 @@ function strokeMeasuredDashed(
   }
 }
 
-// Measured against pinned Chromium (dotted-border probes, 2026-07-28 and
-// 2026-08-10): a thin dotted edge rasters as BINARY square dots of side
-// = the border width — the span's endpoints round to the device grid,
-// one dot anchors at the START, the rest anchor at the END every
-// 2×width, and the FIRST interval absorbs the parity remainder. At
-// width 1 this reproduces the measured hairline offsets exactly (even
-// span {0,1,3,5,…,L−1} — the "double dot"; odd span {0,2,…,L−1}); at
-// width 2 it reproduces b52's writing-pad rules (2px dots, 2px gaps,
-// first gap compressed: ##.##..##..).
+// Chromium's thin-dotted stroke (width rounding to 1-3): BINARY square
+// dashes of side = the rounded width on an exact 2-width period, phase
+// anchored at the span start, plus an endpoint-enforcement table that
+// redraws the first/last dot and shifts the dash run by one pixel so
+// full dots land on both ends whenever the span's remainder modulo the
+// period allows it. The table keys on span % 4 (width 2) and span % 6
+// (width 3); width 1 enforces only on even spans (the measured "double
+// dot" at the start: offsets {0,1,3,5,…}). The width-2 branch reproduces
+// b52's measured writing-pad rules (##.##..##.. on a 640px span) and the
+// width-1 hairline probes exactly.
 function strokeBinaryDotted(
   ctx: CanvasRenderingContext2D,
   edge: RenderBorderEdge,
@@ -185,41 +187,62 @@ function strokeBinaryDotted(
   ctx.fillStyle = edge.color;
   const size = Math.round(edge.width);
   const horizontal = y1 === y2;
-  const start = Math.round(horizontal ? x1 : y1);
-  const end = Math.round(horizontal ? x2 : y2);
+  const start = Math.round(horizontal ? Math.min(x1, x2) : Math.min(y1, y2));
+  const end = Math.round(horizontal ? Math.max(x1, x2) : Math.max(y1, y2));
   // The caller hands the CENTERLINE; the painted band anchors at the
   // rounded border-box edge.
   const row = Math.round((horizontal ? y1 : x1) - edge.width / 2);
+  const band = Math.max(1, Math.floor(edge.width));
   const span = end - start;
-  const dot = (offset: number) => {
+  const put = (offset: number, length: number) => {
+    if (length <= 0) return;
     if (horizontal) {
-      ctx.fillRect(start + offset, row, size, size);
+      ctx.fillRect(start + offset, row, length, band);
     } else {
-      ctx.fillRect(row, start + offset, size, size);
+      ctx.fillRect(row, start + offset, band, length);
     }
   };
-  dot(0);
-  if (size === 1) {
-    // Hairline (2026-07-28 probe): dots every 2px anchored at BOTH
-    // ends, an even span resolving the parity clash with a double dot
-    // at the start — offsets {0,1,3,5,…,L−1}; odd {0,2,…,L−1}.
-    let from = 2;
-    if (span > 1 && span % 2 === 0) {
-      dot(1);
-      from = 3;
-    }
-    for (let offset = from; offset < span; offset += 2) {
-      dot(offset);
-    }
-    return;
+  const mod4 = span % 4;
+  const mod6 = span % 6;
+  let useStartDot = false;
+  let startDotGrowth = 0;
+  let startLineOffset = 0;
+  let useEndDot = false;
+  let endDotGrowth = 0;
+  if ((size === 1 && span % 2 === 0) || (size === 3 && mod6 === 0)) {
+    useStartDot = true;
+    startDotGrowth = 1;
+    startLineOffset = 1;
   }
-  // 2px (b52 writing-pad probe, 2026-08-10): a dot flush at EACH end,
-  // and a regular period-4 interior series at 3+4k leaving a 1px gap
-  // against both end dots (measured offsets 0,3,7,…,635,638 on a
-  // 640px rule — 161 binary 2×2 dots).
-  dot(span - size);
-  for (let offset = size + 1; offset <= span - 2 * size - 1; offset += 2 * size) {
-    dot(offset);
+  if ((size === 2 && (mod4 === 0 || mod4 === 1)) || (size === 3 && (mod6 === 1 || mod6 === 2))) {
+    useStartDot = true;
+    startLineOffset = -1;
+  }
+  if ((size === 2 && mod4 === 0) || (size === 3 && mod6 === 1)) {
+    useEndDot = true;
+  }
+  if ((size === 2 && mod4 === 3) || (size === 3 && (mod6 === 4 || mod6 === 5))) {
+    useStartDot = true;
+    startLineOffset = 1;
+  }
+  if (size === 3 && mod6 === 5) {
+    useEndDot = true;
+  } else if (size === 3 && mod6 === 0) {
+    useEndDot = true;
+    endDotGrowth = 1;
+  }
+  let lineStart = 0;
+  let lineEnd = span;
+  if (useStartDot) {
+    put(0, size + startDotGrowth);
+    lineStart = 2 * size + startLineOffset;
+  }
+  if (useEndDot) {
+    put(span - size - endDotGrowth, size + endDotGrowth);
+    lineEnd = span - (size + endDotGrowth + 1);
+  }
+  for (let offset = lineStart; offset < lineEnd; offset += 2 * size) {
+    put(offset, Math.min(size, lineEnd - offset));
   }
 }
 

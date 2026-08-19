@@ -55,7 +55,7 @@ describe('production Canvas block decoration', () => {
             bottom: { color: '#000011', style: 'dotted' },
           },
         },
-        { topWidth: 1.5, rightWidth: 2, bottomWidth: 3, leftWidth: 4 },
+        { topWidth: 1.5, rightWidth: 2, bottomWidth: 5, leftWidth: 4 },
       ),
     });
     const fills = production.records.filter(
@@ -66,7 +66,7 @@ describe('production Canvas block decoration', () => {
     expect(fills.map((record) => (isCall(record) ? [...record.args] : []))).toContainEqual([
       10, 20, 100, 1,
     ]);
-    // The 3px dotted bottom edge paints measured circles, not a stroke.
+    // The 5px dotted bottom edge paints measured circles, not a stroke.
     const arcs = production.records.filter((record) => isCall(record) && record.method === 'arc');
     expect(arcs.length).toBeGreaterThan(0);
     const strokes = production.records.filter(
@@ -314,11 +314,13 @@ function throwingPaintCases(): readonly {
       ),
     },
     {
-      name: 'straight border stroke',
+      name: 'rounded border stroke',
       method: 'stroke',
-      // A fractional-width dotted edge is outside every measured arm
-      // (dotted 1-2px, dotted >= 3px, dashed) and still strokes.
-      command: blockCommand({ border: uniformBorder('#111111', 'dotted') }, uniformBorderBox(1.5)),
+      // A rounded non-solid border still walks the stroked path.
+      command: blockCommand(
+        { border: uniformBorder('#111111', 'dashed'), radius: { px: 5 } },
+        uniformBorderBox(2),
+      ),
     },
     {
       name: 'split rounded border fill',
