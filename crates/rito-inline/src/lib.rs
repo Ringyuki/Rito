@@ -676,6 +676,7 @@ impl ParleyInlineContext {
         let mut chromium_tailoring = true;
         let mut break_all = false;
         let mut strict_kinsoku = false;
+        let mut break_anywhere = false;
         for (item_index, item) in items.iter().enumerate() {
             match item {
                 InlineItem::Text {
@@ -701,6 +702,9 @@ impl ParleyInlineContext {
                     }
                     if style.text_flow.line_break == rito_style_contract::LineBreak::Strict {
                         strict_kinsoku = true;
+                    }
+                    if style.text_flow.line_break == rito_style_contract::LineBreak::Anywhere {
+                        break_anywhere = true;
                     }
                     runs.push((start..text.len(), style, item_index));
                 }
@@ -1014,7 +1018,14 @@ impl ParleyInlineContext {
         let mut builder = layouts.ranged_builder(&mut fonts, &text, 1.0, true);
         // The pinned-browser baseline: Chromium's ASCII break tailoring plus
         // its CJK-context treatment of ambiguous curly quotes.
-        if chromium_tailoring {
+        if break_anywhere {
+            // `line-break: anywhere`: a soft wrap opportunity around every
+            // typographic character unit — kinsoku and pair tables are
+            // disregarded entirely (b50's afterword packs two more
+            // full-width characters per line than any kinsoku-aware rule
+            // set allows, breaking mid-ellipsis and before commas).
+            builder.set_line_break_override(Some(&break_anywhere_override));
+        } else if chromium_tailoring {
             if strict_kinsoku {
                 builder.set_line_break_override(Some(&cjk_aware_chromium_break_override_strict));
             } else {
@@ -3617,6 +3628,10 @@ impl FormattingContext for ParleyInlineContext {
 /// unbreakable word, while Blink splits it across the line boundary
 /// (b93 truth: the first ─ closes the line, the second opens the next).
 /// Everything else defers to Parley's break-all logic.
+fn break_anywhere_override(_context: parley::LineBreakContext) -> Option<bool> {
+    Some(true)
+}
+
 fn break_all_box_dash_override(context: parley::LineBreakContext) -> Option<bool> {
     if context.before == '\u{2500}' && context.after == '\u{2500}' {
         return Some(true);
