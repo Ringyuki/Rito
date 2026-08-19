@@ -168,6 +168,7 @@ fn legacy_adapter_fails_closed_for_unknown_or_untyped_payloads() {
         href: None,
         source_text: None,
         source_text_offset: None,
+        ruby_align: None,
     });
     assert_eq!(
         encode_reader_display_list_v1(&[summary_text]),
@@ -239,6 +240,7 @@ fn representative_commands() -> Vec<DisplayCommand> {
             href: Some("#note".to_owned()),
             source_text: Some(json!("source")),
             source_text_offset: Some(9),
+            ruby_align: None,
         }),
         DisplayCommand::paint_image(
             "images/cover.jpg".to_owned(),
@@ -258,6 +260,7 @@ fn all_command_shapes() -> Vec<DisplayCommand> {
         href: None,
         source_text: None,
         source_text_offset: None,
+        ruby_align: None,
     };
     vec![
         DisplayCommand::push_state(),

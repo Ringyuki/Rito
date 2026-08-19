@@ -67,8 +67,8 @@ pub use scalar::{
 };
 pub use table::{InlineStyleTableV1, StyleId, StyleTableError};
 pub use text::{
-    Direction, InlineTextFlowV1, LanguageTag, LineBreak, OverflowWrap, TextAlign, TextIndent,
-    TextJustify, TextTransform, TextTransformCase, TextWrapMode, UnicodeBidi, WhiteSpaceCollapse,
-    WordBreak, WritingMode,
+    Direction, InlineTextFlowV1, LanguageTag, LineBreak, OverflowWrap, RubyAlign, TextAlign,
+    TextIndent, TextJustify, TextTransform, TextTransformCase, TextWrapMode, UnicodeBidi,
+    WhiteSpaceCollapse, WordBreak, WritingMode,
 };
 pub use transform::{TransformListErrorV1, TransformListV1, TransformOperationV1};

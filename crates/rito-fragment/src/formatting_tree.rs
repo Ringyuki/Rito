@@ -57,6 +57,9 @@ pub struct RubyAnnotation {
     pub text: String,
     /// rt font size / base font size.
     pub size_ratio: f32,
+    /// The rt element's computed `ruby-align`, driving how the painted
+    /// annotation distributes over the base extent.
+    pub align: rito_style_contract::RubyAlign,
 }
 
 /// One item of an inline formatting context's input, in content order.

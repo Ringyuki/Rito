@@ -1099,6 +1099,14 @@ impl TreeBuilder<'_> {
                         }
                         _ => 0.5,
                     };
+                    // The annotation container's own computed `ruby-align`
+                    // (inherited from the ruby element unless rt overrides)
+                    // drives how the painted annotation distributes.
+                    let ruby_align = self
+                        .inline
+                        .style(rt_style)
+                        .map(|rt_resolved| rt_resolved.text_flow.ruby_align)
+                        .unwrap_or(rito_style_contract::RubyAlign::SpaceAround);
                     collector.push_text(
                         &std::mem::take(&mut pending_base),
                         style,
@@ -1106,7 +1114,11 @@ impl TreeBuilder<'_> {
                         collapse,
                         Some(annotation)
                             .filter(|text| !text.is_empty())
-                            .map(|text| rito_fragment::RubyAnnotation { text, size_ratio }),
+                            .map(|text| rito_fragment::RubyAnnotation {
+                                text,
+                                size_ratio,
+                                align: ruby_align,
+                            }),
                         Some(source_index),
                         Some(element.source_ref.node_path.clone()),
                     );

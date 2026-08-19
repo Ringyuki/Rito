@@ -20,6 +20,7 @@ fn counts_display_commands_by_kind() {
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: None,
         }),
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!({ "hash": "b", "length": 1 }),
@@ -29,6 +30,7 @@ fn counts_display_commands_by_kind() {
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: None,
         }),
         DisplayCommand::paint_image("images/cover.jpg".to_owned(), json!({}), None, None),
     ];
@@ -59,6 +61,7 @@ fn summarizes_image_refs_from_images_and_block_backgrounds() {
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: None,
         }),
     ];
 
@@ -81,6 +84,7 @@ fn summarizes_font_families_from_text_commands() {
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: None,
         }),
         DisplayCommand::paint_ruby(super::DisplayTextCommandInput {
             text: json!("Ruby"),
@@ -90,6 +94,7 @@ fn summarizes_font_families_from_text_commands() {
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: None,
         }),
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!("Duplicate"),
@@ -99,6 +104,7 @@ fn summarizes_font_families_from_text_commands() {
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: None,
         }),
     ];
 
@@ -144,6 +150,7 @@ fn packs_command_opcodes_geometry_and_string_table() {
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: None,
         }),
         DisplayCommand::paint_image(
             "images/cover.jpg".to_owned(),
@@ -327,6 +334,7 @@ fn typed_run_paint_golden_commands() -> Vec<DisplayCommand> {
             href: Some("#typed".to_owned()),
             source_text: Some(json!("Typed paint source")),
             source_text_offset: Some(3),
+            ruby_align: None,
         }),
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!("Minimal paint"),
@@ -336,6 +344,7 @@ fn typed_run_paint_golden_commands() -> Vec<DisplayCommand> {
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: None,
         }),
         DisplayCommand::paint_ruby(super::DisplayTextCommandInput {
             text: json!("ruby"),
@@ -345,6 +354,7 @@ fn typed_run_paint_golden_commands() -> Vec<DisplayCommand> {
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: None,
         }),
     ]
 }

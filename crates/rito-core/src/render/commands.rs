@@ -273,6 +273,23 @@ pub(crate) struct DisplayTextCommandInput {
     pub href: Option<String>,
     pub source_text: Option<Value>,
     pub source_text_offset: Option<usize>,
+    /// A ruby command's non-initial `ruby-align`; `None` (the initial
+    /// `space-around`) stays off the wire. Always `None` for plain text.
+    pub ruby_align: Option<RubyAlignPaint>,
+}
+
+/// A non-initial `ruby-align` keyword carried by a ruby paint command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RubyAlignPaint(&'static str);
+
+impl RubyAlignPaint {
+    pub(crate) const START: Self = Self("start");
+    pub(crate) const CENTER: Self = Self("center");
+    pub(crate) const SPACE_BETWEEN: Self = Self("space-between");
+
+    pub(crate) const fn as_str(self) -> &'static str {
+        self.0
+    }
 }
 
 pub(crate) fn display_command_values(commands: &[DisplayCommand]) -> Vec<Value> {

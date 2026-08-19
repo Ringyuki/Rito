@@ -67,6 +67,8 @@ export interface RitoCoreWasmPaintTextCommand extends RitoCoreWasmTextPaintComma
 
 export interface RitoCoreWasmPaintRubyCommand extends RitoCoreWasmTextPaintCommand {
   readonly kind: 'paintRuby';
+  /** Non-initial ruby-align keyword; absent means space-around. */
+  readonly rubyAlign?: 'start' | 'center' | 'space-between';
 }
 
 export interface RitoCoreWasmTextPaintCommand {

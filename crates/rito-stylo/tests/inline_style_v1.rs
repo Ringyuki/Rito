@@ -3,7 +3,8 @@ use std::sync::Arc;
 use rito_source::{NodeId, SourceArena, SourceNodeKind};
 use rito_style_contract::{
     BackgroundImageRepeatV1, BackgroundImageSizeV1, FontFamily, FontFamilyNameSyntax,
-    GenericFontFamily, LengthPercentage, TransformOperationV1, RESOLVED_URL_BYTE_LIMIT_V1,
+    GenericFontFamily, LengthPercentage, RubyAlign, TransformOperationV1,
+    RESOLVED_URL_BYTE_LIMIT_V1,
 };
 use rito_stylo::{
     InlineStyleDispositionV1, InlineStyleFieldV1, InlineStyleProjectionReasonV1, StyleDocument,
@@ -483,6 +484,36 @@ fn language_is_case_canonicalized_with_xml_precedence_and_empty_reset() {
     assert_eq!(language(&projection, inherited), Some("en-us"));
     assert_eq!(language(&projection, reset), None);
     assert_eq!(language(&projection, precedence), Some("fr"));
+}
+
+#[test]
+fn ruby_align_cascades_through_the_registered_custom_property() {
+    let source = source(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><ruby id="ruby">base<rt id="rt">note</rt></ruby><ruby id="plain">b<rt id="plain-rt">n</rt></ruby></body></html>"#,
+    );
+    let ruby = source.find_element_by_id("ruby").unwrap();
+    let rt = source.find_element_by_id("rt").unwrap();
+    let plain_rt = source.find_element_by_id("plain-rt").unwrap();
+    let mut document = document(
+        Arc::clone(&source),
+        "#ruby { ruby-align: center } rt { ruby-align: inter-character }",
+    );
+
+    let projection = document.resolve_inline_styles_v1().unwrap();
+    assert_eq!(ruby_align(&projection, ruby), RubyAlign::Center);
+    // The invalid rt declaration drops at parse time like the browser
+    // drops it; rt keeps the inherited value from its ruby container.
+    assert_eq!(ruby_align(&projection, rt), RubyAlign::Center);
+    assert_eq!(ruby_align(&projection, plain_rt), RubyAlign::SpaceAround);
+}
+
+fn ruby_align(projection: &rito_stylo::InlineStyleProjectionV1, node_id: NodeId) -> RubyAlign {
+    projection
+        .table()
+        .style_for_node(node_id.index())
+        .unwrap()
+        .text_flow
+        .ruby_align
 }
 
 fn language(projection: &rito_stylo::InlineStyleProjectionV1, node_id: NodeId) -> Option<&str> {

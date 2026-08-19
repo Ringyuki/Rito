@@ -9,7 +9,8 @@ use rito_style_contract::{
     InlineFragmentStyleV1, InlinePaintStyleV1, InlineStyleTableV1, InlineTextFlowV1, LanguageTag,
     LengthPercentage, LengthPercentageOrAuto, LineBreak, LineHeight, NonNegativeCssPx,
     NonNegativeLengthPercentage, NonNegativeNumber, OverflowWrap, Percentage, PhysicalSides,
-    ResolvedUrlV1, StyleId, StyleTableError, TextAlign, TextDecoration, TextDecorationLines,
+    ResolvedUrlV1, RubyAlign, StyleId, StyleTableError, TextAlign, TextDecoration,
+    TextDecorationLines,
     TextDecorationStyle, TextIndent, TextJustify, TextShadow, TextTransform, TextTransformCase,
     TextWrapMode, TransformListV1, TransformOperationV1, UnicodeBidi, UnitInterval,
     WhiteSpaceCollapse, WordBreak, WritingMode,
@@ -149,6 +150,7 @@ fn text_flow(seed: f32) -> InlineTextFlowV1 {
             hanging: false,
             each_line: false,
         },
+        ruby_align: RubyAlign::SpaceAround,
         language: None,
     }
 }

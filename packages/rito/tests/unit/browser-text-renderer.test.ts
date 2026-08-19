@@ -215,6 +215,55 @@ describe('production Canvas text renderer', () => {
     expect(lastProperty(result, 'letterSpacing')).toBe('19px');
   });
 
+  it('packs a CJK annotation centered under ruby-align: center', () => {
+    const ruby = {
+      ...rubyFragment(
+        {
+          font: { style: 'normal', weight: 400, sizePx: 10, family: 'serif' },
+        },
+        'かな',
+      ),
+      rubyAlign: 'center' as const,
+    };
+    const result = expectRubyParity(ruby);
+    // 38px free splits half each side; glyphs stay at natural advance
+    // (measured on b9's `ruby{ruby-align:center}`: the annotation packs
+    // to its own width centered over the base).
+    expect(result.getCalls('fillText')[0]?.args).toEqual(['かな', 29, 20]);
+    expect(lastProperty(result, 'letterSpacing')).toBe('0px');
+  });
+
+  it('packs at the line-start edge under ruby-align: start', () => {
+    const ruby = {
+      ...rubyFragment(
+        {
+          font: { style: 'normal', weight: 400, sizePx: 10, family: 'serif' },
+        },
+        'かな',
+      ),
+      rubyAlign: 'start' as const,
+    };
+    const result = expectRubyParity(ruby);
+    expect(result.getCalls('fillText')[0]?.args).toEqual(['かな', 10, 20]);
+    expect(lastProperty(result, 'letterSpacing')).toBe('0px');
+  });
+
+  it('spreads interior-only shares under ruby-align: space-between', () => {
+    const ruby = {
+      ...rubyFragment(
+        {
+          font: { style: 'normal', weight: 400, sizePx: 10, family: 'serif' },
+        },
+        'かな',
+      ),
+      rubyAlign: 'space-between' as const,
+    };
+    const result = expectRubyParity(ruby);
+    // 38px free opens entirely between the two glyphs, none at the edges.
+    expect(result.getCalls('fillText')[0]?.args).toEqual(['かな', 10, 20]);
+    expect(lastProperty(result, 'letterSpacing')).toBe('38px');
+  });
+
   it.each(localFailureCases())(
     'balances local Canvas state when $method throws in $name',
     ({ method, render }) => {

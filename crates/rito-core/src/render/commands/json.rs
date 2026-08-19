@@ -82,6 +82,11 @@ fn insert_text_fields(fields: &mut Map<String, Value>, input: &DisplayTextComman
             .source_text_offset
             .map(|offset| Value::Number(offset.into())),
     );
+    insert_optional_string(
+        fields,
+        "rubyAlign",
+        input.ruby_align.map(|align| align.as_str().to_owned()),
+    );
 }
 
 fn insert_field(fields: &mut Map<String, Value>, key: &str, value: Value) {

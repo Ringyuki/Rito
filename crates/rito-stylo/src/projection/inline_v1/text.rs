@@ -33,6 +33,7 @@ pub(super) fn project(
             hanging: text_indent.hanging,
             each_line: text_indent.each_line,
         },
+        ruby_align: crate::break_properties::project_ruby_align(styles),
         language,
     })
 }

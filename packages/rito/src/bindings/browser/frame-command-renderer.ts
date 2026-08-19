@@ -288,7 +288,7 @@ function paintText(ctx: CanvasRenderingContext2D, command: TextCommand, state: R
 function paintRuby(ctx: CanvasRenderingContext2D, command: RubyCommand, state: RenderState): void {
   drawCanvasRubyFragment(
     ctx,
-    { text: command.text, rect: command.rect, paint: command.paint },
+    { text: command.text, rect: command.rect, paint: command.paint, rubyAlign: command.rubyAlign },
     state.colorOverride,
     declaredGroundFor(command.rect, command.paint, state),
   );

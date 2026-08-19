@@ -220,6 +220,8 @@ export interface RitoReaderPaintTextCommandV1 {
   readonly href?: string | undefined;
   readonly sourceText?: string | undefined;
   readonly sourceTextOffset?: bigint | undefined;
+  /** Non-initial ruby-align keyword; absent means space-around. */
+  readonly rubyAlign?: 'start' | 'center' | 'space-between' | undefined;
 }
 
 export interface RitoReaderPaintImageCommandV1 {

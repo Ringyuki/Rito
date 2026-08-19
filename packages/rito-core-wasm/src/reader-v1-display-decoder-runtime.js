@@ -132,6 +132,7 @@ function readText(reader, opcode, kind) {
     href: reader.option('text href', () => reader.string('text href')),
     sourceText: reader.option('source text', () => reader.string('source text')),
     sourceTextOffset: reader.option('source text offset', () => reader.u64('source text offset')),
+    rubyAlign: reader.option('ruby align', () => reader.string('ruby align')),
   };
 }
 

@@ -98,4 +98,5 @@ pub(super) struct ReaderTextCommandV1 {
     pub href: Option<String>,
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
+    pub ruby_align: Option<String>,
 }

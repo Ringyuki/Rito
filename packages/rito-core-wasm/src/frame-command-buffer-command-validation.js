@@ -72,6 +72,7 @@ export function validateFrameCommand(value, index) {
       break;
     case 'paintRuby':
       validateTextCommand(command, path, false);
+      validateOptionalField(command, 'rubyAlign', path, expectString);
       break;
     case 'paintImage':
       validateImageCommand(command, path);

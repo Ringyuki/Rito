@@ -27,7 +27,7 @@ use crate::layout::{
     FontPaint, FontPaintStyle, MeasurePaint, RunDecoration, RunDecorationKind, RunPaint,
     RunPaintData, TextShadowPaint,
 };
-use crate::render::{DisplayCommand, DisplayTextCommandInput};
+use crate::render::{DisplayCommand, DisplayTextCommandInput, RubyAlignPaint};
 use crate::style::{absolute_color, serialize_font_families};
 
 /// How painted family stacks reach the canvas when the reader pins fonts.
@@ -629,9 +629,9 @@ fn append_text_run_command(
                 seg_end / total_chars
             },
         );
-        (!allocated.is_empty()).then_some((allocated, annotation.size_ratio))
+        (!allocated.is_empty()).then_some((allocated, annotation.size_ratio, annotation.align))
     });
-    if let Some((annotation_text, size_ratio)) = segment_annotation {
+    if let Some((annotation_text, size_ratio, ruby_align)) = segment_annotation {
         let annotation_ratio = f64::from(size_ratio);
         let annotation = &annotation_text;
         // The reader's ruby convention (shared with the retained engine):
@@ -659,6 +659,14 @@ fn append_text_run_command(
             href: None,
             source_text: None,
             source_text_offset: None,
+            ruby_align: match ruby_align {
+                rito_style_contract::RubyAlign::SpaceAround => None,
+                rito_style_contract::RubyAlign::Start => Some(RubyAlignPaint::START),
+                rito_style_contract::RubyAlign::Center => Some(RubyAlignPaint::CENTER),
+                rito_style_contract::RubyAlign::SpaceBetween => {
+                    Some(RubyAlignPaint::SPACE_BETWEEN)
+                }
+            },
         }));
     }
     commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
@@ -680,6 +688,7 @@ fn append_text_run_command(
         href: None,
         source_text: None,
         source_text_offset: None,
+        ruby_align: None,
     }));
     Ok(())
 }
@@ -1486,6 +1495,7 @@ mod tests {
                 ruby_annotation: Some(rito_fragment::RubyAnnotation {
                     text: "かんじ".to_owned(),
                     size_ratio: 0.5,
+                    align: rito_style_contract::RubyAlign::SpaceAround
                 }),
             }]
         });

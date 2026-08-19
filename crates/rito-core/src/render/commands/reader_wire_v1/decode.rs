@@ -137,6 +137,7 @@ impl Decoder<'_> {
         if self.read_option()? {
             self.read_exact::<8>()?;
         }
+        self.read_optional_string()?;
         Ok(())
     }
 

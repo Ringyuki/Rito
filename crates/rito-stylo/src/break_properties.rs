@@ -25,6 +25,11 @@ pub(crate) const REGISTRATION_STYLESHEET: &str = r#"
   inherits: true;
   initial-value: 0px;
 }
+@property --rito-internal-ruby-align-v1 {
+  syntax: "space-around | start | center | space-between";
+  inherits: true;
+  initial-value: space-around;
+}
 "#;
 
 const BEFORE_CSS_NAME: &str = "--rito-internal-break-before-v1";
@@ -33,8 +38,12 @@ const AFTER_CSS_NAME: &str = "--rito-internal-break-after-v1";
 // travel as registered custom properties exactly like the break controls.
 const BORDER_COLLAPSE_CSS_NAME: &str = "--rito-internal-border-collapse-v1";
 const BORDER_SPACING_CSS_NAME: &str = "--rito-internal-border-spacing-v1";
+// `ruby-align` is a Gecko-only longhand in stylo's Servo profile, so it
+// travels as a registered custom property like the table borders.
+const RUBY_ALIGN_CSS_NAME: &str = "--rito-internal-ruby-align-v1";
 const BORDER_COLLAPSE_ATOM_NAME: &str = "rito-internal-border-collapse-v1";
 const BORDER_SPACING_ATOM_NAME: &str = "rito-internal-border-spacing-v1";
+const RUBY_ALIGN_ATOM_NAME: &str = "rito-internal-ruby-align-v1";
 const BEFORE_ATOM_NAME: &str = "rito-internal-break-before-v1";
 const AFTER_ATOM_NAME: &str = "rito-internal-break-after-v1";
 
@@ -136,7 +145,19 @@ fn rewrite(css: &str, declaration_list: bool) -> Cow<'_, str> {
             }
             byte if candidate && is_name_start(byte) => {
                 let end = name_end(bytes, cursor);
-                let replacement = replacement_name(&css[cursor..end]);
+                let replacement = match replacement_name(&css[cursor..end]) {
+                    Some(name) if name == RUBY_ALIGN_CSS_NAME => {
+                        // Only a value the browser's parser accepts may
+                        // ride the registered property. An invalid value
+                        // (`inter-character`, `auto` in the corpus) keeps
+                        // its original name so the declaration drops at
+                        // parse time exactly like the browser drops it;
+                        // rewritten, it would win the cascade and reset
+                        // an earlier valid declaration to the initial.
+                        ruby_align_value_accepted(css, end).then_some(name)
+                    }
+                    other => other,
+                };
                 if next_significant_byte(bytes, end) == Some(b':') {
                     in_declaration_value = true;
                     if let Some(replacement) = replacement {
@@ -174,9 +195,55 @@ fn replacement_name(name: &str) -> Option<&'static str> {
         Some(BORDER_COLLAPSE_CSS_NAME)
     } else if name.eq_ignore_ascii_case("border-spacing") {
         Some(BORDER_SPACING_CSS_NAME)
+    } else if name.eq_ignore_ascii_case("ruby-align") {
+        Some(RUBY_ALIGN_CSS_NAME)
     } else {
         None
     }
+}
+
+/// Whether the declaration value following `name_end` (the byte after the
+/// `ruby-align` property name) is one of the keywords the property
+/// grammar accepts, ignoring comments and a trailing `!important`.
+fn ruby_align_value_accepted(css: &str, name_end: usize) -> bool {
+    let bytes = css.as_bytes();
+    let mut cursor = name_end;
+    loop {
+        while bytes
+            .get(cursor)
+            .is_some_and(|byte| byte.is_ascii_whitespace())
+        {
+            cursor += 1;
+        }
+        if bytes.get(cursor) == Some(&b'/') && bytes.get(cursor + 1) == Some(&b'*') {
+            cursor = comment_end(bytes, cursor);
+            continue;
+        }
+        break;
+    }
+    if bytes.get(cursor) != Some(&b':') {
+        return false;
+    }
+    cursor += 1;
+    let mut value = String::new();
+    while cursor < bytes.len() {
+        match bytes[cursor] {
+            b';' | b'{' | b'}' => break,
+            b'/' if bytes.get(cursor + 1) == Some(&b'*') => cursor = comment_end(bytes, cursor),
+            byte => {
+                value.push(byte as char);
+                cursor += 1;
+            }
+        }
+    }
+    let value = value.to_ascii_lowercase();
+    let value = value.trim();
+    let value = match value.rfind('!') {
+        Some(index) if value[index + 1..].trim() == "important" => value[..index].trim_end(),
+        Some(_) => return false,
+        None => value,
+    };
+    matches!(value, "space-around" | "start" | "center" | "space-between")
 }
 
 /// The used table cell separation: `border-collapse: collapse` removes it,
@@ -204,6 +271,26 @@ pub(crate) fn project_border_spacing(styles: &ComputedValues) -> (f32, f32) {
     let horizontal = lengths.next().flatten().unwrap_or(0.0);
     let vertical = lengths.next().flatten().unwrap_or(horizontal);
     (horizontal, vertical)
+}
+
+/// The used `ruby-align`. Only browser-valid values were rewritten onto
+/// the registered property, so anything unreadable here is the initial.
+pub(crate) fn project_ruby_align(styles: &ComputedValues) -> rito_style_contract::RubyAlign {
+    use rito_style_contract::RubyAlign;
+    let custom = styles.custom_properties();
+    let Some(value) = custom
+        .inherited
+        .get(&Atom::from(RUBY_ALIGN_ATOM_NAME))
+        .map(|value| value.to_css_string())
+    else {
+        return RubyAlign::SpaceAround;
+    };
+    match value.trim() {
+        "start" => RubyAlign::Start,
+        "center" => RubyAlign::Center,
+        "space-between" => RubyAlign::SpaceBetween,
+        _ => RubyAlign::SpaceAround,
+    }
 }
 
 fn parse_px(token: &str) -> Option<f32> {
@@ -289,6 +376,31 @@ mod tests {
         assert_eq!(
             rewrite_declaration_list("PAGE-BREAK-BEFORE: always; color: red"),
             format!("{BEFORE_CSS_NAME}: always; color: red")
+        );
+    }
+
+    #[test]
+    fn rewrites_ruby_align_only_for_values_the_browser_accepts() {
+        let css = "ruby { ruby-align: center } rt { ruby-align: SPACE-BETWEEN !important } \
+                   .a { ruby-align: inter-character } .b { ruby-align: auto; color: red }";
+        let rewritten = rewrite_stylesheet(css);
+        assert!(rewritten.contains("--rito-internal-ruby-align-v1: center"));
+        assert!(rewritten.contains("--rito-internal-ruby-align-v1: SPACE-BETWEEN !important"));
+        // Invalid values keep their original name and die in the style
+        // system's unknown-property parse, exactly like the browser.
+        assert!(rewritten.contains("ruby-align: inter-character"));
+        assert!(rewritten.contains("ruby-align: auto"));
+    }
+
+    #[test]
+    fn ruby_align_value_scan_handles_comments_and_important() {
+        assert_eq!(
+            rewrite_declaration_list("ruby-align /*x*/ : /*y*/ center /*z*/ ! important"),
+            "--rito-internal-ruby-align-v1 /*x*/ : /*y*/ center /*z*/ ! important"
+        );
+        assert_eq!(
+            rewrite_declaration_list("ruby-align: centered"),
+            "ruby-align: centered"
         );
     }
 

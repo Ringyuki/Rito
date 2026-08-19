@@ -143,5 +143,6 @@ fn write_text(
             write_u64(output, *value);
             Ok(())
         },
-    )
+    )?;
+    write_optional_string(output, input.ruby_align.as_deref())
 }

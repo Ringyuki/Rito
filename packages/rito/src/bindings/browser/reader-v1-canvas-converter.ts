@@ -62,6 +62,11 @@ function convertCommand(command: RitoReaderDisplayCommandV1): CoreFrameCommand |
         text: command.text,
         rect: command.rect,
         paint: convertRunPaint(command.paint),
+        ...(command.rubyAlign === 'start' ||
+        command.rubyAlign === 'center' ||
+        command.rubyAlign === 'space-between'
+          ? { rubyAlign: command.rubyAlign }
+          : {}),
       };
     case 'paint-image':
       return {

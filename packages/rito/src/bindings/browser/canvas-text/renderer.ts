@@ -61,17 +61,30 @@ export function drawCanvasRubyFragment(
     const measured = ctx.measureText(ruby.text);
     const glyphs = Array.from(ruby.text).length;
     const free = ruby.rect.width - measured.width;
-    // `ruby-align: space-around` on the annotation (measured on the b96
-    // long-base ruby: free 66.77px over 9 glyphs → 3.709px at each edge,
-    // 7.418px between neighbours): the free width splits into one share
-    // per glyph, half a share at each edge. A wide annotation's rect
-    // already equals its own advance (free ≈ 0), so this reduces to the
-    // packed centering it always had. A LATIN word annotation is ONE
-    // justification unit — no intra-word expansion — so it centers whole
-    // (measured on b20's ショウコ/Shouko rubies: natural-width word,
-    // free/2 = 13.7px at each edge, interior steps natural 5.33px; the
-    // per-glyph spread scattered the letters across the base).
-    if (glyphs > 1 && free > 0.01 && rubyAnnotationExpands(ruby.text)) {
+    // Distribution follows the annotation's computed `ruby-align`.
+    // `space-around` (the initial, absent on the wire; measured on the
+    // b96 long-base ruby: free 66.77px over 9 glyphs → 3.709px at each
+    // edge, 7.418px between neighbours): the free width splits into one
+    // share per glyph, half a share at each edge. A wide annotation's
+    // rect already equals its own advance (free ≈ 0), so this reduces
+    // to packed centering. A LATIN word annotation is ONE justification
+    // unit — no intra-word expansion — so it centers whole (measured on
+    // b20's ショウコ/Shouko rubies: natural-width word, free/2 = 13.7px
+    // at each edge, interior steps natural 5.33px; the per-glyph spread
+    // scattered the letters across the base). `center` packs the glyphs
+    // at their natural advance, centered (measured on b9's
+    // `ruby{ruby-align:center}`: 破坏神 at 8.8px packs to a 26.4px block
+    // centered over the 64px base the space-around law had scattered it
+    // across). `start` packs at the left edge; `space-between` spreads
+    // interior-only shares, and a single item centers like the initial.
+    const align = ruby.rubyAlign ?? 'space-around';
+    const expands = glyphs > 1 && free > 0.01 && rubyAnnotationExpands(ruby.text);
+    if (align === 'start') {
+      ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
+    } else if (align === 'space-between' && expands) {
+      ctx.letterSpacing = `${String(free / (glyphs - 1))}px`;
+      ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
+    } else if (align === 'space-around' && expands) {
       ctx.letterSpacing = `${String(free / glyphs)}px`;
       ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
     } else {

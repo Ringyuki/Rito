@@ -16,6 +16,8 @@ export interface CanvasRubyFragment {
   readonly text: string;
   readonly rect: Rect;
   readonly paint: RunPaint;
+  /** Non-initial ruby-align keyword; absent means space-around. */
+  readonly rubyAlign?: 'start' | 'center' | 'space-between';
 }
 
 export function drawTextFragment(
@@ -125,7 +127,14 @@ export function drawRubyFragment(
       (code >= 0x20000 && code <= 0x3ffff)
     );
   });
-  if (glyphs > 1 && free > 0.01 && expands) {
+  const align = ruby.rubyAlign ?? 'space-around';
+  const spreads = glyphs > 1 && free > 0.01 && expands;
+  if (align === 'start') {
+    ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
+  } else if (align === 'space-between' && spreads) {
+    ctx.letterSpacing = `${String(free / (glyphs - 1))}px`;
+    ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
+  } else if (align === 'space-around' && spreads) {
     ctx.letterSpacing = `${String(free / glyphs)}px`;
     ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
   } else {

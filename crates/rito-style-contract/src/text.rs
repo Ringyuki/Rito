@@ -62,6 +62,22 @@ pub enum TextAlign {
     MozRight,
 }
 
+/// Computed `ruby-align`: how ruby annotation and base content
+/// distribute across the ruby column's extent.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum RubyAlign {
+    /// The initial value: content spreads with one justification share
+    /// per glyph, half a share at each edge.
+    SpaceAround,
+    /// Content packs at the line-start edge.
+    Start,
+    /// Content packs centered.
+    Center,
+    /// Content spreads with shares only between glyphs, none at the
+    /// edges.
+    SpaceBetween,
+}
+
 /// Computed text justification strategy.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum TextJustify {
@@ -234,6 +250,8 @@ pub struct InlineTextFlowV1 {
     pub word_spacing: LengthPercentage,
     /// First-line indentation semantics.
     pub text_indent: TextIndent,
+    /// Ruby annotation/base distribution.
+    pub ruby_align: RubyAlign,
     /// Inherited source language, or `None` when unspecified.
     pub language: Option<LanguageTag>,
 }
