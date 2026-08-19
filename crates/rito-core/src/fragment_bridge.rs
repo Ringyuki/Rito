@@ -2028,6 +2028,26 @@ fn block_box_paint(
                 bevels.push((index, inner));
                 "solid"
             }
+            c::BorderStyle::Inset | c::BorderStyle::Outset => {
+                // Blink's legacy 3D shading (probed matrix, 2026-08-20):
+                // the darkened sides (top/left for inset, bottom/right
+                // for outset) use Color::Dark() — channels scaled by
+                // (V − 0.33)/V — while the lighter sides keep the base
+                // color, lightening it only when it lacks 1.75:1
+                // contrast against its own dark shade. A currentColor
+                // border ignores the text color and shades from #EEEEEE
+                // (gray hr rules paint 154/238, red currentColor ones
+                // identically).
+                let base = if matches!(edge.color, c::ComputedColorV1::CurrentColor) {
+                    "#eeeeee".to_owned()
+                } else {
+                    color.clone()
+                };
+                let darken = matches!(index, 0 | 3)
+                    == matches!(edge.style, c::BorderStyle::Inset);
+                color = inset_outset_shade(&base, darken).unwrap_or(base);
+                "solid"
+            }
             other => {
                 degradations.push(format!("border-{name} style {other:?} drawn solid"));
                 "solid"
@@ -2198,6 +2218,58 @@ fn block_box_paint(
         )),
         degradations,
     )
+}
+
+/// Blink's inset/outset side shade: `Dark()` for the shadowed sides,
+/// the base color for the lit sides unless it lacks 1.75:1 contrast
+/// against its own dark shade (then `Light()`: channels scaled by
+/// min(1, V + 0.33)/V, black lightening to #545454). Returns `None`
+/// for colors the 6-digit-hex parser cannot read (they stay base).
+fn inset_outset_shade(base: &str, darken: bool) -> Option<String> {
+    let hex = base.strip_prefix('#')?;
+    if hex.len() != 6 {
+        return None;
+    }
+    let channel = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).ok();
+    let channels = [channel(0)?, channel(2)?, channel(4)?];
+    let value = f64::from(*channels.iter().max().expect("three channels")) / 255.0;
+    let dark_scale = if value > 0.0 {
+        ((value - 0.33) / value).max(0.0)
+    } else {
+        0.0
+    };
+    let dark = channels.map(|component| (f64::from(component) * dark_scale).round() as u8);
+    let format = |[red, green, blue]: [u8; 3]| format!("#{red:02x}{green:02x}{blue:02x}");
+    if darken {
+        return Some(format(dark));
+    }
+    let linear = |component: u8| {
+        let srgb = f64::from(component) / 255.0;
+        if srgb <= 0.03928 {
+            srgb / 12.92
+        } else {
+            ((srgb + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    let luminance = |parts: [u8; 3]| {
+        0.2126 * linear(parts[0]) + 0.7152 * linear(parts[1]) + 0.0722 * linear(parts[2])
+    };
+    let (base_luminance, dark_luminance) = (luminance(channels), luminance(dark));
+    let (high, low) = if base_luminance >= dark_luminance {
+        (base_luminance, dark_luminance)
+    } else {
+        (dark_luminance, base_luminance)
+    };
+    if (high + 0.05) / (low + 0.05) >= 1.75 {
+        return Some(format(channels));
+    }
+    if value == 0.0 {
+        return Some("#545454".to_owned());
+    }
+    let light_scale = (value + 0.33).min(1.0) / value;
+    Some(format(channels.map(|component| {
+        (f64::from(component) * light_scale).round().min(255.0) as u8
+    })))
 }
 
 /// Splits a ridge/groove edge into its two measured Blink tones: one half

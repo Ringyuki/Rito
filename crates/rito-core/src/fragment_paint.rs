@@ -222,6 +222,29 @@ fn append_fragment_display_commands_inner(
                                 ),
                                 serde_json::json!({ "color": "#eeeeee", "style": "solid" }),
                             ));
+                            // The bevel closes at the sides too: a dark
+                            // left edge and a light right edge over the
+                            // full box height (taller-than-wide rects
+                            // stroke vertically).
+                            commands.push(DisplayCommand::paint_horizontal_rule(
+                                rect_value(
+                                    origin_x + fragment.rect.x,
+                                    origin_y + fragment.rect.y,
+                                    thickness,
+                                    fragment.rect.height,
+                                ),
+                                serde_json::json!({ "color": "#9a9a9a", "style": "solid" }),
+                            ));
+                            commands.push(DisplayCommand::paint_horizontal_rule(
+                                rect_value(
+                                    origin_x + fragment.rect.x + fragment.rect.width
+                                        - thickness,
+                                    origin_y + fragment.rect.y,
+                                    thickness,
+                                    fragment.rect.height,
+                                ),
+                                serde_json::json!({ "color": "#eeeeee", "style": "solid" }),
+                            ));
                         } else {
                             commands.push(DisplayCommand::paint_horizontal_rule(
                                 rect_value(

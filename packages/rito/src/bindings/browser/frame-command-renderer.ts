@@ -325,30 +325,24 @@ function paintImage(
 
 function paintHorizontalRule(ctx: CanvasRenderingContext2D, command: HorizontalRuleCommand): void {
   const { rect, paint } = command;
-  // A styled rule is a border edge in Blink (the <hr>'s border-top), so
-  // dotted/dashed/double stroke through the same measured border model
-  // as block borders — binary dot raster and the double pair included.
-  if (paint.style !== 'solid') {
-    const edge = { width: rect.height, color: paint.color, style: paint.style };
-    const centerY = rect.y + rect.height / 2;
-    ctx.save();
-    try {
-      strokeBorder(ctx, edge, rect.x, centerY, rect.x + rect.width, centerY);
-    } finally {
-      ctx.restore();
-    }
-    return;
-  }
-  const rawY = rect.y + rect.height / 2;
-  const y = Math.round(rawY) + (rect.height % 2 === 1 ? 0.5 : 0);
+  // A rule is a border edge in Blink (the <hr>'s border-top), so every
+  // style strokes through the same measured border model as block
+  // borders — the solid binary band anchored at round(edge), the binary
+  // dot raster, the dashed cadence and the double pair included. (The
+  // old hand-rolled solid stroke rounded the half-shifted centerline and
+  // sat one device row below Blink's band.) A rect taller than wide is
+  // an <hr> box's vertical bevel edge and strokes along y.
   ctx.save();
   try {
-    ctx.strokeStyle = paint.color;
-    ctx.lineWidth = rect.height;
-    ctx.beginPath();
-    ctx.moveTo(Math.round(rect.x), y);
-    ctx.lineTo(Math.round(rect.x + rect.width), y);
-    ctx.stroke();
+    if (rect.height > rect.width) {
+      const edge = { width: rect.width, color: paint.color, style: paint.style };
+      const centerX = rect.x + rect.width / 2;
+      strokeBorder(ctx, edge, centerX, rect.y, centerX, rect.y + rect.height);
+    } else {
+      const edge = { width: rect.height, color: paint.color, style: paint.style };
+      const centerY = rect.y + rect.height / 2;
+      strokeBorder(ctx, edge, rect.x, centerY, rect.x + rect.width, centerY);
+    }
   } finally {
     ctx.restore();
   }
