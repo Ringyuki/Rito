@@ -796,34 +796,48 @@ fn append_image_command(
         // that clamp bleed; the element-rect margins outside the content
         // box stay untouched.
         let sliver = |span: f64| span > 1.0 / 64.0;
+        // The bleed exists only where a device pixel is PARTIALLY
+        // covered by the raster edge: the browser samples with clamp
+        // addressing inside that one crossing pixel and shows plain
+        // background beyond it (measured: the sub-pixel cover sliver
+        // smears one edge column, while b10's 1.19px svg letterbox
+        // keeps its whole-row interior background-white — the strip
+        // stretched across the full letterbox darkened two full rows
+        // per plate against the browser).
         if sliver(raster.x - content.x) {
+            let abs_left = line_x + raster.x;
+            let abs_right = line_x + raster.x + raster.width;
+            let left_start = (line_x + content.x).max(abs_left.floor());
+            let right_end = (line_x + content.x + content.width).min(abs_right.ceil());
             for (dest_x, dest_w, src_x) in [
-                (content.x, raster.x - content.x, 0.0),
-                (
-                    raster.x + raster.width,
-                    content.x + content.width - raster.x - raster.width,
-                    intrinsic_width - 1.0,
-                ),
+                (left_start, abs_left - left_start, 0.0),
+                (abs_right, right_end - abs_right, intrinsic_width - 1.0),
             ] {
+                if !sliver(dest_w) {
+                    continue;
+                }
                 commands.push(DisplayCommand::paint_image_slice(
                     src.clone(),
-                    rect_value(line_x + dest_x, line_y + raster.y, dest_w, raster.height),
+                    rect_value(dest_x, line_y + raster.y, dest_w, raster.height),
                     rect_value(src_x, 0.0, 1.0, *intrinsic_height),
                 ));
             }
         }
         if sliver(raster.y - content.y) {
+            let abs_top = line_y + raster.y;
+            let abs_bottom = line_y + raster.y + raster.height;
+            let top_start = (line_y + content.y).max(abs_top.floor());
+            let bottom_end = (line_y + content.y + content.height).min(abs_bottom.ceil());
             for (dest_y, dest_h, src_y) in [
-                (content.y, raster.y - content.y, 0.0),
-                (
-                    raster.y + raster.height,
-                    content.y + content.height - raster.y - raster.height,
-                    intrinsic_height - 1.0,
-                ),
+                (top_start, abs_top - top_start, 0.0),
+                (abs_bottom, bottom_end - abs_bottom, intrinsic_height - 1.0),
             ] {
+                if !sliver(dest_h) {
+                    continue;
+                }
                 commands.push(DisplayCommand::paint_image_slice(
                     src.clone(),
-                    rect_value(line_x + raster.x, line_y + dest_y, raster.width, dest_h),
+                    rect_value(line_x + raster.x, dest_y, raster.width, dest_h),
                     rect_value(0.0, src_y, *intrinsic_width, 1.0),
                 ));
             }
