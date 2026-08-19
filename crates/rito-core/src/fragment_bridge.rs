@@ -1969,8 +1969,22 @@ fn block_box_paint(
 ) -> (Option<(NodePaint, [f64; 4])>, Vec<String>) {
     use rito_style_contract as c;
     let mut degradations = Vec::new();
-    if let Some(reason) = box_decoration_violation(style) {
-        degradations.push(format!("block decoration ignored: {reason}"));
+    let mut box_shadows = Vec::new();
+    for shadow in style.paint.box_shadows.iter() {
+        let Ok(color) =
+            crate::style::absolute_color(shadow.color.resolve(style.paint.foreground))
+        else {
+            degradations.push("box-shadow color unresolvable, shadow skipped".to_owned());
+            continue;
+        };
+        box_shadows.push(serde_json::json!({
+            "offsetX": f64::from(shadow.offset_x.get()),
+            "offsetY": f64::from(shadow.offset_y.get()),
+            "blur": f64::from(shadow.blur_radius.get()),
+            "spread": f64::from(shadow.spread_radius.get()),
+            "color": color,
+            "inset": shadow.inset,
+        }));
     }
     let background = match style.paint.background {
         c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => None,
@@ -2148,6 +2162,7 @@ fn block_box_paint(
         && background_image.is_none()
         && border.is_empty()
         && transform.is_none()
+        && box_shadows.is_empty()
     {
         return (None, degradations);
     }
@@ -2167,6 +2182,9 @@ fn block_box_paint(
     }
     if let Some(radius) = radius {
         paint.insert("radius".to_owned(), radius);
+    }
+    if !box_shadows.is_empty() {
+        paint.insert("boxShadow".to_owned(), Value::Array(box_shadows));
     }
     (
         Some((
@@ -2222,10 +2240,10 @@ fn two_tone_halves(
     })
 }
 
-/// Box decoration the fragment painter cannot reproduce on any box:
-/// background images, shadows, and transforms. Backgrounds and borders
-/// are painted for block boxes (and checked separately where they are
-/// not), so they are not this function's concern.
+/// Box decoration the fragment painter cannot reproduce outside a block
+/// box (inline boxes and the chapter body). Block boxes paint shadows
+/// through `block_box_paint`; backgrounds and borders are checked
+/// separately, so they are not this function's concern.
 fn box_decoration_violation(
     style: &rito_style_contract::InlineFormattingStyleV1,
 ) -> Option<String> {
