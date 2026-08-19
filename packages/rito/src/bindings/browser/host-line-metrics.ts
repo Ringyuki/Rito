@@ -124,7 +124,11 @@ async function measureBrowserHostLineMetrics(
           `${String(request.size)}px ${measuredFamilyList(request)}`,
           request.sample.length > 0 && request.sample.charCodeAt(0) < 0xe000
             ? request.sample
-            : '中x',
+            : // A ruby probe key may carry the annotation's own text
+              // after the ratio; its glyphs must join the load text so
+              // the face that covers them actually loads before the
+              // probe renders.
+              `中x${request.sample.split(':').slice(1).join(':')}`,
         )
         .catch(() => undefined),
     ),
@@ -174,9 +178,17 @@ async function measureBrowserHostLineMetrics(
           `中中<span style="font-size:${String(ratio)}em;` +
           `vertical-align:${align};font-weight:bold">①</span>中`;
       } else if (sentinel >= 0xe000 && sentinel <= 0xe00b) {
-        // The tail of the probe key is the annotation size ratio the
-        // engine's cascade resolved for the rt element.
-        const ratio = Number(sample.slice(1)) || 0.5;
+        // The key tail is "<ratio>[:<annotation text>]". The rt content
+        // must be the annotation's OWN text when the engine sends it:
+        // the annotation stack height depends on which face the family
+        // list resolves for those characters, and a script-class sample
+        // can fall out of a book face's coverage onto a fallback whose
+        // stack differs (measured on b9's Han-only FZBWKS: the あ class
+        // sample fell to SourceHan, one pixel taller than the real 破坏神
+        // annotation's stack).
+        const [ratioPart, ...annotationParts] = sample.slice(1).split(':');
+        const ratio = Number(ratioPart) || 0.5;
+        const annotationSample = annotationParts.join(':');
         const cjkAnnotation =
           sentinel === 0xe002 ||
           sentinel === 0xe003 ||
@@ -190,7 +202,13 @@ async function measureBrowserHostLineMetrics(
         // baseline 21 vs 22; the b96 long-base ruby paragraph is 26px in
         // Blink where a CJK base gets 27).
         const latinBase = sentinel >= 0xe006;
-        const rt = `<rt style="font-size:${String(ratio)}em">${cjkAnnotation ? 'あ' : 'an'}</rt>`;
+        const rtText =
+          annotationSample.length > 0
+            ? annotationSample.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            : cjkAnnotation
+              ? 'あ'
+              : 'an';
+        const rt = `<rt style="font-size:${String(ratio)}em">${rtText}</rt>`;
         if (
           sentinel === 0xe000 ||
           sentinel === 0xe002 ||

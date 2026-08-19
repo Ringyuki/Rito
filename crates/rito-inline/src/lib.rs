@@ -3213,8 +3213,17 @@ impl FormattingContext for ParleyInlineContext {
                         (true, false, true) => '\u{E00A}',
                         (true, true, true) => '\u{E00B}',
                     };
-                    let one_key = format!("{one_sentinel}{ratio:.4}");
-                    let two_key = format!("{two_sentinel}{ratio:.4}");
+                    // The probe's rt carries the annotation's ACTUAL text:
+                    // the annotation stack height depends on which face
+                    // the family list resolves for those characters, and
+                    // a script-class sample can land on a different face
+                    // (measured on b9's FZBWKS: the Han-only book face
+                    // covers the real 破坏神 annotation but not the あ
+                    // class sample, whose SourceHan fallback stack sits
+                    // one pixel taller — every ruby opener overgrew by
+                    // that pixel and shifted the rest of the page).
+                    let one_key = format!("{one_sentinel}{ratio:.4}:{}", annotation.text);
+                    let two_key = format!("{two_sentinel}{ratio:.4}:{}", annotation.text);
                     let ruby_one = self.host_normal_line_sized(resolved, fs, &one_key);
                     let ruby_two = self.host_normal_line_sized(resolved, fs, &two_key);
                     // The reuse derivation subtracts the two-line probe's
@@ -4695,7 +4704,8 @@ pub fn plain_paragraph_style(
         BorderEdge, BorderEdges, BorderRadii, BorderStyle, ColorNoneFlags, CornerRadius, CssPx,
         Direction, FontStyleV1, FontWeight, InlineBidiV1, InlineFragmentStyleV1,
         InlinePaintStyleV1, InlineTextFlowV1, LengthPercentageOrAuto, LineBreak, NonNegativeCssPx,
-        NonNegativeLengthPercentage, OverflowWrap, PhysicalSides, TextAlign, TextDecoration,
+        NonNegativeLengthPercentage, OverflowWrap, PhysicalSides, RubyAlign, TextAlign,
+        TextDecoration,
         TextDecorationLines, TextDecorationStyle, TextIndent, TextJustify, TextTransform,
         TextTransformCase, TextWrapMode, TransformListV1, UnicodeBidi, UnitInterval,
         WhiteSpaceCollapse, WordBreak, WritingMode,
@@ -4761,6 +4771,7 @@ pub fn plain_paragraph_style(
                 hanging: false,
                 each_line: false,
             },
+            ruby_align: RubyAlign::SpaceAround,
             language: None,
         },
         bidi: InlineBidiV1 {
@@ -5036,8 +5047,8 @@ mod tests {
         FontFamilies, FontFamilyName, FontStyleV1, FontWeight, InlineBidiV1, InlineFragmentStyleV1,
         InlinePaintStyleV1, InlineStyleTableV1, InlineTextFlowV1, LayoutStyleTableV1,
         LengthPercentageOrAuto, NonNegativeCssPx, NonNegativeLengthPercentage, PhysicalSides,
-        TextAlign, TextDecoration, TextDecorationLines, TextDecorationStyle, TextIndent,
-        TextJustify, TextTransform, TextTransformCase, TextWrapMode, TransformListV1, UnitInterval,
+        RubyAlign, TextAlign, TextDecoration, TextDecorationLines, TextDecorationStyle,
+        TextIndent, TextJustify, TextTransform, TextTransformCase, TextWrapMode, TransformListV1, UnitInterval,
         WhiteSpaceCollapse, WordBreak,
     };
     use rito_style_contract::{Direction, LineBreak, OverflowWrap, UnicodeBidi, WritingMode};
@@ -5122,6 +5133,7 @@ mod tests {
                     hanging: false,
                     each_line: false,
                 },
+                ruby_align: RubyAlign::SpaceAround,
                 language: None,
             },
             bidi: InlineBidiV1 {
@@ -6338,6 +6350,7 @@ running through the quiet forest until the morning light returns.";
                 ruby_annotation: annotation.map(|note| rito_fragment::RubyAnnotation {
                     text: note.to_owned(),
                     size_ratio: 0.5,
+                    align: rito_style_contract::RubyAlign::SpaceAround
                 }),
             };
         let merged = lay(&|style| vec![text_item("ウ，可", None, style)]);
@@ -6571,8 +6584,8 @@ running through the quiet forest until the morning light returns.";
         for (sample, height, baseline) in [
             ("", 18.0, 14.0),
             ("中", 21.0, 17.0),
-            ("\u{E000}0.7000", 29.0, 25.0),
-            ("\u{E001}0.7000", 48.0, 44.0),
+            ("\u{E000}0.7000:Shouichi", 29.0, 25.0),
+            ("\u{E001}0.7000:Shouichi", 48.0, 44.0),
         ] {
             context.set_host_line_metric(
                 &family,
@@ -6600,6 +6613,7 @@ running through the quiet forest until the morning light returns.";
                 ruby_annotation: Some(rito_fragment::RubyAnnotation {
                     text: "Shouichi".to_owned(),
                     size_ratio: 0.7,
+                    align: rito_style_contract::RubyAlign::SpaceAround
                 }),
             },
             InlineItem::Text {
@@ -6700,8 +6714,8 @@ running through the quiet forest until the morning light returns.";
         for (sample, height, baseline) in [
             ("", 18.0, 14.0),
             ("中", 21.0, 17.0),
-            ("\u{E000}0.7000", 29.0, 25.0),
-            ("\u{E001}0.7000", 48.0, 44.0),
+            ("\u{E000}0.7000:Shouko", 29.0, 25.0),
+            ("\u{E001}0.7000:Shouko", 48.0, 44.0),
         ] {
             context.set_host_line_metric(
                 &family2,
@@ -6727,6 +6741,7 @@ running through the quiet forest until the morning light returns.";
                             ruby_annotation: Some(rito_fragment::RubyAnnotation {
                                 text: "Shouko".to_owned(),
                                 size_ratio: 0.7,
+                                align: rito_style_contract::RubyAlign::SpaceAround
                             }),
                         },
                         InlineItem::Text {
@@ -6819,8 +6834,12 @@ running through the quiet forest until the morning light returns.";
         for (sample, height, baseline) in [
             ("", 18.0, 14.0),
             ("中", 21.0, 17.0),
-            ("\u{E000}0.7000", 29.0, 25.0),
-            ("\u{E001}0.7000", 48.0, 44.0),
+            ("\u{E000}0.7000:Shou", 29.0, 25.0),
+            ("\u{E001}0.7000:Shou", 48.0, 44.0),
+            ("\u{E000}0.7000:Shouichi", 29.0, 25.0),
+            ("\u{E001}0.7000:Shouichi", 48.0, 44.0),
+            ("\u{E000}0.7000:Naokazu", 29.0, 25.0),
+            ("\u{E001}0.7000:Naokazu", 48.0, 44.0),
         ] {
             context.set_host_line_metric(
                 &family,
@@ -6841,6 +6860,7 @@ running through the quiet forest until the morning light returns.";
             ruby_annotation: Some(rito_fragment::RubyAnnotation {
                 text: ann.to_owned(),
                 size_ratio: 0.7,
+                align: rito_style_contract::RubyAlign::SpaceAround
             }),
         };
         let text = |t: &str| InlineItem::Text {
@@ -8403,6 +8423,7 @@ running through the quiet forest until the morning light returns.";
                         ruby_annotation: Some(rito_fragment::RubyAnnotation {
                             text: "an".to_owned(),
                             size_ratio: 0.5,
+                            align: rito_style_contract::RubyAlign::SpaceAround
                         }),
                     },
                 ],
@@ -8482,6 +8503,7 @@ running through the quiet forest until the morning light returns.";
                             // base, so no space-around spread joins in).
                             text: "wwwwww".to_owned(),
                             size_ratio: 0.5,
+                            align: rito_style_contract::RubyAlign::SpaceAround
                         }),
                     },
                 ],
@@ -8561,6 +8583,7 @@ running through the quiet forest until the morning light returns.";
                         ruby_annotation: Some(rito_fragment::RubyAnnotation {
                             text: "annotation".to_owned(),
                             size_ratio: ratio,
+                            align: rito_style_contract::RubyAlign::SpaceAround
                         }),
                     },
                     InlineItem::Text {
