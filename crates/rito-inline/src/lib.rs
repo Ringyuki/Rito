@@ -4128,16 +4128,16 @@ fn compute_cjk_punctuation_trims(
                     TrimmedGlyph::Right => (style_at(&mut cursor, runs, byte), character),
                 };
                 if let (Some(left_style), Some(trimmed_style)) = (left_style, trimmed_style) {
-                    if !resolved_font_has_halt(
+                    let Some(halt_covers_glyph) = resolved_font_halt(
                         fonts,
                         registered_families,
                         halt_cache,
                         trimmed_style,
                         trimmed_char,
-                    ) {
+                    ) else {
                         previous = Some((byte, character));
                         continue;
-                    }
+                    };
                     match trimmed {
                         TrimmedGlyph::Left => {
                             let author = match left_style.text_flow.letter_spacing {
@@ -4153,13 +4153,34 @@ fn compute_cjk_punctuation_trims(
                                 ),
                             });
                         }
-                        TrimmedGlyph::Right => {
+                        TrimmedGlyph::Right if halt_covers_glyph => {
                             trims.push(PunctuationTrim {
                                 left_byte,
                                 right_byte: byte,
                                 edit_range: byte..byte + character.len_utf8(),
                                 edit: PunctuationTrimEdit::OpenerHalt(
                                     0.5 * trimmed_style.font.size.get(),
+                                ),
+                            });
+                        }
+                        TrimmedGlyph::Right => {
+                            // The face declares `halt` but its lookups skip
+                            // this opener (b12's BuMing): the browser still
+                            // trims, synthesizing the half-width — the
+                            // opener's ink already hugs its right half, so
+                            // removing the blank left half from the gap
+                            // BEFORE it reproduces the compressed pair
+                            // without any paint shift.
+                            let author = match left_style.text_flow.letter_spacing {
+                                LengthPercentage::Length(px) => px.get(),
+                                _ => 0.0,
+                            };
+                            trims.push(PunctuationTrim {
+                                left_byte,
+                                right_byte: byte,
+                                edit_range: left_byte..byte,
+                                edit: PunctuationTrimEdit::LetterSpacing(
+                                    author - 0.5 * trimmed_style.font.size.get(),
                                 ),
                             });
                         }
@@ -4275,13 +4296,13 @@ fn resolved_marker_font_metrics(
     None
 }
 
-fn resolved_font_has_halt(
+fn resolved_font_halt(
     fonts: &mut FontContext,
     registered_families: &[String],
     halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
     style: &InlineFormattingStyleV1,
     character: char,
-) -> bool {
+) -> Option<bool> {
     use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};
     use skrifa::MetadataProvider as _;
     let weight = FontWeight::new(style.font.weight.get());
@@ -4312,11 +4333,15 @@ fn resolved_font_has_halt(
             continue;
         }
         let key = (blob.id(), font.index());
-        return *halt_cache
+        let has_halt = *halt_cache
             .entry(key)
             .or_insert_with(|| font_ref_has_halt(&font_ref));
+        if !has_halt {
+            return None;
+        }
+        return Some(font_halt_covers(&font_ref, character));
     }
-    false
+    None
 }
 
 /// Whether a Parley cluster's resolved font carries the `halt` feature —
@@ -4348,6 +4373,67 @@ fn font_ref_has_halt(font: &skrifa::FontRef) -> bool {
             .iter()
             .any(|record| record.feature_tag() == tag)
     })
+}
+
+/// Whether the face's `halt` feature actually REPOSITIONS `character` —
+/// its GPOS `halt` lookups cover the mapped glyph. A face may declare
+/// `halt` for a subset only (b12's BuMing covers 51 glyphs, the corner
+/// bracket excluded): shaping such a glyph with the feature is a no-op,
+/// and the browser SYNTHESIZES the half-width trim instead. Parse
+/// failures report `true` so the shaped path stays the default.
+fn font_halt_covers(font: &skrifa::FontRef, character: char) -> bool {
+    use skrifa::raw::tables::gpos::PositionLookup;
+    use skrifa::raw::TableProvider as _;
+    use skrifa::MetadataProvider as _;
+    let Some(glyph) = font.charmap().map(character) else {
+        return true;
+    };
+    let tag = skrifa::raw::types::Tag::new(b"halt");
+    let Ok(gpos) = font.gpos() else {
+        return true;
+    };
+    let (Ok(features), Ok(lookups)) = (gpos.feature_list(), gpos.lookup_list()) else {
+        return true;
+    };
+    let mut lookup_indices: Vec<u16> = Vec::new();
+    for record in features.feature_records() {
+        if record.feature_tag() != tag {
+            continue;
+        }
+        let Ok(feature) = record.feature(features.offset_data()) else {
+            return true;
+        };
+        lookup_indices.extend(feature.lookup_list_indices().iter().map(|i| i.get()));
+    }
+    if lookup_indices.is_empty() {
+        return true;
+    }
+    let covers = |coverage: Result<skrifa::raw::tables::layout::CoverageTable, _>| {
+        coverage.is_ok_and(|table| table.get(glyph).is_some())
+    };
+    for index in lookup_indices {
+        let Ok(lookup) = lookups.lookups().get(index as usize) else {
+            return true;
+        };
+        let single = match lookup {
+            PositionLookup::Single(table) => table,
+            _ => return true,
+        };
+        for subtable in single.subtables().iter() {
+            let Ok(subtable) = subtable else {
+                return true;
+            };
+            use skrifa::raw::tables::gpos::SinglePos;
+            let covered = match subtable {
+                SinglePos::Format1(t) => covers(t.coverage()),
+                SinglePos::Format2(t) => covers(t.coverage()),
+            };
+            if covered {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Layout-unit epsilon for line-fit comparisons, Chromium's `LayoutUnit`
