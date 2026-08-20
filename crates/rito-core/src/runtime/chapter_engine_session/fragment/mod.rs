@@ -145,8 +145,19 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 ));
             }
             commands.push(DisplayCommand::push_state());
+            // The fragmentainer clips BLOCK-axis ink overflow: content
+            // above the page content box (a flex-centered cover taller
+            // than its box) or below it (a force-placed taller-than-page
+            // line) stays invisible, exactly like Blink's columns. The
+            // inline axis keeps the page-wide clip — ruby overhang and
+            // glyph AA may spill a fraction past the column edge.
             commands.push(DisplayCommand::clip_rect(
-                rect_value(0.0, 0.0, metadata.width, metadata.height),
+                rect_value(
+                    0.0,
+                    config.margin_top,
+                    metadata.width,
+                    metadata.height - config.margin_top - config.margin_bottom,
+                ),
                 None,
             ));
             commands.extend(page.commands.iter().cloned());
