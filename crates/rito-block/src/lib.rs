@@ -905,7 +905,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                         - hbox.padding_bottom;
                                     let item = single_image_height
                                         .unwrap_or(content_height);
-                                    ((content_box - item) / 2.0).max(0.0)
+                                    // An item TALLER than the box still
+                                    // centers: the offset goes negative
+                                    // and the ink overflows above (b11's
+                                    // 850px cover in a 93vh flex box
+                                    // paints from -29.75, its top 30px
+                                    // above the column).
+                                    (content_box - item) / 2.0
                                 })
                                 .unwrap_or(0.0)
                         } else {
