@@ -8,7 +8,7 @@ import type {
   CorePinnedFontPolicySummary,
 } from './core-contracts';
 import { browserFontFaceRegistry, type BrowserFontFaceRegistry } from './resources';
-import { cachedHostLineMetricEntries } from './host-line-metrics';
+import { cachedHostLineMetricEntries, cachedUnavailableFontFamilies } from './host-line-metrics';
 
 export type BrowserReaderOwnedPinnedFontPolicy = BrowserReaderWorkerPinnedFontPolicyInput;
 
@@ -62,6 +62,8 @@ export async function openBrowserReaderWorker(
   // lets a steady-state open paginate once instead of relayouting.
   const cached = cachedHostLineMetricEntries();
   if (cached.length > 0) await worker.setHostLineMetrics(cached);
+  const denied = cachedUnavailableFontFamilies();
+  if (denied.length > 0) await worker.setUnavailableFontFaces(denied);
   return result;
 }
 

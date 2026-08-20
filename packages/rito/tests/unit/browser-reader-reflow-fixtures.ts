@@ -244,6 +244,9 @@ export function createWorker(
     setHostLineMetrics: vi.fn<BrowserReaderWorkerClient['setHostLineMetrics']>(() =>
       Promise.resolve(),
     ),
+    setUnavailableFontFaces: vi.fn<BrowserReaderWorkerClient['setUnavailableFontFaces']>(() =>
+      Promise.resolve(),
+    ),
     createBoundedChapterLocalRevision:
       vi.fn<BrowserReaderWorkerClient['createBoundedChapterLocalRevision']>(),
     continueChapterLocalRevision:

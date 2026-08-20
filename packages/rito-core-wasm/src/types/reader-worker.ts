@@ -128,6 +128,13 @@ export interface RitoCoreWasmReaderWorkerClient
   /** Injects host-measured `line-height: normal` metrics. */
   setHostLineMetrics(entries: readonly RitoCoreWasmHostLineMetric[]): Promise<void>;
   /**
+   * Records publication faces the host's font decoder rejected. The
+   * browser cannot paint these faces, so the engine stops shaping with
+   * them; an engine that already shaped with one rebuilds on the next
+   * layout, and the caller forces a reflow so committed pages follow.
+   */
+  setUnavailableFontFaces(families: readonly string[]): Promise<void>;
+  /**
    * Diagnostic: one chapter's page-by-page ink-less lines through the
    * revision's own fragment engine and content box, for diffing the wasm
    * pipeline against the native chapter-fragment-probe example.

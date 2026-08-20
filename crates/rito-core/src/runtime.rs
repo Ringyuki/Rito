@@ -144,6 +144,13 @@ pub struct RuntimeDocument {
     /// unimplemented: routing would trade working interactions for
     /// fragment pagination. Probes and tests opt in.
     fragment_page_table_enabled: bool,
+    /// Publication faces the host's font decoder rejected (normalized
+    /// family names). The browser cannot paint these faces — its
+    /// sanitizer refuses the bytes — so the engine must not shape with
+    /// them either: a face only the shaper holds measures runs the paint
+    /// then draws with a fallback font, splitting layout from ink
+    /// (b12's contents heading opened a 14px hole mid-word).
+    unavailable_font_families: std::collections::BTreeSet<String>,
 }
 
 impl RuntimeDocument {
@@ -193,6 +200,34 @@ impl RuntimeDocument {
             continuations: continuation::RuntimeContinuationStore::default(),
             cleanup_queue: RuntimeCleanupQueue::default(),
             fragment_page_table_enabled: false,
+            unavailable_font_families: std::collections::BTreeSet::new(),
+        }
+    }
+
+    /// Records faces the host's font decoder rejected and, when the
+    /// fragment engine already shaped with one of them, discards the
+    /// engine so its rebuild registers only paintable faces (pending
+    /// host metrics re-apply from the start on the rebuilt engine).
+    pub fn set_unavailable_font_faces(&mut self, families: &[String]) {
+        let known: std::collections::BTreeSet<String> = self
+            .resolved_font_face_sources()
+            .iter()
+            .map(|source| source.family().trim().to_ascii_lowercase())
+            .collect();
+        let mut added_known = false;
+        for family in families {
+            let normalized = family.trim().to_ascii_lowercase();
+            if normalized.is_empty() {
+                continue;
+            }
+            if self.unavailable_font_families.insert(normalized.clone()) && known.contains(&normalized)
+            {
+                added_known = true;
+            }
+        }
+        if added_known && self.fragment_engine.get().is_some() {
+            self.fragment_engine = OnceCell::new();
+            self.applied_host_line_metrics.set(0);
         }
     }
 

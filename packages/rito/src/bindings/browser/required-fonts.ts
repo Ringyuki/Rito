@@ -4,6 +4,7 @@ import type {
   CoreRevisionHandle,
   CoreRevisionBundle,
 } from './core-contracts';
+import { reportUnavailableFontFamily } from './host-line-metrics';
 import type { BrowserReaderState } from './reader/types';
 import type { BrowserFontFaceRegistry } from './resources';
 
@@ -70,6 +71,9 @@ async function registerRequiredRevisionFonts(
         await loaded.load();
         return { key, face: loaded };
       } catch (error) {
+        // The engine must stop shaping with a face paint cannot use; the
+        // metric sync loop delivers the denylist and forces the reflow.
+        reportUnavailableFontFamily(face.family);
         console.warn(
           `[rito] required font could not be loaded, paint falls back: ${face.family} (${face.href}): ${String(error)}`,
         );

@@ -272,6 +272,12 @@ function createRitoCoreWasmReaderClient(
         throw new Error(`Rito reader worker returned ${payload.kind} for setHostLineMetrics`);
       }
     },
+    setUnavailableFontFaces: async (families) => {
+      const payload = await request({ kind: 'setUnavailableFontFaces', families });
+      if (payload.kind !== 'setUnavailableFontFaces') {
+        throw new Error(`Rito reader worker returned ${payload.kind} for setUnavailableFontFaces`);
+      }
+    },
     releaseRevisionTransfers: async (revisionId) => {
       const payload = await request({ kind: 'releaseRevisionTransfers', revisionId });
       if (payload.kind !== 'releaseRevisionTransfers') {

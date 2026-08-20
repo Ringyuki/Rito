@@ -64,6 +64,15 @@ impl RuntimeDocument {
                 }
                 let mut context = ParleyInlineContext::new(pinned).ok()?;
                 for source in self.resolved_font_face_sources() {
+                    // A face the host's font decoder rejected never paints;
+                    // shaping with it would measure runs the canvas then
+                    // draws with a fallback font.
+                    if self
+                        .unavailable_font_families
+                        .contains(&source.family().trim().to_ascii_lowercase())
+                    {
+                        continue;
+                    }
                     let resource = self.document.fonts.get(source.resource_index())?;
                     context
                         .register_named_font(source.family(), resource.bytes.clone())

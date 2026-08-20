@@ -90,6 +90,12 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       });
     }
 
+    setUnavailableFontFaces(families) {
+      return callRitoCoreWasm('setUnavailableFontFaces', () => {
+        this._inner.setUnavailableFontFacesJson(JSON.stringify(families));
+      });
+    }
+
     chapterFragmentProbe(revisionId, idref) {
       return callRitoCoreWasm('chapterFragmentProbe', () =>
         JSON.parse(this._inner.chapterFragmentProbeJson(revisionId, idref)),
@@ -310,6 +316,9 @@ function readerWorkerPayload(document, request) {
     case 'setHostLineMetrics':
       document.setHostLineMetrics(request.entries);
       return { kind: 'setHostLineMetrics' };
+    case 'setUnavailableFontFaces':
+      document.setUnavailableFontFaces(request.families);
+      return { kind: 'setUnavailableFontFaces' };
     case 'chapterFragmentProbe':
       return {
         kind: 'chapterFragmentProbe',

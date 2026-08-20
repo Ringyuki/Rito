@@ -1,3 +1,4 @@
+import { reportUnavailableFontFamily } from './host-line-metrics';
 import type { CoreRevisionHandle } from './core-contracts';
 import type { BrowserReaderState } from './reader/types';
 
@@ -177,6 +178,9 @@ function isFailedReaderFontFace(
 }
 
 function reportUnavailableFontFace(input: ReaderFontFaceInput): void {
+  // The engine must stop shaping with a face paint cannot use; the
+  // metric sync loop delivers the denylist and forces the reflow.
+  reportUnavailableFontFamily(input.family);
   console.warn(
     `[rito] publication font could not be loaded, paint falls back: ${input.family} (${input.href})`,
   );

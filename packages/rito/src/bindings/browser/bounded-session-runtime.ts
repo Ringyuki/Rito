@@ -1,6 +1,6 @@
 import type { LayoutConfig, ReaderLocator, ReaderLocatorResolution } from '../../reader';
 import { commitBrowserReaderBoundedSnapshot } from './bounded-revision-commit';
-import { cachedHostLineMetricEntries } from './host-line-metrics';
+import { cachedHostLineMetricEntries, cachedUnavailableFontFamilies } from './host-line-metrics';
 import { ensureCoalescedBrowserReaderBoundedLocator } from './bounded-locator-mutation';
 import type { BrowserReaderBoundedSnapshot } from './core-contracts';
 import {
@@ -245,6 +245,8 @@ export function completeBrowserReaderBoundedSession(
         if (refresh) {
           const cached = cachedHostLineMetricEntries();
           if (cached.length > 0) await owner.worker.setHostLineMetrics(cached);
+          const denied = cachedUnavailableFontFamilies();
+          if (denied.length > 0) await owner.worker.setUnavailableFontFaces(denied);
         }
         return owner.controller.complete();
       },

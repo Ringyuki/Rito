@@ -51,6 +51,41 @@ type MeasuredMetric = {
   advance?: number;
 };
 
+/**
+ * Families whose publication faces the host's font decoder rejected,
+ * not yet pushed to each worker. The engine must stop shaping with a
+ * face the canvas cannot paint (a shaper-only face measures runs the
+ * paint then draws with a fallback font); the metric sync loop delivers
+ * the denylist because it already owns the inject-then-reflow cycle.
+ */
+const pendingUnavailableFaces = new Map<string, Set<string>>();
+const deliveredUnavailableFaces = new WeakMap<object, Set<string>>();
+
+/** Families already known rejected, replayed into workers opened later. */
+export function cachedUnavailableFontFamilies(): readonly string[] {
+  return [...(pendingUnavailableFaces.get('') ?? [])];
+}
+
+export function reportUnavailableFontFamily(family: string): void {
+  const key = family.trim();
+  if (key.length === 0) return;
+  const pending = pendingUnavailableFaces.get('') ?? new Set<string>();
+  pending.add(key);
+  pendingUnavailableFaces.set('', pending);
+}
+
+async function syncUnavailableFontFaces(worker: BrowserReaderWorkerClient): Promise<boolean> {
+  const pending = pendingUnavailableFaces.get('');
+  if (!pending || pending.size === 0) return false;
+  const delivered = deliveredUnavailableFaces.get(worker) ?? new Set<string>();
+  const fresh = [...pending].filter((family) => !delivered.has(family));
+  if (fresh.length === 0) return false;
+  await worker.setUnavailableFontFaces(fresh);
+  for (const family of fresh) delivered.add(family);
+  deliveredUnavailableFaces.set(worker, delivered);
+  return true;
+}
+
 /** Keyed by the MEASURED family list — what the DOM actually sized. */
 const measuredCache = new Map<string, MeasuredMetric>();
 /**
@@ -94,8 +129,9 @@ export function cachedHostLineMetricEntries(): RitoCoreWasmHostLineMetric[] {
 export async function syncBrowserHostLineMetrics(
   worker: BrowserReaderWorkerClient,
 ): Promise<boolean> {
+  const denylistChanged = await syncUnavailableFontFaces(worker);
   const requests = await worker.takeHostLineMetricRequests();
-  if (requests.length === 0) return false;
+  if (requests.length === 0) return denylistChanged;
   const entries: RitoCoreWasmHostLineMetric[] = [];
   const missing: RitoCoreWasmHostLineMetricRequest[] = [];
   for (const request of requests) {
@@ -109,7 +145,7 @@ export async function syncBrowserHostLineMetrics(
     }
   }
   entries.push(...(await measureBrowserHostLineMetrics(missing)));
-  if (entries.length === 0) return false;
+  if (entries.length === 0) return denylistChanged;
   await worker.setHostLineMetrics(entries);
   return true;
 }
