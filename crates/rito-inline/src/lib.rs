@@ -879,31 +879,30 @@ impl ParleyInlineContext {
             };
             let prev_byte = text[..range.start].char_indices().next_back().map(|(i, _)| i);
             let next_byte = (range.end < text.len()).then_some(range.end);
-            if style.text_flow.ruby_align == rito_style_contract::RubyAlign::Center
-                && style.text_flow.text_align != TextAlign::Justify
-            {
-                // Gate: on JUSTIFIED body text the legacy spread account
-                // (calibrated on b42's justified pages) still tracks the
-                // browser closer than this column model — b9's dense
-                // name-ruby line regressed 4.7k under it while the
-                // centered openers healed. The center column law applies
-                // to non-justified contexts (titles, centered lines).
+            if style.text_flow.ruby_align == rito_style_contract::RubyAlign::Center {
                 // `ruby-align: center` under a WIDE annotation (measured
-                // matrix, FZBWKS 16px/rt 0.55-0.7-0.4): the rb box
-                // stretches to the annotation width with the base glyphs
-                // packed centered inside; the annotation OVERHANGS an
-                // adjacent text neighbor by min(floor(annoSize/2),
-                // excess/4) per side — zero against a flow edge or an
-                // adjacent ruby — and the flow column narrows to
-                // annoW − ovL − ovR. The advance delta rides a trailing
-                // carrier; the painter shifts the packed base right by
-                // delta/2 so it centers in the stretched box.
+                // matrix, FZWBKS 16px/rt 0.55-0.7-0.4, re-fit 2026-08-20
+                // with justified wrapped lines): the rb box stretches to
+                // the annotation width with the base glyphs packed
+                // CENTERED inside — also on justified lines, where the
+                // column keeps this fixed width and the justify shares
+                // land on the adjacent characters. The annotation
+                // OVERHANGS an adjacent text neighbor per side by
+                // min(floor(annoSize/2), excess/2n) truncated onto the
+                // 1/64 grid (n = base cluster count; the old excess/4
+                // was this formula's n = 2 special case misread as a
+                // constant) — zero against a flow edge or an adjacent
+                // ruby — and the flow column narrows to anno − ovL −
+                // ovR. The remainder rides a trailing carrier; the
+                // painter shifts the packed base right by excess/2 −
+                // ovL, centering it in the stretched rb box.
                 let cap = f64::from(annotation_size / 2.0).floor();
+                let edge_share = excess / (2.0 * cluster_count as f64);
                 let side = |byte: Option<usize>| {
                     if byte.is_none() || is_ruby_item(neighbor_item(byte)) {
                         0.0
                     } else {
-                        cap.min(excess / 4.0)
+                        (cap.min(edge_share) * 64.0).trunc() / 64.0
                     }
                 };
                 let overhang_left = side(prev_byte);
@@ -922,14 +921,9 @@ impl ParleyInlineContext {
                         .push((last_cluster_start..range.end, author + delta as f32));
                 }
                 ruby_spreads.insert(*item_index, 0.0);
-                // The annotation extends the run rect by the shift on the
-                // left and (excess − shift) on the right; the symmetric
-                // paint formula (x − ov, width + 2ov) reproduces it with
-                // ov = (excess − delta)/2 only when the overhangs are
-                // symmetric — the line-edge asymmetry is accepted dust.
-                ruby_spread_overhangs.insert(*item_index, (excess - delta) / 2.0);
-                ruby_spread_overhangs_right.insert(*item_index, (excess - delta) / 2.0);
-                ruby_center_shifts.insert(*item_index, delta / 2.0);
+                ruby_spread_overhangs.insert(*item_index, overhang_left);
+                ruby_spread_overhangs_right.insert(*item_index, overhang_right);
+                ruby_center_shifts.insert(*item_index, excess / 2.0 - overhang_left);
                 continue;
             }
             // `ruby-align: space-around` per-side accounting (measured on
