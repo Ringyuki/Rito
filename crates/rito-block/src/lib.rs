@@ -361,6 +361,17 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             "float layout must produce a box fragment root".to_owned(),
                         ));
                     };
+                    // A head that consumed NOTHING is not a split: the
+                    // browser moves the whole float to the next
+                    // fragmentainer, margins and leading padding intact
+                    // (b12's chat rows: the avatar float kept its 8px
+                    // padding and the bubble its 0.7em margin on the new
+                    // page, where the empty-head split resumed both
+                    // stripped to the content). Fall through to the
+                    // move-whole break below.
+                    let head_consumed = !head_root.children.is_empty()
+                        || outcome.continuation.is_none();
+                    if head_consumed {
                     let occupy = if outcome.continuation.is_some() {
                         (page_bottom - fy_probe).max(0.0)
                     } else {
@@ -391,6 +402,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         });
                     }
                     continue;
+                    }
                 }
                 // Unsplittable (an inline-flow float) and over the edge: it
                 // moves whole to the next fragmentainer, except that a
