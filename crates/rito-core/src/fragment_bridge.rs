@@ -2956,7 +2956,27 @@ fn fold_through_collapsing_margins(
                 .map(|child| child.float == FloatV1::None)
                 .unwrap_or(false)
         }
-        if zero_padding(style.padding.top) {
+        // A float BEFORE the first in-flow child anchors at its
+        // hypothetical flow position, which lies ABOVE that child's top
+        // margin (the mirror of the floats-after guard on the bottom
+        // edge; measured on b12's title: the glyph-stack floats sit at
+        // the body top while the first in-flow block opens 1em lower —
+        // the fold lifted the margin onto the body and every float
+        // moved down with it). The margin stays on the child then; the
+        // block engine's pending-margin chain applies it to the in-flow
+        // content alone.
+        let float_leads = children
+            .iter()
+            .copied()
+            .find(|id| {
+                in_flow(nodes, layout, *id)
+                    || layout
+                        .style(nodes[id.0 as usize].style)
+                        .map(|child| child.float != FloatV1::None)
+                        .unwrap_or(false)
+            })
+            .is_some_and(|id| !in_flow(nodes, layout, id));
+        if zero_padding(style.padding.top) && !float_leads {
             // The escaping set at the container top: the first in-flow
             // child's top margin — and, when that child is a
             // self-collapsing empty block (CSS 2 §8.3.1: no lines, no
