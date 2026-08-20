@@ -75,8 +75,10 @@ export function drawTextFragment(
     let cumulative = 0;
     let index = 0;
     for (const glyph of fragment.text) {
-      const snapped = Math.floor((cumulative + spacingPx * index) * 64) / 64;
-      ctx.fillText(glyph, x + snapped, mainBaseline);
+      // Mirrors the production pen: the cluster position floors on the
+      // ABSOLUTE 1/64 grid (both pens change together).
+      const snapped = Math.floor((x + cumulative + spacingPx * index) * 64) / 64;
+      ctx.fillText(glyph, snapped, mainBaseline);
       cumulative += ctx.measureText(glyph).width;
       index += 1;
     }

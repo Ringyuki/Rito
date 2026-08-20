@@ -184,8 +184,13 @@ function drawTextOnLayoutGrid(
   let cumulative = 0;
   let index = 0;
   for (const glyph of text) {
-    const snapped = Math.floor((cumulative + spacingPx * index) * 64) / 64;
-    ctx.fillText(glyph, x + snapped, baseline);
+    // The browser floors the ABSOLUTE position of every cluster onto
+    // the 1/64 grid (probed on unkerned 15.2px runs: continuous text
+    // lands at floor64(anchor + f32 cumulative), and a same-style run
+    // split keeps the raw fractional start, so relative flooring left
+    // the whole run one grid phase off the browser's cells).
+    const snapped = Math.floor((x + cumulative + spacingPx * index) * 64) / 64;
+    ctx.fillText(glyph, snapped, baseline);
     cumulative += ctx.measureText(glyph).width;
     index += 1;
   }
