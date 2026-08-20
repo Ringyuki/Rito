@@ -5094,7 +5094,15 @@ fn image_display_size(
         (None, Some(height)) => (height / ratio.max(f64::EPSILON), height),
         (None, None) => (intrinsic_width, intrinsic_height),
     };
-    if width_percentage_without_basis && percentage_images == PercentageImageSizing::Shrunk {
+    if percentage_images == PercentageImageSizing::Shrunk {
+        // Every image is width-capped at its container by the reader's
+        // display policy (the truth side mirrors it as max-width: 100%),
+        // and a percentage-capped replaced element is fully shrinkable in
+        // the min-content pass — a table column holding a fixed-width
+        // portrait shrinks to its TEXT minimum, not the image (measured:
+        // a 5-column 8em/2.5em grid under a 25.5em table distributes
+        // 59.2/19.4/72.3 where image-hard minimums pinned every column).
+        let _ = width_percentage_without_basis;
         return Ok((0.0, 0.0));
     }
     if let MaximumSizeV1::Value(cap) = layout_style.max_width {
@@ -5142,14 +5150,21 @@ fn image_display_size(
     // browser under an injected max-height would do). A box the author
     // deliberately distorted keeps its authored ratio while shrinking.
     // The truth harness mirrors this exact policy per element.
-    if let Some(page_height) = available_block_size {
+    {
         let mut scale = 1.0_f64;
-        if height > page_height && height > 0.0 && page_height > 0.0 {
-            scale = scale.min(page_height / height);
+        if let Some(page_height) = available_block_size {
+            if height > page_height && height > 0.0 && page_height > 0.0 {
+                scale = scale.min(page_height / height);
+            }
         }
-        if let Some(page_width) = available_inline_size {
-            if width > page_width && width > 0.0 && page_width > 0.0 {
-                scale = scale.min(page_width / width);
+        // The width cap binds on its own: inside a table cell there is
+        // no block-size budget, but the container cap still holds (the
+        // truth side's max-width: 100% shrinks a 6.5em portrait into its
+        // 57.2px column; gating the width cap on the page height left it
+        // at its authored size).
+        if let Some(basis_width) = available_inline_size {
+            if width > basis_width && width > 0.0 && basis_width > 0.0 {
+                scale = scale.min(basis_width / width);
             }
         }
         if scale < 1.0 {
