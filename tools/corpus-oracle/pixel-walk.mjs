@@ -799,10 +799,17 @@ for (const chapter of plan.chapters) {
   const columns = truthColumns.get(chapter.href) ?? [];
   const enginePageCount = chapter.endPage - chapter.startPage + 1;
   // A column that still has ink past the engine's page count is drift.
+  // Count columns THROUGH the last inked one: interior blank columns come
+  // from forced page breaks both sides honor (verified aligned blank pairs,
+  // b20), so skipping them fabricates negative drift. Only trailing blanks
+  // are trimmed.
   const g = columns[0]
     ? [columns[0].data[0], columns[0].data[1], columns[0].data[2]]
     : [255, 255, 255];
-  const truthUsed = columns.filter((c) => inked(c, g) > 0).length;
+  let truthUsed = 0;
+  columns.forEach((c, i) => {
+    if (inked(c, g) > 0) truthUsed = i + 1;
+  });
   for (let k = 0; k < enginePageCount; k += 1) {
     const pageIndex = chapter.startPage + k;
     if (pageIndex > MAX_PAGES) break;
