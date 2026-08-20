@@ -8700,6 +8700,73 @@ running through the quiet forest until the morning light returns.";
     /// but one share; the rest overhangs), so the base run widens by
     /// exactly (n−1) gaps and carries the gap as justify spacing.
     #[test]
+    fn zero_line_height_paragraph_still_emits_its_line() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                .expect("family list"),
+            16.0,
+            0.0,
+        );
+        style.font.line_height = rito_style_contract::LineHeight::Length(
+            rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero line height"),
+        );
+        let mut inline = InlineStyleTableV1::new(1);
+        let interned = inline.intern_for_node(0, style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: "零高行文本".to_owned(),
+                    style: interned,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("inline outcome root is a box fragment");
+        };
+        let lines: Vec<_> = root
+            .children
+            .iter()
+            .filter(|child| matches!(child, Fragment::Line(_)))
+            .collect();
+        assert_eq!(lines.len(), 1, "the zero-line-height paragraph keeps its line");
+        let Fragment::Line(line) = lines[0] else { unreachable!() };
+        assert!(
+            line.children
+                .iter()
+                .any(|child| matches!(child, Fragment::Text(_))),
+            "the line keeps its text run"
+        );
+    }
+
+    #[test]
     fn a_wide_ruby_annotation_spreads_its_base_with_interior_gaps() {
         let source_han = std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),

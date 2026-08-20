@@ -1479,11 +1479,19 @@ fn place_lines(
     fragmentainer_size: Option<f64>,
 ) -> LinePlacement {
     // Resumed lines: skip everything a previous fragmentainer consumed.
+    // A ZERO-HEIGHT line (line-height: 0) at the paragraph start sits at
+    // y + height == 0 and would read as already consumed — it is not;
+    // Blink keeps the line box and paints its overflowing ink (b115's
+    // `line-height: 0%` divider rows vanished wholesale). The rescue is
+    // scoped to the fresh paragraph (consumed == 0): past a real resume
+    // boundary a zero-height line at exactly `consumed` was placed by
+    // the previous fragment.
     let pending: Vec<&Fragment> = lines
         .iter()
         .filter(|line| {
             let rect = line.rect();
             rect.y + rect.height > consumed + f64::EPSILON
+                || (consumed == 0.0 && rect.height <= 0.0)
         })
         .collect();
     let total = pending.len();
