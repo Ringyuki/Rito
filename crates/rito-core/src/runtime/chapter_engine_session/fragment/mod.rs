@@ -149,17 +149,18 @@ impl<'a> FragmentChapterEngineSession<'a> {
             // above the page content box (a flex-centered cover taller
             // than its box) or below it (a force-placed taller-than-page
             // line) stays invisible, exactly like Blink's columns. The
-            // inline axis keeps the page-wide clip — ruby overhang and
-            // glyph AA may spill a fraction past the column edge, and
-            // b9's plates legitimately ink left of the content box (an
-            // ICB-left clip regressed them 22.7k while healing b12's
-            // negative-margin banner 2.5k; the banner's left cut needs a
-            // narrower rule).
+            // INLINE-START edge clips at the initial containing block:
+            // ink left of the root box is unreachable in a browser (a
+            // negative side margin bleeds RIGHT into the gap but never
+            // left — b12's -1.5em chapter banner; first suspected of a
+            // b9 regression that a fold-guard bug actually caused). The
+            // inline END keeps the page-wide clip for the right bleed,
+            // ruby overhang and glyph AA.
             commands.push(DisplayCommand::clip_rect(
                 rect_value(
-                    0.0,
+                    config.margin_left,
                     config.margin_top,
-                    metadata.width,
+                    metadata.width - config.margin_left,
                     metadata.height - config.margin_top - config.margin_bottom,
                 ),
                 None,
