@@ -1017,6 +1017,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 tree,
                                 *child_id,
                                 grid_width,
+                                matches!(child_style.width, PreferredSizeV1::Value(_)),
                                 cancel,
                             )?,
                             continuation: None,
@@ -1031,6 +1032,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             tree,
                             *child_id,
                             grid_width,
+                            matches!(child_style.width, PreferredSizeV1::Value(_)),
                             (available - pad_top).max(0.0),
                             space.fragmentainer_size,
                             child_token.as_ref(),
@@ -1647,9 +1649,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         tree: &FormattingTree,
         table: FormattingNodeId,
         available_width: f64,
+        fill_available: bool,
         cancel: &CancelFlag,
     ) -> Result<BoxFragment, LayoutError> {
-        let Some(grid) = self.table_grid(tree, table, available_width)? else {
+        let Some(grid) = self.table_grid(tree, table, available_width, fill_available)? else {
             return Ok(empty_table_fragment(table));
         };
         let mut rows = Vec::with_capacity(grid.rows.len());
@@ -1690,13 +1693,14 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         tree: &FormattingTree,
         table: FormattingNodeId,
         available_width: f64,
+        fill_available: bool,
         budget: f64,
         fragmentainer_size: Option<f64>,
         token: Option<&BreakToken>,
         page_is_empty: bool,
         cancel: &CancelFlag,
     ) -> Result<TableFragmentainerPlacement, LayoutError> {
-        let Some(grid) = self.table_grid(tree, table, available_width)? else {
+        let Some(grid) = self.table_grid(tree, table, available_width, fill_available)? else {
             return Ok(TableFragmentainerPlacement::Placed {
                 fragment: empty_table_fragment(table),
                 continuation: None,
@@ -1897,6 +1901,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         tree: &FormattingTree,
         table: FormattingNodeId,
         available_width: f64,
+        fill_available: bool,
     ) -> Result<Option<TableGridLayout>, LayoutError> {
         let mut rows: Vec<Vec<TableGridCell>> = Vec::new();
         let mut row_ids: Vec<FormattingNodeId> = Vec::new();
@@ -1984,7 +1989,17 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 percentage: column_percentages[column],
             })
             .collect();
-        let assignable = assignable_table_width(&constraints, content_available);
+        // A table with an AUTHORED width fills it: the surplus beyond the
+        // columns' own demands distributes over the columns (measured:
+        // Blink widens every 8em cell of a width:25.5em table; the
+        // shrink-to-fit cap left the grid at the specified column sum and
+        // every later column sat left of the browser's).
+        let assignable = if fill_available {
+            let grid_min: f64 = constraints.iter().map(|column| column.min).sum();
+            grid_min.max(content_available)
+        } else {
+            assignable_table_width(&constraints, content_available)
+        };
         let columns = distribute_columns(&constraints, assignable);
         // Separate-borders spacing sits between every pair of cells and
         // around the grid, so a column's offset carries one gap per
@@ -2228,7 +2243,12 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     .to_owned(),
             )),
             FormattingNodeContent::Table => {
-                let fragment = self.layout_table(tree, node, space.inline_size, cancel)?;
+                let fill = matches!(
+                    container_layout_style(tree, node)?.width,
+                    PreferredSizeV1::Value(_)
+                );
+                let fragment =
+                    self.layout_table(tree, node, space.inline_size, fill, cancel)?;
                 Ok(LayoutOutcome {
                     fragments: FragmentTree {
                         root: Fragment::Box(fragment),
