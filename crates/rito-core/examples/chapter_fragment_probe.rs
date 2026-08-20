@@ -156,6 +156,7 @@ fn main() {
                 height: metric.height,
                 baseline: metric.baseline,
                 grid: metric.grid_ascent.zip(metric.grid_descent),
+                advance: None,
             },
         );
     }

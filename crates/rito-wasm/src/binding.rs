@@ -60,6 +60,10 @@ impl RitoWasmDocument {
             grid_ascent: Option<f64>,
             #[serde(default)]
             grid_descent: Option<f64>,
+            /// Advance the host measured for an uncovered-character probe
+            /// sample (sentinel-tagged), absent on plain line metrics.
+            #[serde(default)]
+            advance: Option<f64>,
         }
         let entries: Vec<Entry> = serde_json::from_str(entries_json)
             .map_err(|error| JsValue::from_str(&format!("host metrics parse: {error}")))?;
@@ -75,6 +79,7 @@ impl RitoWasmDocument {
                         (Some(ascent), Some(descent)) => Some((ascent, descent)),
                         _ => None,
                     },
+                    advance: entry.advance,
                 },
             );
         }

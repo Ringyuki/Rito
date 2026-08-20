@@ -133,6 +133,7 @@ fn main() {
                     (Some(ascent), Some(descent)) => Some((ascent, descent)),
                     _ => None,
                 },
+                advance: None,
             },
         );
     }

@@ -140,6 +140,16 @@ pub struct ParleyInlineContext {
     /// Per-face `halt` feature presence, keyed by (blob id, face index) —
     /// the Han-kerning trim gate consults it for every trimmed character.
     halt_feature_cache: RefCell<std::collections::HashMap<(u64, u32), bool>>,
+    /// Host-measured advances for characters no registered face covers,
+    /// keyed by (family key, size key, character). Shaping resolves such
+    /// a character to a face's `.notdef` while the host paints it with a
+    /// system fallback font; the host's canvas advance is the only source
+    /// for the width that glyph actually occupies.
+    host_char_advances: RefCell<std::collections::HashMap<(String, u64, char), f64>>,
+    /// Whether any face of (family key, character)'s stack covers the
+    /// character — the gate for the host-advance path, cached because the
+    /// stack walk touches every face's charmap.
+    char_coverage_cache: RefCell<std::collections::HashMap<(String, char), bool>>,
     metrics_generation: std::cell::Cell<u64>,
 }
 
@@ -162,6 +172,12 @@ pub struct HostNormalLineMetric {
     /// envelope whenever the font carries a line gap; `None` falls back
     /// to that envelope, which keeps un-upgraded hosts converging.
     pub grid: Option<(f64, f64)>,
+    /// Advance the host measures for a one-character sample through its
+    /// own font fallback. Carried for characters no registered face
+    /// covers: shaping such a character lands on a face's `.notdef`
+    /// advance while the host paints it with a system fallback font, and
+    /// only the host can say how wide that fallback glyph is.
+    pub advance: Option<f64>,
 }
 
 impl HostNormalLineMetric {
@@ -300,6 +316,11 @@ fn host_size_key(size: f64) -> u64 {
     (size * 1000.0).round() as u64
 }
 
+/// Tags a host-metric sample as an uncovered-character advance probe: the
+/// sample is this sentinel plus the character, and the host answers with
+/// the advance its own font fallback gives that character.
+const HOST_CHAR_ADVANCE_SENTINEL: &str = "\u{e00e}";
+
 /// Serializes a computed family list into the key the host measures with.
 fn host_family_key(style: &InlineFormattingStyleV1) -> String {
     style
@@ -370,6 +391,8 @@ impl ParleyInlineContext {
             host_metric_requests: RefCell::new(std::collections::BTreeSet::new()),
             host_metric_samples: RefCell::new(std::collections::HashMap::new()),
             halt_feature_cache: RefCell::new(std::collections::HashMap::new()),
+            host_char_advances: RefCell::new(std::collections::HashMap::new()),
+            char_coverage_cache: RefCell::new(std::collections::HashMap::new()),
             metrics_generation: std::cell::Cell::new(0),
         })
     }
@@ -382,6 +405,23 @@ impl ParleyInlineContext {
         sample: &str,
         metric: HostNormalLineMetric,
     ) {
+        // An uncovered-character advance probe: the sentinel-tagged sample
+        // carries the character, the metric carries the advance the host's
+        // fallback font gives it. Routed to its own map — the line-metric
+        // map is keyed per resolved FONT, advances per CHARACTER.
+        if let Some(character) = sample.strip_prefix(HOST_CHAR_ADVANCE_SENTINEL) {
+            if let (Some(character), Some(advance)) =
+                (character.chars().next(), metric.advance)
+            {
+                self.host_char_advances.borrow_mut().insert(
+                    (family_key.to_owned(), host_size_key(size), character),
+                    advance,
+                );
+                self.normal_strut_cache.borrow_mut().clear();
+                self.metrics_generation.set(self.metrics_generation.get() + 1);
+            }
+            return;
+        }
         self.host_line_metrics.borrow_mut().insert(
             (family_key.to_owned(), host_size_key(size), sample.to_owned()),
             metric,
@@ -407,6 +447,23 @@ impl ParleyInlineContext {
             .into_iter()
             .map(|(family, key, sample)| (family, key as f64 / 1000.0, sample))
             .collect()
+    }
+
+    /// Host-measured advance for a character no registered face covers,
+    /// recording an advance-probe request on a miss so the host can
+    /// measure it; layout proceeds on the shaped `.notdef` advance until
+    /// the injection relayouts.
+    fn host_char_advance(&self, family_key: &str, size: f64, character: char) -> Option<f64> {
+        let key = (family_key.to_owned(), host_size_key(size), character);
+        if let Some(advance) = self.host_char_advances.borrow().get(&key) {
+            return Some(*advance);
+        }
+        self.host_metric_requests.borrow_mut().insert((
+            key.0,
+            key.1,
+            format!("{HOST_CHAR_ADVANCE_SENTINEL}{character}"),
+        ));
+        None
     }
 
     /// Host normal-line metric for a style and sample, recording a
@@ -1008,6 +1065,68 @@ impl ParleyInlineContext {
             .iter()
             .map(|trim| (trim.left_byte, trim.right_byte))
             .collect();
+        // Characters no registered face covers: shaping lands on a face's
+        // `.notdef` advance while the canvas paints the browser's own
+        // fallback glyph (measured: b12's U+2764 shaped 12.445px against a
+        // painted 14.5625px, skewing every justify share on the line). The
+        // host measures the fallback advance with the same canvas that
+        // paints; the difference rides as letter spacing on the character,
+        // the edit channel the punctuation trims already use.
+        let mut uncovered_char_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
+        {
+            let mut coverage = self.char_coverage_cache.borrow_mut();
+            let mut cursor = 0usize;
+            for (byte, character) in text.char_indices() {
+                if character.is_whitespace() || character.is_control() {
+                    continue;
+                }
+                while cursor < runs.len() && runs[cursor].0.end <= byte {
+                    cursor += 1;
+                }
+                let Some((_, style, _)) =
+                    runs.get(cursor).filter(|(range, ..)| range.contains(&byte))
+                else {
+                    continue;
+                };
+                let family_key = host_family_key(style);
+                let covered = *coverage
+                    .entry((family_key.clone(), character))
+                    .or_insert_with(|| {
+                        stack_covers_character(
+                            &mut fonts,
+                            &self.registered_families,
+                            style,
+                            character,
+                        )
+                    });
+                if covered {
+                    continue;
+                }
+                let Some(host_advance) = self.host_char_advance(
+                    &family_key,
+                    f64::from(style.font.size.get()),
+                    character,
+                ) else {
+                    continue;
+                };
+                let Some(notdef) = stack_notdef_advance_px(
+                    &mut fonts,
+                    &self.registered_families,
+                    style,
+                    shaping_font_size(style.font.size.get()),
+                ) else {
+                    continue;
+                };
+                let author = match style.text_flow.letter_spacing {
+                    LengthPercentage::Length(px) => px.get(),
+                    _ => 0.0,
+                };
+                uncovered_char_edits.push((
+                    byte..byte + character.len_utf8(),
+                    author + (host_advance - notdef) as f32,
+                ));
+            }
+        }
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = layouts.ranged_builder(&mut fonts, &text, 1.0, true);
         // The pinned-browser baseline: Chromium's ASCII break tailoring plus
@@ -1286,8 +1405,20 @@ impl ParleyInlineContext {
             };
             builder.push(StyleProperty::LetterSpacing(spacing), range);
         }
+        // A box gap landing on an uncovered character composes with its
+        // advance edit instead of being overwritten by it.
         for (range, gap, author) in box_edits {
+            if let Some((_, spacing)) = uncovered_char_edits
+                .iter_mut()
+                .find(|(edit_range, _)| *edit_range == range)
+            {
+                *spacing += gap;
+                continue;
+            }
             builder.push(StyleProperty::LetterSpacing(author + gap), range);
+        }
+        for (range, spacing) in &uncovered_char_edits {
+            builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
         }
         for (range, spacing) in &ruby_spread_edits {
             builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
@@ -4344,6 +4475,97 @@ fn resolved_font_halt(
     None
 }
 
+/// Whether any face the style's stack (or the registered fallback order)
+/// resolves covers `character`. A character nothing covers shapes to a
+/// face's `.notdef` advance, while the browser paints it with a system
+/// fallback font the engine does not hold — the gate for the host
+/// advance probe.
+fn stack_covers_character(
+    fonts: &mut FontContext,
+    registered_families: &[String],
+    style: &InlineFormattingStyleV1,
+    character: char,
+) -> bool {
+    use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};
+    use skrifa::MetadataProvider as _;
+    let weight = FontWeight::new(style.font.weight.get());
+    let stack = style
+        .font
+        .families
+        .as_slice()
+        .iter()
+        .filter_map(|family| match family {
+            rito_style_contract::FontFamily::Named(name) => Some(name.as_str()),
+            rito_style_contract::FontFamily::Generic(_) => None,
+        });
+    for name in stack.chain(registered_families.iter().map(String::as_str)) {
+        let Some(family) = fonts.collection.family_by_name(name) else {
+            continue;
+        };
+        let Some(font) = family.match_font(FontWidth::NORMAL, FontStyle::Normal, weight, true)
+        else {
+            continue;
+        };
+        let SourceKind::Memory(blob) = font.source().kind() else {
+            continue;
+        };
+        let Ok(font_ref) = skrifa::FontRef::from_index(blob.as_ref(), font.index()) else {
+            continue;
+        };
+        if font_ref.charmap().map(character).is_some() {
+            return true;
+        }
+    }
+    false
+}
+
+/// The `.notdef` advance, in px at `size`, of the first face the style's
+/// stack resolves — the advance shaping gives a character nothing covers
+/// (measured: b12's U+2764 shaped to 1593/2048 em, the pinned latin
+/// face's glyph 0).
+fn stack_notdef_advance_px(
+    fonts: &mut FontContext,
+    registered_families: &[String],
+    style: &InlineFormattingStyleV1,
+    size: f32,
+) -> Option<f64> {
+    use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};
+    use skrifa::MetadataProvider as _;
+    let weight = FontWeight::new(style.font.weight.get());
+    let stack = style
+        .font
+        .families
+        .as_slice()
+        .iter()
+        .filter_map(|family| match family {
+            rito_style_contract::FontFamily::Named(name) => Some(name.as_str()),
+            rito_style_contract::FontFamily::Generic(_) => None,
+        });
+    for name in stack.chain(registered_families.iter().map(String::as_str)) {
+        let Some(family) = fonts.collection.family_by_name(name) else {
+            continue;
+        };
+        let Some(font) = family.match_font(FontWidth::NORMAL, FontStyle::Normal, weight, true)
+        else {
+            continue;
+        };
+        let SourceKind::Memory(blob) = font.source().kind() else {
+            continue;
+        };
+        let Ok(font_ref) = skrifa::FontRef::from_index(blob.as_ref(), font.index()) else {
+            continue;
+        };
+        let advance = font_ref
+            .glyph_metrics(
+                skrifa::instance::Size::new(size),
+                skrifa::instance::LocationRef::default(),
+            )
+            .advance_width(skrifa::GlyphId::new(0));
+        return advance.map(f64::from);
+    }
+    None
+}
+
 /// Whether a Parley cluster's resolved font carries the `halt` feature —
 /// the same gate the pair trims apply: Blink's Han kerning (including the
 /// conditional line-end close trim) only adjusts glyphs whose font
@@ -6851,6 +7073,7 @@ running through the quiet forest until the morning light returns.";
                     height,
                     baseline,
                     grid: Some((14.0, 3.0)),
+                    advance: None,
                 },
             );
         }
@@ -6981,6 +7204,7 @@ running through the quiet forest until the morning light returns.";
                     height,
                     baseline,
                     grid: Some((14.0, 3.0)),
+                    advance: None,
                 },
             );
         }
@@ -7105,6 +7329,7 @@ running through the quiet forest until the morning light returns.";
                     height,
                     baseline,
                     grid: Some((14.0, 3.0)),
+                    advance: None,
                 },
             );
         }
@@ -8115,6 +8340,7 @@ running through the quiet forest until the morning light returns.";
                 height: 23.0,
                 baseline: 18.0,
                 grid: Some((18.0, 5.0)),
+                advance: None,
             },
         );
         let items = vec![
@@ -8170,6 +8396,7 @@ running through the quiet forest until the morning light returns.";
                 height: 26.125,
                 baseline: 21.328125,
                 grid: None,
+                advance: None,
             },
         );
         let outcome = context
@@ -8226,6 +8453,7 @@ running through the quiet forest until the morning light returns.";
                 height: 23.0,
                 baseline: 18.0,
                 grid: None,
+                advance: None,
             },
         );
         context.set_host_line_metric(
@@ -8236,6 +8464,7 @@ running through the quiet forest until the morning light returns.";
                 height: 18.0,
                 baseline: 14.0,
                 grid: None,
+                advance: None,
             },
         );
         let mut layout = LayoutStyleTableV1::new(1);

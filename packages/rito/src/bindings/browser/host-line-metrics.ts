@@ -43,6 +43,12 @@ type MeasuredMetric = {
    */
   gridAscent?: number;
   gridDescent?: number;
+  /**
+   * Canvas advance of an uncovered-character probe's character (sentinel
+   * E00E samples): the width the fallback font that paints it actually
+   * occupies, which no registered face's tables can provide.
+   */
+  advance?: number;
 };
 
 /** Keyed by the MEASURED family list — what the DOM actually sized. */
@@ -124,11 +130,15 @@ async function measureBrowserHostLineMetrics(
           `${String(request.size)}px ${measuredFamilyList(request)}`,
           request.sample.length > 0 && request.sample.charCodeAt(0) < 0xe000
             ? request.sample
-            : // A ruby probe key may carry the annotation's own text
-              // after the ratio; its glyphs must join the load text so
-              // the face that covers them actually loads before the
-              // probe renders.
-              `中x${request.sample.split(':').slice(1).join(':')}`,
+            : request.sample.charCodeAt(0) === 0xe00e
+              ? // An advance probe: load the character itself so the
+                // measured advance comes from the face that paints it.
+                request.sample.slice(1)
+              : // A ruby probe key may carry the annotation's own text
+                // after the ratio; its glyphs must join the load text so
+                // the face that covers them actually loads before the
+                // probe renders.
+                `中x${request.sample.split(':').slice(1).join(':')}`,
         )
         .catch(() => undefined),
     ),
@@ -159,7 +169,14 @@ async function measureBrowserHostLineMetrics(
       // shrinks the reusable gap by a pixel at 16px, additively with
       // the annotation-script bit.
       const sentinel = sample.length > 0 ? sample.charCodeAt(0) : 0;
-      if (sentinel === 0xe00c || sentinel === 0xe00d) {
+      if (sentinel === 0xe00e) {
+        // Uncovered-character advance probe: the engine's registered
+        // faces cannot serve this character, so the browser paints it
+        // with a system fallback font. The canvas advance below is what
+        // paint will actually occupy; the paragraph carries the
+        // character so the line metrics stay honest for the same key.
+        paragraph.textContent = sample.slice(1);
+      } else if (sentinel === 0xe00c || sentinel === 0xe00d) {
         // Super/sub probes: the engine cannot derive Blink's quantized
         // above-baseline contribution of a raised span from font tables
         // (an oracle matrix refused every closed form), so the host
@@ -250,11 +267,17 @@ async function measureBrowserHostLineMetrics(
       paragraph.appendChild(marker);
       host.appendChild(paragraph);
       const box = paragraph.getBoundingClientRect();
-      const metric = {
+      const metric: MeasuredMetric = {
         height: box.height,
         baseline: marker.getBoundingClientRect().top - box.top,
         ...measureGridMetric(gridContext, request.size, measured, sample),
       };
+      if (sentinel === 0xe00e && gridContext) {
+        gridContext.font = `${String(request.size)}px ${measured}`;
+        gridContext.letterSpacing = '0px';
+        const advance = gridContext.measureText(sample.slice(1)).width;
+        if (Number.isFinite(advance) && advance > 0) metric.advance = advance;
+      }
       measuredCache.set(cacheKey(measured, request.size, sample), metric);
       rawKeyCache.set(cacheKey(request.family, request.size, sample), metric);
       return { family: request.family, size: request.size, sample, ...metric };

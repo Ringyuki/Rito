@@ -72,6 +72,13 @@ export interface RitoCoreWasmHostLineMetric {
    * gap. Optional so cached un-upgraded entries stay valid.
    */
   readonly gridAscent?: number;
+  /**
+   * Advance the host's canvas measures for an uncovered-character probe
+   * (sentinel-tagged sample): shaping such a character lands on a
+   * registered face's `.notdef` advance while paint resolves a system
+   * fallback font, and only the host can measure that glyph's width.
+   */
+  readonly advance?: number;
   /** Grid-fit descent (canvas `fontBoundingBoxDescent`). */
   readonly gridDescent?: number;
 }
