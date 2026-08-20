@@ -2956,16 +2956,17 @@ fn fold_through_collapsing_margins(
                 .map(|child| child.float == FloatV1::None)
                 .unwrap_or(false)
         }
-        // A float BEFORE the first in-flow child anchors at its
-        // hypothetical flow position, which lies ABOVE that child's top
-        // margin (the mirror of the floats-after guard on the bottom
-        // edge; measured on b12's title: the glyph-stack floats sit at
-        // the body top while the first in-flow block opens 1em lower —
-        // the fold lifted the margin onto the body and every float
-        // moved down with it). The margin stays on the child then; the
-        // block engine's pending-margin chain applies it to the in-flow
-        // content alone.
-        let float_leads = children
+        // At the ROOT container only: a float before the first in-flow
+        // child anchors at the body top, above that child's top margin
+        // (measured on b12's title: the glyph-stack floats sit at the
+        // body top while the first in-flow block opens 1em lower — the
+        // fold lifted the margin onto the body and every float moved
+        // down with it). The margin stays on the child then. INNER
+        // containers keep the fold even with leading floats: their
+        // escaped margin acts before the container and the floats ride
+        // with it (an unguarded skip moved b9's plate floats 22.7k).
+        let float_leads = is_root
+            && children
             .iter()
             .copied()
             .find(|id| {

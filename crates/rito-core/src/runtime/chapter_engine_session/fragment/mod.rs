@@ -150,7 +150,11 @@ impl<'a> FragmentChapterEngineSession<'a> {
             // than its box) or below it (a force-placed taller-than-page
             // line) stays invisible, exactly like Blink's columns. The
             // inline axis keeps the page-wide clip — ruby overhang and
-            // glyph AA may spill a fraction past the column edge.
+            // glyph AA may spill a fraction past the column edge, and
+            // b9's plates legitimately ink left of the content box (an
+            // ICB-left clip regressed them 22.7k while healing b12's
+            // negative-margin banner 2.5k; the banner's left cut needs a
+            // narrower rule).
             commands.push(DisplayCommand::clip_rect(
                 rect_value(
                     0.0,
