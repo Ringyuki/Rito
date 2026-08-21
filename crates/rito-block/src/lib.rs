@@ -2052,7 +2052,23 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         } else {
             assignable_table_width(&constraints, content_available)
         };
-        let columns = distribute_columns(&constraints, assignable);
+        let mut columns = distribute_columns(&constraints, assignable);
+        // The used column widths live on the LayoutUnit grid: every
+        // column truncates to 1/64 and the accumulated remainder lands
+        // in the LAST column (measured on an over-constrained 7-column
+        // 229.5px table: 45.734375 / 13.6875 / ... / 51.1875 repeat to
+        // the 1/64, and the last column takes 229.5 - Σ = 45.78125 —
+        // the float distribution leaked dust into every gap column and
+        // a non-square portrait in the last column scaled 3/64 short,
+        // shifting every later block on the page across a device row).
+        if let Some((last, head)) = columns.split_last_mut() {
+            let mut spent = 0.0_f64;
+            for width in head.iter_mut() {
+                *width = (*width * 64.0).floor() / 64.0;
+                spent += *width;
+            }
+            *last = (((assignable - spent) * 64.0).floor() / 64.0).max(0.0);
+        }
         // Separate-borders spacing sits between every pair of cells and
         // around the grid, so a column's offset carries one gap per
         // preceding column plus the leading edge.

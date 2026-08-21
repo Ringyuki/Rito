@@ -3830,6 +3830,77 @@ p { margin: 8px 0; }\n\
         );
     }
 
+    /// An over-constrained table's used column widths sit on the
+    /// LayoutUnit grid with the remainder in the LAST column (measured
+    /// on the b11 character card: 45.734375 / 13.6875 gaps repeat to
+    /// the 1/64 and the last column takes width - Σ = 45.78125; the
+    /// float distribution leaked dust into every column and a
+    /// non-square portrait in the last column scaled 3/64 short).
+    #[test]
+    fn over_constrained_table_columns_land_on_the_layout_unit_grid() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<table><tr>
+  <td style="width:49.5px">a</td>
+  <td style="width:13.5px"></td>
+  <td style="width:49.5px">b</td>
+  <td style="width:13.5px"></td>
+  <td style="width:49.5px">c</td>
+  <td style="width:13.5px"></td>
+  <td style="width:49.5px">d</td>
+</tr></table>
+</body></html>"#,
+            "body { margin: 0; padding: 0; } table { border-collapse: collapse; width: 229.5px; } td { padding: 0; font-size: 4px; }\n",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let engine = BlockFormattingContext::new(
+            ParleyInlineContext::new(vec![tinos_bytes(), source_han_test_bytes()])
+                .expect("fonts register"),
+        );
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(640.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("lays out");
+        fn cells(fragment: &Fragment, off: f64, out: &mut Vec<(f64, f64)>, depth: usize) {
+            if let Fragment::Box(node) = fragment {
+                if depth == 3 {
+                    out.push((off + node.rect.x, node.rect.width));
+                    return;
+                }
+                for child in &node.children {
+                    cells(child, off + node.rect.x, out, depth + 1);
+                }
+            }
+        }
+        let mut xs = Vec::new();
+        cells(&outcome.fragments.root, 0.0, &mut xs, 0);
+        assert_eq!(xs.len(), 7, "seven cells lay out: {xs:?}");
+        for (index, (x, _)) in xs.iter().enumerate() {
+            let on_grid = (x * 64.0).round() / 64.0;
+            assert!(
+                (x - on_grid).abs() < 1e-9,
+                "cell {index} x sits on the 1/64 grid: {x}"
+            );
+        }
+        let last_end = xs[6].0 + xs[6].1;
+        assert!(
+            (last_end - 229.5).abs() < 1e-6,
+            "the last column absorbs the remainder to the table edge: {last_end}"
+        );
+    }
+
     /// A right-aligned line pulled UP by a negative margin into a right
     /// float's band must still avoid the float: the browser aligns it to
     /// the float's left edge whenever the line's top overlaps the band
