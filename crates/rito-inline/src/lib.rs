@@ -2253,11 +2253,26 @@ impl FormattingContext for ParleyInlineContext {
                 // share-driven glyph mid-line).
                 {
                     use skrifa::MetadataProvider as _;
+                    use skrifa::raw::TableProvider as _;
                     let content = flow_text
                         .get(range.clone())
                         .map(str::trim_end)
                         .unwrap_or("");
-                    if let Some(last_char) = content.chars().next_back() {
+                    if let Some(last_char) = content.chars().next_back().filter(|last| {
+                        // Only the MEASURED domain takes the delta: a
+                        // kana or ideograph line end (SourceHan pair
+                        // kerns live there). Fullwidth punctuation runs
+                        // the trim/hang machinery — the delta
+                        // double-counted a trailing 、's compression —
+                        // and a latin or fullwidth-symbol line end
+                        // (~, letters) moved a credits line off the
+                        // truth when the delta was applied wholesale.
+                        matches!(u32::from(*last),
+                            0x3041..=0x30FF
+                            | 0x3400..=0x9FFF
+                            | 0xF900..=0xFAFF
+                            | 0x20000..=0x2FA1F)
+                    }) {
                         let last_byte = range.start + content.len() - last_char.len_utf8();
                         if let Some(cluster) =
                             parley::layout::Cluster::from_byte_index(&layout, last_byte)
@@ -2268,10 +2283,22 @@ impl FormattingContext for ParleyInlineContext {
                             if let Ok(font_ref) =
                                 skrifa::FontRef::from_index(font.data.as_ref(), font.index)
                             {
+                                // Unscaled font units scaled in f64:
+                                // skrifa's pre-scaled metrics quantize
+                                // the scale factor and return 14.3907
+                                // for a 1000-unit glyph at 14.4px — a
+                                // phantom -0.0093 delta on every
+                                // ideograph line end.
+                                let upem = font_ref
+                                    .head()
+                                    .map(|head| f64::from(head.units_per_em()))
+                                    .unwrap_or(1000.0);
+                                let upem = if upem > 0.0 { upem } else { 1000.0 };
                                 let glyph_metrics = font_ref.glyph_metrics(
-                                    skrifa::instance::Size::new(run.font_size()),
+                                    skrifa::instance::Size::unscaled(),
                                     skrifa::instance::LocationRef::default(),
                                 );
+                                let scale = f64::from(run.font_size()) / upem;
                                 let base: f64 = cluster
                                     .glyphs()
                                     .map(|glyph| {
@@ -2279,16 +2306,28 @@ impl FormattingContext for ParleyInlineContext {
                                             .advance_width(skrifa::GlyphId::new(u32::from(
                                                 glyph.id,
                                             )))
-                                            .map(f64::from)
+                                            .map(|units| f64::from(units) * scale)
                                             .unwrap_or(f64::from(glyph.advance))
                                     })
                                     .sum();
                                 let delta = base - shaped;
-                                // Only a pair adjustment: features that
+                                // Only a REAL pair adjustment: kern
+                                // pairs move whole font units (1/128px
+                                // and up), while float dust between the
+                                // shaper's f32 sum and the metrics read
+                                // is ~1e-5 — letting dust through pushed
+                                // an ideograph-final line's advance over
+                                // the ceil64 margin and dropped its
+                                // slack a whole 1/64. Features that
                                 // legitimately resize a glyph (halved
-                                // ruby punctuation via halt) move it a
-                                // half em or more and stay shaped.
-                                if delta.abs() > 1e-6
+                                // ruby punctuation via halt) move half
+                                // an em or more and stay shaped.
+                                if std::env::var_os("RITO_BRK_DEBUG").is_some() {
+                                    eprintln!(
+                                        "[brk] last='{last_char}' shaped={shaped:.6} base={base:.6} delta={delta:.6}"
+                                    );
+                                }
+                                if delta.abs() > 1.0 / 128.0
                                     && delta.abs() < f64::from(run.font_size()) * 0.25
                                 {
                                     if let Some((_, sum, _)) = item_advances.last_mut() {
