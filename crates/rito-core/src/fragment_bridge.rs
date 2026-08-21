@@ -2558,18 +2558,35 @@ impl InlineCollector {
             // alone: appending it would stretch that item's inline box
             // past the span's real end (measured: a boxed span's border
             // painted after the following space).
-            let standalone = match (self.pending_space_style, self.items.last()) {
-                (
-                    Some(space_style),
-                    Some(InlineItem::Text {
-                        style: last_style, ..
-                    }),
-                ) => *last_style != space_style,
-                (Some(_), _) => true,
-                (None, _) => false,
-            };
+            // A space pending after a ruby base also stands alone: the
+            // base item cannot absorb it (its annotation attaches to
+            // exactly the base's extent), and silently dropping it erased
+            // the base's own trailing collapsed space (b11: 原初之火
+            // followed by ！ sat 0.25em left of the browser's line).
+            let after_ruby = matches!(
+                self.items.last(),
+                Some(InlineItem::Text {
+                    ruby_annotation: Some(_),
+                    ..
+                })
+            );
+            let standalone = after_ruby
+                || match (self.pending_space_style, self.items.last()) {
+                    (
+                        Some(space_style),
+                        Some(InlineItem::Text {
+                            style: last_style, ..
+                        }),
+                    ) => *last_style != space_style,
+                    (Some(_), _) => true,
+                    (None, _) => false,
+                };
             if standalone {
-                if let Some(space_style) = self.pending_space_style {
+                let space_style = self.pending_space_style.or_else(|| match self.items.last() {
+                    Some(InlineItem::Text { style, .. }) => Some(*style),
+                    _ => None,
+                });
+                if let Some(space_style) = space_style {
                     self.items.push(InlineItem::Text {
                         text: " ".to_owned(),
                         style: space_style,
