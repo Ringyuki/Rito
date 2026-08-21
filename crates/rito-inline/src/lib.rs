@@ -2147,7 +2147,28 @@ impl FormattingContext for ParleyInlineContext {
             // shift survives into net positions (the first landing
             // relativized against the shifted value and cancelled itself
             // to a pixel-null — asserted by the paint-position test).
-            let line_x = parley_line_x
+            // The 1/64 fit tolerance added to the BREAKING width leaks
+            // into parley's free space, shifting every end-aligned line
+            // right by 1/64 and every centered one by 1/128 (measured:
+            // b12's right-aligned closing line started at 411.625 where
+            // the browser's Range put it at 411.609375, and the browser
+            // keeps alignment offsets unquantized). Subtract it back
+            // whenever parley actually applied the alignment (free space
+            // at the padded width positive).
+            let alignment_epsilon = {
+                let free_padded = f64::from(line_max_advance(line_top)) + LINE_FIT_EPSILON
+                    - (f64::from(metrics.advance) - f64::from(metrics.trailing_whitespace));
+                if free_padded > 0.0 {
+                    match alignment {
+                        parley::Alignment::End | parley::Alignment::Right => LINE_FIT_EPSILON,
+                        parley::Alignment::Center => LINE_FIT_EPSILON / 2.0,
+                        _ => 0.0,
+                    }
+                } else {
+                    0.0
+                }
+            };
+            let line_x = parley_line_x - alignment_epsilon
                 + forced_indent
                 + match alignment {
                     parley::Alignment::Center => hang_uncovered / 2.0,

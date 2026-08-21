@@ -4009,6 +4009,14 @@ p { margin: 8px 0; }\n\
         assert_eq!(first.source_nodes, second.source_nodes);
     }
 
+    fn source_han_test_bytes() -> Vec<u8> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        );
+        std::fs::read(path).expect("pinned SourceHan test font reads")
+    }
+
     fn tinos_bytes() -> Vec<u8> {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -4251,6 +4259,62 @@ p { margin: 8px 0; }\n\
         assert!((y_of(0) - 16.0).abs() < 0.1, "float: {}", y_of(0));
         assert!((y_of(1) - 207.42).abs() < 0.1, "spacer: {}", y_of(1));
         assert!((y_of(3) - 223.42).abs() < 0.1, "badge: {}", y_of(3));
+    }
+
+    /// The 1/64 line-fit tolerance must not leak into alignment: a
+    /// right-aligned line starts at exactly the container width minus
+    /// its advance, unquantized (the browser's Range keeps the
+    /// fractional start).
+    #[test]
+    fn right_aligned_line_starts_at_width_minus_advance() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<p>『和你恋爱什么，应该是不可能的』完</p>
+</body></html>"#,
+            "body { margin: 0; padding: 0; }              p { margin: 0; text-align: right; font-weight: bold; font-size: 16px; }
+",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let engine = BlockFormattingContext::new(
+            ParleyInlineContext::new(vec![tinos_bytes(), source_han_test_bytes()]).expect("fonts register"),
+        );
+        let cancel = CancelFlag::new();
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(627.21875),
+                None,
+                &cancel,
+            )
+            .expect("lays out");
+        fn walk_lines(fragment: &Fragment, off: f64, out: &mut Vec<(f64, f64)>) {
+            match fragment {
+                Fragment::Box(node) => {
+                    for child in &node.children {
+                        walk_lines(child, off + node.rect.x, out);
+                    }
+                }
+                Fragment::Line(line) => {
+                    out.push((off + line.rect.x, line.rect.width));
+                }
+                _ => {}
+            }
+        }
+        let mut lines = Vec::new();
+        walk_lines(&outcome.fragments.root, 0.0, &mut lines);
+        let (line_x, _) = lines[0];
+        assert!(
+            (line_x - (627.21875 - 272.0)).abs() < 1e-6,
+            "right-aligned start is exact: {line_x}"
+        );
     }
 
     /// #85 full replica with PERCENTAGE margins (the b60 title exactly:
