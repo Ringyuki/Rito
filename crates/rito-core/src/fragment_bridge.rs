@@ -4031,6 +4031,81 @@ p { margin: 8px 0; }\n\
         assert!(unlinked, "the plain paragraph stays link-free");
     }
 
+    /// Blink keeps a following sibling's margin BELOW a cleared empty
+    /// spacer (measured five-case oracle: follower top = the float's
+    /// margin-box bottom + the follower's collapsed margin, whether the
+    /// margin is its own or escaped from a child). The static fold must
+    /// not hoist that margin through the spacer onto the container.
+    #[test]
+    fn margins_after_a_cleared_spacer_stay_below_the_clear_line() {
+        for (name, follow, expected) in [
+            (
+                "own margin",
+                r#"<div style="margin-top: 16px"><p>x</p></div>"#,
+                146.0,
+            ),
+            (
+                "child-escaped margin",
+                r#"<div><p style="margin-top: 3.2px">x</p></div>"#,
+                133.2,
+            ),
+        ] {
+            let chapter = resolved_chapter_with(
+                &format!(
+                    r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <div class="box">
+    <div class="fl"></div>
+    <div class="cb"></div>
+    {follow}
+  </div>
+</body></html>"#
+                ),
+                "body { margin: 0; } p { margin: 0; } .box { width: 320px; }                  .fl { float: left; width: 120px; height: 50px; margin: 40px 0; }                  .cb { clear: both; }
+",
+            );
+            let built = build_chapter_formatting_tree(
+                &chapter.nodes,
+                chapter.body_index,
+                &chapter.layout,
+                &chapter.inline,
+                &no_images(),
+            )
+            .expect("tree builds");
+            let engine = BlockFormattingContext::new(
+                ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+            );
+            let cancel = CancelFlag::new();
+            let outcome = engine
+                .layout(
+                    &built.tree,
+                    built.tree.root(),
+                    &ConstraintSpace::continuous(640.0),
+                    None,
+                    &cancel,
+                )
+                .expect("lays out");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("root box");
+            };
+            fn find_line_y(fragment: &Fragment, offset: f64) -> Option<f64> {
+                match fragment {
+                    Fragment::Box(node) => node
+                        .children
+                        .iter()
+                        .find_map(|child| find_line_y(child, offset + node.rect.y)),
+                    Fragment::Line(line) => Some(offset + line.rect.y),
+                    _ => None,
+                }
+            }
+            let line_y = find_line_y(&outcome.fragments.root, -root.rect.y)
+                .expect("the follower's line laid out");
+            assert!(
+                (line_y - expected).abs() < 0.1,
+                "{name}: the follower's line starts below the cleared float: {line_y} vs {expected}"
+            );
+        }
+    }
+
     /// #85 full replica with PERCENTAGE margins (the b60 title exactly:
     /// % margins are unfoldable, so the flow-root fold guard is not in
     /// play — this observes where the +13.4 line drift enters the
