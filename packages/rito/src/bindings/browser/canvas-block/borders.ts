@@ -110,10 +110,59 @@ function renderRoundedBorders(
     renderUniformRoundedBorder(ctx, borders.top, x, y, width, height, radiusX, radiusY);
     return;
   }
+  if (renderCrescentRoundedBorder(ctx, borders, x, y, width, height, radiusX, radiusY)) {
+    return;
+  }
   const geometry = resolveRoundedBorderGeometry(borders, x, y, width, height, radiusX, radiusY);
   for (const side of getBorderSides(borders, geometry)) {
     renderRoundedBorderSide(ctx, side, geometry);
   }
+}
+
+/**
+ * A rounded border whose four solid edges share one color but differ in
+ * width paints as the area between the outer rounded path and the inner
+ * (padding-box) rounded path — the browser's border model. The inner
+ * path is inset by each side's width, so the ring's thickness sweeps
+ * continuously around the arc (a 1px-left/4px-right circle renders a
+ * crescent, not four stroked quadrants with steps at the joins).
+ */
+function renderCrescentRoundedBorder(
+  ctx: CanvasRenderingContext2D,
+  borders: RenderBorders,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radiusX: number,
+  radiusY: number,
+): boolean {
+  const { top, right, bottom, left } = borders;
+  const edges = [top, right, bottom, left];
+  const color = top.color;
+  if (!edges.every((edge) => edge.style === 'solid' && edge.color === color)) return false;
+  const innerWidth = width - left.width - right.width;
+  const innerHeight = height - top.width - bottom.width;
+  if (innerWidth <= 0 || innerHeight <= 0) return false;
+  ctx.save();
+  try {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    traceBoxPathCCW(ctx, x, y, width, height, radiusX, radiusY);
+    traceBoxPathCCW(
+      ctx,
+      x + left.width,
+      y + top.width,
+      innerWidth,
+      innerHeight,
+      Math.max(0, radiusX - (left.width + right.width) / 2),
+      Math.max(0, radiusY - (top.width + bottom.width) / 2),
+    );
+    ctx.fill('evenodd');
+  } finally {
+    ctx.restore();
+  }
+  return true;
 }
 
 function renderUniformRoundedBorder(
