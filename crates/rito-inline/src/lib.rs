@@ -2641,7 +2641,104 @@ impl FormattingContext for ParleyInlineContext {
                                 let has_space = flow_text
                                     .get(run_range.clone())
                                     .is_some_and(|text| text.contains(' '));
-                                if !has_space {
+                                // A kern pair inside a CJK run (SourceHan
+                                // kana pairs) pulls the following clusters
+                                // off the 1/64 grid even at an INTEGER
+                                // font size; the browser still floors
+                                // every glyph's cumulative onto the grid,
+                                // while one whole-run canvas call
+                                // accumulates the float advances raw and
+                                // the glyphs after the pair raster one
+                                // device column away (measured: サダメ at
+                                // 16px, pair -0.8, second glyph +1px).
+                                // Splitting at the off-grid boundaries
+                                // re-anchors each stretch at floor64 of
+                                // its shaped position.
+                                // Ruby carriers keep their single run:
+                                // the annotation gap/center-shift fields
+                                // ride ONE fragment, and splitting the
+                                // base re-applied them per piece (b20's
+                                // name-pun ruby pages grew when the
+                                // split first landed unguarded).
+                                let run_has_ruby = match &tree.node(root).content {
+                                    FormattingNodeContent::InlineFlow { items } => items
+                                        .get(item_index)
+                                        .is_some_and(|item| {
+                                            matches!(
+                                                item,
+                                                InlineItem::Text {
+                                                    ruby_annotation: Some(_),
+                                                    ..
+                                                }
+                                            )
+                                        }),
+                                    _ => false,
+                                };
+                                let cjk_kern_splits: Vec<(usize, f64)> = if !has_space
+                                    && !run_has_ruby
+                                    && flow_text
+                                        .get(run_range.clone())
+                                        .is_some_and(|text| {
+                                            !text.is_empty()
+                                                && text.chars().all(|ch| {
+                                                    matches!(u32::from(ch),
+                                                        0x2E80..=0x9FFF
+                                                        | 0xF900..=0xFAFF
+                                                        | 0xFF00..=0xFFEF
+                                                        | 0x20000..=0x3FFFF)
+                                                })
+                                        }) {
+                                    let mut splits = Vec::new();
+                                    let mut cumulative = 0.0_f64;
+                                    let mut cluster = parley::layout::Cluster::from_byte_index(
+                                        &layout,
+                                        run_range.start,
+                                    );
+                                    while let Some(current) = cluster {
+                                        let byte = current.text_range().start;
+                                        if byte >= run_range.end {
+                                            break;
+                                        }
+                                        if byte > run_range.start {
+                                            let scaled = cumulative * 64.0;
+                                            if (scaled - scaled.round()).abs() > 1e-3 {
+                                                splits.push((byte, cumulative));
+                                            }
+                                        }
+                                        cumulative += f64::from(current.advance());
+                                        cluster = current.next_logical();
+                                    }
+                                    splits
+                                } else {
+                                    Vec::new()
+                                };
+                                if !has_space && !cjk_kern_splits.is_empty() {
+                                    let mut seg_start = run_range.start;
+                                    let mut seg_offset = 0.0_f64;
+                                    for (byte, cumulative) in cjk_kern_splits
+                                        .into_iter()
+                                        .chain(std::iter::once((
+                                            run_range.end,
+                                            f64::from(glyph_run.advance()),
+                                        )))
+                                    {
+                                        if byte > seg_start {
+                                            emit(
+                                                seg_start..byte,
+                                                run_x + seg_offset,
+                                                cumulative - seg_offset
+                                                    - if byte == run_range.end {
+                                                        box_shed
+                                                    } else {
+                                                        0.0
+                                                    },
+                                                0.0,
+                                            );
+                                            seg_start = byte;
+                                            seg_offset = cumulative;
+                                        }
+                                    }
+                                } else if !has_space {
                                     emit(
                                         run_range,
                                         run_x,
