@@ -1216,10 +1216,15 @@ impl ParleyInlineContext {
         // a latin word shaped with the CJK face's 0.232em space where
         // the browser uses the latin face's 0.25em, and the rest of the
         // line walked 0.27px apart. An inert-off font feature forces a
-        // CJK-adjacent space into its own shaping run, which then
-        // resolves against the stack head. Latin-neighbour spaces stay
-        // merged so cross-space kern pairs (Tinos `r A`) keep applying
-        // like the browser's.
+        // CJK-PRECEDED space into its own shaping run, which then
+        // resolves against the stack head. A space whose PRECEDING
+        // character is latin inherits the latin run already (stack-head
+        // face either way), and must stay merged so the word's trailing
+        // kern pair keeps applying — the browser kerns latin+space
+        // inside one segment (measured: Tinos A+space carries a -113
+        // GPOS pair, and the justified CJK line around `A 班` spread
+        // its shares from the kerned natural width; the split-both-ways
+        // rule inflated the natural 0.883px and every share with it).
         {
             let chars: Vec<(usize, char)> = text.char_indices().collect();
             for (position, (byte, character)) in chars.iter().enumerate() {
@@ -1230,10 +1235,7 @@ impl ParleyInlineContext {
                     .checked_sub(1)
                     .and_then(|index| chars.get(index))
                     .is_some_and(|(_, prev)| is_cjk_context(*prev));
-                let next_cjk = chars
-                    .get(position + 1)
-                    .is_some_and(|(_, next)| is_cjk_context(*next));
-                if prev_cjk || next_cjk {
+                if prev_cjk {
                     builder.push(
                         StyleProperty::FontFeatures(parley::FontFeatures::List(
                             std::borrow::Cow::Owned(vec![parley::FontFeature::new(
@@ -6837,6 +6839,78 @@ running through the quiet forest until the morning light returns.";
         assert!(!justify_expands_after('\u{2220}'), "angle stays non-expansive");
         assert!(!justify_expands_after('\u{2014}'), "em dash stays non-expansive");
         assert!(!justify_expands_after('\u{03B1}'), "Greek alpha stays non-expansive");
+    }
+
+    /// A space PRECEDED by a latin letter shapes inside the latin run,
+    /// so the word's trailing GPOS kern pair still applies (Tinos
+    /// A+space = -113/2048 em; the browser's per-character stack walk
+    /// puts the space on the head face and kerns it with the word). A
+    /// CJK-preceded space still breaks out to resolve on the stack head.
+    #[test]
+    fn a_latin_preceded_space_keeps_the_words_trailing_kern() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context =
+            ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let style_id = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Generic(
+                        rito_style_contract::GenericFontFamily::Serif,
+                    )])
+                    .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "上A 班".to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &ConstraintSpace::continuous(10_000.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        // 上 16 + A (1479 - 113 kern)/2048*16 + space 512/2048*16 + 班 16
+        let expected = 16.0 + 10.671875 + 4.0 + 16.0;
+        assert!(
+            (line.rect.width - expected).abs() < 0.01,
+            "the kerned natural width holds: {} vs {expected}",
+            line.rect.width
+        );
     }
 
     /// A justified line's paint cuts land AROUND a repeated-dash pair,
