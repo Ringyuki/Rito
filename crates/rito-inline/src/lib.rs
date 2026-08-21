@@ -3762,10 +3762,16 @@ impl FormattingContext for ParleyInlineContext {
         } else {
             f64::from(css_indent)
         };
-        let min_content = min_text + indent.max(0.0);
+        // The browser stores preferred widths as LayoutUnits, CEILING the
+        // shaped float sum onto the 1/64 grid (measured: a lone '1' cell
+        // measures 21.4921875 shaped but sizes its table column 21.5, and
+        // the half-pixel landed the neighbouring image cell on the other
+        // side of a whole-pixel snap).
+        let ceil64 = |value: f64| (value * 64.0).ceil() / 64.0;
+        let min_content = ceil64(min_text + indent.max(0.0));
         Ok(IntrinsicInlineSizes {
             min_content,
-            max_content: (max_text + indent).max(min_content),
+            max_content: ceil64(max_text + indent).max(min_content),
         })
     }
 }
