@@ -6439,6 +6439,142 @@ single line across page boundaries.";
         );
     }
 
+    /// The b51 title idiom: a float whose inner paragraphs carry their
+    /// own margins, an empty clearing spacer, then a margined block. The
+    /// cleared spacer's top is the float's margin-box bottom, and the
+    /// following block keeps its whole margin below that line.
+    #[test]
+    fn a_margined_block_after_a_cleared_spacer_keeps_its_full_margin() {
+        let context = BlockFormattingContext::new(FixedLineInline);
+        let mut inline = InlineStyleTableV1::new(1);
+        let text_style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
+        float_style.float = FloatV1::Left;
+        let mut spacer_style = block_style(margin_px(0.0), margin_px(0.0));
+        spacer_style.clear = ClearV1::Both;
+        let layout = layout_table_with(8, |index| match index {
+            0 => block_style(margin_px(0.0), margin_px(0.0)),
+            1 => block_style(margin_px(-4.0), margin_px(0.0)),
+            2 => block_style(margin_px(6.0), margin_px(0.0)),
+            3 => float_style.clone(),
+            4 => spacer_style.clone(),
+            5 => {
+                let mut badge = block_style(margin_px(16.0), margin_px(16.0));
+                badge.margin.left = LengthPercentageOrAuto::Auto;
+                badge.margin.right = LengthPercentageOrAuto::Auto;
+                badge.width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+                    LengthPercentage::Length(CssPx::new(67.2).expect("finite")),
+                ));
+                badge.height = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+                    LengthPercentage::Length(CssPx::new(67.2).expect("finite")),
+                ));
+                badge.overflow = OverflowV1::Hidden;
+                badge
+            }
+            _ => block_style(margin_px(0.0), margin_px(0.0)),
+        });
+        let paragraph = |node_index: usize| FormattingNode {
+            style: node_style_id(&layout, node_index),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: "line".to_owned(),
+                    style: text_style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        };
+        let nodes = vec![
+            paragraph(0),
+            paragraph(1),
+            paragraph(2),
+            FormattingNode {
+                style: node_style_id(&layout, 3),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![
+                    FormattingNodeId(0),
+                    FormattingNodeId(1),
+                    FormattingNodeId(2),
+                ],
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 4),
+                content: FormattingNodeContent::InlineFlow { items: Vec::new() },
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: node_style_id(&layout, 5),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(6)],
+            },
+            paragraph(6),
+            FormattingNode {
+                style: node_style_id(&layout, 7),
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![
+                    FormattingNodeId(3),
+                    FormattingNodeId(4),
+                    FormattingNodeId(5),
+                ],
+            },
+        ];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(7),
+            FormattingTreeStyles { layout, inline },
+        )
+        .expect("tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root fragment is a box");
+        };
+        // Float content: 10 + (-4 + 10) + (6 + 10) = 32.
+        let float_bottom = 32.0;
+        let block = root
+            .children
+            .iter()
+            .filter_map(|fragment| match fragment {
+                Fragment::Box(node) => Some(node),
+                _ => None,
+            })
+            .find(|node| node.source == FormattingNodeId(5))
+            .map(|node| node.rect.y);
+        let line = root
+            .children
+            .iter()
+            .filter_map(|fragment| match fragment {
+                Fragment::Line(fragment) => Some(fragment),
+                _ => None,
+            })
+            .find(|fragment| fragment.source == FormattingNodeId(5))
+            .map(|fragment| fragment.rect.y);
+        let top = block.or(line).expect("the margined block laid out");
+        assert!(
+            (top - (float_bottom + 16.0)).abs() < 0.01,
+            "the block after the cleared spacer keeps its full margin: {top} vs {}",
+            float_bottom + 16.0
+        );
+    }
+
     /// A float's hypothetical flow position sits below the margin chain
     /// of everything before it — including the margins of a `clear:both`
     /// paragraph that had nothing to clear (the title-page idiom: content,

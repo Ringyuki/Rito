@@ -21,6 +21,21 @@ struct ProbeReport {
     content_height: f64,
     tree_fingerprint: String,
     lines: Vec<ProbeLine>,
+    /// Every box fragment's absolute rect, for float/clearance forensics.
+    blocks: Vec<ProbeBlock>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProbeBlock {
+    page: u32,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    source: u32,
+    margin_top: String,
+    clear: String,
 }
 
 #[derive(Serialize)]
@@ -70,6 +85,7 @@ impl RuntimeDocument {
         let cancel = CancelFlag::new();
         let mut token = None;
         let mut lines = Vec::new();
+        let mut blocks = Vec::new();
         let mut page = 0u32;
         loop {
             let outcome = engine
@@ -79,9 +95,14 @@ impl RuntimeDocument {
                     EpubError::new(format!("probe pagination failed on page {page}: {error:?}"))
                 })?;
             let start = lines.len();
+            let block_start = blocks.len();
             collect_probe_lines(&outcome.fragments.root, &built, 0.0, 0.0, &mut lines);
+            collect_probe_blocks(&outcome.fragments.root, &built, 0.0, 0.0, &mut blocks);
             for line in &mut lines[start..] {
                 line.page = page;
+            }
+            for block in &mut blocks[block_start..] {
+                block.page = page;
             }
             page += 1;
             if page > 2000 {
@@ -97,9 +118,47 @@ impl RuntimeDocument {
             content_height,
             tree_fingerprint: format!("{:016x}", built.tree.fingerprint()),
             lines,
+            blocks,
         };
         serde_json::to_string(&report)
             .map_err(|error| EpubError::new(format!("probe report encodes: {error}")))
+    }
+}
+
+fn collect_probe_blocks(
+    fragment: &Fragment,
+    built: &ChapterFormattingTree,
+    x_offset: f64,
+    y_offset: f64,
+    blocks: &mut Vec<ProbeBlock>,
+) {
+    if let Fragment::Box(inner) = fragment {
+        let style = built
+            .tree
+            .styles()
+            .and_then(|styles| {
+                styles
+                    .layout
+                    .style(built.tree.node(inner.source).style)
+                    .ok()
+            });
+        blocks.push(ProbeBlock {
+            page: 0,
+            x: x_offset + inner.rect.x,
+            y: y_offset + inner.rect.y,
+            width: inner.rect.width,
+            height: inner.rect.height,
+            source: inner.source.0,
+            margin_top: style
+                .map(|resolved| format!("{:?}", resolved.margin.top))
+                .unwrap_or_default(),
+            clear: style
+                .map(|resolved| format!("{:?}", resolved.clear))
+                .unwrap_or_default(),
+        });
+        for child in &inner.children {
+            collect_probe_blocks(child, built, x_offset + inner.rect.x, y_offset + inner.rect.y, blocks);
+        }
     }
 }
 
