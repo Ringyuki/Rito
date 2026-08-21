@@ -44,6 +44,8 @@ export function validateRunPaint(value, path) {
   validateOptionalField(paint, 'padding', path, validateSpacing);
   validateOptionalField(paint, 'border', path, validateRunBorder);
   validateOptionalField(paint, 'box', path, validateRunBox);
+  validateOptionalField(paint, 'boxStart', path, expectBoolean);
+  validateOptionalField(paint, 'boxEnd', path, expectBoolean);
 }
 
 export function validateHorizontalRulePaint(value, path) {

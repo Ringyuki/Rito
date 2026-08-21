@@ -43,6 +43,14 @@ impl RunPaint {
             "border",
             self.data.border.as_ref().map(border_value),
         );
+        // Emitted only when false: a run that does not open/close its
+        // inline box; absent flags read as an unsplit box.
+        if !self.data.box_edges.0 {
+            output.insert("boxStart".to_owned(), Value::Bool(false));
+        }
+        if !self.data.box_edges.1 {
+            output.insert("boxEnd".to_owned(), Value::Bool(false));
+        }
         insert_optional_value(
             &mut output,
             "box",

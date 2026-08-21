@@ -951,6 +951,7 @@ fn run_paint(
         padding: run_box_padding(style, box_start, box_end),
         border: run_box_border(style, box_start, box_end)?,
         box_offsets: None,
+        box_edges: (box_start, box_end),
     }))
 }
 

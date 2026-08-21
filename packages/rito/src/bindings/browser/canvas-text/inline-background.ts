@@ -16,7 +16,13 @@ export function drawInlineBackground(
   try {
     ctx.fillStyle = color;
     if (radius > 0) {
-      traceInlineRoundedRect(ctx, rect, radius);
+      traceInlineRoundedRect(
+        ctx,
+        rect,
+        radius,
+        fragment.paint.boxStart !== false,
+        fragment.paint.boxEnd !== false,
+      );
       ctx.fill();
     } else {
       ctx.fillRect(rect.x, rect.y, rect.width, rect.height);

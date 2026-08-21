@@ -22,6 +22,7 @@ impl RunPaint {
             padding: object.get("padding").and_then(test_spacing),
             border: object.get("border").and_then(test_border),
             box_offsets: None,
+            box_edges: (true, true),
         })
     }
 }

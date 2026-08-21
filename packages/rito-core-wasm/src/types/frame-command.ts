@@ -232,6 +232,11 @@ export interface RitoCoreWasmRunPaint {
    * device rows; the painter uses these instead of deriving the box
    * from font metrics. */
   readonly box?: RitoCoreWasmRunBox;
+  /** False when this run does not OPEN its inline box (the box began in
+   * an earlier run of the same line); absent reads true. */
+  readonly boxStart?: boolean;
+  /** False when this run does not CLOSE its inline box. */
+  readonly boxEnd?: boolean;
 }
 
 export interface RitoCoreWasmRunBox {

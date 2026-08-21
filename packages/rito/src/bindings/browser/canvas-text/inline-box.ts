@@ -72,13 +72,21 @@ export function traceInlineRoundedRect(
   ctx: CanvasRenderingContext2D,
   { x, y, width, height }: InlineBoxRect,
   radius: number,
+  roundStart = true,
+  roundEnd = true,
 ): void {
+  // An inline box split across shaping runs paints one continuous
+  // background: only the opening segment rounds its left corners and
+  // only the closing one its right corners (per-segment rounding drew
+  // b51's pill badges as overlapping circles with white seams).
   const resolvedRadius = Math.min(radius, width / 2, height / 2);
+  const startRadius = roundStart ? resolvedRadius : 0;
+  const endRadius = roundEnd ? resolvedRadius : 0;
   ctx.beginPath();
-  ctx.moveTo(x + resolvedRadius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, resolvedRadius);
-  ctx.arcTo(x + width, y + height, x, y + height, resolvedRadius);
-  ctx.arcTo(x, y + height, x, y, resolvedRadius);
-  ctx.arcTo(x, y, x + width, y, resolvedRadius);
+  ctx.moveTo(x + startRadius, y);
+  ctx.arcTo(x + width, y, x + width, y + height, endRadius);
+  ctx.arcTo(x + width, y + height, x, y + height, endRadius);
+  ctx.arcTo(x, y + height, x, y, startRadius);
+  ctx.arcTo(x, y, x + width, y, startRadius);
   ctx.closePath();
 }

@@ -209,6 +209,7 @@ pub(crate) fn run_paint_from_style(
         padding: run_padding_from_style(style),
         border: run_border_from_style(style, is_start, is_end),
         box_offsets: None,
+        box_edges: (true, true),
     })
 }
 

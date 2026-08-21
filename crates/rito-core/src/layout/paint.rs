@@ -27,6 +27,12 @@ pub(crate) struct RunPaintData {
     /// uses these instead of growing the box from font metrics, so the
     /// box lands on the exact device rows the layout side rounded to.
     pub(crate) box_offsets: Option<(f64, f64)>,
+    /// Whether this run opens/closes its inline box. An inline box split
+    /// across several shaping runs paints ONE continuous background: only
+    /// the opening run rounds its left corners and only the closing run
+    /// its right ones (per-segment rounding drew b51's pill badges as
+    /// overlapping circles with white seams).
+    pub(crate) box_edges: (bool, bool),
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -242,6 +248,7 @@ impl RunPaint {
             padding: None,
             border: None,
             box_offsets: None,
+            box_edges: (true, true),
         })
     }
 
@@ -269,6 +276,7 @@ impl Default for RunPaintData {
             padding: None,
             border: None,
             box_offsets: None,
+            box_edges: (true, true),
         }
     }
 }
