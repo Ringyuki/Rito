@@ -2116,10 +2116,17 @@ impl FormattingContext for ParleyInlineContext {
             // ideographic space slips through and shifted b52's centered
             // title left by half its run. The uncovered hang is the
             // Unicode-whitespace tail minus what parley already excluded.
-            let hang_uncovered = {
+            let (hang_uncovered, trailing_nbsp_kept) = {
                 let range = line.text_range();
                 let content = flow_text.get(range.clone()).unwrap_or_default();
                 let mut hang = 0.0_f64;
+                // A trailing U+00A0 is NOT hangable white space: the
+                // browser keeps its advance inside the aligned line
+                // (b11's right-aligned link ends with two of them and
+                // sits their width in from the edge), while parley's
+                // trailing-whitespace class drops it — the kept sum
+                // pulls the aligned start back.
+                let mut nbsp_kept = 0.0_f64;
                 let mut byte = range.end;
                 for character in content.chars().rev() {
                     if !character.is_whitespace() {
@@ -2130,9 +2137,12 @@ impl FormattingContext for ParleyInlineContext {
                         parley::layout::Cluster::from_byte_index(&layout, byte)
                     {
                         hang += f64::from(cluster.advance());
+                        if character == '\u{a0}' {
+                            nbsp_kept += f64::from(cluster.advance());
+                        }
                     }
                 }
-                (hang - f64::from(metrics.trailing_whitespace)).max(0.0)
+                ((hang - f64::from(metrics.trailing_whitespace)).max(0.0), nbsp_kept)
             };
             // A span opening this forced-break line indents it by its box
             // lead (margins/padding/border of a post-<br/> span land on
@@ -2171,8 +2181,10 @@ impl FormattingContext for ParleyInlineContext {
             let line_x = parley_line_x - alignment_epsilon
                 + forced_indent
                 + match alignment {
-                    parley::Alignment::Center => hang_uncovered / 2.0,
-                    parley::Alignment::End | parley::Alignment::Right => hang_uncovered,
+                    parley::Alignment::Center => (hang_uncovered - trailing_nbsp_kept) / 2.0,
+                    parley::Alignment::End | parley::Alignment::Right => {
+                        hang_uncovered - trailing_nbsp_kept
+                    }
                     _ => 0.0,
                 };
             // A justified line spreads its slack equally across Blink's
