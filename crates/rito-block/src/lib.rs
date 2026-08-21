@@ -703,7 +703,14 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 .clamp(0.0, hbox.content_width);
                             let right = (child_right - (content_width - band.right_inset))
                                 .clamp(0.0, hbox.content_width);
-                            let bottom = band.bottom - paragraph_top;
+                            // `band_at` already re-bases the bottom to
+                            // the queried flow position; subtracting the
+                            // paragraph top AGAIN turned the extent
+                            // negative for any paragraph deep in the flow
+                            // (a negative-margin-raised line back inside
+                            // a float's band lost its avoidance and hit
+                            // the container edge).
+                            let bottom = band.bottom;
                             (bottom > 1e-6 && (left > 0.0 || right > 0.0)).then_some(
                                 rito_fragment::FloatBand {
                                     left_inset: left,

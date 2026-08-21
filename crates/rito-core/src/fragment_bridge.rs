@@ -3830,6 +3830,89 @@ p { margin: 8px 0; }\n\
         );
     }
 
+    /// A right-aligned line pulled UP by a negative margin into a right
+    /// float's band must still avoid the float: the browser aligns it to
+    /// the float's left edge whenever the line's top overlaps the band
+    /// (measured on the b126 title: the raised triangle sits at float
+    /// left 111.67 - advance, not at the container's right edge).
+    #[test]
+    fn a_negative_margin_raised_line_avoids_the_float_band() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<div class="tbox2">
+  <div class="fr tbox3">
+    <p class="em04 pad-first">Youkoso</p>
+    <p class="em04 pad">Jitsuryoku</p>
+    <p class="em04 pad">Shijoushugi</p>
+    <p class="em04 pad">Nokyoushitsue</p>
+  </div>
+  <p class="em12 up1">欢迎来到</p>
+  <p class="em06 down">▼</p>
+  <p class="em25">实力</p>
+  <p class="em215 up2">至上主义</p>
+  <p class="em16 right lift">中</p>
+</div>
+</body></html>"#,
+            "body { margin: 0; padding: 0; font-size: 16px; } p { margin: 0; line-height: 1em; text-indent: 0; } .fr { float: right; margin: -4.8px 1.6px 0 0; } .tbox2 { width: 138.88px; border: 1.76px solid #000000; padding: 8.8px 11.2px; } .tbox3 { } .em04 { font-size: 6.4px; } .pad-first { margin: 8.32px 0 0 7.04px; } .pad { margin: 3.2px 0 0 7.04px; } .em06 { font-size: 9.6px; } .em12 { font-size: 19.2px; font-weight: bold; } .em16 { font-size: 25.6px; } .em25 { font-size: 40px; } .em215 { font-size: 34.4px; } .right { text-align: right; } .up1 { margin: -1.92px 0 0 0.96px; } .down { margin: 0 0 -5.76px 64px; } .up2 { margin: 1.72px 0 0 0; } .lift { margin: -60px 2.56px 0 0; }\n",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let engine = BlockFormattingContext::new(
+            ParleyInlineContext::new(vec![tinos_bytes(), source_han_test_bytes()])
+                .expect("fonts register"),
+        );
+        let cancel = CancelFlag::new();
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(200.0),
+                None,
+                &cancel,
+            )
+            .expect("lays out");
+        fn find_text_x(fragment: &Fragment, off_x: f64, off_y: f64, out: &mut Vec<(f64, f64)>) {
+            match fragment {
+                Fragment::Box(node) => {
+                    for child in &node.children {
+                        find_text_x(child, off_x + node.rect.x, off_y + node.rect.y, out);
+                    }
+                }
+                Fragment::Line(line) => {
+                    for child in &line.children {
+                        if let Fragment::Text(run) = child {
+                            out.push((
+                                off_x + line.rect.x + run.rect.x,
+                                off_y + line.rect.y,
+                            ));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut xs = Vec::new();
+        find_text_x(&outcome.fragments.root, 0.0, 0.0, &mut xs);
+        // Mirror of the b126 title (pinned truth): the raised right-
+        // aligned glyph aligns to the float's left edge, never the
+        // container's right edge (truth x 86.06 vs the defect's 143.7).
+        // The lifted paragraph is the LAST laid-out line (y ~47, inside
+        // the float band): right-aligned to the float's left edge, its
+        // glyph starts at content-left 12.96 + (91.83 - 25.6) = 78.4 —
+        // the defect put it at the container's right edge (122.9).
+        let (x, _) = xs.last().copied().expect("the lifted line lays out");
+        assert!(
+            (x - 78.4).abs() < 0.6,
+            "the raised right-aligned glyph stops at the float's left edge: {x}"
+        );
+    }
+
     #[test]
     fn a_collapsed_table_marks_its_horizontal_edges_for_segmentation() {
         let chapter = resolved_chapter_with(
