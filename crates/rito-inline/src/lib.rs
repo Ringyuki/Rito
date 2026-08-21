@@ -3658,9 +3658,19 @@ impl FormattingContext for ParleyInlineContext {
                                     matches!(item, InlineItem::Image { align_top: true, .. })
                                 });
                             image.rect.y = if align_top {
-                                // `vertical-align: top` pins to the line
-                                // box top, outside the shift chain.
-                                0.0
+                                // `vertical-align: top` aligns to the line
+                                // box top as if nothing were shifted, but
+                                // an enclosing super/sub chain still
+                                // displaces the box afterwards — the
+                                // browser aligns the pending box from its
+                                // unshifted metrics and the ancestor's
+                                // baseline shift has already moved the
+                                // fragment (measured: a footnote badge
+                                // inside a 16px paragraph's <sup> inks its
+                                // top 6.328125px ABOVE the line box top =
+                                // trunc64(16/3) + 1, line-height
+                                // independent).
+                                -shift
                             } else {
                                 baseline - shift - image.rect.height
                             };
@@ -7036,6 +7046,168 @@ running through the quiet forest until the morning light returns.";
         assert!(
             (adjacent - 45.6).abs() < 0.05,
             "adjacent ruby bases each shape alone: {adjacent}"
+        );
+    }
+
+    /// A top-aligned image inside a super-shifted chain aligns to the
+    /// line box top from its UNSHIFTED metrics and is then displaced by
+    /// the ancestor's baseline shift — its ink overflows ABOVE the line
+    /// box (measured on a 16px paragraph's footnote badge in <sup>:
+    /// image top = line top − (trunc64(16/3) + 1) = −6.328125,
+    /// line-height independent; with no shift chain the top-aligned
+    /// image hugs the line top exactly).
+    #[test]
+    fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
+        use rito_style_contract::{
+            AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
+            LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
+            LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1,
+            MinimumHeightV1, OverflowV1, PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        };
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let image_y = |shift_px: f64| {
+            let mut inline = InlineStyleTableV1::new(1);
+            let style = inline
+                .intern_for_node(
+                    0,
+                    plain_paragraph_style(
+                        FontFamilies::new(vec![FontFamily::Generic(
+                            rito_style_contract::GenericFontFamily::Serif,
+                        )])
+                        .expect("family list"),
+                        16.0,
+                        0.0,
+                    ),
+                )
+                .expect("style interns");
+            let mut layout = LayoutStyleTableV1::new(1);
+            let auto = LengthPercentageOrAuto::Auto;
+            let zero_padding = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+                CssPx::new(0.0).expect("zero"),
+            ));
+            let image_layout = layout
+                .intern_for_node(
+                    0,
+                    LayoutFormattingStyleV1 {
+                        display: LayoutDisplayV1 {
+                            outside: LayoutDisplayOutsideV1::Inline,
+                            inside: LayoutDisplayInsideV1::Flow,
+                            is_list_item: false,
+                        },
+                        margin: PhysicalSides {
+                            top: auto,
+                            right: auto,
+                            bottom: auto,
+                            left: auto,
+                        },
+                        padding: PhysicalSides {
+                            top: zero_padding,
+                            right: zero_padding,
+                            bottom: zero_padding,
+                            left: zero_padding,
+                        },
+                        box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
+                        justify_content: JustifyContentV1::Normal,
+                        align_items: AlignItemsV1::Normal,
+                        break_before: PageBreakV1::Auto,
+                        break_after: PageBreakV1::Auto,
+                        width: PreferredSizeV1::Auto,
+                        height: PreferredSizeV1::Auto,
+                        max_width: MaximumSizeV1::None,
+                        min_height: MinimumHeightV1::Auto,
+                        max_height: MaximumHeightV1::None,
+                        clear: ClearV1::None,
+                        float: FloatV1::None,
+                        overflow: OverflowV1::Visible,
+                        list_style_type: ListMarkerStyleV1::None,
+                        position: PositionV1::Static,
+                        inset: PhysicalSides {
+                            top: auto,
+                            right: auto,
+                            bottom: auto,
+                            left: auto,
+                        },
+                        vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+                        border_spacing: (
+                            rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                            rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
+                        ),
+                    },
+                )
+                .expect("layout style interns");
+            let items = vec![
+                InlineItem::Text {
+                    text: "彭彭彭".to_owned(),
+                    style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                },
+                InlineItem::Image {
+                    source: 0,
+                    src: "images/note.png".to_owned(),
+                    intrinsic_width: 14.390625,
+                    intrinsic_height: 14.390625,
+                    style,
+                    layout_style: image_layout,
+                    fit_contain: false,
+                    viewport: None,
+                    baseline_shift_px: shift_px,
+                    align_top: true,
+                },
+                InlineItem::Text {
+                    text: "的彭彭".to_owned(),
+                    style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                },
+            ];
+            let tree = FormattingTree::with_styles(
+                vec![FormattingNode {
+                    style: rito_style_contract::LayoutStyleId::from_raw(0),
+                    content: FormattingNodeContent::InlineFlow { items },
+                    children: Vec::new(),
+                }],
+                FormattingNodeId(0),
+                rito_fragment::FormattingTreeStyles { layout, inline },
+            )
+            .expect("inline tree builds");
+            let outcome = context
+                .layout(
+                    &tree,
+                    FormattingNodeId(0),
+                    &ConstraintSpace::continuous(10_000.0),
+                    None,
+                    &CancelFlag::new(),
+                )
+                .expect("layout succeeds");
+            let Fragment::Box(root) = &outcome.fragments.root else {
+                panic!("inline outcome root is a box fragment");
+            };
+            let Fragment::Line(line) = &root.children[0] else {
+                panic!("first child is a line");
+            };
+            line.children
+                .iter()
+                .find_map(|child| match child {
+                    Fragment::Image(image) => Some(image.rect.y),
+                    _ => None,
+                })
+                .expect("line carries the image")
+        };
+        let unshifted = image_y(0.0);
+        assert!(
+            unshifted.abs() < 1e-6,
+            "with no shift chain the top-aligned image hugs the line top: {unshifted}"
+        );
+        let raised = image_y(6.328125);
+        assert!(
+            (raised - (-6.328125)).abs() < 1e-6,
+            "the super chain displaces the top-aligned image above the line: {raised}"
         );
     }
 
