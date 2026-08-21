@@ -2019,6 +2019,7 @@ fn block_box_paint(
             c::BorderStyle::Solid => "solid",
             c::BorderStyle::Dashed => "dashed",
             c::BorderStyle::Dotted => "dotted",
+            c::BorderStyle::Double => "double",
             c::BorderStyle::Ridge | c::BorderStyle::Groove
                 if two_tone_halves(&color, edge.style, index).is_some() =>
             {
@@ -3786,7 +3787,10 @@ p { margin: 8px 0; }\n\
     }
 
     #[test]
-    fn exotic_border_styles_degrade_to_solid() {
+    fn double_border_style_reaches_the_painter() {
+        // Two 1px lines with a 1px gap at `medium` — the painter renders
+        // the pair itself, so the bridge must pass the style through
+        // (mapped to solid, b51's message frame filled the gap row).
         let chapter = resolved_chapter_with(
             r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
   <div class="frame"><p>text</p></div>
@@ -3800,18 +3804,18 @@ p { margin: 8px 0; }\n\
             &chapter.inline,
             &no_images(),
         )
-        .expect("double borders draw solid");
+        .expect("double borders build");
         let root = built.tree.node(built.tree.root());
         let Some(NodePaint::Box { paint, .. }) = built.node_paints.get(&root.children[0].0) else {
             panic!("the frame still paints its border");
         };
-        assert_eq!(paint["border"]["top"]["style"], "solid");
+        assert_eq!(paint["border"]["top"]["style"], "double");
         assert!(
-            built
+            !built
                 .degradations
                 .iter()
                 .any(|reason| reason.contains("drawn solid")),
-            "the approximation is recorded: {:?}",
+            "no approximation recorded: {:?}",
             built.degradations
         );
     }

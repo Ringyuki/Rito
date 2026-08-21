@@ -11,7 +11,7 @@ import {
   validateSpacing,
 } from './frame-command-buffer-value-validation.js';
 
-const BORDER_STYLES = ['solid', 'dotted', 'dashed'];
+const BORDER_STYLES = ['solid', 'dotted', 'dashed', 'double'];
 
 export function validatePagePaint(value, path) {
   const paint = expectObject(value, path);
