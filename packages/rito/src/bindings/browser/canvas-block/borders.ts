@@ -96,6 +96,16 @@ function renderRoundedBorders(
   radiusY: number,
 ): void {
   if (!hasVisibleBorder(borders)) return;
+  // The rounded border box rasters on whole device pixels like the
+  // straight one — each edge rounds independently (measured on b2's
+  // message frame: a 1px top border at y 71.6 paints row 72 crisp in
+  // the browser; the raw fractional stroke split 40/60 across two rows).
+  const right0 = Math.round(x + width);
+  const bottom0 = Math.round(y + height);
+  x = Math.round(x);
+  y = Math.round(y);
+  width = right0 - x;
+  height = bottom0 - y;
   if (bordersAreUniform(borders)) {
     renderUniformRoundedBorder(ctx, borders.top, x, y, width, height, radiusX, radiusY);
     return;

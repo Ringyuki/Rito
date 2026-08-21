@@ -49,13 +49,23 @@ function fillBackgroundColor(
   { rx, ry, corners }: CanvasBlockResolvedRadius,
 ): void {
   ctx.fillStyle = color;
+  // Rounded fills snap like plain ones: the browser rasters the rounded
+  // border box on whole device pixels, each edge rounding independently
+  // (measured on b2's message frame and b12's chat bubbles — raw
+  // fractional fills smeared every box edge one AA row).
+  const snappedRight = Math.round(rect.x + rect.width);
+  const snappedBottom = Math.round(rect.y + rect.height);
+  const snappedLeft = Math.round(rect.x);
+  const snappedTop = Math.round(rect.y);
+  const snappedWidth = snappedRight - snappedLeft;
+  const snappedHeight = snappedBottom - snappedTop;
   if (corners) {
-    traceCornerRoundedRect(ctx, rect.x, rect.y, rect.width, rect.height, corners);
+    traceCornerRoundedRect(ctx, snappedLeft, snappedTop, snappedWidth, snappedHeight, corners);
     ctx.fill();
     return;
   }
   if (rx > 0 || ry > 0) {
-    traceRoundedRect(ctx, rect.x, rect.y, rect.width, rect.height, rx, ry);
+    traceRoundedRect(ctx, snappedLeft, snappedTop, snappedWidth, snappedHeight, rx, ry);
     ctx.fill();
     return;
   }
