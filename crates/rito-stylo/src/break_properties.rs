@@ -260,6 +260,18 @@ fn ruby_align_value_accepted(css: &str, name_end: usize) -> bool {
 /// otherwise `border-spacing`'s one or two lengths apply horizontally and
 /// vertically. Values that are not plain pixel lengths resolve to zero,
 /// the CSS initial.
+/// Whether the box computes `border-collapse: collapse` (read through the
+/// same registered custom-property channel as the spacing).
+pub(crate) fn project_border_collapse(styles: &ComputedValues) -> bool {
+    let custom = styles.custom_properties();
+    custom
+        .inherited
+        .get(&Atom::from(BORDER_COLLAPSE_ATOM_NAME))
+        .or_else(|| custom.non_inherited.get(&Atom::from(BORDER_COLLAPSE_ATOM_NAME)))
+        .map(|value| value.to_css_string())
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("collapse"))
+}
+
 pub(crate) fn project_border_spacing(styles: &ComputedValues) -> (f32, f32) {
     let custom = styles.custom_properties();
     let read = |name: &str| -> Option<String> {

@@ -148,6 +148,12 @@ pub enum NodePaint {
         /// content) with the opposite tone. Keyed by edge index in
         /// border-box order (0 top, 1 right, 2 bottom, 3 left).
         bevels: Vec<(usize, String)>,
+        /// A collapsed table's dashed/dotted horizontal edges paint per
+        /// CELL segment (the collapsed border belongs to the cells and
+        /// the dash phase restarts at each cell edge); the painter
+        /// splits such an edge into per-cell rules instead of one
+        /// full-width stroke.
+        segment_horizontal_edges: bool,
     },
 }
 
@@ -1426,6 +1432,11 @@ impl TreeBuilder<'_> {
         style: LayoutStyleId,
     ) -> EpubResult<Option<FormattingNodeId>> {
         let tag = element.tag.clone();
+        let collapsed = self
+            .layout
+            .style(style)
+            .map(|resolved| resolved.border_collapse)
+            .unwrap_or(false);
         let plan = self.block_box_paint_plan(source_index, &tag)?;
         let (style, decoration) = match plan {
             Some((paint, widths)) if widths.iter().any(|width| *width > 0.0) => (
@@ -1457,7 +1468,14 @@ impl TreeBuilder<'_> {
             self.node_anchors.insert(id.0, anchor);
         }
         self.node_tags.insert(id.0, tag);
-        if let Some(paint) = decoration {
+        if let Some(mut paint) = decoration {
+            if let NodePaint::Box {
+                segment_horizontal_edges,
+                ..
+            } = &mut paint
+            {
+                *segment_horizontal_edges = collapsed;
+            }
             self.node_paints.insert(id.0, paint);
         }
         Ok(Some(id))
@@ -2214,6 +2232,7 @@ fn block_box_paint(
                 border_box,
                 transform,
                 bevels,
+                segment_horizontal_edges: false,
             },
             widths,
         )),
@@ -3377,6 +3396,7 @@ fn anonymous_block_style() -> LayoutFormattingStyleV1 {
             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
         ),
+        border_collapse: false,
     }
 }
 
@@ -3807,6 +3827,41 @@ p { margin: 8px 0; }\n\
         assert_eq!(
             border_box.as_ref().expect("borders carry a border box")["topWidth"],
             2.0
+        );
+    }
+
+    #[test]
+    fn a_collapsed_table_marks_its_horizontal_edges_for_segmentation() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <table class="bc"><tr><td>A</td><td>B</td></tr></table>
+  <table class="sep"><tr><td>A</td><td>B</td></tr></table>
+</body></html>"#,
+            ".bc { border-collapse: collapse; border-bottom: dotted 3px #ED0286; }\n.sep { border-bottom: dotted 3px #ED0286; }\n",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tables build");
+        let root = built.tree.node(built.tree.root());
+        let mut flags = Vec::new();
+        for child in &root.children {
+            if let Some(NodePaint::Box {
+                segment_horizontal_edges,
+                ..
+            }) = built.node_paints.get(&child.0)
+            {
+                flags.push(*segment_horizontal_edges);
+            }
+        }
+        assert_eq!(
+            flags,
+            vec![true, false],
+            "only the collapsed table segments its horizontal edges"
         );
     }
 

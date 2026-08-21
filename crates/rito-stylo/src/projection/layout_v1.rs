@@ -212,6 +212,7 @@ fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingSty
                 non_negative_px(vertical),
             )
         },
+        border_collapse: crate::break_properties::project_border_collapse(styles),
         margin: margin(styles)?,
         padding: padding(styles)?,
         box_sizing: box_sizing(styles),

@@ -203,6 +203,11 @@ pub struct LayoutFormattingStyleV1 {
     /// accounting for `border-collapse`: a collapsed table reports zero.
     /// Inherited like its CSS source, and meaningful only on a table box.
     pub border_spacing: (NonNegativeCssPx, NonNegativeCssPx),
+    /// `border-collapse: collapse` on a table box. A collapsed table's
+    /// edge borders belong to its cells, so a dashed or dotted edge
+    /// paints per cell segment with the pattern phase restarting at
+    /// each cell's edge. Inherited like its CSS source.
+    pub border_collapse: bool,
 }
 
 /// How a table cell aligns its content box within the row box.

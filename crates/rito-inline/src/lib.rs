@@ -6493,6 +6493,7 @@ running through the quiet forest until the morning light returns.";
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
+            border_collapse: false,
         };
         let (width, height) = image_display_size(
             705.0,
@@ -7396,6 +7397,7 @@ running through the quiet forest until the morning light returns.";
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         ),
+            border_collapse: false,
                     },
                 )
                 .expect("layout style interns");
@@ -7558,6 +7560,7 @@ running through the quiet forest until the morning light returns.";
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         ),
+            border_collapse: false,
                     },
                 )
                 .expect("layout style interns");
@@ -8112,6 +8115,7 @@ running through the quiet forest until the morning light returns.";
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
+            border_collapse: false,
                 },
             )
             .expect("layout style interns");
@@ -9130,6 +9134,7 @@ running through the quiet forest until the morning light returns.";
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
+            border_collapse: false,
                 },
             )
             .expect("layout style interns");
@@ -9267,6 +9272,7 @@ running through the quiet forest until the morning light returns.";
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
+            border_collapse: false,
                 },
             )
             .expect("layout style interns");

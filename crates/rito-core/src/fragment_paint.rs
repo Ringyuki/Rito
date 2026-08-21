@@ -261,8 +261,31 @@ fn append_fragment_display_commands_inner(
                         paint,
                         border_box,
                         bevels,
+                        segment_horizontal_edges,
                         ..
                     } => {
+                        // A collapsed table's dashed/dotted horizontal
+                        // edge belongs to its cells: the dash phase
+                        // restarts at every cell edge (measured: the
+                        // truth's dot pattern doubles up where two cell
+                        // segments meet, while a single full-width
+                        // stroke runs one continuous cadence). Strip
+                        // such an edge from the block paint and emit one
+                        // rule per cell segment instead.
+                        let mut paint = paint.clone();
+                        let mut border_box = border_box.clone();
+                        if *segment_horizontal_edges {
+                            let segmented = split_collapsed_horizontal_edges(
+                                &mut paint,
+                                &mut border_box,
+                                fragment,
+                                origin_x,
+                                origin_y,
+                            );
+                            commands.extend(segmented);
+                        }
+                        let paint = &paint;
+                        let border_box = &border_box;
                         // A transform-only box carries an empty paint
                         // object; there is nothing to stroke or fill.
                         let has_decoration =
@@ -384,6 +407,111 @@ fn append_fragment_display_commands_inner(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Splits a collapsed table's dashed/dotted horizontal border edges into
+/// per-cell rule commands: the collapsed border belongs to the cells, so
+/// the dash pattern restarts at every cell edge (measured on a two-cell
+/// 3px-dotted bottom border: each segment strokes its own cadence from
+/// its cell's edge and the meeting dots merge). The edge is removed from
+/// the block paint; solid edges stay, since a continuous band has no
+/// phase to restart.
+fn split_collapsed_horizontal_edges(
+    paint: &mut Value,
+    border_box: &mut Option<Value>,
+    fragment: &rito_fragment::BoxFragment,
+    origin_x: f64,
+    origin_y: f64,
+) -> Vec<DisplayCommand> {
+    let mut segments = Vec::new();
+    let rows: Vec<&rito_fragment::BoxFragment> = fragment
+        .children
+        .iter()
+        .filter_map(|child| match child {
+            Fragment::Box(row) => Some(row),
+            _ => None,
+        })
+        .collect();
+    for (edge, width_key) in [("top", "topWidth"), ("bottom", "bottomWidth")] {
+        let Some(side) = paint
+            .get("border")
+            .and_then(|border| border.get(edge))
+            .cloned()
+        else {
+            continue;
+        };
+        let style = side.get("style").and_then(Value::as_str).unwrap_or("solid");
+        if style != "dotted" && style != "dashed" {
+            continue;
+        }
+        let width = side.get("width").and_then(Value::as_f64).unwrap_or(0.0);
+        if !(width > 0.0) {
+            continue;
+        }
+        let row = if edge == "top" { rows.first() } else { rows.last() };
+        let Some(row) = row else { continue };
+        let mut cuts: Vec<f64> = row
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Box(cell) => {
+                    Some(origin_x + fragment.rect.x + row.rect.x + cell.rect.x + cell.rect.width)
+                }
+                _ => None,
+            })
+            .collect();
+        if cuts.is_empty() {
+            continue;
+        }
+        // The last cell's edge yields to the table's border-box edge so
+        // the final segment reaches the border corner.
+        cuts.pop();
+        let color = side
+            .get("color")
+            .and_then(Value::as_str)
+            .unwrap_or("#000000")
+            .to_owned();
+        let y = if edge == "top" {
+            origin_y + fragment.rect.y
+    } else {
+            origin_y + fragment.rect.y + fragment.rect.height - width
+        };
+        let mut start = origin_x + fragment.rect.x;
+        let end = origin_x + fragment.rect.x + fragment.rect.width;
+        for cut in cuts.into_iter().chain(std::iter::once(end)) {
+            if cut > start {
+                segments.push(DisplayCommand::paint_horizontal_rule(
+                    rect_value(start, y, cut - start, width),
+                    serde_json::json!({ "color": color, "style": style }),
+                ));
+                start = cut;
+            }
+        }
+        if let Some(border) = paint.get_mut("border").and_then(Value::as_object_mut) {
+            border.remove(edge);
+        }
+        if let Some(widths) = border_box.as_mut().and_then(Value::as_object_mut) {
+            widths.insert(width_key.to_owned(), serde_json::json!(0.0));
+        }
+    }
+    let border_empty = paint
+        .get("border")
+        .and_then(Value::as_object)
+        .is_some_and(serde_json::Map::is_empty);
+    if border_empty {
+        if let Some(object) = paint.as_object_mut() {
+            object.remove("border");
+        }
+        let all_zero = border_box.as_ref().is_some_and(|widths| {
+            ["topWidth", "rightWidth", "bottomWidth", "leftWidth"]
+                .iter()
+                .all(|key| widths.get(*key).and_then(Value::as_f64).unwrap_or(0.0) == 0.0)
+        });
+        if all_zero {
+            *border_box = None;
+        }
+    }
+    segments
+}
+
 fn append_line_commands(
     commands: &mut Vec<DisplayCommand>,
     tree: &FormattingTree,
@@ -1359,6 +1487,7 @@ mod tests {
                 border_box: None,
                 transform: Some(serde_json::json!([{ "kind": "rotate", "rad": 0.05 }])),
                 bevels: Vec::new(),
+                segment_horizontal_edges: false,
             },
         );
         let mut commands = Vec::new();
@@ -1619,6 +1748,7 @@ mod tests {
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
+                    border_collapse: false,
                 },
             )
             .expect("layout style interns");
