@@ -3551,7 +3551,26 @@ impl FormattingContext for ParleyInlineContext {
                 // sat 0.55px high and binned to −1 rows on half the
                 // dialog lines.
                 if prev_ruby_below.is_none() {
-                    growth.ceil()
+                    // The paragraph's own padding-top absorbs a FIRST
+                    // line's annotation growth: the annotation overflows
+                    // upward into the padding and the line keeps its
+                    // natural height (padding oracle: an 8px pad absorbs
+                    // the whole 6px growth, a 4px pad absorbs 4; b52's
+                    // contents rows sat 8px low when the growth ignored
+                    // their 0.9em padding). Percentages have no basis
+                    // here and absorb nothing.
+                    let padding_absorb = tree
+                        .styles()
+                        .and_then(|tables| {
+                            tables.layout.style(tree.node(root).style).ok()
+                        })
+                        .map_or(0.0, |style| match style.padding.top.value() {
+                            rito_style_contract::LengthPercentage::Length(px) => {
+                                f64::from(px.get())
+                            }
+                            _ => 0.0,
+                        });
+                    (growth - padding_absorb).max(0.0).ceil()
                 } else {
                     growth
                 }
