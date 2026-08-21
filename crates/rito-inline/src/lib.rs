@@ -2243,6 +2243,62 @@ impl FormattingContext for ParleyInlineContext {
                 if let Some((_, sum, _)) = item_advances.last_mut() {
                     *sum -= f64::from(metrics.trailing_whitespace) + hang_uncovered;
                 }
+                // A line break is a shaping boundary: the browser
+                // re-measures the broken line, so a kern pair straddling
+                // the break never applies and the line-final cluster
+                // keeps its base advance (measured: SourceHan ン+ス
+                // carries a -29/1000 kern pair; the paragraph-shaped ン
+                // leaked that kern into the line's justified natural
+                // width, inflating the slack 0.416px and phasing every
+                // share-driven glyph mid-line).
+                {
+                    use skrifa::MetadataProvider as _;
+                    let content = flow_text
+                        .get(range.clone())
+                        .map(str::trim_end)
+                        .unwrap_or("");
+                    if let Some(last_char) = content.chars().next_back() {
+                        let last_byte = range.start + content.len() - last_char.len_utf8();
+                        if let Some(cluster) =
+                            parley::layout::Cluster::from_byte_index(&layout, last_byte)
+                        {
+                            let shaped = f64::from(cluster.advance());
+                            let run = cluster.run();
+                            let font = run.font();
+                            if let Ok(font_ref) =
+                                skrifa::FontRef::from_index(font.data.as_ref(), font.index)
+                            {
+                                let glyph_metrics = font_ref.glyph_metrics(
+                                    skrifa::instance::Size::new(run.font_size()),
+                                    skrifa::instance::LocationRef::default(),
+                                );
+                                let base: f64 = cluster
+                                    .glyphs()
+                                    .map(|glyph| {
+                                        glyph_metrics
+                                            .advance_width(skrifa::GlyphId::new(u32::from(
+                                                glyph.id,
+                                            )))
+                                            .map(f64::from)
+                                            .unwrap_or(f64::from(glyph.advance))
+                                    })
+                                    .sum();
+                                let delta = base - shaped;
+                                // Only a pair adjustment: features that
+                                // legitimately resize a glyph (halved
+                                // ruby punctuation via halt) move it a
+                                // half em or more and stay shaped.
+                                if delta.abs() > 1e-6
+                                    && delta.abs() < f64::from(run.font_size()) * 0.25
+                                {
+                                    if let Some((_, sum, _)) = item_advances.last_mut() {
+                                        *sum += delta;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 let advance: f64 = item_advances
                     .iter()
                     .map(|(_, sum, ceils)| {
@@ -6839,6 +6895,96 @@ running through the quiet forest until the morning light returns.";
         assert!(!justify_expands_after('\u{2220}'), "angle stays non-expansive");
         assert!(!justify_expands_after('\u{2014}'), "em dash stays non-expansive");
         assert!(!justify_expands_after('\u{03B1}'), "Greek alpha stays non-expansive");
+    }
+
+    /// A kern pair straddling a line break does not apply: the browser
+    /// re-measures the broken line, so the line-final cluster keeps its
+    /// base advance in the justified natural width (measured: SourceHan
+    /// ン+ス kern -29/1000; with the paragraph-shaped kerned ン the
+    /// slack inflated 0.416px and the kana run painted 0.36px right of
+    /// the truth mid-line — share 0.0967 vs the oracle's 0.0766).
+    #[test]
+    fn a_line_break_severs_the_trailing_kern_pair() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context =
+            ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(
+                rito_style_contract::GenericFontFamily::Serif,
+            )])
+            .expect("family list"),
+            14.4,
+            0.0,
+        );
+        style.text_flow.text_align = TextAlign::Justify;
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let text = "担任原画师的作品有《晓之护卫》、《レミニセンス》等。近期热衷于芳香疗法。";
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &ConstraintSpace::continuous(304.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        let kana = line
+            .children
+            .iter()
+            .find_map(|child| match child {
+                Fragment::Text(run)
+                    if text[run.text_start as usize..].starts_with('レ') =>
+                {
+                    Some(run)
+                }
+                _ => None,
+            })
+            .expect("the kana run lays out on the first line");
+        // Oracle (pinned Chromium, the b126 Author paragraph at 14.4px
+        // in a 304px measure): レ starts 231.6875 from the line start
+        // and the share is 1.6/21 = 0.0762. The kerned-ン slack put it
+        // at 232.044.
+        assert!(
+            (kana.rect.x - 231.6875).abs() < 0.05,
+            "the kana run anchors at the truth position: {}",
+            kana.rect.x
+        );
+        assert!(
+            (kana.justify_px - 0.0766).abs() < 0.002,
+            "the share follows the unkerned slack: {}",
+            kana.justify_px
+        );
     }
 
     /// A space PRECEDED by a latin letter shapes inside the latin run,
