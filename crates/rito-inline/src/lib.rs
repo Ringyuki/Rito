@@ -2669,9 +2669,37 @@ impl FormattingContext for ParleyInlineContext {
                                     if byte > stretch_start {
                                         let count = plan.count_at(byte);
                                         let ink_shift = plan.before_share_at(byte);
+                                        // A cut must not land INSIDE a
+                                        // joined punctuation sequence
+                                        // (dash/ellipsis pairs shape as one
+                                        // rule): cut at the sequence's
+                                        // entry boundary instead, so the
+                                        // whole sequence stays in one
+                                        // canvas call and re-forms its
+                                        // joined glyphs.
+                                        let joined_entry = flow_text
+                                            .get(current.text_range())
+                                            .and_then(|text| text.chars().next())
+                                            .is_some_and(|character| {
+                                                joins_with_identical_neighbor(character)
+                                                    && flow_text
+                                                        .get(
+                                                            current.text_range().end
+                                                                ..run_range.end,
+                                                        )
+                                                        .and_then(|text| text.chars().next())
+                                                        == Some(character)
+                                                    && flow_text
+                                                        .get(run_range.start..byte)
+                                                        .and_then(|text| {
+                                                            text.chars().next_back()
+                                                        })
+                                                        != Some(character)
+                                            });
                                         if !ink_shift
                                             && count <= 1
                                             && uniform.map_or(true, |value| value == count)
+                                            && !joined_entry
                                         {
                                             uniform = Some(count);
                                             stretch_shares += count;
@@ -3950,6 +3978,18 @@ fn is_cjk_justify(character: char) -> bool {
 /// and CJK ideographs/symbols both open a share on their right side.
 fn justify_expands_after(character: char) -> bool {
     character == ' ' || is_cjk_justify(character)
+}
+
+/// Punctuation that CJK fonts join into one continuous rule when repeated
+/// (em dash and ellipsis pairs —— / …… via GSUB contextual/ligature
+/// substitution). The canvas shapes each fillText call independently, so a
+/// paint cut inside such a sequence severs the substitution and the glyphs
+/// raster in their isolated form (measured on an embedded face: the joined
+/// dash pair's bar sits 2px lower than two isolated dashes; the browser
+/// keeps the pair in one shaping run because no justify share separates
+/// them).
+fn joins_with_identical_neighbor(character: char) -> bool {
+    matches!(character, '\u{2014}' | '\u{2015}' | '\u{2026}')
 }
 
 /// One justified line's expansion plan.
@@ -6787,6 +6827,86 @@ running through the quiet forest until the morning light returns.";
         assert!(!justify_expands_after('\u{2220}'), "angle stays non-expansive");
         assert!(!justify_expands_after('\u{2014}'), "em dash stays non-expansive");
         assert!(!justify_expands_after('\u{03B1}'), "Greek alpha stays non-expansive");
+    }
+
+    /// A justified line's paint cuts land AROUND a repeated-dash pair,
+    /// never between the dashes: the canvas shapes each call on its own,
+    /// and fonts join —— through contextual substitution, so a cut inside
+    /// the pair rasters two isolated dash glyphs whose bar sits off the
+    /// joined form (measured 2px on an embedded face). The share pattern
+    /// 了|— (one share) then —|— (zero) used to flip the uniform tracker
+    /// exactly between the dashes.
+    #[test]
+    fn a_justified_dash_pair_stays_in_one_paint_fragment() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(
+                rito_style_contract::GenericFontFamily::Serif,
+            )])
+            .expect("family list"),
+            16.0,
+            0.0,
+        );
+        style.text_flow.text_align = TextAlign::Justify;
+        let mut inline = InlineStyleTableV1::new(1);
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let text = "「原本打算自己吃的饼干，现在换成马剃同学吃了——知道这意味着什么吗？来，小鞠回答！」";
+        let pair = text.find('\u{2014}').expect("text has the dash pair");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: text.to_owned(),
+                    style: style_id,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(500.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let mut carrier: Option<(usize, usize)> = None;
+        for child in &root.children {
+            let Fragment::Line(line) = child else { continue };
+            for run in &line.children {
+                let Fragment::Text(run) = run else { continue };
+                let (start, end) = (run.text_start as usize, run.text_end as usize);
+                if start <= pair && pair < end {
+                    carrier = Some((start, end));
+                }
+            }
+        }
+        let (start, end) = carrier.expect("a paint fragment carries the first dash");
+        assert!(
+            end - pair >= "\u{2014}\u{2014}".len(),
+            "the dash pair must not be severed across paint fragments: \
+             fragment {start}..{end} cuts the pair at byte {pair}"
+        );
     }
 
     /// A number line-height multiplies the GRID-ROUNDED font size, then
