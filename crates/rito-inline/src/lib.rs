@@ -8880,6 +8880,42 @@ running through the quiet forest until the morning light returns.";
         );
     }
 
+    /// A trailing U+00A0 stays in max-content while a trailing SPACE
+    /// leaves it (measured on Chromium float shrink-to-fit boxes: the
+    /// nbsp-tailed chat bubble keeps its nbsp's width, the space-tailed
+    /// control drops it).
+    #[test]
+    fn a_trailing_nbsp_stays_in_max_content_and_a_space_leaves() {
+        let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+        let (bare_tree, _) = paragraph_tree("WWWW\nii", 0.0);
+        let bare = context
+            .intrinsic_inline_sizes(&bare_tree, FormattingNodeId(0))
+            .expect("bare sizes");
+        let (space_tree, _) = paragraph_tree("WWWW \nii", 0.0);
+        let spaced = context
+            .intrinsic_inline_sizes(&space_tree, FormattingNodeId(0))
+            .expect("space sizes");
+        let (nbsp_tree, _) = paragraph_tree("WWWW\u{a0}\nii", 0.0);
+        let nbsp = context
+            .intrinsic_inline_sizes(&nbsp_tree, FormattingNodeId(0))
+            .expect("nbsp sizes");
+        // The trimmed space's kern against the preceding letter stays
+        // (the shaped W narrowed by the W+space pair), so the spaced
+        // control can sit a fraction UNDER the bare one — never above.
+        assert!(
+            spaced.max_content <= bare.max_content + 0.01,
+            "a trailing space leaves max-content: {} vs {}",
+            spaced.max_content,
+            bare.max_content
+        );
+        assert!(
+            nbsp.max_content > bare.max_content + 3.0,
+            "a trailing nbsp stays in max-content: {} vs {}",
+            nbsp.max_content,
+            bare.max_content
+        );
+    }
+
     #[test]
     fn empty_font_registration_fails_closed() {
         assert!(ParleyInlineContext::new(vec![vec![0_u8; 4]]).is_err());

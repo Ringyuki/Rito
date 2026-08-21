@@ -22,3 +22,6 @@ version = "0.0.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+
+[patch.crates-io]
+parley = { path = "crates/vendor/parley" }
