@@ -3045,7 +3045,31 @@ fn fold_through_collapsing_margins(
                 let child_style = layout
                     .style(nodes[child.0 as usize].style)
                     .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
-                let Some(top) = resolved_px(child_style.margin.top) else {
+                let child_clear = child_style.clear;
+                let child_margin_top = child_style.margin.top;
+                // A clearing spacer with float siblings before it takes
+                // clearance at layout time; the margins at and after it
+                // then resolve against the cleared line (follower top =
+                // float margin-box bottom + max(0, join(spacer bottom,
+                // follower top) - spacer top), 32-case browser matrix),
+                // so the fold must leave them in place for the layout
+                // pass instead of hoisting them onto the container.
+                if child_clear != ClearV1::None
+                    && is_self_collapsing_empty(nodes, layout, child, &zero_padding)
+                    && children
+                        .iter()
+                        .copied()
+                        .take_while(|id| *id != child)
+                        .any(|id| {
+                            layout
+                                .style(nodes[id.0 as usize].style)
+                                .map(|sibling| sibling.float != FloatV1::None)
+                                .unwrap_or(false)
+                        })
+                {
+                    break;
+                }
+                let Some(top) = resolved_px(child_margin_top) else {
                     break;
                 };
                 let empty = is_self_collapsing_empty(nodes, layout, child, &zero_padding);
@@ -4104,6 +4128,129 @@ p { margin: 8px 0; }\n\
                 "{name}: the follower's line starts below the cleared float: {line_y} vs {expected}"
             );
         }
+    }
+
+    /// illu3-t replica with the book's blanket margin rule: the spacer's
+    /// own margins cancel the follower's smaller one (follower top =
+    /// float margin-box bottom + max(0, join(spacer bottom, follower
+    /// top) - spacer top)), and none of that chain moves the container.
+    #[test]
+    fn cleared_spacer_margins_credit_the_follower_and_spare_the_container() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<div class="illu">
+  <div class="illu-box">
+    <div class="HT font08 box-left" style="margin: 4em 0em"><div class="inner"><p class="c" style="margin-bottom: 0.5em">[a]</p><p class="z">text</p></div></div>
+    <div class="HT font08 box-right" style="margin: 4em 0em"><div class="inner"><p class="c" style="margin-bottom: 0.5em">[b]</p><p class="z">text</p></div></div>
+    <div class="cboth"></div>
+    <div class="font08 tail"><p>one</p><p>two</p></div>
+  </div>
+</div>
+</body></html>"#,
+            "body { margin: 0; padding: 0; }              .illu p, .illu div { margin: 0.2em 0em; text-indent: 0; line-height: 1.2em; }              .illu .illu-box { width: 320px; max-width: 100%; margin: 0.8em auto; }              .illu .illu-box .box-left { width: 49%; float: left; }              .illu .illu-box .box-right { width: 49%; float: right; }              .inner { width: 95%; margin: 0 auto; }              .font08 { font-size: 0.8em; }              .cboth { clear: both; }
+",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let engine = BlockFormattingContext::new(
+            ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+        );
+        let cancel = CancelFlag::new();
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(640.0),
+                None,
+                &cancel,
+            )
+            .expect("lays out");
+        fn walk_blocks(fragment: &Fragment, offset: f64, out: &mut Vec<(u32, f64, f64)>) {
+            if let Fragment::Box(node) = fragment {
+                out.push((node.source.0, offset + node.rect.y, node.rect.height));
+                for child in &node.children {
+                    walk_blocks(child, offset + node.rect.y, out);
+                }
+            }
+        }
+        let mut blocks = Vec::new();
+        walk_blocks(&outcome.fragments.root, 0.0, &mut blocks);
+        let y_of = |source: u32| {
+            blocks
+                .iter()
+                .find(|(s, ..)| *s == source)
+                .map(|(_, y, _)| *y)
+                .expect("block laid out")
+        };
+        assert!((y_of(12) - 12.8).abs() < 0.1, "container: {}", y_of(12));
+        assert!((y_of(3) - 63.98).abs() < 0.1, "float: {}", y_of(3));
+        assert!((y_of(8) - 157.38).abs() < 0.1, "spacer: {}", y_of(8));
+        assert!((y_of(11) - 157.38).abs() < 0.1, "follower: {}", y_of(11));
+    }
+
+    /// b51 title replica: the badge's own margin must survive the fold
+    /// (it collapses into the container's EQUAL margin statically, then
+    /// the cleared line swallows it — the browser keeps it below).
+    #[test]
+    fn cleared_spacer_keeps_the_badge_margin_below_the_float() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<div class="title">
+  <div class="fr tall"></div>
+  <div class="cboth"></div>
+  <div class="ftitle"><p>m</p></div>
+</div>
+</body></html>"#,
+            "body { padding: 0%; margin-top: 0%; margin-bottom: 0%; margin-left: 1%; margin-right: 1%; }              p { margin: 0; }              .title { width: 272px; margin: 0 auto; margin-top: 16px; }              .fr { float: right; }              .tall { width: 200px; height: 191.42px; }              .cboth { clear: both; }              .ftitle { width: 67.2px; height: 67.2px; overflow: hidden; margin: 16px auto; }
+",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let engine = BlockFormattingContext::new(
+            ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+        );
+        let cancel = CancelFlag::new();
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(640.0),
+                None,
+                &cancel,
+            )
+            .expect("lays out");
+        fn walk_blocks(fragment: &Fragment, offset: f64, out: &mut Vec<(u32, f64, f64)>) {
+            if let Fragment::Box(node) = fragment {
+                out.push((node.source.0, offset + node.rect.y, node.rect.height));
+                for child in &node.children {
+                    walk_blocks(child, offset + node.rect.y, out);
+                }
+            }
+        }
+        let mut blocks = Vec::new();
+        walk_blocks(&outcome.fragments.root, 0.0, &mut blocks);
+        let y_of = |source: u32| {
+            blocks
+                .iter()
+                .find(|(s, ..)| *s == source)
+                .map(|(_, y, _)| *y)
+                .expect("block laid out")
+        };
+        assert!((y_of(0) - 16.0).abs() < 0.1, "float: {}", y_of(0));
+        assert!((y_of(1) - 207.42).abs() < 0.1, "spacer: {}", y_of(1));
+        assert!((y_of(3) - 223.42).abs() < 0.1, "badge: {}", y_of(3));
     }
 
     /// #85 full replica with PERCENTAGE margins (the b60 title exactly:

@@ -136,6 +136,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // The margin below the previous in-flow child, awaiting collapse
         // with the next child's top margin.
         let mut pending_margin = PendingMargin::ZERO;
+        // The margin set a clearing self-collapsing spacer swallowed:
+        // the margins collapsing after it resolve against the cleared
+        // line MINUS this amount, floored at zero (follower top = float
+        // margin-box bottom + max(0, join(spacer bottom, follower top)
+        // - spacer top); 32-case browser matrix).
+        let mut clear_credit = 0.0_f64;
         // Arms until the first in-flow child; a resumed container starts
         // flush anyway (margins truncate at unforced breaks).
         let mut leading_margin_armed = leading_margin_consumed && !resumed;
@@ -242,6 +248,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // When the parent consumed THIS container's leading chain,
             // the first in-flow child's whole set is spent.
             let top_set = through_collapsed_top(tree, *child_id, content_width)?;
+            // The pre-consumption set: a cleared spacer's credit is what
+            // its chain would have collapsed to, whether or not the
+            // parent already spent the leading chain.
+            let original_top_set = top_set;
             let leading_spent = leading_margin_armed && child_style.float == FloatV1::None;
             let (top_margin, top_set) = if leading_spent && !child_resumed {
                 (0.0, PendingMargin::ZERO)
@@ -475,6 +485,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // swallows the collapsed margin whole (measured: a clearing
             // spacer's border top == the float's bottom, no margin gap).
             let clear_to = floats.bottom_for(child_style.clear);
+            let swallowed_set = pending_margin.merge(original_top_set).resolve().max(0.0);
             let cleared = !child_resumed
                 && clear_to > y + pending_margin.merge(top_set).resolve();
             if cleared {
@@ -494,8 +505,14 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let gap = if child_resumed || cleared {
                 0.0
             } else {
-                pending_margin.merge(top_set).resolve()
+                let collapsed = pending_margin.merge(top_set).resolve();
+                if clear_credit > 0.0 {
+                    (collapsed - clear_credit).max(0.0)
+                } else {
+                    collapsed
+                }
             };
+            clear_credit = 0.0;
             let page_is_empty = fragments.is_empty() && fragmentainer_is_fresh;
             let gap = if page_is_empty {
                 gap.min(remaining.max(0.0))
@@ -647,7 +664,15 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             children: Vec::new(),
                         }));
-                        pending_margin = pending_margin.merge(top_set).join(bottom_margin);
+                        pending_margin = if cleared {
+                            // The spacer's swallowed top set must not
+                            // resurrect through the pass-through; it
+                            // credits against the next collapse instead.
+                            clear_credit = swallowed_set;
+                            PendingMargin::from_margin(bottom_margin)
+                        } else {
+                            pending_margin.merge(top_set).join(bottom_margin)
+                        };
                         continue;
                     }
                     // The paragraph's own top padding rides its first
@@ -1244,7 +1269,15 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             children: Vec::new(),
                         }));
-                        pending_margin = pending_margin.merge(top_set).join(bottom_margin);
+                        pending_margin = if cleared {
+                            // The spacer's swallowed set credits against
+                            // the next collapse instead of resurrecting
+                            // through the pass-through.
+                            clear_credit = swallowed_set;
+                            PendingMargin::from_margin(bottom_margin)
+                        } else {
+                            pending_margin.merge(top_set).join(bottom_margin)
+                        };
                         continue;
                     }
                     {
@@ -3114,11 +3147,25 @@ fn through_collapsed_top(
             break;
         }
         let mut first = None;
+        let mut float_precedes = false;
         for id in &tree.node(node).children {
             if style_of(*id)?.float == FloatV1::None {
                 first = Some(*id);
                 break;
             }
+            float_precedes = true;
+        }
+        // A clearing child behind float siblings takes clearance; its
+        // margin chain resolves against the cleared line and never
+        // reaches the container position (the container top is constant
+        // across every spacer/follower margin in the measured matrix).
+        if float_precedes
+            && first
+                .map(|id| style_of(id).map(|style| style.clear != ClearV1::None))
+                .transpose()?
+                .unwrap_or(false)
+        {
+            break;
         }
         let Some(first) = first else {
             break;
