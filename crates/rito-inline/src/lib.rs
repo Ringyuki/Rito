@@ -5732,7 +5732,11 @@ fn image_display_size(
     // uniformly, keeping whatever ratio the author resolved.
     let (mut width, mut height) = match (preferred_width, preferred_height) {
         (Some(width), Some(height)) => (width, height),
-        (Some(width), None) => (width, width * ratio),
+        // The ratio-derived cross axis truncates onto the 1/64 grid:
+        // Blink resolves a width-authored image's auto height as a
+        // LayoutUnit (measured: width 43.78125 x ratio 249/248 shows
+        // 43.953125 = trunc64(43.9578) in the DOM rect).
+        (Some(width), None) => (width, (width * ratio * 64.0).floor() / 64.0),
         (None, Some(height)) => (height / ratio.max(f64::EPSILON), height),
         (None, None) => (intrinsic_width, intrinsic_height),
     };
