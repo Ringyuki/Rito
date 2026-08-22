@@ -3092,7 +3092,20 @@ impl FormattingContext for ParleyInlineContext {
                                 Fragment::Box(rito_fragment::BoxFragment {
                                     source: mini.source,
                                     rect: FragmentRect {
-                                        x: f64::from(inline_box.x) - parley_line_x + justified,
+                                        // A justified atom holds the
+                                        // LayoutUnit grid like any inline
+                                        // item boundary: its shifted
+                                        // position lands on ceil64
+                                        // (Range-measured: cum 49.579
+                                        // paints the atom at 49.59375).
+                                        x: if justify_plan.is_some() {
+                                            ((f64::from(inline_box.x) - parley_line_x + justified)
+                                                * 64.0)
+                                                .ceil()
+                                                / 64.0
+                                        } else {
+                                            f64::from(inline_box.x) - parley_line_x + justified
+                                        },
                                         y: f64::from(inline_box.y) - ink_top
                                             + (height - baseline),
                                         width: f64::from(inline_box.width),
@@ -3110,13 +3123,23 @@ impl FormattingContext for ParleyInlineContext {
                                 .copied()
                                 .unwrap_or((0.0, 0.0));
                             let justified = atom_justify(inline_box.id);
+                            // A justified atom holds the LayoutUnit grid
+                            // like any inline item boundary: its shifted
+                            // position lands on ceil64 (Range-measured:
+                            // cum 49.579 paints the atom at 49.59375).
+                            let atom_x = f64::from(inline_box.x) - parley_line_x
+                                + inset_left
+                                + justified;
+                            let atom_x = if justify_plan.is_some() {
+                                (atom_x * 64.0).ceil() / 64.0
+                            } else {
+                                atom_x
+                            };
                             children.push((
                                 Fragment::Image(rito_fragment::ImageFragment {
                                     source: root,
                                     rect: FragmentRect {
-                                        x: f64::from(inline_box.x) - parley_line_x
-                                            + inset_left
-                                            + justified,
+                                        x: atom_x,
                                         y: f64::from(inline_box.y) - ink_top,
                                         width: f64::from(inline_box.width)
                                             - inset_left
@@ -7501,6 +7524,181 @@ running through the quiet forest until the morning light returns.";
             lines[1], "\u{2014}\u{2014}\u{53ef}\u{89c1}",
             "the dash pair opens the second line, the quote stays up"
         );
+    }
+
+    /// Justify shares around an inline atom: the boundary INTO the atom
+    /// carries one share which moves the atom itself (to ceil64 of the
+    /// shifted sum), the boundary out of it carries none — the following
+    /// glyph hugs the atom's right edge and its own deferred share lands
+    /// one boundary later as a double (Range-measured micro line, slack
+    /// 10 over 19 opportunities). Feeding the atom's share into the text
+    /// counts too let the next run consume it twice, opening a full
+    /// share of daylight after every inline image on a justified line.
+    #[test]
+    #[ignore = "two truth probes disagree on the atom-following share: the \
+b20 badge comma rides one share right of its natural position while the \
+micro line's ideograph hugs the image edge — the unified rule (likely by \
+the follower's punctuation class) is still unmeasured"]
+    fn an_atom_boundary_share_moves_the_atom_not_the_next_run() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context =
+            ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(2);
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(
+                rito_style_contract::GenericFontFamily::Serif,
+            )])
+            .expect("family list"),
+            16.0,
+            0.0,
+        );
+        style.text_flow.text_align = TextAlign::Justify;
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let image_style = inline
+            .intern_for_node(1, plain_paragraph_style(
+                FontFamilies::new(vec![FontFamily::Generic(
+                    rito_style_contract::GenericFontFamily::Serif,
+                )])
+                .expect("family list"),
+                16.0,
+                0.0,
+            ))
+            .expect("image style interns");
+        let mut layout = LayoutStyleTableV1::new(1);
+        let image_layout = layout
+            .intern_for_node(0, jgap_image_layout_style())
+            .expect("layout style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: image_layout,
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![
+                        InlineItem::Text {
+                            text: "甲乙丙".to_owned(),
+                            style: style_id,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: None,
+                        },
+                        InlineItem::Image {
+                            src: "sq.png".to_owned(),
+                            source: 0,
+                            intrinsic_width: 16.0,
+                            intrinsic_height: 16.0,
+                            style: image_style,
+                            layout_style: image_layout,
+                            fit_contain: false,
+                            viewport: None,
+                            align_top: false,
+                            baseline_shift_px: 0.0,
+                        },
+                        InlineItem::Text {
+                            text: "丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥甲乙丙丁戊己庚辛".to_owned(),
+                            style: style_id,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: None,
+                        },
+                    ],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout,
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &ConstraintSpace::continuous(330.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else { panic!("box"); };
+        let Fragment::Line(line) = &root.children[0] else { panic!("line"); };
+        let mut image_x = None;
+        let mut after_atom_x = None;
+        let mut saw_image = false;
+        for c in &line.children {
+            match c {
+                Fragment::Image(img) => {
+                    image_x = Some(img.rect.x);
+                    saw_image = true;
+                }
+                Fragment::Text(run) if saw_image && after_atom_x.is_none() => {
+                    after_atom_x = Some(run.rect.x);
+                }
+                _ => {}
+            }
+        }
+        let image_x = image_x.expect("the atom lays out");
+        let after_atom_x = after_atom_x.expect("a run follows the atom");
+        assert!(
+            (image_x - 49.59375).abs() < 1e-6,
+            "the atom lands on ceil64 of its shifted sum: {image_x}"
+        );
+        assert!(
+            (after_atom_x - (image_x + 16.0)).abs() < 0.02,
+            "the following glyph hugs the atom's right edge: {after_atom_x} vs {}",
+            image_x + 16.0
+        );
+    }
+
+    fn jgap_image_layout_style() -> rito_style_contract::LayoutFormattingStyleV1 {
+        use rito_style_contract::{
+            AlignItemsV1, BoxSizingV1, CellVerticalAlignV1, ClearV1, FloatV1, JustifyContentV1,
+            LayoutDisplayInsideV1, LayoutDisplayOutsideV1, LayoutDisplayV1,
+            LayoutFormattingStyleV1, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1,
+            MinimumHeightV1, NonNegativeCssPx, OverflowV1, PageBreakV1, PositionV1,
+            PreferredSizeV1,
+        };
+        let auto = LengthPercentageOrAuto::Auto;
+        let zero_padding = NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            CssPx::new(0.0).expect("zero"),
+        ));
+        LayoutFormattingStyleV1 {
+            display: LayoutDisplayV1 {
+                outside: LayoutDisplayOutsideV1::Inline,
+                inside: LayoutDisplayInsideV1::Flow,
+                is_list_item: false,
+            },
+            margin: PhysicalSides { top: auto, right: auto, bottom: auto, left: auto },
+            padding: PhysicalSides {
+                top: zero_padding,
+                right: zero_padding,
+                bottom: zero_padding,
+                left: zero_padding,
+            },
+            box_sizing: BoxSizingV1::ContentBox,
+            justify_content: JustifyContentV1::Normal,
+            align_items: AlignItemsV1::Normal,
+            break_before: PageBreakV1::Auto,
+            break_after: PageBreakV1::Auto,
+            width: PreferredSizeV1::Auto,
+            height: PreferredSizeV1::Auto,
+            max_width: MaximumSizeV1::None,
+            min_height: MinimumHeightV1::Auto,
+            max_height: MaximumHeightV1::None,
+            clear: ClearV1::None,
+            float: FloatV1::None,
+            overflow: OverflowV1::Visible,
+            list_style_type: ListMarkerStyleV1::None,
+            position: PositionV1::Static,
+            inset: PhysicalSides { top: auto, right: auto, bottom: auto, left: auto },
+            vertical_align: CellVerticalAlignV1::Baseline,
+            border_spacing: (
+                NonNegativeCssPx::new(0.0).expect("zero"),
+                NonNegativeCssPx::new(0.0).expect("zero"),
+            ),
+            border_collapse: false,
+        }
     }
 
     /// The shaping size truncates the F32 product size*100 onto the
