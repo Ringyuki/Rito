@@ -170,6 +170,7 @@ fn legacy_adapter_fails_closed_for_unknown_or_untyped_payloads() {
         source_text_offset: None,
         ruby_align: None,
         align_right: false,
+            vertical: false,
     });
     assert_eq!(
         encode_reader_display_list_v1(&[summary_text]),
@@ -243,6 +244,7 @@ fn representative_commands() -> Vec<DisplayCommand> {
             source_text_offset: Some(9),
             ruby_align: None,
             align_right: false,
+            vertical: false,
         }),
         DisplayCommand::paint_image(
             "images/cover.jpg".to_owned(),
@@ -264,6 +266,7 @@ fn all_command_shapes() -> Vec<DisplayCommand> {
         source_text_offset: None,
         ruby_align: None,
         align_right: false,
+            vertical: false,
     };
     vec![
         DisplayCommand::push_state(),

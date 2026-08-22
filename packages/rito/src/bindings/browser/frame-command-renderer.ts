@@ -284,6 +284,7 @@ function paintText(ctx: CanvasRenderingContext2D, command: TextCommand, state: R
       rect: command.rect,
       paint: command.paint,
       ...(command.alignRight === undefined ? {} : { alignRight: command.alignRight }),
+      ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
     },
     state.colorOverride,
     declaredGroundFor(command.rect, command.paint, state),

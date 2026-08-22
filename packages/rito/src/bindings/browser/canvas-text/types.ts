@@ -2,7 +2,10 @@ import type { CoreFrameCommand } from '../core-contracts';
 
 export type CanvasTextCommand = Extract<CoreFrameCommand, { readonly kind: 'paintText' }>;
 export type CanvasRubyCommand = Extract<CoreFrameCommand, { readonly kind: 'paintRuby' }>;
-export type CanvasTextFragment = Pick<CanvasTextCommand, 'text' | 'rect' | 'paint' | 'alignRight'>;
+export type CanvasTextFragment = Pick<
+  CanvasTextCommand,
+  'text' | 'rect' | 'paint' | 'alignRight' | 'vertical'
+>;
 export type CanvasRubyFragment = Pick<CanvasRubyCommand, 'text' | 'rect' | 'paint' | 'rubyAlign'>;
 export type CanvasRunPaint = CanvasTextCommand['paint'];
 export type CanvasFontShorthand = CanvasRunPaint['font'];

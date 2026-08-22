@@ -424,10 +424,41 @@ fn append_fragment_display_commands_inner(
                         source_text_offset: None,
                         ruby_align: None,
                         align_right: true,
+                        vertical: false,
                     }));
                 }
             }
             for child in &fragment.children {
+                // A vertical-rl flow's lines are COLUMNS: the block axis
+                // ran left from the right edge during layout, so the
+                // painter rotates each line's frame instead of stacking
+                // it downward. First slice: text runs paint as upright
+                // downward columns; ruby, markers and inline atoms keep
+                // their horizontal path for now.
+                if let Fragment::Line(line) = child {
+                    let vertical = tree
+                        .styles()
+                        .and_then(|tables| {
+                            let strut = tree.strut_style(line.source)?;
+                            tables.inline.style(strut).ok()
+                        })
+                        .is_some_and(|style| {
+                            style.bidi.writing_mode
+                                == rito_style_contract::WritingMode::VerticalRightToLeft
+                        });
+                    if vertical {
+                        append_vertical_line_commands(
+                            commands,
+                            tree,
+                            line,
+                            origin_x + fragment.rect.x,
+                            origin_y + fragment.rect.y,
+                            fragment.rect.width,
+                            context.family_policy,
+                        )?;
+                        continue;
+                    }
+                }
                 append_fragment_display_commands_inner(
                     commands,
                     tree,
@@ -563,6 +594,80 @@ fn split_collapsed_horizontal_edges(
         }
     }
     segments
+}
+
+/// Paints one vertical-rl line box as a downward text column. The line
+/// laid out with the horizontal engine (inline axis = column length), so
+/// its rect stacks top-down inside the box; here the block offset turns
+/// into a column position from the RIGHT edge and the inline offset into
+/// the distance from the column top.
+fn append_vertical_line_commands(
+    commands: &mut Vec<DisplayCommand>,
+    tree: &FormattingTree,
+    line: &LineFragment,
+    box_x: f64,
+    box_y: f64,
+    box_width: f64,
+    family_policy: Option<&PaintFamilyPolicy>,
+) -> EpubResult<()> {
+    let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
+        return Err(EpubError::new("line fragment source is not an inline flow"));
+    };
+    let styles = tree
+        .styles()
+        .ok_or_else(|| EpubError::new("formatting tree carries no style tables"))?;
+    let mut full_text = String::new();
+    let mut text_ranges: Vec<(std::ops::Range<usize>, usize)> = Vec::new();
+    for (item_index, item) in items.iter().enumerate() {
+        if let InlineItem::Text { text, .. } = item {
+            let start = full_text.len();
+            full_text.push_str(text);
+            text_ranges.push((start..full_text.len(), item_index));
+        }
+    }
+    let column_x = box_x + box_width - (line.rect.y + line.rect.height);
+    let column_top = box_y + line.rect.x;
+    for child in &line.children {
+        let Fragment::Text(run) = child else { continue };
+        let start = run.text_start as usize;
+        let end = run.text_end as usize;
+        let Some((_, item_index)) = text_ranges
+            .iter()
+            .find(|(range, _)| range.start <= start && end <= range.end)
+        else {
+            continue;
+        };
+        let InlineItem::Text { style, .. } = &items[*item_index] else {
+            continue;
+        };
+        let style = styles
+            .inline
+            .style(*style)
+            .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
+        let paint = run_paint(style, family_policy, run.justify_px, false, false)?;
+        let font_size = f64::from(style.font.size.get());
+        // The glyph column centers on the line's center line; the rect's
+        // x is the GLYPH left edge, y the first glyph's top, height the
+        // run's advance down the column.
+        commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
+            text: Value::String(full_text[start..end].to_owned()),
+            rect: rect_value(
+                column_x + (line.rect.height - font_size) / 2.0,
+                column_top + run.rect.x,
+                font_size,
+                run.rect.width,
+            ),
+            paint,
+            line_height_px: None,
+            href: None,
+            source_text: None,
+            source_text_offset: None,
+            ruby_align: None,
+            align_right: false,
+            vertical: true,
+        }));
+    }
+    Ok(())
 }
 
 fn append_line_commands(
@@ -864,6 +969,7 @@ fn append_text_run_command(
             source_text: None,
             source_text_offset: None,
             align_right: false,
+            vertical: false,
             ruby_align: match ruby_align {
                 rito_style_contract::RubyAlign::SpaceAround => None,
                 rito_style_contract::RubyAlign::Start => Some(RubyAlignPaint::START),
@@ -895,6 +1001,7 @@ fn append_text_run_command(
         source_text_offset: None,
         ruby_align: None,
         align_right: false,
+            vertical: false,
     }));
     Ok(())
 }

@@ -21,6 +21,21 @@ export function drawCanvasTextFragment(
   ctx.letterSpacing = canvasSpacingValue(paint.letterSpacingPx);
 
   const { x, y } = fragment.rect;
+  if (fragment.vertical) {
+    // Vertical-rl column: the rect's x is the glyph column's left edge,
+    // y the first glyph's top, width the font size. Each cluster paints
+    // upright and the pen steps one font size (plus justification
+    // spacing) down the column.
+    const size = paint.font.sizePx;
+    const step = size + (paint.letterSpacingPx ?? 0);
+    ctx.letterSpacing = '0px';
+    let penY = y + 0.8 * size;
+    for (const cluster of fragment.text) {
+      ctx.fillText(cluster, x, penY);
+      penY += step;
+    }
+    return;
+  }
   drawInlineBackground(ctx, fragment);
   drawInlineBorders(ctx, fragment);
   if (paint.textShadow && paint.textShadow.length > 0) {

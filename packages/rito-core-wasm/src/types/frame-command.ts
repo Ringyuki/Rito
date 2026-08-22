@@ -66,6 +66,10 @@ export interface RitoCoreWasmPaintTextCommand extends RitoCoreWasmTextPaintComma
   /** Right-aligned draw: rect.x is the text's RIGHT edge; the renderer
    * measures the string to place the pen (outside list markers). */
   readonly alignRight?: boolean;
+  /** Vertical writing: draw as one downward column, upright glyphs, the
+   * pen stepping one font size per cluster; rect.x is the glyph column's
+   * left edge and rect.y the first glyph's top. */
+  readonly vertical?: boolean;
 }
 
 export interface RitoCoreWasmPaintRubyCommand extends RitoCoreWasmTextPaintCommand {

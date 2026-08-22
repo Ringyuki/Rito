@@ -72,6 +72,9 @@ fn insert_text_fields(fields: &mut Map<String, Value>, input: &DisplayTextComman
     if input.align_right {
         insert_field(fields, "alignRight", Value::Bool(true));
     }
+    if input.vertical {
+        insert_field(fields, "vertical", Value::Bool(true));
+    }
     insert_field(fields, "paint", input.paint.to_wire_value());
     insert_field(fields, "rect", input.rect.clone());
     insert_field(fields, "text", input.text.clone());

@@ -2028,6 +2028,15 @@ fn inline_text_capability_violation(
             c::UnicodeBidi::Normal | c::UnicodeBidi::Isolate,
             c::WritingMode::HorizontalTopToBottom,
         ) => {}
+        // Vertical-rl flows lay out under the first vertical slice: the
+        // inline axis takes the column length and the paint walk turns
+        // lines into right-to-left columns (upright shaping metrics,
+        // kinsoku and the pagination axis are still pending).
+        (
+            c::Direction::LeftToRight,
+            c::UnicodeBidi::Normal | c::UnicodeBidi::Isolate,
+            c::WritingMode::VerticalRightToLeft,
+        ) => {}
         other => return Some(format!("bidi/writing-mode {other:?}")),
     }
     // paint (color, decoration, shadows, background, opacity, transform):

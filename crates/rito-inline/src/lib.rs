@@ -1509,6 +1509,32 @@ impl FormattingContext for ParleyInlineContext {
             ));
         }
         let root = node;
+        // Vertical writing, first slice: a vertical-rl flow lays out with
+        // the COLUMN LENGTH as its inline size — its lines are the
+        // columns, each as tall as the page — and the paint walk later
+        // turns the horizontal line geometry into right-to-left columns.
+        let vertical_column = tree
+            .strut_style(root)
+            .and_then(|id| {
+                tree.styles()
+                    .and_then(|tables| tables.inline.style(id).ok())
+            })
+            .filter(|strut| {
+                strut.bidi.writing_mode
+                    == rito_style_contract::WritingMode::VerticalRightToLeft
+            })
+            .and_then(|_| space.fragmentainer_size);
+        let vertical_space;
+        let space = match vertical_column {
+            Some(column) => {
+                vertical_space = ConstraintSpace {
+                    inline_size: column,
+                    ..*space
+                };
+                &vertical_space
+            }
+            None => space,
+        };
         // Float exclusion: lines inside the band are broken at the reduced
         // width and shifted past the left inset; the flow returns to the
         // full inline size below the band. CSS shortens line boxes around

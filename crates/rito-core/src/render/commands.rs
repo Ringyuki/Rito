@@ -281,6 +281,11 @@ pub(crate) struct DisplayTextCommandInput {
     /// markers, whose width only the canvas can measure). Off the wire
     /// when false.
     pub align_right: bool,
+    /// Vertical writing: the renderer draws the string as one downward
+    /// column — upright glyphs, the pen stepping one font-size per
+    /// cluster — with `rect.x` the column's left edge and `rect.y` the
+    /// first glyph's top. Off the wire when false.
+    pub vertical: bool,
 }
 
 /// A non-initial `ruby-align` keyword carried by a ruby paint command.
