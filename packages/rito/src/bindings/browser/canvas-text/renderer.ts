@@ -79,7 +79,38 @@ export function drawCanvasRubyFragment(
     // interior-only shares, and a single item centers like the initial.
     const align = ruby.rubyAlign ?? 'space-around';
     const expands = glyphs > 1 && free > 0.01 && rubyAnnotationExpands(ruby.text);
-    if (align === 'start') {
+    const words: string[] = [];
+    {
+      let start = -1;
+      for (let index = 0; index <= ruby.text.length; index += 1) {
+        const blank = index === ruby.text.length || ruby.text[index] === ' ';
+        if (!blank && start < 0) start = index;
+        if (blank && start >= 0) {
+          words.push(ruby.text.slice(start, index));
+          start = -1;
+        }
+      }
+    }
+    if (
+      (align === 'space-around' || align === 'space-between') &&
+      words.length > 1 &&
+      free > 0.01 &&
+      !rubyAnnotationExpands(ruby.text)
+    ) {
+      // A spaced word annotation pours the whole slack into its word
+      // gaps: the words hug both edges of the base (measured on the
+      // b42 Locus/Solus rubies — word 1 starts at the base's left
+      // edge, word 2 ends at its right, the single gap takes all
+      // 14.5px). Placed word by word: no wordSpacing state involved.
+      const wordWidths = words.map((word) => ctx.measureText(word).width);
+      const naturalWords = wordWidths.reduce((sum, value) => sum + value, 0);
+      const gap = (ruby.rect.width - naturalWords) / (words.length - 1);
+      let x = ruby.rect.x;
+      for (let index = 0; index < words.length; index += 1) {
+        ctx.fillText(words[index] ?? '', x, ruby.rect.y);
+        x += (wordWidths[index] ?? 0) + gap;
+      }
+    } else if (align === 'start') {
       ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
     } else if (align === 'space-between' && expands) {
       ctx.letterSpacing = `${String(free / (glyphs - 1))}px`;
