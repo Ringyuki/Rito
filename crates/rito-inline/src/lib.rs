@@ -5343,21 +5343,20 @@ fn push_line_end_trims(
 }
 
 /// The browser shapes at the computed font size truncated toward zero
-/// onto the 1/100 px grid (measured with a pinned 1000-upem face:
-/// 15.9999, 15.999 and 15.995 all shape at 15.99 — a 39-glyph line lands
-/// 0.39px short of the full-precision width; 15.9375 shapes at 15.93 and
-/// 17.06667 at 17.06, never rounding up; 15.2, 12.16 and 16.01 pass
-/// through unchanged). The computed size arrives as f32, whose dust sits
-/// ~2e-6 below the stylesheet's decimal value, so hundredths within 1e-3
-/// of an integer snap there before the truncation.
+/// onto the 1/100 px grid, and the product is an F32 MULTIPLY — the
+/// browser's font cache key is saturated_cast<unsigned>(font_size *
+/// 100.0f) on the f32 computed size. The f32 product's own rounding is
+/// the whole rule: 15.2 * 100 rounds up to exactly 1520.0 and passes
+/// through, while 18.72 * 100 lands at 1871.99988 and truncates to
+/// 18.71 (Range-measured: a lone 18.72px ideograph advances 1197.4394
+/// = 1/64ths of fixed-point 18.71, and 9.36 -> 9.35, 37.44 -> 37.43,
+/// 18.8 -> 18.79; 15.9999/15.999/15.995 -> 15.99, 15.9375 -> 15.93,
+/// 17.06667 -> 17.06, and 15.2/12.16/16.01 pass through unchanged). An
+/// f64 product orders 18.72 the other way (1871.99993, within any
+/// hand-tuned snap tolerance), so the multiply must stay in f32.
 fn shaping_font_size(size: f32) -> f32 {
-    let hundredths = f64::from(size) * 100.0;
-    let quantized = if (hundredths.round() - hundredths).abs() < 1e-3 {
-        hundredths.round()
-    } else {
-        hundredths.trunc()
-    };
-    (quantized / 100.0) as f32
+    let hundredths = size * 100.0_f32;
+    hundredths.trunc() / 100.0_f32
 }
 
 fn push_item_styles(
@@ -7297,6 +7296,36 @@ running through the quiet forest until the morning light returns.";
             "the kerned natural width holds: {} vs {expected}",
             line.rect.width
         );
+    }
+
+    /// The shaping size truncates the F32 product size*100 onto the
+    /// 1/100 grid: the f32 product's own rounding decides the cell
+    /// (15.2*100 = exactly 1520.0 passes through; 18.72*100 =
+    /// 1871.99988 truncates to 18.71). An f64 product would round
+    /// 18.72's hundredths within any snap tolerance and miss the
+    /// browser's cell (Range-measured on a pinned face).
+    #[test]
+    fn the_shaping_size_truncates_the_f32_hundredths_product() {
+        for (size, want) in [
+            (18.72_f32, 18.71_f32),
+            (9.36, 9.35),
+            (37.44, 37.43),
+            (18.8, 18.79),
+            (15.2, 15.2),
+            (12.16, 12.16),
+            (14.4, 14.4),
+            (16.01, 16.01),
+            (15.9999, 15.99),
+            (15.9375, 15.93),
+            (17.06667, 17.06),
+            (9.52, 9.52),
+        ] {
+            let got = shaping_font_size(size);
+            assert!(
+                (got - want).abs() < 1e-4,
+                "{size} shapes at {got}, browser uses {want}"
+            );
+        }
     }
 
     /// The per-glyph grid-pen splits ride the 16.16 fixed-point scale
