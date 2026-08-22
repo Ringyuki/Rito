@@ -793,6 +793,7 @@ mod tests {
             node_links: BTreeMap::new(),
             source_anchors: BTreeMap::new(),
             node_tags: BTreeMap::new(),
+            list_markers: BTreeMap::new(),
             degradations: Vec::new(),
         }
     }

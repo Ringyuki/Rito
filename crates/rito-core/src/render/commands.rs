@@ -276,6 +276,11 @@ pub(crate) struct DisplayTextCommandInput {
     /// A ruby command's non-initial `ruby-align`; `None` (the initial
     /// `space-around`) stays off the wire. Always `None` for plain text.
     pub ruby_align: Option<RubyAlignPaint>,
+    /// Right-aligned draw: `rect.x` is the text's RIGHT edge and the
+    /// renderer measures the string to place the pen (outside list
+    /// markers, whose width only the canvas can measure). Off the wire
+    /// when false.
+    pub align_right: bool,
 }
 
 /// A non-initial `ruby-align` keyword carried by a ruby paint command.

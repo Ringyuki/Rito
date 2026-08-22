@@ -63,6 +63,9 @@ export interface RitoCoreWasmPaintTextCommand extends RitoCoreWasmTextPaintComma
   readonly href?: string;
   readonly sourceText?: string;
   readonly sourceTextOffset?: number;
+  /** Right-aligned draw: rect.x is the text's RIGHT edge; the renderer
+   * measures the string to place the pen (outside list markers). */
+  readonly alignRight?: boolean;
 }
 
 export interface RitoCoreWasmPaintRubyCommand extends RitoCoreWasmTextPaintCommand {

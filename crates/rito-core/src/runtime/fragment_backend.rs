@@ -270,6 +270,7 @@ impl RuntimeDocument {
                     family_policy: Some(&family_policy),
                     node_paints: Some(&built.node_paints),
                     image_border_paints: Some(&built.image_border_paints),
+                    list_markers: Some(&built.list_markers),
                 },
                 &CancelFlag::new(),
             )

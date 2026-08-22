@@ -279,7 +279,12 @@ function paintBlock(
 function paintText(ctx: CanvasRenderingContext2D, command: TextCommand, state: RenderState): void {
   drawCanvasTextFragment(
     ctx,
-    { text: command.text, rect: command.rect, paint: command.paint },
+    {
+      text: command.text,
+      rect: command.rect,
+      paint: command.paint,
+      ...(command.alignRight === undefined ? {} : { alignRight: command.alignRight }),
+    },
     state.colorOverride,
     declaredGroundFor(command.rect, command.paint, state),
   );

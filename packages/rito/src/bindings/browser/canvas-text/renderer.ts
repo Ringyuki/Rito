@@ -31,10 +31,13 @@ export function drawCanvasTextFragment(
   // matches at any sub-pixel phase. The rect's em-top encodes
   // baseline - 0.8*size (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
   const baseline = y + 0.8 * paint.font.sizePx;
+  // An outside list marker rides right-aligned: the wire x is the
+  // text's right edge and only the canvas can measure the string.
+  const penX = fragment.alignRight ? x - ctx.measureText(fragment.text).width : x;
   if (textRidesTheLayoutGrid(paint.font.sizePx, paint.wordSpacingPx, fragment.text)) {
-    drawTextOnLayoutGrid(ctx, fragment.text, x, baseline, paint.letterSpacingPx ?? 0);
+    drawTextOnLayoutGrid(ctx, fragment.text, penX, baseline, paint.letterSpacingPx ?? 0);
   } else {
-    ctx.fillText(fragment.text, x, baseline);
+    ctx.fillText(fragment.text, penX, baseline);
   }
 
   const { decoration } = paint;

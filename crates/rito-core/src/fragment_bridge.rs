@@ -78,10 +78,26 @@ pub struct ChapterFormattingTree {
     pub source_anchors: BTreeMap<usize, String>,
     /// Source tag per block-level formatting node, for semantic roles.
     pub node_tags: BTreeMap<u32, String>,
+    /// Outside list markers, keyed by the list item's formatting node id.
+    /// The painter draws the text right-aligned against the item box's
+    /// content-left edge minus the marker gap, on the first line's
+    /// baseline; layout never sees the marker (CSS
+    /// `list-style-position: outside`, the browser's default).
+    pub list_markers: BTreeMap<u32, ListMarkerPaint>,
     /// Constructs the tree could not represent exactly and rendered with
     /// an approximation instead (ignored decoration, flattened display,
     /// collapsed preserved white space, …). Empty means exact.
     pub degradations: Vec<String>,
+}
+
+/// One outside list marker's paint inputs.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ListMarkerPaint {
+    /// Marker text (e.g. `9.` for decimal, `•` for disc).
+    pub text: String,
+    /// The list item's interned inline style: the marker inherits the
+    /// item's font, size and color (CSS `::marker` default).
+    pub style: StyleId,
 }
 
 /// One inline item's interaction provenance.
@@ -191,6 +207,8 @@ pub fn build_chapter_formatting_tree(
         node_anchors: BTreeMap::new(),
         source_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
+        list_markers: BTreeMap::new(),
+        list_counters: Vec::new(),
         block_link: None,
         node_links: BTreeMap::new(),
         strut_styles: BTreeMap::new(),
@@ -244,6 +262,7 @@ pub fn build_chapter_formatting_tree(
         node_links,
         source_anchors,
         node_tags,
+        list_markers,
         strut_styles,
         degradations,
         ..
@@ -268,6 +287,7 @@ pub fn build_chapter_formatting_tree(
         node_links,
         source_anchors,
         node_tags,
+        list_markers,
         degradations,
     })
 }
@@ -288,6 +308,11 @@ struct TreeBuilder<'a> {
     node_anchors: BTreeMap<u32, String>,
     source_anchors: BTreeMap<usize, String>,
     node_tags: BTreeMap<u32, String>,
+    /// Outside list markers recorded per list-item node.
+    list_markers: BTreeMap<u32, ListMarkerPaint>,
+    /// Ordinal counter stack: one entry per open <ol>/<ul>, holding the
+    /// last ordinal handed out at that nesting level.
+    list_counters: Vec<u32>,
     /// Link destinations recorded per block node for whole-box hit areas.
     node_links: BTreeMap<u32, String>,
     /// The nearest enclosing block-level `<a href>` destination: an `<a>`
@@ -539,6 +564,28 @@ impl TreeBuilder<'_> {
         }
         self.require_block_capabilities(style, &element.tag)?;
         let tag = element.tag.clone();
+        // One ordinal scope per open list container; a nested list
+        // restarts its own count exactly like the browser's list-item
+        // counter.
+        let opens_list_scope = matches!(tag.as_str(), "ol" | "ul");
+        if opens_list_scope {
+            self.list_counters.push(0);
+        }
+        let list_marker_text = {
+            let resolved = self
+                .layout
+                .style(style)
+                .map_err(|error| EpubError::new(format!("block style resolves: {error}")))?;
+            if resolved.display.is_list_item {
+                if let Some(counter) = self.list_counters.last_mut() {
+                    *counter += 1;
+                }
+                let ordinal = self.list_counters.last().copied().unwrap_or(1);
+                list_marker_text(resolved.list_style_type, ordinal)
+            } else {
+                None
+            }
+        };
         let plan = self.block_box_paint_plan(source_index, &tag)?;
         // Border widths become padding on a derived layout style: the
         // fragment rect grows into the CSS border box, contents shrink
@@ -630,6 +677,19 @@ impl TreeBuilder<'_> {
         self.node_tags.insert(id.0, tag);
         if let Some(paint) = decoration {
             self.node_paints.insert(id.0, paint);
+        }
+        if let Some(text) = list_marker_text {
+            let marker_style = self.inline_style_id(source_index, "li marker");
+            self.list_markers.insert(
+                id.0,
+                ListMarkerPaint {
+                    text,
+                    style: marker_style,
+                },
+            );
+        }
+        if opens_list_scope {
+            self.list_counters.pop();
         }
         Ok(Some(id))
     }
@@ -1804,10 +1864,12 @@ fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String>
         return Some(reason);
     }
     match style.display {
+        // A list item lays out as plain block flow; its outside marker
+        // paints from the `list_markers` table without touching layout.
         c::LayoutDisplayV1 {
             outside: LayoutDisplayOutsideV1::Block,
             inside: c::LayoutDisplayInsideV1::Flow | c::LayoutDisplayInsideV1::FlowRoot,
-            is_list_item: false,
+            is_list_item: _,
         } => {}
         other => return Some(format!("display {other:?}")),
     }
@@ -3316,8 +3378,62 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         node_links: BTreeMap::new(),
         source_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
+        list_markers: BTreeMap::new(),
         degradations: vec!["chapter has no body source node; rendered empty".to_owned()],
     })
+}
+
+/// The marker text for one list item, or `None` when the list style
+/// suppresses the marker. Ordinal styles follow the browser's counter
+/// formatting; the symbol styles use the marker glyphs the browser
+/// paints.
+fn list_marker_text(
+    style: rito_style_contract::ListMarkerStyleV1,
+    ordinal: u32,
+) -> Option<String> {
+    use rito_style_contract::ListMarkerStyleV1 as M;
+    let text = match style {
+        M::None => return None,
+        M::Disc => "\u{2022}".to_owned(),
+        M::Circle => "\u{25E6}".to_owned(),
+        M::Square => "\u{25AA}".to_owned(),
+        M::Decimal => format!("{ordinal}."),
+        M::LowerAlpha => format!("{}.", alpha_ordinal(ordinal, false)),
+        M::UpperAlpha => format!("{}.", alpha_ordinal(ordinal, true)),
+        M::LowerRoman => format!("{}.", roman_ordinal(ordinal).to_lowercase()),
+        M::UpperRoman => format!("{}.", roman_ordinal(ordinal)),
+    };
+    Some(text)
+}
+
+/// a., b., … z., aa., ab., … exactly as CSS `lower-alpha` counts.
+fn alpha_ordinal(ordinal: u32, upper: bool) -> String {
+    let mut n = ordinal;
+    let mut out = Vec::new();
+    while n > 0 {
+        n -= 1;
+        let letter = b'a' + (n % 26) as u8;
+        out.push(if upper { letter.to_ascii_uppercase() } else { letter } as char);
+        n /= 26;
+    }
+    out.into_iter().rev().collect()
+}
+
+/// I, II, III, IV, … CSS `upper-roman` counter formatting.
+fn roman_ordinal(mut n: u32) -> String {
+    const TABLE: [(u32, &str); 13] = [
+        (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"),
+        (90, "XC"), (50, "L"), (40, "XL"), (10, "X"), (9, "IX"),
+        (5, "V"), (4, "IV"), (1, "I"),
+    ];
+    let mut out = String::new();
+    for (value, digits) in TABLE {
+        while n >= value {
+            out.push_str(digits);
+            n -= value;
+        }
+    }
+    out
 }
 
 /// The inline style a node degrades to when the projection retained no
@@ -3704,10 +3820,11 @@ p { margin: 8px 0; }\n\
     }
 
     #[test]
-    fn list_items_degrade_to_plain_blocks_pending_marker_layout() {
+    fn list_items_carry_outside_markers_without_degrading() {
         let chapter = resolved_chapter_from(
             r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
-  <ol><li>first entry</li></ol>
+  <ol><li>first entry</li><li>second entry</li><li><span>third</span><ol><li>nested</li></ol></li></ol>
+  <ul><li>bullet</li></ul>
 </body></html>"#,
         );
         let built = build_chapter_formatting_tree(
@@ -3717,15 +3834,25 @@ p { margin: 8px 0; }\n\
             &chapter.inline,
             &no_images(),
         )
-        .expect("list items lay out as plain blocks");
+        .expect("list items lay out");
         assert!(
-            built
+            !built
                 .degradations
                 .iter()
                 .any(|reason| reason.contains("plain block flow")),
-            "the flattened list is recorded: {:?}",
+            "list items no longer degrade: {:?}",
             built.degradations
         );
+        let mut texts: Vec<&str> = built
+            .list_markers
+            .values()
+            .map(|marker| marker.text.as_str())
+            .collect();
+        texts.sort();
+        // Three ordinals in the outer <ol>, a restarted ordinal in the
+        // nested <ol>, and one disc bullet in the <ul>. The nested list
+        // restarts at 1, so "1." appears twice.
+        assert_eq!(texts, vec!["1.", "1.", "2.", "3.", "\u{2022}"]);
     }
 
     #[test]

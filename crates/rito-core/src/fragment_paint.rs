@@ -101,6 +101,10 @@ pub(crate) struct FragmentPaintContext<'a> {
     /// element's source index; widths are the absorbed border widths
     /// (top, right, bottom, left) layout reserved as padding.
     pub(crate) image_border_paints: Option<&'a BTreeMap<u32, (NodePaint, [f64; 4])>>,
+    /// Outside list markers keyed by list-item node id; drawn
+    /// right-aligned against the item's content-left edge on its first
+    /// line's baseline.
+    pub(crate) list_markers: Option<&'a BTreeMap<u32, crate::fragment_bridge::ListMarkerPaint>>,
 }
 
 /// Walks a laid-out fragment tree and appends the display commands that
@@ -374,6 +378,55 @@ fn append_fragment_display_commands_inner(
             } else {
                 snap_origin_y
             };
+            // An outside list marker: right-aligned text whose right
+            // edge sits the marker gap left of the item's content edge,
+            // on the first line's painted baseline (the browser's
+            // `list-style-position: outside` box).
+            if let Some(marker) = context
+                .list_markers
+                .and_then(|markers| markers.get(&fragment.source.0))
+            {
+                if let Some(rito_fragment::Fragment::Line(first_line)) = fragment
+                    .children
+                    .iter()
+                    .find(|child| matches!(child, rito_fragment::Fragment::Line(_)))
+                {
+                    let styles = tree
+                        .styles()
+                        .ok_or_else(|| EpubError::new("marker paint needs style tables"))?;
+                    let style = styles
+                        .inline
+                        .style(marker.style)
+                        .map_err(|error| EpubError::new(format!("marker style: {error}")))?;
+                    let paint = run_paint(style, context.family_policy, 0.0, false, false)?;
+                    let font_size = f64::from(style.font.size.get());
+                    let line_y = origin_y + fragment.rect.y + first_line.rect.y;
+                    let baseline = child_snap_origin_y
+                        + (line_y + first_line.ruby_growth - child_snap_origin_y).round()
+                        + (first_line.baseline - first_line.ruby_growth).round();
+                    // The marker string carries its trailing space and
+                    // the right edge sits AT the content edge (measured
+                    // on the b17 nav: the digit ink ends 6px before the
+                    // text, exactly one 16px space plus the period's
+                    // right bearing — no extra fixed gap).
+                    commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
+                        text: Value::String(format!("{} ", marker.text)),
+                        rect: rect_value(
+                            origin_x + fragment.rect.x,
+                            baseline - CANVAS_TOP_ASCENT_RATIO * font_size,
+                            0.0,
+                            font_size,
+                        ),
+                        paint,
+                        line_height_px: None,
+                        href: None,
+                        source_text: None,
+                        source_text_offset: None,
+                        ruby_align: None,
+                        align_right: true,
+                    }));
+                }
+            }
             for child in &fragment.children {
                 append_fragment_display_commands_inner(
                     commands,
@@ -810,6 +863,7 @@ fn append_text_run_command(
             href: None,
             source_text: None,
             source_text_offset: None,
+            align_right: false,
             ruby_align: match ruby_align {
                 rito_style_contract::RubyAlign::SpaceAround => None,
                 rito_style_contract::RubyAlign::Start => Some(RubyAlignPaint::START),
@@ -840,6 +894,7 @@ fn append_text_run_command(
         source_text: None,
         source_text_offset: None,
         ruby_align: None,
+        align_right: false,
     }));
     Ok(())
 }
@@ -1501,6 +1556,7 @@ mod tests {
                 image_border_paints: None,
                 family_policy: None,
                 node_paints: Some(&node_paints),
+                list_markers: None,
             },
         )
         .expect("fragments paint");
@@ -1607,6 +1663,7 @@ mod tests {
                 image_border_paints: None,
                 family_policy: None,
                 node_paints: Some(&paints),
+                list_markers: None,
             },
         )
         .expect("rule paints");
@@ -1639,6 +1696,7 @@ mod tests {
                 image_border_paints: None,
                 family_policy: Some(&policy),
                 node_paints: None,
+                list_markers: None,
             },
         )
         .expect("fragments paint");

@@ -466,6 +466,7 @@ fn text_command(input: TextCommandInput<'_>) -> DisplayCommand {
             .map(|source_text| source_text_command_value(source_text, input.text_mode)),
         source_text_offset: input.source_text_offset,
         ruby_align: None,
+        align_right: false,
     };
     match input.kind {
         TextCommandKind::PaintText => DisplayCommand::paint_text(command),
