@@ -2674,8 +2674,39 @@ impl FormattingContext for ParleyInlineContext {
                                         }),
                                     _ => false,
                                 };
+                                // A shadowed run also keeps one piece:
+                                // its glyphs render through the shadow
+                                // scratch bitmap, whose fractional-phase
+                                // handling is per PIECE — splitting a
+                                // decorated line re-phased every
+                                // segment's shadow edge (b42's outlined
+                                // caption pages grew ~100px each under
+                                // the unguarded split).
+                                let run_has_shadow = style_tables
+                                    .and_then(|tables| {
+                                        let item_style =
+                                            match &tree.node(root).content {
+                                                FormattingNodeContent::InlineFlow {
+                                                    items,
+                                                } => items.get(item_index).map(|item| {
+                                                    match item {
+                                                        InlineItem::Text { style, .. }
+                                                        | InlineItem::Image { style, .. }
+                                                        | InlineItem::InlineBlock {
+                                                            style, ..
+                                                        } => *style,
+                                                    }
+                                                }),
+                                                _ => None,
+                                            }?;
+                                        tables.inline.style(item_style).ok()
+                                    })
+                                    .is_some_and(|resolved| {
+                                        !resolved.paint.text_shadows.is_empty()
+                                    });
                                 let cjk_kern_splits: Vec<(usize, f64)> = if !has_space
                                     && !run_has_ruby
+                                    && !run_has_shadow
                                     && flow_text
                                         .get(run_range.clone())
                                         .is_some_and(|text| {
