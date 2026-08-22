@@ -62,6 +62,11 @@ center { text-align: center; }
 ul { margin-block: 1em; padding-inline-start: 40px; list-style-type: disc; }
 ol { margin-block: 1em; padding-inline-start: 40px; list-style-type: decimal; }
 li { margin-block: 0; }
+/* A list nested inside a list (or a dl) drops its block margins — the
+   browser's UA sheet zeroes margin-block for these descendants, and a
+   nav toc's inner chapter list sits flush under its volume entry
+   (23px line pitch, not 23px + 16px + 16px). */
+ol ol, ol ul, ul ol, ul ul, dl ol, dl ul, ol dl, ul dl, dl dl { margin-block: 0; }
 dl { margin-block: 1em; }
 dd { margin-inline-start: 40px; }
 
