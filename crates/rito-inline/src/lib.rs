@@ -4237,8 +4237,16 @@ fn cjk_quote_reclassification(context: parley::LineBreakContext) -> Option<bool>
     {
         return Some(true);
     }
+    // The em/horizontal-bar dashes join the after-side context: a
+    // closing curly quote breaks before a novel dash pair exactly like
+    // before an ideograph (pinned-Chromium b112 line: 怕”|——可见 puts
+    // the dash pair on the next line while the quote closes the first;
+    // treating the pair as unbreakable-after-quote dragged 怕” down
+    // with it and re-broke every following line of the chapter).
+    let after_joins_cjk = is_cjk_context(context.after)
+        || matches!(context.after, '\u{2014}' | '\u{2015}');
     if CLOSE_QUOTES.contains(&context.before)
-        && is_cjk_context(context.after)
+        && after_joins_cjk
         && fullwidth_punctuation_class(context.after) != PunctuationClass::CloseOrStop
         && !CLOSE_QUOTES.contains(&context.after)
         && !OPEN_QUOTES.contains(&context.after)
@@ -7333,6 +7341,81 @@ running through the quiet forest until the morning light returns.";
             (line.rect.width - expected).abs() < 0.01,
             "the kerned natural width holds: {} vs {expected}",
             line.rect.width
+        );
+    }
+
+    /// A closing curly quote breaks before an em-dash pair: the quote
+    /// closes its line and the dashes open the next (pinned-Chromium
+    /// b112 line at 640: 怕” | ——可见). Treating quote-then-dash as
+    /// unbreakable dragged the quote down with the pair.
+    #[test]
+    fn a_closing_quote_breaks_before_a_dash_pair() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context =
+            ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(
+                rito_style_contract::GenericFontFamily::Serif,
+            )])
+            .expect("family list"),
+            16.0,
+            32.0,
+        );
+        style.text_flow.text_align = TextAlign::Justify;
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let text = "这就是Master绮礼的指示。就连战斗能力最为低下的Assassin与其交锋时都\u{201C}不必惧怕\u{201D}\u{2014}\u{2014}可见时臣召唤出来的Archer的英灵，一定是非常令绮礼失望的吧。";
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &ConstraintSpace::continuous(640.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else { panic!("box"); };
+        let mut lines = Vec::new();
+        for child in &root.children {
+            if let Fragment::Line(line) = child {
+                let mut first = String::new();
+                for c in &line.children {
+                    if let Fragment::Text(run) = c {
+                        first = text[run.text_start as usize..].chars().take(4).collect();
+                        break;
+                    }
+                }
+                lines.push(first);
+            }
+        }
+        assert_eq!(lines.len(), 2, "the paragraph wraps once at 640");
+        assert_eq!(
+            lines[1], "\u{2014}\u{2014}\u{53ef}\u{89c1}",
+            "the dash pair opens the second line, the quote stays up"
         );
     }
 
