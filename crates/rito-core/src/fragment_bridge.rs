@@ -3440,6 +3440,57 @@ p { margin: 8px 0; }\n\
         BTreeMap::new()
     }
 
+    #[test]
+    fn an_inline_image_em_width_resolves_against_its_own_font_size() {
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head>
+<body><div class="article"><p>字<a class="duokan-footnote" href="f7"><img class="w09" src="zhu.png"/></a>字</p></div></body></html>"#,
+            ".article { font-size: 0.95em; } .w09 { width: 0.9em; }",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let styles = built.tree.styles().expect("tree carries styles");
+        let mut width: Option<f64> = None;
+        let mut stack = vec![built.tree.root()];
+        while let Some(id) = stack.pop() {
+            let node = built.tree.node(id);
+            stack.extend(node.children.iter().copied());
+            if let FormattingNodeContent::InlineFlow { items } = &node.content {
+                for item in items {
+                    if let InlineItem::Image { layout_style, .. } = item {
+                        let resolved = styles
+                            .layout
+                            .style(*layout_style)
+                            .expect("image layout style resolves");
+                        if let rito_style_contract::PreferredSizeV1::Value(value) =
+                            &resolved.width
+                        {
+                            let LengthPercentage::Length(px) = value.value() else {
+                                panic!("unexpected width form");
+                            };
+                            width = Some(f64::from(px.get()));
+                        }
+                    }
+                }
+            }
+        }
+        // body 16px -> .article 0.95em = 15.2px -> the img inherits 15.2,
+        // and `width: 0.9em` resolves against the img's OWN font size:
+        // 0.9 * 15.2 = 13.68 (the used size then truncates to 13.671875
+        // on the LayoutUnit grid downstream).
+        let width = width.expect("the image carries a preferred width");
+        assert!(
+            (width - 13.68).abs() < 1e-3,
+            "img em width resolves at 13.68, got {width}"
+        );
+    }
+
     fn resolved_chapter() -> ResolvedChapter {
         resolved_chapter_from(CHAPTER_XHTML)
     }
