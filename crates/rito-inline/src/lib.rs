@@ -7232,6 +7232,89 @@ running through the quiet forest until the morning light returns.";
         );
     }
 
+    /// Advances ride the 16.16 fixed-point scale the browser hands
+    /// HarfBuzz: a 19.2px 1000-unit ideograph advances
+    /// trunc(1000 * round(19.2 * 65536) / 1000) / 65536 = 19.199997px,
+    /// not the raw f32 product 19.200001px. The raw sum crosses 1/64
+    /// cells one cluster early, so every glyph after the crossing
+    /// painted one device column right of the browser's
+    /// (Range-measured on a pinned-Chromium 19.2px contents line).
+    #[test]
+    fn advances_ride_the_fixed_point_harfbuzz_scale() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let style_id = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Generic(
+                        rito_style_contract::GenericFontFamily::Serif,
+                    )])
+                    .expect("family list"),
+                    19.2,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "掷骰子问题掷骰子问题".to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &ConstraintSpace::continuous(10_000.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        let advance = 1_258_291.0_f64 / 65_536.0;
+        let mut runs = line.children.iter().filter_map(|child| match child {
+            Fragment::Text(run) => Some(run),
+            _ => None,
+        });
+        let first = runs.next().expect("the line has text runs");
+        assert!(
+            first.rect.x.abs() < 1e-6,
+            "the run anchors at the line start: {}",
+            first.rect.x
+        );
+        let second = runs.next().expect("the off-grid advance splits the run");
+        assert!(
+            (second.rect.x - advance).abs() < 1e-5 && second.rect.x < 19.2,
+            "the second glyph starts one fixed-point advance in: {} vs {advance}",
+            second.rect.x
+        );
+    }
+
     /// A justified line's paint cuts land AROUND a repeated-dash pair,
     /// never between the dashes: the canvas shapes each call on its own,
     /// and fonts join —— through contextual substitution, so a cut inside
