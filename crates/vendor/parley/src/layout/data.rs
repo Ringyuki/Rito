@@ -481,16 +481,7 @@ impl<B: Brush> LayoutData<B> {
             return;
         }
         let glyph_positions = glyph_buffer.glyph_positions();
-        // Chromium converts HarfBuzz positions through a 16.16 fixed-point
-        // size: scale = round(font_size * 65536), px = trunc(units * scale /
-        // upem) / 65536. A 19.2px 1000-unit ideograph therefore advances
-        // 19.199997px, not the raw f32 product 19.200001px — by the eighth
-        // cluster the raw cumulative crosses the next 1/64 cell and every
-        // following glyph paints one device column to the right of the
-        // browser's (Range-measured on a pinned-Chromium bold contents line:
-        // cluster 8 lands at 10087/64, the raw f32 sum floors to 10088/64).
-        let hb_scale = (f64::from(font_size) * 65536.0).round() as i64;
-        let hb_upem = (units_per_em as i64).max(1);
+        let scale_factor = font_size / units_per_em;
         let cluster_range_start = self.clusters.len();
         let is_rtl = bidi_level & 1 == 1;
         if !is_rtl {
@@ -498,8 +489,7 @@ impl<B: Brush> LayoutData<B> {
                 Direction::Ltr,
                 &mut self.clusters,
                 &mut self.glyphs,
-                hb_scale,
-                hb_upem,
+                scale_factor,
                 glyph_infos,
                 glyph_positions,
                 char_infos,
@@ -510,8 +500,7 @@ impl<B: Brush> LayoutData<B> {
                 Direction::Rtl,
                 &mut self.clusters,
                 &mut self.glyphs,
-                hb_scale,
-                hb_upem,
+                scale_factor,
                 glyph_infos,
                 glyph_positions,
                 char_infos,
@@ -668,27 +657,17 @@ impl<B: Brush> LayoutData<B> {
 ///
 /// ## Input Parameters:
 /// * `direction` - Direction of the text.
-/// * `hb_scale` / `hb_upem` - 16.16 fixed-point font scale and units-per-em
-///   used to convert font units to pixels the way Chromium drives HarfBuzz
-///   (see `hb_px`).
+/// * `scale_factor` - Scaling factor used to convert font units to the target size.
 /// * `glyph_infos` - `HarfRust` glyph information in visual order.
 /// * `glyph_positions` - `HarfRust` glyph positioning data in visual order.
 /// * `char_infos` - Character information from text analysis, indexed by cluster ID.
 /// * `char_indices_iter` - Iterator over (`byte_offset`, `char`) pairs from the source text.
 ///   Should be in logical order (forward for LTR, reverse for RTL).
-/// Converts a HarfBuzz font-unit position to pixels through the 16.16
-/// fixed-point scale Chromium hands HarfBuzz: the product truncates toward
-/// zero onto the 1/65536 grid, exactly like HarfBuzz's own `em_scale`.
-fn hb_px(units: i32, hb_scale: i64, hb_upem: i64) -> f32 {
-    ((i64::from(units) * hb_scale / hb_upem) as f64 / 65536.0) as f32
-}
-
 fn process_clusters<I: Iterator<Item = (usize, char)>>(
     direction: Direction,
     clusters: &mut Vec<ClusterData>,
     glyphs: &mut Vec<Glyph>,
-    hb_scale: i64,
-    hb_upem: i64,
+    scale_factor: f32,
     glyph_infos: &[harfrust::GlyphInfo],
     glyph_positions: &[harfrust::GlyphPosition],
     char_infos: &[(CharInfo, u16)],
@@ -818,10 +797,10 @@ fn process_clusters<I: Iterator<Item = (usize, char)>>(
         let glyph = Glyph {
             id: glyph_info.glyph_id,
             style_index: char_info.1,
-            x: hb_px(glyph_pos.x_offset, hb_scale, hb_upem),
+            x: (glyph_pos.x_offset as f32) * scale_factor,
             // Convert from font space (Y-up) to layout space (Y-down)
-            y: -hb_px(glyph_pos.y_offset, hb_scale, hb_upem),
-            advance: hb_px(glyph_pos.x_advance, hb_scale, hb_upem),
+            y: -(glyph_pos.y_offset as f32) * scale_factor,
+            advance: (glyph_pos.x_advance as f32) * scale_factor,
         };
         cluster_advance += glyph.advance;
         // Push any pending glyph. If it was a zero-offset, single glyph cluster, it would
