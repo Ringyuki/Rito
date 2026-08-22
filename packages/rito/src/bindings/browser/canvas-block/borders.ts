@@ -149,20 +149,63 @@ function renderCrescentRoundedBorder(
     ctx.fillStyle = color;
     ctx.beginPath();
     traceBoxPathCCW(ctx, x, y, width, height, radiusX, radiusY);
-    traceBoxPathCCW(
-      ctx,
-      x + left.width,
-      y + top.width,
-      innerWidth,
-      innerHeight,
-      Math.max(0, radiusX - (left.width + right.width) / 2),
-      Math.max(0, radiusY - (top.width + bottom.width) / 2),
-    );
+    traceInnerEllipticalPath(ctx, x + left.width, y + top.width, innerWidth, innerHeight, [
+      [Math.max(0, radiusX - left.width), Math.max(0, radiusY - top.width)],
+      [Math.max(0, radiusX - right.width), Math.max(0, radiusY - top.width)],
+      [Math.max(0, radiusX - right.width), Math.max(0, radiusY - bottom.width)],
+      [Math.max(0, radiusX - left.width), Math.max(0, radiusY - bottom.width)],
+    ]);
     ctx.fill('evenodd');
   } finally {
     ctx.restore();
   }
   return true;
+}
+
+/**
+ * Appends the padding-box path of an unequal-width rounded border: each
+ * corner is an ELLIPTICAL arc whose x radius insets by that corner's
+ * vertical edge and whose y radius insets by its horizontal edge — the
+ * browser's inner-border geometry (a uniform inner radius bulged the
+ * thin sides of the b126 badge ring and starved the thick one).
+ * Corners in TL, TR, BR, BL order; direction irrelevant under evenodd.
+ */
+function traceInnerEllipticalPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  corners: readonly (readonly [number, number])[],
+): void {
+  const cap = (value: number, limit: number) => Math.min(Math.max(0, value), limit / 2);
+  const [tl, tr, br, bl] = corners;
+  const tlx = cap(tl?.[0] ?? 0, width);
+  const tly = cap(tl?.[1] ?? 0, height);
+  const trx = cap(tr?.[0] ?? 0, width);
+  const tryy = cap(tr?.[1] ?? 0, height);
+  const brx = cap(br?.[0] ?? 0, width);
+  const bry = cap(br?.[1] ?? 0, height);
+  const blx = cap(bl?.[0] ?? 0, width);
+  const bly = cap(bl?.[1] ?? 0, height);
+  ctx.moveTo(x + tlx, y);
+  ctx.lineTo(x + width - trx, y);
+  if (trx > 0 || tryy > 0) {
+    ctx.ellipse(x + width - trx, y + tryy, trx, tryy, 0, -Math.PI / 2, 0);
+  }
+  ctx.lineTo(x + width, y + height - bry);
+  if (brx > 0 || bry > 0) {
+    ctx.ellipse(x + width - brx, y + height - bry, brx, bry, 0, 0, Math.PI / 2);
+  }
+  ctx.lineTo(x + blx, y + height);
+  if (blx > 0 || bly > 0) {
+    ctx.ellipse(x + blx, y + height - bly, blx, bly, 0, Math.PI / 2, Math.PI);
+  }
+  ctx.lineTo(x, y + tly);
+  if (tlx > 0 || tly > 0) {
+    ctx.ellipse(x + tlx, y + tly, tlx, tly, 0, Math.PI, (3 * Math.PI) / 2);
+  }
+  ctx.closePath();
 }
 
 function renderUniformRoundedBorder(
