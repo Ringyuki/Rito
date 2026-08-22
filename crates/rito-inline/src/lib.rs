@@ -4230,9 +4230,17 @@ fn cjk_aware_chromium_break_override_strict(context: parley::LineBreakContext) -
 fn cjk_quote_reclassification(context: parley::LineBreakContext) -> Option<bool> {
     const OPEN_QUOTES: [char; 2] = ['\u{2018}', '\u{201C}'];
     const CLOSE_QUOTES: [char; 2] = ['\u{2019}', '\u{201D}'];
+    // A close/stop before the opening quote KEEPS the prohibition: the
+    // browser carries 说，'Caster' as one unbreakable block — the comma
+    // never sheds the quote that follows it (pinned-Chromium b112 line:
+    // …这点来 | 说，'Caster'… breaks before 说, not after the comma).
+    // Only an ideograph ahead of the opening quote releases the break.
     if OPEN_QUOTES.contains(&context.after)
         && is_cjk_context(context.before)
-        && fullwidth_punctuation_class(context.before) != PunctuationClass::Open
+        && matches!(
+            fullwidth_punctuation_class(context.before),
+            PunctuationClass::Other | PunctuationClass::Middle
+        )
         && !OPEN_QUOTES.contains(&context.before)
     {
         return Some(true);
@@ -7341,6 +7349,82 @@ running through the quiet forest until the morning light returns.";
             (line.rect.width - expected).abs() < 0.01,
             "the kerned natural width holds: {} vs {expected}",
             line.rect.width
+        );
+    }
+
+    /// A fullwidth comma keeps its following opening quote: the browser
+    /// breaks BEFORE the ideograph that precedes the comma, carrying
+    /// 说，'Caster' to the next line as one block (pinned-Chromium b112
+    /// chapter3 line at 640: …这点来 | 说，'C…). Breaking after the
+    /// comma sheds the quote and re-breaks the rest of the paragraph.
+    #[test]
+    fn a_fullwidth_comma_keeps_its_following_opening_quote() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context =
+            ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(
+                rito_style_contract::GenericFontFamily::Serif,
+            )])
+            .expect("family list"),
+            16.0,
+            32.0,
+        );
+        style.text_flow.text_align = TextAlign::Justify;
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let text = "可关键是怎样有效使用这个最强战斗力的问题。说实话如果单从容易操纵这点来说，\u{2018}Caster\u{2019}和\u{2018}Assassin\u{2019}倒是更符合我的性格。\u{201D}";
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &ConstraintSpace::continuous(640.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else { panic!("box"); };
+        let mut lines = Vec::new();
+        for child in &root.children {
+            if let Fragment::Line(line) = child {
+                let mut first = String::new();
+                for c in &line.children {
+                    if let Fragment::Text(run) = c {
+                        first = text[run.text_start as usize..].chars().take(3).collect();
+                        break;
+                    }
+                }
+                lines.push(first);
+            }
+        }
+        assert_eq!(lines.len(), 2, "the paragraph wraps once at 640");
+        assert_eq!(
+            lines[1], "\u{8bf4}\u{ff0c}\u{2018}",
+            "the comma-quote block opens the second line: {lines:?}"
         );
     }
 
