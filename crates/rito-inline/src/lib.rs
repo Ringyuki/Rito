@@ -2704,7 +2704,48 @@ impl FormattingContext for ParleyInlineContext {
                                     .is_some_and(|resolved| {
                                         !resolved.paint.text_shadows.is_empty()
                                     });
-                                let cjk_kern_splits: Vec<(usize, f64)> = if !has_space
+                                // The browser's pen advances on 16.16
+                                // fixed-point pixels: scale = round(size *
+                                // 65536), px = trunc(units * scale / upem)
+                                // / 65536. A 19.2px 1000-unit ideograph
+                                // advances 19.199997px, not the raw f32
+                                // product 19.200001px — the raw sum
+                                // crosses the next 1/64 cell one cluster
+                                // early and every glyph after it paints
+                                // one device column right of the
+                                // browser's (Range-measured on a
+                                // pinned-Chromium 19.2px contents line:
+                                // cluster 8 lands at 10087/64, the raw
+                                // sum floors to 10088/64).
+                                let hb_cluster_advance =
+                                    |current: &parley::layout::Cluster<'_, _>| -> f64 {
+                                        use skrifa::raw::TableProvider as _;
+                                        let advance = f64::from(current.advance());
+                                        let run = current.run();
+                                        let font = run.font();
+                                        let Ok(font_ref) = skrifa::FontRef::from_index(
+                                            font.data.as_ref(),
+                                            font.index,
+                                        ) else {
+                                            return advance;
+                                        };
+                                        let Ok(head) = font_ref.head() else {
+                                            return advance;
+                                        };
+                                        let upem = i64::from(head.units_per_em());
+                                        let size = f64::from(run.font_size());
+                                        if upem <= 0 || size <= 0.0 {
+                                            return advance;
+                                        }
+                                        let scale = (size * 65536.0).round() as i64;
+                                        let units = (advance * upem as f64 / size).round() as i64;
+                                        (units * scale / upem) as f64 / 65536.0
+                                    };
+                                let (cjk_kern_splits, cjk_anchor_correction, cjk_hb_total): (
+                                    Vec<(usize, f64)>,
+                                    f64,
+                                    f64,
+                                ) = if !has_space
                                     && !run_has_ruby
                                     && !run_has_shadow
                                     && flow_text
@@ -2720,6 +2761,34 @@ impl FormattingContext for ParleyInlineContext {
                                                         | 0x20000..=0x3FFFF)
                                                 })
                                         }) {
+                                    // The run anchor is parley's raw f32
+                                    // cumulative from the line start;
+                                    // re-express the prefix in the
+                                    // fixed-point domain so the absolute
+                                    // positions the splits floor onto
+                                    // match the browser's pen (measured
+                                    // on a pinned-Chromium contents line:
+                                    // a raw anchor 2.9e-5 high tipped the
+                                    // next cluster across its 1/64 cell).
+                                    // This split path never runs on a
+                                    // justified line, so no share joins
+                                    // the prefix; inline boxes are not
+                                    // clusters and their widths agree in
+                                    // both domains.
+                                    let mut anchor_correction = 0.0_f64;
+                                    let mut prefix = parley::layout::Cluster::from_byte_index(
+                                        &layout,
+                                        line.text_range().start,
+                                    );
+                                    while let Some(current) = prefix {
+                                        let byte = current.text_range().start;
+                                        if byte >= run_range.start {
+                                            break;
+                                        }
+                                        anchor_correction += hb_cluster_advance(&current)
+                                            - f64::from(current.advance());
+                                        prefix = current.next_logical();
+                                    }
                                     let mut splits = Vec::new();
                                     let mut cumulative = 0.0_f64;
                                     let mut cluster = parley::layout::Cluster::from_byte_index(
@@ -2732,32 +2801,30 @@ impl FormattingContext for ParleyInlineContext {
                                             break;
                                         }
                                         if byte > run_range.start {
-                                            let scaled = cumulative * 64.0;
+                                            let scaled =
+                                                (anchor_correction + cumulative) * 64.0;
                                             if (scaled - scaled.round()).abs() > 1e-3 {
                                                 splits.push((byte, cumulative));
                                             }
                                         }
-                                        cumulative += f64::from(current.advance());
+                                        cumulative += hb_cluster_advance(&current);
                                         cluster = current.next_logical();
                                     }
-                                    splits
+                                    (splits, anchor_correction, cumulative)
                                 } else {
-                                    Vec::new()
+                                    (Vec::new(), 0.0, 0.0)
                                 };
                                 if !has_space && !cjk_kern_splits.is_empty() {
                                     let mut seg_start = run_range.start;
                                     let mut seg_offset = 0.0_f64;
                                     for (byte, cumulative) in cjk_kern_splits
                                         .into_iter()
-                                        .chain(std::iter::once((
-                                            run_range.end,
-                                            f64::from(glyph_run.advance()),
-                                        )))
+                                        .chain(std::iter::once((run_range.end, cjk_hb_total)))
                                     {
                                         if byte > seg_start {
                                             emit(
                                                 seg_start..byte,
-                                                run_x + seg_offset,
+                                                run_x + cjk_anchor_correction + seg_offset,
                                                 cumulative - seg_offset
                                                     - if byte == run_range.end {
                                                         box_shed
@@ -7229,6 +7296,89 @@ running through the quiet forest until the morning light returns.";
             (line.rect.width - expected).abs() < 0.01,
             "the kerned natural width holds: {} vs {expected}",
             line.rect.width
+        );
+    }
+
+    /// The per-glyph grid-pen splits ride the 16.16 fixed-point scale
+    /// the browser hands its shaper: a 19.2px 1000-unit ideograph
+    /// advances trunc(1000 * round(19.2 * 65536) / 1000) / 65536 =
+    /// 19.199997px, not the raw f32 product 19.200001px. The raw sum
+    /// crosses 1/64 cells one cluster early, so every glyph after the
+    /// crossing painted one device column right of the browser's
+    /// (Range-measured on a pinned-Chromium 19.2px contents line).
+    #[test]
+    fn grid_pen_splits_ride_the_fixed_point_shaper_scale() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let style_id = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Generic(
+                        rito_style_contract::GenericFontFamily::Serif,
+                    )])
+                    .expect("family list"),
+                    19.2,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "掷骰子问题掷骰子问题".to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &ConstraintSpace::continuous(10_000.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        let advance = 1_258_291.0_f64 / 65_536.0;
+        let mut runs = line.children.iter().filter_map(|child| match child {
+            Fragment::Text(run) => Some(run),
+            _ => None,
+        });
+        let first = runs.next().expect("the line has text runs");
+        assert!(
+            first.rect.x.abs() < 1e-6,
+            "the run anchors at the line start: {}",
+            first.rect.x
+        );
+        let second = runs.next().expect("the off-grid advance splits the run");
+        assert!(
+            (second.rect.x - advance).abs() < 1e-5 && second.rect.x < 19.2,
+            "the second glyph starts one fixed-point advance in: {} vs {advance}",
+            second.rect.x
         );
     }
 
