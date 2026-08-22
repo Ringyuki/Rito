@@ -184,6 +184,12 @@ function runIsAllCjk(text: string): boolean {
   for (const glyph of text) {
     const code = glyph.codePointAt(0) ?? 0;
     const cjk =
+      // U+00B7 rides along: the middle dot between ideographs shapes
+      // 1:1 with no kern against its CJK neighbours, and rejecting it
+      // kept a fractional-size chapter list on the whole-run pen
+      // (16.8px 第一·五章 drifted every glyph after the dot off the
+      // browser's per-glyph floor64 cells).
+      code === 0xb7 ||
       (code >= 0x2e80 && code <= 0x9fff) ||
       (code >= 0xf900 && code <= 0xfaff) ||
       (code >= 0xff00 && code <= 0xffef) ||
