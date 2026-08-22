@@ -100,18 +100,24 @@ export function drawCanvasRubyFragment(
       free > 0.01 &&
       !rubyAnnotationExpands(ruby.text)
     ) {
-      // A spaced word annotation pours the whole slack into its word
-      // gaps: the words hug both edges of the base (measured on the
-      // b42 Locus/Solus rubies — word 1 starts at the base's left
-      // edge, word 2 ends at its right, the single gap takes all
-      // 14.5px). Placed word by word: no wordSpacing state involved.
+      // A spaced word annotation distributes like standard word-unit
+      // space-around: each WORD is one justification unit taking one
+      // share of the free width, half on each side — so the edges carry
+      // share/2 and each inter-word gap carries a full share on top of
+      // the natural space (pixel-measured on BOTH the b42 Locus/Solus
+      // and the b43 Dagr/weapon rubies: base 64.8, words 21+19, edges
+      // ~5.6, gap ~13.2 = share 11.2 + the 2px natural space; the
+      // earlier hug-both-edges placement measured a Range box whose
+      // widths already carried the expansion shares, not the ink).
       const wordWidths = words.map((word) => ctx.measureText(word).width);
       const naturalWords = wordWidths.reduce((sum, value) => sum + value, 0);
-      const gap = (ruby.rect.width - naturalWords) / (words.length - 1);
-      let x = ruby.rect.x;
+      const spaceWidth = ctx.measureText(' ').width;
+      const naturalSpaces = spaceWidth * (words.length - 1);
+      const share = (ruby.rect.width - naturalWords - naturalSpaces) / words.length;
+      let x = ruby.rect.x + share / 2;
       for (let index = 0; index < words.length; index += 1) {
         ctx.fillText(words[index] ?? '', x, ruby.rect.y);
-        x += (wordWidths[index] ?? 0) + gap;
+        x += (wordWidths[index] ?? 0) + spaceWidth + share;
       }
     } else if (align === 'start') {
       ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
