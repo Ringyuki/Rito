@@ -2704,6 +2704,33 @@ impl FormattingContext for ParleyInlineContext {
                                     .is_some_and(|resolved| {
                                         !resolved.paint.text_shadows.is_empty()
                                     });
+                                let run_letter_spacing = style_tables
+                                    .and_then(|tables| {
+                                        let item_style =
+                                            match &tree.node(root).content {
+                                                FormattingNodeContent::InlineFlow {
+                                                    items,
+                                                } => items.get(item_index).map(|item| {
+                                                    match item {
+                                                        InlineItem::Text { style, .. }
+                                                        | InlineItem::Image { style, .. }
+                                                        | InlineItem::InlineBlock {
+                                                            style, ..
+                                                        } => *style,
+                                                    }
+                                                }),
+                                                _ => None,
+                                            }?;
+                                        tables.inline.style(item_style).ok()
+                                    })
+                                    .map_or(0.0_f64, |resolved| {
+                                        match resolved.text_flow.letter_spacing {
+                                            LengthPercentage::Length(px) => {
+                                                f64::from(px.get())
+                                            }
+                                            _ => 0.0,
+                                        }
+                                    });
                                 // The browser's pen advances on 16.16
                                 // fixed-point pixels: scale = round(size *
                                 // 65536), px = trunc(units * scale / upem)
@@ -2738,8 +2765,19 @@ impl FormattingContext for ParleyInlineContext {
                                             return advance;
                                         }
                                         let scale = (size * 65536.0).round() as i64;
-                                        let units = (advance * upem as f64 / size).round() as i64;
-                                        (units * scale / upem) as f64 / 65536.0
+                                        // The author letter-spacing was folded
+                                        // into every cluster advance after
+                                        // shaping; the browser adds spacing
+                                        // OUTSIDE the fixed-point glyph
+                                        // advance (a 16px run spaced 1.333px
+                                        // steps 16.000000 + 1.333 — round-
+                                        // tripping the folded sum through
+                                        // font units pulled every spaced
+                                        // glyph 0.0053px left per cluster
+                                        // across a whole book).
+                                        let bare = advance - run_letter_spacing;
+                                        let units = (bare * upem as f64 / size).round() as i64;
+                                        (units * scale / upem) as f64 / 65536.0 + run_letter_spacing
                                     };
                                 let (cjk_kern_splits, cjk_anchor_correction, cjk_hb_total): (
                                     Vec<(usize, f64)>,
@@ -7326,6 +7364,80 @@ running through the quiet forest until the morning light returns.";
                 "{size} shapes at {got}, browser uses {want}"
             );
         }
+    }
+
+    /// Author letter-spacing rides OUTSIDE the fixed-point glyph advance:
+    /// a 16px ideograph spaced 1.3333334px steps 16.000000 + 1.3333334,
+    /// never round-tripped through font units as one folded sum
+    /// (round(17.333 * 1000 / 16) = 1083 units re-scales to 17.32799 —
+    /// 0.0053px short per cluster, one device column per ~12 glyphs
+    /// across a spaced book).
+    #[test]
+    fn letter_spacing_stays_outside_the_fixed_point_round_trip() {
+        let source_han = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+        ))
+        .expect("pinned serif reads");
+        let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+        let mut inline = InlineStyleTableV1::new(1);
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(
+                rito_style_contract::GenericFontFamily::Serif,
+            )])
+            .expect("family list"),
+            16.0,
+            0.0,
+        );
+        style.text_flow.letter_spacing =
+            LengthPercentage::Length(CssPx::new(1.333_333_4).expect("finite spacing"));
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: "开始自我介绍".to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &ConstraintSpace::continuous(10_000.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("root is a box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("first child is a line");
+        };
+        let mut runs = line.children.iter().filter_map(|child| match child {
+            Fragment::Text(run) => Some(run),
+            _ => None,
+        });
+        let first = runs.next().expect("the line has text runs");
+        let second = runs.next().expect("the spaced advance splits the run");
+        let step = second.rect.x - first.rect.x;
+        assert!(
+            (step - 17.333_333_4).abs() < 1e-5,
+            "the spaced step keeps the raw spacing outside the grid: {step}"
+        );
     }
 
     /// The per-glyph grid-pen splits ride the 16.16 fixed-point scale
