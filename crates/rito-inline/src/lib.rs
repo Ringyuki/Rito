@@ -2713,7 +2713,8 @@ impl FormattingContext for ParleyInlineContext {
                                             !text.is_empty()
                                                 && text.chars().all(|ch| {
                                                     matches!(u32::from(ch),
-                                                        0x2E80..=0x9FFF
+                                                        0xB7
+                                                        | 0x2E80..=0x9FFF
                                                         | 0xF900..=0xFAFF
                                                         | 0xFF00..=0xFFEF
                                                         | 0x20000..=0x3FFFF)
