@@ -207,6 +207,14 @@ fn replacement_name(name: &str) -> Option<&'static str> {
         Some(BORDER_SPACING_CSS_NAME)
     } else if name.eq_ignore_ascii_case("ruby-align") {
         Some(RUBY_ALIGN_CSS_NAME)
+    } else if name.eq_ignore_ascii_case("-webkit-writing-mode")
+        || name.eq_ignore_ascii_case("-epub-writing-mode")
+    {
+        // Blink parses both prefixed forms as aliases of `writing-mode`
+        // (same value grammar); vertical EPUB books commonly declare ONLY
+        // the prefixed forms, which stylo's servo profile drops as
+        // unknown properties.
+        Some("writing-mode")
     } else {
         None
     }
@@ -423,6 +431,16 @@ mod tests {
         assert_eq!(
             rewrite_declaration_list("ruby-align: centered"),
             "ruby-align: centered"
+        );
+    }
+
+    #[test]
+    fn prefixed_writing_mode_aliases_reach_the_standard_property() {
+        let css = ".vrtl { -webkit-writing-mode: vertical-rl; -epub-writing-mode: vertical-rl; }";
+        let rewritten = rewrite_stylesheet(css);
+        assert_eq!(
+            rewritten.as_ref(),
+            ".vrtl { writing-mode: vertical-rl; writing-mode: vertical-rl; }"
         );
     }
 
