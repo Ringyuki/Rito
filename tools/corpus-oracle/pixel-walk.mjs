@@ -818,14 +818,27 @@ img, svg { max-width: 100%; }`;
             }
           }
           columns.sort((a, b) => b[1] - a[1]);
+          // A page holds whole LINE BOXES, not ink spans: the reader's
+          // fragmentainer sums line heights, so the page test walks
+          // center-to-center pitches (the line box width) plus one
+          // trailing pitch, not the ink distance right-edge-to-left-edge
+          // (which under-counts by the two half-leadings and admitted
+          // one column more than the engine on every full page).
+          const centers = columns.map(([l, r]) => (l + r) / 2);
+          const pitchAfter = centers.map((c, idx) =>
+            idx + 1 < centers.length ? c - centers[idx + 1] : strut,
+          );
           const pages = [];
           let i = 0;
           while (i < columns.length) {
-            const right = columns[i][1];
+            let used = 0;
             let j = i;
-            while (j < columns.length && right - columns[j][0] <= contentW) j += 1;
+            while (j < columns.length && used + pitchAfter[j] <= contentW + 1e-6) {
+              used += pitchAfter[j];
+              j += 1;
+            }
             if (j === i) j += 1;
-            pages.push(right);
+            pages.push(columns[i][1]);
             i = j;
           }
           return { pages, contentWidth: width };
