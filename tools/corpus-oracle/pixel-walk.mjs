@@ -776,6 +776,10 @@ img, svg { max-width: 100%; }`;
             if (r.width > 0 && r.height > 0) rects.push([r.left, r.right]);
           }
         }
+        for (const el of document.querySelectorAll('img, svg')) {
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) rects.push([r.left, r.right]);
+        }
         rects.sort((a, b) => a[0] - b[0]);
         const clusters = [];
         for (const [left, right] of rects) {
