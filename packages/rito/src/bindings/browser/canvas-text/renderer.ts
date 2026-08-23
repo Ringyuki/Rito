@@ -70,11 +70,17 @@ export function drawCanvasTextFragment(
   const baseline = y + 0.8 * paint.font.sizePx;
   // An outside list marker rides right-aligned: the wire x is the
   // text's right edge and only the canvas can measure the string.
-  const penX = fragment.alignRight ? x - ctx.measureText(fragment.text).width : x;
-  if (textRidesTheLayoutGrid(paint.font.sizePx, paint.wordSpacingPx, fragment.text)) {
-    drawTextOnLayoutGrid(ctx, fragment.text, penX, baseline, paint.letterSpacingPx ?? 0);
+  // Zero-width characters (U+FEFF and friends) paint no ink but the
+  // canvas letterSpacing pen would still spend one spacing share on
+  // them, pushing everything after one share right of the browser's
+  // cells (which step 0 across a zero-width cluster). Stripping them
+  // changes no pixels of their own.
+  const drawnText = fragment.text.replace(/\u200B|\u200C|\u200D|\u2060|\uFEFF/g, '');
+  const penX = fragment.alignRight ? x - ctx.measureText(drawnText).width : x;
+  if (textRidesTheLayoutGrid(paint.font.sizePx, paint.wordSpacingPx, drawnText)) {
+    drawTextOnLayoutGrid(ctx, drawnText, penX, baseline, paint.letterSpacingPx ?? 0);
   } else {
-    ctx.fillText(fragment.text, penX, baseline);
+    ctx.fillText(drawnText, penX, baseline);
   }
 
   const { decoration } = paint;

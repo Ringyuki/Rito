@@ -4595,6 +4595,19 @@ fn line_justify_plan(
         let Some((offset, character)) = walk.next() else {
             break;
         };
+        // Zero-width characters are TRANSPARENT to justification: the
+        // boundary they sit on neither takes a share nor defers one
+        // (Range-measured on a justified line carrying U+FEFF: the
+        // preceding ideograph's boundary keeps its one share and the
+        // zero-width cluster steps 0, while counting it as a normal
+        // character both inflated the denominator and deferred a
+        // phantom share past it).
+        if matches!(
+            character,
+            '\u{FEFF}' | '\u{200B}' | '\u{200C}' | '\u{200D}' | '\u{2060}'
+        ) {
+            continue;
+        }
         if let Some(left) = &previous {
             // A spread ruby base receives NO interior expansion: its
             // clusters already sit at the annotation-dictated spacing
