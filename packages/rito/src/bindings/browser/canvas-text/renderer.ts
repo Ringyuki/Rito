@@ -6,6 +6,12 @@ import { drawTextShadows } from './text-shadow';
 import type { CanvasRubyFragment, CanvasTextColorOverride, CanvasTextFragment } from './types';
 import { resolveTextColor } from '../theme/text-color';
 
+// Vertical presentation classes: characters the vert feature ROTATES a
+// quarter turn (brackets, dashes, leaders, the long-vowel mark) and the
+// corner marks it SHIFTS into the em's top-right (comma, period).
+const VERTICAL_ROTATED = /[「」『』()()〔〕［］[\]{}｛｝〈〉《》【】〖〗…‥ー―—–~〜～＝=]/u;
+const VERTICAL_SHIFTED = /[、。，．,.]/u;
+
 export function drawCanvasTextFragment(
   ctx: CanvasRenderingContext2D,
   fragment: CanvasTextFragment,
@@ -25,13 +31,29 @@ export function drawCanvasTextFragment(
     // Vertical-rl column: the rect's x is the glyph column's left edge,
     // y the first glyph's top, width the font size. Each cluster paints
     // upright and the pen steps one font size (plus justification
-    // spacing) down the column.
+    // spacing) down the column. Punctuation takes its vertical
+    // presentation: brackets, dashes and leaders are the horizontal
+    // glyph rotated a quarter turn about its em center (how the vert
+    // feature draws them), and comma/period marks sit in the em's
+    // top-right corner instead of bottom-left.
     const size = paint.font.sizePx;
     const step = size + (paint.letterSpacingPx ?? 0);
     ctx.letterSpacing = '0px';
     let penY = y + 0.8 * size;
     for (const cluster of fragment.text) {
-      ctx.fillText(cluster, x, penY);
+      if (VERTICAL_ROTATED.test(cluster)) {
+        const cx = x + size / 2;
+        const cy = penY - 0.3 * size;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(Math.PI / 2);
+        ctx.fillText(cluster, -size / 2, 0.3 * size);
+        ctx.restore();
+      } else if (VERTICAL_SHIFTED.test(cluster)) {
+        ctx.fillText(cluster, x + 0.5 * size, penY - 0.6 * size);
+      } else {
+        ctx.fillText(cluster, x, penY);
+      }
       penY += step;
     }
     return;

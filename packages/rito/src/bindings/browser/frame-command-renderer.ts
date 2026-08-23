@@ -298,7 +298,7 @@ function paintRuby(ctx: CanvasRenderingContext2D, command: RubyCommand, state: R
       text: command.text,
       rect: command.rect,
       paint: command.paint,
-      rubyAlign: command.rubyAlign,
+      ...(command.rubyAlign === undefined ? {} : { rubyAlign: command.rubyAlign }),
       ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
     },
     state.colorOverride,
