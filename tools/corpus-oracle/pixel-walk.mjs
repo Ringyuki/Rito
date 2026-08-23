@@ -473,7 +473,13 @@ const truthColumns = new Map(); // idref -> PNG[] (one per column)
 // publisher's notereplace.js swapped the footnote-marker image for a
 // 【注】 text link and every note-bearing paragraph rewrapped
 // (Playwright's evaluate still works; only the page's own scripts stop).
-const truthContext = await browser.newContext({
+// The truth renders in its OWN browser: after the reader's long
+// session in the shared process, vertical document-clip captures came
+// back blank and scroll captures sat ~190px stale on a fresh page and
+// context alike; a fresh browser process renders the same page,
+// injection and clip correctly.
+const truthBrowser = await chromium.launch();
+const truthContext = await truthBrowser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: 1,
   javaScriptEnabled: false,
@@ -529,31 +535,33 @@ for (const chapter of plan.chapters) {
     const noteIds = [...footnoteTargets]
       .filter((target) => target.startsWith(`${href}#`))
       .map((target) => target.slice(href.length + 1));
-    const vertical = await truth.evaluate(
-      async ({ contentW, contentH, pinLatin, pinCjk, noteIds, bookFaceFamilies }) => {
-        // Vertical-rl chapters skip the multicol harness entirely: a
-        // vertical root already grows sideways column by column (the
-        // block axis is horizontal), so the truth is the NATIVE flow at
-        // page height, sliced page-stripe by page-stripe from the right.
-        // Multicol on a vertical root stacks its columns on the wrong
-        // axis and the slices stop corresponding to reader pages.
-        const verticalRoot =
-          ['vertical-rl', 'vertical-lr'].includes(
-            getComputedStyle(document.documentElement).writingMode,
-          ) || ['vertical-rl', 'vertical-lr'].includes(getComputedStyle(document.body).writingMode);
-        const s = document.createElement('style');
-        // The multicol pagination baseline. The reader's image page
-        // clamp is mirrored PER ELEMENT below (uniform box scaling) —
-        // a blanket \`max-height !important\` here once squashed every
-        // author-width oversized image the same way a defective engine
-        // policy did, and the diff went blind to the whole class (b52's
-        // stretched cover scored bf=2).
-        // The container is EXACTLY one column wide: multicol stretches
-        // its columns to fill the container, so a loose viewport-width
-        // container would silently widen every column past the engine's
-        // content width. Overflow columns grow to the right at the same
-        // exact width (the paginated-reader idiom).
-        s.textContent = `@font-face { font-family: "__rito_pin_latin"; src: url("${pinLatin}"); }
+    const injectTruth = (pg) =>
+      pg.evaluate(
+        async ({ contentW, contentH, pinLatin, pinCjk, noteIds, bookFaceFamilies }) => {
+          // Vertical-rl chapters skip the multicol harness entirely: a
+          // vertical root already grows sideways column by column (the
+          // block axis is horizontal), so the truth is the NATIVE flow at
+          // page height, sliced page-stripe by page-stripe from the right.
+          // Multicol on a vertical root stacks its columns on the wrong
+          // axis and the slices stop corresponding to reader pages.
+          const verticalRoot =
+            ['vertical-rl', 'vertical-lr'].includes(
+              getComputedStyle(document.documentElement).writingMode,
+            ) ||
+            ['vertical-rl', 'vertical-lr'].includes(getComputedStyle(document.body).writingMode);
+          const s = document.createElement('style');
+          // The multicol pagination baseline. The reader's image page
+          // clamp is mirrored PER ELEMENT below (uniform box scaling) —
+          // a blanket \`max-height !important\` here once squashed every
+          // author-width oversized image the same way a defective engine
+          // policy did, and the diff went blind to the whole class (b52's
+          // stretched cover scored bf=2).
+          // The container is EXACTLY one column wide: multicol stretches
+          // its columns to fill the container, so a loose viewport-width
+          // container would silently widen every column past the engine's
+          // content width. Overflow columns grow to the right at the same
+          // exact width (the paginated-reader idiom).
+          s.textContent = `@font-face { font-family: "__rito_pin_latin"; src: url("${pinLatin}"); }
 @font-face { font-family: "__rito_pin_cjk"; src: url("${pinCjk}"); }
 ${
   verticalRoot
@@ -562,261 +570,269 @@ ${
 }
 body { margin:0; padding:0; position:relative; }
 img, svg { max-width: 100%; }`;
-        document.head.insertBefore(s, document.head.firstChild);
-        // Reader UA policy mirror (rito-inline image_display_size), in
-        // two aspect-preserving halves: the WIDTH cap is the plain
-        // `max-width: 100%` above (a replaced element never exceeds its
-        // container; Blink shrinks the auto cross axis with it), and the
-        // HEIGHT clamp is applied per element below, scaling the measured
-        // box uniformly. EXCEPT a both-axes-authored image: the injected
-        // cap would re-resolve it the Blink way (width capped, authored
-        // height held, box DISTORTED) before the clamp — a 708x996-styled
-        // plate fit to 546x850 where the engine's uniform page clamp of
-        // the authored box lays 604x850. Detection is empirical: lifting
-        // the injected cap widens the box while the height stays put.
-        // Measure every replaced box under the book's own CSS first,
-        // then pin the scaled sizes, so reflow from one fix cannot skew
-        // the next measurement.
-        {
-          const replaced = [...document.querySelectorAll('img, svg')];
-          await Promise.all(
-            replaced
-              .filter((el) => el.tagName === 'IMG' && !el.complete)
-              .map(
-                (el) =>
-                  new Promise((done) => {
-                    el.addEventListener('load', done, { once: true });
-                    el.addEventListener('error', done, { once: true });
-                  }),
-              ),
-          );
-          const fits = replaced.map((el) => {
-            const rect = el.getBoundingClientRect();
-            el.style.setProperty('max-width', 'none', 'important');
-            const freeRect = el.getBoundingClientRect();
-            el.style.removeProperty('max-width');
-            const cs = getComputedStyle(el);
-            const edge = (name) => parseFloat(cs.getPropertyValue(name)) || 0;
-            const extraX =
-              edge('border-left-width') +
-              edge('border-right-width') +
-              edge('padding-left') +
-              edge('padding-right');
-            const extraY =
-              edge('border-top-width') +
-              edge('border-bottom-width') +
-              edge('padding-top') +
-              edge('padding-bottom');
-            // The clamp scales the CONTENT box; borders and padding stay
-            // at author size outside it (the engine absorbs an image's
-            // border into flank padding around the raster — b60's
-            // 1px-bordered cover measured 2px wide when the border-box
-            // was scaled as if it were content).
-            return {
-              el,
-              width: rect.width - extraX,
-              height: rect.height - extraY,
-              freeWidth: freeRect.width - extraX,
-              freeHeight: freeRect.height - extraY,
-              extraX,
-              extraY,
-            };
-          });
-          for (const { el, width, height, freeWidth, freeHeight, extraX, extraY } of fits) {
-            if (!(width > 0) || !(height > 0)) continue;
-            const budgetY = contentH - extraY;
-            const authoredDistortion =
-              freeWidth - width > 0.5 && Math.abs(freeHeight - height) < 0.5;
-            if (authoredDistortion) {
-              const budgetX = contentW - extraX;
-              const scale = Math.min(1, budgetX / freeWidth, budgetY / freeHeight);
-              el.style.setProperty('width', `${freeWidth * scale}px`, 'important');
-              el.style.setProperty('height', `${freeHeight * scale}px`, 'important');
-              continue;
-            }
-            const scale = budgetY / height;
-            if (scale >= 1) continue;
-            el.style.setProperty('width', `${width * scale}px`, 'important');
-            el.style.setProperty('height', `${budgetY}px`, 'important');
-          }
-        }
-        // A 404'd pin silently falls back to the browser's own font and
-        // the whole page reads as a defect — assert both faces resolved.
-        await document.fonts.load('16px "__rito_pin_latin"', 'H');
-        await document.fonts.load('16px "__rito_pin_cjk"', '试');
-        await document.fonts.ready;
-        for (const name of ['__rito_pin_latin', '__rito_pin_cjk']) {
-          const face = [...document.fonts].find((f) => f.family === name);
-          if (face?.status !== 'loaded') {
-            throw new Error(`pinned face ${name} did not load (${face?.status ?? 'absent'})`);
-          }
-        }
-        // Mirror the engine's paint family rewrite exactly
-        // (PaintFamilyPolicy): named families the engine cannot resolve
-        // are DROPPED (the browser's UA default "Times" included — the
-        // engine's default is the generic, which its policy maps to the
-        // pins), the pin aliases ride ahead of the first generic keyword,
-        // and the stack keeps a generic tail.
-        const generic = new Set([
-          'serif',
-          'sans-serif',
-          'monospace',
-          'cursive',
-          'fantasy',
-          'system-ui',
-        ]);
-        // A book face counts only when its @font-face carries a REAL
-        // url() source (an embedded font file). Publisher "system font"
-        // stacks declare local(黑体/微软雅黑/…) plus dead reader-device
-        // res:// urls — the engine can never resolve those, but a Mac
-        // running the truth CAN (b20's TS-Default rendered its ruby kana
-        // in the system Heiti while the engine used the pin), so a
-        // local()-resolvable face silently un-equalizes the two sides.
-        // Scanned node-side from the unpacked book: linked stylesheets
-        // are cross-origin to a file:// page, so an in-page cssRules
-        // walk reads nothing here.
-        const bookFaces = new Set(bookFaceFamilies);
-        for (const sheet of document.styleSheets) {
-          let rules;
-          try {
-            rules = sheet.cssRules;
-          } catch {
-            continue;
-          }
-          for (const rule of rules) {
-            if (!(rule instanceof CSSFontFaceRule)) continue;
-            const src = rule.style.getPropertyValue('src');
-            if (!/url\(\s*["']?(?!res:)/i.test(src)) continue;
-            const family = rule.style
-              .getPropertyValue('font-family')
-              .replaceAll('"', '')
-              .toLowerCase()
-              .trim();
-            if (family && !family.startsWith('__rito_pin')) bookFaces.add(family);
-          }
-        }
-        const pins = ['"__rito_pin_latin"', '"__rito_pin_cjk"'];
-        for (const element of [document.documentElement, ...document.querySelectorAll('*')]) {
-          const list = getComputedStyle(element).fontFamily;
-          const parts = [];
-          let pinsAdded = false;
-          for (const raw of list
-            .split(',')
-            .map((name) => name.trim())
-            .filter((name) => name.length > 0)) {
-            const lower = raw.replaceAll('"', '').toLowerCase();
-            if (generic.has(lower)) {
-              if (!pinsAdded) {
-                parts.push(...pins);
-                pinsAdded = true;
+          document.head.insertBefore(s, document.head.firstChild);
+          // Reader UA policy mirror (rito-inline image_display_size), in
+          // two aspect-preserving halves: the WIDTH cap is the plain
+          // `max-width: 100%` above (a replaced element never exceeds its
+          // container; Blink shrinks the auto cross axis with it), and the
+          // HEIGHT clamp is applied per element below, scaling the measured
+          // box uniformly. EXCEPT a both-axes-authored image: the injected
+          // cap would re-resolve it the Blink way (width capped, authored
+          // height held, box DISTORTED) before the clamp — a 708x996-styled
+          // plate fit to 546x850 where the engine's uniform page clamp of
+          // the authored box lays 604x850. Detection is empirical: lifting
+          // the injected cap widens the box while the height stays put.
+          // Measure every replaced box under the book's own CSS first,
+          // then pin the scaled sizes, so reflow from one fix cannot skew
+          // the next measurement.
+          {
+            const replaced = [...document.querySelectorAll('img, svg')];
+            await Promise.all(
+              replaced
+                .filter((el) => el.tagName === 'IMG' && !el.complete)
+                .map(
+                  (el) =>
+                    new Promise((done) => {
+                      el.addEventListener('load', done, { once: true });
+                      el.addEventListener('error', done, { once: true });
+                    }),
+                ),
+            );
+            const fits = replaced.map((el) => {
+              const rect = el.getBoundingClientRect();
+              el.style.setProperty('max-width', 'none', 'important');
+              const freeRect = el.getBoundingClientRect();
+              el.style.removeProperty('max-width');
+              const cs = getComputedStyle(el);
+              const edge = (name) => parseFloat(cs.getPropertyValue(name)) || 0;
+              const extraX =
+                edge('border-left-width') +
+                edge('border-right-width') +
+                edge('padding-left') +
+                edge('padding-right');
+              const extraY =
+                edge('border-top-width') +
+                edge('border-bottom-width') +
+                edge('padding-top') +
+                edge('padding-bottom');
+              // The clamp scales the CONTENT box; borders and padding stay
+              // at author size outside it (the engine absorbs an image's
+              // border into flank padding around the raster — b60's
+              // 1px-bordered cover measured 2px wide when the border-box
+              // was scaled as if it were content).
+              return {
+                el,
+                width: rect.width - extraX,
+                height: rect.height - extraY,
+                freeWidth: freeRect.width - extraX,
+                freeHeight: freeRect.height - extraY,
+                extraX,
+                extraY,
+              };
+            });
+            for (const { el, width, height, freeWidth, freeHeight, extraX, extraY } of fits) {
+              if (!(width > 0) || !(height > 0)) continue;
+              const budgetY = contentH - extraY;
+              const authoredDistortion =
+                freeWidth - width > 0.5 && Math.abs(freeHeight - height) < 0.5;
+              if (authoredDistortion) {
+                const budgetX = contentW - extraX;
+                const scale = Math.min(1, budgetX / freeWidth, budgetY / freeHeight);
+                el.style.setProperty('width', `${freeWidth * scale}px`, 'important');
+                el.style.setProperty('height', `${freeHeight * scale}px`, 'important');
+                continue;
               }
-              parts.push(lower);
+              const scale = budgetY / height;
+              if (scale >= 1) continue;
+              el.style.setProperty('width', `${width * scale}px`, 'important');
+              el.style.setProperty('height', `${budgetY}px`, 'important');
+            }
+          }
+          // A 404'd pin silently falls back to the browser's own font and
+          // the whole page reads as a defect — assert both faces resolved.
+          await document.fonts.load('16px "__rito_pin_latin"', 'H');
+          await document.fonts.load('16px "__rito_pin_cjk"', '试');
+          await document.fonts.ready;
+          for (const name of ['__rito_pin_latin', '__rito_pin_cjk']) {
+            const face = [...document.fonts].find((f) => f.family === name);
+            if (face?.status !== 'loaded') {
+              throw new Error(`pinned face ${name} did not load (${face?.status ?? 'absent'})`);
+            }
+          }
+          // Mirror the engine's paint family rewrite exactly
+          // (PaintFamilyPolicy): named families the engine cannot resolve
+          // are DROPPED (the browser's UA default "Times" included — the
+          // engine's default is the generic, which its policy maps to the
+          // pins), the pin aliases ride ahead of the first generic keyword,
+          // and the stack keeps a generic tail.
+          const generic = new Set([
+            'serif',
+            'sans-serif',
+            'monospace',
+            'cursive',
+            'fantasy',
+            'system-ui',
+          ]);
+          // A book face counts only when its @font-face carries a REAL
+          // url() source (an embedded font file). Publisher "system font"
+          // stacks declare local(黑体/微软雅黑/…) plus dead reader-device
+          // res:// urls — the engine can never resolve those, but a Mac
+          // running the truth CAN (b20's TS-Default rendered its ruby kana
+          // in the system Heiti while the engine used the pin), so a
+          // local()-resolvable face silently un-equalizes the two sides.
+          // Scanned node-side from the unpacked book: linked stylesheets
+          // are cross-origin to a file:// page, so an in-page cssRules
+          // walk reads nothing here.
+          const bookFaces = new Set(bookFaceFamilies);
+          for (const sheet of document.styleSheets) {
+            let rules;
+            try {
+              rules = sheet.cssRules;
+            } catch {
               continue;
             }
-            if (!bookFaces.has(lower)) continue;
-            parts.push(raw);
+            for (const rule of rules) {
+              if (!(rule instanceof CSSFontFaceRule)) continue;
+              const src = rule.style.getPropertyValue('src');
+              if (!/url\(\s*["']?(?!res:)/i.test(src)) continue;
+              const family = rule.style
+                .getPropertyValue('font-family')
+                .replaceAll('"', '')
+                .toLowerCase()
+                .trim();
+              if (family && !family.startsWith('__rito_pin')) bookFaces.add(family);
+            }
           }
-          if (!pinsAdded) parts.push(...pins);
-          const tail = parts.at(-1);
-          if (tail === undefined || !generic.has(tail)) parts.push('serif');
-          element.style.setProperty('font-family', parts.join(', '), 'important');
-        }
-        // Kept book faces must actually LOAD before capture: applying a
-        // family via the rewrite does not itself start the fetch until
-        // a layout uses it, and fonts.ready resolves against loads that
-        // have already started.
-        for (const family of bookFaces) {
-          // A corrupt embedded face rejects the load with a NetworkError;
-          // both engines fall to the next family in that case, so the
-          // truth must too instead of blanking the whole chapter.
-          await document.fonts.load(`16px "${family}"`, '试A').catch(() => undefined);
-        }
-        await document.fonts.ready;
-        // Rito feature mirror: referenced footnote bodies leave the flow.
-        for (const id of noteIds) {
-          const el = document.getElementById(id);
-          if (!el) continue;
-          const type = el.getAttribute('epub:type') ?? '';
-          if (!/\b(footnote|endnote|rearnote|note)\b/.test(type)) continue;
-          if (getComputedStyle(el).display !== 'block') continue;
-          el.style.setProperty('display', 'none', 'important');
-        }
-        await document.fonts.ready;
-        if (!verticalRoot) return null;
-        // The page stripe steps by WHOLE columns, like the engine's
-        // fragmentainer: a page holds floor(contentW / line-height)
-        // columns and the next page starts at the following column, so
-        // a hard contentW step would shear every 23rd column in half.
-        // The dominant column pitch reads off the first paragraph.
-        const probe = document.querySelector('p') ?? document.body;
-        const lh = parseFloat(getComputedStyle(probe).lineHeight);
-        const strut = Number.isFinite(lh) && lh > 0 ? lh : 28;
-        // The scroller never paints at offset 0 in this configuration
-        // (measured: the same content inks at every other offset), so
-        // block-start padding pushes the content one whole stripe in
-        // from the right edge and every stripe, the first included,
-        // reads at a nonzero offset.
-        const width = document.documentElement.scrollWidth;
-        document.documentElement.style.paddingRight = `${contentW}px`;
-        void document.body.offsetHeight;
-        // Page boundaries follow the flow's own LINE GEOMETRY, not a
-        // constant stride: annotation growth mixes 28px and 30px lines
-        // in one paragraph, so a fixed stride shears lines apart. Glyph
-        // rects cluster into columns; a gap wider than the strut is an
-        // empty line (its box holds no glyphs) and re-inserts as strut
-        // columns. A page then takes whole columns while they fit in
-        // the content width, right-to-left, like the reader does.
-        const rects = [];
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          if (!node.textContent || !node.textContent.trim()) continue;
-          const range = document.createRange();
-          range.selectNodeContents(node);
-          for (const r of range.getClientRects()) {
+          const pins = ['"__rito_pin_latin"', '"__rito_pin_cjk"'];
+          for (const element of [document.documentElement, ...document.querySelectorAll('*')]) {
+            const list = getComputedStyle(element).fontFamily;
+            const parts = [];
+            let pinsAdded = false;
+            for (const raw of list
+              .split(',')
+              .map((name) => name.trim())
+              .filter((name) => name.length > 0)) {
+              const lower = raw.replaceAll('"', '').toLowerCase();
+              if (generic.has(lower)) {
+                if (!pinsAdded) {
+                  parts.push(...pins);
+                  pinsAdded = true;
+                }
+                parts.push(lower);
+                continue;
+              }
+              if (!bookFaces.has(lower)) continue;
+              parts.push(raw);
+            }
+            if (!pinsAdded) parts.push(...pins);
+            const tail = parts.at(-1);
+            if (tail === undefined || !generic.has(tail)) parts.push('serif');
+            element.style.setProperty('font-family', parts.join(', '), 'important');
+          }
+          // Kept book faces must actually LOAD before capture: applying a
+          // family via the rewrite does not itself start the fetch until
+          // a layout uses it, and fonts.ready resolves against loads that
+          // have already started.
+          for (const family of bookFaces) {
+            // A corrupt embedded face rejects the load with a NetworkError;
+            // both engines fall to the next family in that case, so the
+            // truth must too instead of blanking the whole chapter.
+            await document.fonts.load(`16px "${family}"`, '试A').catch(() => undefined);
+          }
+          await document.fonts.ready;
+          // Rito feature mirror: referenced footnote bodies leave the flow.
+          for (const id of noteIds) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            const type = el.getAttribute('epub:type') ?? '';
+            if (!/\b(footnote|endnote|rearnote|note)\b/.test(type)) continue;
+            if (getComputedStyle(el).display !== 'block') continue;
+            el.style.setProperty('display', 'none', 'important');
+          }
+          await document.fonts.ready;
+          if (!verticalRoot) return null;
+          // The page stripe steps by WHOLE columns, like the engine's
+          // fragmentainer: a page holds floor(contentW / line-height)
+          // columns and the next page starts at the following column, so
+          // a hard contentW step would shear every 23rd column in half.
+          // The dominant column pitch reads off the first paragraph.
+          const probe = document.querySelector('p') ?? document.body;
+          const lh = parseFloat(getComputedStyle(probe).lineHeight);
+          const strut = Number.isFinite(lh) && lh > 0 ? lh : 28;
+          // The scroller never paints at offset 0 in this configuration
+          // (measured: the same content inks at every other offset), so
+          // block-start padding pushes the content one whole stripe in
+          // from the right edge and every stripe, the first included,
+          // reads at a nonzero offset.
+          const width = document.documentElement.scrollWidth;
+          document.documentElement.style.paddingRight = `${contentW}px`;
+          // The root is widened BEFORE measuring: widening re-anchors the
+          // shrink-to-fit root and shifts every coordinate, so page edges
+          // measured on the narrow root pointed ~190px off after the
+          // widening (the first stripe lost its chapter plate and opening
+          // paragraphs to the phantom shift). Width covers every stripe's
+          // scroll position with room to spare.
+          document.documentElement.style.width = `${width + contentW * 4 + contentW + 200}px`;
+          void document.body.offsetHeight;
+          // Page boundaries follow the flow's own LINE GEOMETRY, not a
+          // constant stride: annotation growth mixes 28px and 30px lines
+          // in one paragraph, so a fixed stride shears lines apart. Glyph
+          // rects cluster into columns; a gap wider than the strut is an
+          // empty line (its box holds no glyphs) and re-inserts as strut
+          // columns. A page then takes whole columns while they fit in
+          // the content width, right-to-left, like the reader does.
+          const rects = [];
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (!node.textContent || !node.textContent.trim()) continue;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            for (const r of range.getClientRects()) {
+              if (r.width > 0 && r.height > 0) rects.push([r.left, r.right]);
+            }
+          }
+          for (const el of document.querySelectorAll('img, svg')) {
+            const r = el.getBoundingClientRect();
             if (r.width > 0 && r.height > 0) rects.push([r.left, r.right]);
           }
-        }
-        for (const el of document.querySelectorAll('img, svg')) {
-          const r = el.getBoundingClientRect();
-          if (r.width > 0 && r.height > 0) rects.push([r.left, r.right]);
-        }
-        rects.sort((a, b) => a[0] - b[0]);
-        const clusters = [];
-        for (const [left, right] of rects) {
-          const last = clusters[clusters.length - 1];
-          if (last && left <= last[1] + 2) {
-            last[1] = Math.max(last[1], right);
-          } else {
-            clusters.push([left, right]);
-          }
-        }
-        const columns = [];
-        for (let i = 0; i < clusters.length; i += 1) {
-          columns.push(clusters[i]);
-          const next = clusters[i + 1];
-          if (next) {
-            const gap = next[0] - clusters[i][1];
-            const empties = Math.round(gap / strut) - 1;
-            for (let k = 0; k < empties; k += 1) {
-              columns.push([clusters[i][1] + (k + 1) * strut, clusters[i][1] + (k + 2) * strut]);
+          rects.sort((a, b) => a[0] - b[0]);
+          const clusters = [];
+          for (const [left, right] of rects) {
+            const last = clusters[clusters.length - 1];
+            if (last && left <= last[1] + 2) {
+              last[1] = Math.max(last[1], right);
+            } else {
+              clusters.push([left, right]);
             }
           }
-        }
-        columns.sort((a, b) => b[1] - a[1]);
-        const pages = [];
-        let i = 0;
-        while (i < columns.length) {
-          const right = columns[i][1];
-          let j = i;
-          while (j < columns.length && right - columns[j][0] <= contentW) j += 1;
-          if (j === i) j += 1;
-          pages.push(right);
-          i = j;
-        }
-        return { pages, contentWidth: width };
-      },
-      { contentW, contentH, pinLatin: PIN_LATIN, pinCjk: PIN_CJK, noteIds, bookFaceFamilies },
-    );
+          const columns = [];
+          for (let i = 0; i < clusters.length; i += 1) {
+            columns.push(clusters[i]);
+            const next = clusters[i + 1];
+            if (next) {
+              const gap = next[0] - clusters[i][1];
+              const empties = Math.round(gap / strut) - 1;
+              for (let k = 0; k < empties; k += 1) {
+                columns.push([clusters[i][1] + (k + 1) * strut, clusters[i][1] + (k + 2) * strut]);
+              }
+            }
+          }
+          columns.sort((a, b) => b[1] - a[1]);
+          const pages = [];
+          let i = 0;
+          while (i < columns.length) {
+            const right = columns[i][1];
+            let j = i;
+            while (j < columns.length && right - columns[j][0] <= contentW) j += 1;
+            if (j === i) j += 1;
+            pages.push(right);
+            i = j;
+          }
+          return { pages, contentWidth: width };
+        },
+        { contentW, contentH, pinLatin: PIN_LATIN, pinCjk: PIN_CJK, noteIds, bookFaceFamilies },
+      );
+    const vertical = await injectTruth(truth);
     await truth.waitForTimeout(250);
     // One screenshot per column. Each column is brought to the viewport by
     // a negative margin on the root element, NOT by scrolling: scrolling
@@ -845,31 +861,33 @@ img, svg { max-width: 100%; }`;
       // stops AT the stripe edge: unlike multicol there is no gap, so a
       // wider clip would leak the NEXT page's first column into the
       // margin band.
-      await truth.evaluate(
-        ({ w }) => {
-          document.documentElement.style.width = `${w}px`;
-        },
-        { w: vertical.contentWidth + (vertical.pages.length + 2) * contentW + 200 },
+      // No scrolling at all: the screenshot clip takes DOCUMENT
+      // coordinates (origin at the content's far LEFT on this vertical
+      // scroller), so every stripe is addressed directly. Scroll-based
+      // capture rendered stripes at a stale compositor offset (~190px
+      // behind the DOM's scrollLeft, immune to settling, throwaway
+      // frames and rAF fences) while the DOM reported the right
+      // geometry; document-clip capture needs none of that.
+      // One fullPage shot per vertical chapter, sliced in Node: both
+      // scroll-based capture (~190px stale compositor offset) and
+      // document-coordinate clips (blank frames) failed on the walk's
+      // truth page while identical probes succeeded; the fullPage path
+      // rasters the whole sideways document in one pass and the stripes
+      // are cut from the decoded image at the measured page edges.
+      const docOffset = await truth.evaluate(
+        () => -document.documentElement.getBoundingClientRect().left,
       );
+      const full = PNG.sync.read(await truth.screenshot({ fullPage: true }));
       for (let k = 0; k <= expected + 1; k += 1) {
         if (k >= vertical.pages.length) break;
-        // The page's first (rightmost) column edge lands on the clip's
-        // right edge: scrollLeft = pageRight - viewport width, always
-        // negative thanks to the injected block-start padding.
-        await truth.evaluate(
-          (sl) => {
-            document.scrollingElement.scrollLeft = sl;
-          },
-          vertical.pages[k] - (contentW + 200),
-        );
-        await truth.waitForTimeout(50);
-        columns.push(
-          PNG.sync.read(
-            await truth.screenshot({
-              clip: { x: 200, y: 0, width: contentW, height: contentH },
-            }),
-          ),
-        );
+        const clipX = Math.round(vertical.pages[k] - contentW + docOffset);
+        const out = new PNG({ width: contentW, height: contentH });
+        for (let yy = 0; yy < contentH && yy < full.height; yy += 1) {
+          const srcStart = (yy * full.width + Math.max(0, clipX)) * 4;
+          const srcEnd = (yy * full.width + Math.min(full.width, clipX + contentW)) * 4;
+          if (srcEnd > srcStart) full.data.copy(out.data, yy * contentW * 4, srcStart, srcEnd);
+        }
+        columns.push(out);
       }
       truthColumns.set(chapter.href, columns);
       continue;
@@ -905,6 +923,7 @@ img, svg { max-width: 100%; }`;
   }
 }
 await truth.close();
+await truthBrowser.close();
 await browser.close();
 
 // ---- Pair, count, rank --------------------------------------------------
