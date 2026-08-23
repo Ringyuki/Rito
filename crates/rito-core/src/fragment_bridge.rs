@@ -1063,6 +1063,15 @@ impl TreeBuilder<'_> {
                     }
                     return Ok(());
                 }
+                if element.children.is_empty() {
+                    // A childless inline box still opens on the line: its
+                    // font's leaded envelope around its shifted baseline
+                    // joins the line metrics (an empty <sup> footnote
+                    // anchor grows the line exactly like one holding a
+                    // marker; measured, Blink lifts the whole first line
+                    // of a page by the sup envelope with nothing in it).
+                    collector.push_empty_box(style, shift, source_index);
+                }
                 for child in &element.children {
                     self.collect_inline(child, style, shift, collector)?;
                 }
@@ -2963,6 +2972,23 @@ impl InlineCollector {
         self.has_content = true;
     }
 
+    /// Records a childless inline box: no advance, no content, but the
+    /// open box's leaded envelope still joins its line's metrics. It is
+    /// not content — pending collapsed spaces keep waiting for real text.
+    fn push_empty_box(&mut self, style: StyleId, baseline_shift_px: f64, source_index: usize) {
+        self.sources.push(FlowItemSource {
+            source_index: Some(source_index),
+            source_path: None,
+            href: self.current_link.clone(),
+            image_alt: None,
+            segments: Vec::new(),
+        });
+        self.items.push(InlineItem::EmptyBox {
+            style,
+            baseline_shift_px,
+        });
+    }
+
     fn finish(self) -> (Vec<InlineItem>, Vec<FlowItemSource>) {
         // Trailing pending space is dropped: flow-final white space
         // collapses away.
@@ -3767,7 +3793,9 @@ p { margin: 8px 0; }\n\
                     text.as_str(),
                     ruby_annotation.as_ref().map(|a| a.text.as_str()),
                 ),
-                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                InlineItem::Image { .. }
+                | InlineItem::InlineBlock { .. }
+                | InlineItem::EmptyBox { .. } => {
                     panic!("no atomic items here")
                 }
             })
@@ -3821,7 +3849,9 @@ p { margin: 8px 0; }\n\
             .iter()
             .map(|item| match item {
                 InlineItem::Text { text, .. } => text.as_str(),
-                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                InlineItem::Image { .. }
+                | InlineItem::InlineBlock { .. }
+                | InlineItem::EmptyBox { .. } => {
                     panic!("no atomic items here")
                 }
             })
@@ -3856,7 +3886,9 @@ p { margin: 8px 0; }\n\
             .iter()
             .map(|item| match item {
                 InlineItem::Text { text, .. } => text.as_str(),
-                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                InlineItem::Image { .. }
+                | InlineItem::InlineBlock { .. }
+                | InlineItem::EmptyBox { .. } => {
                     panic!("no atomic items here")
                 }
             })
@@ -3940,7 +3972,9 @@ p { margin: 8px 0; }\n\
                     text.as_str(),
                     ruby_annotation.as_ref().map(|a| a.text.as_str()),
                 ),
-                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                InlineItem::Image { .. }
+                | InlineItem::InlineBlock { .. }
+                | InlineItem::EmptyBox { .. } => {
                     panic!("no atomic items here")
                 }
             })
@@ -4375,7 +4409,9 @@ p { margin: 8px 0; }\n\
             .iter()
             .map(|item| match item {
                 InlineItem::Text { text, .. } => text.as_str(),
-                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                InlineItem::Image { .. }
+                | InlineItem::InlineBlock { .. }
+                | InlineItem::EmptyBox { .. } => {
                     panic!("no atomic items in this paragraph")
                 }
             })
@@ -5020,7 +5056,9 @@ p { margin: 8px 0; }\n\
                         .iter()
                         .filter_map(|item| match item {
                             InlineItem::Text { text, .. } => Some(text.as_str()),
-                            InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => None,
+                            InlineItem::Image { .. }
+                            | InlineItem::InlineBlock { .. }
+                            | InlineItem::EmptyBox { .. } => None,
                         })
                         .collect();
                     let mut start = u32::MAX;

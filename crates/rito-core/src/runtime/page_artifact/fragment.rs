@@ -680,7 +680,9 @@ fn fragment_subtree_text(tree: &rito_fragment::FormattingTree, fragment: &Fragme
                     .iter()
                     .filter_map(|item| match item {
                         InlineItem::Text { text, .. } => Some(text.as_str()),
-                        InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => None,
+                        InlineItem::Image { .. }
+                        | InlineItem::InlineBlock { .. }
+                        | InlineItem::EmptyBox { .. } => None,
                     })
                     .collect();
                 for child in &line.children {

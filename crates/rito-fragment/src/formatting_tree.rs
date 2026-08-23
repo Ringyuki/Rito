@@ -144,6 +144,18 @@ pub enum InlineItem {
         /// inline boxes, CSS px; positive raises the box.
         baseline_shift_px: f64,
     },
+    /// A childless inline box (an empty `<sup>` footnote anchor). It has
+    /// no advance and never breaks a line, but the open box still
+    /// contributes its font's leaded envelope around its shifted
+    /// baseline to the line box — an empty raised sup grows the line
+    /// exactly like one holding a marker character.
+    EmptyBox {
+        /// The box's own inline style, carrying its font and line-height.
+        style: StyleId,
+        /// Accumulated baseline shift from `vertical-align` on this box
+        /// and its ancestors, CSS px; positive raises it.
+        baseline_shift_px: f64,
+    },
 }
 
 /// Content carried by one formatting node.
@@ -290,6 +302,11 @@ impl FormattingTree {
                     })?;
                     styles.layout.style(*layout_style).map_err(|error| {
                         format!("formatting node {index} references a layout style outside the tree's table: {error}")
+                    })?;
+                }
+                InlineItem::EmptyBox { style, .. } => {
+                    styles.inline.style(*style).map_err(|error| {
+                        format!("formatting node {index} references an inline style outside the tree's table: {error}")
                     })?;
                 }
             }
@@ -479,6 +496,14 @@ fn fingerprint(
                             mixer.mix(&node.0.to_le_bytes());
                             mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&layout_style.raw().to_le_bytes());
+                            mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
+                        }
+                        InlineItem::EmptyBox {
+                            style,
+                            baseline_shift_px,
+                        } => {
+                            mixer.mix(&[6]);
+                            mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
                         }
                     }

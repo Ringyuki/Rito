@@ -193,7 +193,9 @@ fn collect_probe_lines(
                 .iter()
                 .filter_map(|item| match item {
                     InlineItem::Text { text, .. } => Some(text.as_str()),
-                    InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => None,
+                    InlineItem::Image { .. }
+                    | InlineItem::InlineBlock { .. }
+                    | InlineItem::EmptyBox { .. } => None,
                 })
                 .collect();
             let mut start = u32::MAX;

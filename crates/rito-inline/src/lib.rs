@@ -100,6 +100,11 @@ struct ParagraphLayout {
     /// cover's 1px flank borders — dropping them shifted the whole plate
     /// one pixel against Blink).
     image_edge_insets: std::collections::HashMap<u64, (f64, f64)>,
+    /// Childless inline boxes (empty <sup> footnote anchors) by text
+    /// offset: no advance, no break opportunity, but the open box's
+    /// leaded envelope around its shifted baseline joins the metrics of
+    /// whichever line the offset falls on.
+    empty_box_struts: Vec<(usize, rito_style_contract::StyleId, f64)>,
 }
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -594,7 +599,8 @@ impl ParleyInlineContext {
             None => match items.first() {
                 Some(InlineItem::Text { style, .. })
                 | Some(InlineItem::Image { style, .. })
-                | Some(InlineItem::InlineBlock { style, .. }) => *style,
+                | Some(InlineItem::InlineBlock { style, .. })
+                | Some(InlineItem::EmptyBox { style, .. }) => *style,
                 None => return Ok(None),
             },
         };
@@ -729,6 +735,11 @@ impl ParleyInlineContext {
             std::collections::HashMap::new();
         let mut image_edge_insets: std::collections::HashMap<u64, (f64, f64)> =
             std::collections::HashMap::new();
+        // Childless inline boxes (empty <sup> footnote anchors) by text
+        // offset: no advance and no break opportunity, but the open box's
+        // leaded envelope around its shifted baseline joins the metrics
+        // of whichever line the offset falls on.
+        let mut empty_box_struts: Vec<(usize, rito_style_contract::StyleId, f64)> = Vec::new();
         // Blink consults its pair-preference table only under
         // `word-break: normal`; `break-all`/`keep-all` change the break
         // opportunities the table would otherwise veto.
@@ -873,6 +884,12 @@ impl ParleyInlineContext {
                     });
                     inline_block_baselines.insert(node.0, baseline);
                     inline_block_boxes.insert(item_index as u64, (baseline, root_box));
+                }
+                InlineItem::EmptyBox {
+                    style,
+                    baseline_shift_px,
+                } => {
+                    empty_box_struts.push((text.len(), *style, *baseline_shift_px));
                 }
             }
         }
@@ -1177,7 +1194,8 @@ impl ParleyInlineContext {
                 items.first().and_then(|item| match item {
                     InlineItem::Text { style, .. }
                     | InlineItem::Image { style, .. }
-                    | InlineItem::InlineBlock { style, .. } => Some(*style),
+                    | InlineItem::InlineBlock { style, .. }
+                    | InlineItem::EmptyBox { style, .. } => Some(*style),
                 })
             })
             .and_then(|style_id| styles.inline.style(style_id).ok())
@@ -1470,7 +1488,8 @@ impl ParleyInlineContext {
                 items.first().map(|item| match item {
                     InlineItem::Text { style, .. }
                     | InlineItem::Image { style, .. }
-                    | InlineItem::InlineBlock { style, .. } => *style,
+                    | InlineItem::InlineBlock { style, .. }
+                    | InlineItem::EmptyBox { style, .. } => *style,
                 })
             })
             .map(|style_id| {
@@ -1500,6 +1519,7 @@ impl ParleyInlineContext {
             inline_block_boxes,
             inline_block_baselines,
             image_edge_insets,
+            empty_box_struts,
             pair_trims,
             opener_halt_trims,
             item_box_sheds,
@@ -1634,9 +1654,9 @@ impl FormattingContext for ParleyInlineContext {
                             cursor += text.len();
                             start..cursor
                         }
-                        InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
-                            cursor..cursor
-                        }
+                        InlineItem::Image { .. }
+                        | InlineItem::InlineBlock { .. }
+                        | InlineItem::EmptyBox { .. } => cursor..cursor,
                     })
                     .collect()
             }
@@ -1681,6 +1701,7 @@ impl FormattingContext for ParleyInlineContext {
             mut inline_block_boxes,
             inline_block_baselines,
             image_edge_insets,
+            empty_box_struts,
         ) = {
             let mut split_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
             let mut split_spread_rounds = 0u32;
@@ -1707,6 +1728,7 @@ impl FormattingContext for ParleyInlineContext {
                 inline_block_boxes,
                 inline_block_baselines,
                 image_edge_insets,
+                empty_box_struts,
             } = self.build_layout(
                 tree,
                 root,
@@ -2124,6 +2146,7 @@ impl FormattingContext for ParleyInlineContext {
                         inline_block_boxes,
                         inline_block_baselines,
                         image_edge_insets,
+                        empty_box_struts,
                     );
                 }
             }
@@ -2159,6 +2182,9 @@ impl FormattingContext for ParleyInlineContext {
                     }
                     | InlineItem::InlineBlock {
                         baseline_shift_px, ..
+                    }
+                    | InlineItem::EmptyBox {
+                        baseline_shift_px, ..
                     } => *baseline_shift_px,
                 })
                 .collect(),
@@ -2180,7 +2206,9 @@ impl FormattingContext for ParleyInlineContext {
                 .iter()
                 .map(|item| match item {
                     InlineItem::Text { text, .. } => text.as_str(),
-                    InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => "",
+                    InlineItem::Image { .. }
+                    | InlineItem::InlineBlock { .. }
+                    | InlineItem::EmptyBox { .. } => "",
                 })
                 .collect(),
             _ => String::new(),
@@ -2202,12 +2230,12 @@ impl FormattingContext for ParleyInlineContext {
                     // An image carries its own style so a line holding
                     // only images can still find the host metrics that
                     // size the space around it; an inline-block the same.
-                    InlineItem::Image { style, .. } | InlineItem::InlineBlock { style, .. } => {
-                        Some(ItemLineHeight {
-                            style: *style,
-                            declared: None,
-                        })
-                    }
+                    InlineItem::Image { style, .. }
+                    | InlineItem::InlineBlock { style, .. }
+                    | InlineItem::EmptyBox { style, .. } => Some(ItemLineHeight {
+                        style: *style,
+                        declared: None,
+                    }),
                 })
                 .collect(),
             _ => Vec::new(),
@@ -2863,6 +2891,9 @@ impl FormattingContext for ParleyInlineContext {
                                                         | InlineItem::Image { style, .. }
                                                         | InlineItem::InlineBlock {
                                                             style, ..
+                                                        }
+                                                        | InlineItem::EmptyBox {
+                                                            style, ..
                                                         } => *style,
                                                     }
                                                 }),
@@ -2884,6 +2915,9 @@ impl FormattingContext for ParleyInlineContext {
                                                         InlineItem::Text { style, .. }
                                                         | InlineItem::Image { style, .. }
                                                         | InlineItem::InlineBlock {
+                                                            style, ..
+                                                        }
+                                                        | InlineItem::EmptyBox {
                                                             style, ..
                                                         } => *style,
                                                     }
@@ -3663,6 +3697,31 @@ impl FormattingContext for ParleyInlineContext {
                         }
                     }
                 }
+                // A childless inline box (an empty <sup> footnote anchor)
+                // has no run and an empty text range, but the open box
+                // still joins the line its offset falls on: its font's
+                // integer envelope around its shifted baseline, through
+                // the same declared/normal split as any entry. No glyphs
+                // means no used-font terms — the closed form is exact
+                // (measured on a 12px/1.2 empty sup in a 16px/1.3
+                // paragraph: Blink grows the line to above 17.328125 =
+                // integer ascent 11 + raise 6.328125, page ink verified).
+                for (offset, style_id, shift) in &empty_box_struts {
+                    let on_line = line_text_range.is_some_and(|(start, end)| {
+                        (*offset >= start && *offset < end)
+                            || (*offset == end && end == flow_text.len())
+                    });
+                    if !on_line {
+                        continue;
+                    }
+                    let Some(resolved) =
+                        style_tables.and_then(|tables| tables.inline.style(*style_id).ok())
+                    else {
+                        complete = false;
+                        continue;
+                    };
+                    entries.push((resolved, "", *shift, false));
+                }
                 // Max over contributors, allowing NEGATIVE halves: a
                 // declared line-height smaller than the strut's grid
                 // envelope puts the baseline BELOW the line box bottom
@@ -4421,7 +4480,8 @@ impl FormattingContext for ParleyInlineContext {
                     items.first().and_then(|item| match item {
                         InlineItem::Text { style, .. }
                         | InlineItem::Image { style, .. }
-                        | InlineItem::InlineBlock { style, .. } => Some(*style),
+                        | InlineItem::InlineBlock { style, .. }
+                        | InlineItem::EmptyBox { style, .. } => Some(*style),
                     })
                 }
                 _ => None,
@@ -5116,7 +5176,8 @@ fn list_marker_geometry(
         None => match items.first() {
             Some(InlineItem::Text { style, .. })
             | Some(InlineItem::Image { style, .. })
-            | Some(InlineItem::InlineBlock { style, .. }) => *style,
+            | Some(InlineItem::InlineBlock { style, .. })
+            | Some(InlineItem::EmptyBox { style, .. }) => *style,
             None => return None,
         },
     };
