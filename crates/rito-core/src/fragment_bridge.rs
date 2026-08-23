@@ -1016,7 +1016,9 @@ impl TreeBuilder<'_> {
                     .map_err(|error| {
                         EpubError::new(format!("{} parent style: {error}", element.tag))
                     })?;
-                let shift = ancestor_shift_px + resolved_baseline_shift(resolved, parent_font_size);
+                let parent_style = self.inline.style(inherited).ok();
+                let shift = ancestor_shift_px
+                    + resolved_baseline_shift_with_parent(resolved, parent_font_size, parent_style);
                 // An <a href> scopes its destination over everything it
                 // contains; nested links (invalid HTML) keep the inner.
                 let link = (element.tag == "a")
@@ -2480,7 +2482,34 @@ fn resolved_baseline_shift(
     style: &rito_style_contract::InlineFormattingStyleV1,
     parent_font_size_px: f64,
 ) -> f64 {
+    resolved_baseline_shift_with_parent(style, parent_font_size_px, None)
+}
+
+fn resolved_baseline_shift_with_parent(
+    style: &rito_style_contract::InlineFormattingStyleV1,
+    parent_font_size_px: f64,
+    parent: Option<&rito_style_contract::InlineFormattingStyleV1>,
+) -> f64 {
     let layout_unit_floor = |value: f64| (value * 64.0).floor() / 64.0;
+    // The box's half of the line box below (or above) the baseline:
+    // half-leading plus the descent (ascent) share of the em, on the
+    // 0.88/0.12 split the super/sub offsets already assume.
+    let line_height_px = |s: &rito_style_contract::InlineFormattingStyleV1| {
+        let fs = f64::from(s.font.size.get());
+        match s.font.line_height {
+            rito_style_contract::LineHeight::Number(n) => f64::from(n.get()) * fs,
+            rito_style_contract::LineHeight::Length(px) => f64::from(px.get()),
+            rito_style_contract::LineHeight::Normal => fs * 1.2,
+        }
+    };
+    let below = |s: &rito_style_contract::InlineFormattingStyleV1| {
+        let fs = f64::from(s.font.size.get());
+        (line_height_px(s) - fs) / 2.0 + 0.12 * fs
+    };
+    let above = |s: &rito_style_contract::InlineFormattingStyleV1| {
+        let fs = f64::from(s.font.size.get());
+        (line_height_px(s) - fs) / 2.0 + 0.88 * fs
+    };
     match style.fragment.baseline_shift {
         rito_style_contract::BaselineShift::Super => {
             layout_unit_floor(parent_font_size_px / 3.0) + 1.0
@@ -2488,6 +2517,21 @@ fn resolved_baseline_shift(
         rito_style_contract::BaselineShift::Sub => {
             -(layout_unit_floor(parent_font_size_px / 5.0) + 1.0)
         }
+        // The box's bottom edge sits on the line-under edge: the shift
+        // is the strut's below-baseline share minus the box's own
+        // (Range-measured on a 1.2em line-height-1 span in a
+        // 15.2px/1.35 paragraph: the span sits 2.28px lower than the
+        // baseline position; the strut share formula gives 2.295).
+        // A box deeper than the strut clamps to zero — it defines the
+        // under edge itself.
+        rito_style_contract::BaselineShift::Bottom => parent
+            .map(|strut| -(below(strut) - below(style)).max(0.0))
+            .unwrap_or(0.0),
+        // Mirror for the line-over edge; measured, the strut and a
+        // taller span cancel to ~0 in the common title case.
+        rito_style_contract::BaselineShift::Top => parent
+            .map(|strut| (above(strut) - above(style)).max(0.0))
+            .unwrap_or(0.0),
         // Zero offsets pass the whitelist; every other value is rejected
         // there before reaching this resolver.
         _ => 0.0,
