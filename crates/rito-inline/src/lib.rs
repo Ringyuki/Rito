@@ -2059,6 +2059,21 @@ impl FormattingContext for ParleyInlineContext {
                     continue;
                 }
             }
+            // The straddle pass above holds pairs a line break separated
+            // at full width. For the line-end extension those openers
+            // must be measured back in their mid-line (trimmed) form —
+            // collect (opener byte, pair left byte) for every suppressed
+            // opener-halt pair.
+            let suppressed_openers: Vec<(usize, usize)> = suppressed_pair_trims
+                .iter()
+                .filter_map(|&left_byte| {
+                    let left = text[left_byte..].chars().next()?;
+                    let right_byte = left_byte + left.len_utf8();
+                    let right = text[right_byte..].chars().next()?;
+                    (cjk_punctuation_trim(left, right) == Some(TrimmedGlyph::Right))
+                        .then_some((right_byte, left_byte))
+                })
+                .collect();
             let mut line_top = 0.0_f64;
             let candidate = (0..layout.len().saturating_sub(1)).find_map(|index| {
                 // The text-indent margin narrows the first line's
@@ -2086,11 +2101,13 @@ impl FormattingContext for ParleyInlineContext {
                     max_advance,
                     &end_trims,
                     &rejected_trims,
+                    &suppressed_openers,
                 )
             });
             match candidate {
-                Some(byte) => {
+                Some((byte, unsuppress)) => {
                     end_trims.push(byte);
+                    suppressed_pair_trims.retain(|left| !unsuppress.contains(left));
                     pending_trim = Some(byte);
                     forced_line_breaks.clear();
                 }
@@ -5594,7 +5611,8 @@ fn line_end_trim_candidate(
     max_advance: f32,
     accepted: &[usize],
     rejected: &[usize],
-) -> Option<usize> {
+    suppressed_openers: &[(usize, usize)],
+) -> Option<(usize, Vec<usize>)> {
     let line = layout.get(line_index)?;
     let next = layout.get(line_index + 1)?;
     // Only a fit-driven soft break can be extended; a forced break is not
@@ -5626,13 +5644,27 @@ fn line_end_trim_candidate(
     let mut advance = metrics.advance - metrics.trailing_whitespace;
     let next_range = next.text_range();
     let mut cluster = parley::layout::Cluster::from_byte_index(layout, next_range.start)?;
+    // Openers whose pair trim the straddle pass suppressed (they opened
+    // the next line at full width). Blink's extension runs in the
+    // shaping domain BEFORE any such suppression: the opener it measures
+    // still carries its halt half-width, and a successful extension puts
+    // the pair back on one line. Mirror that: measure these openers
+    // trimmed, and hand the pairs back for un-suppression on accept.
+    let mut unsuppress: Vec<usize> = Vec::new();
     for _ in 0..LINE_END_TRIM_SCAN {
         let byte = cluster.text_range().start;
         if byte >= next_range.end {
             return None;
         }
         let character = text[byte..].chars().next()?;
-        let cluster_advance = cluster.advance();
+        let mut cluster_advance = cluster.advance();
+        if let Some((_, left_byte)) = suppressed_openers
+            .iter()
+            .find(|(right_byte, _)| *right_byte == byte)
+        {
+            cluster_advance -= 0.5 * cluster.run().font_size();
+            unsuppress.push(*left_byte);
+        }
         if advance + cluster_advance <= max_advance + LINE_FIT_EPS {
             // Fits, so it only moved down under a break prohibition; the
             // overflowing character is further along.
@@ -5655,7 +5687,7 @@ fn line_end_trim_candidate(
         if advance + trimmed > max_advance + LINE_FIT_EPS {
             return None;
         }
-        return Some(byte);
+        return Some((byte, unsuppress));
     }
     None
 }
