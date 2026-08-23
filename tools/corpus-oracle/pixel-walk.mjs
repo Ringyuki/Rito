@@ -529,8 +529,18 @@ for (const chapter of plan.chapters) {
     const noteIds = [...footnoteTargets]
       .filter((target) => target.startsWith(`${href}#`))
       .map((target) => target.slice(href.length + 1));
-    await truth.evaluate(
+    const vertical = await truth.evaluate(
       async ({ contentW, contentH, pinLatin, pinCjk, noteIds, bookFaceFamilies }) => {
+        // Vertical-rl chapters skip the multicol harness entirely: a
+        // vertical root already grows sideways column by column (the
+        // block axis is horizontal), so the truth is the NATIVE flow at
+        // page height, sliced page-stripe by page-stripe from the right.
+        // Multicol on a vertical root stacks its columns on the wrong
+        // axis and the slices stop corresponding to reader pages.
+        const verticalRoot =
+          ['vertical-rl', 'vertical-lr'].includes(
+            getComputedStyle(document.documentElement).writingMode,
+          ) || ['vertical-rl', 'vertical-lr'].includes(getComputedStyle(document.body).writingMode);
         const s = document.createElement('style');
         // The multicol pagination baseline. The reader's image page
         // clamp is mirrored PER ELEMENT below (uniform box scaling) —
@@ -545,7 +555,11 @@ for (const chapter of plan.chapters) {
         // exact width (the paginated-reader idiom).
         s.textContent = `@font-face { font-family: "__rito_pin_latin"; src: url("${pinLatin}"); }
 @font-face { font-family: "__rito_pin_cjk"; src: url("${pinCjk}"); }
-html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }
+${
+  verticalRoot
+    ? `html { margin:0; padding:0; height:${contentH}px; }`
+    : `html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }`
+}
 body { margin:0; padding:0; position:relative; }
 img, svg { max-width: 100%; }`;
         document.head.insertBefore(s, document.head.firstChild);
@@ -728,6 +742,23 @@ img, svg { max-width: 100%; }`;
           el.style.setProperty('display', 'none', 'important');
         }
         await document.fonts.ready;
+        if (!verticalRoot) return null;
+        // The page stripe steps by WHOLE columns, like the engine's
+        // fragmentainer: a page holds floor(contentW / line-height)
+        // columns and the next page starts at the following column, so
+        // a hard contentW step would shear every 23rd column in half.
+        // The dominant column pitch reads off the first paragraph.
+        const probe = document.querySelector('p') ?? document.body;
+        const lh = parseFloat(getComputedStyle(probe).lineHeight);
+        const step = Number.isFinite(lh) && lh > 0 ? Math.floor(contentW / lh) * lh : contentW;
+        // The scroller never paints at offset 0 in this configuration
+        // (measured: the same content inks at every other offset), so
+        // block-start padding pushes the content one whole stripe in
+        // from the right edge and every stripe, the first included,
+        // reads at a nonzero offset.
+        const width = document.documentElement.scrollWidth;
+        document.documentElement.style.paddingRight = `${step}px`;
+        return { step, contentWidth: width };
       },
       { contentW, contentH, pinLatin: PIN_LATIN, pinCjk: PIN_CJK, noteIds, bookFaceFamilies },
     );
@@ -746,6 +777,47 @@ img, svg { max-width: 100%; }`;
     // book content anchors to the shifted page box, not the viewport.
     const columns = [];
     const docWidth = await truth.evaluate(() => document.documentElement.scrollWidth);
+    if (vertical) {
+      // Reading order runs right-to-left: content anchors to the
+      // viewport's right edge and page k's stripe ends at document
+      // x = VW - k*step (VW = the truth viewport width, contentW + 200).
+      // scrollLeft is the shift (vertical-rl scrolls through negative
+      // values; a root margin re-lays the shrink-to-fit root out
+      // instead of translating it, measured on this same chapter). The
+      // scroller clamps at the content edge, so the root is widened to
+      // hold every whole stripe first — extra width grows LEFTWARD on a
+      // vertical-rl root and the content stays anchored right. The clip
+      // stops AT the stripe edge: unlike multicol there is no gap, so a
+      // wider clip would leak the NEXT page's first column into the
+      // margin band.
+      const step = vertical.step;
+      const stripes = Math.max(1, Math.ceil(vertical.contentWidth / step));
+      await truth.evaluate(
+        ({ w }) => {
+          document.documentElement.style.width = `${w}px`;
+        },
+        { w: (stripes + 1) * step + contentW + 200 },
+      );
+      for (let k = 0; k <= expected + 1; k += 1) {
+        if (k * step >= vertical.contentWidth) break;
+        await truth.evaluate(
+          (sl) => {
+            document.scrollingElement.scrollLeft = sl;
+          },
+          -(k + 1) * step,
+        );
+        await truth.waitForTimeout(50);
+        columns.push(
+          PNG.sync.read(
+            await truth.screenshot({
+              clip: { x: 200, y: 0, width: contentW, height: contentH },
+            }),
+          ),
+        );
+      }
+      truthColumns.set(chapter.href, columns);
+      continue;
+    }
     for (let k = 0; k <= expected + 1; k += 1) {
       // The gap must exceed any single line's horizontal overflow: an
       // unbreakable run (61 fullwidth stars) is ~430px wider than the
