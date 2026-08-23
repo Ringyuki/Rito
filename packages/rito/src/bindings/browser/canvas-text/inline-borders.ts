@@ -16,7 +16,14 @@ export function drawInlineBorders(ctx: CanvasRenderingContext2D, fragment: Inlin
   const radius = fragment.paint.backgroundRadius ?? 0;
   ctx.save();
   try {
-    if (top && bottom && start && end && radius > 0) {
+    if (top && bottom && start && end && radius > 0 && uniformEdge(top, bottom, start, end)) {
+      // A uniform rounded border is a RING: the outer rounded rect at
+      // the clamped radius minus the inner rounded rect inset by the
+      // border width at radius-minus-width (how the browser rasters it;
+      // stroking the centerline path drew b60's circular badge with
+      // half-width corners).
+      drawRoundedBorderRing(ctx, rect, radius, top);
+    } else if (top && bottom && start && end && radius > 0) {
       drawRoundedInlineBorders(ctx, rect, radius, getRoundedSides(rect, top, end, bottom, start));
     } else {
       drawStraightInlineBorders(ctx, rect, top, bottom, start, end);
@@ -24,6 +31,58 @@ export function drawInlineBorders(ctx: CanvasRenderingContext2D, fragment: Inlin
   } finally {
     ctx.restore();
   }
+}
+
+function uniformEdge(
+  first: CanvasInlineBorderEdge,
+  ...rest: readonly CanvasInlineBorderEdge[]
+): boolean {
+  return rest.every(
+    (edge) =>
+      edge.widthPx === first.widthPx &&
+      edge.paint.color === first.paint.color &&
+      edge.paint.style === first.paint.style,
+  );
+}
+
+function drawRoundedBorderRing(
+  ctx: CanvasRenderingContext2D,
+  rect: InlineBoxRect,
+  radius: number,
+  edge: CanvasInlineBorderEdge,
+): void {
+  const width = edge.widthPx;
+  const outer = Math.min(radius, rect.width / 2, rect.height / 2);
+  const inner = Math.max(0, outer - width);
+  ctx.beginPath();
+  traceRoundedRectPath(ctx, rect.x, rect.y, rect.width, rect.height, outer);
+  traceRoundedRectPath(
+    ctx,
+    rect.x + width,
+    rect.y + width,
+    rect.width - 2 * width,
+    rect.height - 2 * width,
+    inner,
+  );
+  ctx.fillStyle = edge.paint.color;
+  ctx.fill('evenodd');
+}
+
+function traceRoundedRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+): void {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
 }
 
 function drawRoundedInlineBorders(
