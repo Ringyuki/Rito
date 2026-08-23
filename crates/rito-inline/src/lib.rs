@@ -684,6 +684,7 @@ impl ParleyInlineContext {
         advance
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn build_layout(
         &self,
         tree: &FormattingTree,
@@ -694,6 +695,7 @@ impl ParleyInlineContext {
         percentage_images: PercentageImageSizing,
         end_trims: &[usize],
         suppressed_pair_trims: &[usize],
+        split_spread_edits: &[(std::ops::Range<usize>, f32)],
         cancel: &CancelFlag,
     ) -> Result<ParagraphLayout, LayoutError> {
         let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
@@ -1443,6 +1445,12 @@ impl ParleyInlineContext {
         for (range, spacing) in &ruby_spread_edits {
             builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
         }
+        // A split spread segment's widening, decided by the outer layout
+        // loop once line breaks are known (the segment carries its
+        // allocated annotation words and spreads to their advance).
+        for (range, spacing) in split_spread_edits {
+            builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
+        }
         push_line_end_trims(&mut builder, &text, &runs, end_trims);
         for image_box in image_boxes {
             builder.push_inline_box(image_box);
@@ -1673,7 +1681,10 @@ impl FormattingContext for ParleyInlineContext {
             mut inline_block_boxes,
             inline_block_baselines,
             image_edge_insets,
-        ) = loop {
+        ) = {
+            let mut split_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
+            let mut split_spread_rounds = 0u32;
+            loop {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
             }
@@ -1705,6 +1716,7 @@ impl FormattingContext for ParleyInlineContext {
                 PercentageImageSizing::Intrinsic,
                 &end_trims,
                 &suppressed_pair_trims,
+                &split_spread_edits,
                 cancel,
             )?;
             break_lines(&mut layout, &forced_line_breaks);
@@ -1899,6 +1911,132 @@ impl FormattingContext for ParleyInlineContext {
                     continue;
                 }
             }
+            // A ruby base SPLIT across lines spreads each on-line
+            // segment to its allocated annotation words' advance
+            // (measured on a walk-mirrored page: 'Leprechaun' over the
+            // split 黄金|妖精 spreads the first segment's 黄 to a
+            // 21.77px box — 16 + excess/(2·n) space-around shares —
+            // while the whole-base test saw a narrow annotation and
+            // left it packed). Once per layout round, capped at two
+            // rounds: the widening itself can move the break.
+            if split_spread_rounds < 2 && !ruby_annotation_widths.is_empty() {
+                let mut new_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
+                for index in 0..layout.len() {
+                    let Some(line) = layout.get(index) else { continue };
+                    let line_range = line.text_range();
+                    for (item, item_range) in item_text_ranges.iter().enumerate() {
+                        let Some(annotation_width) =
+                            ruby_annotation_widths.get(&item).copied()
+                        else {
+                            continue;
+                        };
+                        // Only a SPLIT base qualifies; whole bases took
+                        // the shaping-time spread law already.
+                        let split = item_range.start < line_range.end
+                            && line_range.start < item_range.end
+                            && (item_range.start < line_range.start
+                                || item_range.end > line_range.end);
+                        if !split {
+                            continue;
+                        }
+                        let seg_start = item_range.start.max(line_range.start);
+                        let seg_end = item_range.end.min(line_range.end);
+                        if seg_end <= seg_start {
+                            continue;
+                        }
+                        if split_spread_edits
+                            .iter()
+                            .chain(new_edits.iter())
+                            .any(|(range, _)| range.start == seg_start)
+                        {
+                            continue;
+                        }
+                        let annotation_text = match &tree.node(root).content {
+                            FormattingNodeContent::InlineFlow { items } => {
+                                match items.get(item) {
+                                    Some(InlineItem::Text {
+                                        ruby_annotation: Some(annotation),
+                                        ..
+                                    }) => annotation.text.clone(),
+                                    _ => continue,
+                                }
+                            }
+                            _ => continue,
+                        };
+                        let total_chars = text
+                            .get(item_range.clone())
+                            .map_or(0, |base| base.chars().count());
+                        if total_chars == 0 {
+                            continue;
+                        }
+                        let before = text
+                            .get(item_range.start..seg_start)
+                            .map_or(0.0, |t| t.chars().count() as f64);
+                        let through = text
+                            .get(item_range.start..seg_end)
+                            .map_or(0.0, |t| t.chars().count() as f64);
+                        let allocated = rito_fragment::allocate_ruby_annotation(
+                            &annotation_text,
+                            before / total_chars as f64,
+                            if seg_end >= item_range.end {
+                                f64::INFINITY
+                            } else {
+                                through / total_chars as f64
+                            },
+                        );
+                        if allocated.is_empty() {
+                            continue;
+                        }
+                        let allocated_width = annotation_width
+                            * allocated.chars().count() as f64
+                            / annotation_text.chars().count().max(1) as f64;
+                        let mut segment_advance = 0.0_f64;
+                        let mut cluster = parley::layout::Cluster::from_byte_index(
+                            &layout, seg_start,
+                        );
+                        while let Some(current) = cluster {
+                            if current.text_range().start >= seg_end {
+                                break;
+                            }
+                            segment_advance += f64::from(current.advance());
+                            cluster = current.next_logical();
+                        }
+                        let excess = allocated_width - segment_advance;
+                        if excess <= 0.01 {
+                            continue;
+                        }
+                        let seg_chars = text
+                            .get(seg_start..seg_end)
+                            .map_or(0, |t| t.chars().count());
+                        if seg_chars == 0 {
+                            continue;
+                        }
+                        let n = seg_chars as f64;
+                        let gap = excess / n;
+                        let last_cluster_start = text
+                            .get(seg_start..seg_end)
+                            .and_then(|t| t.char_indices().next_back())
+                            .map_or(seg_start, |(offset, _)| seg_start + offset);
+                        if seg_chars >= 2 && last_cluster_start > seg_start {
+                            new_edits.push((
+                                seg_start..last_cluster_start,
+                                gap as f32,
+                            ));
+                        }
+                        // Edge share carried by the segment's last
+                        // cluster (half a share per side).
+                        new_edits.push((
+                            last_cluster_start..seg_end,
+                            (excess / (2.0 * n)) as f32,
+                        ));
+                    }
+                }
+                if !new_edits.is_empty() {
+                    split_spread_edits.extend(new_edits);
+                    split_spread_rounds += 1;
+                    continue;
+                }
+            }
             let mut line_top = 0.0_f64;
             let candidate = (0..layout.len().saturating_sub(1)).find_map(|index| {
                 // The text-indent margin narrows the first line's
@@ -1989,7 +2127,7 @@ impl FormattingContext for ParleyInlineContext {
                     );
                 }
             }
-        };
+        }};
         let mut layout = layout;
         // Always align, `Start` included: alignment is where Parley applies
         // the first-line indent's start-edge offset, so skipping it for the
@@ -4246,6 +4384,7 @@ impl FormattingContext for ParleyInlineContext {
             PercentageImageSizing::Shrunk,
             &[],
             &[],
+            &[],
             &CancelFlag::new(),
         )?;
         let intrinsic = self.build_layout(
@@ -4255,6 +4394,7 @@ impl FormattingContext for ParleyInlineContext {
             None,
             None,
             PercentageImageSizing::Intrinsic,
+            &[],
             &[],
             &[],
             &CancelFlag::new(),
