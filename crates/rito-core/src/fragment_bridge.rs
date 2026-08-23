@@ -512,7 +512,7 @@ impl TreeBuilder<'_> {
             self.collect_inline(node, container_inline_style, 0.0, &mut collector)?;
         }
         let (items, sources) = collector.finish();
-        if items.is_empty() {
+        if !inline_items_have_substance(&items) {
             return Ok(());
         }
         let id = self.push_node(
@@ -639,7 +639,7 @@ impl TreeBuilder<'_> {
                 self.collect_inline(child, inline_style, 0.0, &mut collector)?;
             }
             let (items, sources) = collector.finish();
-            let (content, sources) = if items.is_empty() {
+            let (content, sources) = if !inline_items_have_substance(&items) {
                 (FormattingNodeContent::BlockContainer, None)
             } else {
                 (FormattingNodeContent::InlineFlow { items }, Some(sources))
@@ -1118,7 +1118,7 @@ impl TreeBuilder<'_> {
             }
         }
         let (items, sources) = sub.finish();
-        if items.is_empty() {
+        if !inline_items_have_substance(&items) {
             // An empty inline-block has no ink and no last-line baseline;
             // the flattening path yields the same nothing.
             return Ok(false);
@@ -2594,6 +2594,19 @@ fn element_source_index(element: &ElementNode) -> EpubResult<usize> {
         })
 }
 
+/// Whether an inline flow holds any real content. A flow of nothing but
+/// childless inline boxes (calibre's empty `<a></a>` anchor paragraphs)
+/// is EMPTY: CSS 2.1 §9.4.2 treats a line box with no text, no
+/// preserved white space and no inline elements with non-zero
+/// margins/padding/borders as zero-height and non-existent, so the
+/// paragraph contributes no line at all (measured: Blink lays the
+/// anchor-only paragraph at height 0 and the page does not shift).
+fn inline_items_have_substance(items: &[InlineItem]) -> bool {
+    items
+        .iter()
+        .any(|item| !matches!(item, InlineItem::EmptyBox { .. }))
+}
+
 /// Accumulates styled text with CSS white-space collapsing across item
 /// boundaries: runs of collapsible white space become one space, and
 /// leading/trailing white space of the whole flow disappears.
@@ -2973,9 +2986,24 @@ impl InlineCollector {
     }
 
     /// Records a childless inline box: no advance, no content, but the
-    /// open box's leaded envelope still joins its line's metrics. It is
-    /// not content — pending collapsed spaces keep waiting for real text.
+    /// open box's leaded envelope still joins its line's metrics. A
+    /// collapsed space pending from earlier nodes settles into the
+    /// PREVIOUS text run first — the box would otherwise sit between
+    /// the space and its owner and the attach would miss ("catalogued
+    /// for" fused into "cataloguedfor" across a mid-sentence empty
+    /// anchor, reflowing a whole calibre book).
     fn push_empty_box(&mut self, style: StyleId, baseline_shift_px: f64, source_index: usize) {
+        if self.pending_space {
+            if let Some(InlineItem::Text {
+                text: last,
+                ruby_annotation: None,
+                ..
+            }) = self.items.last_mut()
+            {
+                last.push(' ');
+                self.pending_space = false;
+            }
+        }
         self.sources.push(FlowItemSource {
             source_index: Some(source_index),
             source_path: None,
