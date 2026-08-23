@@ -750,15 +750,66 @@ img, svg { max-width: 100%; }`;
         // The dominant column pitch reads off the first paragraph.
         const probe = document.querySelector('p') ?? document.body;
         const lh = parseFloat(getComputedStyle(probe).lineHeight);
-        const step = Number.isFinite(lh) && lh > 0 ? Math.floor(contentW / lh) * lh : contentW;
+        const strut = Number.isFinite(lh) && lh > 0 ? lh : 28;
         // The scroller never paints at offset 0 in this configuration
         // (measured: the same content inks at every other offset), so
         // block-start padding pushes the content one whole stripe in
         // from the right edge and every stripe, the first included,
         // reads at a nonzero offset.
         const width = document.documentElement.scrollWidth;
-        document.documentElement.style.paddingRight = `${step}px`;
-        return { step, contentWidth: width };
+        document.documentElement.style.paddingRight = `${contentW}px`;
+        void document.body.offsetHeight;
+        // Page boundaries follow the flow's own LINE GEOMETRY, not a
+        // constant stride: annotation growth mixes 28px and 30px lines
+        // in one paragraph, so a fixed stride shears lines apart. Glyph
+        // rects cluster into columns; a gap wider than the strut is an
+        // empty line (its box holds no glyphs) and re-inserts as strut
+        // columns. A page then takes whole columns while they fit in
+        // the content width, right-to-left, like the reader does.
+        const rects = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (!node.textContent || !node.textContent.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of range.getClientRects()) {
+            if (r.width > 0 && r.height > 0) rects.push([r.left, r.right]);
+          }
+        }
+        rects.sort((a, b) => a[0] - b[0]);
+        const clusters = [];
+        for (const [left, right] of rects) {
+          const last = clusters[clusters.length - 1];
+          if (last && left <= last[1] + 2) {
+            last[1] = Math.max(last[1], right);
+          } else {
+            clusters.push([left, right]);
+          }
+        }
+        const columns = [];
+        for (let i = 0; i < clusters.length; i += 1) {
+          columns.push(clusters[i]);
+          const next = clusters[i + 1];
+          if (next) {
+            const gap = next[0] - clusters[i][1];
+            const empties = Math.round(gap / strut) - 1;
+            for (let k = 0; k < empties; k += 1) {
+              columns.push([clusters[i][1] + (k + 1) * strut, clusters[i][1] + (k + 2) * strut]);
+            }
+          }
+        }
+        columns.sort((a, b) => b[1] - a[1]);
+        const pages = [];
+        let i = 0;
+        while (i < columns.length) {
+          const right = columns[i][1];
+          let j = i;
+          while (j < columns.length && right - columns[j][0] <= contentW) j += 1;
+          if (j === i) j += 1;
+          pages.push(right);
+          i = j;
+        }
+        return { pages, contentWidth: width };
       },
       { contentW, contentH, pinLatin: PIN_LATIN, pinCjk: PIN_CJK, noteIds, bookFaceFamilies },
     );
@@ -790,21 +841,22 @@ img, svg { max-width: 100%; }`;
       // stops AT the stripe edge: unlike multicol there is no gap, so a
       // wider clip would leak the NEXT page's first column into the
       // margin band.
-      const step = vertical.step;
-      const stripes = Math.max(1, Math.ceil(vertical.contentWidth / step));
       await truth.evaluate(
         ({ w }) => {
           document.documentElement.style.width = `${w}px`;
         },
-        { w: (stripes + 1) * step + contentW + 200 },
+        { w: vertical.contentWidth + (vertical.pages.length + 2) * contentW + 200 },
       );
       for (let k = 0; k <= expected + 1; k += 1) {
-        if (k * step >= vertical.contentWidth) break;
+        if (k >= vertical.pages.length) break;
+        // The page's first (rightmost) column edge lands on the clip's
+        // right edge: scrollLeft = pageRight - viewport width, always
+        // negative thanks to the injected block-start padding.
         await truth.evaluate(
           (sl) => {
             document.scrollingElement.scrollLeft = sl;
           },
-          -(k + 1) * step,
+          vertical.pages[k] - (contentW + 200),
         );
         await truth.waitForTimeout(50);
         columns.push(
