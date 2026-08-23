@@ -786,6 +786,24 @@ impl ParleyInlineContext {
                         percentage_images,
                         *viewport,
                     )?;
+                    // A vertical-rl flow's replaced atom advances by its
+                    // PHYSICAL height along the (vertical) inline axis
+                    // and takes a column as wide as its physical width
+                    // (measured on a 318x2048 chapter plate: the column
+                    // is 318 wide, the image runs the page's length and
+                    // clips); the swapped box maps back to the physical
+                    // raster in the vertical paint walk.
+                    let (width, height) = if tree
+                        .strut_style(node)
+                        .and_then(|id| styles.inline.style(id).ok())
+                        .is_some_and(|strut| {
+                            strut.bidi.writing_mode
+                                == rito_style_contract::WritingMode::VerticalRightToLeft
+                        }) {
+                        (height, width)
+                    } else {
+                        (width, height)
+                    };
                     // The image element's own flank borders (absorbed as
                     // padding by the bridge) widen the atom's advance; the
                     // raster paints inside them (measured on the b60
@@ -3807,7 +3825,12 @@ impl FormattingContext for ParleyInlineContext {
                     };
                     let fs = f64::from(resolved.font.size.get());
                     let annotation_size = fs * f64::from(annotation.size_ratio);
-                    growth = growth.max((annotation_size - (line_height - fs) / 2.0).max(0.0));
+                    // The annotation column asks for its font size plus a
+                    // half pixel under the pinned CJK serif (matrix:
+                    // rt 6/8/10/14 across four line-heights and three
+                    // base sizes all measure need = rt + 0.5).
+                    growth =
+                        growth.max((annotation_size + 0.5 - (line_height - fs) / 2.0).max(0.0));
                 }
                 growth
             } else {

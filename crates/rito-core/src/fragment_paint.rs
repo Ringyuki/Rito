@@ -626,6 +626,30 @@ fn append_vertical_line_commands(
     let column_x = frame_right - (box_block + line.rect.y + line.rect.height);
     let column_top = frame_top + box_inline + line.rect.x;
     for child in &line.children {
+        // A replaced atom in a vertical line: the layout box is the
+        // swapped one (advance = physical height), so the device rect
+        // swaps back — column position from the line, the atom's inline
+        // offset down the page, physical width x height — and the
+        // raster paints unrotated, clipping at the page edge like the
+        // reference.
+        if let Fragment::Image(image) = child {
+            let Some(InlineItem::Image { src, .. }) = items.get(image.item_index as usize)
+            else {
+                continue;
+            };
+            commands.push(DisplayCommand::paint_image(
+                src.clone(),
+                rect_value(
+                    column_x,
+                    column_top + image.rect.x,
+                    image.rect.height,
+                    image.rect.width,
+                ),
+                None,
+                None,
+            ));
+            continue;
+        }
         let Fragment::Text(run) = child else { continue };
         let start = run.text_start as usize;
         let end = run.text_end as usize;
