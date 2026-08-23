@@ -76,6 +76,21 @@ export function drawCanvasRubyFragment(
     ctx.textBaseline = 'top';
     ctx.wordSpacing = '0px';
     ctx.letterSpacing = '0px';
+    if (ruby.vertical) {
+      // Vertical column annotation: rect.height is the base span; the
+      // free length splits one share per glyph, half a share at each
+      // edge (the space-around initial), each glyph stepping one
+      // annotation size down the column.
+      const size = paint.font.sizePx;
+      const glyphs = Array.from(ruby.text);
+      const share = (ruby.rect.height - glyphs.length * size) / glyphs.length;
+      let penY = ruby.rect.y + share / 2;
+      for (const glyph of glyphs) {
+        ctx.fillText(glyph, ruby.rect.x, penY);
+        penY += size + share;
+      }
+      return;
+    }
     const measured = ctx.measureText(ruby.text);
     const glyphs = Array.from(ruby.text).length;
     const free = ruby.rect.width - measured.width;

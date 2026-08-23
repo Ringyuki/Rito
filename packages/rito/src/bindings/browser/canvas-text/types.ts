@@ -6,7 +6,10 @@ export type CanvasTextFragment = Pick<
   CanvasTextCommand,
   'text' | 'rect' | 'paint' | 'alignRight' | 'vertical'
 >;
-export type CanvasRubyFragment = Pick<CanvasRubyCommand, 'text' | 'rect' | 'paint' | 'rubyAlign'>;
+export type CanvasRubyFragment = Pick<
+  CanvasRubyCommand,
+  'text' | 'rect' | 'paint' | 'rubyAlign' | 'vertical'
+>;
 export type CanvasRunPaint = CanvasTextCommand['paint'];
 export type CanvasFontShorthand = CanvasRunPaint['font'];
 export type CanvasTextShadow = NonNullable<CanvasRunPaint['textShadow']>[number];

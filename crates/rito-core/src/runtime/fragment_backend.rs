@@ -271,6 +271,7 @@ impl RuntimeDocument {
                     node_paints: Some(&built.node_paints),
                     image_border_paints: Some(&built.image_border_paints),
                     list_markers: Some(&built.list_markers),
+                    vertical_frame: None,
                 },
                 &CancelFlag::new(),
             )

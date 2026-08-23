@@ -1509,32 +1509,6 @@ impl FormattingContext for ParleyInlineContext {
             ));
         }
         let root = node;
-        // Vertical writing, first slice: a vertical-rl flow lays out with
-        // the COLUMN LENGTH as its inline size — its lines are the
-        // columns, each as tall as the page — and the paint walk later
-        // turns the horizontal line geometry into right-to-left columns.
-        let vertical_column = tree
-            .strut_style(root)
-            .and_then(|id| {
-                tree.styles()
-                    .and_then(|tables| tables.inline.style(id).ok())
-            })
-            .filter(|strut| {
-                strut.bidi.writing_mode
-                    == rito_style_contract::WritingMode::VerticalRightToLeft
-            })
-            .and_then(|_| space.fragmentainer_size);
-        let vertical_space;
-        let space = match vertical_column {
-            Some(column) => {
-                vertical_space = ConstraintSpace {
-                    inline_size: column,
-                    ..*space
-                };
-                &vertical_space
-            }
-            None => space,
-        };
         // Float exclusion: lines inside the band are broken at the reduced
         // width and shifted past the left inset; the flow returns to the
         // full inline size below the band. CSS shortens line boxes around
@@ -3793,7 +3767,50 @@ impl FormattingContext for ParleyInlineContext {
                     }
                     None
                 };
-            let ruby_growth = {
+            // A vertical-rl flow's annotation shares NO half-leading with
+            // its base the way a horizontal line's does: the annotation
+            // column needs its own width beyond the base's half-leading
+            // (measured matrix, 4 line-heights x 3 font sizes x 2 rt
+            // ratios x 3 annotation lengths: growth = rt size minus the
+            // half-leading, floored at zero, independent of annotation
+            // length, the whole growth landing on the line's right).
+            let vertical_flow = tree
+                .styles()
+                .and_then(|tables| {
+                    let strut = tree.strut_style(root)?;
+                    tables.inline.style(strut).ok()
+                })
+                .is_some_and(|strut| {
+                    strut.bidi.writing_mode
+                        == rito_style_contract::WritingMode::VerticalRightToLeft
+                });
+            let ruby_growth = if vertical_flow {
+                let mut growth = 0.0_f64;
+                for (index, range) in item_text_ranges.iter().enumerate() {
+                    let on_line = line_text_range
+                        .is_some_and(|(start, end)| range.start < end && start < range.end);
+                    if !on_line || range.is_empty() {
+                        continue;
+                    }
+                    let Some(InlineItem::Text {
+                        ruby_annotation: Some(annotation),
+                        style,
+                        ..
+                    }) = tree_items.get(index)
+                    else {
+                        continue;
+                    };
+                    let Some(resolved) =
+                        style_tables.and_then(|tables| tables.inline.style(*style).ok())
+                    else {
+                        continue;
+                    };
+                    let fs = f64::from(resolved.font.size.get());
+                    let annotation_size = fs * f64::from(annotation.size_ratio);
+                    growth = growth.max((annotation_size - (line_height - fs) / 2.0).max(0.0));
+                }
+                growth
+            } else {
                 let mut growth = 0.0_f64;
                 for (index, range) in item_text_ranges.iter().enumerate() {
                     let on_line = line_text_range

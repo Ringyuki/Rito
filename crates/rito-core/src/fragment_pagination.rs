@@ -33,6 +33,23 @@ pub(crate) struct FragmentChapterPage {
 /// returned a non-advancing continuation would otherwise loop forever.
 const FRAGMENT_PAGINATION_PAGE_LIMIT: usize = 100_000;
 
+/// The strut style of the first inline flow under `node`. Struts are
+/// recorded per inline-flow node, so a chapter's writing mode reads off
+/// its first flow (chapters mix modes only via nested flows, which the
+/// capability gate still rejects).
+fn first_inline_strut(
+    tree: &FormattingTree,
+    node: rito_fragment::FormattingNodeId,
+) -> Option<rito_style_contract::StyleId> {
+    if let Some(strut) = tree.strut_style(node) {
+        return Some(strut);
+    }
+    let children = tree.node(node).children.clone();
+    children
+        .into_iter()
+        .find_map(|child| first_inline_strut(tree, child))
+}
+
 /// Lays `tree` out page by page into `content_width` × `content_height`
 /// fragmentainers and paints each page at `(origin_x, origin_y)`.
 pub(crate) fn paginate_chapter(
@@ -45,7 +62,30 @@ pub(crate) fn paginate_chapter(
     paint_context: FragmentPaintContext<'_>,
     cancel: &CancelFlag,
 ) -> EpubResult<Vec<FragmentChapterPage>> {
-    let space = ConstraintSpace::fragmented(content_width, content_height);
+    // A vertical-rl chapter lays out in the swapped page: the column
+    // length (page height) is the inline size and the page WIDTH is the
+    // fragmentainer, so a page fills with as many columns as fit across
+    // it. The paint walk maps the swapped geometry back onto the device
+    // page through the vertical frame.
+    let vertical = tree
+        .styles()
+        .and_then(|tables| {
+            let strut = first_inline_strut(tree, tree.root())?;
+            tables.inline.style(strut).ok()
+        })
+        .is_some_and(|style| {
+            style.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
+        });
+    let space = if vertical {
+        ConstraintSpace::fragmented(content_height, content_width)
+    } else {
+        ConstraintSpace::fragmented(content_width, content_height)
+    };
+    let paint_context = FragmentPaintContext {
+        vertical_frame: vertical.then_some((origin_x + content_width, origin_y)),
+        ..paint_context
+    };
+    let (origin_x, origin_y) = if vertical { (0.0, 0.0) } else { (origin_x, origin_y) };
     let mut token = None;
     let mut pages = Vec::new();
     loop {

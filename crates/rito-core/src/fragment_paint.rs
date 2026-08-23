@@ -105,6 +105,11 @@ pub(crate) struct FragmentPaintContext<'a> {
     /// right-aligned against the item's content-left edge on its first
     /// line's baseline.
     pub(crate) list_markers: Option<&'a BTreeMap<u32, crate::fragment_bridge::ListMarkerPaint>>,
+    /// `Some((right, top))` when the tree laid out as a vertical-rl
+    /// chapter in the swapped page: recursion origins then accumulate
+    /// LOGICAL (inline, block) offsets and every line paints as a column
+    /// placed `block` in from `right`, `inline` down from `top`.
+    pub(crate) vertical_frame: Option<(f64, f64)>,
 }
 
 /// Walks a laid-out fragment tree and appends the display commands that
@@ -435,29 +440,20 @@ fn append_fragment_display_commands_inner(
                 // it downward. First slice: text runs paint as upright
                 // downward columns; ruby, markers and inline atoms keep
                 // their horizontal path for now.
-                if let Fragment::Line(line) = child {
-                    let vertical = tree
-                        .styles()
-                        .and_then(|tables| {
-                            let strut = tree.strut_style(line.source)?;
-                            tables.inline.style(strut).ok()
-                        })
-                        .is_some_and(|style| {
-                            style.bidi.writing_mode
-                                == rito_style_contract::WritingMode::VerticalRightToLeft
-                        });
-                    if vertical {
-                        append_vertical_line_commands(
-                            commands,
-                            tree,
-                            line,
-                            origin_x + fragment.rect.x,
-                            origin_y + fragment.rect.y,
-                            fragment.rect.width,
-                            context.family_policy,
-                        )?;
-                        continue;
-                    }
+                if let (Fragment::Line(line), Some((frame_right, frame_top))) =
+                    (child, context.vertical_frame)
+                {
+                    append_vertical_line_commands(
+                        commands,
+                        tree,
+                        line,
+                        origin_x + fragment.rect.x,
+                        origin_y + fragment.rect.y,
+                        frame_right,
+                        frame_top,
+                        context.family_policy,
+                    )?;
+                    continue;
                 }
                 append_fragment_display_commands_inner(
                     commands,
@@ -597,17 +593,19 @@ fn split_collapsed_horizontal_edges(
 }
 
 /// Paints one vertical-rl line box as a downward text column. The line
-/// laid out with the horizontal engine (inline axis = column length), so
-/// its rect stacks top-down inside the box; here the block offset turns
-/// into a column position from the RIGHT edge and the inline offset into
-/// the distance from the column top.
+/// laid out with the horizontal engine in the swapped page (inline axis
+/// = column length), so `box_inline`/`box_block` are LOGICAL offsets:
+/// the accumulated block offset measures in from the frame's right edge
+/// and the inline offset down from its top.
+#[allow(clippy::too_many_arguments)]
 fn append_vertical_line_commands(
     commands: &mut Vec<DisplayCommand>,
     tree: &FormattingTree,
     line: &LineFragment,
-    box_x: f64,
-    box_y: f64,
-    box_width: f64,
+    box_inline: f64,
+    box_block: f64,
+    frame_right: f64,
+    frame_top: f64,
     family_policy: Option<&PaintFamilyPolicy>,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
@@ -625,8 +623,8 @@ fn append_vertical_line_commands(
             text_ranges.push((start..full_text.len(), item_index));
         }
     }
-    let column_x = box_x + box_width - (line.rect.y + line.rect.height);
-    let column_top = box_y + line.rect.x;
+    let column_x = frame_right - (box_block + line.rect.y + line.rect.height);
+    let column_top = frame_top + box_inline + line.rect.x;
     for child in &line.children {
         let Fragment::Text(run) = child else { continue };
         let start = run.text_start as usize;
@@ -637,27 +635,34 @@ fn append_vertical_line_commands(
         else {
             continue;
         };
-        let InlineItem::Text { style, .. } = &items[*item_index] else {
+        let InlineItem::Text {
+            style,
+            ruby_annotation,
+            ..
+        } = &items[*item_index]
+        else {
             continue;
         };
         let style = styles
             .inline
             .style(*style)
             .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
-        let paint = run_paint(style, family_policy, run.justify_px, false, false)?;
+        let base_paint = run_paint(style, family_policy, run.justify_px, false, false)?;
         let font_size = f64::from(style.font.size.get());
-        // The glyph column centers on the line's center line; the rect's
-        // x is the GLYPH left edge, y the first glyph's top, height the
-        // run's advance down the column.
+        // The glyph column centers on the line's STRUT: an annotation's
+        // growth lands entirely on the line's right (matrix-measured:
+        // the base keeps its plain-line distance from the left edge and
+        // the annotation column pushes the right edge out), so the
+        // centering basis excludes the growth.
         commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
             text: Value::String(full_text[start..end].to_owned()),
             rect: rect_value(
-                column_x + (line.rect.height - font_size) / 2.0,
+                column_x + (line.rect.height - line.ruby_growth - font_size) / 2.0,
                 column_top + run.rect.x,
                 font_size,
                 run.rect.width,
             ),
-            paint,
+            paint: base_paint.clone(),
             line_height_px: None,
             href: None,
             source_text: None,
@@ -666,6 +671,63 @@ fn append_vertical_line_commands(
             align_right: false,
             vertical: true,
         }));
+        // The annotation rides the column's LEFT-out side? No: probed on
+        // a vertical-rl ruby line, the annotation column sits between
+        // the base and the NEXT line — its right edge on the line box's
+        // right edge (rt 803.5..812.5 in a 782..812 line box, size 8).
+        if let Some(annotation) = ruby_annotation {
+            let item_range = {
+                let (range, _) = &text_ranges[text_ranges
+                    .iter()
+                    .position(|(_, index)| index == item_index)
+                    .unwrap_or(0)];
+                range.clone()
+            };
+            let total_chars = full_text
+                .get(item_range.clone())
+                .map_or(0.0, |base| base.chars().count() as f64);
+            let seg_start = full_text
+                .get(item_range.start..start)
+                .map_or(0.0, |prefix| prefix.chars().count() as f64);
+            let seg_end_ratio = if end >= item_range.end {
+                f64::INFINITY
+            } else {
+                full_text
+                    .get(item_range.start..end)
+                    .map_or(0.0, |prefix| prefix.chars().count() as f64)
+                    / total_chars
+            };
+            if total_chars > 0.0 {
+                let allocated = rito_fragment::allocate_ruby_annotation(
+                    &annotation.text,
+                    seg_start / total_chars,
+                    seg_end_ratio,
+                );
+                if !allocated.is_empty() {
+                    let annotation_size = font_size * f64::from(annotation.size_ratio);
+                    let ruby_paint = base_paint.for_ruby(annotation_size);
+                    commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
+                        text: Value::String(allocated),
+                        rect: rect_value(
+                            column_x + line.rect.height - annotation_size,
+                            column_top + run.rect.x - run.ruby_overhang_px,
+                            annotation_size,
+                            run.rect.width
+                                + run.ruby_overhang_px
+                                + run.ruby_overhang_right_px,
+                        ),
+                        paint: ruby_paint,
+                        line_height_px: None,
+                        href: None,
+                        source_text: None,
+                        source_text_offset: None,
+                        ruby_align: None,
+                        align_right: false,
+                        vertical: true,
+                    }));
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -1664,6 +1726,7 @@ mod tests {
                 family_policy: None,
                 node_paints: Some(&node_paints),
                 list_markers: None,
+                vertical_frame: None,
             },
         )
         .expect("fragments paint");
@@ -1771,6 +1834,7 @@ mod tests {
                 family_policy: None,
                 node_paints: Some(&paints),
                 list_markers: None,
+                vertical_frame: None,
             },
         )
         .expect("rule paints");
@@ -1804,6 +1868,7 @@ mod tests {
                 family_policy: Some(&policy),
                 node_paints: None,
                 list_markers: None,
+                vertical_frame: None,
             },
         )
         .expect("fragments paint");
