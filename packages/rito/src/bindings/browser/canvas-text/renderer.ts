@@ -174,7 +174,7 @@ export function drawCanvasRubyFragment(
       const share = (ruby.rect.width - naturalWords - naturalSpaces) / words.length;
       let x = ruby.rect.x + share / 2;
       for (let index = 0; index < words.length; index += 1) {
-        ctx.fillText(words[index] ?? '', x, ruby.rect.y);
+        ctx.fillText(words[index] ?? '', Math.floor(x * 64) / 64, ruby.rect.y);
         x += (wordWidths[index] ?? 0) + spaceWidth + share;
       }
     } else if (align === 'start') {
@@ -186,7 +186,10 @@ export function drawCanvasRubyFragment(
       ctx.letterSpacing = `${String(free / glyphs)}px`;
       ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
     } else {
-      const x = ruby.rect.x + (ruby.rect.width - measured.width) / 2;
+      // A centered annotation lands on the LayoutUnit grid by flooring,
+      // like every centered line (the un-floored center drifted b20's
+      // 8.8px Shouko one AA phase against the browser's cells).
+      const x = Math.floor((ruby.rect.x + (ruby.rect.width - measured.width) / 2) * 64) / 64;
       ctx.fillText(ruby.text, x, ruby.rect.y);
     }
   } finally {
