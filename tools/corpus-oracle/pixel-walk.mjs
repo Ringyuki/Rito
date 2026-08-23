@@ -247,16 +247,19 @@ if (TAP_PAGE !== undefined) {
     scope.__ritoTapLog = [];
     let dx = 0;
     scope.__ritoPaintTap = (c, onScreen) => {
-      if (!onScreen) return;
-      if (c.kind === 'paintPage' && (c.rect?.width ?? 0) > 1400) {
-        scope.__ritoTapLog.length = 0;
-        dx = 0;
-      }
+      // Spread pre-renders paint into DISCONNECTED canvases and the
+      // screen shows their blit — an on-screen-only tap records nothing
+      // at all (measured: a full walk's organic log came back empty).
+      // Record every pass with its flag, keep the whole session (a
+      // paintPage reset raced the NEXT spread's pre-render and wiped
+      // the page under observation), and let the analyst slice.
+      if (c.kind === 'paintPage') dx = 0;
       if (c.kind === 'transform') {
         for (const t of c.transforms ?? []) if (t.kind === 'translate') dx = t.dx;
       } else if (c.rect) {
         scope.__ritoTapLog.push({
           dx,
+          onScreen,
           kind: c.kind,
           x: c.rect.x,
           y: c.rect.y,
@@ -271,10 +274,11 @@ if (TAP_PAGE !== undefined) {
 const tapSpread = async (spreadIndex) => {
   const at = plan.pages.find((p) => p.page === TAP_PAGE && p.spread === spreadIndex);
   if (!at) return;
-  const log = await reader.evaluate(
-    (want) => (globalThis.__ritoTapLog ?? []).filter((t) => t.dx === want),
-    at.side === 'left' ? 0 : 760,
-  );
+  // Dump the whole organic log unfiltered — the side translate the run
+  // painted under rides on each entry, so the analyst filters offline
+  // (an in-page dx filter once matched nothing when the pass carried no
+  // translate command at all and every entry sat at dx 0).
+  const log = await reader.evaluate(() => globalThis.__ritoTapLog ?? []);
   writeFileSync(
     path.join(outDir, `tap-p${String(TAP_PAGE).padStart(3, '0')}.json`),
     JSON.stringify(log, null, 1),
