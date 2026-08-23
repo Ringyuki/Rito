@@ -2965,6 +2965,50 @@ impl FormattingContext for ParleyInlineContext {
                                 // where it changes (a deferred double
                                 // share, a latin word's zero-share gaps).
                                 justify_shares_used += plan.count_at(run_range.start);
+                                // A justified run's anchor rides the
+                                // fixed-point prefix too: the natural part
+                                // of its position is the sum of every
+                                // preceding cluster's HB 16.16 advance,
+                                // not parley's raw f32 cumulative (a mixed
+                                // line's latin page-reference put the
+                                // following CJK run 0.0117px right of the
+                                // browser's pen while the share plan
+                                // matched exactly).
+                                let run_x = {
+                                    let mut correction = 0.0_f64;
+                                    let mut prefix = parley::layout::Cluster::from_byte_index(
+                                        &layout,
+                                        line.text_range().start,
+                                    );
+                                    while let Some(current) = prefix {
+                                        let byte = current.text_range().start;
+                                        if byte >= run_range.start {
+                                            break;
+                                        }
+                                        // A whitespace prefix keeps the raw
+                                        // anchor: the space's advance rides
+                                        // word-spacing and justification
+                                        // machinery outside the glyph
+                                        // round-trip (fixing across one
+                                        // moved a spaced dialog line a
+                                        // fifth of a pixel).
+                                        if flow_text
+                                            .get(byte..current.text_range().end)
+                                            .is_some_and(|t| {
+                                                t.chars().any(char::is_whitespace)
+                                            })
+                                        {
+                                            correction = 0.0;
+                                            break;
+                                        }
+                                        correction += hb_fixed_cluster_advance(
+                                            &current, 0.0,
+                                        )
+                                            - f64::from(current.advance());
+                                        prefix = current.next_logical();
+                                    }
+                                    run_x + correction
+                                };
                                 // The browser holds every inline item's
                                 // justified advance on the LayoutUnit
                                 // grid: the next style item starts at
@@ -5823,6 +5867,35 @@ pub fn plain_paragraph_style(
 /// the first item's style carries the paragraph value.
 /// Maps the computed `text-align` onto Parley's line alignment. The
 /// Servo-internal `-moz-*` values behave as their physical counterparts.
+/// One cluster's advance in the browser's 16.16 fixed-point pen domain:
+/// scale = round(size * 65536), px = trunc(units * scale / upem) / 65536,
+/// with author letter-spacing added OUTSIDE the fixed-point round trip
+/// (it was folded into the cluster advance after shaping).
+fn hb_fixed_cluster_advance<B: parley::style::Brush>(
+    current: &parley::layout::Cluster<'_, B>,
+    run_letter_spacing: f64,
+) -> f64 {
+    use skrifa::raw::TableProvider as _;
+    let advance = f64::from(current.advance());
+    let run = current.run();
+    let font = run.font();
+    let Ok(font_ref) = skrifa::FontRef::from_index(font.data.as_ref(), font.index) else {
+        return advance;
+    };
+    let Ok(head) = font_ref.head() else {
+        return advance;
+    };
+    let upem = i64::from(head.units_per_em());
+    let size = f64::from(run.font_size());
+    if upem <= 0 || size <= 0.0 {
+        return advance;
+    }
+    let scale = (size * 65536.0).round() as i64;
+    let bare = advance - run_letter_spacing;
+    let units = (bare * upem as f64 / size).round() as i64;
+    (units * scale / upem) as f64 / 65536.0 + run_letter_spacing
+}
+
 fn paragraph_alignment(value: TextAlign) -> parley::Alignment {
     match value {
         TextAlign::Start => parley::Alignment::Start,
