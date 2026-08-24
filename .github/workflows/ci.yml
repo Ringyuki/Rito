@@ -176,11 +176,51 @@ jobs:
         run: pnpm run build
       - name: Run Reader E2E
         run: pnpm --filter @ritojs/reader exec playwright test --shard=${{ matrix.shard }}/4
+        env:
+          RITO_E2E_SKIP_PIXEL_SUITES: 1
       - name: Upload Reader E2E Artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: reader-e2e-results-${{ matrix.shard }}
+          path: |
+            apps/reader/playwright-report/
+            apps/reader/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  reader-e2e-pixel:
+    name: Reader E2E (pixel suites)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.22.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install matching wasm-bindgen CLI
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.120
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright Browser
+        run: pnpm exec playwright install chromium
+      - name: Build Reader Packages
+        run: pnpm run build
+      - name: Run Pixel E2E Suites
+        run: pnpm --filter @ritojs/reader exec playwright test tests/e2e/reader-selection.e2e.test.ts tests/e2e/reader-selection-touch.e2e.test.ts tests/e2e/reader-production-pinned-font.e2e.test.ts
+      - name: Upload Pixel E2E Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reader-e2e-pixel-results
           path: |
             apps/reader/playwright-report/
             apps/reader/test-results/

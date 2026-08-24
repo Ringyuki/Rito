@@ -13,9 +13,19 @@ const STRICT_SERVER = process.env['RITO_READER_STRICT_SERVER'] === '1';
 process.env['NO_PROXY'] = appendNoProxy(process.env['NO_PROXY']);
 process.env['no_proxy'] = appendNoProxy(process.env['no_proxy']);
 
+// Suites that assert on canvas pixels (selection highlight bands, pinned
+// font paint geometry) are calibrated against macOS glyph rasterization;
+// CI runs them on a macOS runner and excludes them from the Linux shards.
+const PIXEL_SUITES = [
+  '**/reader-selection.e2e.test.ts',
+  '**/reader-selection-touch.e2e.test.ts',
+  '**/reader-production-pinned-font.e2e.test.ts',
+];
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 120_000,
+  ...(process.env['RITO_E2E_SKIP_PIXEL_SUITES'] === '1' ? { testIgnore: PIXEL_SUITES } : {}),
   expect: {
     timeout: 15_000,
   },
