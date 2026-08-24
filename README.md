@@ -12,9 +12,6 @@ The repository also includes:
 - `@ritojs/kit` — a framework-agnostic controller layer with transitions and overlays
 - `@ritojs/react` — React hooks and components on top of the core packages
 
-> [!WARNING]
-> Rito is still under development! We do not recommend that you use it in production environments, but of course we always welcome your PR!
-
 ## Install
 
 ```bash
