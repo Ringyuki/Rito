@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
@@ -38,7 +39,10 @@ const CHAPTERS = [
   'Text/Section008.xhtml',
 ];
 
+// A local forensic instrument over the rito-inline-spike release binary;
+// CI never builds it, so absence skips.
 test('measures Parley line-break parity against pinned Chromium', async ({ page }) => {
+  test.skip(!existsSync(SPIKE_BIN), 'rito-inline-spike binary is not built');
   test.setTimeout(600_000);
   const paragraphs: string[] = [];
   for (const chapter of CHAPTERS) {

@@ -46,10 +46,47 @@ struct SearchFlowQuerySpec<'a> {
 }
 
 #[derive(Debug, Clone)]
-struct SearchPageText {
+pub(crate) struct SearchPageText {
     page_index: usize,
     text: String,
     offsets: Vec<SearchRunOffset>,
+}
+
+impl SearchPageText {
+    /// Index one page from prebuilt parts (the fragment backend serves
+    /// its page text and run table directly; the retained walk above
+    /// derives them from the layout tree).
+    pub(crate) fn from_parts(
+        page_index: usize,
+        text: String,
+        runs: Vec<SearchPrebuiltRun>,
+    ) -> Self {
+        Self {
+            page_index,
+            text,
+            offsets: runs
+                .into_iter()
+                .map(|run| SearchRunOffset {
+                    start: run.start,
+                    end: run.end,
+                    block_index: run.block_index,
+                    line_index: run.line_index,
+                    run_index: run.run_index,
+                    source: None,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// One text run of a prebuilt search page, in page-text UTF-16 offsets.
+#[derive(Debug, Clone)]
+pub(crate) struct SearchPrebuiltRun {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) block_index: usize,
+    pub(crate) line_index: usize,
+    pub(crate) run_index: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -187,6 +224,28 @@ pub(crate) fn summarize_search_flow(pages: &[SearchPage]) -> SearchFlowSummary {
             &serde_json::to_value(&queries).expect("search flow summaries serialize"),
         ),
         queries,
+    }
+}
+
+pub(crate) fn search_prebuilt_runtime_pages(
+    index: &[SearchPageText],
+    query: &str,
+    case_sensitive: bool,
+    whole_word: bool,
+    limit: Option<usize>,
+) -> Vec<SearchRuntimeMatch> {
+    let spec = SearchFlowQuerySpec {
+        id: "runtime",
+        query,
+        case_sensitive,
+        whole_word,
+    };
+    let results = search_index(index, &spec)
+        .into_iter()
+        .map(SearchRuntimeMatch::from_detail);
+    match limit {
+        Some(limit) => results.take(limit).collect(),
+        None => results.collect(),
     }
 }
 

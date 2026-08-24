@@ -191,6 +191,7 @@ test('tracks reused physical workers as ordered logical open sessions', () => {
     disposeStartedAt: 4,
     releasedDocument: true,
     disposedAt: 5,
+    wasmMemoryByteLength: null,
   });
 });
 

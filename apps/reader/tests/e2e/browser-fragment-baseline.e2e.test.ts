@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -52,7 +53,10 @@ interface ProbeLine {
   readonly width: number;
 }
 
+// A local forensic instrument: it drives the cargo release example built
+// during pixel-parity work. CI never builds that binary, so absence skips.
 test('compares fragment-engine chapter lines against pinned Chromium', async ({ page }) => {
+  test.skip(!existsSync(PROBE_BIN), 'chapter-fragment-probe binary is not built');
   test.setTimeout(600_000);
   // The book's own @font-face faces bind declared family names to font
   // bytes on both sides. A declared face whose file is missing from the

@@ -113,6 +113,15 @@ impl<'a> ChapterEngineSession<'a> {
         }
     }
 
+    /// Search index built from the page artifacts. Only the fragment
+    /// backend serves one; retained revisions search their layout pages.
+    pub(super) fn search_page_index(&self) -> Vec<crate::layout::SearchPageText> {
+        match &self.backend {
+            Backend::Legacy(_) => Vec::new(),
+            Backend::Fragment(backend) => backend.search_page_index(),
+        }
+    }
+
     pub(super) fn resolve_text_caret(
         &self,
         query: PageArtifactTextCaretQuery,

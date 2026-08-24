@@ -98,7 +98,8 @@ pub(crate) use paint::{BorderEdgePaint, FontPaint, FontPaintStyle, MeasurePaint,
 pub(crate) use paint::{BorderLineStyle, RunSpacing};
 pub(crate) use paint::{RunBorderEdge, RunDecoration, RunDecorationKind, RunPaint, RunPaintData};
 pub(crate) use search_flow::{
-    search_runtime_pages, SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
+    search_prebuilt_runtime_pages, search_runtime_pages, SearchPageText, SearchPrebuiltRun,
+    SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
 };
 pub use search_flow::{
     SearchFlowQuerySummary, SearchFlowSummary, SearchRuntimeResult, SearchTextPosition,

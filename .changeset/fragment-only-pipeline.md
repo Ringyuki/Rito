@@ -40,6 +40,12 @@ Known limitations of the fragment engine in this release:
   first face keeps serving every glyph. Hosts that offer a font choice should
   open the reader with a pinned font policy containing the chosen faces
   (the pattern the Flutter reader uses).
-- `search()` results report their source as unavailable and callers fall back
-  to `getChapterTextIndices()` for durable ranges; exact source range
-  resolution itself works, including across soft-wrapped lines.
+- `search()` finds matches and navigates to them, but reports its sources as
+  unavailable; callers fall back to `getChapterTextIndices()` for durable
+  ranges. Exact source range resolution itself works, including across
+  soft-wrapped lines.
+- Durable source-locator projection (exact reading-position persistence and
+  restore, search-result highlight painted from a committed source range,
+  internal-link growth past the known extent) resolves unavailable pending
+  the fragment source-locator cutover; page-index based persistence keeps
+  working in the meantime.

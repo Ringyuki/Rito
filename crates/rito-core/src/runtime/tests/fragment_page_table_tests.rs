@@ -762,3 +762,33 @@ fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
         "a bounded session forced family switch must reach the painted frame"
     );
 }
+
+#[test]
+fn search_finds_text_after_the_fragment_page_table_attaches() {
+    let (document, revision_id) = fragment_routed_document();
+    let revision = document
+        .revisions
+        .get(&revision_id)
+        .expect("revision is retained");
+    assert!(revision.fragment_layout.is_some());
+    let handle = RuntimeRevisionHandle {
+        revision_id: revision_id.clone(),
+        revision_version: revision.revision_version,
+    };
+    let response = document
+        .search_at(
+            &handle,
+            crate::runtime::RuntimeSearchRequest {
+                query: "chapter".to_owned(),
+                case_sensitive: false,
+                whole_word: false,
+                limit: Some(50),
+            },
+        )
+        .expect("search resolves");
+    assert!(
+        response.value.result_count > 0,
+        "search must find chapter text under the fragment page table, got {:?}",
+        response.value.result_count
+    );
+}

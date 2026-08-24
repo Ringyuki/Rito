@@ -250,6 +250,30 @@ impl<'a> FragmentChapterEngineSession<'a> {
         Some(starts)
     }
 
+    pub(super) fn search_page_index(&self) -> Vec<crate::layout::SearchPageText> {
+        (0..self.layout.page_count())
+            .filter_map(|page_index| {
+                let artifact = self.artifact(page_index)?;
+                let runs = artifact
+                    .interaction_runs()
+                    .iter()
+                    .map(|run| crate::layout::SearchPrebuiltRun {
+                        start: run.start,
+                        end: run.end,
+                        block_index: run.block_index,
+                        line_index: run.line_index,
+                        run_index: run.run_index,
+                    })
+                    .collect();
+                Some(crate::layout::SearchPageText::from_parts(
+                    page_index,
+                    artifact.page_text().to_owned(),
+                    runs,
+                ))
+            })
+            .collect()
+    }
+
     pub(super) fn resolve_exact_source_range(
         &self,
         query: PageArtifactExactSourceRangeQuery,
