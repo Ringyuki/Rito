@@ -1,6 +1,8 @@
 import type { ReaderPinnedFontPolicy } from '@ritojs/core';
 import sourceHanSerifCnUrl from '@/assets/fonts/SourceHanSerifCN-Regular.otf?url';
+import sourceHanSansCnUrl from '@/assets/fonts/SourceHanSansCN-Regular.otf?url';
 import tinosUrl from '@/assets/fonts/Tinos-Regular.ttf?url';
+import arimoUrl from '@/assets/fonts/Arimo-Regular.ttf?url';
 
 interface ProductionPinnedFontFaceSource {
   readonly url: string;
@@ -29,6 +31,24 @@ const SOURCE_HAN_SERIF_CN: ProductionPinnedFontFaceSource = {
   language: 'zh-Hans',
 };
 
+const ARIMO: ProductionPinnedFontFaceSource = {
+  url: arimoUrl,
+  fileName: 'Arimo-Regular.ttf',
+  byteLength: 478_712,
+  expectedSha256: '41b22bc8f0b51f932825d37bc55b5eb6ba67dfe599a626e4aff2b43b624f9f8c',
+  genericRole: 'sansSerif',
+  language: 'und',
+};
+
+const SOURCE_HAN_SANS_CN: ProductionPinnedFontFaceSource = {
+  url: sourceHanSansCnUrl,
+  fileName: 'SourceHanSansCN-Regular.otf',
+  byteLength: 8_331_636,
+  expectedSha256: 'c0aa89a70f92a820ff95490fea6d472cd19621a71c9a748a4950eb2eafe6438e',
+  genericRole: 'sansSerif',
+  language: 'zh-Hans',
+};
+
 let productionPolicyPromise: Promise<ReaderPinnedFontPolicy> | undefined;
 
 export function loadProductionPinnedFontPolicy(): Promise<ReaderPinnedFontPolicy> {
@@ -37,13 +57,17 @@ export function loadProductionPinnedFontPolicy(): Promise<ReaderPinnedFontPolicy
 }
 
 async function createProductionPinnedFontPolicy(): Promise<ReaderPinnedFontPolicy> {
-  const [tinosBytes, sourceHanSerifCnBytes] = await Promise.all([
+  const [tinosBytes, sourceHanSerifCnBytes, arimoBytes, sourceHanSansCnBytes] = await Promise.all([
     fetchFontBytes(TINOS),
     fetchFontBytes(SOURCE_HAN_SERIF_CN),
+    fetchFontBytes(ARIMO),
+    fetchFontBytes(SOURCE_HAN_SANS_CN),
   ]);
   const faces = [
     createPolicyFace(TINOS, tinosBytes),
     createPolicyFace(SOURCE_HAN_SERIF_CN, sourceHanSerifCnBytes),
+    createPolicyFace(ARIMO, arimoBytes),
+    createPolicyFace(SOURCE_HAN_SANS_CN, sourceHanSansCnBytes),
   ];
   return Object.freeze({ schemaVersion: 1, faces: Object.freeze(faces) });
 }
