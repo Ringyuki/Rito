@@ -778,3 +778,62 @@ fn first_block_text_run(
 fn run_bounds(run: &TextRunBox, line_x: f64, line_y: f64) -> (f64, f64, f64, f64) {
     (line_x + run.x, line_y + run.y, run.width, run.height)
 }
+
+#[test]
+fn wrapped_break_all_paragraph_resolves_exact_source_range_by_node_path() {
+    let mixed = "柊丁柊七柊万柊世";
+    let wrapped = format!("{mixed}{mixed}");
+    let body = format!(
+        r#"<p>柊柊柊柊柊</p><p>丁七万世</p><p>柊柊丁七</p><p>WiAV</p><p class="wrapped">{wrapped}</p>"#
+    );
+    let stylesheet = r#"
+body { margin: 0; font-family: "Author", serif; font-size: 32px; line-height: 1.5; }
+p { margin: 0 0 12px; }
+.wrapped { width: 180px; word-break: break-all; }
+"#;
+    let bytes = content_epub(
+        "zh",
+        &body,
+        stylesheet,
+        Some(&crate::runtime::tests::pinned_font_policy_fixtures::author_illustration_font()),
+    );
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &bytes,
+        policy(vec![face(
+            crate::runtime::tests::pinned_font_policy_fixtures::illustration_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("zh"),
+        )]),
+    )
+    .expect("pinned document opens");
+    document.set_fragment_page_table_enabled(true);
+    let revision = document
+        .create_revision(&font_aware_layout())
+        .expect("font-aware revision is created");
+    let handle = RuntimeRevisionHandle::from(&revision);
+    let projected = document
+        .resolve_exact_source_range_at(
+            &handle,
+            RuntimeExactSourceRangeRequest {
+                href: "chapter.xhtml".to_owned(),
+                source_range: RuntimeSourceRange {
+                    start: RuntimeSourcePoint {
+                        node_path: vec![4, 0],
+                        text_offset: 0,
+                    },
+                    end: RuntimeSourcePoint {
+                        node_path: vec![4, 0],
+                        text_offset: 16,
+                    },
+                },
+            },
+        )
+        .expect("request resolves");
+    match projected.value.resolution {
+        RuntimeExactSourceRangeResolution::Resolved { range } => {
+            assert_eq!(range.selected_text, wrapped);
+            assert!(range.rects.len() > 1, "wrapped range spans several lines");
+        }
+        other => panic!("expected resolved wrapped range, got {other:?}"),
+    }
+}

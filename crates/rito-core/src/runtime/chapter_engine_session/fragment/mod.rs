@@ -576,6 +576,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
             (anchor, focus)
         };
         let mut selected_text = String::new();
+        let mut previous_block: Option<(usize, usize)> = None;
         let mut rects = Vec::new();
         for page_index in start.page_index..=end.page_index {
             let Some(artifact) = self.artifact(page_index) else {
@@ -594,25 +595,31 @@ impl<'a> FragmentChapterEngineSession<'a> {
             if page_end <= page_start {
                 continue;
             }
-            if !selected_text.is_empty() {
-                selected_text.push('\n');
-            }
-            selected_text.extend(
-                char::decode_utf16(
-                    artifact
-                        .page_text()
-                        .encode_utf16()
-                        .skip(page_start)
-                        .take(page_end - page_start),
-                )
-                .map(|unit| unit.unwrap_or(char::REPLACEMENT_CHARACTER)),
-            );
             for run in artifact.interaction_runs() {
                 let clip_start = run.start.max(page_start);
                 let clip_end = run.end.min(page_end);
                 if clip_end <= clip_start {
                     continue;
                 }
+                // A soft-wrapped line inside one block reads as
+                // continuous text (a browser selection keeps no line
+                // break there); only a block boundary separates.
+                if let Some(previous) = previous_block {
+                    if previous != (page_index, run.block_index) {
+                        selected_text.push('\n');
+                    }
+                }
+                previous_block = Some((page_index, run.block_index));
+                selected_text.extend(
+                    char::decode_utf16(
+                        artifact
+                            .page_text()
+                            .encode_utf16()
+                            .skip(clip_start)
+                            .take(clip_end - clip_start),
+                    )
+                    .map(|unit| unit.unwrap_or(char::REPLACEMENT_CHARACTER)),
+                );
                 let length = (run.end - run.start).max(1) as f64;
                 let from = (clip_start - run.start) as f64 / length;
                 let to = (clip_end - run.start) as f64 / length;
@@ -666,13 +673,17 @@ impl<'a> FragmentChapterEngineSession<'a> {
             focus,
             start,
             end,
-            // Segment texts come from the selected page text; consumers
-            // use them as a checksum against the source document.
-            exact_source_segments: if selected_text.is_empty() {
-                Vec::new()
-            } else {
-                vec![selected_text.clone()]
-            },
+            // Consumers verify these against the SOURCE document, which
+            // has no line or page separators: a multi-line range keeps
+            // one segment per line, because the '\n' seams the page text
+            // inserts either abut directly in the source (a break-all
+            // cut) or sit on collapsible whitespace, both of which the
+            // checksum tolerates between segments — but never inside one.
+            exact_source_segments: selected_text
+                .split('\n')
+                .filter(|segment| !segment.is_empty())
+                .map(str::to_owned)
+                .collect(),
             selected_text,
             source_start,
             source_end,

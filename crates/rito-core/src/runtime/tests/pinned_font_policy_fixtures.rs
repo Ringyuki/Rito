@@ -48,6 +48,13 @@ pub(super) fn serif_text_font() -> Vec<u8> {
     .expect("bundled serif text font reads")
 }
 
+pub(super) fn author_illustration_font() -> Vec<u8> {
+    read_font_from_epub(
+        "packages/rito/tests/fixtures/books/book-01.epub",
+        "OEBPS/Fonts/illus1.ttf",
+    )
+}
+
 pub(super) fn illustration_font() -> Vec<u8> {
     read_font_from_epub(
         "packages/rito/tests/fixtures/books/book-01.epub",
