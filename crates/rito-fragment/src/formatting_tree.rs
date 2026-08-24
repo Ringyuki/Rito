@@ -231,12 +231,6 @@ pub struct FormattingTree {
     /// inline style, whose line-height floors every line box the flow
     /// produces (CSS 2 §10.8.1).
     strut_styles: std::collections::BTreeMap<u32, StyleId>,
-    /// Per inline-flow node: one flag per item, true when the item sits
-    /// inside a REAL inline element (a span, sup, ruby...), false for
-    /// text directly owned by the paragraph. Line breaking treats only
-    /// element boxes as rewindable units — bare paragraph text split
-    /// into items by a ruby neighbour is not an element boundary.
-    inline_item_scopes: std::collections::BTreeMap<u32, Vec<bool>>,
     fingerprint: u64,
 }
 
@@ -261,7 +255,6 @@ impl FormattingTree {
             root,
             styles: None,
             strut_styles: std::collections::BTreeMap::new(),
-            inline_item_scopes: std::collections::BTreeMap::new(),
             fingerprint,
         })
     }
@@ -332,7 +325,6 @@ impl FormattingTree {
             root,
             styles: Some(styles),
             strut_styles: std::collections::BTreeMap::new(),
-            inline_item_scopes: std::collections::BTreeMap::new(),
             fingerprint,
         })
     }
@@ -360,25 +352,6 @@ impl FormattingTree {
     /// The strut style recorded for an inline-flow node, if any.
     pub fn strut_style(&self, node: FormattingNodeId) -> Option<StyleId> {
         self.strut_styles.get(&node.0).copied()
-    }
-
-    /// Records, per inline-flow node, which items live inside a real
-    /// inline element. Derived from the same content the items are, so
-    /// it does not join the fingerprint.
-    pub fn set_inline_item_scopes(
-        &mut self,
-        scopes: std::collections::BTreeMap<u32, Vec<bool>>,
-    ) {
-        self.inline_item_scopes = scopes;
-    }
-
-    /// Whether an inline-flow item sits inside a real inline element.
-    /// Unrecorded flows answer true — the conservative side keeps the
-    /// historical rewind behaviour for callers that never set scopes.
-    pub fn inline_item_in_element(&self, node: FormattingNodeId, item: usize) -> bool {
-        self.inline_item_scopes
-            .get(&node.0)
-            .map_or(true, |flags| flags.get(item).copied().unwrap_or(true))
     }
 
     pub fn fingerprint(&self) -> u64 {

@@ -212,7 +212,6 @@ pub fn build_chapter_formatting_tree(
         block_link: None,
         node_links: BTreeMap::new(),
         strut_styles: BTreeMap::new(),
-        inline_item_scopes: BTreeMap::new(),
         degradations: Vec::new(),
         checked_block_styles: std::collections::HashMap::new(),
         checked_box_paints: std::collections::HashMap::new(),
@@ -265,7 +264,6 @@ pub fn build_chapter_formatting_tree(
         node_tags,
         list_markers,
         strut_styles,
-        inline_item_scopes,
         degradations,
         ..
     } = builder;
@@ -277,7 +275,6 @@ pub fn build_chapter_formatting_tree(
     )
     .map_err(EpubError::new)?;
     tree.set_strut_styles(strut_styles);
-    tree.set_inline_item_scopes(inline_item_scopes);
     Ok(ChapterFormattingTree {
         tree,
         source_nodes,
@@ -325,9 +322,6 @@ struct TreeBuilder<'a> {
     block_link: Option<String>,
     /// The container inline style per inline-flow node — the CSS strut.
     strut_styles: BTreeMap<u32, StyleId>,
-    /// Per inline-flow node: one flag per item, true when the item sits
-    /// inside a real inline element (line breaking's rewind unit).
-    inline_item_scopes: BTreeMap<u32, Vec<bool>>,
     degradations: Vec<String>,
     /// Capability verdict per interned style id, so each distinct style is
     /// checked once per chapter.
@@ -517,7 +511,7 @@ impl TreeBuilder<'_> {
         for node in run {
             self.collect_inline(node, container_inline_style, 0.0, &mut collector)?;
         }
-        let (items, sources, scopes) = collector.finish();
+        let (items, sources) = collector.finish();
         if !inline_items_have_substance(&items) {
             return Ok(());
         }
@@ -531,7 +525,6 @@ impl TreeBuilder<'_> {
         );
         let strut = self.anonymous_strut_style(container_inline_style)?;
         self.strut_styles.insert(id.0, strut);
-        self.inline_item_scopes.insert(id.0, scopes);
         self.flow_item_sources.insert(id.0, sources);
         built.push(id);
         Ok(())
@@ -645,7 +638,7 @@ impl TreeBuilder<'_> {
             for child in &element.children {
                 self.collect_inline(child, inline_style, 0.0, &mut collector)?;
             }
-            let (items, sources, scopes) = collector.finish();
+            let (items, sources) = collector.finish();
             let (content, sources) = if !inline_items_have_substance(&items) {
                 (FormattingNodeContent::BlockContainer, None)
             } else {
@@ -662,7 +655,6 @@ impl TreeBuilder<'_> {
             );
             if is_flow {
                 self.strut_styles.insert(id.0, inline_style);
-                self.inline_item_scopes.insert(id.0, scopes);
             }
             if let Some(sources) = sources {
                 self.flow_item_sources.insert(id.0, sources);
@@ -995,10 +987,7 @@ impl TreeBuilder<'_> {
             }
             DocumentNode::Inline(element) => {
                 if element.tag == "ruby" {
-                    collector.element_depth += 1;
-                    let collected = self.collect_ruby(element, ancestor_shift_px, collector);
-                    collector.element_depth -= 1;
-                    return collected;
+                    return self.collect_ruby(element, ancestor_shift_px, collector);
                 }
                 if element.tag == "rt" || element.tag == "rp" {
                     // Annotation parts outside a <ruby> are malformed
@@ -1083,15 +1072,9 @@ impl TreeBuilder<'_> {
                     // of a page by the sup envelope with nothing in it).
                     collector.push_empty_box(style, shift, source_index);
                 }
-                collector.element_depth += 1;
                 for child in &element.children {
-                    let collected = self.collect_inline(child, style, shift, collector);
-                    if collected.is_err() {
-                        collector.element_depth -= 1;
-                        return collected;
-                    }
+                    self.collect_inline(child, style, shift, collector)?;
                 }
-                collector.element_depth -= 1;
                 if let Some(saved) = saved_link {
                     collector.current_link = saved;
                 }
@@ -1134,7 +1117,7 @@ impl TreeBuilder<'_> {
                 return Ok(false);
             }
         }
-        let (items, sources, scopes) = sub.finish();
+        let (items, sources) = sub.finish();
         if !inline_items_have_substance(&items) {
             // An empty inline-block has no ink and no last-line baseline;
             // the flattening path yields the same nothing.
@@ -1149,7 +1132,6 @@ impl TreeBuilder<'_> {
             Some(source_index),
         );
         self.strut_styles.insert(node.0, style);
-        self.inline_item_scopes.insert(node.0, scopes);
         self.flow_item_sources.insert(node.0, sources);
         collector.push_image(
             InlineItem::InlineBlock {
@@ -2633,12 +2615,6 @@ struct InlineCollector {
     items: Vec<InlineItem>,
     /// Interaction provenance, index-aligned with `items`.
     sources: Vec<FlowItemSource>,
-    /// Per item: whether it sits inside a REAL inline element (span,
-    /// sup, ruby...) as opposed to text directly owned by the paragraph.
-    /// Line breaking rewinds only element boxes as units.
-    scopes: Vec<bool>,
-    /// Open inline-element depth while collecting.
-    element_depth: usize,
     /// The nearest enclosing `<a href>` destination while collecting.
     current_link: Option<String>,
     pending_space: bool,
@@ -2774,7 +2750,6 @@ impl InlineCollector {
                         baseline_shift_px: 0.0,
                         ruby_annotation: None,
                     });
-                    self.scopes.push(self.element_depth > 0);
                     self.sources.push(FlowItemSource {
                         source_index: None,
                         source_path: None,
@@ -2933,7 +2908,6 @@ impl InlineCollector {
             baseline_shift_px,
             ruby_annotation,
         });
-        self.scopes.push(self.element_depth > 0);
         self.sources.push(source);
     }
 
@@ -2975,7 +2949,6 @@ impl InlineCollector {
                 baseline_shift_px,
                 ruby_annotation: None,
             });
-            self.scopes.push(self.element_depth > 0);
         }
         self.has_content = true;
     }
@@ -3009,7 +2982,6 @@ impl InlineCollector {
             segments: Vec::new(),
         });
         self.items.push(item);
-        self.scopes.push(self.element_depth > 0);
         self.has_content = true;
     }
 
@@ -3043,15 +3015,13 @@ impl InlineCollector {
             style,
             baseline_shift_px,
         });
-        self.scopes.push(true);
     }
 
-    fn finish(self) -> (Vec<InlineItem>, Vec<FlowItemSource>, Vec<bool>) {
+    fn finish(self) -> (Vec<InlineItem>, Vec<FlowItemSource>) {
         // Trailing pending space is dropped: flow-final white space
         // collapses away.
         debug_assert_eq!(self.items.len(), self.sources.len());
-        debug_assert_eq!(self.items.len(), self.scopes.len());
-        (self.items, self.sources, self.scopes)
+        (self.items, self.sources)
     }
 }
 
