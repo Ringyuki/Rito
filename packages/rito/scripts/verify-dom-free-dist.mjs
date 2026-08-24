@@ -54,7 +54,7 @@ const CHAPTER_XHTML = `<?xml version="1.0"?>
 </html>`;
 
 await assertReferenceGraph(new URL('reference/index.mjs', REFERENCE_BUILD_URL), true);
-await assertReferenceGraph(new URL('compatibility/web.mjs', REFERENCE_BUILD_URL), false);
+await assertReferenceGraph(new URL('tooling/web.mjs', REFERENCE_BUILD_URL), false);
 
 const epubBytes = buildEpub();
 const epub = epubBytes.buffer.slice(

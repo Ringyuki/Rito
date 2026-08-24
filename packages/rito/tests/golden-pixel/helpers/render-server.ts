@@ -358,7 +358,7 @@ function renderHtml(): string {
 
   window.renderRitoPixelReady = 'loading';
 
-  import('/reference-dist/compatibility/web.mjs')
+  import('/reference-dist/tooling/web.mjs')
     .then(({ createReader }) => {
       window.renderRitoPixelReady = 'ready';
       window.renderRitoPixelRun = async (testRun, bookBase64) => {

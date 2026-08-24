@@ -40,7 +40,7 @@
   ],
   "scripts": {
     "build": "pnpm --filter @ritojs/core-wasm build && tsdown && node scripts/copy-wasm-artifact.mjs && node scripts/verify-worker-entry.mjs",
-    "build:reference": "tsdown src/reference/index.ts src/compatibility/advanced.ts src/compatibility/web.ts --format esm --out-dir .output/reference-build --tsconfig tsconfig.build.json --sourcemap false --no-dts --platform browser --fixedExtension --logLevel warn",
+    "build:reference": "tsdown src/reference/index.ts src/reference/tooling/advanced.ts src/reference/tooling/web.ts --format esm --out-dir .output/reference-build --tsconfig tsconfig.build.json --sourcemap false --no-dts --platform browser --fixedExtension --logLevel warn",
     "dev": "tsdown --watch --on-success \"node scripts/copy-wasm-artifact.mjs\"",
     "diagnose:render": "pnpm --filter @ritojs/core-wasm build && pnpm run build && pnpm run build:reference && node scripts/render-diagnostic-case.mjs",
     "diagnose:reader-parity": "pnpm --filter @ritojs/core-wasm build && pnpm run build && pnpm run build:reference && RITO_DIAG_ENGINE=both node scripts/render-diagnostic-case.mjs",

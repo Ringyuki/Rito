@@ -253,7 +253,7 @@ async function run() {
   const configs = configIds.map(requireConfig);
   const publicCore = await import(resolve(DIST_ROOT, 'index.mjs'));
   const reference = await import(resolve(REFERENCE_DIST_ROOT, 'reference/index.mjs'));
-  const advanced = await import(resolve(REFERENCE_DIST_ROOT, 'compatibility/advanced.mjs'));
+  const advanced = await import(resolve(REFERENCE_DIST_ROOT, 'tooling/advanced.mjs'));
   const entries = [];
 
   for (const book of books) {

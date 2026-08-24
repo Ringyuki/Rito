@@ -28,7 +28,7 @@ const ENGINE_CONFIGS = new Map([
     {
       id: 'reference',
       label: 'TypeScript reference',
-      importPath: '/reference-dist/compatibility/web.mjs',
+      importPath: '/reference-dist/tooling/web.mjs',
     },
   ],
 ]);
@@ -1057,7 +1057,7 @@ function renderHtml() {
   const readerModules = new Map();
   const moduleImports = [
     ['production', import('/dist/index.mjs')],
-    ['reference', import('/reference-dist/compatibility/web.mjs')],
+    ['reference', import('/reference-dist/tooling/web.mjs')],
   ];
 
   Promise.all(moduleImports.map(async ([engine, promise]) => {

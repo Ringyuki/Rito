@@ -13,7 +13,7 @@ describe('render diagnostic script', () => {
     const source = read(SCRIPT);
 
     expect(source).toContain("['production', import('/dist/index.mjs')]");
-    expect(source).toContain("['reference', import('/reference-dist/compatibility/web.mjs')]");
+    expect(source).toContain("['reference', import('/reference-dist/tooling/web.mjs')]");
     expect(source).toContain("process.env.RITO_DIAG_ENGINE || 'production'");
     expect(source).toContain("value === 'both'");
     expect(source).toContain('writeParityArtifacts');
