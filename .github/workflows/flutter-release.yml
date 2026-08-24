@@ -66,5 +66,16 @@ jobs:
       - name: Validate package
         run: dart pub publish --dry-run
 
+      # The setup-dart token exchange happens at job start; the prepare and
+      # test steps take long enough that pub.dev rejects the aged JWT with
+      # "invalid timestamps". Exchange a fresh token right before publishing.
+      - name: Refresh pub.dev OIDC token
+        run: |
+          PUB_TOKEN="$(curl -sSH "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://pub.dev" | jq -r .value)"
+          echo "::add-mask::$PUB_TOKEN"
+          echo "PUB_TOKEN=$PUB_TOKEN" >> "$GITHUB_ENV"
+          dart pub token add https://pub.dev --env-var PUB_TOKEN
+
       - name: Publish
         run: dart pub publish --force
