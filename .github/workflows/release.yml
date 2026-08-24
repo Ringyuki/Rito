@@ -67,6 +67,7 @@ jobs:
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HUSKY: 0
       - name: Trigger unpublished Flutter release
         if: steps.changesets.outputs.published == 'true'
         env:
