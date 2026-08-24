@@ -9,7 +9,9 @@ export default defineConfig({
   testDir: './tests/golden-pixel',
   outputDir: './test-results/playwright',
   timeout: 120_000,
-  fullyParallel: false,
+  // Snapshot tests are independent (each opens its own page); review and
+  // update runs stay serial through the describe-level mode instead.
+  fullyParallel: !isPixelReview,
   workers: isPixelReview ? 1 : pixelWorkerCount(),
   reporter: [['list']],
   use: {

@@ -61,6 +61,7 @@ export function Reader({
       data-selection-rect-count={reader.selection.viewportRects.length}
       data-selection-first-rect-y={reader.selection.viewportRects[0]?.y ?? ''}
       data-selection-first-rect-height={reader.selection.viewportRects[0]?.height ?? ''}
+      data-render-scale={reader.controller?.renderScale ?? ''}
       className="relative flex flex-1 bg-muted/30 select-none"
     >
       <EngineBadge />
