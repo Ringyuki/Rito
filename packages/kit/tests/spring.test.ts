@@ -66,8 +66,14 @@ describe('stepSpring', () => {
         elapsedMs += 16;
       }
 
-      expect(elapsedMs).toBeGreaterThanOrEqual(300);
-      expect(elapsedMs).toBeLessThanOrEqual(400);
+      // The spring integrates until motion is sub-pixel AND essentially
+      // stationary (0.5px / 0.05px/s — the 0.13 thresholds). Numerically
+      // that is ~860-950ms, but everything past ~350ms is an
+      // imperceptible sub-pixel tail: the eased landing IS the feel. A
+      // coarser cut (4px/300px/s, settling in ~350ms) ended every page
+      // turn with a visible snap.
+      expect(elapsedMs).toBeGreaterThanOrEqual(700);
+      expect(elapsedMs).toBeLessThanOrEqual(1000);
       expect(state).toEqual({ x: -viewportWidth, vx: 0 });
     },
   );

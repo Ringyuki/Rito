@@ -17,8 +17,12 @@ export interface SpringConfig {
   readonly damping: number;
 }
 
-const SETTLE_DISTANCE_PX = 4;
-const SETTLE_SPEED_PX_PER_SECOND = 300;
+// Settle only once motion is imperceptible (sub-pixel AND essentially
+// stationary) — the 0.13 thresholds. A coarser cut (4px / 300px/s) once
+// chopped the spring's tail and every page turn ended with a visible
+// snap instead of the eased landing.
+const SETTLE_DISTANCE_PX = 0.5;
+const SETTLE_SPEED_PX_PER_SECOND = 0.05;
 
 /**
  * Advance the spring by `dt` milliseconds toward `target`.
