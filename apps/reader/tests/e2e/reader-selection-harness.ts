@@ -253,9 +253,11 @@ export async function readSelectionHighlightBands(
       throw new Error('Reader render scale is unavailable');
     }
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    const rows: number[] = [];
+    const highlightRows = new Set<number>();
+    const inkRows: number[] = [];
     for (let y = 0; y < canvas.height; y += 1) {
       let selectedPixels = 0;
+      let inkPixels = 0;
       for (let x = 0; x < canvas.width; x += 1) {
         const offset = (y * canvas.width + x) * 4;
         const red = pixels[offset] ?? 0;
@@ -265,22 +267,41 @@ export async function readSelectionHighlightBands(
         if (alpha > 32 && blue - red > 25 && blue - green > 12 && blue > 70) {
           selectedPixels += 1;
         }
+        if (alpha > 32 && red < 96 && green < 96 && blue < 128) {
+          inkPixels += 1;
+        }
       }
-      if (selectedPixels >= 8) rows.push(y);
+      if (selectedPixels >= 8) highlightRows.add(y);
+      if (inkPixels >= 4) inkRows.push(y);
     }
-    const groups: { top: number; bottom: number }[] = [];
-    for (const y of rows) {
-      const previous = groups.at(-1);
-      if (previous && y === previous.bottom + 1) previous.bottom = y;
-      else groups.push({ top: y, bottom: y });
+    // One band per highlighted TEXT line, split on glyph-ink line bands
+    // rather than on gaps between the highlight rectangles themselves:
+    // adjacent lines' highlights may touch (the built app's line boxes
+    // stack seamlessly) and a gap-based split would fuse them into one.
+    const inkGroups: { top: number; bottom: number }[] = [];
+    for (const y of inkRows) {
+      const previous = inkGroups.at(-1);
+      if (previous && y - previous.bottom <= 2) previous.bottom = y;
+      else inkGroups.push({ top: y, bottom: y });
     }
     const logicalPixelHeight = bounds.height / canvas.height / renderScale;
-    return groups
-      .filter((group) => group.bottom - group.top >= 2)
-      .map((group) => ({
-        top: group.top * logicalPixelHeight,
-        height: (group.bottom - group.top + 1) * logicalPixelHeight,
-      }));
+    const bands: { top: number; height: number }[] = [];
+    for (const group of inkGroups) {
+      let top = -1;
+      let bottom = -1;
+      for (let y = Math.max(0, group.top - 2); y <= group.bottom + 2; y += 1) {
+        if (!highlightRows.has(y)) continue;
+        if (top < 0) top = y;
+        bottom = y;
+      }
+      if (top >= 0 && bottom - top >= 2) {
+        bands.push({
+          top: top * logicalPixelHeight,
+          height: (bottom - top + 1) * logicalPixelHeight,
+        });
+      }
+    }
+    return bands;
   });
 }
 
