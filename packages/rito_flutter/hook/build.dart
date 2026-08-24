@@ -2,9 +2,9 @@ import 'package:code_assets/code_assets.dart';
 import 'package:hooks/hooks.dart';
 import 'package:rito_flutter/src/native/asset.dart';
 
-import 'src/cargo_builder.dart';
-import 'src/target.dart';
-import 'src/toolchains.dart';
+import 'package:rito_flutter/src/hook/cargo_builder.dart';
+import 'package:rito_flutter/src/hook/target.dart';
+import 'package:rito_flutter/src/hook/toolchains.dart';
 
 Future<void> main(List<String> arguments) async {
   await build(arguments, (input, output) async {

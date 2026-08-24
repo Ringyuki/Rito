@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks/hooks.dart';
 import 'package:rito_flutter/src/native/asset.dart';
 
-import '../hook/src/cargo_builder.dart';
-import '../hook/src/target.dart';
+import 'package:rito_flutter/src/hook/cargo_builder.dart';
+import 'package:rito_flutter/src/hook/target.dart';
 
 void main() {
   group('Rust target mapping', () {

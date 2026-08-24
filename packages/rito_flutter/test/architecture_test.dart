@@ -158,7 +158,10 @@ void main() {
     final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
     expect(gateway, contains('RitoIsolateGateway({this.diagnosticLibrary})'));
 
-    final hook = _sourceUnder('hook');
+    // The hook entrypoint lives in hook/, its implementation in
+    // lib/src/hook/ (pub.dev only accepts hook/build.dart while the hook
+    // feature is experimental).
+    final hook = _sourceUnder('hook') + _sourceUnder('lib/src/hook');
     expect(hook, contains("'--jobs',"));
     expect(hook, contains("'CARGO_BUILD_JOBS': '1'"));
     expect(hook, contains("'CARGO_PROFILE_RELEASE_PANIC': 'unwind'"));
