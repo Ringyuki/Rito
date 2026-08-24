@@ -52,7 +52,7 @@ jobs:
 
   pixel-golden:
     name: Pixel Golden
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
