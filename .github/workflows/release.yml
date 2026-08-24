@@ -64,7 +64,7 @@ jobs:
           publish: pnpm run release:ci
           commit: 'release: version packages'
           title: 'release: version packages'
-          createGithubReleases: false
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Trigger unpublished Flutter release
