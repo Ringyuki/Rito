@@ -39,7 +39,7 @@ package entry.
 | `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
 | `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
 | `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
-| `lineBreaking`     | `'greedy' \| 'optimal'`  | `'greedy'`                       | Line-breaking strategy                 |
+| `lineBreaking`     | `'greedy' \| 'optimal'`  | `'greedy'`                       | `'optimal'` currently equals greedy    |
 | `logLevel`         | `LogLevel`               | `'warn'`                         | Diagnostics verbosity                  |
 | `paginationPolicy` | `PaginationPolicy`       | unset                            | Widow/orphan configuration             |
 | `fontSize`         | `number`                 | unset                            | Initial root font-size override        |

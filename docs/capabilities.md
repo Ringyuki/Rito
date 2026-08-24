@@ -38,8 +38,7 @@ This page describes what Rito is designed to support today.
 ## Layout / Pagination
 
 - block layout
-- greedy and Knuth-Plass line breaking
-- Liang hyphenation (`en-us`)
+- greedy line breaking
 - floats
 - inline images and inline atoms
 - `display: inline-block`

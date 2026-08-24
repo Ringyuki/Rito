@@ -17,7 +17,10 @@ Rito is intentionally focused on EPUB rendering, not browser-equivalent web layo
 
 - left-to-right layout only
 - no RTL / BiDi support
-- bundled hyphenation patterns are currently `en-us` only
+- no automatic hyphenation (`hyphens: auto` is not implemented)
+- the `lineBreaking: 'optimal'` option is accepted but currently behaves the
+  same as `'greedy'` (Knuth-Plass breaking existed only in the retired
+  TypeScript pipeline)
 
 ## Typography Overrides
 
