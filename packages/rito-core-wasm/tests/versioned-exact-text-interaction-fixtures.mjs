@@ -1,0 +1,351 @@
+import { pinnedFontPolicyJson } from './reader-worker-test-fixture.mjs';
+
+export function handle(revisionVersion = 1) {
+  return { revisionId: 'rev-1', revisionVersion };
+}
+
+export function pointRequest(overrides = {}) {
+  return { pageIndex: 4, x: 12.5, y: 24.25, ...overrides };
+}
+
+export function caretAddress(overrides = {}) {
+  return {
+    pageIndex: 4,
+    blockIndex: 0,
+    lineIndex: 0,
+    runIndex: 0,
+    charIndex: 1,
+    affinity: 'downstream',
+    ...overrides,
+  };
+}
+
+export function caretResponse(overrides = {}) {
+  return {
+    revisionId: 'rev-1',
+    pageIndex: 4,
+    spreadIndex: 2,
+    resolution: resolvedCaret(),
+    ...overrides,
+  };
+}
+
+export function resolvedCaret(overrides = {}) {
+  return {
+    status: 'resolved',
+    caret: {
+      address: caretAddress(),
+      geometry: { x: 10, y: 20, height: 16 },
+      sourceLocator: {
+        href: 'Text/chapter.xhtml',
+        sourcePoint: { nodePath: [1, 0], textOffset: 3 },
+      },
+      ...overrides,
+    },
+  };
+}
+
+export function rangeRequest(overrides = {}) {
+  return {
+    anchor: caretAddress({ charIndex: 1 }),
+    focus: caretAddress({ pageIndex: 5, lineIndex: 1, charIndex: 2 }),
+    ...overrides,
+  };
+}
+
+export function rangeResponse(request = rangeRequest(), overrides = {}) {
+  return {
+    revisionId: 'rev-1',
+    resolution: {
+      status: 'resolved',
+      range: {
+        anchor: request.anchor,
+        focus: request.focus,
+        start: request.anchor,
+        end: request.focus,
+        selectedText: 'i\n\nTe',
+        sourceSpan: {
+          start: {
+            href: 'Text/chapter.xhtml',
+            sourcePoint: { nodePath: [1, 0], textOffset: 3 },
+          },
+          end: {
+            href: 'Text/chapter.xhtml',
+            sourcePoint: { nodePath: [2, 0], textOffset: 2 },
+          },
+        },
+        sourceLocator: {
+          href: 'Text/chapter.xhtml',
+          sourceRange: {
+            start: { nodePath: [1, 0], textOffset: 3 },
+            end: { nodePath: [2, 0], textOffset: 2 },
+          },
+        },
+        rects: [
+          exactRect(),
+          exactRect({
+            pageIndex: 5,
+            spreadIndex: 3,
+            y: 4,
+            lineIndex: 1,
+            startCharIndex: 0,
+            endCharIndex: 2,
+          }),
+        ],
+      },
+    },
+    ...overrides,
+  };
+}
+
+export function crossResourceRangeResponse(request = rangeRequest(), overrides = {}) {
+  const response = rangeResponse(request, overrides);
+  response.resolution.range.sourceSpan.end.href = 'Text/next.xhtml';
+  delete response.resolution.range.sourceLocator;
+  return response;
+}
+
+export function exactRect(overrides = {}) {
+  return {
+    pageIndex: 4,
+    spreadIndex: 2,
+    x: 10,
+    y: 2,
+    width: 8,
+    height: 16,
+    blockIndex: 0,
+    lineIndex: 0,
+    runIndex: 0,
+    startCharIndex: 1,
+    endCharIndex: 2,
+    ...overrides,
+  };
+}
+
+export function caretTransport(request = pointRequest(), response = caretResponse()) {
+  return { request, response };
+}
+
+export function rangeTransport(request = rangeRequest(), response = rangeResponse(request)) {
+  return { request, response };
+}
+
+export function pointRangeRequest(overrides = {}) {
+  return {
+    anchor: pointRequest(),
+    focus: pointRequest({ pageIndex: 5, x: 28, y: 44 }),
+    granularity: 'word',
+    ...overrides,
+  };
+}
+
+export function pointRangeResponse(request = pointRangeRequest(), overrides = {}) {
+  const addresses = rangeRequest({
+    anchor: caretAddress({ pageIndex: request.anchor.pageIndex, charIndex: 1 }),
+    focus: caretAddress({ pageIndex: request.focus.pageIndex, lineIndex: 1, charIndex: 2 }),
+  });
+  const range = rangeResponse(addresses).resolution.range;
+  return {
+    revisionId: 'rev-1',
+    resolution: {
+      status: 'resolved',
+      anchorCaret: resolvedCaret({ address: addresses.anchor }).caret,
+      focusCaret: resolvedCaret({
+        address: addresses.focus,
+        geometry: { x: 28, y: 44, height: 16 },
+        sourceLocator: {
+          href: 'Text/chapter.xhtml',
+          sourcePoint: { nodePath: [2, 0], textOffset: 2 },
+        },
+      }).caret,
+      range,
+    },
+    ...overrides,
+  };
+}
+
+export function pointRangeTransport(
+  request = pointRangeRequest(),
+  response = pointRangeResponse(request),
+) {
+  return { request, response };
+}
+
+export function rangeToPointRequest(overrides = {}) {
+  return {
+    anchor: caretAddress({ charIndex: 1 }),
+    focus: pointRequest({ pageIndex: 5, x: 28, y: 44 }),
+    ...overrides,
+  };
+}
+
+export function rangeToPointResponse(request = rangeToPointRequest(), overrides = {}) {
+  const addresses = rangeRequest({
+    anchor: request.anchor,
+    focus: caretAddress({ pageIndex: request.focus.pageIndex, lineIndex: 1, charIndex: 2 }),
+  });
+  const range = rangeResponse(addresses).resolution.range;
+  return {
+    revisionId: 'rev-1',
+    resolution: {
+      status: 'resolved',
+      anchorCaret: resolvedCaret({ address: addresses.anchor }).caret,
+      focusCaret: resolvedCaret({
+        address: addresses.focus,
+        geometry: { x: 28, y: 44, height: 16 },
+        sourceLocator: {
+          href: 'Text/chapter.xhtml',
+          sourcePoint: { nodePath: [2, 0], textOffset: 2 },
+        },
+      }).caret,
+      range,
+    },
+    ...overrides,
+  };
+}
+
+export function rangeToPointTransport(
+  request = rangeToPointRequest(),
+  response = rangeToPointResponse(request),
+) {
+  return { request, response };
+}
+
+export function movementRequest(overrides = {}) {
+  const {
+    preferredInlinePosition: overrideInline,
+    preferredBlockPosition: overrideBlock,
+    ...rest
+  } = overrides;
+  const movement = rest.movement ?? 'lineDown';
+  const preferredInlinePosition = Object.hasOwn(overrides, 'preferredInlinePosition')
+    ? overrideInline
+    : inlinePositionForMovement(movement);
+  const preferredBlockPosition = Object.hasOwn(overrides, 'preferredBlockPosition')
+    ? overrideBlock
+    : blockPositionForMovement(movement);
+  return {
+    anchor: caretAddress({ charIndex: 1 }),
+    focus: caretAddress({ charIndex: 2 }),
+    ...rest,
+    movement,
+    ...(preferredInlinePosition === undefined ? {} : { preferredInlinePosition }),
+    ...(preferredBlockPosition === undefined ? {} : { preferredBlockPosition }),
+  };
+}
+
+export function movementResponse(request = movementRequest(), overrides = {}) {
+  const addresses = rangeRequest({
+    anchor: request.anchor,
+    focus: caretAddress({ pageIndex: 5, lineIndex: 1, charIndex: 2 }),
+  });
+  const range = rangeResponse(addresses).resolution.range;
+  return {
+    revisionId: 'rev-1',
+    resolution: {
+      status: 'resolved',
+      anchorCaret: resolvedCaret({ address: addresses.anchor }).caret,
+      focusCaret: resolvedCaret({
+        address: addresses.focus,
+        geometry: { x: 28, y: 44, height: 16 },
+        sourceLocator: {
+          href: 'Text/chapter.xhtml',
+          sourcePoint: { nodePath: [2, 0], textOffset: 2 },
+        },
+      }).caret,
+      range,
+      ...(inlinePositionForMovement(request.movement) === undefined
+        ? {}
+        : { preferredInlinePosition: 28 }),
+      ...(blockPositionForMovement(request.movement) === undefined
+        ? {}
+        : { preferredBlockPosition: 44 }),
+    },
+    ...overrides,
+  };
+}
+
+export function movementTransport(
+  request = movementRequest(),
+  response = movementResponse(request),
+) {
+  return { request, response };
+}
+
+export function rawExactTextDocument(calls) {
+  return new Proxy(
+    {
+      publicationJson: () => JSON.stringify({ title: 'fixture' }),
+      pinnedFontPolicyJson,
+      free() {},
+      resolveTextCaretAtRevisionJson: (_revisionId, version) => envelope(version, caretResponse()),
+      resolveTextRangeAtRevisionJson: (_revisionId, version, requestJson) => {
+        const request = JSON.parse(requestJson);
+        return envelope(version, rangeResponse(request));
+      },
+      resolveTextRangeFromPointsAtRevisionJson: (_revisionId, version, requestJson) => {
+        const request = JSON.parse(requestJson);
+        return envelope(version, pointRangeResponse(request));
+      },
+      resolveTextRangeToPointAtRevisionJson: (_revisionId, version, requestJson) => {
+        const request = JSON.parse(requestJson);
+        return envelope(version, rangeToPointResponse(request));
+      },
+      resolveTextSelectionMovementAtRevisionJson: (_revisionId, version, requestJson) => {
+        const request = JSON.parse(requestJson);
+        return envelope(version, movementResponse(request));
+      },
+    },
+    {
+      get(target, property) {
+        const value = target[property];
+        if (typeof value !== 'function') return value;
+        return (...args) => {
+          calls.push([property, args]);
+          return value(...args);
+        };
+      },
+    },
+  );
+}
+
+export class ManualWorker {
+  listeners = new Map();
+  messages = [];
+
+  addEventListener(type, listener) {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  postMessage(message) {
+    this.messages.push(message);
+  }
+
+  terminate() {}
+
+  respondLast(payload) {
+    const { id } = this.messages.at(-1);
+    for (const listener of this.listeners.get('message') ?? []) {
+      listener({ data: { id, ok: true, payload } });
+    }
+  }
+}
+
+function envelope(revisionVersion, value) {
+  return JSON.stringify({ revision: handle(revisionVersion), value });
+}
+
+function inlinePositionForMovement(movement) {
+  return movement === 'lineUp' ||
+    movement === 'lineDown' ||
+    movement === 'pageUp' ||
+    movement === 'pageDown'
+    ? 28
+    : undefined;
+}
+
+function blockPositionForMovement(movement) {
+  return movement === 'pageUp' || movement === 'pageDown' ? 44 : undefined;
+}

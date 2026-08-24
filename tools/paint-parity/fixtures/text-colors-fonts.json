@@ -1,0 +1,62 @@
+{
+  "name": "text-colors-fonts",
+  "width": 420,
+  "height": 200,
+  "background": "#fffef8",
+  "commands": [
+    {
+      "kind": "paintText",
+      "text": "italic slanted words",
+      "rect": { "x": 10, "y": 10, "width": 200, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "italic", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "alpha channel color",
+      "rect": { "x": 10, "y": 40, "width": 200, "height": 20 },
+      "paint": {
+        "color": "#cc224488",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "rgba() functional color",
+      "rect": { "x": 10, "y": 70, "width": 220, "height": 20 },
+      "paint": {
+        "color": "rgba(20, 120, 80, 0.85)",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "display-p3 vivid red",
+      "rect": { "x": 10, "y": 100, "width": 220, "height": 20 },
+      "paint": {
+        "color": "color(display-p3 1 0.2 0.1)",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "tiny nine px sample",
+      "rect": { "x": 10, "y": 130, "width": 160, "height": 12 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos", "sizePx": 9, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "big twenty eight px",
+      "rect": { "x": 10, "y": 150, "width": 320, "height": 34 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos", "sizePx": 28, "style": "normal", "weight": 400 }
+      }
+    }
+  ]
+}

@@ -1,18 +1,49 @@
-import type { FootnoteEntry, PackageMetadata, Page, Spread, TocEntry } from '@ritojs/core';
-import type { Reader, ReaderThemeOptions } from '@ritojs/core/web';
+import type {
+  FootnoteEntry,
+  PackageMetadata,
+  Page,
+  ReaderDocumentSourceSpan,
+  ReaderLocator,
+  Spread,
+  TocEntry,
+} from '@ritojs/core';
+import type { Reader } from '@ritojs/core';
 import type {
   AnnotationRecord,
   AnnotationRecordPatch,
   RecordStorageAdapter,
   ResolvedAnnotation,
-} from '@ritojs/core/annotations';
-import type { ReadingPosition } from '@ritojs/core/position';
-import type { SearchResult } from '@ritojs/core/search';
-import type { TextRange } from '@ritojs/core/selection';
+} from '../interaction/index';
+import type { ReadingPosition } from '../interaction/index';
+import type { SearchResult } from '../interaction/index';
+import type { TextRange } from '../interaction/index';
 import type { TransitionDriverOptions } from '../driver/types';
 import type { PositionStorageAdapter } from '../storage/types';
 import type { KeyboardManager } from '../keyboard/types';
 import type { TypedEmitter } from '../utils/event-emitter';
+
+type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
+
+export type SelectionHandleEdge = 'start' | 'end';
+
+export interface SelectionClientPoint {
+  readonly clientX: number;
+  readonly clientY: number;
+}
+
+/** Exact native selection endpoints in viewport-logical coordinates. */
+export interface SelectionHandleState {
+  readonly start: Rect | null;
+  readonly end: Rect | null;
+  readonly focusEdge: SelectionHandleEdge | null;
+}
+
+/** An epoch-bound drag of one existing native selection endpoint. */
+export interface SelectionHandleDrag {
+  update(point: SelectionClientPoint): void;
+  finish(point: SelectionClientPoint): void;
+  cancel(): void;
+}
 
 /** Defaults matching `@ritojs/core` ReaderOptions defaults. */
 export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;
@@ -38,7 +69,14 @@ export interface ControllerOptions {
 export interface ReaderControllerEvents {
   spreadChange: { spreadIndex: number; spread: Spread };
   selectionChange: {
+    /** Legacy layout-local range. Null for an exact native selection. */
     range: TextRange | null;
+    /** Durable source locator for an exact native selection. */
+    sourceLocator: ReaderLocator | null;
+    /** Resource-qualified durable endpoints for an exact native selection. */
+    sourceSpan: ReaderDocumentSourceSpan | null;
+    /** Explicit because a native selection intentionally has no legacy TextRange. */
+    hasSelection: boolean;
     text: string;
     /** Selection rects in spread-content space (legacy — prefer viewportRects). */
     rects: readonly Rect[];
@@ -46,6 +84,8 @@ export interface ReaderControllerEvents {
     viewportRects: readonly Rect[];
     /** Rect of the active endpoint (focus / drag end) in viewport-logical space. Follows the user's pointer. */
     focusRect: Rect | null;
+    /** Exact range endpoints in viewport-logical space. Null for legacy selection. */
+    handles: SelectionHandleState | null;
   };
   searchResults: { results: readonly SearchResult[]; activeIndex: number };
   searchActiveChange: { activeIndex: number; result: SearchResult | undefined };
@@ -78,8 +118,8 @@ export interface ReaderControllerEvents {
   imageClick: {
     src: string;
     alt: string;
-    /** Object URL for displaying the image. Call `URL.revokeObjectURL()` when done. */
-    blobUrl: string | undefined;
+    /** Controller-owned object URL, valid until the next image click or controller disposal. */
+    blobUrl: string;
     screenBounds: Rect;
   };
   /** Emitted when the search keyboard shortcut is pressed. UI layer should open the search bar. */
@@ -104,7 +144,7 @@ export interface AddAnnotationInput {
 export type InteractionMode = 'selection' | 'gesture';
 
 export interface ReaderController {
-  /** Inject transition wrapper + overlay into container. */
+  /** Inject into a container. Repeating the same mount is a no-op; throws after disposal. */
   mount(container: HTMLElement): void;
   /** Clean up all engines, DOM elements, and listeners. Does NOT dispose the Reader. */
   dispose(): void;
@@ -116,6 +156,8 @@ export interface ReaderController {
   readonly pages: readonly Page[];
   readonly currentSpread: number;
   readonly totalSpreads: number;
+  /** Whether `totalSpreads` is the final publication extent. */
+  readonly paginationComplete: boolean;
 
   goToSpread(index: number): void;
   nextSpread(): void;
@@ -164,18 +206,34 @@ export interface ReaderController {
   readonly searchActiveIndex: number;
 
   clearSelection(): void;
+  readonly hasSelection: boolean;
   readonly selectionText: string;
+  /** Legacy layout-local range. Null when the native exact selector is authoritative. */
   readonly selectionRange: TextRange | null;
+  /** Durable source locator for a native exact selection. */
+  readonly selectionSourceLocator: ReaderLocator | null;
+  /** Resource-qualified durable endpoints for a native exact selection. */
+  readonly selectionSourceSpan: ReaderDocumentSourceSpan | null;
+  /**
+   * Begin dragging an exact native selection endpoint from a client-space pointer.
+   * Returns null when the endpoint is unavailable or the current selection is legacy.
+   */
+  beginSelectionHandleDrag(
+    edge: SelectionHandleEdge,
+    origin: SelectionClientPoint,
+  ): SelectionHandleDrag | null;
 
   addAnnotation(input: AddAnnotationInput): AnnotationRecord | undefined;
   removeAnnotation(id: string): boolean;
   updateAnnotation(id: string, patch: AnnotationRecordPatch): boolean;
   readonly annotations: readonly AnnotationRecord[];
 
-  restorePosition(): Promise<number | undefined>;
+  /** Restore a preloaded serialized position, or load it from positionStorage when omitted. */
+  restorePosition(serialized?: string | null): Promise<number | undefined>;
+  /** Rejects during action setup, an owned restore load, or an active adapter write. */
   savePosition(): Promise<void>;
-  /** Navigate to a serialized ReadingPosition using the current layout. */
-  goToPosition(position: ReadingPosition): number | undefined;
+  /** Resolve and navigate to a serialized source-anchored ReadingPosition. */
+  goToPosition(position: ReadingPosition): Promise<number | undefined>;
 
   setInteractionMode(mode: InteractionMode): void;
   readonly interactionMode: InteractionMode;

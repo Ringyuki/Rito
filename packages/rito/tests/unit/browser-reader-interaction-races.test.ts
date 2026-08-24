@@ -1,0 +1,340 @@
+import { describe, expect, it } from 'vitest';
+import type {
+  CorePageReadingAnchor,
+  CorePageSemantics,
+  CorePageTargets,
+  CoreVersioned,
+} from '../../src/bindings/browser/core-contracts';
+import {
+  createBrowserReaderInteractions,
+  resetBrowserReaderInteractionCache,
+} from '../../src/bindings/browser/reader/interaction';
+import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
+import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
+import {
+  createDeferred,
+  createState,
+  createWorker,
+  revisionSummary,
+  setRevisionState,
+} from './browser-reader-reflow-fixtures';
+
+describe('Browser reader interaction races', () => {
+  it('closes exact reads before an in-place revision advance', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageTargets>>();
+    fixture.getPageTargetsAtRevision.mockReturnValue(deferred.promise);
+    const interactions = createBrowserReaderInteractions(fixture.state);
+    const pending = interactions.getPageTargets(0);
+
+    closeExactRevisionReadGate(fixture.state);
+    deferred.resolve(versionedTargets(0, 0, 'stale'));
+
+    await expect(pending).resolves.toBeUndefined();
+    await expect(interactions.getPageTargets(1)).resolves.toBeUndefined();
+    expect(fixture.getPageTargetsAtRevision).toHaveBeenCalledOnce();
+  });
+
+  it('coalesces same-page reads for one exact revision', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageTargets>>();
+    fixture.getPageTargetsAtRevision.mockReturnValue(deferred.promise);
+    const interactions = createBrowserReaderInteractions(fixture.state);
+
+    const first = interactions.getPageTargets(2);
+    const second = interactions.getPageTargets(2);
+
+    expect(fixture.getPageTargetsAtRevision).toHaveBeenCalledOnce();
+    expect(fixture.getPageTargetsAtRevision).toHaveBeenCalledWith(handle(), 2);
+    deferred.resolve(versionedTargets(2, 2, 'shared'));
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      expect.objectContaining({ pageIndex: 2 }),
+      expect.objectContaining({ pageIndex: 2 }),
+    ]);
+    expect(fixture.state.interaction.pendingPageTargets.size).toBe(0);
+  });
+
+  it.each(['worker', 'generation', 'version'] as const)(
+    'drops a response after a %s identity change',
+    async (change) => {
+      const fixture = readyFixture();
+      const deferred = createDeferred<CoreVersioned<CorePageTargets>>();
+      fixture.getPageTargetsAtRevision.mockReturnValue(deferred.promise);
+      const pending = createBrowserReaderInteractions(fixture.state).getPageTargets(0);
+
+      changeIdentity(fixture.state, change);
+      deferred.resolve(versionedTargets(0, 0, 'stale'));
+
+      await expect(pending).resolves.toBeUndefined();
+      expect(fixture.state.interaction.pageTargets.size).toBe(0);
+    },
+  );
+
+  it('drops an in-flight semantic response after its committed generation changes', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageSemantics>>();
+    fixture.getPageSemanticsAtRevision.mockReturnValue(deferred.promise);
+    const pending = createBrowserReaderInteractions(fixture.state).getPageSemantics?.(0);
+
+    setRevisionState(fixture.state, revisionSummary('rev', 20, 20));
+    deferred.resolve({
+      revision: handle(),
+      value: {
+        revisionId: 'rev',
+        pageIndex: 0,
+        spreadIndex: 0,
+        nodes: [],
+      },
+    });
+
+    await expect(pending).resolves.toBeUndefined();
+  });
+
+  it('drops an in-flight page reading anchor after its committed generation changes', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageReadingAnchor>>();
+    fixture.getPageReadingAnchorAtRevision.mockReturnValue(deferred.promise);
+    const pending = createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0);
+
+    setRevisionState(fixture.state, revisionSummary('rev', 20, 20));
+    deferred.resolve(versionedReadingAnchor(0, 0));
+
+    await expect(pending).resolves.toBeUndefined();
+  });
+
+  it('keeps an in-flight durable source read while a candidate starts', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageReadingAnchor>>();
+    fixture.getPageReadingAnchorAtRevision.mockReturnValue(deferred.promise);
+    const pending = createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0);
+
+    fixture.state.boundedSessions.candidate =
+      {} as BrowserReaderState['boundedSessions']['candidate'];
+    deferred.resolve(versionedReadingAnchor(0, 0));
+
+    await expect(pending).resolves.toMatchObject({
+      status: 'resolved',
+      pageIndex: 0,
+      spreadIndex: 0,
+    });
+  });
+
+  it('does not dispatch a page reading anchor after disposal', async () => {
+    const fixture = readyFixture();
+    fixture.state.disposed = true;
+
+    await expect(
+      createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0),
+    ).resolves.toBeUndefined();
+    expect(fixture.getPageReadingAnchorAtRevision).not.toHaveBeenCalled();
+  });
+
+  it('hides cached targets before dispatch whenever the exact gate is closed', async () => {
+    const fixture = readyFixture();
+    fixture.getPageTargetsAtRevision.mockResolvedValue(versionedTargets(0, 0, 'cached'));
+    const interactions = createBrowserReaderInteractions(fixture.state);
+    await interactions.getPageTargets(0);
+    expect(fixture.getPageTargetsAtRevision).toHaveBeenCalledOnce();
+
+    closeExactRevisionReadGate(fixture.state);
+
+    await expect(interactions.getPageTargets(0)).resolves.toBeUndefined();
+    expect(fixture.getPageTargetsAtRevision).toHaveBeenCalledOnce();
+    expect(fixture.state.interaction.pageTargets.size).toBe(1);
+  });
+
+  it('drops an in-flight response when the exact gate closes', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageTargets>>();
+    fixture.getPageTargetsAtRevision.mockReturnValue(deferred.promise);
+    const pending = createBrowserReaderInteractions(fixture.state).getPageTargets(0);
+
+    closeExactRevisionReadGate(fixture.state);
+    deferred.resolve(versionedTargets(0, 0, 'preview-stale'));
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(fixture.state.interaction.pageTargets.size).toBe(0);
+  });
+
+  it('keeps a new-generation pending task when the old task settles', async () => {
+    const fixture = readyFixture();
+    const oldRead = createDeferred<CoreVersioned<CorePageTargets>>();
+    const newRead = createDeferred<CoreVersioned<CorePageTargets>>();
+    fixture.getPageTargetsAtRevision
+      .mockReturnValueOnce(oldRead.promise)
+      .mockReturnValueOnce(newRead.promise);
+    const interactions = createBrowserReaderInteractions(fixture.state);
+    const oldTask = interactions.getPageTargets(0);
+
+    resetBrowserReaderInteractionCache(fixture.state);
+    setRevisionState(fixture.state, revisionSummary('rev', 20, 20));
+    const newTask = interactions.getPageTargets(0);
+    const currentPending = fixture.state.interaction.pendingPageTargets.get(0)?.task;
+
+    oldRead.resolve(versionedTargets(0, 0, 'old'));
+    await expect(oldTask).resolves.toBeUndefined();
+    expect(fixture.state.interaction.pendingPageTargets.get(0)?.task).toBe(currentPending);
+
+    newRead.resolve(versionedTargets(0, 0, 'new'));
+    await expect(newTask).resolves.toMatchObject({
+      targets: [{ label: 'new' }],
+    });
+    expect(fixture.state.interaction.pageTargets.get(0)?.value.targets[0]?.label).toBe('new');
+  });
+
+  it('turns a rejected disposed read into an unavailable result', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageTargets>>();
+    fixture.getPageTargetsAtRevision.mockReturnValue(deferred.promise);
+    const pending = createBrowserReaderInteractions(fixture.state).getPageTargets(0);
+
+    fixture.state.disposed = true;
+    resetBrowserReaderInteractionCache(fixture.state);
+    deferred.reject(new Error('worker disposed'));
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(fixture.state.interaction.pageTargets.size).toBe(0);
+  });
+
+  it('rejects a mismatched response handle while its request is still current', async () => {
+    const fixture = readyFixture();
+    fixture.getPageTargetsAtRevision.mockResolvedValue({
+      revision: { revisionId: 'rev', revisionVersion: 1 },
+      value: pageTargets(0, 0, 'forged'),
+    });
+
+    await expect(createBrowserReaderInteractions(fixture.state).getPageTargets(0)).rejects.toThrow(
+      'does not match its revision request',
+    );
+    expect(fixture.state.interaction.pageTargets.size).toBe(0);
+  });
+
+  it('rejects crossed same-revision page responses without caching either value', async () => {
+    const fixture = readyFixture();
+    const pageZeroRead = createDeferred<CoreVersioned<CorePageTargets>>();
+    const pageOneRead = createDeferred<CoreVersioned<CorePageTargets>>();
+    fixture.getPageTargetsAtRevision
+      .mockReturnValueOnce(pageZeroRead.promise)
+      .mockReturnValueOnce(pageOneRead.promise);
+    const interactions = createBrowserReaderInteractions(fixture.state);
+    const pageZeroTask = interactions.getPageTargets(0);
+    const pageOneTask = interactions.getPageTargets(1);
+    const pageZeroExpectation = expect(pageZeroTask).rejects.toThrow(
+      'Reader page targets response does not match its request',
+    );
+    const pageOneExpectation = expect(pageOneTask).rejects.toThrow(
+      'Reader page targets response does not match its request',
+    );
+
+    pageZeroRead.resolve(versionedTargets(1, 1, 'page-one'));
+    pageOneRead.resolve(versionedTargets(0, 0, 'page-zero'));
+
+    await Promise.all([pageZeroExpectation, pageOneExpectation]);
+    expect(fixture.state.interaction.pageTargets.size).toBe(0);
+    expect(fixture.state.interaction.pendingPageTargets.size).toBe(0);
+  });
+
+  it('bounds page targets with LRU recency', async () => {
+    const fixture = readyFixture();
+    fixture.getPageTargetsAtRevision.mockImplementation((revision, pageIndex) =>
+      Promise.resolve({
+        revision,
+        value: pageTargets(pageIndex, pageIndex, `page-${String(pageIndex)}`),
+      }),
+    );
+    const interactions = createBrowserReaderInteractions(fixture.state);
+
+    for (let pageIndex = 0; pageIndex <= 12; pageIndex += 1) {
+      await interactions.getPageTargets(pageIndex);
+    }
+    expect([...fixture.state.interaction.pageTargets.keys()]).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    ]);
+
+    await interactions.getPageTargets(1);
+    await interactions.getPageTargets(13);
+    expect([...fixture.state.interaction.pageTargets.keys()]).toEqual([
+      3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 13,
+    ]);
+  });
+});
+
+function readyFixture() {
+  const fixture = createWorker(() => undefined, 'interaction-session');
+  const state = createState(fixture.worker);
+  setRevisionState(state, revisionSummary('rev', 20, 20));
+  return { ...fixture, state };
+}
+
+function handle() {
+  return { revisionId: 'rev', revisionVersion: 0 };
+}
+
+function changeIdentity(
+  state: BrowserReaderState,
+  change: 'worker' | 'generation' | 'version',
+): void {
+  const current = state.revisionHandle;
+  if (!current) throw new Error('test revision is missing');
+  if (change === 'worker') {
+    state.worker = createWorker(() => undefined, 'replacement-session').worker;
+    return;
+  }
+  state.revisionHandle = {
+    ...current,
+    ...(change === 'generation'
+      ? { commitGeneration: current.commitGeneration + 1 }
+      : { revisionVersion: current.revisionVersion + 1 }),
+  };
+  if (change === 'generation') state.commitGeneration += 1;
+}
+
+function versionedTargets(
+  pageIndex: number,
+  spreadIndex: number,
+  label: string,
+): CoreVersioned<CorePageTargets> {
+  return { revision: handle(), value: pageTargets(pageIndex, spreadIndex, label) };
+}
+
+function versionedReadingAnchor(
+  pageIndex: number,
+  spreadIndex: number,
+): CoreVersioned<CorePageReadingAnchor> {
+  return {
+    revision: handle(),
+    value: {
+      status: 'resolved',
+      revisionId: 'rev',
+      pageIndex,
+      spreadIndex,
+      locator: {
+        href: 'chapter.xhtml',
+        sourcePoint: { nodePath: [0], textOffset: 2 },
+      },
+    },
+  };
+}
+
+function pageTargets(pageIndex: number, spreadIndex: number, label: string): CorePageTargets {
+  return {
+    revisionId: 'rev',
+    pageIndex,
+    spreadIndex,
+    entryCount: 1,
+    textHash: label,
+    entries: [
+      {
+        kind: 'link',
+        bounds: { x: 0, y: 0, width: 10, height: 10 },
+        blockIndex: 0,
+        lineIndex: 0,
+        runIndex: 0,
+        label,
+        text: { hash: label, length: label.length },
+        href: '#target',
+        targetLocator: { href: 'chapter.xhtml', anchorId: 'target' },
+      },
+    ],
+  };
+}

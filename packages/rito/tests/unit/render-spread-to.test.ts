@@ -5,8 +5,9 @@ import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import type { Reader, ReaderOptions } from '../../src/reader';
 
-vi.mock('../../src/render/web/resources', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/render/web/resources')>();
+vi.mock('../../src/reference/ts-core/render/web/resources', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../src/reference/ts-core/render/web/resources')>();
   const mockMeasurer = createMockTextMeasurer(0.6);
   return {
     ...actual,
@@ -72,7 +73,7 @@ const DEFAULT_OPTIONS: ReaderOptions = {
 };
 
 async function buildReader(): Promise<Reader> {
-  const { createReader } = await import('../../src/reader');
+  const { createReader } = await import('../../src/reference');
   const data = buildMinimalEpub({
     chapters: [{ id: 'ch1', href: 'ch1.xhtml', content: xhtml('<p>Hello World</p>') }],
   });
@@ -84,7 +85,7 @@ describe('renderSpreadTo', () => {
   it('is a function on the reader', async () => {
     const reader = await buildReader();
     expect(typeof reader.renderSpreadTo).toBe('function');
-    reader.dispose();
+    await reader.dispose();
   });
 
   it('renders to an external context without firing onSpreadRendered', async () => {
@@ -102,7 +103,7 @@ describe('renderSpreadTo', () => {
     // Should have drawn something (clearRect at minimum)
     expect(mockCtx.getCalls('clearRect').length).toBeGreaterThan(0);
 
-    reader.dispose();
+    await reader.dispose();
   });
 
   it('silently ignores out-of-range indices', async () => {
@@ -113,7 +114,7 @@ describe('renderSpreadTo', () => {
     reader.renderSpreadTo(-1, ctx);
     reader.renderSpreadTo(999, ctx);
 
-    reader.dispose();
+    await reader.dispose();
   });
 });
 
@@ -121,7 +122,7 @@ describe('notifyActiveSpread', () => {
   it('is a function on the reader', async () => {
     const reader = await buildReader();
     expect(typeof reader.notifyActiveSpread).toBe('function');
-    reader.dispose();
+    await reader.dispose();
   });
 
   it('fires onSpreadRendered listeners with correct arguments', async () => {
@@ -134,19 +135,21 @@ describe('notifyActiveSpread', () => {
     expect(listener).toHaveBeenCalledTimes(1);
     expect(listener).toHaveBeenCalledWith(0, reader.spreads[0]);
 
-    reader.dispose();
+    await reader.dispose();
   });
 
   it('does not fire for out-of-range index', async () => {
     const reader = await buildReader();
     const listener = vi.fn();
     reader.onSpreadRendered(listener);
+    const activeBefore = reader.activeSpreadIndex;
 
     reader.notifyActiveSpread(999);
 
     expect(listener).not.toHaveBeenCalled();
+    expect(reader.activeSpreadIndex).toBe(activeBefore);
 
-    reader.dispose();
+    await reader.dispose();
   });
 });
 
@@ -171,6 +174,6 @@ describe('renderSpread vs renderSpreadTo + notifyActiveSpread', () => {
     reader.notifyActiveSpread(0);
     expect(listener).toHaveBeenCalledTimes(1);
 
-    reader.dispose();
+    await reader.dispose();
   });
 });

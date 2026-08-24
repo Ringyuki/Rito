@@ -3,14 +3,17 @@
  * and spread-content rects into viewport-logical space via the mapper.
  */
 import type { Page, Spread } from '@ritojs/core';
-import type { Reader } from '@ritojs/core/web';
-import { buildHitMap, getSelectionRects } from '@ritojs/core/integration';
-import type { HitMap } from '@ritojs/core/integration';
-import type { ResolvedAnnotation } from '@ritojs/core/annotations';
-import { resolveAnnotations } from '@ritojs/core/annotations';
+import type { Reader } from '@ritojs/core';
+import { buildHitMap, getSelectionRects } from '../../interaction/index';
+import type { HitMap } from '../../interaction/index';
+import type { ResolvedAnnotation } from '../../interaction/index';
+import { resolveAnnotations } from '../../interaction/index';
 import type { Rect } from '../../painter/types';
+import { asLegacyPage } from '../compat/legacy-page';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
+import { buildChapterPageRanges, usesNativeAnnotationGeometry } from '../annotation-resolution';
+import { collectNativeSearchGeometry, usesNativeSearchGeometry } from '../search-resolution';
 import { OVERLAY_COLORS } from './merger';
 
 export function buildOverlayData(
@@ -30,14 +33,51 @@ export function buildOverlayData(
     ? engines.selection.getRects().map((r) => mapper.spreadContentRectToViewport(r))
     : [];
 
-  const searchRects = collectRects(spread, state, mapper, (page, hitMap) =>
-    engines.search.getHighlightRects(page.index, hitMap, reader.measurer),
+  const { searchRects, activeSearchRects } = collectSearchRects(
+    spread,
+    engines,
+    reader,
+    state,
+    mapper,
   );
-
-  const activeSearchRects = collectActiveSearchRects(spread, engines, state, reader, mapper);
-  const annotationLayers = collectAnnotationLayers(spread, state, mapper);
+  const annotationLayers =
+    usesNativeAnnotationGeometry(reader) && !reader.interactions?.enabled
+      ? []
+      : collectAnnotationLayers(spread, state, mapper);
 
   return { selectionRects, searchRects, activeSearchRects, annotationLayers };
+}
+
+function collectSearchRects(
+  spread: Spread,
+  engines: CoordinatorEngines,
+  reader: Reader,
+  state: CoordinatorState,
+  mapper: CoordinateMapper,
+): { readonly searchRects: readonly Rect[]; readonly activeSearchRects: readonly Rect[] } {
+  if (usesNativeSearchGeometry(reader)) {
+    if (!reader.interactions?.enabled) return { searchRects: [], activeSearchRects: [] };
+    const geometry = collectNativeSearchGeometry(
+      spread,
+      engines.search.getResults(),
+      engines.search.getActiveIndex(),
+      state,
+    );
+    return {
+      searchRects: geometry.matches.map((rect) =>
+        mapper.pageContentToViewport(rect.pageIndex, rect),
+      ),
+      activeSearchRects: geometry.active.map((rect) =>
+        mapper.pageContentToViewport(rect.pageIndex, rect),
+      ),
+    };
+  }
+  return {
+    searchRects: collectRects(spread, state, mapper, (page, hitMap) =>
+      engines.search.getHighlightRects(page.index, hitMap, reader.measurer),
+    ),
+    activeSearchRects: collectActiveSearchRects(spread, engines, state, reader, mapper),
+  };
 }
 
 function collectActiveSearchRects(
@@ -125,20 +165,10 @@ export function buildAdjacentOverlayData(
   // Build ephemeral hitMaps for this spread's pages
   const hitMaps = new Map<number, HitMap>();
   for (const page of pagesOf(spread)) {
-    hitMaps.set(page.index, buildHitMap(page));
+    hitMaps.set(page.index, buildHitMap(asLegacyPage(page)));
   }
 
-  // Resolve annotations against the ephemeral hitMaps
-  const store = state.annotationStore;
-  let resolvedAnnotations: readonly ResolvedAnnotation[] = [];
-  if (store && store.getAll().length > 0) {
-    resolvedAnnotations = resolveAnnotations(store.getAll(), {
-      chapterIndices: state.chapterIndices,
-      hitMaps,
-      chapterPageRanges: reader.chapterMap,
-      measurer: reader.measurer,
-    });
-  }
+  const resolvedAnnotations = resolveAdjacentAnnotations(state, reader, hitMaps);
 
   // Build ephemeral state for projection
   const ephemeralState: Pick<CoordinatorState, 'hitMaps' | 'resolvedAnnotations'> = {
@@ -146,19 +176,42 @@ export function buildAdjacentOverlayData(
     resolvedAnnotations,
   };
 
-  const searchRects = collectRects(spread, ephemeralState, mapper, (page, hitMap) =>
-    engines.search.getHighlightRects(page.index, hitMap, reader.measurer),
-  );
-  const activeSearchRects = collectActiveSearchRectsFromHitMaps(
-    spread,
-    engines,
-    hitMaps,
-    reader,
-    mapper,
-  );
+  const { searchRects, activeSearchRects } = usesNativeSearchGeometry(reader)
+    ? collectSearchRects(spread, engines, reader, state, mapper)
+    : {
+        searchRects: collectRects(spread, ephemeralState, mapper, (page, hitMap) =>
+          engines.search.getHighlightRects(page.index, hitMap, reader.measurer),
+        ),
+        activeSearchRects: collectActiveSearchRectsFromHitMaps(
+          spread,
+          engines,
+          hitMaps,
+          reader,
+          mapper,
+        ),
+      };
   const annotationLayers = collectAnnotationLayersFromResolved(spread, resolvedAnnotations, mapper);
 
   return { selectionRects: [], searchRects, activeSearchRects, annotationLayers };
+}
+
+function resolveAdjacentAnnotations(
+  state: CoordinatorState,
+  reader: Reader,
+  hitMaps: ReadonlyMap<number, HitMap>,
+): readonly ResolvedAnnotation[] {
+  if (usesNativeAnnotationGeometry(reader)) {
+    return reader.interactions?.enabled ? state.resolvedAnnotations : [];
+  }
+  const records = state.annotationStore?.getAll() ?? [];
+  if (records.length === 0) return [];
+  return resolveAnnotations(records, {
+    chapterIndices: state.chapterIndices,
+    hitMaps,
+    chapterPageRanges: buildChapterPageRanges(reader),
+    chapterHrefMap: reader.manifestHrefMap,
+    measurer: reader.measurer,
+  });
 }
 
 function collectActiveSearchRectsFromHitMaps(

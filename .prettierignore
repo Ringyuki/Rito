@@ -1,10 +1,20 @@
 dist/
 node_modules/
+.pnpm-store/
 coverage/
 pnpm-lock.yaml
 packages/rito/tests/golden/render-commands/**/*.json
+packages/rito/tests/rust-fixtures/**/*.json
+benchmarks/css-engine-spike/results/**/*.json
+benchmarks/css-engine-spike/results/**/*.jsonl
 **/.dart_tool/
 **/build/
+**/target/
 **/.idea/
 **/*.iml
 **/pubspec.lock
+packages/rito_flutter/doc/api/
+packages/rito_flutter/native/
+# pixel-walk artifacts: unpacked truth books (often intentionally
+# malformed) and captures — formatting them breaks the oracle
+tools/corpus-oracle/walk-*/

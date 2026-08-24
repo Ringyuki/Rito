@@ -13,5 +13,7 @@ export {
   type ReadingPositionState,
   useContainerSize,
   type ContainerSize,
+  useReaderAutoResize,
+  type ReaderAutoResizeOptions,
   useControllerEvent,
 } from './hooks/index';

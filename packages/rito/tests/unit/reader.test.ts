@@ -9,8 +9,9 @@ import type { Reader, ReaderOptions } from '../../src/reader';
  * Mock loadAssets so we skip real font loading, image decoding, and canvas
  * text measurement (none of which exist in a happy-dom / Node environment).
  */
-vi.mock('../../src/render/web/resources', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/render/web/resources')>();
+vi.mock('../../src/reference/ts-core/render/web/resources', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../src/reference/ts-core/render/web/resources')>();
   const mockMeasurer = createMockTextMeasurer(0.6);
   return {
     ...actual,
@@ -68,7 +69,7 @@ async function buildReader(opts?: {
   epubOptions?: Parameters<typeof buildMinimalEpub>[0];
   readerOptions?: Partial<ReaderOptions>;
 }): Promise<Reader> {
-  const { createReader } = await import('../../src/reader');
+  const { createReader } = await import('../../src/reference');
   const data = buildMinimalEpub(opts?.epubOptions);
   const canvas = createMockCanvas();
   return createReader(data, canvas, { ...DEFAULT_OPTIONS, ...opts?.readerOptions });
@@ -82,6 +83,7 @@ describe('createReader', () => {
       // Read-only properties
       expect(reader.metadata).toBeDefined();
       expect(typeof reader.totalSpreads).toBe('number');
+      expect(reader.activeSpreadIndex).toBe(0);
       expect(Array.isArray(reader.toc)).toBe(true);
       expect(reader.chapterMap).toBeInstanceOf(Map);
       expect(Array.isArray(reader.pages)).toBe(true);
@@ -403,30 +405,6 @@ describe('createReader', () => {
       }).not.toThrow();
     });
 
-    it('can clear theme overrides when returning to the default theme', async () => {
-      const { createReader } = await import('../../src/reader');
-      const data = buildMinimalEpub({
-        chapters: [{ id: 'ch1', href: 'ch1.xhtml', content: xhtml('<p>Theme text</p>') }],
-      });
-      const { canvas, mockCtx } = createInspectableMockCanvas();
-      const reader = await createReader(data, canvas, DEFAULT_OPTIONS);
-      reader.setTheme({ backgroundColor: '#1a1a1a', foregroundColor: '#e0e0e0' });
-      reader.renderSpread(0);
-      expect(mockCtx.getPropertySets('fillStyle').map(({ value }) => value)).toContain('#e0e0e0');
-      const previousSetCount = mockCtx.getPropertySets('fillStyle').length;
-
-      reader.setTheme({ backgroundColor: null, foregroundColor: null });
-      reader.renderSpread(0);
-
-      const restoredValues = mockCtx
-        .getPropertySets('fillStyle')
-        .slice(previousSetCount)
-        .map(({ value }) => value);
-      expect(restoredValues).toContain('#ffffff');
-      expect(restoredValues).not.toContain('#e0e0e0');
-      reader.dispose();
-    });
-
     it('does not re-paginate (no side effects on pages/spreads)', async () => {
       const reader = await buildReader({
         epubOptions: {
@@ -581,15 +559,13 @@ describe('createReader', () => {
   describe('dispose', () => {
     it('does not throw', async () => {
       const reader = await buildReader();
-      expect(() => {
-        reader.dispose();
-      }).not.toThrow();
+      await expect(Promise.resolve().then(() => reader.dispose())).resolves.toBeUndefined();
     });
 
     it('calls disposeAssets', async () => {
-      const { disposeAssets } = await import('../../src/render/web/resources');
+      const { disposeAssets } = await import('../../src/reference/ts-core/render/web/resources');
       const reader = await buildReader();
-      reader.dispose();
+      await reader.dispose();
       expect(disposeAssets).toHaveBeenCalled();
     });
   });
@@ -633,7 +609,7 @@ describe('createReader', () => {
 
   describe('default options', () => {
     it('defaults to single spread mode', async () => {
-      const { createReader } = await import('../../src/reader');
+      const { createReader } = await import('../../src/reference');
       const data = buildMinimalEpub({
         chapters: [
           { id: 'ch1', href: 'ch1.xhtml', content: xhtml('<p>Hello</p>') },

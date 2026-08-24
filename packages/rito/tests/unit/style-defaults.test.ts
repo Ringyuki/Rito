@@ -4,7 +4,7 @@ import {
   FONT_STYLES,
   FONT_WEIGHTS,
   TEXT_ALIGNMENTS,
-} from '../../src/style/index.js';
+} from '../../src/reference/ts-core/style/index.js';
 
 describe('DEFAULT_STYLE', () => {
   it('has expected default values', () => {

@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createPositionTracker } from '../../src/interaction/position';
-import { createSearchEngine } from '../../src/interaction/search';
-import type { LayoutBlock, LineBox, Page, Spread, TextRun } from '../../src/layout/core/types';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+import { createPositionTracker } from '../../src/reference/ts-core/interaction/position';
+import { createSearchEngine } from '../../src/reference/ts-core/interaction/search';
+import type {
+  LayoutBlock,
+  LineBox,
+  Page,
+  Spread,
+  TextRun,
+} from '../../src/reference/ts-core/layout/core/types';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 
 function makeRun(text: string, x: number): TextRun {
   return {
@@ -188,6 +194,26 @@ describe('PositionTracker', () => {
     expect(restored.restore(json)).toBe(0);
 
     expect(restored.getCurrent()?.locator?.sourcePoint?.nodePath).toEqual([1]);
+  });
+
+  it('rebases a saved position after layout changes', () => {
+    let currentLayout = layout;
+    const tracker = createPositionTracker(() => currentLayout);
+    tracker.update(1);
+    const position = tracker.getCurrent();
+    const nextPages = [0, 1, 2, 3, 4].map((index) => makePage(`Page ${String(index)}`, index));
+    const nextSpreads: Spread[] = nextPages.map((page, index) => ({ index, left: page }));
+
+    currentLayout = {
+      spreads: nextSpreads,
+      pages: nextPages,
+      chapterMap: new Map([
+        ['ch1.xhtml', { startPage: 0, endPage: 3 }],
+        ['ch2.xhtml', { startPage: 4, endPage: 4 }],
+      ]),
+    };
+
+    expect(position ? tracker.resolve(position) : undefined).toBe(3);
   });
 
   it('returns undefined for invalid serialized data', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { zipSync } from 'fflate';
-import { createZipReader } from '../../src/parser/epub/zip-reader';
+import { createZipReader } from '../../src/reference/ts-core/parser/epub/zip-reader';
 import { buildMinimalEpub } from '../helpers/epub-builder';
 
 function findSignature(data: Uint8Array, signature: number): number {

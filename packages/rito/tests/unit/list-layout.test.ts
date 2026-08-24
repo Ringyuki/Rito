@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { createListContext, addListMarker } from '../../src/layout/block/list';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import { LIST_STYLE_TYPES } from '../../src/style/core/types';
-import type { ListStyleType, StyledNode } from '../../src/style/core/types';
+import { createListContext, addListMarker } from '../../src/reference/ts-core/layout/block/list';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import { LIST_STYLE_TYPES } from '../../src/reference/ts-core/style/core/types';
+import type { ListStyleType, StyledNode } from '../../src/reference/ts-core/style/core/types';
 import type {
   InlineAtom,
   LayoutBlock,
   LineBox,
   RubyAnnotation,
   TextRun,
-} from '../../src/layout/core/types';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+} from '../../src/reference/ts-core/layout/core/types';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 
 function textOf(run: TextRun | InlineAtom | RubyAnnotation | undefined): string | undefined {
   return run?.type === 'text-run' ? run.text : undefined;

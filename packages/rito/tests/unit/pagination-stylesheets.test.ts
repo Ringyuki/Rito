@@ -3,7 +3,7 @@ import {
   buildChapterRules,
   buildStylesheetRuleMap,
   buildStylesheetRules,
-} from '../../src/runtime/pagination-stylesheets';
+} from '../../src/reference/ts-core/runtime/pagination-stylesheets';
 
 describe('chapter stylesheet href matching', () => {
   it('matches percent-decoded and dot-normalized linked stylesheet paths', () => {

@@ -1,0 +1,13 @@
+[package]
+name = "rito-block"
+description = "Block formatting context for the rito-fragment contract: composes an inline provider's line output into block flow and fragmentainer pagination."
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rito-fragment = { path = "../rito-fragment" }
+rito-style-contract = { path = "../rito-style-contract" }
+
+[dev-dependencies]
+rito-inline = { path = "../rito-inline" }

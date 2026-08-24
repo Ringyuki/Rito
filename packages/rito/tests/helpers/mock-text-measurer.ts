@@ -1,10 +1,10 @@
-import type { MeasurePaint } from '../../src/style/core/paint-types';
+import type { MeasurePaint } from '../../src/reference/ts-core/style/core/paint-types';
 import type {
   FontMetrics,
   FontMetricsProvider,
   TextMeasurer,
   TextMetrics,
-} from '../../src/layout/text/text-measurer';
+} from '../../src/reference/ts-core/layout/text/text-measurer';
 
 type MockTextMeasurer = TextMeasurer &
   FontMetricsProvider & {

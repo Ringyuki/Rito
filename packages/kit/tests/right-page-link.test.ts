@@ -8,10 +8,9 @@
  * spread coordinates back into page space before hit-testing.
  */
 import { describe, expect, it } from 'vitest';
-import { buildLinkMap, hitTestLink } from '@ritojs/core/advanced';
-import type { LayoutBlock, LineBox, TextRun } from '@ritojs/core/advanced';
-import type { Page } from '@ritojs/core';
-import { DEFAULT_RUN_PAINT } from '@ritojs/core/advanced';
+import { buildLinkMap, hitTestLink } from '../src/interaction/index';
+import type { LayoutBlock, LineBox, Page, TextRun } from '../src/interaction/index';
+import { DEFAULT_RUN_PAINT } from '../src/interaction/index';
 
 function makeLink(text: string, x: number, href: string): TextRun {
   return {

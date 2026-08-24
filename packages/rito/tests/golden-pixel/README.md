@@ -1,10 +1,12 @@
 # Golden Pixel Fixtures
 
 This directory contains the Playwright-based pixel regression tests. The suite
-renders curated real-book spreads through the `@ritojs/core/web`
-`createReader` API and compares the final Canvas PNG output with checked-in
-image goldens. A full-book matrix is still available as an opt-in
-external-baseline mode.
+renders curated real-book spreads through the source-only TypeScript reference
+reader and compares the final Canvas PNG output with checked-in image goldens.
+A focused differential also renders the same synthetic spread through the
+published Rust-backed browser build and the reference reader in one Chromium
+page, requiring exact pixel equality. A full-book matrix is still available as
+an opt-in external-baseline mode.
 
 ## Fixture Layout
 
@@ -22,11 +24,29 @@ external-baseline mode.
   alternate image within the same threshold. Update mode preserves these
   alternates because they are manually reviewed platform baselines; remove stale
   alternates explicitly when a platform fallback is no longer valid.
+- `production-canvas-parity.test.ts` does not add another platform PNG. It renders
+  a ready frame from `dist` and compares it directly with the reference renderer.
+  Its one-glyph test font is a deterministic subset of the CC BY 4.0 Codicon
+  font shipped with Playwright; attribution is recorded in
+  `CODICON-FONT-NOTICE.md`. Rust measurement and browser rasterization therefore
+  use identical font data without system-font fallback. The fixture also asserts
+  that its fractional block opacity reaches the reference layout before comparing
+  pixels, guarding semantic paint values from geometry-oriented precision
+  rounding.
+- The real-book reader parity review first compares spread 0 from the production
+  reader's initial bounded snapshot. Each selected spread is then requested
+  through `reader.pagination.ensureSpread(spreadIndex)` and rendered lazily. A
+  render miss caused by a late font-metrics reflow re-ensures that spread before
+  retrying. After the selected spreads are captured, requesting the first
+  out-of-range spread drives the bounded Rust session to exact completion and
+  verifies its final spread count against the TypeScript reference.
 
 ## Commands
 
 - `pnpm test:golden:pixel`: compare pixel goldens.
 - `pnpm test:golden:pixel:review`: render a human-reviewable comparison report without updating goldens.
+- `pnpm test:golden:pixel:reader-parity-review`: render the built-in demo EPUB through the
+  TypeScript reference and Rust production readers into an isolated comparison report.
 - `pnpm test:golden:pixel:update`: regenerate pixel goldens.
 
 Useful filters:
@@ -39,6 +59,10 @@ Useful filters:
 - `RITO_PIXEL_DIAGNOSTICS=1 pnpm test:golden:pixel`
 - `RITO_PIXEL_SCOPE=full pnpm test:golden:pixel:update`
 - `RITO_PIXEL_BASELINE_ROOT=/path/to/baselines RITO_PIXEL_SCOPE=full pnpm test:golden:pixel`
+- `RITO_READER_PARITY_PROFILES=single-default pnpm test:golden:pixel:reader-parity-review`
+- `RITO_READER_PARITY_SPREADS=35 pnpm test:golden:pixel:reader-parity-review`
+- `RITO_READER_PARITY_QUERY_ONLY=1 pnpm test:golden:pixel:reader-parity-review`
+- `RITO_READER_PARITY_CAPTURE_TEXT_DRAWS=1 pnpm test:golden:pixel:reader-parity-review`
 
 Compare and update mode use 2 workers by default. Increase
 `RITO_PIXEL_WORKERS` only when the machine has enough CPU, memory, and disk I/O
@@ -71,6 +95,16 @@ The review command writes a static report to:
 ```text
 packages/rito/test-results/pixel-review/index.html
 ```
+
+The real-book reader parity review writes the same report format to
+`packages/rito/test-results/reader-parity-review/index.html`. In that report,
+`expected.png` is the live TypeScript reference render and `actual.png` is the
+live Rust-backed production render; it does not read or update committed PNG
+baselines. The demo-book gate covers every spread in the default single-page
+profile, plus key and semantic regression spreads across narrow, wide, DPR 2,
+and double-page profiles. This parity report uses a strict zero-threshold diff
+with anti-aliased pixels included; any changed pixel is reported instead of
+being absorbed by the normal golden tolerances.
 
 Each spread directory contains `expected.png`, `actual.png`, `diff.png`, and
 `metadata.json`. Review mode may also add `reference.png` for single-page DPR 1

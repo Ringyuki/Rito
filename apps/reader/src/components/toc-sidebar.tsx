@@ -72,6 +72,7 @@ function TocEntries({
         return (
           <li key={`${String(depth)}-${String(i)}`}>
             <button
+              data-toc-href={entry.href}
               className={cn(
                 'w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors',
                 isActive

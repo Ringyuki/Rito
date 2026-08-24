@@ -1,0 +1,86 @@
+{
+  "name": "block-radius",
+  "width": 420,
+  "height": 300,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 10, "y": 10, "width": 120, "height": 60 },
+      "paint": {
+        "background": { "color": "#4488cc" },
+        "radius": { "px": 10 }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 150, "y": 10, "width": 120, "height": 60 },
+      "paint": {
+        "background": { "color": "#cc8844" },
+        "radius": { "pct": 25 }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 290, "y": 10, "width": 60, "height": 60 },
+      "paint": {
+        "background": { "color": "#444444" },
+        "radius": { "px": 30 }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 383, "y": 33.5, "width": 7, "height": 7 },
+      "paint": {
+        "background": { "color": "#000000" },
+        "radius": { "corners": [3.5, 3.5, 3.5, 3.5] }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 10, "y": 90, "width": 140, "height": 70 },
+      "paint": {
+        "background": { "color": "#66aa66" },
+        "radius": { "corners": [24, 4, 16, 0] }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 170, "y": 90, "width": 140, "height": 40 },
+      "paint": {
+        "background": { "color": "#aa66aa" },
+        "radius": { "corners": [40, 40, 10, 10] }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 10, "y": 180, "width": 140, "height": 80 },
+      "borderBox": { "topWidth": 2, "rightWidth": 2, "bottomWidth": 2, "leftWidth": 2 },
+      "paint": {
+        "background": { "color": "#f8f0e0" },
+        "radius": { "px": 12 },
+        "border": {
+          "top": { "color": "#886644", "style": "solid" },
+          "right": { "color": "#886644", "style": "solid" },
+          "bottom": { "color": "#886644", "style": "solid" },
+          "left": { "color": "#886644", "style": "solid" }
+        }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 180, "y": 180, "width": 140, "height": 80 },
+      "borderBox": { "topWidth": 4, "rightWidth": 2, "bottomWidth": 1, "leftWidth": 3 },
+      "paint": {
+        "background": { "color": "#e0f0f8" },
+        "radius": { "px": 14 },
+        "border": {
+          "top": { "color": "#cc2222", "style": "solid" },
+          "right": { "color": "#22aa22", "style": "solid" },
+          "bottom": { "color": "#2222cc", "style": "solid" },
+          "left": { "color": "#aaaa22", "style": "solid" }
+        }
+      }
+    }
+  ]
+}

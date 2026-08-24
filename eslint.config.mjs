@@ -10,32 +10,84 @@ export default defineConfig([
   {
     ignores: [
       '**/dist/',
+      '**/.output/',
       '**/node_modules/',
       '**/coverage/',
+      '**/playwright-report/',
       '**/test-results/',
+      '**/target/',
+      'benchmarks/**/artifact-snapshot/',
       'apps/reader/src/components/ui/',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
-    files: ['eslint.config.mjs'],
-    rules: {
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-    },
-  },
-  {
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['eslint.config.mjs', 'scripts/*.mjs', 'packages/*/scripts/*.mjs'],
+          allowDefaultProject: [
+            'eslint.config.mjs',
+            'benchmarks/*/*.mjs',
+            'scripts/*.mjs',
+            'packages/*/scripts/*.mjs',
+            'packages/rito-core-wasm/src/*.js',
+            'tools/*/*.mjs',
+          ],
         },
         tsconfigRootDir,
       },
     },
   },
   {
-    files: ['scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs'],
+    files: [
+      'packages/rito-core-wasm/src/**/*.js',
+      'packages/rito/src/bindings/browser/reader/worker-entry.mjs',
+      'packages/rito/src/bindings/browser/reader-v1-worker-entry.mjs',
+    ],
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+    },
+    rules: {
+      ...tseslint.configs.disableTypeChecked.rules,
+    },
+  },
+  {
+    files: [
+      'apps/reader/tests/e2e/reader-preview-ab-model.mjs',
+      'apps/reader/tests/e2e/reader-preview-ab-model.node.mjs',
+      'apps/reader/tests/e2e/run-reader-preview-ab.mjs',
+      'benchmarks/**/*.mjs',
+      'scripts/**/*.mjs',
+      'packages/*/scripts/**/*.mjs',
+      'packages/*/tests/**/*.mjs',
+      'tools/**/*.mjs',
+    ],
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
+    rules: {
+      ...tseslint.configs.disableTypeChecked.rules,
+      'no-undef': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/prefer-promise-reject-errors': 'off',
+      '@typescript-eslint/no-confusing-void-expression': 'off',
+      '@typescript-eslint/restrict-template-expressions': 'off',
+    },
+  },
+  {
+    files: ['eslint.config.mjs'],
     languageOptions: {
       globals: {
         console: 'readonly',
@@ -96,7 +148,7 @@ export default defineConfig([
     // Layout / render boundary enforcement (see AGENTS.md "Layout / Render
     // boundary"). render/ must consume paint-ready layout types instead of
     // the raw CSS-level ComputedStyle.
-    files: ['packages/rito/src/render/**/*.ts'],
+    files: ['packages/rito/src/reference/ts-core/render/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -136,14 +188,23 @@ export default defineConfig([
       complexity: ['warn', 24],
       'max-lines': ['warn', 300],
       'max-lines-per-function': ['warn', 50],
+    },
+  },
+  {
+    files: [
+      'packages/kit/src/**/*.ts',
+      'packages/react/src/**/*.{ts,tsx}',
+      'apps/reader/src/**/*.{ts,tsx}',
+    ],
+    rules: {
       'no-restricted-imports': [
         'error',
         {
-          paths: [
+          patterns: [
             {
-              name: '@ritojs/core/advanced',
+              group: ['@ritojs/core/*'],
               message:
-                'Kit must use the stable @ritojs/core/integration or focused subpaths instead of the experimental advanced entry.',
+                'Application and integration code must use the root @ritojs/core reader facade; legacy core subpaths are not public.',
             },
           ],
         },

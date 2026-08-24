@@ -1,0 +1,188 @@
+/**
+ * Overlap scale for one uniform radius pair (CSS Backgrounds §5.5): when
+ * either axis would make adjacent corners cross on a short edge, BOTH
+ * axes shrink by the same factor. The old per-axis `min(r, extent/2)`
+ * clamp kept the long axis at its authored radius and turned a wide
+ * `border-radius: 30px` badge into an ellipse where Blink draws a
+ * stadium with straight segments (b52 colorpages name pills).
+ */
+function overlapScale(width: number, height: number, radiusX: number, radiusY: number): number {
+  return Math.min(
+    1,
+    radiusX > 0 ? width / (2 * radiusX) : 1,
+    radiusY > 0 ? height / (2 * radiusY) : 1,
+  );
+}
+
+/** Trace a clockwise rounded rectangle, including elliptical CSS radii. */
+export function traceRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radiusX: number,
+  radiusY: number = radiusX,
+): void {
+  const scale = overlapScale(width, height, radiusX, radiusY);
+  const rx = radiusX * scale;
+  const ry = radiusY * scale;
+  ctx.beginPath();
+  if (rx === ry) traceCircularRoundedRect(ctx, x, y, width, height, rx);
+  else traceEllipticalRoundedRect(ctx, x, y, width, height, rx, ry);
+  ctx.closePath();
+}
+
+/**
+ * Trace a clockwise rounded rectangle whose corners disagree — circular
+ * radii in CSS order (top-left, top-right, bottom-right, bottom-left),
+ * overlap-scaled per CSS Backgrounds §5.5 so adjacent corners never
+ * cross on a short edge.
+ */
+export function traceCornerRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  corners: readonly [number, number, number, number],
+): void {
+  const [tl, tr, br, bl] = scaleCornerOverlap(corners, width, height);
+  ctx.beginPath();
+  ctx.moveTo(x + tl, y);
+  ctx.arcTo(x + width, y, x + width, y + height, tr);
+  ctx.arcTo(x + width, y + height, x, y + height, br);
+  ctx.arcTo(x, y + height, x, y, bl);
+  ctx.arcTo(x, y, x + width, y, tl);
+  ctx.closePath();
+}
+
+function scaleCornerOverlap(
+  corners: readonly [number, number, number, number],
+  width: number,
+  height: number,
+): [number, number, number, number] {
+  const tl = Math.max(0, corners[0]);
+  const tr = Math.max(0, corners[1]);
+  const br = Math.max(0, corners[2]);
+  const bl = Math.max(0, corners[3]);
+  const factor = Math.min(
+    1,
+    width / Math.max(1e-6, tl + tr),
+    width / Math.max(1e-6, bl + br),
+    height / Math.max(1e-6, tl + bl),
+    height / Math.max(1e-6, tr + br),
+  );
+  return [tl * factor, tr * factor, br * factor, bl * factor];
+}
+
+/** Trace a box path counter-clockwise for even-odd subtraction. */
+export function traceBoxPathCCW(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radiusX: number,
+  radiusY: number = radiusX,
+): void {
+  const scale = overlapScale(width, height, radiusX, radiusY);
+  const rx = radiusX * scale;
+  const ry = radiusY * scale;
+  if (rx <= 0 && ry <= 0) {
+    traceRectCCW(ctx, x, y, width, height);
+    return;
+  }
+  if (rx === ry) {
+    traceCircularRoundedRectCCW(ctx, x, y, width, height, rx);
+    return;
+  }
+  traceEllipticalRoundedRectCCW(ctx, x, y, width, height, rx, ry);
+}
+
+function traceCircularRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+): void {
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + width, y, x + width, y + height, radius);
+  ctx.arcTo(x + width, y + height, x, y + height, radius);
+  ctx.arcTo(x, y + height, x, y, radius);
+  ctx.arcTo(x, y, x + width, y, radius);
+}
+
+function traceEllipticalRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radiusX: number,
+  radiusY: number,
+): void {
+  const pi = Math.PI;
+  ctx.moveTo(x + radiusX, y);
+  ctx.lineTo(x + width - radiusX, y);
+  ctx.ellipse(x + width - radiusX, y + radiusY, radiusX, radiusY, 0, -pi / 2, 0);
+  ctx.lineTo(x + width, y + height - radiusY);
+  ctx.ellipse(x + width - radiusX, y + height - radiusY, radiusX, radiusY, 0, 0, pi / 2);
+  ctx.lineTo(x + radiusX, y + height);
+  ctx.ellipse(x + radiusX, y + height - radiusY, radiusX, radiusY, 0, pi / 2, pi);
+  ctx.lineTo(x, y + radiusY);
+  ctx.ellipse(x + radiusX, y + radiusY, radiusX, radiusY, 0, pi, pi * 1.5);
+}
+
+function traceRectCCW(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void {
+  ctx.moveTo(x, y);
+  ctx.lineTo(x, y + height);
+  ctx.lineTo(x + width, y + height);
+  ctx.lineTo(x + width, y);
+  ctx.closePath();
+}
+
+function traceCircularRoundedRectCCW(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+): void {
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x, y, x, y + height, radius);
+  ctx.arcTo(x, y + height, x + width, y + height, radius);
+  ctx.arcTo(x + width, y + height, x + width, y, radius);
+  ctx.arcTo(x + width, y, x, y, radius);
+  ctx.closePath();
+}
+
+function traceEllipticalRoundedRectCCW(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radiusX: number,
+  radiusY: number,
+): void {
+  const pi = Math.PI;
+  ctx.moveTo(x + radiusX, y);
+  ctx.ellipse(x + radiusX, y + radiusY, radiusX, radiusY, 0, -pi / 2, pi, true);
+  ctx.lineTo(x, y + height - radiusY);
+  ctx.ellipse(x + radiusX, y + height - radiusY, radiusX, radiusY, 0, pi, pi / 2, true);
+  ctx.lineTo(x + width - radiusX, y + height);
+  ctx.ellipse(x + width - radiusX, y + height - radiusY, radiusX, radiusY, 0, pi / 2, 0, true);
+  ctx.lineTo(x + width, y + radiusY);
+  ctx.ellipse(x + width - radiusX, y + radiusY, radiusX, radiusY, 0, 0, -pi / 2, true);
+  ctx.closePath();
+}

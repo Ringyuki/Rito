@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseContentValue } from '../../src/style/css/property-handlers/content-handler';
+import { parseContentValue } from '../../src/reference/ts-core/style/css/property-handlers/content-handler';
 
 describe('parseContentValue', () => {
   it('returns undefined when content is not declared', () => {

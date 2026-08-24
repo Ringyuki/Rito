@@ -4,13 +4,19 @@
  * not from layout output — so they are document-stable.
  */
 
-import type { Reader } from '@ritojs/core/web';
-import type { ChapterTextIndex } from '@ritojs/core/annotations';
+import type { Reader } from '@ritojs/core';
+import type { ChapterTextIndex } from '../../interaction/index';
 import type { CoordinatorState } from '../core/coordinator-state';
 
 export function syncChapterIndices(state: CoordinatorState, reader: Reader): void {
   const sourceIndices = reader.getChapterTextIndices();
+  if (state.chapterIndexSource === sourceIndices) return;
   const target = new Map<string, ChapterTextIndex>();
-  for (const [key, value] of sourceIndices) target.set(key, value);
+  for (const value of sourceIndices.values()) {
+    // Keep a single canonical namespace: durable resource hrefs. Mixing idrefs
+    // and hrefs in one Map can alias two legal EPUB identities.
+    target.set(value.href, value);
+  }
   state.chapterIndices = target;
+  state.chapterIndexSource = sourceIndices;
 }

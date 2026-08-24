@@ -256,112 +256,112 @@
       "textLength": 17079
     },
     {
-      "endPage": 125,
+      "endPage": 126,
       "href": "Text/Section_0006.xhtml",
       "idref": "Section_0006.xhtml",
       "linear": true,
-      "pageCount": 29,
+      "pageCount": 30,
       "startPage": 97,
       "textHash": "b90a6a003c532960",
       "textLength": 25295
     },
     {
-      "endPage": 129,
+      "endPage": 130,
       "href": "Text/Section_0007.xhtml",
       "idref": "Section_0007.xhtml",
       "linear": true,
       "pageCount": 4,
-      "startPage": 126,
+      "startPage": 127,
       "textHash": "b147c28c23c73d79",
       "textLength": 4385
     },
     {
-      "endPage": 135,
+      "endPage": 136,
       "href": "Text/Section_0008_0001.xhtml",
       "idref": "Section_0008_0001.xhtml",
       "linear": true,
       "pageCount": 6,
-      "startPage": 130,
+      "startPage": 131,
       "textHash": "76bd89f3c5df31f3",
       "textLength": 6572
     },
     {
-      "endPage": 136,
+      "endPage": 137,
       "href": "Text/Section_0008_0002.xhtml",
       "idref": "Section_0008_0002.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 136,
+      "startPage": 137,
       "textHash": "0712cc1fef7d3b45",
       "textLength": 670
     },
     {
-      "endPage": 137,
+      "endPage": 138,
       "href": "Text/Section_0008_0003.xhtml",
       "idref": "Section_0008_0003.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 137,
+      "startPage": 138,
       "textHash": "96976ee78542989e",
       "textLength": 802
     },
     {
-      "endPage": 138,
+      "endPage": 139,
       "href": "Text/Section_0008_0004.xhtml",
       "idref": "Section_0008_0004.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 138,
+      "startPage": 139,
       "textHash": "7739c9d9b8fcc7b9",
       "textLength": 833
     },
     {
-      "endPage": 164,
+      "endPage": 167,
       "href": "Text/Section_0008_0005.xhtml",
       "idref": "Section_0008_0005.xhtml",
       "linear": true,
-      "pageCount": 26,
-      "startPage": 139,
+      "pageCount": 28,
+      "startPage": 140,
       "textHash": "6b7b156674a9a397",
       "textLength": 22083
     },
     {
-      "endPage": 187,
+      "endPage": 192,
       "href": "Text/Section_0009.xhtml",
       "idref": "Section_0009.xhtml",
       "linear": true,
-      "pageCount": 23,
-      "startPage": 165,
+      "pageCount": 25,
+      "startPage": 168,
       "textHash": "ca60c42670d94fd5",
       "textLength": 19587
     },
     {
-      "endPage": 189,
+      "endPage": 194,
       "href": "Text/Section_0010.xhtml",
       "idref": "Section_0010.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 188,
+      "startPage": 193,
       "textHash": "15280f38b3226db8",
       "textLength": 2353
     },
     {
-      "endPage": 190,
+      "endPage": 195,
       "href": "Text/END.xhtml",
       "idref": "END.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 190,
+      "startPage": 195,
       "textHash": "1942bf1e28a46ea7",
       "textLength": 577
     },
     {
-      "endPage": 191,
+      "endPage": 196,
       "href": "Text/text.xhtml",
       "idref": "text.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 191,
+      "startPage": 196,
       "textHash": "bb3ea9812a9bacef",
       "textLength": 1860
     }
@@ -409,7 +409,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "99f1dd31b3c07de9",
+      "detailHash": "e273befbf610cb86",
       "firstText": "",
       "index": 0,
       "lastText": ""
@@ -454,7 +454,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "30203a45226ad91b",
+      "detailHash": "fd428124c07bf235",
       "firstText": "",
       "index": 3,
       "lastText": ""
@@ -484,7 +484,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "f424242ffd175894",
+      "detailHash": "a8d138086c7376f7",
       "firstText": "",
       "index": 5,
       "lastText": ""
@@ -499,7 +499,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "8a70e4203eb96383",
+      "detailHash": "e3598af02dcabf95",
       "firstText": "",
       "index": 6,
       "lastText": ""
@@ -529,7 +529,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "6d41b1f0be0c3b87",
+      "detailHash": "cb626f19756662f7",
       "firstText": "",
       "index": 8,
       "lastText": ""
@@ -559,7 +559,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "4956e55b1830516c",
+      "detailHash": "d6ebbde51d4dfa00",
       "firstText": "",
       "index": 10,
       "lastText": ""
@@ -589,7 +589,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "cb7e04ea219a99a2",
+      "detailHash": "f09ea02db3f9656b",
       "firstText": "",
       "index": 12,
       "lastText": ""
@@ -604,7 +604,7 @@
         "ruby": 0,
         "textRuns": 70
       },
-      "detailHash": "b6aad1d53a196c00",
+      "detailHash": "d68a4549fd3556b0",
       "firstText": "Character",
       "index": 13,
       "lastText": "伦充满敌意"
@@ -619,7 +619,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "f7b043b6a8cb2609",
+      "detailHash": "7bfb07fde019ceed",
       "firstText": "",
       "index": 14,
       "lastText": ""
@@ -649,7 +649,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "fce1c47a7b9e810d",
+      "detailHash": "329526b1d0d68e43",
       "firstText": "",
       "index": 16,
       "lastText": ""
@@ -1031,48 +1031,18 @@
     },
     {
       "counts": {
-        "blocks": 10,
+        "blocks": 1,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 0,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 0
       },
-      "detailHash": "c2dcd29695f3af90",
-      "firstText": "『我贯彻正义的计划分两个。首先第一个计划，恐怕你们也已经知道了。那就是通过牺牲整个世界来超越格伦，拿",
+      "detailHash": "36cea6c655c6f6d8",
+      "firstText": "",
       "index": 42,
-      "lastText": "区区一个留言信箱不可能拥有自己的意志。"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "64a1080234ab68d6",
-      "firstText": "它应该不过是将预先留下的信息播报出来而已。",
-      "index": 43,
-      "lastText": "高年级的莉瑟，哈雷和福泽尔，崔斯特男爵等学院主要的讲师和教授等。希丝缇娜喊来了很多人。"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 29
-      },
-      "detailHash": "14509f9806f81a0e",
-      "firstText": "「这确实令人难以置信，就连我自己也将信将疑……但是这就是这个世界的真相，并且如果真是这样，那一切就都",
-      "index": 44,
-      "lastText": "纳姆鲁斯在教室一角默默地看着这一切。虽然她表情和往常一样冰冷，但眼中也透着迫切与恳切的神色。"
+      "lastText": ""
     },
     {
       "counts": {
@@ -1080,14 +1050,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 28,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 27
       },
-      "detailHash": "75f56b97230fbb7e",
-      "firstText": "「「「「…………」」」」",
-      "index": 45,
-      "lastText": "阿尔伯特往背后看了一眼。"
+      "detailHash": "d90d0d2965c0ec82",
+      "firstText": "『我贯彻正义的计划分两个。首先第一个计划，恐怕你们也已经知道了。那就是通过牺牲整个世界来超越格伦，拿",
+      "index": 43,
+      "lastText": "那个令人惊讶的真相是——……"
     },
     {
       "counts": {
@@ -1097,25 +1067,55 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 26
       },
-      "detailHash": "e06029d1b96a0397",
-      "firstText": "一位女性从所有人的视线死角的方位走了出来，进入教室。",
-      "index": 46,
-      "lastText": "「这次指挥官可是你哦，希丝缇娜」"
+      "detailHash": "2e85b2aff7bcbfd5",
+      "firstText": "————",
+      "index": 44,
+      "lastText": "「确实战斗已经结束了！这个世界已经和平了！其实我们没有必要再去战斗或者再去多做些什么！因为老师就是为"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 28,
         "ruby": 0,
-        "textRuns": 14
+        "textRuns": 24
       },
-      "detailHash": "85ce62d40cddcac6",
-      "firstText": "「我们是你的工具，放开手脚利用我们吧」",
+      "detailHash": "44a80e27ed2eddd8",
+      "firstText": "了让我们不需要多做任何事才离开这个世界的！但是，这个世界的和平是建立在虚伪之上的，如海市蜃楼般缥缈的存在……",
+      "index": 45,
+      "lastText": "没等希丝缇娜惊讶完，伊芙和阿尔伯特已经快步走进了教室。"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "746c1fc08686c6a2",
+      "firstText": "希丝缇娜姑且是写了信邀请他们过来的。",
+      "index": 46,
+      "lastText": "（……母亲大人……谢谢你……）"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "0d5e1cced46ba355",
+      "firstText": "露米娅心中满怀对自己伟大的母亲的感激。",
       "index": 47,
       "lastText": "返回目录"
     },
@@ -2231,18 +2231,33 @@
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 11,
         "hrs": 0,
-        "images": 1,
+        "images": 0,
         "inlineAtoms": 0,
         "lines": 12,
         "ruby": 0,
         "textRuns": 8
       },
-      "detailHash": "9b7678c3243c1029",
+      "detailHash": "a792a3564c3396d7",
       "firstText": "她毫不留情地嘲笑着少年。",
       "index": 122,
       "lastText": "少年从碎片之中飞出，落入了虚无之深渊中。"
+    },
+    {
+      "counts": {
+        "blocks": 1,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 0,
+        "ruby": 0,
+        "textRuns": 0
+      },
+      "detailHash": "c9f7d550c37c3259",
+      "firstText": "",
+      "index": 123,
+      "lastText": ""
     },
     {
       "counts": {
@@ -2254,9 +2269,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "0e30a4e5a587cf0b",
+      "detailHash": "c0801d9fc943681f",
       "firstText": "「贾斯汀——！？」",
-      "index": 123,
+      "index": 124,
       "lastText": "『抱歉在你正忙的时候打扰你……你的余额也不足咯？』"
     },
     {
@@ -2269,9 +2284,9 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "f815e4e42665ff4e",
+      "detailHash": "9b22fbace3f4863a",
       "firstText": "哗啦——！",
-      "index": 124,
+      "index": 125,
       "lastText": "——"
     },
     {
@@ -2284,9 +2299,9 @@
         "ruby": 0,
         "textRuns": 2
       },
-      "detailHash": "7ea53393aa455f9c",
+      "detailHash": "57e410b5341580bc",
       "firstText": "就这样，格伦他——……",
-      "index": 125,
+      "index": 126,
       "lastText": "返回目录"
     },
     {
@@ -2299,9 +2314,9 @@
         "ruby": 0,
         "textRuns": 30
       },
-      "detailHash": "05299db9d82f9277",
+      "detailHash": "c0531282fea1ab00",
       "firstText": "断章 0→11",
-      "index": 126,
+      "index": 127,
       "lastText": "所谓『正义』，就是在不断消灭『邪恶』的基础上练就的。"
     },
     {
@@ -2314,9 +2329,9 @@
         "ruby": 0,
         "textRuns": 37
       },
-      "detailHash": "b09c98f624605ef1",
+      "detailHash": "11538b720006b950",
       "firstText": "一切都是为了亲手消灭那『真正的邪恶』。",
-      "index": 127,
+      "index": 128,
       "lastText": "提供能够消灭『邪恶』的，有意义的任务。所以明面上，贾提斯服从着这个上司的安排。"
     },
     {
@@ -2329,9 +2344,9 @@
         "ruby": 0,
         "textRuns": 31
       },
-      "detailHash": "719ff13ac3684e0c",
+      "detailHash": "d96f21d2d722c5fa",
       "firstText": "「哦？室长，怎么了么？有事找我？」",
-      "index": 128,
+      "index": 129,
       "lastText": "但是为什么呢"
     },
     {
@@ -2344,9 +2359,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "b3e688f1cb65ee2e",
+      "detailHash": "c32cf3f29d26f881",
       "firstText": "为什么在看到那个男人的瞬间，他会与记忆中的",
-      "index": 129,
+      "index": 130,
       "lastText": "返回目录"
     },
     {
@@ -2359,9 +2374,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "e097ca157c599d20",
+      "detailHash": "a686151950aebafa",
       "firstText": "最终章 21→0→???",
-      "index": 130,
+      "index": 131,
       "lastText": "「……啊？」"
     },
     {
@@ -2374,9 +2389,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "7c245a320e6b3ea7",
+      "detailHash": "5e570cfc1fbd0665",
       "firstText": "被斩断的右手还在。",
-      "index": 131,
+      "index": 132,
       "lastText": "这是一种令人恐惧的声音，是这个世界上所有肮脏的，令人不快的声音的混合体。"
     },
     {
@@ -2389,9 +2404,9 @@
         "ruby": 0,
         "textRuns": 31
       },
-      "detailHash": "3cf312eaeeefd803",
+      "detailHash": "abdc02f29a16dd11",
       "firstText": "然而，它又是一种美丽的声音，仿佛是将世界上最好的乐器和表演者聚集在一起合奏出的神曲。",
-      "index": 132,
+      "index": 133,
       "lastText": "『你真是个非常有趣非常好玩的人！不管和你战斗多少次，厮杀多少次我都不会腻！我怎么忍心毁灭把你养大的这"
     },
     {
@@ -2404,9 +2419,9 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "0d83e8e14741fd3f",
+      "detailHash": "adfbd2fa5e7e4380",
       "firstText": "个世界呢……！啊哈哈哈哈哈哈哈哈哈哈！』",
-      "index": 133,
+      "index": 134,
       "lastText": "它把我当成什么了，人类当成什么了，那邪魔歪道！"
     },
     {
@@ -2419,9 +2434,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "25ea6eba852d2d95",
+      "detailHash": "84cd4362f3bec711",
       "firstText": "「呜哇啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊——！」",
-      "index": 134,
+      "index": 135,
       "lastText": "有着少女形态的混沌也彻底融入了深深的黑暗之中。"
     },
     {
@@ -2434,9 +2449,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "905419fd60bfc104",
+      "detailHash": "fb1b0657426c764c",
       "firstText": "与那仿佛能传到世界尽头的哄笑声一起消失了。",
-      "index": 135,
+      "index": 136,
       "lastText": "这世上……怎么会有这么荒唐可笑的事……？"
     },
     {
@@ -2449,9 +2464,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "545b01df3bbe8121",
+      "detailHash": "fdcbc8188b4346ec",
       "firstText": "",
-      "index": 136,
+      "index": 137,
       "lastText": ""
     },
     {
@@ -2464,9 +2479,9 @@
         "ruby": 0,
         "textRuns": 1
       },
-      "detailHash": "eb315439db9a4aca",
+      "detailHash": "558e493fe325225f",
       "firstText": "『老师你真笨！』",
-      "index": 137,
+      "index": 138,
       "lastText": "『老师你真笨！』"
     },
     {
@@ -2479,9 +2494,9 @@
         "ruby": 0,
         "textRuns": 2
       },
-      "detailHash": "b6b78dfbf373b0e9",
+      "detailHash": "2f3de849e3da0a23",
       "firstText": "『这不是明摆着的吗！』",
-      "index": 138,
+      "index": 139,
       "lastText": "『——当然不能有这样的事啊！』"
     },
     {
@@ -2494,9 +2509,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "4279406a3c783deb",
+      "detailHash": "4168c6b15aafe11a",
       "firstText": "「——！？」",
-      "index": 139,
+      "index": 140,
       "lastText": "『……咦！？』"
     },
     {
@@ -2509,25 +2524,40 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "f31d5f5f62029bf6",
+      "detailHash": "edefa28a8724500d",
       "firstText": "两人份的惊讶。",
-      "index": 140,
+      "index": 141,
       "lastText": "「不……这是……」"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 1,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 0,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 0
       },
-      "detailHash": "3dd6e727bdece05a",
+      "detailHash": "309169020f8896e6",
+      "firstText": "",
+      "index": 142,
+      "lastText": ""
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "d277413138cd8831",
       "firstText": "确认了自己的能力之后，发现这应该是和贾提斯刚战斗完的状态。至今为止自己作为古神，进行漫长的战斗的那段",
-      "index": 141,
-      "lastText": "是希丝缇娜。"
+      "index": 143,
+      "lastText": "希丝缇娜，露米娅，莉艾尔和纳姆鲁斯俯冲下来紧紧抱住他。意想不到的强烈冲击让格伦差点吐了出来。"
     },
     {
       "counts": {
@@ -2539,25 +2569,25 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "fbc7180f3c6431b9",
-      "firstText": "露米娅。",
-      "index": 142,
-      "lastText": "「…………」"
+      "detailHash": "75989b08392d54f6",
+      "firstText": "「你这笨蛋主人！笨蛋笨蛋笨蛋笨蛋！死吧！你去死吧！」",
+      "index": 144,
+      "lastText": "在希丝缇娜，露米娅以及莉艾尔的号召下——"
     },
     {
       "counts": {
-        "blocks": 26,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 29
+        "textRuns": 31
       },
-      "detailHash": "9c9895f0968db441",
-      "firstText": "阿尔伯特用和往常一样的，如老鹰般锐利的双眼盯着他。",
-      "index": 143,
-      "lastText": "格伦和〈无垢之黑暗〉瞠目结舌。"
+      "detailHash": "5cb61eb29fc1239b",
+      "firstText": "所有人，以格伦为中心，对着上空的〈无垢之黑暗〉摆出战斗的架势。",
+      "index": 145,
+      "lastText": "希丝缇娜回头看向格伦微笑道。"
     },
     {
       "counts": {
@@ -2567,42 +2597,12 @@
         "inlineAtoms": 0,
         "lines": 28,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 26
       },
-      "detailHash": "e0f5d4ed5cabb50a",
-      "firstText": "希丝缇娜舒了口气，像是终于放下心来。",
-      "index": 144,
-      "lastText": "『A之奥义书』的理念。而这也是魔王费罗德和贾提斯不惜付出巨大的牺牲，强行使用『门之神』的力量，突破次元之障壁"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "fa3b9caa7dc758f4",
-      "firstText": "到达的。",
-      "index": 145,
-      "lastText": "「我这就启动！——不过话说回来，哈雷老师！这真的没问题吧！？这个魔导装置的基础理论是由你构建的，你有"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "bb00881a47cded40",
-      "firstText": "多少信心！？」",
+      "detailHash": "0956762a4d46ccab",
+      "firstText": "「老师……不断前行的你的信念有了回报。正因为你在不断努力，一切才得以开始。我们，魔王费罗德也是，贾提",
       "index": 146,
-      "lastText": "『啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊"
+      "lastText": "因为实在忍不住了，所以我要收回她的身体——！」"
     },
     {
       "counts": {
@@ -2611,28 +2611,58 @@
         "images": 0,
         "inlineAtoms": 0,
         "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "29078c36489f8d31",
+      "firstText": "『——哈？』",
+      "index": 147,
+      "lastText": "其他还有很多给哈雷的术式开发提供了帮助的学院的教授和讲师们。"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "55ff6dec7829c715",
+      "firstText": "于是——",
+      "index": 148,
+      "lastText": "此时此刻，〈无垢之黑暗〉在这个世界。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 30
+      },
+      "detailHash": "f921c3ff9e0042b4",
+      "firstText": "而排斥〈无垢之黑暗〉是这个可以说到达了禁忌教典的世界的意志。",
+      "index": 149,
+      "lastText": "一个拱形的光之牢笼笼罩了整个天空。"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "087ade5c3d537c85",
-      "firstText": "啊啊啊啊——！』",
-      "index": 147,
-      "lastText": "『什——！？』"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 29,
-        "ruby": 0,
-        "textRuns": 31
-      },
-      "detailHash": "77e650fcb6510150",
-      "firstText": "「不好意思，玛利亚的身体被我传送到地上了！」",
-      "index": 148,
-      "lastText": "及我的愤怒」"
+      "detailHash": "10bbe385908f1b10",
+      "firstText": "那是时空间扭曲形成的牢笼。",
+      "index": 150,
+      "lastText": "随着温度的不断上升，火焰的颜色从红，橙，白，蓝，黑——这样变化——"
     },
     {
       "counts": {
@@ -2644,55 +2674,25 @@
         "ruby": 1,
         "textRuns": 27
       },
-      "detailHash": "5152f6ae61ba5797",
-      "firstText": "『哈，哈哈哈哈……啊哈哈哈哈哈哈……！你说什么呢？说得那么较真儿？』",
-      "index": 149,
-      "lastText": "「但你剩余的魔力量又有多少呢？亿？兆？难道是……无限？也行，那我就无限烧下去！」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "d55054bc4798c778",
-      "firstText": "在伊芙对火焰的完全掌控之下，被灼烧的只有〈无垢之黑暗〉一个。",
-      "index": 150,
-      "lastText": "在〈无垢之黑暗〉发出惊呼的此刻。"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "8702e6fdd24c725d",
-      "firstText": "「哈啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊——！」",
+      "detailHash": "7cf0de57eaf2796b",
+      "firstText": "最后，一种像红宝石一样通透美丽的，赤红色的火焰爆燃起来——到达了无限热量。",
       "index": 151,
-      "lastText": "「…………」"
+      "lastText": "「这种程度的攻击——！」"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 27,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 29,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 20
       },
-      "detailHash": "930396e052bd96b5",
-      "firstText": "「当初希丝缇娜提出这个方案的时候也有很多人不相信，觉得太荒唐……觉得那种事不可能做到。但是她一往无前",
+      "detailHash": "8bebf615b30b6bc9",
+      "firstText": "露米娅使用的，支配时间空间的〈银钥匙〉——",
       "index": 152,
-      "lastText": "人类，这才是我们魔术师」"
+      "lastText": "「这，这啥啊……好厉害」"
     },
     {
       "counts": {
@@ -2700,164 +2700,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 1,
-        "textRuns": 29
-      },
-      "detailHash": "d192cf8dcc7ce19b",
-      "firstText": "阿尔伯特平淡地说道。",
-      "index": 153,
-      "lastText": "说完，阿尔伯特向格伦抛出了某个东西。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 28,
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "70251808623fd900",
-      "firstText": "「！？这，这是……！？」",
-      "index": 154,
-      "lastText": "地面上——阿尔扎诺帝国魔术学院中庭。"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "2dcadfdb54058701",
-      "firstText": "「来了！听到了！是老师的声音！」",
-      "index": 155,
-      "lastText": "「格伦老师……还有我的一份……！」"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "f5e710d61f1f3eb5",
-      "firstText": "「可恶！我到底还要搞到什么时候才能回去写论文啊，你们够了没有啊啊啊啊啊啊啊啊啊！」",
-      "index": 156,
-      "lastText": "阿尔扎诺帝国女王艾丽西亚七世——"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "29e44f42966a4380",
-      "firstText": "「是啊，失去他将是帝国永久的损失」",
-      "index": 157,
-      "lastText": "以克罗和贝阿为首的全帝国军。"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "f18a854b5491193c",
-      "firstText": "阿尔扎诺帝国的臣民们上下同心，纷纷举起了手。",
-      "index": 158,
-      "lastText": "魔力从全世界举起的手中，超越次元的限制，汇聚到格伦的双手上——……"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 14
-      },
-      "detailHash": "03c30da9b8ff7103",
-      "firstText": "那是超大量的魔力。",
-      "index": 159,
-      "lastText": "它咏唱着某种诡异的咒语，试图启动某种魔术——"
-    },
-    {
-      "counts": {
-        "blocks": 11,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 12,
-        "ruby": 0,
-        "textRuns": 10
-      },
-      "detailHash": "1b6a12e1dd0f6f32",
-      "firstText": "但是。",
-      "index": 160,
-      "lastText": "就这样，聚集到格伦双手上的魔力膨胀到最大限度。"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "3d77ee35083ead79",
-      "firstText": "那就像是太阳本身一样耀眼炽热。",
-      "index": 161,
-      "lastText": "「…………」"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "67ea58815298324d",
-      "firstText": "格伦承接了这个世界上所有的心意。",
-      "index": 162,
-      "lastText": "「〈——归于遥远的虚无终焉！〉————！」"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "ab658c033e6842fb",
-      "firstText": "『会在……会在这种地方啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊！？被这群像垃圾一样的人",
-      "index": 163,
-      "lastText": "从全宇宙中消失吧，你的存在是多余的。"
+      "detailHash": "1d75463fce5546bd",
+      "firstText": "格伦看着同伴们奋战的场景，不禁感叹道。",
+      "index": 153,
+      "lastText": "「嚯？高墙？」"
     },
     {
       "counts": {
@@ -2865,13 +2715,208 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 29,
         "ruby": 1,
+        "textRuns": 31
+      },
+      "detailHash": "77aba19f0e2299e0",
+      "firstText": "『没错！高墙！你们人类不管如何挣扎都无法看透身为神的我的本质——我的存在本身！因为我还不是普通的神！",
+      "index": 154,
+      "lastText": "啊！』"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 31
+      },
+      "detailHash": "e882a6934b1f19ee",
+      "firstText": "虽然不愿承认，但是正如它所说。",
+      "index": 155,
+      "lastText": "那是小小的结晶状的某种东西。"
+    },
+    {
+      "counts": {
+        "blocks": 27,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "1f87bcffefdc55c1",
+      "firstText": "格伦横手一抓，将那个结晶紧紧攥在自己左手掌心，并将右手合在左拳上——",
+      "index": 156,
+      "lastText": "弗兰西奴，科雷特，基尼等圣莉莉学院的学生。"
+    },
+    {
+      "counts": {
+        "blocks": 27,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "detailHash": "7d221b8f0f53323a",
+      "firstText": "「老师……拜托你了」",
+      "index": 157,
+      "lastText": "「真是的老公，都这时候了还……」"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "f239619adbc1d1b6",
+      "firstText": "雷纳德和菲莉亚娜……希丝缇娜的双亲们举起了左手。",
+      "index": 158,
+      "lastText": "「切……虽然不是很情愿……」"
+    },
+    {
+      "counts": {
+        "blocks": 27,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "854a71b6963d43c4",
+      "firstText": "露娜——",
+      "index": 159,
+      "lastText": "「为了他……！」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "5914da29bd742e03",
+      "firstText": "经历过那场大战的，在地面上守望着格伦他们当时的战斗的全世界的人们都举起了手，举起手，不断举起手——",
+      "index": 160,
+      "lastText": "——〉』"
+    },
+    {
+      "counts": {
+        "blocks": 2,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 2,
+        "ruby": 0,
+        "textRuns": 1
+      },
+      "detailHash": "8b86c1c4564e9d92",
+      "firstText": "它咏唱着某种诡异的咒语，试图启动某种魔术——",
+      "index": 161,
+      "lastText": "它咏唱着某种诡异的咒语，试图启动某种魔术——"
+    },
+    {
+      "counts": {
+        "blocks": 1,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 0,
+        "ruby": 0,
+        "textRuns": 0
+      },
+      "detailHash": "8db2833c7ffff93c",
+      "firstText": "",
+      "index": 162,
+      "lastText": ""
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "649bef2758c0c10c",
+      "firstText": "但是。",
+      "index": 163,
+      "lastText": "『这是我唯一的愿望了……』"
+    },
+    {
+      "counts": {
+        "blocks": 27,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "detailHash": "59c715abca99945b",
+      "firstText": "他感觉自己听到了那个无比率直，所以因此受挫崩溃变得扭曲，最后走上邪路的魔王的声音。",
+      "index": 164,
+      "lastText": "随着他的咏唱，三个圆环状的法阵以他的左拳为中心，排布成正三角形，咬合并渐渐高速旋转起来——"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "af9770cf3345f6e4",
-      "firstText": "格伦悠然地咏唱完了漫长的七节咒文，完成了他至高无上的一击。",
-      "index": 164,
+      "detailHash": "d48a6eb46791a654",
+      "firstText": "『住，住手……』",
+      "index": 165,
+      "lastText": "有过放弃一切，成为单纯的一把剑，最后在战场上力竭身死的莉艾尔。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 1,
+        "textRuns": 20
+      },
+      "detailHash": "1d6189f30565cd30",
+      "firstText": "有过接受钥匙堕落为魔将星，最后被挚友击中背后死去的阿尔伯特。",
+      "index": 166,
+      "lastText": "啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊"
+    },
+    {
+      "counts": {
+        "blocks": 6,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 7,
+        "ruby": 0,
+        "textRuns": 6
+      },
+      "detailHash": "ec534c6259222a70",
+      "firstText": "啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊",
+      "index": 167,
       "lastText": "返回目录"
     },
     {
@@ -2884,9 +2929,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "55cd77e03756d621",
+      "detailHash": "480952779d51af8c",
       "firstText": "尾声 明天——……",
-      "index": 165,
+      "index": 168,
       "lastText": "「…………」"
     },
     {
@@ -2899,9 +2944,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "42a4a8859d139ca0",
+      "detailHash": "2d432579d8647802",
       "firstText": "看向手中。",
-      "index": 166,
+      "index": 169,
       "lastText": "————"
     },
     {
@@ -2914,9 +2959,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "a483ad5ecf7f1a6e",
+      "detailHash": "f98a5672c9bbe6ac",
       "firstText": "「哦哦，真难得」",
-      "index": 167,
+      "index": 170,
       "lastText": "感觉好像天空那边传来了我怀念的他的声音。"
     },
     {
@@ -2929,25 +2974,55 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "6d77c4f1f827c9be",
+      "detailHash": "f2afc452253d53a4",
       "firstText": "幻听？自己已经老糊涂到这个地步了……我无奈地叹了口气。",
-      "index": 168,
+      "index": 171,
       "lastText": "格伦把双手放在我肩上，对不禁热泪盈眶的我说。"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 3,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 4,
+        "ruby": 0,
+        "textRuns": 4
+      },
+      "detailHash": "5b39fde709698086",
+      "firstText": "「呃，那啥……总之就是发生了各种各样的事，因为发生的事情太多不知道从何说起，总之我，成神了……」",
+      "index": 172,
+      "lastText": "的纳姆鲁斯的帮助下……」"
+    },
+    {
+      "counts": {
+        "blocks": 1,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 0,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 0
       },
-      "detailHash": "40ec19942fbe638d",
-      "firstText": "「呃，那啥……总之就是发生了各种各样的事，因为发生的事情太多不知道从何说起，总之我，成神了……」",
-      "index": 169,
-      "lastText": "格伦用有些气愤的眼光盯着我说道。"
+      "detailHash": "79a9214a2cc2c941",
+      "firstText": "",
+      "index": 173,
+      "lastText": ""
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "6d2adc74ee0a7c85",
+      "firstText": "「格伦，你脑子没坏吧？」",
+      "index": 174,
+      "lastText": "童话『梅尔加里乌斯的魔法使』的作者罗朗·埃托利亚在故事末尾这样写到。"
     },
     {
       "counts": {
@@ -2957,12 +3032,12 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 24
       },
-      "detailHash": "11337f793aa18208",
-      "firstText": "「……你啊，在决战之后……完全断绝了与人的交往，选择过上与历史的表舞台没有任何的孤独的生活……对",
-      "index": 170,
-      "lastText": "『到头来，这只是一个好人没有好报的悲剧』"
+      "detailHash": "9fdbb47f77d5b7b5",
+      "firstText": "『这个故事是已经结束的故事，有着既定的结局』",
+      "index": 175,
+      "lastText": "————"
     },
     {
       "counts": {
@@ -2974,10 +3049,70 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "201a42e78965e7be",
-      "firstText": "『但是』",
-      "index": 171,
-      "lastText": "————"
+      "detailHash": "20d8ab6a3d92f4c8",
+      "firstText": "于是——",
+      "index": 176,
+      "lastText": "「你这男的还是像往常一样冷淡而又死板。还不有所改观的话，你肯定会死的很早吧。虽然不关我事」"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "0d29afd310280e88",
+      "firstText": "执行官番号14，〈节制〉露娜在阿尔伯特旁边不客气地说道。",
+      "index": 177,
+      "lastText": "克罗的部队又玩忽职守！贝阿到底在干嘛呢贝阿！？那群混蛋，之后一定要把他们烧成灰啊啊啊啊啊——！」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "02cbe08c9b9eab24",
+      "firstText": "「好好好，加油加油室长大人。话说你不是还要定期地作为特别讲师去阿尔扎诺帝国魔术学院讲课吗？不是还想挤",
+      "index": 178,
+      "lastText": "在位于帝国奥兰多的，临时设置的行政机构的会议室里。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 28
+      },
+      "detailHash": "2751ec74dc386940",
+      "firstText": "帝国女王艾丽西亚七世与原雷扎里亚王国的圣艾丽萨雷斯教教皇厅司祭枢机卿，帝国派驻王国的现任执政官法伊斯",
+      "index": 179,
+      "lastText": "说着，他喝了一口红茶。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "ce0e1a27a0d32889",
+      "firstText": "之后，艾丽西亚与法伊斯就今后的大帝国的行政方针与运作方式展开了讨论——",
+      "index": 180,
+      "lastText": "「啊，啊哈哈……都已经天下太平了，没必要那么夸张吧……不过谢谢你了，杰洛斯大人。那万事拜托咯」"
     },
     {
       "counts": {
@@ -2989,55 +3124,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "ec8983396ac8ff80",
-      "firstText": "——圣历1854年泰特之月。",
-      "index": 172,
-      "lastText": "见吗？」"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "9daa8f6433316793",
-      "firstText": "「……没有。你觉得行就行」",
-      "index": 173,
-      "lastText": "「谁，谁说我想去见格伦了啊啊啊啊啊啊啊啊啊啊！」"
-    },
-    {
-      "counts": {
-        "blocks": 23,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "9cb0e452133776cb",
-      "firstText": "「噗……我一句都没提这个名字啊？」",
-      "index": 174,
-      "lastText": "「……麻烦事真是一桩接一桩啊……」"
-    },
-    {
-      "counts": {
-        "blocks": 23,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "ee44bf4953fe1131",
-      "firstText": "「哈哈哈，没错。根本连休息的时间都没有」",
-      "index": 175,
-      "lastText": "「哦，是蕾尼莉亚公主殿下」"
+      "detailHash": "ab1e7d64fa7322ff",
+      "firstText": "————",
+      "index": 181,
+      "lastText": "「我也没想到他会信啊」"
     },
     {
       "counts": {
@@ -3047,12 +3137,27 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "90ebd92ffd22ca0c",
+      "firstText": "「呜哦哦哦噢噢噢哦哦！你就把这当作是自己家，和露米娅一样，想待多久待多久吧！要不然，你把我认作亲爹也",
+      "index": 182,
+      "lastText": "只有莉艾尔一脸不解地歪了歪脑袋。"
+    },
+    {
+      "counts": {
+        "blocks": 27,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f017e74e43a2e9f3",
-      "firstText": "「恭喜你恢复王室亲卫队队长的职务！」",
-      "index": 176,
-      "lastText": "「老公你真是……」"
+      "detailHash": "c412cd3e1483bb36",
+      "firstText": "————",
+      "index": 183,
+      "lastText": "纳姆鲁斯环顾四周说道。"
     },
     {
       "counts": {
@@ -3064,10 +3169,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "61430600df91792d",
-      "firstText": "雷纳德在摆满豪华而丰盛的早餐的餐桌前流着泪，露出感动的笑容。菲莉亚娜则像平常那样和蔼地笑着。",
-      "index": 177,
-      "lastText": "「……没事，雷纳德确实是有点恶心，但他是个好人，我并不讨厌。菲莉亚娜对我非常好，我由衷感谢她」"
+      "detailHash": "204cd6b99c92876c",
+      "firstText": "城里各处都在建新的的建筑物，复兴工作也还在继续进行中。",
+      "index": 184,
+      "lastText": "但是——"
     },
     {
       "counts": {
@@ -3077,12 +3182,42 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 25
       },
-      "detailHash": "3881d04935454255",
-      "firstText": "「是吗。那就行」",
-      "index": 178,
-      "lastText": "「学姐——————！」"
+      "detailHash": "e031c86a8193b2c1",
+      "firstText": "「……不过没事。一定会没事的。因为人类……比我们要强大的多」",
+      "index": 185,
+      "lastText": "那个叫时雨的人一起来」"
+    },
+    {
+      "counts": {
+        "blocks": 27,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "d8a6214376fca8d7",
+      "firstText": "「然后，如果治疗顺利的话就顺带作为留学生留在这里」",
+      "index": 186,
+      "lastText": "她们这样说着。"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "df3287da6f657d0a",
+      "firstText": "「不过……我很遗憾像你这种境界的人无法再用魔术」",
+      "index": 187,
+      "lastText": "此刻，讲堂内已经挤满了人，还有不少站着旁听的。"
     },
     {
       "counts": {
@@ -3094,130 +3229,70 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "04dfc8782653fe9f",
-      "firstText": "玛利亚在道路前方一边招手，一边满脸笑容地朝这边冲了过来。",
-      "index": 179,
-      "lastText": "「哈……我不是很懂为什么会演变成这样啊」"
+      "detailHash": "795c4fd05fcd1a6b",
+      "firstText": "然而——",
+      "index": 188,
+      "lastText": "里克露出了残忍而阴森的笑容。塞西莉亚只能苦笑。"
     },
     {
       "counts": {
-        "blocks": 24,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 17
       },
-      "detailHash": "0aa2562153877894",
-      "firstText": "「这也是我从莉瑟学姐那里听来的……好像现在全世界各地都有想报名入学阿尔扎诺帝国的学生，其数量之庞大，",
-      "index": 180,
-      "lastText": "和玛利亚分开后，她们进入了二年二班的教室。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "79ebf13f2f87ea52",
-      "firstText": "「哦，早上好你们！」",
-      "index": 181,
-      "lastText": "「据说还有其他参加了魔术祭典的同期会从全世界过来，想必接下来是会很热闹了」"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "b369d501d4785a52",
-      "firstText": "「是啊……一定会很好玩吧」",
-      "index": 182,
-      "lastText": "「嗯……如果只是为了传道授业而偶尔去学校教教书的话倒也不是不行……但实际上连这个我都没必要去做了。因"
-    },
-    {
-      "counts": {
-        "blocks": 23,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "11284ef4363cfed5",
-      "firstText": "为有那家伙在」",
-      "index": 183,
-      "lastText": "坐在希丝缇娜背后的伊芙怒火中烧，气得全身发抖。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "6a45fbf928520569",
-      "firstText": "「那个笨蛋主人……」",
-      "index": 184,
-      "lastText": "「太迟了吧啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊——！？」"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 13,
-        "ruby": 0,
-        "textRuns": 13
-      },
-      "detailHash": "f59178ac113639d1",
-      "firstText": "看到格伦的脸的那一瞬间，希丝缇娜发出的闪耀的风就将他打飞到墙壁上。",
-      "index": 185,
+      "detailHash": "d405f0e688cac2b0",
+      "firstText": "正当大讲堂里的听众们准备要开始声讨格伦的时候——",
+      "index": 189,
       "lastText": "「……？」"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 1,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 0,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 0
       },
-      "detailHash": "353d4e83258e1f65",
-      "firstText": "露米娅摇醒了一直趴在桌上睡觉的莉艾尔。",
-      "index": 186,
-      "lastText": "他思考了一会儿——"
+      "detailHash": "a4bca38607bb23ed",
+      "firstText": "",
+      "index": 190,
+      "lastText": ""
     },
     {
       "counts": {
-        "blocks": 14,
+        "blocks": 25,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 11
+        "textRuns": 23
       },
-      "detailHash": "6be639d7746e09e4",
-      "firstText": "「好，就这样，第一天的讲义内容就从这里开始吧。我不会一下子就说复杂的魔术理论或是古代文明等比较专业的",
-      "index": 187,
+      "detailHash": "1993074d41686bc4",
+      "firstText": "露米娅摇醒了一直趴在桌上睡觉的莉艾尔。",
+      "index": 191,
       "lastText": "Fin"
+    },
+    {
+      "counts": {
+        "blocks": 1,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 1,
+        "ruby": 0,
+        "textRuns": 0
+      },
+      "detailHash": "073af329c28afc96",
+      "firstText": "",
+      "index": 192,
+      "lastText": ""
     },
     {
       "counts": {
@@ -3229,9 +3304,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "2fa76a74a1d11e3a",
+      "detailHash": "bf094d23ba27608d",
       "firstText": "后记",
-      "index": 188,
+      "index": 193,
       "lastText": "其名为『这就是魔法使的王牌』——这是和本系列不同的，以奇幻世界的魔法学校为舞台的，讲述一个少年如何朝"
     },
     {
@@ -3244,9 +3319,9 @@
         "ruby": 0,
         "textRuns": 10
       },
-      "detailHash": "1b391af25dd01c0f",
+      "detailHash": "e00a5359dfb85490",
       "firstText": "着成为魔术师而努力的故事。",
-      "index": 189,
+      "index": 194,
       "lastText": "羊太郎"
     },
     {
@@ -3259,9 +3334,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "3d0552a2497128c1",
+      "detailHash": "b79c8229483a7fa4",
       "firstText": "",
-      "index": 190,
+      "index": 195,
       "lastText": ""
     },
     {
@@ -3274,9 +3349,9 @@
         "ruby": 0,
         "textRuns": 10
       },
-      "detailHash": "833b50d5827e8e94",
+      "detailHash": "77da5c914751e1b8",
       "firstText": "教典司掌一切睿智，创造并掌握着世间万物。",
-      "index": 191,
+      "index": 196,
       "lastText": "返回目录"
     }
   ],
@@ -3285,10 +3360,10 @@
     "chapterCount": 36,
     "chapterTextIndexCount": 36,
     "footnoteCount": 0,
-    "fullDetailHash": "54a6027a8c5a7655",
-    "pageCount": 192,
+    "fullDetailHash": "7912c936d35af054",
+    "pageCount": 197,
     "totals": {
-      "blocks": 4112,
+      "blocks": 4110,
       "hrs": 0,
       "images": 25,
       "inlineAtoms": 0,
@@ -3304,7 +3379,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -3313,9 +3388,9 @@
             {
               "alt": "cover",
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 507.305,
+                "x": 6.348,
                 "y": 0
               },
               "href": null,
@@ -5215,7 +5290,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -5224,9 +5299,9 @@
             {
               "alt": "duokan",
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 505.592,
+                "x": 7.204,
                 "y": 0
               },
               "href": null,
@@ -5524,7 +5599,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -5533,9 +5608,9 @@
             {
               "alt": "co1",
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 507.305,
+                "x": 6.348,
                 "y": 0
               },
               "href": null,
@@ -5576,7 +5651,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 407.773,
             "width": 520,
             "x": 0,
             "y": 0
@@ -5585,7 +5660,7 @@
             {
               "alt": "co2",
               "bounds": {
-                "height": 390,
+                "height": 407.773,
                 "width": 520,
                 "x": 0,
                 "y": 0
@@ -6146,7 +6221,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 407.773,
             "width": 520,
             "x": 0,
             "y": 0
@@ -6155,7 +6230,7 @@
             {
               "alt": "co3",
               "bounds": {
-                "height": 390,
+                "height": 407.773,
                 "width": 520,
                 "x": 0,
                 "y": 0
@@ -6824,7 +6899,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -6833,9 +6908,9 @@
             {
               "alt": "introduce01",
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 507.263,
+                "x": 6.369,
                 "y": 0
               },
               "href": null,
@@ -7533,7 +7608,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -7542,9 +7617,9 @@
             {
               "alt": "introduce02",
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 507.263,
+                "x": 6.369,
                 "y": 0
               },
               "href": null,
@@ -7751,7 +7826,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 83.295,
+            "height": 97.92,
             "width": 225,
             "x": 147.5,
             "y": 42.4
@@ -7761,7 +7836,7 @@
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 83.295,
+                "height": 97.92,
                 "width": 225,
                 "x": 0,
                 "y": 0
@@ -7771,7 +7846,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 83.295,
+                    "height": 97.92,
                     "width": 65.333,
                     "x": 0,
                     "y": 0
@@ -7781,7 +7856,7 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 43.875,
+                        "height": 58.5,
                         "width": 65.333,
                         "x": 0,
                         "y": 0
@@ -7790,7 +7865,7 @@
                         {
                           "alt": "char1",
                           "bounds": {
-                            "height": 43.875,
+                            "height": 58.5,
                             "width": 58.5,
                             "x": 3.417,
                             "y": 0
@@ -7813,7 +7888,7 @@
                         "height": 7.2,
                         "width": 65.333,
                         "x": 0,
-                        "y": 47.475
+                        "y": 62.1
                       },
                       "children": [
                         {
@@ -7863,7 +7938,7 @@
                         "height": 5.4,
                         "width": 65.333,
                         "x": 0,
-                        "y": 56.835
+                        "y": 71.46
                       },
                       "children": [
                         {
@@ -7913,7 +7988,7 @@
                         "height": 18.9,
                         "width": 71.633,
                         "x": -3.15,
-                        "y": 64.395
+                        "y": 79.02
                       },
                       "children": [
                         {
@@ -8033,7 +8108,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 83.295,
+                    "height": 97.92,
                     "width": 11.389,
                     "x": 65.333,
                     "y": 0
@@ -8049,7 +8124,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 83.295,
+                    "height": 97.92,
                     "width": 68.444,
                     "x": 76.722,
                     "y": 0
@@ -8059,7 +8134,7 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 43.875,
+                        "height": 58.5,
                         "width": 68.444,
                         "x": 0,
                         "y": 0
@@ -8068,7 +8143,7 @@
                         {
                           "alt": "char2",
                           "bounds": {
-                            "height": 43.875,
+                            "height": 58.5,
                             "width": 58.5,
                             "x": 4.972,
                             "y": 0
@@ -8091,7 +8166,7 @@
                         "height": 7.2,
                         "width": 64.8,
                         "x": 0,
-                        "y": 47.475
+                        "y": 62.1
                       },
                       "children": [
                         {
@@ -8141,7 +8216,7 @@
                         "height": 5.4,
                         "width": 68.444,
                         "x": 0,
-                        "y": 56.835
+                        "y": 71.46
                       },
                       "children": [
                         {
@@ -8191,7 +8266,7 @@
                         "height": 18.9,
                         "width": 74.744,
                         "x": -3.15,
-                        "y": 64.395
+                        "y": 79.02
                       },
                       "children": [
                         {
@@ -8311,7 +8386,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 83.295,
+                    "height": 97.92,
                     "width": 11.389,
                     "x": 145.167,
                     "y": 0
@@ -8327,7 +8402,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 83.295,
+                    "height": 97.92,
                     "width": 68.444,
                     "x": 156.556,
                     "y": 0
@@ -8337,7 +8412,7 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 43.875,
+                        "height": 58.5,
                         "width": 68.444,
                         "x": 0,
                         "y": 0
@@ -8346,7 +8421,7 @@
                         {
                           "alt": "char3",
                           "bounds": {
-                            "height": 43.875,
+                            "height": 58.5,
                             "width": 58.5,
                             "x": 4.972,
                             "y": 0
@@ -8369,7 +8444,7 @@
                         "height": 7.2,
                         "width": 64.8,
                         "x": 0,
-                        "y": 47.475
+                        "y": 62.1
                       },
                       "children": [
                         {
@@ -8419,7 +8494,7 @@
                         "height": 5.4,
                         "width": 68.444,
                         "x": 0,
-                        "y": 56.835
+                        "y": 71.46
                       },
                       "children": [
                         {
@@ -8469,7 +8544,7 @@
                         "height": 12.6,
                         "width": 74.744,
                         "x": -3.15,
-                        "y": 64.395
+                        "y": 79.02
                       },
                       "children": [
                         {
@@ -8570,17 +8645,17 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 87.795,
+            "height": 100.37,
             "width": 225,
             "x": 147.5,
-            "y": 134.695
+            "y": 149.32
           },
           "children": [
             {
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 87.795,
+                "height": 100.37,
                 "width": 225,
                 "x": 0,
                 "y": 0
@@ -8590,7 +8665,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 87.795,
+                    "height": 100.37,
                     "width": 49.5,
                     "x": 0,
                     "y": 0
@@ -8600,7 +8675,7 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 37.125,
+                        "height": 49.5,
                         "width": 49.5,
                         "x": 0,
                         "y": 0
@@ -8609,7 +8684,7 @@
                         {
                           "alt": "char4",
                           "bounds": {
-                            "height": 37.125,
+                            "height": 49.5,
                             "width": 49.5,
                             "x": 0,
                             "y": 0
@@ -8632,7 +8707,7 @@
                         "height": 12.6,
                         "width": 49.5,
                         "x": 0,
-                        "y": 40.275
+                        "y": 52.65
                       },
                       "children": [
                         {
@@ -8715,7 +8790,7 @@
                         "height": 5.4,
                         "width": 49.5,
                         "x": 0,
-                        "y": 55.035
+                        "y": 67.41
                       },
                       "children": [
                         {
@@ -8765,7 +8840,7 @@
                         "height": 18.9,
                         "width": 55.8,
                         "x": -3.15,
-                        "y": 62.595
+                        "y": 74.97
                       },
                       "children": [
                         {
@@ -8885,7 +8960,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 87.795,
+                    "height": 100.37,
                     "width": 9,
                     "x": 49.5,
                     "y": 0
@@ -8901,7 +8976,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 87.795,
+                    "height": 100.37,
                     "width": 49.5,
                     "x": 58.5,
                     "y": 0
@@ -8911,7 +8986,7 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 37.125,
+                        "height": 49.5,
                         "width": 49.5,
                         "x": 0,
                         "y": 0
@@ -8920,7 +8995,7 @@
                         {
                           "alt": "char5",
                           "bounds": {
-                            "height": 37.125,
+                            "height": 49.5,
                             "width": 49.5,
                             "x": 0,
                             "y": 0
@@ -8943,7 +9018,7 @@
                         "height": 12.6,
                         "width": 49.5,
                         "x": 0,
-                        "y": 40.275
+                        "y": 52.65
                       },
                       "children": [
                         {
@@ -9026,7 +9101,7 @@
                         "height": 5.4,
                         "width": 49.5,
                         "x": 0,
-                        "y": 55.035
+                        "y": 67.41
                       },
                       "children": [
                         {
@@ -9076,7 +9151,7 @@
                         "height": 25.2,
                         "width": 55.8,
                         "x": -3.15,
-                        "y": 62.595
+                        "y": 74.97
                       },
                       "children": [
                         {
@@ -9229,7 +9304,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 87.795,
+                    "height": 100.37,
                     "width": 9,
                     "x": 108,
                     "y": 0
@@ -9245,7 +9320,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 87.795,
+                    "height": 100.37,
                     "width": 49.5,
                     "x": 117,
                     "y": 0
@@ -9255,7 +9330,7 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 37.125,
+                        "height": 49.5,
                         "width": 49.5,
                         "x": 0,
                         "y": 0
@@ -9264,7 +9339,7 @@
                         {
                           "alt": "char6",
                           "bounds": {
-                            "height": 37.125,
+                            "height": 49.5,
                             "width": 49.5,
                             "x": 0,
                             "y": 0
@@ -9287,7 +9362,7 @@
                         "height": 12.6,
                         "width": 47.25,
                         "x": 0,
-                        "y": 40.275
+                        "y": 52.65
                       },
                       "children": [
                         {
@@ -9370,7 +9445,7 @@
                         "height": 5.4,
                         "width": 49.5,
                         "x": 0,
-                        "y": 55.035
+                        "y": 67.41
                       },
                       "children": [
                         {
@@ -9420,7 +9495,7 @@
                         "height": 18.9,
                         "width": 55.8,
                         "x": -3.15,
-                        "y": 62.595
+                        "y": 74.97
                       },
                       "children": [
                         {
@@ -9540,7 +9615,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 87.795,
+                    "height": 100.37,
                     "width": 9,
                     "x": 166.5,
                     "y": 0
@@ -9556,7 +9631,7 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 87.795,
+                    "height": 100.37,
                     "width": 49.5,
                     "x": 175.5,
                     "y": 0
@@ -9566,7 +9641,7 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 37.125,
+                        "height": 49.7,
                         "width": 49.5,
                         "x": 0,
                         "y": 0
@@ -9575,7 +9650,7 @@
                         {
                           "alt": "char7",
                           "bounds": {
-                            "height": 37.125,
+                            "height": 49.7,
                             "width": 49.5,
                             "x": 0,
                             "y": 0
@@ -9598,7 +9673,7 @@
                         "height": 12.6,
                         "width": 49.5,
                         "x": 0,
-                        "y": 40.275
+                        "y": 52.85
                       },
                       "children": [
                         {
@@ -9681,7 +9756,7 @@
                         "height": 5.4,
                         "width": 49.5,
                         "x": 0,
-                        "y": 55.035
+                        "y": 67.61
                       },
                       "children": [
                         {
@@ -9731,7 +9806,7 @@
                         "height": 25.2,
                         "width": 55.8,
                         "x": -3.15,
-                        "y": 62.595
+                        "y": 75.17
                       },
                       "children": [
                         {
@@ -9901,7 +9976,7 @@
             "height": 9,
             "width": 225,
             "x": 147.5,
-            "y": 235.99
+            "y": 263.19
           },
           "children": [
             {
@@ -9956,7 +10031,7 @@
             "height": 10,
             "width": 234,
             "x": 143,
-            "y": 248.59
+            "y": 275.79
           },
           "children": [
             {
@@ -9990,7 +10065,7 @@
             "height": 32.4,
             "width": 225,
             "x": 147.5,
-            "y": 258.59
+            "y": 285.79
           },
           "children": [
             {
@@ -10722,7 +10797,7 @@
             "height": 33.03,
             "width": 225,
             "x": 147.5,
-            "y": 299.99
+            "y": 327.19
           },
           "children": [
             {
@@ -11421,7 +11496,7 @@
             "height": 13,
             "width": 520,
             "x": 0,
-            "y": 338.22
+            "y": 365.42
           },
           "children": [
             {
@@ -11470,7 +11545,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -11479,9 +11554,9 @@
             {
               "alt": "introduce03",
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 507.263,
+                "x": 6.369,
                 "y": 0
               },
               "href": null,
@@ -12684,7 +12759,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -12693,9 +12768,9 @@
             {
               "alt": "menu",
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 507.305,
+                "x": 6.348,
                 "y": 0
               },
               "href": null,
@@ -16904,7 +16979,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "「我们是你的工具，放开手脚利用我们吧」",
+                  "text": "露米娅心中满怀对自己伟大的母亲的感激。",
                   "type": "text-run"
                 }
               ],
@@ -16925,6 +17000,506 @@
             "width": 520,
             "x": 0,
             "y": 26.88
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 201.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "而艾丽西亚灌注着坚强意志的话语让众人觉醒。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 53.76
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 240,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「……说的也是……没错……！战斗还没有结束……！」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 80.64
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 345.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「没错，看似结束了，但是却还在持续。因为从根本上讲事情完全没有得到解决」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 107.52
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 326.4,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「正是如此！我们只不过是将明明还没有结束的战斗全部推给了老师而已！」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 134.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 288,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「那么就结束这一切吧……这次一定，让我们给这一切画上句号！」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 161.28
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 76.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "学生们激情慷慨。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 188.16
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 76.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「各，各位……」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 215.04
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 115.2,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "希丝缇娜对此也无比感动。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 241.92
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 153.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「这次指挥官可是你哦，希丝缇娜」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 268.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 182.4,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「我们是你的工具，放开手脚利用我们吧」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 295.68
           },
           "children": [
             {
@@ -16974,7 +17549,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 53.76
+            "y": 322.56
           },
           "children": [
             {
@@ -17024,7 +17599,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 80.64
+            "y": 349.44
           },
           "children": [
             {
@@ -17074,7 +17649,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 107.52
+            "y": 376.32
           },
           "children": [
             {
@@ -17124,7 +17699,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 134.4
+            "y": 403.2
           },
           "children": [
             {
@@ -17174,7 +17749,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 161.28
+            "y": 430.08
           },
           "children": [
             {
@@ -17224,7 +17799,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 188.16
+            "y": 456.96
           },
           "children": [
             {
@@ -17274,7 +17849,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 215.04
+            "y": 483.84
           },
           "children": [
             {
@@ -17324,7 +17899,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 241.92
+            "y": 510.72
           },
           "children": [
             {
@@ -17351,7 +17926,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 268.8
+            "y": 537.6
           },
           "children": [
             {
@@ -17434,7 +18009,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 316.48
+            "y": 585.28
           },
           "children": [
             {
@@ -17461,7 +18036,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 343.36
+            "y": 612.16
           },
           "children": [
             {
@@ -17511,7 +18086,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 370.24
+            "y": 639.04
           },
           "children": [
             {
@@ -17561,7 +18136,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 397.12
+            "y": 665.92
           },
           "children": [
             {
@@ -17612,15 +18187,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 15,
+        "blocks": 25,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 14
+        "textRuns": 24
       },
-      "firstText": "「我们是你的工具，放开手脚利用我们吧」",
+      "firstText": "露米娅心中满怀对自己伟大的母亲的感激。",
       "index": 47,
       "lastText": "返回目录",
       "paint": null
@@ -24428,7 +25003,7 @@
         "textRuns": 2
       },
       "firstText": "就这样，格伦他——……",
-      "index": 125,
+      "index": 126,
       "lastText": "返回目录",
       "paint": null
     },
@@ -25813,7 +26388,7 @@
         "textRuns": 30
       },
       "firstText": "断章 0→11",
-      "index": 126,
+      "index": 127,
       "lastText": "所谓『正义』，就是在不断消灭『邪恶』的基础上练就的。",
       "paint": null
     },
@@ -26811,7 +27386,7 @@
         "textRuns": 19
       },
       "firstText": "为什么在看到那个男人的瞬间，他会与记忆中的",
-      "index": 129,
+      "index": 130,
       "lastText": "返回目录",
       "paint": null
     },
@@ -28019,7 +28594,7 @@
         "textRuns": 21
       },
       "firstText": "最终章 21→0→???",
-      "index": 130,
+      "index": 131,
       "lastText": "「……啊？」",
       "paint": null
     },
@@ -29264,7 +29839,7 @@
         "textRuns": 25
       },
       "firstText": "与那仿佛能传到世界尽头的哄笑声一起消失了。",
-      "index": 135,
+      "index": 136,
       "lastText": "这世上……怎么会有这么荒唐可笑的事……？",
       "paint": null
     },
@@ -29274,7 +29849,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 368.926,
             "width": 520,
             "x": 0,
             "y": 0
@@ -29283,7 +29858,7 @@
             {
               "alt": "00",
               "bounds": {
-                "height": 390,
+                "height": 368.926,
                 "width": 520,
                 "x": 0,
                 "y": 0
@@ -29316,7 +29891,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 136,
+      "index": 137,
       "lastText": "",
       "paint": {
         "backgroundColor": "#FFF"
@@ -29832,7 +30407,7 @@
         "textRuns": 10
       },
       "firstText": "着成为魔术师而努力的故事。",
-      "index": 189,
+      "index": 194,
       "lastText": "羊太郎",
       "paint": null
     },
@@ -29842,7 +30417,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -29851,9 +30426,9 @@
             {
               "alt": "END",
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 505.592,
+                "x": 7.204,
                 "y": 0
               },
               "href": null,
@@ -29884,7 +30459,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 190,
+      "index": 195,
       "lastText": "",
       "paint": null
     },
@@ -30677,7 +31252,7 @@
         "textRuns": 10
       },
       "firstText": "教典司掌一切睿智，创造并掌握着世间万物。",
-      "index": 191,
+      "index": 196,
       "lastText": "返回目录",
       "paint": {
         "backgroundColor": "#000"

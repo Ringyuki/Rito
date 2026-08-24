@@ -1,0 +1,9 @@
+.dart_tool/
+build/
+doc/api/
+flutter_*.log
+pubspec.lock
+
+example/.dart_tool/
+example/build/
+example/pubspec.lock

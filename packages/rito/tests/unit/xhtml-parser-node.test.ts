@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
 
 describe('parseXhtml in Node', () => {
   it('does not require browser DOM globals', () => {

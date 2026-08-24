@@ -48,7 +48,10 @@ export function ReaderContextMenu({
 }: Props) {
   const hasSelection = reader.selection.hasSelection && reader.selection.text.length > 0;
   const canPrev = reader.isLoaded && reader.currentSpread > 0;
-  const canNext = reader.isLoaded && reader.currentSpread < reader.spreads.length - 1;
+  const canNext =
+    reader.isLoaded &&
+    (reader.currentSpread < reader.spreads.length - 1 ||
+      reader.controller?.paginationComplete === false);
   const { inputRef, handleChange, openFilePicker } = useFileLoader(onFileLoad);
 
   const handleCopy = useCallback(() => {
@@ -60,13 +63,13 @@ export function ReaderContextMenu({
   }, [reader.controller, reader.selection.text]);
 
   const handleHighlight = useCallback(() => {
-    if (!reader.selection.range) return;
+    if (!reader.selection.hasSelection) return;
     reader.annotations.add({
       kind: 'highlight',
       color: ANNOTATION_COLORS[0].value,
     });
     reader.controller?.clearSelection();
-  }, [reader.annotations, reader.controller, reader.selection.range]);
+  }, [reader.annotations, reader.controller, reader.selection.hasSelection]);
 
   const handleSearchSelection = useCallback(() => {
     if (!reader.selection.text) return;

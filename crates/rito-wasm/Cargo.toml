@@ -1,0 +1,32 @@
+[package]
+name = "rito-wasm"
+description = "Experimental WASM boundary for the Rust Rito engine"
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[features]
+legacy-css-diagnostics = ["rito-core/legacy-css-diagnostics"]
+
+[dependencies]
+js-sys = { version = "=0.3.97", default-features = false }
+rito-core = { path = "../rito-core" }
+rito-inline = { path = "../rito-inline" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
+wasm-bindgen = "=0.2.120"
+
+[dev-dependencies]
+sha2 = "0.10"
+ttf-parser = "0.25"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[lints]
+workspace = true

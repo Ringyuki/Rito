@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { fontShorthandFromStyle, measurePaintFromStyle } from '../../src/style/css/font-shorthand';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import {
+  fontShorthandFromStyle,
+  measurePaintFromStyle,
+} from '../../src/reference/ts-core/style/css/font-shorthand';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
 
 describe('fontShorthandFromStyle', () => {
   it('maps ComputedStyle font-* fields into a FontShorthand', () => {

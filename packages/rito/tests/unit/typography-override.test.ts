@@ -1,8 +1,14 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { createLayoutConfig, type LayoutConfigInput } from '../../src/layout/core/config';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { paginateChapterNodes, preparePaginationContext } from '../../src/runtime/pagination-core';
+import {
+  createLayoutConfig,
+  type LayoutConfigInput,
+} from '../../src/reference/ts-core/layout/core/config';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import {
+  paginateChapterNodes,
+  preparePaginationContext,
+} from '../../src/reference/ts-core/runtime/pagination-core';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 
 function xhtml(body: string): string {

@@ -13,7 +13,23 @@ export {
   type ControllerOptions,
   type InteractionMode,
   type AddAnnotationInput,
+  type SelectionClientPoint,
+  type SelectionHandleDrag,
+  type SelectionHandleEdge,
+  type SelectionHandleState,
 } from './controller/index';
+
+export type {
+  AnnotationRecord,
+  AnnotationRecordPatch,
+  RecordStorageAdapter,
+  ResolvedAnnotation,
+  ReadingPosition,
+  SearchResult,
+  TextRange,
+} from './interaction/index';
+export { parseReadingPosition, resolveAnnotations } from './interaction/index';
+export { buildHitMap } from './public-interaction';
 
 export type { OverlayLayer, Rect } from './painter/types';
 export type { TransitionDriverOptions } from './driver/types';

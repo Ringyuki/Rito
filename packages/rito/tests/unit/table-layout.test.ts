@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { layoutTable } from '../../src/layout/table';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { StyledNode } from '../../src/style/core/types';
-import type { ParagraphLayouter } from '../../src/layout/text/paragraph-layouter';
+import { layoutTable } from '../../src/reference/ts-core/layout/table';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { StyledNode } from '../../src/reference/ts-core/style/core/types';
+import type { ParagraphLayouter } from '../../src/reference/ts-core/layout/text/paragraph-layouter';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 
 function makeCell(text: string, colspan?: number, rowspan?: number): StyledNode {
   const child: StyledNode = { type: 'text', content: text, style: DEFAULT_STYLE, children: [] };

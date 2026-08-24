@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { LayoutBlock, Page } from '../../src/layout/core/types';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
-import { buildPageDisplayList } from '../../src/render/display-list';
+import type { LayoutBlock, Page } from '../../src/reference/ts-core/layout/core/types';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
+import { buildPageDisplayList } from '../../src/reference/ts-core/render/display-list';
 
 const CONFIG = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 

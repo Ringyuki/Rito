@@ -85,4 +85,3 @@ Through `@ritojs/kit` and `@ritojs/react`, the ecosystem also supports:
 ## Related Docs
 
 - [Limitations](./limitations.md)
-- [Architecture](./architecture.md)

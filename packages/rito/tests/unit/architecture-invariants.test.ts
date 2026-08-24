@@ -20,22 +20,25 @@ import { join, relative, sep } from 'node:path';
 
 const SRC = join(import.meta.dirname, '../../src');
 const PACKAGE_ROOT = join(SRC, '..');
+const WORKSPACE_ROOT = join(PACKAGE_ROOT, '../..');
 const PACKAGE_JSON = join(SRC, '../package.json');
 const TSDOWN_CONFIG = join(PACKAGE_ROOT, 'tsdown.config.ts');
+const PRIVATE_BUILD_ENTRIES = new Set([
+  'src/bindings/browser/reader/worker-main.ts',
+  'src/bindings/browser/reader-v1-worker.ts',
+]);
 const MAIN_ENTRY = join(SRC, 'index.ts');
-const WEB_ENTRY = join(SRC, 'web.ts');
 const PACKAGE_JSON_RECORD = readJsonRecord(PACKAGE_JSON);
 const PUBLIC_ENTRY_FILES = packageSourceEntryFiles(PACKAGE_JSON_RECORD, read(TSDOWN_CONFIG));
-const WEB_WORKER_ADAPTER = join(SRC, 'web/reader-runtime-worker-port.ts');
-const WEB_WORKER_ENDPOINT = join(SRC, 'web/reader-runtime-worker-endpoint.ts');
-const WEB_WORKER_ENTRYPOINT = join(SRC, 'web/reader-runtime-worker-entry.ts');
-const WEB_WORKER_DISPATCHER = join(SRC, 'web/reader-runtime-worker-dispatcher.ts');
-const LAYOUT = join(SRC, 'layout');
-const PARSER = join(SRC, 'parser');
-const RENDER = join(SRC, 'render');
-const RUNTIME = join(SRC, 'runtime');
-const READER_SESSION = join(RUNTIME, 'reader-session');
-const READER_SESSION_FRAME = join(READER_SESSION, 'frame.ts');
+const REFERENCE = join(SRC, 'reference');
+const REFERENCE_TS_CORE = join(REFERENCE, 'ts-core');
+const COMPATIBILITY = join(SRC, 'compatibility');
+const LAYOUT = join(REFERENCE_TS_CORE, 'layout');
+const RENDER = join(REFERENCE_TS_CORE, 'render');
+const RUNTIME = join(REFERENCE_TS_CORE, 'runtime');
+const READER_ROOT = join(SRC, 'reader');
+const BROWSER_READER_BINDING = join(SRC, 'bindings/browser/reader');
+const BROWSER_READER_BINDING_ROOT = join(BROWSER_READER_BINDING, 'reader.ts');
 const RENDER_BACKENDS = join(RENDER, 'backends');
 const DISPLAY_LIST = join(RENDER, 'display-list');
 const RENDER_PAGE = join(RENDER, 'page');
@@ -45,12 +48,28 @@ const ASSET_CONTRACT_FILES = ['types.ts', 'image-asset-resolver.ts', 'image-sour
   .map((file) => join(RENDER, 'assets', file))
   .filter((file) => existsSync(file));
 const RENDER_ASSETS = join(RENDER, 'assets');
+const READER_CONSUMER_ROOTS = [
+  join(WORKSPACE_ROOT, 'packages/kit/src'),
+  join(WORKSPACE_ROOT, 'packages/react/src'),
+  join(WORKSPACE_ROOT, 'apps/reader/src'),
+].filter((path) => existsSync(path));
+const LEGACY_TS_CORE_ROOTS = [
+  'dom',
+  'interaction',
+  'layout',
+  'model',
+  'parser',
+  'render',
+  'runtime',
+  'style',
+  'utils',
+].map((dir) => join(SRC, dir));
 const RENDER_ASSET_ROOT_FILES = existsSync(RENDER_ASSETS)
   ? readdirSync(RENDER_ASSETS)
       .filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
       .map((entry) => join(RENDER_ASSETS, entry))
   : [];
-const LAYOUT_TYPES = join(SRC, 'layout/core/types.ts');
+const LAYOUT_TYPES = join(REFERENCE_TS_CORE, 'layout/core/types.ts');
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -59,6 +78,17 @@ function walkTs(root: string): string[] {
     const st = statSync(full);
     if (st.isDirectory()) out.push(...walkTs(full));
     else if (full.endsWith('.ts')) out.push(full);
+  }
+  return out;
+}
+
+function walkTsLike(root: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(root)) {
+    const full = join(root, entry);
+    const st = statSync(full);
+    if (st.isDirectory()) out.push(...walkTsLike(full));
+    else if (full.endsWith('.ts') || full.endsWith('.tsx')) out.push(full);
   }
   return out;
 }
@@ -103,7 +133,9 @@ function packageSourceEntryFiles(
 ): string[] {
   const exportsValue = packageJson['exports'];
   if (!isRecord(exportsValue)) throw new Error('package.json exports must be an object');
-  const sourceEntries = sortedUnique(tsdownSourceEntries(tsdownConfig));
+  const sourceEntries = sortedUnique(
+    tsdownSourceEntries(tsdownConfig).filter((entry) => !PRIVATE_BUILD_ENTRIES.has(entry)),
+  );
   const exportEntries = sortedUnique(packageExportSourceEntries(exportsValue));
   const expected = exportEntries.filter((entry) => entry !== 'package.json');
   if (!sameStringList(sourceEntries, expected)) {
@@ -164,38 +196,6 @@ function sameStringList(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
-function packageExportLeaks(packageJson: { readonly [key: string]: unknown }): string[] {
-  const exportsValue = packageJson['exports'];
-  if (!isRecord(exportsValue)) return ['package.json exports must be an object'];
-  const leaks: string[] = [];
-  for (const [key, target] of Object.entries(exportsValue)) {
-    collectPackageExportLeak(leaks, `exports.${key}`, key);
-    collectPackageExportTargetLeaks(leaks, `exports.${key}`, target);
-  }
-  return leaks;
-}
-
-function collectPackageExportTargetLeaks(leaks: string[], path: string, value: unknown): void {
-  if (typeof value === 'string') {
-    collectPackageExportLeak(leaks, path, value);
-    return;
-  }
-  if (!isRecord(value)) return;
-  for (const [key, target] of Object.entries(value)) {
-    collectPackageExportLeak(leaks, `${path}.${key}`, key);
-    collectPackageExportTargetLeaks(leaks, `${path}.${key}`, target);
-  }
-}
-
-function collectPackageExportLeak(leaks: string[], path: string, value: string): void {
-  if (
-    !/(?:^|\/)reader-session(?:\/|$)|runtime\/reader-session|reader-runtime-worker-/.test(value)
-  ) {
-    return;
-  }
-  leaks.push(`${path}: ${value}`);
-}
-
 function isRecord(value: unknown): value is { readonly [key: string]: unknown } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -219,27 +219,26 @@ function scanRenderImports(
 
 const RENDER_FILES = walkTs(RENDER);
 const RUNTIME_FILES = walkTs(RUNTIME);
-const READER_SESSION_FILES = existsSync(READER_SESSION) ? walkTs(READER_SESSION) : [];
-const READER_SESSION_FILE_SET = new Set(READER_SESSION_FILES);
-const READER_SESSION_PROTOCOL_FILES = READER_SESSION_FILES.filter(
-  (file) => file !== READER_SESSION_FRAME,
-);
+const REFERENCE_FILES = existsSync(REFERENCE) ? walkTs(REFERENCE) : [];
+const BROWSER_READER_BINDING_FILES = existsSync(BROWSER_READER_BINDING)
+  ? walkTs(BROWSER_READER_BINDING)
+  : [];
 const LAYOUT_FILES = walkTs(LAYOUT);
-const PARSER_FILES = walkTs(PARSER);
 const RENDER_BACKEND_FILES = existsSync(RENDER_BACKENDS) ? walkTs(RENDER_BACKENDS) : [];
 const DISPLAY_LIST_FILES = existsSync(DISPLAY_LIST) ? walkTs(DISPLAY_LIST) : [];
 const RENDER_PAGE_FILES = existsSync(RENDER_PAGE) ? walkTs(RENDER_PAGE) : [];
 const RENDER_SPREAD_FILES = existsSync(RENDER_SPREAD) ? walkTs(RENDER_SPREAD) : [];
 const PLATFORM_RUNTIME_RE =
   /\b(CanvasRenderingContext2D|OffscreenCanvasRenderingContext2D|HTMLCanvasElement|OffscreenCanvas|ImageBitmap|ImageData|FontFace|FontFaceSet|HTMLElement|Document|Window|Blob|createImageBitmap)\b/g;
-const WEB_WORKER_RUNTIME_RE = /\b(Worker|MessageEvent|ErrorEvent|MessagePort)\b/g;
-const READER_SESSION_DISPLAY_LIST_TYPE_IMPORT_RE =
-  /^\s*import\s+type\s+.*\s+from\s+['"]\.\.\/\.\.\/render\/display-list\/types['"];?\s*$/;
-const READER_SESSION_FRAME_RENDER_IMPORTS = [
-  /^\s*import\s+\{\s*buildSpreadDisplayList\s*\}\s+from\s+['"]\.\.\/\.\.\/render\/display-list['"];?\s*$/,
-  /^\s*import\s+\{\s*collectSpreadImageSources\s*\}\s+from\s+['"]\.\.\/\.\.\/render\/assets\/image-sources['"];?\s*$/,
-  READER_SESSION_DISPLAY_LIST_TYPE_IMPORT_RE,
-] as const;
+const READER_CONSUMER_FILES = READER_CONSUMER_ROOTS.flatMap(walkTsLike);
+
+function isLegacyTsCoreRootFile(file: string): boolean {
+  return LEGACY_TS_CORE_ROOTS.some((root) => file.startsWith(`${root}${sep}`));
+}
+
+function isReferenceShim(file: string): boolean {
+  return /^export \* from "(\.\.\/)+reference\/ts-core\/[^"]+";\n?$/.test(read(file));
+}
 
 describe('Architecture invariant: render/ does not import ComputedStyle', () => {
   it('no file in render/ imports the ComputedStyle type', () => {
@@ -248,32 +247,11 @@ describe('Architecture invariant: render/ does not import ComputedStyle', () => 
   });
 });
 
-describe('Architecture invariant: parser is DOM-free', () => {
-  it('does not use browser or W3C DOM parser types', () => {
-    const domRuntimeOrType =
-      /\b(?:DOMParser|XMLSerializer|Document|XMLDocument|DocumentFragment|Element|HTMLElement|Node|NodeList|NamedNodeMap|Attr|CDATASection|DocumentType|ProcessingInstruction)\b|@xmldom|linkedom|jsdom|happy-dom/g;
-    const hits = scan(PARSER_FILES, domRuntimeOrType);
-    expect(hits, `DOM dependency found in parser:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
-  });
-
-  it('does not package or bundle xmldom', () => {
-    expect(read(PACKAGE_JSON)).not.toContain('@xmldom');
-    expect(read(TSDOWN_CONFIG)).not.toContain('@xmldom');
-  });
-});
-
-describe('Architecture invariant: render stays below runtime orchestration', () => {
-  it('does not import runtime modules', () => {
-    const hits = scan(RENDER_FILES, /from\s+['"][^'"]*runtime[^'"]*['"]/g);
-    expect(hits, `render imported runtime modules:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
-  });
-});
-
 describe('Architecture invariant: public entries are split by platform', () => {
-  it('main entry does not export Web Canvas preset modules', () => {
+  it('main entry exposes the root reader without Web Canvas helper modules', () => {
     const hits = scan(
       [MAIN_ENTRY],
-      /from\s+['"]\.\/(?:reader|render\/(?:index|web|page|spread|backends\/canvas|assets\/web)[^'"]*)['"]/g,
+      /from\s+['"]\.\/render\/(?:index|web|page|spread|backends\/canvas|assets\/web)[^'"]*['"]/g,
     );
     expect(
       hits,
@@ -281,60 +259,184 @@ describe('Architecture invariant: public entries are split by platform', () => {
     ).toEqual([]);
   });
 
-  it('web entry owns Web Canvas preset exports', () => {
-    expect(read(WEB_ENTRY)).toContain("from './reader'");
-    expect(read(WEB_ENTRY)).toContain("from './render/spread'");
-    expect(read(WEB_ENTRY)).toContain("from './render/web'");
-    expect(read(WEB_ENTRY)).toContain("from './render/backends/canvas'");
-  });
-
-  it('reader runtime worker adapter is not exposed through stable entries yet', () => {
-    expect(existsSync(WEB_WORKER_ADAPTER)).toBe(true);
-    expect(existsSync(WEB_WORKER_ENDPOINT)).toBe(true);
-    expect(existsSync(WEB_WORKER_ENTRYPOINT)).toBe(true);
-    expect(existsSync(WEB_WORKER_DISPATCHER)).toBe(true);
-    expect(read(MAIN_ENTRY)).not.toContain('reader-runtime-worker-port');
-    expect(read(MAIN_ENTRY)).not.toContain('reader-runtime-worker-endpoint');
-    expect(read(MAIN_ENTRY)).not.toContain('reader-runtime-worker-entry');
-    expect(read(MAIN_ENTRY)).not.toContain('reader-runtime-worker-dispatcher');
-    expect(read(WEB_ENTRY)).not.toContain('reader-runtime-worker-port');
-    expect(read(WEB_ENTRY)).not.toContain('reader-runtime-worker-endpoint');
-    expect(read(WEB_ENTRY)).not.toContain('reader-runtime-worker-entry');
-    expect(read(WEB_ENTRY)).not.toContain('reader-runtime-worker-dispatcher');
-    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-runtime-worker-port');
-    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-runtime-worker-endpoint');
-    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-runtime-worker-entry');
-    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-runtime-worker-dispatcher');
-  });
-
-  it('reader runtime internals are not exposed through package entrypoints yet', () => {
+  it('main entry value-exports only the production reader facade', () => {
     const hits = scan(
-      PUBLIC_ENTRY_FILES,
-      /reader-session|reader-runtime-worker-(?:port|endpoint|entry|dispatcher)/g,
+      [MAIN_ENTRY],
+      /export\s+(?!type\b)[^;]*from\s+['"]\.\/(?:reference|compatibility\/web)['"]/g,
     );
     expect(
       hits,
-      `Reader runtime internals leaked through public entries:\n${JSON.stringify(hits, null, 2)}`,
+      `Legacy TS reader value export leaked through main entry:\n${JSON.stringify(hits, null, 2)}`,
     ).toEqual([]);
-    const exportedEntryFiles = [...PUBLIC_ENTRY_FILES].sort();
-    expect(exportedEntryFiles).toEqual(
+  });
+
+  it('main entry does not expose legacy TypeScript primitive modules', () => {
+    const source = read(MAIN_ENTRY);
+    expect(source).not.toContain("from './compatibility/");
+    expect(source).not.toContain("from './runtime/");
+    expect(source).not.toContain("from './layout/");
+    expect(source).not.toContain("from './render/");
+    expect(source).not.toContain("from './parser/");
+  });
+
+  it('legacy TypeScript compatibility subpaths are not public package entries', () => {
+    const exported = Object.keys(PACKAGE_JSON_RECORD['exports'] as Record<string, unknown>);
+    expect(exported.sort()).toEqual(['.', './package.json']);
+    expect(read(TSDOWN_CONFIG)).not.toMatch(
+      /src\/(?:advanced|web|selection|search|annotations|position|a11y|dom)\.ts/,
+    );
+  });
+
+  it('the retired compatibility layer stays deleted', () => {
+    // The 0.13 subpath presets were removed with the legacy pagination
+    // opt-out: the fragment engine is the only pipeline, and nothing may
+    // quietly reintroduce a parallel API surface for the old one.
+    expect(existsSync(COMPATIBILITY)).toBe(false);
+  });
+
+  it('package exports do not expose the internal reference implementation', () => {
+    const exportsText = JSON.stringify(PACKAGE_JSON_RECORD['exports']);
+    expect(exportsText).not.toContain('reference');
+  });
+
+  it('package exports and build entries stay aligned', () => {
+    expect([...PUBLIC_ENTRY_FILES].sort()).toEqual(
       packageSourceEntryFiles(PACKAGE_JSON_RECORD, read(TSDOWN_CONFIG)),
     );
-    const exportLeaks = packageExportLeaks(PACKAGE_JSON_RECORD);
+  });
+
+  it('reader UI packages consume the root core reader entry', () => {
+    const hits = scan(
+      READER_CONSUMER_FILES,
+      /(?:from\s+|import\s*\()\s*['"]@ritojs\/core\/(?:advanced|web|selection|search|annotations|position|a11y|dom)['"]/g,
+    );
     expect(
-      exportLeaks,
-      `Reader runtime internals leaked through package exports:\n${JSON.stringify(
-        exportLeaks,
+      hits,
+      `App-facing reader code should not import removed @ritojs/core legacy subpaths:\n${JSON.stringify(
+        hits,
         null,
         2,
       )}`,
     ).toEqual([]);
   });
 
-  it('reader runtime worker entry does not bind to a global worker scope', () => {
-    const text = read(WEB_WORKER_ENTRYPOINT);
-    expect(text).not.toContain('self');
-    expect(text).not.toContain('DedicatedWorkerGlobalScope');
+  it('reader UI packages do not consume the internal reference implementation', () => {
+    const hits = scan(
+      READER_CONSUMER_FILES,
+      /(?:from\s+|import\s*\()\s*['"][^'"]*(?:@ritojs\/core\/reference|\/reference|src\/reference)[^'"]*['"]/g,
+    );
+    expect(
+      hits,
+      `App-facing reader code should not import TS reference internals:\n${JSON.stringify(
+        hits,
+        null,
+        2,
+      )}`,
+    ).toEqual([]);
+  });
+
+  it('reader UI packages keep old TypeScript interaction helpers owned by kit', () => {
+    const kitInteraction = join(WORKSPACE_ROOT, 'packages/kit/src/interaction');
+    expect(existsSync(kitInteraction)).toBe(true);
+    expect(read(join(WORKSPACE_ROOT, 'packages/kit/src/controller/engines/create.ts'))).toContain(
+      '../../interaction/index',
+    );
+  });
+});
+
+describe('Architecture invariant: TypeScript reference core is isolated', () => {
+  it('reference facade exists and owns the legacy TypeScript reader implementation', () => {
+    const files = REFERENCE_FILES.map(rel).sort();
+    expect(existsSync(REFERENCE_TS_CORE)).toBe(true);
+    expect(files).toContain('reference/index.ts');
+    expect(files).toContain('reference/reader/index.ts');
+    expect(files.some((file) => file.startsWith('reference/reader/helpers/'))).toBe(true);
+    expect(files.some((file) => file.startsWith('reference/ts-core/layout/'))).toBe(true);
+    expect(files.some((file) => file.startsWith('reference/ts-core/render/'))).toBe(true);
+    expect(files.some((file) => file.startsWith('reference/ts-core/runtime/'))).toBe(true);
+  });
+
+  it('legacy TypeScript core root directories are not implementation roots', () => {
+    const hits = LEGACY_TS_CORE_ROOTS.filter(existsSync);
+    expect(
+      hits.map(rel),
+      `Legacy TS implementation directories leaked back into root source:\n${JSON.stringify(
+        hits.map(rel),
+        null,
+        2,
+      )}`,
+    ).toEqual([]);
+  });
+
+  it('production reader directory does not contain legacy TypeScript reader helpers', () => {
+    const files = walkTs(READER_ROOT).map(rel).sort();
+    const hits = files.filter((file) => file.startsWith('reader/helpers/'));
+    expect(
+      hits,
+      `Legacy TypeScript reader helpers leaked into production reader directory:\n${JSON.stringify(
+        hits,
+        null,
+        2,
+      )}`,
+    ).toEqual([]);
+  });
+
+  it('production reader directory stays a thin public facade', () => {
+    expect(walkTs(READER_ROOT).map(rel).sort()).toEqual([
+      'reader/create-reader.ts',
+      'reader/index.ts',
+      'reader/instance.ts',
+      'reader/layout-config.ts',
+      'reader/model.ts',
+    ]);
+  });
+
+  it('root reader facade lazy-loads the browser binding implementation', () => {
+    const source = read(join(READER_ROOT, 'create-reader.ts'));
+    expect(source).not.toMatch(/from\s+['"][^'"]*bindings\/browser\/reader/);
+    expect(source).toContain("import('../bindings/browser/reader/reader')");
+  });
+
+  it('main entry and browser reader binding do not import the reference core', () => {
+    const hits = scan(
+      [MAIN_ENTRY, ...BROWSER_READER_BINDING_FILES],
+      /from\s+['"][^'"]*reference[^'"]*['"]|import\s*\(\s*['"][^'"]*reference[^'"]*['"]\s*\)/g,
+    );
+    expect(
+      hits,
+      `Production reader binding imported reference internals:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+
+  it('only compatibility and reference code may import the reference core', () => {
+    const productionFiles = walkTs(SRC).filter((file) => {
+      if (file.startsWith(REFERENCE) || file.startsWith(COMPATIBILITY)) return false;
+      if (isLegacyTsCoreRootFile(file) && isReferenceShim(file)) return false;
+      return true;
+    });
+    const hits = scan(
+      productionFiles,
+      /from\s+['"][^'"]*reference[^'"]*['"]|import\s*\(\s*['"][^'"]*reference[^'"]*['"]\s*\)/g,
+    );
+    expect(
+      hits,
+      `Production code imported reference internals outside compatibility:\n${JSON.stringify(
+        hits,
+        null,
+        2,
+      )}`,
+    ).toEqual([]);
+  });
+});
+
+describe('Architecture invariant: root reader does not force main-thread engine execution', () => {
+  it('loads the runtime boundary and lets worker selection choose the execution mode', () => {
+    const source = read(BROWSER_READER_BINDING_ROOT);
+
+    expect(source).toContain('loadRuntimeCoreModule');
+    expect(source).not.toContain('initializeFullCoreModule');
+    expect(source).not.toContain('getLoadedFullCoreModule');
+    expect(source).not.toContain('createInProcessBrowserReaderWorkerClient');
   });
 });
 
@@ -370,12 +472,12 @@ describe('Architecture invariant: render backends consume display-list commands'
 describe('Architecture invariant: Canvas implementation lives in the Canvas backend', () => {
   it('render/page is only the public page facade', () => {
     const files = RENDER_PAGE_FILES.map(rel).sort();
-    expect(files).toEqual(['render/page/index.ts']);
+    expect(files).toEqual(['reference/ts-core/render/page/index.ts']);
   });
 
   it('render/spread is only the public spread facade', () => {
     const files = RENDER_SPREAD_FILES.map(rel).sort();
-    expect(files).toEqual(['render/spread/index.ts']);
+    expect(files).toEqual(['reference/ts-core/render/spread/index.ts']);
   });
 
   it('page and spread facades do not perform raw Canvas drawing', () => {
@@ -401,69 +503,9 @@ describe('Architecture invariant: runtime is platform-neutral', () => {
     expect(hits, `Platform type found in runtime:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
   });
 
-  it('only imports approved platform-neutral render contracts from reader-session', () => {
-    const hits = scanRenderImports(RUNTIME_FILES, (file, line) => {
-      if (!READER_SESSION_FILE_SET.has(file)) return false;
-      if (file === READER_SESSION_FRAME) {
-        return READER_SESSION_FRAME_RENDER_IMPORTS.some((pattern) => pattern.test(line));
-      }
-      return READER_SESSION_DISPLAY_LIST_TYPE_IMPORT_RE.test(line);
-    });
+  it('does not import render modules', () => {
+    const hits = scanRenderImports(RUNTIME_FILES);
     expect(hits, `runtime imported render modules:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
-  });
-});
-
-describe('Architecture invariant: reader-session protocol stays neutral and internal', () => {
-  it('protocol files only import render/display-list/types with type-only syntax', () => {
-    const hits = scanRenderImports(READER_SESSION_PROTOCOL_FILES, (_file, line) => {
-      return READER_SESSION_DISPLAY_LIST_TYPE_IMPORT_RE.test(line);
-    });
-    expect(
-      hits,
-      `reader-session protocol imported render implementation modules:\n${JSON.stringify(hits, null, 2)}`,
-    ).toEqual([]);
-  });
-
-  it('frame builder only imports approved platform-neutral render modules', () => {
-    const hits = scanRenderImports([READER_SESSION_FRAME], (_file, line) => {
-      return READER_SESSION_FRAME_RENDER_IMPORTS.some((pattern) => pattern.test(line));
-    });
-    expect(
-      hits,
-      `frame builder imported disallowed render modules:\n${JSON.stringify(hits, null, 2)}`,
-    ).toEqual([]);
-  });
-
-  it('does not import Web Canvas adapters, render backends, or Web render helpers', () => {
-    const hits = scan(
-      READER_SESSION_FILES,
-      /from\s+['"][^'"]*render(?:\/(?:index|web|page|spread|backends|assets\/web)(?:\/[^'"]*)?)?['"]/g,
-    );
-    expect(
-      hits,
-      `reader-session imported a platform render module:\n${JSON.stringify(hits, null, 2)}`,
-    ).toEqual([]);
-  });
-
-  it('does not reference browser or canvas runtime types', () => {
-    const hits = scan(READER_SESSION_FILES, PLATFORM_RUNTIME_RE);
-    expect(
-      hits,
-      `Platform type found in reader-session:\n${JSON.stringify(hits, null, 2)}`,
-    ).toEqual([]);
-  });
-
-  it('does not reference Web Worker runtime types', () => {
-    const hits = scan(READER_SESSION_FILES, WEB_WORKER_RUNTIME_RE);
-    expect(
-      hits,
-      `Web Worker runtime type found in reader-session:\n${JSON.stringify(hits, null, 2)}`,
-    ).toEqual([]);
-  });
-
-  it('is not exposed through stable public entries yet', () => {
-    expect(read(MAIN_ENTRY)).not.toContain('reader-session');
-    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-session');
   });
 });
 

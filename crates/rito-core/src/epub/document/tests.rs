@@ -1,0 +1,273 @@
+use std::io::{Cursor, Write};
+
+use zip::{write::FileOptions, ZipWriter};
+
+use super::{open_document, open_runtime_document_owned};
+
+mod resource_hrefs;
+mod unmanifested_images;
+
+#[test]
+fn opens_document_with_runtime_resources_and_chapters() {
+    let bytes = fixture_epub();
+
+    let document = open_document(&bytes).expect("document opens");
+
+    assert_eq!(document.package.metadata.title, "Runtime fixture");
+    assert_eq!(document.chapters.len(), 1);
+    assert!(document
+        .read_chapter("chapter")
+        .is_some_and(|chapter| { chapter.contains("<p>Hello</p>") }));
+    assert_eq!(
+        document.stylesheet("styles/main.css"),
+        Some("p { color: red; }")
+    );
+    assert_eq!(document.font("Fonts/book.otf"), Some(&b"font-bytes"[..]));
+    assert_eq!(
+        document.image("Images/cover.png"),
+        Some(minimal_png().as_slice())
+    );
+    assert_eq!(document.images[0].width, Some(2));
+    assert_eq!(document.images[0].height, Some(3));
+}
+
+#[test]
+fn caches_lazy_binary_resources_after_first_read() {
+    let bytes = fixture_epub();
+    let mut document = open_runtime_document_owned(bytes).expect("document opens");
+
+    assert!(document.images[0].bytes.is_empty());
+    let image = document
+        .read_image_bytes("Images/cover.png")
+        .expect("image read succeeds")
+        .expect("image exists");
+
+    assert_eq!(image, minimal_png());
+    assert_eq!(document.images[0].bytes, minimal_png());
+    assert!(document.images[0].byte_hash.is_some());
+}
+
+#[test]
+fn caches_lazy_font_resources_after_batch_load() {
+    let bytes = fixture_epub();
+    let mut document = open_runtime_document_owned(bytes).expect("document opens");
+
+    assert!(document.fonts[0].bytes.is_empty());
+    document
+        .ensure_all_fonts_loaded()
+        .expect("font loading succeeds");
+
+    assert_eq!(document.fonts[0].bytes, b"font-bytes");
+    assert_eq!(document.fonts[0].byte_length, b"font-bytes".len());
+    assert!(document.fonts[0].byte_hash.is_some());
+}
+
+#[test]
+fn streams_image_dimensions_without_caching_the_full_resource() {
+    let bytes = fixture_epub();
+    let mut document = open_runtime_document_owned(bytes).expect("document opens");
+
+    assert!(document.images[0].bytes.is_empty());
+    document
+        .ensure_image_dimensions_loaded("Images/cover.png")
+        .expect("dimensions load succeeds");
+
+    assert_eq!(document.images[0].width, Some(2));
+    assert_eq!(document.images[0].height, Some(3));
+    assert!(document.images[0].bytes.is_empty());
+    assert!(document.images[0].byte_hash.is_none());
+}
+
+#[test]
+fn detects_image_dimensions_from_cached_bytes_without_archive_source() {
+    let mut document =
+        open_runtime_document_owned(fixture_epub()).expect("document opens for cached image");
+
+    document
+        .read_image_bytes("Images/cover.png")
+        .expect("image bytes load")
+        .expect("image exists");
+    document.archive_source = None;
+    document
+        .ensure_image_dimensions_loaded("Images/cover.png")
+        .expect("cached image dimensions load without archive");
+
+    assert_eq!(document.images[0].width, Some(2));
+    assert_eq!(document.images[0].height, Some(3));
+    assert!(document.images[0].dimensions_loaded);
+}
+
+#[test]
+fn batch_detects_cached_image_dimensions_without_reopening_archive() {
+    let mut document =
+        open_runtime_document_owned(fixture_epub()).expect("document opens for cached batch");
+
+    document
+        .read_image_bytes("Images/cover.png")
+        .expect("image bytes load")
+        .expect("image exists");
+    document.chapters[0].xhtml_source =
+        r#"<html><body><img src="Images/cover.png"/></body></html>"#.to_owned();
+    document.chapters[0].image_refs = None;
+    document
+        .archive_source
+        .as_mut()
+        .expect("archive source exists")
+        .bytes = std::sync::Arc::from(Vec::<u8>::new());
+
+    document
+        .ensure_chapter_image_dimensions_loaded(0, 1)
+        .expect("cached batch dimensions load without reopening archive");
+
+    assert_eq!(document.images[0].width, Some(2));
+    assert_eq!(document.images[0].height, Some(3));
+    assert!(document.images[0].dimensions_loaded);
+}
+
+#[test]
+fn ignores_image_dimension_ranges_beyond_available_chapters() {
+    let mut document =
+        open_runtime_document_owned(fixture_epub()).expect("document opens for range check");
+
+    document
+        .ensure_chapter_image_dimensions_loaded(usize::MAX, 1)
+        .expect("out-of-range image preloading is a no-op");
+
+    assert!(document.images[0].bytes.is_empty());
+    assert!(!document.images[0].dimensions_loaded);
+}
+
+#[test]
+fn skips_missing_optional_manifest_resources() {
+    let bytes = fixture_epub_with_entries(true, false, "chapter");
+
+    let document = open_document(&bytes).expect("missing optional resources do not block open");
+    assert!(document.stylesheets.is_empty());
+    assert!(document.fonts.is_empty());
+    assert!(document.images.is_empty());
+    assert!(document
+        .read_chapter("chapter")
+        .is_some_and(|chapter| chapter.contains("<p>Hello</p>")));
+
+    let runtime = open_runtime_document_owned(bytes)
+        .expect("missing optional resources do not block runtime open");
+    assert!(runtime.stylesheets.is_empty());
+    assert!(runtime.fonts.is_empty());
+    assert!(runtime.images.is_empty());
+}
+
+#[test]
+fn rejects_missing_spine_chapter() {
+    let error = open_document(&fixture_epub_with_entries(false, true, "chapter"))
+        .expect_err("missing spine chapter must still fail");
+
+    assert!(error.message().contains("OEBPS/Text/chapter.xhtml"));
+}
+
+#[test]
+fn rejects_spine_idrefs_missing_from_the_manifest() {
+    let bytes = fixture_epub_with_entries(true, true, "missing-chapter");
+    let eager = open_document(&bytes).expect_err("eager open rejects dangling spine idref");
+    let runtime =
+        open_runtime_document_owned(bytes).expect_err("runtime open rejects dangling spine idref");
+
+    for error in [eager, runtime] {
+        assert_eq!(
+            error.message(),
+            "spine idref is missing from manifest: missing-chapter"
+        );
+    }
+}
+
+fn fixture_epub() -> Vec<u8> {
+    fixture_epub_with_entries(true, true, "chapter")
+}
+
+fn fixture_epub_with_entries(
+    include_chapter: bool,
+    include_optional_resources: bool,
+    spine_idref: &str,
+) -> Vec<u8> {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options: FileOptions<'_, ()> = FileOptions::default();
+    add_file(
+        &mut writer,
+        options,
+        "META-INF/container.xml",
+        br#"<?xml version="1.0"?>
+        <container>
+          <rootfiles>
+            <rootfile full-path="OEBPS/content.opf"/>
+          </rootfiles>
+        </container>"#,
+    );
+    let package = format!(
+        r#"<package xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <metadata>
+            <dc:title>Runtime fixture</dc:title>
+            <dc:language>en</dc:language>
+            <dc:identifier>fixture-id</dc:identifier>
+          </metadata>
+          <manifest>
+            <item id="chapter" href="Text/chapter.xhtml" media-type="application/xhtml+xml"/>
+            <item id="css" href="styles/main.css" media-type="text/css"/>
+            <item id="font" href="Fonts/book.otf" media-type="font/otf"/>
+            <item id="cover" href="Images/cover.png" media-type="image/png"/>
+          </manifest>
+          <spine>
+            <itemref idref="{spine_idref}"/>
+          </spine>
+        </package>"#
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OEBPS/content.opf",
+        package.as_bytes(),
+    );
+    if include_chapter {
+        add_file(
+            &mut writer,
+            options,
+            "OEBPS/Text/chapter.xhtml",
+            br#"<html><body><p>Hello</p></body></html>"#,
+        );
+    }
+    if include_optional_resources {
+        add_file(
+            &mut writer,
+            options,
+            "OEBPS/styles/main.css",
+            b"p { color: red; }",
+        );
+        add_file(&mut writer, options, "OEBPS/Fonts/book.otf", b"font-bytes");
+        add_file(
+            &mut writer,
+            options,
+            "OEBPS/Images/cover.png",
+            &minimal_png(),
+        );
+    }
+    writer.finish().expect("zip finalizes").into_inner()
+}
+
+fn add_file(
+    writer: &mut ZipWriter<Cursor<Vec<u8>>>,
+    options: FileOptions<'_, ()>,
+    path: &str,
+    bytes: &[u8],
+) {
+    writer.start_file(path, options).expect("file starts");
+    writer.write_all(bytes).expect("file writes");
+}
+
+fn minimal_png() -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]);
+    bytes.extend_from_slice(&13u32.to_be_bytes());
+    bytes.extend_from_slice(b"IHDR");
+    bytes.extend_from_slice(&2u32.to_be_bytes());
+    bytes.extend_from_slice(&3u32.to_be_bytes());
+    bytes.extend_from_slice(&[8, 2, 0, 0, 0]);
+    bytes
+}

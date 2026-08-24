@@ -1,0 +1,69 @@
+{
+  "name": "text-letter-spacing",
+  "width": 460,
+  "height": 200,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintText",
+      "text": "justify carrier with spaces between words",
+      "rect": { "x": 10, "y": 10, "width": 420, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "letterSpacingPx": 0.37,
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "justify carrier with spaces between words",
+      "rect": { "x": 10, "y": 40, "width": 420, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "letterSpacingPx": 1.83,
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "negative tracking squeezes glyphs",
+      "rect": { "x": 10, "y": 70, "width": 420, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "letterSpacingPx": -0.5,
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "word spacing carrier text here",
+      "rect": { "x": 10, "y": 100, "width": 420, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "wordSpacingPx": 4.25,
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "两端对齐的汉字间距测试",
+      "rect": { "x": 10, "y": 130, "width": 420, "height": 24 },
+      "paint": {
+        "color": "#000000",
+        "letterSpacingPx": 2.4,
+        "font": { "family": "Source Han Serif CN", "sizePx": 17, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "mixed 混排 spacing 测试 text",
+      "rect": { "x": 10, "y": 162, "width": 420, "height": 24 },
+      "paint": {
+        "color": "#000000",
+        "letterSpacingPx": 0.91,
+        "wordSpacingPx": 2.13,
+        "font": { "family": "Source Han Serif CN", "sizePx": 17, "style": "normal", "weight": 400 }
+      }
+    }
+  ]
+}

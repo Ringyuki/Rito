@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { layoutBlocks } from '../../src/layout/block';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
-import type { DocumentNode } from '../../src/parser/xhtml/types';
-import { NODE_TYPES } from '../../src/parser/xhtml/types';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { parseCssRules } from '../../src/style/css/rule-parser';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
+import type { DocumentNode } from '../../src/reference/ts-core/parser/xhtml/types';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { parseCssRules } from '../../src/reference/ts-core/style/css/rule-parser';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 
 describe('paragraph base style', () => {

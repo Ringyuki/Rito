@@ -1,0 +1,15 @@
+[package]
+name = "rito-style-contract"
+description = "Engine-neutral typed style contracts for Rito"
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true

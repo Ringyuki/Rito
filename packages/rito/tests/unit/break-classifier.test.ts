@@ -3,7 +3,7 @@ import {
   canBreakTextAt,
   getLineBreakOffsets,
   splitLineBreakSegments,
-} from '../../src/layout/line-breaker/break-classifier';
+} from '../../src/reference/ts-core/layout/line-breaker/break-classifier';
 
 describe('break classifier', () => {
   it('uses UAX/CSS line-break segments for mixed-script text', () => {

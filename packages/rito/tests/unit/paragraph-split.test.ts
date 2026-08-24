@@ -3,14 +3,14 @@
  * to the next page.
  */
 import { describe, expect, it } from 'vitest';
-import { layoutBlocks } from '../../src/layout/block';
-import { paginateBlocks } from '../../src/layout/pagination';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { paginateBlocks } from '../../src/reference/ts-core/layout/pagination';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import type { DocumentNode } from '../../src/parser/xhtml/types';
-import { NODE_TYPES } from '../../src/parser/xhtml/types';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import type { DocumentNode } from '../../src/reference/ts-core/parser/xhtml/types';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types';
 
 // Use a wider char-width factor to simulate CJK full-width characters
 const measurer = createMockTextMeasurer(1.0);

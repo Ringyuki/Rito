@@ -14,10 +14,10 @@ import { describe, expect, it } from 'vitest';
 import {
   drawTextFragment,
   type CanvasTextFragment,
-} from '../../src/render/backends/canvas/text/text-renderer';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { ComputedStyle } from '../../src/style/core/types';
-import { runPaintFromStyle } from '../../src/layout/text/run-paint-from-style';
+} from '../../src/reference/ts-core/render/backends/canvas/text/text-renderer';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { ComputedStyle } from '../../src/reference/ts-core/style/core/types';
+import { runPaintFromStyle } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 import { createMockCanvasContext, isCall, type CanvasCall } from '../helpers/mock-canvas-context';
 
 function calls(records: readonly unknown[]): CanvasCall[] {

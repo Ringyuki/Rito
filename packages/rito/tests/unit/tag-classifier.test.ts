@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyTag } from '../../src/parser/xhtml/tag-classifier';
+import { classifyTag } from '../../src/reference/ts-core/parser/xhtml/tag-classifier';
 
 describe('classifyTag', () => {
   it('classifies block-level elements', () => {

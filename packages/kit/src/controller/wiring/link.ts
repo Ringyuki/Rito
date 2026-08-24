@@ -1,6 +1,8 @@
-import { hitTestLink } from '@ritojs/core/integration';
-import type { LinkRegion } from '@ritojs/core/integration';
+import type { Reader } from '@ritojs/core';
+import { hitTestLink } from '../../interaction/index';
+import type { LinkRegion } from '../../interaction/index';
 import type { CoordinatorState } from '../core/coordinator-state';
+import { findNativeTargetAtPos, usesNativeTargets } from './native-targets';
 
 /** Hit-test links at a spread-content position. Shared by desktop pointer and touch tap paths. */
 export function findLinkAtPos(
@@ -27,10 +29,17 @@ export function bindLinkCursor(
   canvas: HTMLCanvasElement,
   coordState: CoordinatorState,
   toSpreadContent: (e: PointerEvent) => { x: number; y: number },
+  reader?: Reader,
 ): () => void {
   const onMove = (e: PointerEvent): void => {
     if (e.pointerType === 'touch') return;
-    canvas.style.cursor = findLinkAtPos(toSpreadContent(e), coordState) ? 'pointer' : '';
+    const pos = toSpreadContent(e);
+    const actionable =
+      reader && usesNativeTargets(reader)
+        ? reader.interactions?.enabled === true &&
+          findNativeTargetAtPos(pos, coordState) !== undefined
+        : findLinkAtPos(pos, coordState) !== undefined;
+    canvas.style.cursor = actionable ? 'pointer' : '';
   };
 
   canvas.addEventListener('pointermove', onMove);

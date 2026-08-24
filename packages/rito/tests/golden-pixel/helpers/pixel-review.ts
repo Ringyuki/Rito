@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PixelGoldenSpreadCase } from './pixel-cases';
-import { renderPixelReviewHtml } from './pixel-review-html';
+import { renderPixelReviewHtml, type PixelReviewHtmlOptions } from './pixel-review-html';
 import type { PixelDiffResult } from './png-diff';
 
 export type PixelReviewStatus = 'pass' | 'warn' | 'fail' | 'missing' | 'error';
@@ -73,17 +73,69 @@ export interface PixelReviewRecord {
   readonly error?: string;
 }
 
+export interface PixelReviewReportOptions extends PixelReviewHtmlOptions {
+  readonly root: string;
+}
+
+export interface PixelReviewReport {
+  readonly root: string;
+  reset(): Promise<void>;
+  casePaths(testCase: PixelGoldenSpreadCase): PixelReviewCasePaths;
+  writeCase(input: PixelReviewCaseInput): Promise<PixelReviewRecord>;
+  writeIndex(records: readonly PixelReviewRecord[]): Promise<string>;
+}
+
 const HELPER_DIR = dirname(fileURLToPath(import.meta.url));
 export const PIXEL_REVIEW_ROOT = resolve(HELPER_DIR, '../../../test-results/pixel-review');
+const DEFAULT_PIXEL_REVIEW_REPORT = createPixelReviewReport({ root: PIXEL_REVIEW_ROOT });
+
+export function createPixelReviewReport(options: PixelReviewReportOptions): PixelReviewReport {
+  const root = resolve(options.root);
+  const htmlOptions: PixelReviewHtmlOptions = {
+    ...(options.heading ? { heading: options.heading } : {}),
+    ...(options.expectedLabel ? { expectedLabel: options.expectedLabel } : {}),
+    ...(options.actualLabel ? { actualLabel: options.actualLabel } : {}),
+  };
+  const casePaths = (testCase: PixelGoldenSpreadCase): PixelReviewCasePaths =>
+    reviewCasePaths(root, testCase);
+
+  return {
+    root,
+    async reset() {
+      await rm(root, { recursive: true, force: true });
+      await mkdir(resolve(root, 'cases'), { recursive: true });
+    },
+    casePaths,
+    async writeCase(input) {
+      const paths = casePaths(input.testCase);
+      const record = createReviewRecord(input, paths, root);
+      await mkdir(paths.caseDir, { recursive: true });
+      await writeFile(paths.actualPath, input.actual);
+      if (input.expected) await writeFile(paths.expectedPath, input.expected);
+      if (input.reference?.png) await writeFile(paths.referencePath, input.reference.png);
+      await writeFile(paths.metadataPath, `${JSON.stringify(record, null, 2)}\n`);
+      return record;
+    },
+    async writeIndex(records) {
+      const indexPath = resolve(root, 'index.html');
+      await mkdir(root, { recursive: true });
+      await writeFile(indexPath, renderPixelReviewHtml(records, htmlOptions));
+      return indexPath;
+    },
+  };
+}
 
 export async function resetPixelReviewReport(): Promise<void> {
-  await rm(PIXEL_REVIEW_ROOT, { recursive: true, force: true });
-  await mkdir(resolve(PIXEL_REVIEW_ROOT, 'cases'), { recursive: true });
+  await DEFAULT_PIXEL_REVIEW_REPORT.reset();
 }
 
 export function pixelReviewCasePaths(testCase: PixelGoldenSpreadCase): PixelReviewCasePaths {
+  return DEFAULT_PIXEL_REVIEW_REPORT.casePaths(testCase);
+}
+
+function reviewCasePaths(root: string, testCase: PixelGoldenSpreadCase): PixelReviewCasePaths {
   const caseDir = resolve(
-    PIXEL_REVIEW_ROOT,
+    root,
     'cases',
     testCase.bookId,
     testCase.profileId,
@@ -103,28 +155,19 @@ export function pixelReviewCasePaths(testCase: PixelGoldenSpreadCase): PixelRevi
 export async function writePixelReviewCase(
   input: PixelReviewCaseInput,
 ): Promise<PixelReviewRecord> {
-  const paths = pixelReviewCasePaths(input.testCase);
-  const record = createReviewRecord(input, paths);
-  await mkdir(paths.caseDir, { recursive: true });
-  await writeFile(paths.actualPath, input.actual);
-  if (input.expected) await writeFile(paths.expectedPath, input.expected);
-  if (input.reference?.png) await writeFile(paths.referencePath, input.reference.png);
-  await writeFile(paths.metadataPath, `${JSON.stringify(record, null, 2)}\n`);
-  return record;
+  return await DEFAULT_PIXEL_REVIEW_REPORT.writeCase(input);
 }
 
 export async function writePixelReviewIndex(
   records: readonly PixelReviewRecord[],
 ): Promise<string> {
-  const indexPath = resolve(PIXEL_REVIEW_ROOT, 'index.html');
-  await mkdir(PIXEL_REVIEW_ROOT, { recursive: true });
-  await writeFile(indexPath, renderPixelReviewHtml(records));
-  return indexPath;
+  return await DEFAULT_PIXEL_REVIEW_REPORT.writeIndex(records);
 }
 
 function createReviewRecord(
   input: PixelReviewCaseInput,
   paths: PixelReviewCasePaths,
+  root: string,
 ): PixelReviewRecord {
   const status = reviewStatus(input);
   return {
@@ -146,9 +189,9 @@ function createReviewRecord(
     tags: input.testCase.tags,
     status,
     generatedAt: new Date().toISOString(),
-    actualPath: relativePath(paths.actualPath),
-    ...(input.expected ? { expectedPath: relativePath(paths.expectedPath) } : {}),
-    ...(input.diff ? { diffPath: relativePath(paths.diffPath) } : {}),
+    actualPath: relativePath(root, paths.actualPath),
+    ...(input.expected ? { expectedPath: relativePath(root, paths.expectedPath) } : {}),
+    ...(input.diff ? { diffPath: relativePath(root, paths.diffPath) } : {}),
     ...(input.diff
       ? {
           diffPixels: input.diff.diffPixels,
@@ -157,7 +200,7 @@ function createReviewRecord(
           imageHeight: input.diff.height,
         }
       : {}),
-    ...referenceRecord(input.reference, paths),
+    ...referenceRecord(input.reference, paths, root),
     ...(input.error ? { error: input.error } : {}),
   };
 }
@@ -165,10 +208,11 @@ function createReviewRecord(
 function referenceRecord(
   reference: PixelReviewReferenceInput | undefined,
   paths: PixelReviewCasePaths,
+  root: string,
 ): Partial<PixelReviewRecord> {
   if (!reference) return {};
   return {
-    ...(reference.png ? { referencePath: relativePath(paths.referencePath) } : {}),
+    ...(reference.png ? { referencePath: relativePath(root, paths.referencePath) } : {}),
     ...(reference.width ? { referenceImageWidth: reference.width } : {}),
     ...(reference.height ? { referenceImageHeight: reference.height } : {}),
     ...(reference.label ? { referenceLabel: reference.label } : {}),
@@ -188,6 +232,6 @@ function reviewStatus(input: PixelReviewCaseInput): PixelReviewStatus {
   return 'fail';
 }
 
-function relativePath(path: string): string {
-  return relative(PIXEL_REVIEW_ROOT, path).replaceAll('\\', '/');
+function relativePath(root: string, path: string): string {
+  return relative(root, path).replaceAll('\\', '/');
 }

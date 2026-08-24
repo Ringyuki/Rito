@@ -15,7 +15,6 @@ interface Props {
   selection: ReturnType<typeof useReader>['selection'];
   annotations: ReturnType<typeof useReader>['annotations'];
   controller: ReturnType<typeof useReader>['controller'];
-  zoomScale: number;
 }
 
 function stop(e: React.SyntheticEvent): void {
@@ -23,7 +22,7 @@ function stop(e: React.SyntheticEvent): void {
   e.nativeEvent.stopImmediatePropagation();
 }
 
-export function AnnotationToolbar({ selection, annotations, controller, zoomScale }: Props) {
+export function AnnotationToolbar({ selection, annotations, controller }: Props) {
   const [showNote, setShowNote] = useState(false);
   const [note, setNote] = useState('');
   const [pickedColor, setPickedColor] = useState(ANNOTATION_COLORS[0].value as string);
@@ -35,11 +34,11 @@ export function AnnotationToolbar({ selection, annotations, controller, zoomScal
   const anchor = selection.focusRect;
 
   // focusRect lives in viewport-logical coordinates, so convert it to display CSS px.
-  const top = anchor.y * zoomScale - (showNote ? 110 : 60);
-  const left = anchor.x * zoomScale;
+  const top = anchor.y - (showNote ? 110 : 60);
+  const left = anchor.x;
 
   const submit = (color: string, noteText?: string) => {
-    if (!controller || !selection.range) return;
+    if (!controller || !selection.hasSelection) return;
     annotations.add({
       kind: 'highlight',
       color,

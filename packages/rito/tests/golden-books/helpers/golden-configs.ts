@@ -1,4 +1,4 @@
-import { createLayoutConfig, type LayoutConfig } from '../../../src/layout/core';
+import { createLayoutConfig, type LayoutConfig } from '../../../src/reference/ts-core/layout/core';
 
 export type GoldenLineBreaking = 'greedy' | 'optimal';
 

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { TocEntry } from '@ritojs/core';
-import type { ReaderThemeOptions } from '@ritojs/core/web';
+import { preloadReaderRuntime, type ReaderPinnedFontPolicy, type TocEntry } from '@ritojs/core';
 import type { ReaderControllerEvents } from '@ritojs/kit';
 import {
   useRitoReader,
@@ -16,14 +15,13 @@ import {
 import { DEFAULT_SETTINGS, type ReaderLineBreaking } from '@/components/settings-panel';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
-const ZOOM_SCALE_STEP = 0.1;
-const ZOOM_SCALE_MIN = 0.5;
-const ZOOM_SCALE_MAX = 2.0;
-
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
 const annotationStorage = createLocalStorageAnnotationAdapter('rito-annotations');
+let demoEpubBlobPromise: Promise<Blob> | undefined;
 
-function getThemeOptions(theme: 'light' | 'dark'): ReaderThemeOptions {
+void preloadReaderRuntime().catch(() => undefined);
+
+function getThemeOptions(theme: 'light' | 'dark') {
   if (theme === 'dark') return { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' };
   return { backgroundColor: '#ffffff', foregroundColor: null };
 }
@@ -32,20 +30,21 @@ export function useReader(
   theme: 'light' | 'dark',
   containerWidth: number,
   containerHeight: number,
+  pinnedFontPolicy: ReaderPinnedFontPolicy,
 ) {
   const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>(
     DEFAULT_SETTINGS.spreadMode,
   );
-  const [zoomScale, setZoomScale] = useState(DEFAULT_SETTINGS.zoomScale);
+  const [fontSize, setFontSizeState] = useState(DEFAULT_SETTINGS.fontSize);
   const [lineHeight, setLineHeightState] = useState(DEFAULT_SETTINGS.lineHeight);
   const [lineHeightActive, setLineHeightActive] = useState(DEFAULT_SETTINGS.lineHeightActive);
   const [lineHeightForce, setLineHeightForceState] = useState(DEFAULT_SETTINGS.lineHeightForce);
   const [fontFamily, setFontFamilyState] = useState(DEFAULT_SETTINGS.fontFamily);
   const [lineBreaking, setLineBreakingState] = useState(DEFAULT_SETTINGS.lineBreaking);
 
-  const vpWidth = containerWidth > 0 ? Math.round(containerWidth / zoomScale) : 0;
-  const vpHeight = containerHeight > 0 ? Math.round(containerHeight / zoomScale) : 0;
-  const margin = containerWidth < 640 ? 16 : containerWidth < 1024 ? 32 : 50;
+  const vpWidth = containerWidth > 0 ? Math.round(containerWidth) : 0;
+  const vpHeight = containerHeight > 0 ? Math.round(containerHeight) : 0;
+  const margin = readerViewportMargin(containerWidth);
 
   const rito = useRitoReader({
     reader: {
@@ -54,11 +53,11 @@ export function useReader(
       margin,
       spread: spreadMode,
       lineBreaking,
+      pinnedFontPolicy,
       ...getThemeOptions(theme),
     },
     controller: {
       transition: { stiffness: 180, damping: 22 },
-      renderScale: zoomScale,
       positionStorage,
       annotationStorage,
       a11y: {
@@ -67,9 +66,15 @@ export function useReader(
     },
   });
 
+  if (typeof window !== 'undefined') {
+    // Debug probe for the fragment-pagination cutover: lets headless
+    // verification drive and inspect the controller directly.
+    (window as unknown as { __ritoController?: unknown }).__ritoController = rito.controller;
+  }
   const selection = useSelection(rito.controller);
   const search = useSearch(rito.controller);
   const annotations = useAnnotations(rito.controller);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Content interaction events
   const [pendingLink, setPendingLink] = useState<ReaderControllerEvents['linkClick'] | null>(null);
@@ -88,6 +93,16 @@ export function useReader(
   useControllerEvent(rito.controller, 'searchOpen', () => {
     setSearchOpen(true);
   });
+  useControllerEvent(rito.controller, 'transitionStart', () => {
+    setIsTransitioning(true);
+  });
+  useControllerEvent(rito.controller, 'transitionEnd', () => {
+    setIsTransitioning(false);
+  });
+
+  useEffect(() => {
+    setIsTransitioning(false);
+  }, [rito.controller]);
 
   // Disable keyboard navigation while lightbox is open (including exit animation)
   useEffect(() => {
@@ -95,14 +110,6 @@ export function useReader(
   }, [lightboxActive, rito.controller]);
 
   const [searchOpen, setSearchOpen] = useState(false);
-
-  // Reader zoom shrinks the logical viewport while scaling the display surface
-  // back up, so pagination and on-screen size stay in sync.
-  useEffect(() => {
-    if (vpWidth === 0 || !rito.controller) return;
-    rito.setRenderScale(zoomScale);
-    rito.resize(vpWidth, vpHeight, margin);
-  }, [vpWidth, vpHeight, zoomScale, margin, rito.controller]);
 
   // Sync theme
   useEffect(() => {
@@ -116,19 +123,20 @@ export function useReader(
   useEffect(() => {
     if (!rito.controller || !rito.isLoaded) return;
     rito.setTypography({
+      fontSize,
       lineHeight: lineHeightActive ? lineHeight : null,
       lineHeightForce: lineHeightActive && lineHeightForce,
       fontFamily,
     });
-  }, [lineHeight, lineHeightActive, lineHeightForce, fontFamily, rito.controller, rito.isLoaded]);
-
-  // Restore position after load
-  useEffect(() => {
-    if (!rito.isLoaded || !rito.controller) return;
-    void rito.controller.restorePosition().then((idx) => {
-      if (idx !== undefined) rito.goToSpread(idx);
-    });
-  }, [rito.isLoaded]);
+  }, [
+    fontSize,
+    lineHeight,
+    lineHeightActive,
+    lineHeightForce,
+    fontFamily,
+    rito.controller,
+    rito.isLoaded,
+  ]);
 
   // Actions
   const loadFromArrayBuffer = useCallback(
@@ -139,12 +147,7 @@ export function useReader(
   );
 
   const loadDemo = useCallback(async () => {
-    await rito.load(
-      fetch(demoEpubUrl).then(async (resp) => {
-        if (!resp.ok) throw new Error(`HTTP ${String(resp.status)}`);
-        return resp.arrayBuffer();
-      }),
-    );
+    await rito.load(fetchDemoEpubData());
   }, [rito]);
 
   const toggleSpreadMode = useCallback(() => {
@@ -177,18 +180,6 @@ export function useReader(
     [rito],
   );
 
-  const increaseZoom = useCallback(() => {
-    setZoomScale((s) => Math.min(s + ZOOM_SCALE_STEP, ZOOM_SCALE_MAX));
-  }, []);
-
-  const decreaseZoom = useCallback(() => {
-    setZoomScale((s) => Math.max(s - ZOOM_SCALE_STEP, ZOOM_SCALE_MIN));
-  }, []);
-
-  const setZoomScaleClamped = useCallback((v: number) => {
-    setZoomScale(Math.max(ZOOM_SCALE_MIN, Math.min(v, ZOOM_SCALE_MAX)));
-  }, []);
-
   // Moving the slider activates the override (a no-op slider would be confusing).
   const setLineHeight = useCallback((v: number) => {
     setLineHeightState(v);
@@ -202,6 +193,7 @@ export function useReader(
 
   // Restore initial state: slider snaps back to default, override cleared, force off.
   const useBookLineHeight = useCallback(() => {
+    setFontSizeState(DEFAULT_SETTINGS.fontSize);
     setLineHeightState(DEFAULT_SETTINGS.lineHeight);
     setLineHeightActive(false);
     setLineHeightForceState(false);
@@ -233,12 +225,14 @@ export function useReader(
     search,
     annotations,
     spreadMode,
-    zoomScale,
+    fontSize,
+    setFontSize: setFontSizeState,
     lineHeight,
     lineHeightActive,
     lineHeightForce,
     fontFamily,
     lineBreaking,
+    isTransitioning,
     bookTitle,
     activeChapterHref,
     loadFromArrayBuffer,
@@ -247,9 +241,6 @@ export function useReader(
     toggleSpreadMode,
     setSpreadMode,
     setLineBreaking,
-    increaseZoom,
-    decreaseZoom,
-    setZoomScale: setZoomScaleClamped,
     setLineHeight,
     setLineHeightForce,
     useBookLineHeight,
@@ -273,4 +264,16 @@ export function useReader(
     searchOpen,
     setSearchOpen,
   };
+}
+
+export function readerViewportMargin(containerWidth: number): number {
+  return containerWidth < 640 ? 16 : containerWidth < 1024 ? 32 : 50;
+}
+
+async function fetchDemoEpubData(): Promise<ArrayBuffer> {
+  demoEpubBlobPromise ??= fetch(demoEpubUrl).then(async (resp) => {
+    if (!resp.ok) throw new Error(`HTTP ${String(resp.status)}`);
+    return resp.blob();
+  });
+  return (await demoEpubBlobPromise).arrayBuffer();
 }

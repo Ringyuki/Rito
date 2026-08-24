@@ -1,0 +1,64 @@
+{
+  "name": "theme-white-page-inline-band",
+  "width": 420,
+  "height": 200,
+  "background": "#1a1a1a",
+  "theme": {
+    "foreground": "#e5e5e5",
+    "background": "#1a1a1a"
+  },
+  "commands": [
+    {
+      "kind": "paintPage",
+      "rect": { "x": 0, "y": 0, "width": 420, "height": 200 },
+      "paint": { "backgroundColor": "#ffffff" }
+    },
+    {
+      "kind": "paintText",
+      "text": "plain black ink follows the theme",
+      "rect": { "x": 16, "y": 14, "width": 380, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "highlighted words keep their pair",
+      "rect": { "x": 16, "y": 48, "width": 300, "height": 20 },
+      "paint": {
+        "color": "#4a3b00",
+        "backgroundColor": "#ffe08a",
+        "backgroundRadius": 3,
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "red heading relights along lightness",
+      "rect": { "x": 16, "y": 82, "width": 380, "height": 22 },
+      "paint": {
+        "color": "#cc0000",
+        "font": { "family": "Tinos", "sizePx": 18, "style": "normal", "weight": 700 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "readable accent survives untouched",
+      "rect": { "x": 16, "y": 116, "width": 380, "height": 20 },
+      "paint": {
+        "color": "#ffb86b",
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "深色主題の中文もインクを差し替える",
+      "rect": { "x": 16, "y": 150, "width": 380, "height": 24 },
+      "paint": {
+        "color": "#222222",
+        "font": { "family": "Source Han Serif CN", "sizePx": 17, "style": "normal", "weight": 400 }
+      }
+    }
+  ]
+}

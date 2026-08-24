@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createLogger } from '../../src/utils/logger';
+import { createLogger } from '../../src/reference/ts-core/utils/logger';
 
 describe('createLogger', () => {
   afterEach(() => {

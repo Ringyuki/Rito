@@ -9,10 +9,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createLayoutConfig } from '@ritojs/core';
-import type { Page, Spread, TextMeasurer } from '@ritojs/core';
-import { createSelectionEngine } from '@ritojs/core/selection';
-import type { LayoutBlock, LineBox, TextRun } from '@ritojs/core/advanced';
-import { DEFAULT_RUN_PAINT } from '@ritojs/core/advanced';
+import type { TextMeasurer } from '@ritojs/core';
+import { createSelectionEngine } from '../src/interaction/index';
+import type { LayoutBlock, LineBox, Page, Spread, TextRun } from '../src/interaction/index';
+import { DEFAULT_RUN_PAINT } from '../src/interaction/index';
 
 const measurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 10, height: 20 }),
@@ -60,6 +60,31 @@ describe('Selection engine coordinate behavior', () => {
 
       expect(engine.getState()).toBe('selected');
       expect(engine.getRects().length).toBeGreaterThan(0);
+    });
+
+    it('uses pointerUp as the final selection sample', () => {
+      const page = makePage([makeBlock([makeLine([makeRun('Hello world', 0)], 0)])], 0);
+      const engine = createSelectionEngine();
+      engine.setSpread({ index: 0, left: page }, config, measurer);
+
+      engine.handlePointerDown({ x: 0, y: 10 });
+      engine.handlePointerMove({ x: 20, y: 10 });
+      engine.handlePointerUp({ x: 50, y: 10 });
+
+      expect(engine.getText()).toBe('Hello');
+    });
+
+    it('keeps the legacy fallback usable when a semantic hint is supplied', () => {
+      const page = makePage([makeBlock([makeLine([makeRun('Hello world', 0)], 0)])], 0);
+      const engine = createSelectionEngine();
+      engine.setSpread({ index: 0, left: page }, config, measurer);
+
+      engine.handlePointerDown({ x: 0, y: 10 }, 'word');
+      engine.handlePointerMove({ x: 50, y: 10 });
+      engine.handlePointerUp({ x: 50, y: 10 });
+
+      expect(engine.getState()).toBe('selected');
+      expect(engine.getText()).toBe('Hello');
     });
   });
 

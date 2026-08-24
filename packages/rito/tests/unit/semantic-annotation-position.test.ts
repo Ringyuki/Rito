@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAnnotationRects } from '../../src/interaction/annotations';
-import type { Annotation } from '../../src/interaction/annotations';
-import { buildHitMap, buildSemanticTree } from '../../src/interaction/core';
+import { resolveAnnotationRects } from '../../src/reference/ts-core/interaction/annotations';
+import type { Annotation } from '../../src/reference/ts-core/interaction/annotations';
+import { buildHitMap, buildSemanticTree } from '../../src/reference/ts-core/interaction/core';
 import {
   createReadingPosition,
   projectReadingPosition,
   resolveReadingPosition,
-} from '../../src/interaction/position';
+} from '../../src/reference/ts-core/interaction/position';
 import type {
   ImageElement,
   LayoutBlock,
@@ -14,9 +14,9 @@ import type {
   Page,
   Spread,
   TextRun,
-} from '../../src/layout/core/types';
-import type { TextMeasurer } from '../../src/layout/text/text-measurer';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+} from '../../src/reference/ts-core/layout/core/types';
+import type { TextMeasurer } from '../../src/reference/ts-core/layout/text/text-measurer';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 
 const mockMeasurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 10, height: 20 }),

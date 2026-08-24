@@ -1,0 +1,59 @@
+{
+  "name": "text-shadow-ruby",
+  "width": 420,
+  "height": 200,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintText",
+      "text": "hard shadow no blur",
+      "rect": { "x": 20, "y": 20, "width": 200, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "textShadow": [{ "offsetX": 2, "offsetY": 2, "blur": 0, "color": "#bbbbbb" }],
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "soft shadow blurred",
+      "rect": { "x": 20, "y": 60, "width": 200, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "textShadow": [{ "offsetX": 1.5, "offsetY": 2, "blur": 3, "color": "#88aacc" }],
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "two layered shadows",
+      "rect": { "x": 20, "y": 100, "width": 220, "height": 20 },
+      "paint": {
+        "color": "#222222",
+        "textShadow": [
+          { "offsetX": 1, "offsetY": 1, "blur": 0, "color": "#ff8888" },
+          { "offsetX": -1, "offsetY": -1, "blur": 2, "color": "#8888ff" }
+        ],
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "漢字",
+      "rect": { "x": 60, "y": 150, "width": 44, "height": 24 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Source Han Serif CN", "sizePx": 20, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintRuby",
+      "text": "かんじ",
+      "rect": { "x": 60, "y": 138, "width": 44, "height": 11 },
+      "paint": {
+        "color": "#000000",
+        "font": { "family": "Source Han Serif CN", "sizePx": 10, "style": "normal", "weight": 400 }
+      }
+    }
+  ]
+}

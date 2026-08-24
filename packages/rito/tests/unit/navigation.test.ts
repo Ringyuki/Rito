@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { findPageForTocEntry } from '../../src/runtime/navigation';
-import type { TocEntry } from '../../src/parser/epub/types';
-import type { SpineItem } from '../../src/parser/epub/types';
-import type { ChapterRange } from '../../src/runtime/types';
+import { findPageForTocEntry } from '../../src/reference/ts-core/runtime/navigation';
+import type { TocEntry } from '../../src/reference/ts-core/parser/epub/types';
+import type { SpineItem } from '../../src/reference/ts-core/parser/epub/types';
+import type { ChapterRange } from '../../src/reference/ts-core/runtime/types';
 
 function entry(href: string): TocEntry {
   return { label: 'Test', href, children: [] };

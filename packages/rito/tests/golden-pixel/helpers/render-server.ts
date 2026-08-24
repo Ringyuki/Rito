@@ -4,6 +4,8 @@ import { dirname, extname, relative, resolve, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
+import { productionParityHtml } from './production-parity-page';
+import { readerParityReviewHtml } from './reader-parity-page';
 
 export interface PixelRenderServer {
   readonly origin: string;
@@ -18,6 +20,7 @@ export interface PixelReferenceBook {
 
 const HELPER_DIR = dirname(fileURLToPath(import.meta.url));
 const DIST_ROOT = resolve(HELPER_DIR, '../../../dist');
+const REFERENCE_DIST_ROOT = resolve(HELPER_DIR, '../../../.output/reference-build');
 const PIXEL_REVIEW_REFERENCE_ROOT = resolve(
   HELPER_DIR,
   '../../../test-results/pixel-review/reference-books',
@@ -77,8 +80,24 @@ async function handleRequest(
     sendHtml(response, renderHtml());
     return;
   }
+  if (pathname === '/production-parity.html') {
+    sendHtml(response, productionParityHtml());
+    return;
+  }
+  if (pathname === '/reader-parity-review.html') {
+    sendHtml(response, readerParityReviewHtml());
+    return;
+  }
+  if (pathname === '/favicon.ico') {
+    response.writeHead(204).end();
+    return;
+  }
   if (pathname.startsWith('/dist/')) {
     await sendDistFile(response, pathname.slice('/dist/'.length));
+    return;
+  }
+  if (pathname.startsWith('/reference-dist/')) {
+    await sendReferenceDistFile(response, pathname.slice('/reference-dist/'.length));
     return;
   }
   if (pathname.startsWith('/vendor/')) {
@@ -116,6 +135,24 @@ async function registerReferenceBook(
 async function sendDistFile(response: ServerResponse, relativePath: string): Promise<void> {
   const path = resolve(DIST_ROOT, relativePath);
   if (!path.startsWith(`${DIST_ROOT}${sep}`)) {
+    response.writeHead(403).end('Forbidden');
+    return;
+  }
+
+  try {
+    const body = await readFile(path);
+    response.writeHead(200, { 'content-type': contentType(path) }).end(body);
+  } catch {
+    response.writeHead(404).end('Not found');
+  }
+}
+
+async function sendReferenceDistFile(
+  response: ServerResponse,
+  relativePath: string,
+): Promise<void> {
+  const path = resolve(REFERENCE_DIST_ROOT, relativePath);
+  if (!path.startsWith(`${REFERENCE_DIST_ROOT}${sep}`)) {
     response.writeHead(403).end('Forbidden');
     return;
   }
@@ -208,6 +245,8 @@ function contentType(path: string): string {
       return 'font/woff';
     case '.woff2':
       return 'font/woff2';
+    case '.wasm':
+      return 'application/wasm';
     default:
       return 'application/octet-stream';
   }
@@ -319,7 +358,7 @@ function renderHtml(): string {
 
   window.renderRitoPixelReady = 'loading';
 
-  import('/dist/web.mjs')
+  import('/reference-dist/tooling/web.mjs')
     .then(({ createReader }) => {
       window.renderRitoPixelReady = 'ready';
       window.renderRitoPixelRun = async (testRun, bookBase64) => {

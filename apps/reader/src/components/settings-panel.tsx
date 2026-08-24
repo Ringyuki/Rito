@@ -18,7 +18,8 @@ import { FontFamilyCombobox } from '@/components/font-family-combobox';
 export type ReaderLineBreaking = 'greedy' | 'optimal';
 
 export interface ReaderSettings {
-  zoomScale: number;
+  /** Root font size in px, passed to `setTypography`; changing it re-lays the text. */
+  fontSize: number;
   lineHeight: number;
   /** Whether the lineHeight slider value is applied at all. False = use book's own line-height. */
   lineHeightActive: boolean;
@@ -32,7 +33,7 @@ export interface ReaderSettings {
 }
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
-  zoomScale: 1.2,
+  fontSize: 16,
   lineHeight: 1.2,
   lineHeightActive: false,
   lineHeightForce: false,
@@ -46,7 +47,7 @@ interface SettingsPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: ReaderSettings;
-  onZoomScaleChange: (value: number) => void;
+  onFontSizeChange: (value: number) => void;
   onLineHeightChange: (value: number) => void;
   onLineHeightForceChange: (value: boolean) => void;
   onUseBookLineHeight: () => void;
@@ -61,7 +62,7 @@ export function SettingsPanel({
   open,
   onOpenChange,
   settings,
-  onZoomScaleChange,
+  onFontSizeChange,
   onLineHeightChange,
   onLineHeightForceChange,
   onUseBookLineHeight,
@@ -80,14 +81,14 @@ export function SettingsPanel({
         </SheetHeader>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 pb-6">
-          <Section label="Zoom" value={`${String(Math.round(settings.zoomScale * 100))}%`}>
+          <Section label="Font Size" value={`${String(settings.fontSize)}px`}>
             <Slider
-              min={0.5}
-              max={2.0}
-              step={0.1}
-              value={[settings.zoomScale]}
+              min={12}
+              max={28}
+              step={1}
+              value={[settings.fontSize]}
               onValueChange={([v]) => {
-                if (v !== undefined) onZoomScaleChange(v);
+                if (v !== undefined) onFontSizeChange(v);
               }}
             />
           </Section>

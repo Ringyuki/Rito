@@ -9,6 +9,11 @@
     "build:e2e": "pnpm run typecheck && RITO_READER_BASE=/ vite build",
     "preview": "vite preview",
     "test:e2e": "playwright test -c playwright.config.ts",
+    "test:e2e:downloads-smoke": "playwright test -c playwright.config.ts tests/e2e/reader-downloads-smoke.e2e.test.ts",
+    "test:e2e:load-profile": "RITO_READER_HTML_REPORT=1 playwright test -c playwright.config.ts tests/e2e/reader-load-profile.e2e.test.ts",
+    "test:e2e:preview-ab": "node tests/e2e/run-reader-preview-ab.mjs",
+    "test:e2e:memory-gate": "RITO_READER_STRICT_SERVER=1 RITO_READER_MEMORY_GATE_REQUIRED=1 RITO_READER_HTML_REPORT=1 RITO_READER_MEMORY_GATE=${RITO_READER_MEMORY_GATE:-tests/e2e/memory-gates/ringyuki-macbook-air-m3.json} RITO_READER_MACHINE_ID=${RITO_READER_MACHINE_ID:-ringyuki-macbook-air-m3} playwright test -c playwright.config.ts tests/e2e/memory-gate.e2e.test.ts",
+    "test:e2e:usability-gate": "RITO_READER_STRICT_SERVER=1 RITO_READER_USABILITY_GATE_REQUIRED=1 RITO_READER_HTML_REPORT=1 playwright test -c playwright.config.ts tests/e2e/reader-usability-gate.e2e.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.e2e.json"
   },
   "dependencies": {
@@ -20,6 +25,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "fflate": "^0.8.2",
     "lucide-react": "^0.468.0",
     "motion": "^12.38.0",
     "next-themes": "^0.4.6",

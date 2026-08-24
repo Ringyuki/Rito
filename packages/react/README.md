@@ -1,6 +1,6 @@
 # @ritojs/react
 
-React hooks and components for the `@ritojs/core/web` reader and `@ritojs/kit`.
+React hooks and components for the `@ritojs/core` reader and `@ritojs/kit`.
 
 `@ritojs/react` provides the highest-level integration layer in the Rito stack:
 React hooks for reader lifecycle and state, plus a mount component for the
@@ -71,3 +71,8 @@ export function App() {
 - `load()` still requires a browser document and should run in an effect or event handler
 - `load()` is separate from later responsive resizes; call `resize()` when container size changes after load
 - sizing remains your responsibility; pair it with `useContainerSize()` or your own layout observer
+- load any app-owned `ReaderPinnedFontPolicy` bytes before calling `load()`;
+  changing the policy requires the next `load()` because it cannot mutate an
+  existing Reader
+- use `useSelection().hasSelection` for presence; native exact selections expose
+  `sourceLocator` and intentionally leave the legacy layout-local `range` null

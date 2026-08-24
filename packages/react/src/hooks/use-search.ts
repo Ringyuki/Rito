@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { ReaderController } from '@ritojs/kit';
-import type { SearchResult } from '@ritojs/core/search';
+import type { ReaderController, SearchResult } from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 export interface SearchState {

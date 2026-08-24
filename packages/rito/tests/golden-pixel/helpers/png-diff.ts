@@ -17,6 +17,7 @@ export interface PixelDiffResult {
 
 export interface PixelDiffOptions {
   readonly writeDiffWhenEqual?: boolean;
+  readonly includeAntiAliasedPixels?: boolean;
 }
 
 export async function comparePng(
@@ -37,7 +38,10 @@ export async function comparePng(
     diff.data,
     expectedPng.width,
     expectedPng.height,
-    { threshold: testCase.threshold },
+    {
+      threshold: testCase.threshold,
+      includeAA: options.includeAntiAliasedPixels ?? false,
+    },
   );
 
   if (diffPixels > 0 || options.writeDiffWhenEqual === true) {

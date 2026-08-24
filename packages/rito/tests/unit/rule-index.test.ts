@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildRuleIndex } from '../../src/style/cascade/rule-index';
-import type { CssRule } from '../../src/style/core/types';
+import { buildRuleIndex } from '../../src/reference/ts-core/style/cascade/rule-index';
+import type { CssRule } from '../../src/reference/ts-core/style/core/types';
 
 function rule(selector: string): CssRule {
   return { selector, declarations: {}, rawDeclarations: '' };

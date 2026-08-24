@@ -1,0 +1,178 @@
+use rito_core::runtime::{
+    RuntimeResourceKind, RuntimeResourceTransferPayload, RuntimeRevisionHandle, RuntimeVersioned,
+};
+
+use super::revision_handle;
+use crate::{
+    resource::{degraded_frame_resource_prefetch, rollback_new_transfers_on_error},
+    wire::{
+        parse_resource_prefetch_request, serialize_json, WasmFrameResourcePrefetchResponse,
+        WasmMissingResource, WasmPlannedFrameResourcePrefetchResponse,
+        WasmResourcePrefetchResponse,
+    },
+    WasmRuntimeDocument, WasmRuntimeError,
+};
+
+impl WasmRuntimeDocument {
+    pub fn get_resource_payload_at_revision_json(
+        &mut self,
+        revision_id: &str,
+        revision_version: u32,
+        kind: RuntimeResourceKind,
+        href: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let handle = revision_handle(revision_id, revision_version);
+        let payload = self.store_resource_transfer_at(&handle, kind, href)?;
+        serialize_json(&payload)
+    }
+
+    pub fn prefetch_resources_at_revision_json(
+        &mut self,
+        revision_id: &str,
+        revision_version: u32,
+        request_json: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let request = parse_resource_prefetch_request(request_json)?;
+        let handle = revision_handle(revision_id, revision_version);
+        self.document
+            .validate_revision_handle(&handle)
+            .map_err(WasmRuntimeError::from_revision_access)?;
+        let (payloads, missing_resources) = self.store_resource_transfers_at(
+            &handle,
+            request
+                .resources
+                .into_iter()
+                .map(|resource| (resource.kind, resource.href)),
+        );
+        let response = WasmResourcePrefetchResponse {
+            revision_id: revision_id.to_owned(),
+            payloads,
+            missing_resources,
+            pending_transfer_count: self.pending_resource_transfer_count(),
+        };
+        serialize_json(&RuntimeVersioned::new(handle, response))
+    }
+
+    pub fn prefetch_planned_frame_resources_at_revision_json(
+        &mut self,
+        revision_id: &str,
+        revision_version: u32,
+        spread_index: usize,
+    ) -> Result<String, WasmRuntimeError> {
+        let handle = revision_handle(revision_id, revision_version);
+        let mut new_transfer_ids = Vec::new();
+        let result = (|| {
+            let plan = self
+                .document
+                .frame_resource_warm_plan_at(&handle, spread_index)
+                .map_err(WasmRuntimeError::from_revision_access)?
+                .value;
+            let mut spreads = Vec::new();
+            for spread_index in plan.spread_indexes.clone() {
+                // One spread failing to enumerate (a frame not warm yet, a
+                // relayout race) must not abort the window: the visible
+                // spread's bytes ride in the same response, and losing them
+                // strands its canvas on the previous image forever.
+                let spread = match self.prefetch_frame_resources_at(&handle, spread_index) {
+                    Ok(spread) => spread,
+                    Err(error) => degraded_frame_resource_prefetch(
+                        handle.revision_id.clone(),
+                        spread_index,
+                        &error,
+                        self.pending_resource_transfer_count(),
+                    ),
+                };
+                new_transfer_ids.extend(
+                    spread
+                        .payloads
+                        .iter()
+                        .map(|payload| payload.transfer_id.clone()),
+                );
+                spreads.push(spread);
+            }
+            let response = WasmPlannedFrameResourcePrefetchResponse {
+                plan,
+                spreads,
+                pending_transfer_count: self.pending_resource_transfer_count(),
+            };
+            serialize_json(&RuntimeVersioned::new(handle, response))
+        })();
+        rollback_new_transfers_on_error(&mut self.transfers, &new_transfer_ids, result)
+    }
+
+    fn store_resource_transfer_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        kind: RuntimeResourceKind,
+        href: &str,
+    ) -> Result<RuntimeVersioned<RuntimeResourceTransferPayload>, WasmRuntimeError> {
+        let resource = self
+            .document
+            .get_resource_at(handle, kind, href)
+            .map_err(WasmRuntimeError::from_revision_access)?;
+        let payload = self
+            .transfers
+            .store_at(&resource.revision, resource.value)
+            .map_err(WasmRuntimeError::from_engine)?;
+        Ok(RuntimeVersioned::new(resource.revision, payload))
+    }
+
+    fn store_resource_transfers_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        resources: impl Iterator<Item = (RuntimeResourceKind, String)>,
+    ) -> (
+        Vec<RuntimeResourceTransferPayload>,
+        Vec<WasmMissingResource>,
+    ) {
+        let mut payloads = Vec::new();
+        let mut missing_resources = Vec::new();
+        for (kind, href) in resources {
+            match self.store_resource_transfer_at(handle, kind, &href) {
+                // The payload href is the caller's cache key and must echo
+                // the REQUESTED spelling: a frame references its images
+                // chapter-relative ("../Images/009.jpg") while the store
+                // resolves to a canonical path ("Images/009.jpg"), and a
+                // canonical echo strands the decoded bitmap under a key
+                // the paint path never looks up (b69 spread 136: the art
+                // plate never painted, the previous canvas held forever).
+                Ok(mut payload) => {
+                    payload.value.href = href;
+                    payloads.push(payload.value);
+                }
+                Err(error) => missing_resources.push(WasmMissingResource {
+                    kind,
+                    href,
+                    message: error.message().to_owned(),
+                }),
+            }
+        }
+        (payloads, missing_resources)
+    }
+
+    pub(crate) fn prefetch_frame_resources_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        spread_index: usize,
+    ) -> Result<WasmFrameResourcePrefetchResponse, WasmRuntimeError> {
+        let images = self
+            .document
+            .get_frame_image_resource_hrefs_at(handle, spread_index)
+            .map_err(WasmRuntimeError::from_revision_access)?
+            .value;
+        let (payloads, missing_resources) = self.store_resource_transfers_at(
+            handle,
+            images
+                .into_iter()
+                .map(|href| (RuntimeResourceKind::Image, href)),
+        );
+        Ok(WasmFrameResourcePrefetchResponse {
+            revision_id: handle.revision_id.clone(),
+            spread_index,
+            payloads,
+            missing_resources,
+            prefetch_error: None,
+            pending_transfer_count: self.pending_resource_transfer_count(),
+        })
+    }
+}

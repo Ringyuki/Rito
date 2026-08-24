@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import type { ReaderController, AddAnnotationInput } from '@ritojs/kit';
 import type {
   AnnotationRecord,
   AnnotationRecordPatch,
+  ReaderController,
+  AddAnnotationInput,
   ResolvedAnnotation,
-} from '@ritojs/core/annotations';
+} from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 export interface AnnotationHover {

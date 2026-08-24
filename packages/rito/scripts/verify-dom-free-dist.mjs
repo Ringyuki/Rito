@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
+import { builtinModules } from 'node:module';
 import { Worker } from 'node:worker_threads';
 import { strToU8, zipSync } from 'fflate';
 
-const DIST_URL = new URL('../dist/', import.meta.url);
+const REFERENCE_BUILD_URL = new URL('../.output/reference-build/', import.meta.url);
 const FORBIDDEN_XML_DOM_RE = /\b(?:DOMParser|XMLSerializer)\b|@xmldom/;
-const LOCAL_MODULE_IMPORT_RE = /(?:\bfrom\s+|\bimport\s*(?:\(\s*)?)["'](\.\/[^"']+\.mjs)["']/g;
+const MODULE_IMPORT_RE = /(?:\bfrom\s+|\bimport\s*(?:\(\s*)?)["']([^"']+)["']/g;
+const NODE_BUILTIN_MODULES = new Set(
+  builtinModules.map((specifier) => specifier.replace(/^node:/, '').split('/')[0]),
+);
 const WORKER_TIMEOUT_MS = 15_000;
 
 function buildEpub() {
@@ -49,7 +53,8 @@ const CHAPTER_XHTML = `<?xml version="1.0"?>
   <body><p>DOM-free &amp; worker-safe.</p></body>
 </html>`;
 
-await assertDomFreeCoreGraph();
+await assertReferenceGraph(new URL('index.mjs', REFERENCE_BUILD_URL), true);
+await assertReferenceGraph(new URL('tooling/web.mjs', REFERENCE_BUILD_URL), false);
 
 const epubBytes = buildEpub();
 const epub = epubBytes.buffer.slice(
@@ -58,7 +63,7 @@ const epub = epubBytes.buffer.slice(
 );
 const worker = new Worker(new URL('./dom-free-dist-worker.mjs', import.meta.url), {
   workerData: {
-    moduleUrl: new URL('../dist/index.mjs', import.meta.url).href,
+    moduleUrl: new URL('../.output/reference-build/index.mjs', import.meta.url).href,
     epub,
   },
   transferList: [epub],
@@ -95,8 +100,8 @@ try {
   await worker.terminate();
 }
 
-async function assertDomFreeCoreGraph() {
-  const pending = [new URL('index.mjs', DIST_URL)];
+async function assertReferenceGraph(entryUrl, forbidXmlDom) {
+  const pending = [entryUrl];
   const visited = new Set();
 
   while (pending.length > 0) {
@@ -106,11 +111,29 @@ async function assertDomFreeCoreGraph() {
 
     const source = await readFile(moduleUrl, 'utf8');
     const moduleName = moduleUrl.pathname.split('/').at(-1) ?? moduleUrl.href;
-    assert.doesNotMatch(source, FORBIDDEN_XML_DOM_RE, `${moduleName} bundles an XML DOM parser`);
+    if (forbidXmlDom) {
+      assert.doesNotMatch(source, FORBIDDEN_XML_DOM_RE, `${moduleName} bundles an XML DOM parser`);
+    }
 
-    for (const match of source.matchAll(LOCAL_MODULE_IMPORT_RE)) {
+    for (const match of source.matchAll(MODULE_IMPORT_RE)) {
       const specifier = match[1];
-      if (specifier) pending.push(new URL(specifier, moduleUrl));
+      if (!specifier) continue;
+      assert.equal(
+        isNodeBuiltinSpecifier(specifier),
+        false,
+        `${moduleName} imports Node builtin ${specifier}`,
+      );
+      if (
+        specifier.endsWith('.mjs') &&
+        (specifier.startsWith('./') || specifier.startsWith('../'))
+      ) {
+        pending.push(new URL(specifier, moduleUrl));
+      }
     }
   }
+}
+
+function isNodeBuiltinSpecifier(specifier) {
+  const bareSpecifier = specifier.replace(/^node:/, '');
+  return NODE_BUILTIN_MODULES.has(bareSpecifier.split('/')[0]);
 }

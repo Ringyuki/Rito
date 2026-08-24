@@ -1,10 +1,11 @@
-import type { Reader } from '@ritojs/core/web';
+import type { Reader, ReaderLocator } from '@ritojs/core';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';
 import type { ControllerOptions, ReaderControllerEvents } from '../types';
 import type { Internals } from './internals';
 import type { NavigationActions } from '../navigation/index';
+import type { PositionPersistence } from '../position-persistence';
 
 export interface WiringDeps {
   reader: Reader;
@@ -17,8 +18,11 @@ export interface WiringDeps {
   getCurrentSpread: () => number;
   setCurrentSpread: (idx: number) => void;
   getRenderScale: () => number;
+  positionPersistence: PositionPersistence;
   /** Navigate to a spread with transition animation. */
   goToSpread: (index: number) => void;
+  /** Resolve bounded content and navigate under the controller's latest-wins owner. */
+  navigateToLocator: (locator: ReaderLocator) => void;
   /**
    * `true` once {@link ReaderController.restorePosition} has resolved at least once.
    * `wirePositionTracker` reads this to suppress automatic `positionStorage.save`
@@ -26,6 +30,12 @@ export interface WiringDeps {
    * the persisted position with the controller's own initial spread-0 event.
    */
   hasRestored: () => boolean;
+  /** Continue a deferred navigation once an async content slot is ready. */
+  notifyNavigationContentReady: (index: number) => void;
+  /** Claim one exact private preview signal before ordinary invalidation side effects. */
+  presentChapterLocalInvalidation: (index: number) => boolean;
+  /** Sync viewport-sized buffers before painting a current-spread visual refresh. */
+  syncViewport?: () => void;
 }
 
 /** Build a WiringDeps object from internals + runtime components. */
@@ -35,8 +45,9 @@ export function buildWiringDeps(
   frameDriver: FrameDriver,
   canvas: HTMLCanvasElement,
   nav: NavigationActions,
+  syncViewport?: () => void,
 ): WiringDeps {
-  return {
+  const deps: WiringDeps = {
     reader: internals.reader,
     engines: internals.engines,
     emitter,
@@ -49,11 +60,21 @@ export function buildWiringDeps(
       internals.currentSpread = i;
     },
     getRenderScale: () => internals.renderScale,
+    positionPersistence: internals.positionPersistence,
     goToSpread: (i) => {
       nav.goToSpread(i);
     },
+    navigateToLocator: (locator) => {
+      nav.navigateToLocator(locator);
+    },
     hasRestored: () => internals.restoreCompleted,
+    notifyNavigationContentReady: (i) => {
+      nav.notifyContentReady(i);
+    },
+    presentChapterLocalInvalidation: (i) => nav.presentChapterLocalInvalidation(i),
   };
+  if (syncViewport) return { ...deps, syncViewport };
+  return deps;
 }
 
 /** Convert a PointerEvent to spread-content coordinates via the mapper. */

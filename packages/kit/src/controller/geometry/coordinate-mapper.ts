@@ -13,10 +13,16 @@
  */
 
 import type { LayoutConfig, Spread } from '@ritojs/core';
-import type { Rect } from '@ritojs/core/integration';
+import type { Rect } from '../../interaction/index';
 import { buildSelectionConfig } from './selection-config';
 import { resolveSpreadPage } from './page-resolution';
-import { spreadContentRectToViewport, toViewport, scaleRect, toScreen } from './rect-projection';
+import {
+  pageContentRectToSpread,
+  spreadContentRectToViewport,
+  toViewport,
+  scaleRect,
+  toScreen,
+} from './rect-projection';
 
 // ── Public types ─────────────────────────────────────────────────────
 
@@ -58,10 +64,19 @@ export interface CoordinateMapper {
   // ── Pointer conversion chain ─────────────────────────────────────
   /** display-css → spread-content. */
   cssToSpreadContent(cssX: number, cssY: number): { x: number; y: number };
+  /** display-css → page-content, including visible-page resolution. */
+  displayToPageContent(
+    cssX: number,
+    cssY: number,
+  ): { pageIndex: number; x: number; y: number } | null;
   /** spread-content → page-content (resolves which page the point is on). */
   spreadContentToPage(x: number, y: number): { pageIndex: number; x: number; y: number } | null;
+  /** Whether a page is present in this mapper's spread. */
+  isPageVisible(pageIndex: number): boolean;
 
   // ── Render / UI conversion chain ─────────────────────────────────
+  /** page-content rect → spread-content rect. Throws when the page is not in this spread. */
+  pageContentToSpread(pageIndex: number, rect: Rect): Rect;
   /** spread-content rect → viewport-logical rect (adds margins). */
   spreadContentRectToViewport(rect: Rect): Rect;
   /** page-content rect → viewport-logical rect. */
@@ -83,6 +98,7 @@ export function createCoordinateMapper(
   spread: Spread,
   renderScale: number,
 ): CoordinateMapper {
+  requireRenderScale(renderScale);
   const g = extractGeometry(config);
   const contentWidth = g.pageWidth - g.marginLeft - g.marginRight;
   const contentHeight = g.pageHeight - g.marginTop - g.marginBottom;
@@ -102,22 +118,35 @@ function buildMapperObject(
   pageMap: ReadonlyMap<number, PageGeometry>,
   renderScale: number,
 ): CoordinateMapper {
+  const cssToSpreadContent = (cssX: number, cssY: number): { x: number; y: number } => ({
+    x: cssX / renderScale - g.marginLeft,
+    y: cssY / renderScale - g.marginTop,
+  });
   return {
     layout: g,
     selectionConfig,
     getPage: (pageIndex) => pageMap.get(pageIndex),
     getPages: () => pages,
-    cssToSpreadContent: (cssX, cssY) => ({
-      x: cssX / renderScale - g.marginLeft,
-      y: cssY / renderScale - g.marginTop,
-    }),
+    cssToSpreadContent,
+    displayToPageContent: (cssX, cssY) => {
+      const point = cssToSpreadContent(cssX, cssY);
+      return resolveSpreadPage(pages, point.x, point.y);
+    },
     spreadContentToPage: (x, y) => resolveSpreadPage(pages, x, y),
+    isPageVisible: (pageIndex) => pageMap.has(pageIndex),
+    pageContentToSpread: (pageIndex, rect) => pageContentRectToSpread(pageMap, pageIndex, rect),
     spreadContentRectToViewport: (rect) => spreadContentRectToViewport(g, rect),
     pageContentToViewport: (pageIndex, rect) => toViewport(pageMap, pageIndex, rect),
     viewportToDisplay: (rect) => scaleRect(rect, renderScale),
     pageContentToScreen: (pageIndex, rect, canvasRect) =>
       toScreen(pageMap, pageIndex, rect, canvasRect, renderScale),
   };
+}
+
+function requireRenderScale(renderScale: number): void {
+  if (!Number.isFinite(renderScale) || renderScale <= 0) {
+    throw new RangeError('Coordinate mapper renderScale must be a positive finite number');
+  }
 }
 
 // ── Internals ────────────────────────────────────────────────────────

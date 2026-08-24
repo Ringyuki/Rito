@@ -7,7 +7,7 @@ import type {
   Page,
   RubyAnnotation,
   TextRun,
-} from '../../../src/layout/core';
+} from '../../../src/reference/ts-core/layout/core';
 
 export type RenderFeature =
   | 'first'

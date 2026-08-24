@@ -8,6 +8,7 @@ import type { TransitionDriver } from '../../driver/transition-driver';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { PageBufferPool } from '../../painter/buffer-pool';
 import type { DisplaySurface } from '../../painter/display-surface';
+import type { PrerenderScheduler } from '../prerender';
 
 export type { Internals } from '../core/internals';
 export type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
@@ -16,9 +17,20 @@ export type ModeManager = ReturnType<typeof createInteractionModeManager>;
 export type Nav = ReturnType<typeof createNavigation>;
 
 export type LifecycleSlice = Pick<ReaderController, 'mount' | 'dispose'>;
+export type NavigationActionsSlice = Pick<
+  ReaderController,
+  'goToSpread' | 'nextSpread' | 'prevSpread' | 'navigateToTocEntry' | 'jumpToSpread'
+>;
 export type ReaderProxiesSlice = Pick<
   ReaderController,
-  'reader' | 'metadata' | 'toc' | 'spreads' | 'pages' | 'currentSpread' | 'totalSpreads'
+  | 'reader'
+  | 'metadata'
+  | 'toc'
+  | 'spreads'
+  | 'pages'
+  | 'currentSpread'
+  | 'totalSpreads'
+  | 'paginationComplete'
 >;
 export type LayoutActionsSlice = Pick<
   ReaderController,
@@ -42,7 +54,13 @@ export type SearchActionsSlice = Pick<
 >;
 export type SelectionAccessorsSlice = Pick<
   ReaderController,
-  'clearSelection' | 'selectionText' | 'selectionRange'
+  | 'clearSelection'
+  | 'hasSelection'
+  | 'selectionText'
+  | 'selectionRange'
+  | 'selectionSourceLocator'
+  | 'selectionSourceSpan'
+  | 'beginSelectionHandleDrag'
 >;
 export type AnnotationActionsSlice = Pick<
   ReaderController,
@@ -63,5 +81,9 @@ export interface RuntimeComponents {
   readonly td: TransitionDriver;
   readonly frameDriver: FrameDriver;
   readonly pool: PageBufferPool;
+  readonly prerenderScheduler: PrerenderScheduler;
+  readonly disposeSettledEvents: () => void;
   readonly surface: DisplaySurface;
+  readonly terminateChapterLocalForLayout?: (() => (() => void) | undefined) | undefined;
+  readonly refreshChapterLocalTheme?: (() => void) | undefined;
 }

@@ -11,8 +11,8 @@ import {
   hasAttribute,
   parseXml,
   textContent,
-} from '../../src/parser/xml';
-import type { XmlParseLimits } from '../../src/parser/xml';
+} from '../../src/reference/ts-core/parser/xml';
+import type { XmlParseLimits } from '../../src/reference/ts-core/parser/xml';
 
 const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
 

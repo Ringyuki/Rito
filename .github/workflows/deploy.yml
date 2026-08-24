@@ -34,6 +34,10 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal --component clippy,rustfmt --target wasm32-unknown-unknown
+      - name: Install matching wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.120 --locked
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - uses: actions/upload-pages-artifact@v3

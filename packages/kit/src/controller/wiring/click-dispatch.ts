@@ -1,8 +1,11 @@
-import type { Reader } from '@ritojs/core/web';
-import type { HitEntry, LinkRegion } from '@ritojs/core/integration';
-import { findAnnotationAtPos, getAnnotationScreenCenter } from './annotation';
+import type { Reader } from '@ritojs/core';
+import type { HitEntry, LinkRegion } from '../../interaction/index';
+import { findAnnotationHitAtPos, getAnnotationScreenCenter } from './annotation';
 import { findLinkAtPos } from './link';
 import type { WiringDeps } from '../core/wiring-deps';
+import { dispatchNativeClickTarget } from './native-click';
+import { findNativeTargetAtPos, usesNativeTargets } from './native-targets';
+import { dispatchImageResourceClick, supersedePendingImageRequest } from './image-click';
 
 /**
  * Unified click target resolution and event dispatch.
@@ -16,11 +19,32 @@ import type { WiringDeps } from '../core/wiring-deps';
  * Both desktop single-click and touch tap route through this function.
  */
 export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): void {
+  supersedePendingImageRequest(deps);
+  const nativeTargets = usesNativeTargets(deps.reader);
+  if (nativeTargets && !deps.reader.interactions?.enabled) return;
+
   // 1. Annotation click (highest priority)
-  const ann = findAnnotationAtPos(pos, deps);
-  if (ann) {
-    const center = getAnnotationScreenCenter(ann, deps.canvas, deps);
-    deps.emitter.emit('annotationClick', { annotation: ann, x: center.x, y: center.y });
+  const annotationHit = findAnnotationHitAtPos(pos, deps);
+  if (annotationHit) {
+    const center = getAnnotationScreenCenter(
+      annotationHit.annotation,
+      deps.canvas,
+      deps,
+      annotationHit.segment,
+    );
+    deps.emitter.emit('annotationClick', {
+      annotation: annotationHit.annotation,
+      x: center.x,
+      y: center.y,
+    });
+    return;
+  }
+
+  // A present native capability is authoritative even while a preview disables it.
+  // Falling through would hit-test stale compatibility geometry against native paint.
+  if (nativeTargets) {
+    const hit = findNativeTargetAtPos(pos, deps.coordState);
+    if (hit) dispatchNativeClickTarget(hit.pageIndex, hit.target, deps);
     return;
   }
 
@@ -53,20 +77,15 @@ function dispatchImageClick(pos: { x: number; y: number }, hit: HitEntry, deps: 
   const canvasRect = canvas.getBoundingClientRect();
   const screenBounds = mapper.pageContentToScreen(resolved.pageIndex, hit.bounds, canvasRect);
 
-  // Revoke previous blob URL before creating a new one
-  if (coordState.activeImageBlobUrl) {
-    URL.revokeObjectURL(coordState.activeImageBlobUrl);
-    coordState.activeImageBlobUrl = null;
-  }
-  const blobUrl = hit.imageSrc ? deps.reader.getImageBlobUrl(hit.imageSrc) : undefined;
-  if (blobUrl) coordState.activeImageBlobUrl = blobUrl;
-
-  deps.emitter.emit('imageClick', {
-    src: hit.imageSrc ?? '',
-    alt: hit.imageAlt ?? '',
-    blobUrl,
-    screenBounds,
-  });
+  dispatchImageResourceClick(
+    {
+      src: hit.imageSrc ?? '',
+      alt: hit.imageAlt ?? '',
+      screenBounds,
+    },
+    mapper,
+    deps,
+  );
 }
 
 function dispatchLinkClick(

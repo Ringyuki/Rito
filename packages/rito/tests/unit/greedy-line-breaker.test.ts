@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
-import { findStyleRangeAt } from '../../src/layout/line-breaker/greedy/context';
-import type { StyleRange } from '../../src/layout/line-breaker/greedy/types';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
+import { findStyleRangeAt } from '../../src/reference/ts-core/layout/line-breaker/greedy/context';
+import type { StyleRange } from '../../src/reference/ts-core/layout/line-breaker/greedy/types';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { ComputedStyle } from '../../src/style/core/types';
-import type { InlineSegment } from '../../src/layout/text/styled-segment';
-import type { InlineAtom, RubyAnnotation, TextRun } from '../../src/layout/core/types';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { ComputedStyle } from '../../src/reference/ts-core/style/core/types';
+import type { InlineSegment } from '../../src/reference/ts-core/layout/text/styled-segment';
+import type {
+  InlineAtom,
+  RubyAnnotation,
+  TextRun,
+} from '../../src/reference/ts-core/layout/core/types';
 
 function textOf(run: TextRun | InlineAtom | RubyAnnotation | undefined): string | undefined {
   return run?.type === 'text-run' ? run.text : undefined;

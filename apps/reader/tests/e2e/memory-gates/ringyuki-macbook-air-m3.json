@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 2,
+  "machine": {
+    "id": "ringyuki-macbook-air-m3",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpuModel": "Apple M3",
+    "osRelease": "25.5.0",
+    "browserName": "chromium",
+    "browserVersion": "147.0.7727.15"
+  },
+  "browser": {
+    "isolation": "process-per-run",
+    "channel": "bundled",
+    "headless": true,
+    "locale": "en-US",
+    "colorScheme": "light"
+  },
+  "pinnedFonts": [
+    {
+      "sha256": "60a0e8ef0c04dd5dd69ffe91025fa2ae5836cbd35600a82ba031977557e2cb61",
+      "byteLength": 521588,
+      "genericRole": "serif",
+      "language": "und"
+    },
+    {
+      "sha256": "3754ea669c530e2473354f8f6d9f79680a44d7e26ec7d00eeabee4a7e0753c5d",
+      "byteLength": 11626108,
+      "genericRole": "serif",
+      "language": "zh-hans"
+    }
+  ],
+  "deviceScaleFactor": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "reflowViewport": {
+    "width": 1120,
+    "height": 720
+  },
+  "runs": 3,
+  "fixture": {
+    "id": "book-01",
+    "epub": "../../../../../packages/rito/tests/fixtures/books/book-01.epub",
+    "sha256": "e0320b357206a90f5fcbad511ddc5e121bfe13327d5c6ca8c770a83fd5a96bb9"
+  },
+  "scenario": {
+    "replacementRounds": 8,
+    "stabilization": {
+      "sampleIntervalMs": 250,
+      "minSamples": 3,
+      "maxSamples": 6,
+      "maxSampleRangeMiB": 8,
+      "maxSampleGrowthMiB": 2
+    }
+  },
+  "thresholds": {
+    "baselinePhysFootprintMiB": 210,
+    "loadedDeltaMiB": 200,
+    "checkpointPeakPhysFootprintMiB": 480,
+    "replacementGrowthMiB": 96,
+    "disposedRetainedMiB": 200
+  }
+}

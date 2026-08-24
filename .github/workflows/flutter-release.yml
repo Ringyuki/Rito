@@ -1,0 +1,70 @@
+# Publishes rito_flutter to pub.dev on a version tag.
+#
+# Trigger: push a tag `rito_flutter-vX.Y.Z` whose version matches
+# pubspec.yaml. The main Release workflow creates this tag automatically after
+# npm publishing succeeds. Publishing uses pub.dev's GitHub Actions automated
+# publishing (OIDC) — no long-lived pub.dev token is stored anywhere. One-time
+# setup on pub.dev (package Admin → Automated publishing): enable GitHub Actions
+# publishing for repository `Ringyuki/Rito` with tag pattern
+# `rito_flutter-v{{version}}`.
+#
+# The release preparation step vendors the exact tracked Rust dependency
+# closure used by rito-ffi. The Native Assets hook prefers that self-contained
+# workspace in published packages and falls back to the monorepo during local
+# development.
+name: flutter-release
+
+on:
+  push:
+    tags:
+      - 'rito_flutter-v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # pub.dev OIDC exchange
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/rito_flutter
+    steps:
+      - uses: actions/checkout@v4
+
+      # Provisions the pub.dev OIDC credential. Flutter shadows this action's
+      # standalone Dart binary in the following step.
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.11.5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.7
+
+      - uses: dtolnay/rust-toolchain@1.95.0
+
+      - name: Verify tag matches pubspec version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#rito_flutter-v}"
+          PUBSPEC_VERSION="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
+          echo "tag=$TAG_VERSION pubspec=$PUBSPEC_VERSION"
+          test "$TAG_VERSION" = "$PUBSPEC_VERSION"
+
+      - name: Prepare self-contained package
+        working-directory: .
+        run: node scripts/prepare-flutter-release.mjs
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: dart analyze
+
+      - name: Test bundled Native Asset
+        run: flutter test
+
+      - name: Validate package
+        run: dart pub publish --dry-run
+
+      - name: Publish
+        run: dart pub publish --force

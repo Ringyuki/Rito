@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
-import { loadEpub } from '../../src/runtime/load-epub';
+import { loadEpub } from '../../src/reference/ts-core/runtime/load-epub';
 import { buildMinimalEpub } from '../helpers/epub-builder';
-import { buildHrefResolver } from '../../src/utils/resolve-href';
-import { createLogger } from '../../src/utils/logger';
+import { buildHrefResolver } from '../../src/reference/ts-core/utils/resolve-href';
+import { createLogger } from '../../src/reference/ts-core/utils/logger';
 
 function buildCustomEpub(options: {
   readonly opf: string;
@@ -37,7 +37,7 @@ function pathNormalizationEpub(): ArrayBuffer {
     <item id="aux" href="Text/nonlinear.xhtml" media-type="application/xhtml+xml"/>
     <item id="css" href="Styles/old/../main%2Ecss" media-type="text/css"/>
     <item id="font" href="../Shared/Fonts/book.ttf" media-type="font/ttf"/>
-    <item id="cover" href="Images/tmp/../cover%2Ejpg" media-type="image/jpeg"/>
+    <item id="cover" href="Images/tmp/../cover%3Fprint%2Ejpg" media-type="image/jpeg"/>
     <item id="nav" href="Nav/./toc%2Exhtml" media-type="application/xhtml+xml" properties="nav"/>
   </manifest>
   <spine><itemref idref="ch1"/><itemref idref="aux" linear="no"/></spine>
@@ -54,7 +54,7 @@ function pathNormalizationEpub(): ArrayBuffer {
       'OPS/Text/nonlinear.xhtml': strToU8('<html><body><p>Supplement</p></body></html>'),
       'OPS/Styles/main.css': strToU8('p { color: navy; }'),
       'Shared/Fonts/book.ttf': new Uint8Array([1, 2, 3]),
-      'OPS/Images/cover.jpg': new Uint8Array([0xff, 0xd8, 0xff]),
+      'OPS/Images/cover?print.jpg': new Uint8Array([0xff, 0xd8, 0xff]),
       'OPS/Nav/toc.xhtml': strToU8(nav),
     },
   });
@@ -85,6 +85,9 @@ function epubWithUndeclaredImage(): ArrayBuffer {
     'OEBPS/ch1.xhtml': strToU8('<html><body><img src="images/illus1.jpg"/></body></html>'),
     'OEBPS/images/cover.jpg': new Uint8Array([0xff, 0xd8, 0xff, 1]),
     'OEBPS/images/illus1.jpg': new Uint8Array([0xff, 0xd8, 0xff, 2]), // not in manifest
+    'OEBPS/images/literal?mark.jpg': new Uint8Array([0xff, 0xd8, 0xff, 3]),
+    'OEBPS/images/literal%3Fmark.jpg': new Uint8Array([0xff, 0xd8, 0xff, 4]),
+    'OEBPS/images/hash#mark.jpg': new Uint8Array([0xff, 0xd8, 0xff, 5]),
   });
   return zip.buffer as ArrayBuffer;
 }
@@ -189,6 +192,10 @@ describe('loadEpub', () => {
     expect(resolve('images/cover.jpg')).toBeDefined(); // declared
     expect(resolve('images/illus1.jpg')).toBeDefined(); // undeclared, still indexed
     expect(doc.images.get('images/illus1.jpg')).toEqual(new Uint8Array([0xff, 0xd8, 0xff, 2]));
+    expect(resolve('images/literal%3Fmark.jpg')).toEqual(new Uint8Array([0xff, 0xd8, 0xff, 3]));
+    expect(resolve('images/literal%253Fmark.jpg')).toEqual(new Uint8Array([0xff, 0xd8, 0xff, 4]));
+    expect(resolve('images/hash%23mark.jpg')).toEqual(new Uint8Array([0xff, 0xd8, 0xff, 5]));
+    expect(resolve('images/literal?mark.jpg')).toBeUndefined();
   });
 
   it('canonicalizes percent escapes and dot segments for every manifest resource type', () => {
@@ -203,7 +210,7 @@ describe('loadEpub', () => {
     expect(doc.readChapter('ch1')).toContain('Canonical chapter');
     expect(doc.stylesheets.get('Styles/main.css')).toContain('color: navy');
     expect(doc.fonts.get('../Shared/Fonts/book.ttf')).toEqual(new Uint8Array([1, 2, 3]));
-    expect(doc.images.get('Images/cover.jpg')).toEqual(new Uint8Array([0xff, 0xd8, 0xff]));
+    expect(doc.images.get('Images/cover%3Fprint.jpg')).toEqual(new Uint8Array([0xff, 0xd8, 0xff]));
     expect(doc.toc[0]).toMatchObject({ label: 'One', href: '../Text/Chapter%201.xhtml' });
   });
 
@@ -212,7 +219,7 @@ describe('loadEpub', () => {
 
     expect(doc.packageDocument.spine.find((item) => item.idref === 'aux')?.linear).toBe(false);
     expect(doc.readChapter('aux')).toBeUndefined();
-    expect(doc.images.has('Images/cover.jpg')).toBe(true);
+    expect(doc.images.has('Images/cover%3Fprint.jpg')).toBe(true);
   });
 
   it('loads an NCX whose manifest path requires URL and dot-segment normalization', () => {

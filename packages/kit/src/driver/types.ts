@@ -33,6 +33,7 @@ export type TransitionMode =
     }
   | {
       readonly kind: 'boundary-elastic';
+      readonly direction: 'forward' | 'backward';
       readonly slotSpread: number;
       dx: number;
       vx: number;

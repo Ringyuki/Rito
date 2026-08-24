@@ -16,10 +16,12 @@ import { describe, expect, it } from 'vitest';
 import {
   renderBlockDecoration,
   type ResolvedRadius,
-} from '../../src/render/backends/canvas/background/background-renderer';
-import { parseBackgroundPosition } from '../../src/style/css/parse-background-position';
-import type { BackgroundPosition } from '../../src/style/core/paint-types';
-import type { BlockPaint, LayoutBlock } from '../../src/layout/core/types';
+} from '../../src/reference/ts-core/render/backends/canvas/background/background-renderer';
+import { type CanvasImageResolver } from '../../src/reference/ts-core/render/backends/canvas/background/background-image-renderer';
+import { createCanvasImageResolver } from '../../src/reference/ts-core/render/backends/canvas/image-resolver';
+import { parseBackgroundPosition } from '../../src/reference/ts-core/style/css/parse-background-position';
+import type { BackgroundPosition } from '../../src/reference/ts-core/style/core/paint-types';
+import type { BlockPaint, LayoutBlock } from '../../src/reference/ts-core/layout/core/types';
 import { createMockCanvasContext, isCall, type CanvasCall } from '../helpers/mock-canvas-context';
 
 function calls(records: readonly unknown[]): CanvasCall[] {
@@ -77,8 +79,8 @@ function makeBitmap(w: number, h: number): FakeBitmap {
   return { width: w, height: h };
 }
 
-function imageMap(href: string, bitmap: FakeBitmap): ReadonlyMap<string, ImageBitmap> {
-  return new Map([[href, bitmap as unknown as ImageBitmap]]);
+function imageResolver(href: string, bitmap: FakeBitmap): CanvasImageResolver {
+  return createCanvasImageResolver(new Map([[href, bitmap as unknown as ImageBitmap]]));
 }
 
 function resolveBlockRadius(block: LayoutBlock): ResolvedRadius {
@@ -98,7 +100,7 @@ function renderBlockDecorationFixture(
   x: number,
   y: number,
   radius: ResolvedRadius,
-  imageResolver?: ReadonlyMap<string, ImageBitmap>,
+  imageResolver?: CanvasImageResolver,
 ): void {
   renderBlockDecoration(
     ctx,
@@ -171,7 +173,7 @@ describe('Phase 0 — backgroundColor painting', () => {
 
 describe('Phase 0 — backgroundImage + size + position + repeat', () => {
   const HREF = 'cover.png';
-  const images = imageMap(HREF, makeBitmap(100, 100));
+  const images = imageResolver(HREF, makeBitmap(100, 100));
 
   function drawImageCalls(records: readonly unknown[]): CanvasCall[] {
     return calls(records).filter((c) => c.method === 'drawImage');
@@ -320,7 +322,14 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
         backgroundSize: 'auto',
         backgroundRepeat: 'repeat',
       });
-      renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, imageMap(HREF, bitmap));
+      renderBlockDecorationFixture(
+        mock.ctx,
+        block,
+        0,
+        0,
+        { rx: 0, ry: 0 },
+        imageResolver(HREF, bitmap),
+      );
       const draws = calls(mock.records).filter((c) => c.method === 'drawImage');
       // Tile grid: columns at x=0,50,100,150; rows at y=0,50. → 4 × 2 = 8
       expect(draws).toHaveLength(8);
@@ -339,7 +348,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
         0,
         0,
         { rx: 0, ry: 0 },
-        imageMap(HREF, makeBitmap(50, 50)),
+        imageResolver(HREF, makeBitmap(50, 50)),
       );
       const draws = calls(mock.records).filter((c) => c.method === 'drawImage');
       expect(draws).toHaveLength(1);

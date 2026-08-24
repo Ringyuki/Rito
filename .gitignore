@@ -1,5 +1,15 @@
 node_modules/
+.pnpm-store/
+.dart_tool/
+packages/rito_flutter/build/
+packages/rito_flutter/flutter_*.log
+
+# Local benchmark workspaces and evidence stay out of git; the development
+# docs record the measured numbers.
+benchmarks/
 dist/
+.output/
+target/
 coverage/
 playwright-report/
 test-results/
@@ -8,3 +18,11 @@ test-results/
 
 AGENTS.md
 MEMORY.md
+
+# corpus-oracle run artifacts: pixel-walk output trees, their logs, and
+# sweep boards are per-run instruments, never source.
+tools/corpus-oracle/walk-*/
+tools/corpus-oracle/walk-*.log
+tools/corpus-oracle/walk-*.txt
+tools/corpus-oracle/sweep/
+tools/corpus-oracle/tmp-*

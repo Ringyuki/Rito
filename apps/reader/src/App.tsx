@@ -1,17 +1,25 @@
 import { useCallback, useState } from 'react';
-import { useContainerSize } from '@ritojs/react';
+import type { ReaderPinnedFontPolicy } from '@ritojs/core';
+import { useContainerSize, useReaderAutoResize } from '@ritojs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { SearchBar } from '@/components/search-bar';
 import { SettingsPanel, DEFAULT_SETTINGS } from '@/components/settings-panel';
-import { useReader } from '@/hooks/use-reader';
+import { readerViewportMargin, useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
 import { Reader } from '@/components/reader';
 
-export function App() {
+interface AppProps {
+  readonly pinnedFontPolicy: ReaderPinnedFontPolicy;
+}
+
+export function App({ pinnedFontPolicy }: AppProps) {
   const { theme, toggle: toggleTheme, setTheme } = useTheme();
-  const [containerRef, containerSize] = useContainerSize();
-  const reader = useReader(theme, containerSize.width, containerSize.height);
+  const [sizeRef, containerSize] = useContainerSize();
+  const reader = useReader(theme, containerSize.width, containerSize.height, pinnedFontPolicy);
+  const resizeRef = useReaderAutoResize(reader.controller, {
+    margin: ({ width }) => readerViewportMargin(width),
+  });
   const [tocOpen, setTocOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -28,7 +36,7 @@ export function App() {
   }, []);
 
   const handleRestoreDefaults = useCallback(() => {
-    reader.setZoomScale(DEFAULT_SETTINGS.zoomScale);
+    reader.setFontSize(DEFAULT_SETTINGS.fontSize);
     // useBookLineHeight resets slider + deactivates override + clears force in one call.
     reader.useBookLineHeight();
     reader.setFontFamily(DEFAULT_SETTINGS.fontFamily);
@@ -47,6 +55,14 @@ export function App() {
   const handleLoadDemo = useCallback(() => {
     void reader.loadDemo();
   }, [reader]);
+
+  const containerRef = useCallback(
+    (node: HTMLElement | null) => {
+      sizeRef(node);
+      resizeRef(node);
+    },
+    [resizeRef, sizeRef],
+  );
 
   return (
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">
@@ -82,7 +98,7 @@ export function App() {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         settings={{
-          zoomScale: reader.zoomScale,
+          fontSize: reader.fontSize,
           lineHeight: reader.lineHeight,
           lineHeightActive: reader.lineHeightActive,
           lineHeightForce: reader.lineHeightForce,
@@ -91,7 +107,7 @@ export function App() {
           lineBreaking: reader.lineBreaking,
           theme,
         }}
-        onZoomScaleChange={reader.setZoomScale}
+        onFontSizeChange={reader.setFontSize}
         onLineHeightChange={reader.setLineHeight}
         onLineHeightForceChange={reader.setLineHeightForce}
         onUseBookLineHeight={reader.useBookLineHeight}

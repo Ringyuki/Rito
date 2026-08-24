@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import type { LayoutBlock, Page } from '../../src/layout/core';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { renderPage } from '../../src/render/page';
-import { loadEpub } from '../../src/runtime/load-epub';
-import { paginate } from '../../src/runtime/paginate';
-import type { EpubDocument } from '../../src/runtime/types';
+import type { LayoutBlock, Page } from '../../src/reference/ts-core/layout/core';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import { renderPage } from '../../src/reference/ts-core/render/page';
+import { loadEpub } from '../../src/reference/ts-core/runtime/load-epub';
+import { paginate } from '../../src/reference/ts-core/runtime/paginate';
+import type { EpubDocument } from '../../src/reference/ts-core/runtime/types';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { buildMinimalEpub } from '../helpers/epub-builder';

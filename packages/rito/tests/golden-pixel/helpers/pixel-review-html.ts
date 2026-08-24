@@ -10,14 +10,34 @@ import type { PixelReviewRecord, PixelReviewStatus } from './pixel-review';
 
 const REVIEW_STATUSES: readonly PixelReviewStatus[] = ['fail', 'error', 'missing', 'warn', 'pass'];
 
-export function renderPixelReviewHtml(records: readonly PixelReviewRecord[]): string {
+export interface PixelReviewHtmlOptions {
+  readonly heading?: string;
+  readonly expectedLabel?: string;
+  readonly actualLabel?: string;
+}
+
+export function renderPixelReviewHtml(
+  records: readonly PixelReviewRecord[],
+  options: PixelReviewHtmlOptions = {},
+): string {
   const sorted = [...records].sort(compareReviewRecords);
   const groups = groupRecordsByBook(sorted);
   const problems = sorted.filter(isProblemRecord);
   const selectedCase = problems[0] ?? sorted[0];
-  const title = `Rito Pixel Review (${String(sorted.length)} cases)`;
+  const heading = options.heading ?? 'Rito Pixel Review';
+  const expectedLabel = options.expectedLabel ?? 'Expected';
+  const actualLabel = options.actualLabel ?? 'Actual';
+  const comparisonLabel =
+    options.expectedLabel || options.actualLabel
+      ? `<p>${escapeHtml(`Expected: ${expectedLabel} · Actual: ${actualLabel}`)}</p>`
+      : '';
+  const title = `${heading} (${String(sorted.length)} cases)`;
   const reviewData = {
     records: sorted,
+    labels: {
+      expected: expectedLabel,
+      actual: actualLabel,
+    },
     selected: {
       activeId: selectedCase?.id ?? '',
     },
@@ -36,7 +56,8 @@ export function renderPixelReviewHtml(records: readonly PixelReviewRecord[]): st
   <div class="review-app" data-review-app>
     <aside class="review-sidebar" aria-label="Pixel review case navigation">
       <header class="review-title">
-        <h1>Rito Pixel Review</h1>
+        <h1>${escapeHtml(heading)}</h1>
+        ${comparisonLabel}
         <p>${escapeHtml(summaryText(sorted))}</p>
       </header>
 
@@ -90,8 +111,8 @@ export function renderPixelReviewHtml(records: readonly PixelReviewRecord[]): st
             <button type="button" data-view-mode="compare">Compare</button>
             <button type="button" data-view-mode="reference">Reference</button>
             <button type="button" data-view-mode="diff">Diff</button>
-            <button type="button" data-view-mode="actual">Actual</button>
-            <button type="button" data-view-mode="expected">Expected</button>
+            <button type="button" data-view-mode="actual">${escapeHtml(actualLabel)}</button>
+            <button type="button" data-view-mode="expected">${escapeHtml(expectedLabel)}</button>
           </div>
         </div>
       </header>

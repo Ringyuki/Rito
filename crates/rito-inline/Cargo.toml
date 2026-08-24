@@ -1,0 +1,22 @@
+[package]
+name = "rito-inline"
+description = "Parley-backed inline formatting context implementing the rito-fragment provider contract."
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# Default features off: parley's `system` feature pulls the platform font
+# backends (fontconfig on Linux, needing system headers at build time).
+# The engine registers pinned font blobs only and constructs its
+# collection with `system_fonts: false`, so the backends are dead weight.
+parley = { version = "0.11", default-features = false, features = ["std"] }
+# Font table introspection for the Han-kerning `halt` gate. Already in the
+# graph through parley, so this adds no weight to the wasm binary.
+skrifa = "0.43"
+# Script property, for keying host line-metric samples the way a browser
+# keys font fallback. Already in the graph through parley, so this adds no
+# weight to the wasm binary.
+icu_properties = { version = "2.1.2", features = ["compiled_data"], default-features = false }
+rito-fragment = { path = "../rito-fragment" }
+rito-style-contract = { path = "../rito-style-contract" }

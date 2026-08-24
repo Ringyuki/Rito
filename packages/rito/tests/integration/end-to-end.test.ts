@@ -1,13 +1,13 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { unzipSync, zipSync } from 'fflate';
-import { loadEpub } from '../../src/runtime/load-epub';
-import { paginate } from '../../src/runtime/paginate';
-import { renderPage } from '../../src/render/page';
+import { loadEpub } from '../../src/reference/ts-core/runtime/load-epub';
+import { paginate } from '../../src/reference/ts-core/runtime/paginate';
+import { renderPage } from '../../src/reference/ts-core/render/page';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { buildMinimalEpub } from '../helpers/epub-builder';
-import { createLayoutConfig } from '../../src/layout/core/config';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
 
 function xhtml(body: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>

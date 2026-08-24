@@ -6,10 +6,10 @@
  * layout-block renderer.
  */
 import { describe, expect, it } from 'vitest';
-import { renderPage } from '../../src/render/page';
-import { parseTransform } from '../../src/style/css/parse-transform';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import type { LayoutBlock, Page } from '../../src/layout/core/types';
+import { renderPage } from '../../src/reference/ts-core/render/page';
+import { parseTransform } from '../../src/reference/ts-core/style/css/parse-transform';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import type { LayoutBlock, Page } from '../../src/reference/ts-core/layout/core/types';
 import { createMockCanvasContext, type CanvasCall, isCall } from '../helpers/mock-canvas-context';
 
 const DEG_TO_RAD = Math.PI / 180;

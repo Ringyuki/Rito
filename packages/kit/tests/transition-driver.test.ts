@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { stepSpring, type SpringState } from '../src/driver/spring';
 import { createTransitionDriver } from '../src/driver/transition-driver';
+import { DEFAULT_TRANSITION_OPTIONS } from '../src/driver/types';
 
 describe('TransitionDriver', () => {
   function createDriver(
@@ -116,6 +118,47 @@ describe('TransitionDriver', () => {
     expect(result).toBe('cancel');
   });
 
+  it('cancelTracking settles back even when displacement would normally commit', () => {
+    const td = createDriver();
+    const onSettled = vi.fn();
+    td.onSettled(onSettled);
+    td.startTracking('forward', 0, 1, 0);
+    td.updateTracking(-200, 100);
+
+    expect(td.cancelTracking()).toBe(true);
+    expect(td.mode).toMatchObject({ kind: 'settling', target: 0 });
+    while (td.isAnimating) td.step(16);
+
+    expect(onSettled).toHaveBeenCalledWith({
+      direction: 'forward',
+      committed: false,
+      targetSpread: 0,
+    });
+  });
+
+  it('cancelTracking retargets an owned settling transition back to its origin', () => {
+    const td = createDriver();
+    const onSettled = vi.fn();
+    td.onSettled(onSettled);
+    td.goToTarget('forward', 0, 1);
+    td.step(16);
+
+    expect(td.cancelTracking()).toBe(true);
+    expect(td.mode).toMatchObject({ kind: 'settling', target: 0 });
+    while (td.isAnimating) td.step(16);
+
+    expect(onSettled).toHaveBeenCalledWith({
+      direction: 'forward',
+      committed: false,
+      targetSpread: 0,
+    });
+  });
+
+  it('cancelTracking returns false while idle', () => {
+    const td = createDriver();
+    expect(td.cancelTracking()).toBe(false);
+  });
+
   it('goToTarget goes directly to settling', () => {
     const td = createDriver();
     td.goToTarget('forward', 0, 1);
@@ -133,6 +176,21 @@ describe('TransitionDriver', () => {
     if (td.mode.kind === 'settling') {
       expect(td.mode.target).toBe(800);
     }
+  });
+
+  it('uses the spring curve for programmatic page turns', () => {
+    const td = createDriver();
+    const expected: SpringState = { x: 0, vx: 0 };
+    stepSpring(expected, -800, DEFAULT_TRANSITION_OPTIONS, 16);
+
+    td.goToTarget('forward', 0, 1);
+    td.step(16);
+
+    expect(td.mode).toMatchObject({
+      kind: 'settling',
+      dx: expected.x,
+      vx: expected.vx,
+    });
   });
 
   it('settling converges to target and emits onSettled', () => {
@@ -199,6 +257,24 @@ describe('TransitionDriver', () => {
 
     expect(td.mode.kind).toBe('idle');
     expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ committed: false }));
+  });
+
+  it('backward boundary elastic preserves its direction through settlement', () => {
+    const td = createDriver();
+    const onSettled = vi.fn();
+    td.onSettled(onSettled);
+
+    td.startTracking('backward', 0, null, 0);
+    td.updateTracking(100, 100);
+    td.releaseTracking();
+    expect(td.mode).toMatchObject({ kind: 'boundary-elastic', direction: 'backward' });
+    while (td.isAnimating) td.step(16);
+
+    expect(onSettled).toHaveBeenCalledWith({
+      direction: 'backward',
+      committed: false,
+      targetSpread: 0,
+    });
   });
 
   it('reset forces idle', () => {

@@ -1,0 +1,32 @@
+{
+  "__proto__": {
+    "polluted": true
+  },
+  "array": [
+    null,
+    false,
+    true,
+    -9007199254740991,
+    9007199254740991,
+    1.5,
+    "永冬無境 🌨️ café",
+    "shared",
+    {
+      "deep": ["shared", null, { "repeat": "shared" }],
+      "repeat": "shared"
+    }
+  ],
+  "falseValue": false,
+  "float": -12.5,
+  "i64Min": -9007199254740991,
+  "nested": {
+    "array": [true, { "unicode": "雪" }],
+    "repeat": "shared"
+  },
+  "nullValue": null,
+  "repeatA": "shared",
+  "repeatB": "shared",
+  "trueValue": true,
+  "u64Max": 9007199254740991,
+  "unicode": "永冬無境 🌨️ café"
+}

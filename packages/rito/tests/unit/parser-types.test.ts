@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { NODE_TYPES } from '../../src/parser/xhtml/types.js';
-import type { BlockNode, DocumentNode, TextNode } from '../../src/parser/xhtml/types.js';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types.js';
+import type {
+  BlockNode,
+  DocumentNode,
+  TextNode,
+} from '../../src/reference/ts-core/parser/xhtml/types.js';
 
 describe('NODE_TYPES', () => {
   it('has expected values', () => {

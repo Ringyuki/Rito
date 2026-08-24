@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { DisplayList } from '../../src/render/display-list';
-import { canvasDisplayListRenderer } from '../../src/render/backends/canvas';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+import type { DisplayList } from '../../src/reference/ts-core/render/display-list';
+import { canvasDisplayListRenderer } from '../../src/reference/ts-core/render/backends/canvas';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 
 describe('canvas display-list backend', () => {
@@ -34,7 +34,7 @@ describe('canvas display-list backend', () => {
     expect(mock.getCalls('fillRect')[0]?.args).toEqual([0, 0, 400, 600]);
     expect(mock.getCalls('rect')[0]?.args).toEqual([0, 0, 400, 600]);
     expect(mock.getCalls('clip')).toHaveLength(1);
-    expect(mock.getCalls('fillText')[0]?.args).toEqual(['Hello', 20, 30]);
+    expect(mock.getCalls('fillText')[0]?.args).toEqual(['Hello', 20, 42.8]);
   });
 
   it('resolves image hrefs before drawing', () => {

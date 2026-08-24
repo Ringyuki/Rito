@@ -1,18 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
-import { createKnuthPlassLayouter } from '../../src/layout/line-breaker/kp';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
+import { createKnuthPlassLayouter } from '../../src/reference/ts-core/layout/line-breaker/kp';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { ComputedStyle } from '../../src/style/core/types';
-import { DISPLAY_VALUES } from '../../src/style/core/types';
-import type { InlineSegment, InlineAtomSegment } from '../../src/layout/text/styled-segment';
-import { flattenInlineContent, isInlineAtom } from '../../src/layout/text/styled-segment';
-import { layoutBlocks } from '../../src/layout/block';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import type { DocumentNode } from '../../src/parser/xhtml/types';
-import { NODE_TYPES } from '../../src/parser/xhtml/types';
-import type { ImageSizeMap } from '../../src/layout/block/types';
-import type { InlineAtom, RubyAnnotation, TextRun } from '../../src/layout/core/types';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { ComputedStyle } from '../../src/reference/ts-core/style/core/types';
+import { DISPLAY_VALUES } from '../../src/reference/ts-core/style/core/types';
+import type {
+  InlineSegment,
+  InlineAtomSegment,
+} from '../../src/reference/ts-core/layout/text/styled-segment';
+import {
+  flattenInlineContent,
+  isInlineAtom,
+} from '../../src/reference/ts-core/layout/text/styled-segment';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import type { DocumentNode } from '../../src/reference/ts-core/parser/xhtml/types';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types';
+import type { ImageSizeMap } from '../../src/reference/ts-core/layout/block/types';
+import type {
+  InlineAtom,
+  RubyAnnotation,
+  TextRun,
+} from '../../src/reference/ts-core/layout/core/types';
 
 const measurer = createMockTextMeasurer(0.6);
 const greedyLayouter = createGreedyLayouter(measurer);

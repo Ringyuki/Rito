@@ -1,5 +1,4 @@
-import type { Reader } from '@ritojs/core/web';
-import type { ControllerOptions, ReaderController } from '../types';
+import type { ReaderController } from '../types';
 import type {
   Internals,
   Emitter,
@@ -17,6 +16,8 @@ import { buildSelectionAccessors } from './selection-accessors';
 import { buildAnnotationActions } from './annotation-actions';
 import { buildPositionActions } from './position-actions';
 import { buildMisc } from './misc-actions';
+import { buildNavigationActions } from './navigation-actions';
+import { buildWiringDeps } from '../core/wiring-deps';
 
 export type { Internals } from './types';
 export { syncCanvasSize } from './lifecycle';
@@ -29,25 +30,29 @@ export function buildController(
   keyboard: Keyboard,
   modeManager: ModeManager,
   nav: Nav,
-  opts: ControllerOptions,
   canvas: HTMLCanvasElement,
-  reader: Reader,
 ): ReaderController {
-  const controller = {
-    ...buildLifecycle(disposables, runtime, internals.coordState, opts, canvas, reader),
-    ...nav,
-    ...buildLayoutActions(internals, emitter, runtime),
-    ...buildSearchActions(internals, emitter, nav, runtime),
-    ...buildSelectionAccessors(internals),
-    ...buildAnnotationActions(internals),
-    ...buildPositionActions(internals, nav),
-    ...buildMisc(emitter, modeManager, keyboard, (update) => {
+  const controller = {} as ReaderController;
+  const lifecycleDeps = buildWiringDeps(internals, emitter, runtime.frameDriver, canvas, nav);
+  defineSlice(
+    controller,
+    buildLifecycle(disposables, runtime, lifecycleDeps),
+    buildNavigationActions(nav),
+    buildLayoutActions(internals, emitter, runtime),
+    buildSearchActions(internals, emitter, nav, runtime),
+    buildSelectionAccessors(internals, canvas, nav),
+    buildAnnotationActions(internals, emitter),
+    buildPositionActions(internals, nav, runtime.frameDriver),
+    buildMisc(emitter, modeManager, keyboard, (update) => {
       runtime.td.configure(update);
     }),
-  } as ReaderController;
-  Object.defineProperties(
-    controller,
-    Object.getOwnPropertyDescriptors(buildReaderProxies(internals)),
+    buildReaderProxies(internals),
   );
   return controller;
+}
+
+function defineSlice(target: object, ...slices: readonly object[]): void {
+  for (const slice of slices) {
+    Object.defineProperties(target, Object.getOwnPropertyDescriptors(slice));
+  }
 }

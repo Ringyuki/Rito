@@ -1,18 +1,24 @@
-import type { AnnotationRecord, AnnotationRecordPatch } from '@ritojs/core/annotations';
+import type { AnnotationRecord, AnnotationRecordPatch } from '../../interaction/index';
 import type { AddAnnotationInput } from '../types';
-import type { Internals, AnnotationActionsSlice } from './types';
-import { buildAnnotationTargetFromSnapshot } from '../annotation-resolution/target-builder';
+import type { Internals, AnnotationActionsSlice, Emitter } from './types';
+import {
+  buildAnnotationTargetFromLocator,
+  buildAnnotationTargetFromSnapshot,
+} from '../annotation-resolution/target-builder';
 
-export function buildAnnotationActions(internals: Internals): AnnotationActionsSlice {
+export function buildAnnotationActions(
+  internals: Internals,
+  emitter: Emitter,
+): AnnotationActionsSlice {
   return {
     addAnnotation(input: AddAnnotationInput): AnnotationRecord | undefined {
-      return addAnnotationImpl(input, internals);
+      return addAnnotationImpl(input, internals, emitter);
     },
     removeAnnotation(id: string): boolean {
-      return removeAnnotationImpl(id, internals);
+      return removeAnnotationImpl(id, internals, emitter);
     },
     updateAnnotation(id: string, patch: AnnotationRecordPatch): boolean {
-      return updateAnnotationImpl(id, patch, internals);
+      return updateAnnotationImpl(id, patch, internals, emitter);
     },
     get annotations() {
       const store = internals.coordState.annotationStore;
@@ -26,14 +32,18 @@ export function buildAnnotationActions(internals: Internals): AnnotationActionsS
 function addAnnotationImpl(
   input: AddAnnotationInput,
   internals: Internals,
+  emitter: Emitter,
 ): AnnotationRecord | undefined {
   const store = internals.coordState.annotationStore;
   if (!store) return undefined;
 
+  const sourceLocator = internals.engines.selection.getSourceLocator();
   const snapshot = internals.engines.selection.getSnapshot();
-  if (!snapshot) return undefined;
-
-  const target = buildAnnotationTargetFromSnapshot(snapshot, internals);
+  const target = sourceLocator
+    ? buildAnnotationTargetFromLocator(sourceLocator, internals)
+    : snapshot
+      ? buildAnnotationTargetFromSnapshot(snapshot, internals)
+      : undefined;
   if (!target) return undefined;
 
   const record = store.add({
@@ -42,15 +52,15 @@ function addAnnotationImpl(
     ...(input.color !== undefined ? { color: input.color } : {}),
     ...(input.note !== undefined ? { note: input.note } : {}),
   });
-  void store.persist();
+  persistAnnotations(store, emitter);
   return record;
 }
 
-function removeAnnotationImpl(id: string, internals: Internals): boolean {
+function removeAnnotationImpl(id: string, internals: Internals, emitter: Emitter): boolean {
   const store = internals.coordState.annotationStore;
   if (!store) return false;
   const ok = store.remove(id);
-  if (ok) void store.persist();
+  if (ok) persistAnnotations(store, emitter);
   return ok;
 }
 
@@ -58,10 +68,27 @@ function updateAnnotationImpl(
   id: string,
   patch: AnnotationRecordPatch,
   internals: Internals,
+  emitter: Emitter,
 ): boolean {
   const store = internals.coordState.annotationStore;
   if (!store) return false;
   const ok = store.update(id, patch);
-  if (ok) void store.persist();
+  if (ok) persistAnnotations(store, emitter);
   return ok;
+}
+
+function persistAnnotations(
+  store: NonNullable<Internals['coordState']['annotationStore']>,
+  emitter: Emitter,
+): void {
+  void store.persist().catch((error: unknown) => {
+    try {
+      emitter.emit('error', {
+        message: error instanceof Error ? error.message : String(error),
+        source: 'annotation-storage',
+      });
+    } catch {
+      // Consumer error listeners must not create an unhandled storage rejection.
+    }
+  });
 }

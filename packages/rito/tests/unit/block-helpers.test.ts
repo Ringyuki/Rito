@@ -3,10 +3,13 @@ import {
   computeChildrenHeight,
   withPageBreaks,
   applyPageBreakFlags,
-} from '../../src/layout/block/helpers';
-import { blockPaintFromStyle, borderBoxFromStyle } from '../../src/layout/block/paint-from-style';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { LayoutBlock, LineBox } from '../../src/layout/core/types';
+} from '../../src/reference/ts-core/layout/block/helpers';
+import {
+  blockPaintFromStyle,
+  borderBoxFromStyle,
+} from '../../src/reference/ts-core/layout/block/paint-from-style';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { LayoutBlock, LineBox } from '../../src/reference/ts-core/layout/core/types';
 
 describe('borderBoxFromStyle + blockPaintFromStyle', () => {
   it('returns undefined border box + no border paint when all sides are none', () => {

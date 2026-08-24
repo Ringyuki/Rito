@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { BlockNode, DocumentNode, InlineNode, TextNode } from '../../src/parser/xhtml/types';
-import { NODE_TYPES } from '../../src/parser/xhtml/types';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { DEFAULT_UA_RULES } from '../../src/style/ua/default-rules';
+import type {
+  BlockNode,
+  DocumentNode,
+  InlineNode,
+  TextNode,
+} from '../../src/reference/ts-core/parser/xhtml/types';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { DEFAULT_UA_RULES } from '../../src/reference/ts-core/style/ua/default-rules';
 
 function text(content: string): TextNode {
   return { type: NODE_TYPES.Text, content };

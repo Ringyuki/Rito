@@ -1,14 +1,17 @@
 import { defineConfig } from '@playwright/test';
 
 const browserChannel = process.env['PLAYWRIGHT_BROWSER_CHANNEL'];
-const isPixelReview = process.env['RITO_PIXEL_REVIEW'] === '1';
+const isPixelReview =
+  process.env['RITO_PIXEL_REVIEW'] === '1' || process.env['RITO_READER_PARITY_REVIEW'] === '1';
 const DEFAULT_PIXEL_WORKERS = 2;
 
 export default defineConfig({
   testDir: './tests/golden-pixel',
   outputDir: './test-results/playwright',
   timeout: 120_000,
-  fullyParallel: false,
+  // Snapshot tests are independent (each opens its own page); review and
+  // update runs stay serial through the describe-level mode instead.
+  fullyParallel: !isPixelReview,
   workers: isPixelReview ? 1 : pixelWorkerCount(),
   reporter: [['list']],
   use: {

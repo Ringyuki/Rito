@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createController } from '../src/controller';
+import { requireRenderScale } from '../src/controller/facade/layout-actions';
 
 beforeAll(() => {
   if (typeof globalThis['OffscreenCanvas'] === 'undefined') {
@@ -28,6 +29,15 @@ afterEach(() => {
 });
 
 describe('createController', () => {
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects invalid renderScale %s',
+    (scale) => {
+      expect(() => {
+        requireRenderScale(scale);
+      }).toThrow(RangeError);
+    },
+  );
+
   it('applies the initial renderScale before the first mount/render cycle', () => {
     vi.stubGlobal(
       'requestAnimationFrame',
@@ -58,7 +68,7 @@ describe('createController', () => {
       spreads: [{ left: { index: 0 }, right: undefined }],
       dpr: 2,
       renderSpread: vi.fn(),
-      renderSpreadTo: vi.fn(),
+      renderSpreadTo: vi.fn(() => true),
       notifyActiveSpread: vi.fn(),
       resize: vi.fn(),
       setSpreadMode: vi.fn(),
@@ -93,9 +103,12 @@ describe('createController', () => {
     expect(canvas.style.height).toBe('360px');
     expect(canvas.width).toBe(960);
     expect(canvas.height).toBe(720);
+
+    controller.setRenderScale(1.4);
+    expect(controller.renderScale).toBe(1.4);
   });
 
-  it('navigates to a reading position through the current layout', () => {
+  it('navigates to a reading position through the current layout', async () => {
     vi.stubGlobal(
       'requestAnimationFrame',
       vi.fn(() => 1),
@@ -126,7 +139,7 @@ describe('createController', () => {
       ],
       dpr: 1,
       renderSpread: vi.fn(),
-      renderSpreadTo: vi.fn(),
+      renderSpreadTo: vi.fn(() => true),
       notifyActiveSpread,
       resize: vi.fn(),
       setSpreadMode: vi.fn(),
@@ -154,7 +167,7 @@ describe('createController', () => {
     };
 
     const controller = createController(reader as never, canvas);
-    const resolved = controller.goToPosition({
+    const resolved = await controller.goToPosition({
       projection: { spreadIndex: 0, pageIndex: 0 },
       progress: 0,
       timestamp: 0,
@@ -190,7 +203,7 @@ describe('createController', () => {
       spreads: [{ left: { index: 0 }, right: undefined }],
       dpr: 1,
       renderSpread: vi.fn(),
-      renderSpreadTo: vi.fn(),
+      renderSpreadTo: vi.fn(() => true),
       notifyActiveSpread: vi.fn(() => {
         throw sentinel;
       }),

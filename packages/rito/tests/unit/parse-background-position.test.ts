@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBackgroundPosition } from '../../src/style/css/parse-background-position';
+import { parseBackgroundPosition } from '../../src/reference/ts-core/style/css/parse-background-position';
 
 describe('parseBackgroundPosition', () => {
   describe('two-token keyword combinations', () => {

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { XhtmlParseError } from '../../src/parser/xhtml/errors';
+import { XhtmlParseError } from '../../src/reference/ts-core/parser/xhtml/errors';
 import {
   estimateNormalizedXhtmlSourceLength,
   isXhtmlSourceWithinNormalizationBudget,
   normalizeXhtmlSource,
-} from '../../src/parser/xhtml/xhtml-source-normalizer';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
+} from '../../src/reference/ts-core/parser/xhtml/xhtml-source-normalizer';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
 
 describe('normalizeXhtmlSource', () => {
   describe('legacy HTML void elements', () => {

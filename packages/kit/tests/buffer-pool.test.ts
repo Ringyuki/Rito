@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createPageBufferPool } from '../src/painter/buffer-pool';
 
 // Polyfill OffscreenCanvas for Node/happy-dom test environment
@@ -26,12 +26,47 @@ beforeAll(() => {
   }
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('PageBufferPool', () => {
   it('starts with three empty slots', () => {
     const pool = createPageBufferPool();
     expect(pool.prev.spreadIndex).toBeNull();
     expect(pool.curr.spreadIndex).toBeNull();
     expect(pool.next.spreadIndex).toBeNull();
+  });
+
+  it('releases earlier slots when a later backing-store allocation fails', () => {
+    const sentinel = new Error('backing-store allocation failed');
+    const allocated: Array<{ width: number; height: number }> = [];
+    let allocationCount = 0;
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class ThrowingOffscreenCanvas {
+        width: number;
+        height: number;
+
+        constructor(width: number, height: number) {
+          allocationCount += 1;
+          if (allocationCount === 3) throw sentinel;
+          this.width = width;
+          this.height = height;
+          allocated.push(this);
+        }
+
+        getContext(): null {
+          return null;
+        }
+      },
+    );
+
+    expect(() => {
+      createPageBufferPool();
+    }).toThrow(sentinel);
+    expect(allocated).toHaveLength(2);
+    expect(allocated.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
   });
 
   it('assignSlot sets spreadIndex and marks dirty', () => {
@@ -47,7 +82,7 @@ describe('PageBufferPool', () => {
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 5);
 
-    const renderer = vi.fn();
+    const renderer = vi.fn((_spreadIndex: number) => true);
     pool.ensureContent('curr', renderer);
 
     expect(renderer).toHaveBeenCalledTimes(1);
@@ -59,9 +94,23 @@ describe('PageBufferPool', () => {
     expect(renderer).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps content dirty when renderer defers painting', () => {
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 1);
+    pool.assignSlot('curr', 5);
+
+    const renderer = vi.fn(() => false);
+    expect(pool.ensureContent('curr', renderer)).toBe(false);
+    expect(pool.curr.contentDirty).toBe(true);
+
+    const readyRenderer = vi.fn(() => true);
+    expect(pool.ensureContent('curr', readyRenderer)).toBe(true);
+    expect(pool.curr.contentDirty).toBe(false);
+  });
+
   it('ensureContent skips empty slots', () => {
     const pool = createPageBufferPool();
-    const renderer = vi.fn();
+    const renderer = vi.fn(() => true);
     pool.ensureContent('curr', renderer);
     expect(renderer).not.toHaveBeenCalled();
   });
@@ -152,12 +201,28 @@ describe('PageBufferPool', () => {
     expect(pool.curr.contentDirty).toBe(true);
   });
 
+  it('resize is a no-op when backing dimensions are unchanged', () => {
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 1);
+    pool.assignSlot('curr', 1);
+
+    const renderer = vi.fn(() => true);
+    pool.ensureContent('curr', renderer);
+    expect(pool.curr.contentDirty).toBe(false);
+
+    pool.resize(800, 600, 1);
+
+    expect(pool.curr.content.width).toBe(800);
+    expect(pool.curr.content.height).toBe(600);
+    expect(pool.curr.contentDirty).toBe(false);
+  });
+
   it('invalidateAllContent marks all slots dirty', () => {
     const pool = createPageBufferPool();
     pool.resize(100, 100, 1);
     pool.assignSlot('curr', 0);
 
-    const renderer = vi.fn();
+    const renderer = vi.fn(() => true);
     pool.ensureContent('curr', renderer);
     expect(pool.curr.contentDirty).toBe(false);
 
@@ -175,7 +240,7 @@ describe('PageBufferPool', () => {
     pool.assignSlot('next', 2);
 
     // Clear dirty flags
-    const renderer = vi.fn();
+    const renderer = vi.fn(() => true);
     const provider = vi.fn(() => []);
     pool.ensureContent('curr', renderer);
     pool.ensureOverlay('curr', provider, 1);
@@ -214,5 +279,140 @@ describe('PageBufferPool', () => {
     expect(pool.prev.spreadIndex).toBe(2);
     expect(pool.curr.spreadIndex).toBe(3);
     expect(pool.next.spreadIndex).toBeNull();
+  });
+
+  it('keeps an incoming provisional raster outside ordinary spread lookup', () => {
+    const pool = createPageBufferPool();
+    pool.resize(100, 100, 1);
+    pool.assignSlot('curr', 4);
+    pool.assignSlot('next', 5);
+
+    const stage = pool.beginProvisionalStage(4, 'forward');
+    expect(stage.slot).not.toBe(pool.next);
+    expect(pool.ensureProvisionalStage(stage.token, () => true)).toBe(true);
+    expect(pool.resolveDrawSlot('next')).toEqual({
+      slot: stage.slot,
+      provisional: true,
+      provisionalToken: stage.token,
+    });
+    expect(pool.getSlotFor(5)).toBe('next');
+    expect(stage.slot.spreadIndex).toBeNull();
+  });
+
+  it('pins the exact outgoing raster until a committed preview rolls back', () => {
+    const pool = createPageBufferPool();
+    pool.resize(100, 100, 1);
+    pool.assignSlot('prev', 3);
+    pool.assignSlot('curr', 4);
+    pool.assignSlot('next', 5);
+    const exactMountSlot = pool.curr;
+    const stage = pool.beginProvisionalStage(4, 'forward');
+    pool.ensureProvisionalStage(stage.token, () => true);
+
+    expect(pool.commitProvisionalStage(stage.token)).toBe(true);
+    expect(pool.curr.spreadIndex).toBe(4);
+    expect(pool.prev).toBe(exactMountSlot);
+    expect(pool.getSlotFor(4)).toBe('curr');
+    pool.assignSlot('prev', 99);
+    expect(pool.prev.spreadIndex).toBe(4);
+
+    expect(pool.beginProvisionalRollback(stage.token)).toBe(true);
+    expect(pool.completeProvisionalRollback(stage.token)).toBe(true);
+    expect(pool.curr).toBe(exactMountSlot);
+    expect(pool.curr.spreadIndex).toBe(4);
+  });
+
+  it('atomically promotes exact content and discards both preview and rollback rasters', () => {
+    const pool = createPageBufferPool();
+    pool.resize(100, 100, 1);
+    pool.assignSlot('prev', 3);
+    pool.assignSlot('curr', 4);
+    pool.assignSlot('next', 5);
+    const stage = pool.beginProvisionalStage(4, 'forward');
+    pool.ensureProvisionalStage(stage.token, () => true);
+    pool.commitProvisionalStage(stage.token);
+    pool.assignSlot('next', 8);
+    pool.ensureContent('next', () => true);
+
+    expect(pool.promoteProvisionalExact(stage.token, 'next', 8)).toBe(true);
+    expect(pool.curr.spreadIndex).toBe(8);
+    expect(pool.curr.contentDirty).toBe(false);
+    expect(pool.getSlotFor(4)).toBeNull();
+    expect(pool.resolveDrawSlot('curr')).toEqual({ slot: pool.curr, provisional: false });
+
+    const exactRenderer = vi.fn(() => true);
+    pool.assignSlot('prev', 4);
+    expect(pool.ensureContent('prev', exactRenderer)).toBe(true);
+    expect(exactRenderer).toHaveBeenCalledOnce();
+  });
+
+  it('resets to a dirty exact mount when terminal cleanup loses token ownership', () => {
+    const pool = createPageBufferPool();
+    pool.resize(100, 100, 1);
+    pool.assignSlot('curr', 4);
+    pool.beginProvisionalStage(4, 'forward');
+
+    expect(pool.containProvisionalFailure(999, 4)).toBe(false);
+    expect(pool.curr.spreadIndex).toBe(4);
+    expect(pool.curr.contentDirty).toBe(true);
+    expect(() => {
+      pool.jump(5);
+    }).not.toThrow();
+  });
+
+  it('dispose releases content and overlay backing stores', () => {
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 2);
+    pool.assignSlot('curr', 0);
+    pool.ensureOverlay(
+      'curr',
+      () => [
+        { id: 'sel', rects: [{ x: 0, y: 0, width: 10, height: 10 }], color: 'blue', zIndex: 0 },
+      ],
+      1,
+    );
+
+    pool.dispose();
+
+    for (const slot of [pool.prev, pool.curr, pool.next]) {
+      expect(slot.spreadIndex).toBeNull();
+      expect(slot.content.width).toBe(0);
+      expect(slot.content.height).toBe(0);
+      expect(slot.overlay).toBeNull();
+    }
+    expect(() => {
+      pool.dispose();
+    }).not.toThrow();
+  });
+
+  it('remains terminal when stale work reaches it after disposal', () => {
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 2);
+    pool.assignSlot('curr', 4);
+    pool.dispose();
+    const renderer = vi.fn(() => true);
+    const overlays = vi.fn(() => [{ id: 'late', rects: [], color: 'blue', zIndex: 0 }]);
+
+    pool.resize(1200, 900, 2);
+    pool.assignSlot('curr', 5);
+    pool.jump(6);
+    pool.rotateForward();
+    pool.rotateBackward();
+    pool.invalidateAllContent();
+    pool.invalidateContentForSpread(4);
+    pool.invalidateOverlayForSpread(4);
+    pool.invalidateAllOverlays();
+
+    expect(pool.ensureContent('curr', renderer)).toBe(false);
+    pool.ensureOverlay('curr', overlays, 1);
+    expect(renderer).not.toHaveBeenCalled();
+    expect(overlays).not.toHaveBeenCalled();
+    expect(pool.getSlotFor(4)).toBeNull();
+    for (const slot of [pool.prev, pool.curr, pool.next]) {
+      expect(slot.spreadIndex).toBeNull();
+      expect(slot.content.width).toBe(0);
+      expect(slot.content.height).toBe(0);
+      expect(slot.overlay).toBeNull();
+    }
   });
 });

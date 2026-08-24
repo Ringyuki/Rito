@@ -3,24 +3,24 @@
  * Phase 2 tests: anchor system — chapter text index, selectors, round-trip.
  */
 import { describe, expect, it } from 'vitest';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { buildChapterTextIndex } from '../../src/interaction/anchors/chapter-text-index';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import { buildChapterTextIndex } from '../../src/reference/ts-core/interaction/anchors/chapter-text-index';
 import {
   sourcePointToOffset,
   offsetToSourcePoint,
-} from '../../src/interaction/anchors/source-point';
+} from '../../src/reference/ts-core/interaction/anchors/source-point';
 import {
   createTextQuoteSelector,
   resolveTextQuoteSelector,
-} from '../../src/interaction/anchors/quote-match';
+} from '../../src/reference/ts-core/interaction/anchors/quote-match';
 import {
   createTextPositionSelector,
   resolveTextPositionSelector,
-} from '../../src/interaction/anchors/text-position';
+} from '../../src/reference/ts-core/interaction/anchors/text-position';
 import {
   createProgressionSelector,
   resolveProgressionSelector,
-} from '../../src/interaction/anchors/progression';
+} from '../../src/reference/ts-core/interaction/anchors/progression';
 
 const SIMPLE_XHTML = '<html><body><p>Hello world</p><p>Second paragraph</p></body></html>';
 const INLINE_XHTML = '<html><body><p>Hello <em>beautiful</em> world</p></body></html>';

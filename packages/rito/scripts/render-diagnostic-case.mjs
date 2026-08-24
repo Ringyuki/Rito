@@ -2,6 +2,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 import { dirname, extname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -12,12 +13,25 @@ import { PNG } from 'pngjs';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(SCRIPT_DIR, '..');
 const DIST_ROOT = resolve(PACKAGE_ROOT, 'dist');
+const REFERENCE_DIST_ROOT = resolve(PACKAGE_ROOT, '.output/reference-build');
+const CORE_WASM_DIST_ROOT = resolve(PACKAGE_ROOT, '../rito-core-wasm/dist');
 const CASE_ROOT = resolve(PACKAGE_ROOT, 'test-results/render-diagnostics/cases');
 const require = createRequire(import.meta.url);
 const FFLATE_ROOT = dirname(dirname(require.resolve('fflate/browser')));
 const FFLATE_BROWSER_PATH = resolve(FFLATE_ROOT, 'esm/browser.js');
 const CSS_LINE_BREAK_PATH = require.resolve('css-line-break/dist/css-line-break.es5.js');
 const COMPARISON_THRESHOLD = 0.1;
+const ENGINE_CONFIGS = new Map([
+  ['production', { id: 'production', label: 'Rust production', importPath: '/dist/index.mjs' }],
+  [
+    'reference',
+    {
+      id: 'reference',
+      label: 'TypeScript reference',
+      importPath: '/reference-dist/tooling/web.mjs',
+    },
+  ],
+]);
 
 const PROFILES = new Map([
   [
@@ -58,9 +72,9 @@ async function run() {
   assertInside(CASE_ROOT, caseDir);
 
   const artifactsDir = resolve(caseDir, 'artifacts');
-  const ritoDir = resolve(artifactsDir, 'rito');
   const browserDir = resolve(artifactsDir, 'browser');
   const comparisonDir = resolve(artifactsDir, 'comparison');
+  const parityDir = resolve(artifactsDir, 'parity');
   const extractedDir = resolve(browserDir, 'extracted');
   const caseConfig = await readCaseConfig(resolve(caseDir, 'case.json'));
   const bookPath = process.env.RITO_DIAG_EPUB
@@ -70,8 +84,9 @@ async function run() {
   const profile = resolveProfile(caseConfig);
   const lineBreaking = resolveLineBreaking(caseConfig);
   const spreadIndex = resolveSpreadIndex(caseConfig);
+  const engines = resolveDiagnosticEngines();
 
-  await mkdir(ritoDir, { recursive: true });
+  await rm(artifactsDir, { recursive: true, force: true });
   await mkdir(browserDir, { recursive: true });
   await extractEpub(bookBytes, extractedDir);
   const referenceContext = await resolveReferenceContext(extractedDir);
@@ -89,26 +104,26 @@ async function run() {
       viewport: { width: profile.width, height: profile.height },
       deviceScaleFactor: profile.devicePixelRatio,
     });
-    const ritoResult = await renderRitoSpread(page, server.origin, {
-      bookBytes,
-      profile,
-      lineBreaking,
-      spreadIndex,
-    });
-    await writeFile(resolve(ritoDir, 'actual.png'), ritoResult.png);
-    await writeJson(resolve(ritoDir, 'diagnostics.json'), ritoResult.diagnostics);
-    await writeJson(resolve(ritoDir, 'page-detail.json'), ritoResult.page);
-    await writeJson(resolve(ritoDir, 'summary.json'), {
-      caseId,
-      bookPath,
-      profile,
-      lineBreaking,
-      spreadIndex,
-      totalSpreads: ritoResult.totalSpreads,
-      spread: ritoResult.spread,
-      chapterMap: ritoResult.chapterMap,
-      manifestHrefMap: ritoResult.manifestHrefMap,
-    });
+    const engineResults = {};
+    for (const engine of engines) {
+      const engineDir = resolve(artifactsDir, engine.id);
+      const result = await renderRitoSpread(page, server.origin, {
+        engine,
+        bookBytes,
+        profile,
+        lineBreaking,
+        spreadIndex,
+      });
+      engineResults[engine.id] = await writeEngineArtifacts(engineDir, {
+        caseId,
+        bookPath,
+        profile,
+        lineBreaking,
+        spreadIndex,
+        engine,
+        result,
+      });
+    }
 
     const reference = await captureBrowserReference(
       page,
@@ -118,24 +133,47 @@ async function run() {
       profile,
       referenceContext,
     );
+    const primaryEngine = engineResults.production || Object.values(engineResults)[0];
+    if (!primaryEngine) throw new Error('No diagnostic engine rendered');
     const comparison = await writeComparisonArtifacts(comparisonDir, artifactsDir, {
       caseId,
       profile,
       lineBreaking,
       spreadIndex,
-      actualPng: ritoResult.png,
+      actualPng: primaryEngine.png,
+      actualLabel: primaryEngine.engine.label,
+      actualSummaryPath: `${primaryEngine.engine.id}/summary.json`,
+      actualPageDetailPath: `${primaryEngine.engine.id}/page-detail.json`,
       reference,
     });
+    const parity =
+      engineResults.production && engineResults.reference
+        ? await writeParityArtifacts(parityDir, artifactsDir, {
+            caseId,
+            profile,
+            lineBreaking,
+            spreadIndex,
+            production: engineResults.production,
+            reference: engineResults.reference,
+          })
+        : { skipped: 'Set RITO_DIAG_ENGINE=both to compare production and reference readers' };
     await writeJson(resolve(artifactsDir, 'report.json'), {
       caseId,
-      rito: {
-        actual: 'rito/actual.png',
-        diagnostics: 'rito/diagnostics.json',
-        pageDetail: 'rito/page-detail.json',
-        summary: 'rito/summary.json',
-      },
+      engines: Object.fromEntries(
+        Object.keys(engineResults).map((id) => [
+          id,
+          {
+            actual: `${id}/actual.png`,
+            diagnostics: `${id}/diagnostics.json`,
+            pageDetail: `${id}/page-detail.json`,
+            summary: `${id}/summary.json`,
+            frameSummary: `${id}/frame-summary.json`,
+          },
+        ]),
+      ),
       browser: reference,
       comparison,
+      parity,
     });
     console.log(`Rendering diagnostic artifacts: ${artifactsDir}`);
   } finally {
@@ -155,9 +193,10 @@ async function renderRitoSpread(page, origin, input) {
   await waitForRenderApi(page, diagnostics);
 
   const result = await page.evaluate(
-    async ({ bookBase64, lineBreaking, profile, spreadIndex }) => {
+    async ({ bookBase64, engine, lineBreaking, profile, spreadIndex }) => {
       return window.renderRitoDiagnostic({
         bookBase64,
+        engine,
         lineBreaking,
         profile,
         spreadIndex,
@@ -165,6 +204,7 @@ async function renderRitoSpread(page, origin, input) {
     },
     {
       bookBase64: input.bookBytes.toString('base64'),
+      engine: input.engine.id,
       lineBreaking: input.lineBreaking,
       profile: input.profile,
       spreadIndex: input.spreadIndex,
@@ -179,6 +219,51 @@ async function renderRitoSpread(page, origin, input) {
     manifestHrefMap: result.manifestHrefMap,
     png: Buffer.from(result.pngBase64, 'base64'),
     diagnostics: { ...result.diagnostics, pageDiagnostics: diagnostics },
+  };
+}
+
+async function writeEngineArtifacts(engineDir, input) {
+  await mkdir(engineDir, { recursive: true });
+  const pngHash = sha256(input.result.png);
+  const summary = {
+    caseId: input.caseId,
+    bookPath: input.bookPath,
+    engine: input.engine,
+    profile: input.profile,
+    lineBreaking: input.lineBreaking,
+    spreadIndex: input.spreadIndex,
+    totalSpreads: input.result.totalSpreads,
+    spread: input.result.spread,
+    chapterMap: input.result.chapterMap,
+    manifestHrefMap: input.result.manifestHrefMap,
+    png: {
+      sha256: pngHash,
+      byteLength: input.result.png.byteLength,
+    },
+  };
+  const frameSummary = {
+    engine: input.engine.id,
+    profile: input.profile.id,
+    lineBreaking: input.lineBreaking,
+    spreadIndex: input.spreadIndex,
+    totalSpreads: input.result.totalSpreads,
+    canvas: input.result.canvas,
+    spread: input.result.spread,
+    page: input.result.page,
+    chapterMapHash: sha256Json(input.result.chapterMap),
+    manifestHrefMapHash: sha256Json(input.result.manifestHrefMap),
+    pngHash,
+  };
+  await writeFile(resolve(engineDir, 'actual.png'), input.result.png);
+  await writeJson(resolve(engineDir, 'diagnostics.json'), input.result.diagnostics);
+  await writeJson(resolve(engineDir, 'page-detail.json'), input.result.page);
+  await writeJson(resolve(engineDir, 'summary.json'), summary);
+  await writeJson(resolve(engineDir, 'frame-summary.json'), frameSummary);
+  return {
+    engine: input.engine,
+    png: input.result.png,
+    summary,
+    frameSummary,
   };
 }
 
@@ -422,6 +507,68 @@ async function writeComparisonArtifacts(comparisonDir, artifactsDir, input) {
   };
 }
 
+async function writeParityArtifacts(parityDir, artifactsDir, input) {
+  await rm(parityDir, { recursive: true, force: true });
+  await mkdir(parityDir, { recursive: true });
+  const result = createPngDiff(input.reference.png, input.production.png);
+  const summaryDiff = compareFrameSummaries(
+    input.reference.frameSummary,
+    input.production.frameSummary,
+  );
+  await writeJson(resolve(parityDir, 'frame-summary.json'), {
+    caseId: input.caseId,
+    profile: input.profile,
+    lineBreaking: input.lineBreaking,
+    spreadIndex: input.spreadIndex,
+    reference: input.reference.frameSummary,
+    production: input.production.frameSummary,
+    diff: summaryDiff,
+  });
+
+  if ('dimensionMismatch' in result) {
+    await writeParityReport(parityDir, input, result, summaryDiff);
+    return {
+      report: 'parity/report.md',
+      frameSummary: 'parity/frame-summary.json',
+      dimensionMismatch: result.dimensionMismatch,
+      summaryDiff,
+    };
+  }
+
+  await writeFile(resolve(parityDir, 'diff.png'), result.diffPng);
+  await writeParityReport(parityDir, input, result, summaryDiff);
+  return {
+    report: 'parity/report.md',
+    diff: 'parity/diff.png',
+    frameSummary: 'parity/frame-summary.json',
+    width: result.width,
+    height: result.height,
+    diffPixels: result.diffPixels,
+    diffRatio: result.diffRatio,
+    threshold: COMPARISON_THRESHOLD,
+    summaryDiff,
+  };
+}
+
+function compareFrameSummaries(reference, production) {
+  const keys = [
+    'totalSpreads',
+    'canvas',
+    'spread',
+    'page',
+    'chapterMapHash',
+    'manifestHrefMapHash',
+    'pngHash',
+  ];
+  return Object.fromEntries(
+    keys
+      .map((key) => [key, { reference: reference[key], production: production[key] }])
+      .filter(
+        ([, values]) => JSON.stringify(values.reference) !== JSON.stringify(values.production),
+      ),
+  );
+}
+
 function createPngDiff(referencePngBytes, actualPngBytes) {
   const reference = PNG.sync.read(referencePngBytes);
   const actual = PNG.sync.read(actualPngBytes);
@@ -464,9 +611,9 @@ async function writeComparisonReport(comparisonDir, input, result) {
     '',
     '## Artifacts',
     '',
-    '- Rito actual: `../rito/actual.png`',
-    '- Rito summary: `../rito/summary.json`',
-    '- Rito page detail: `../rito/page-detail.json`',
+    `- ${input.actualLabel}: \`../${input.actualSummaryPath.replace('/summary.json', '/actual.png')}\``,
+    `- ${input.actualLabel} summary: \`../${input.actualSummaryPath}\``,
+    `- ${input.actualLabel} page detail: \`../${input.actualPageDetailPath}\``,
   ];
 
   if ('skipped' in result) {
@@ -497,6 +644,60 @@ async function writeComparisonReport(comparisonDir, input, result) {
   }
 
   await writeFile(resolve(comparisonDir, 'report.md'), `${lines.join('\n')}\n`, 'utf8');
+}
+
+async function writeParityReport(parityDir, input, result, summaryDiff) {
+  const lines = [
+    '# Reader Parity Diagnostic',
+    '',
+    `- Case: \`${input.caseId}\``,
+    `- Profile: \`${input.profile.id}\``,
+    `- Line breaking: \`${input.lineBreaking}\``,
+    `- Spread index: \`${String(input.spreadIndex)}\``,
+    '',
+    '## Artifacts',
+    '',
+    '- Production actual: `../production/actual.png`',
+    '- Production summary: `../production/summary.json`',
+    '- Production frame summary: `../production/frame-summary.json`',
+    '- Reference actual: `../reference/actual.png`',
+    '- Reference summary: `../reference/summary.json`',
+    '- Reference frame summary: `../reference/frame-summary.json`',
+    '- Frame summary comparison: `frame-summary.json`',
+  ];
+
+  if ('dimensionMismatch' in result) {
+    lines.push(
+      '',
+      '## Pixel Diff',
+      '',
+      'Diff image was not generated because screenshot dimensions differ.',
+      '',
+      `- Reference: \`${result.dimensionMismatch.reference}\``,
+      `- Production: \`${result.dimensionMismatch.actual}\``,
+    );
+  } else {
+    lines.push(
+      '- Pixel diff: `diff.png`',
+      '',
+      '## Pixel Diff',
+      '',
+      `- Size: \`${String(result.width)}x${String(result.height)}\``,
+      `- Threshold: \`${String(COMPARISON_THRESHOLD)}\``,
+      `- Diff pixels: \`${String(result.diffPixels)}\``,
+      `- Diff ratio: \`${result.diffRatio.toFixed(6)}\``,
+    );
+  }
+
+  const summaryDiffKeys = Object.keys(summaryDiff);
+  lines.push('', '## Frame Summary Diff', '');
+  if (summaryDiffKeys.length === 0) {
+    lines.push('No frame-summary differences.');
+  } else {
+    for (const key of summaryDiffKeys) lines.push(`- \`${key}\``);
+  }
+
+  await writeFile(resolve(parityDir, 'report.md'), `${lines.join('\n')}\n`, 'utf8');
 }
 
 async function applyBrowserReferencePageFrame(page, profile) {
@@ -580,6 +781,14 @@ async function handleDiagnosticRequest(referenceRoot, requestUrl, response) {
     await sendStaticFile(response, DIST_ROOT, pathname.slice('/dist/'.length));
     return;
   }
+  if (pathname.startsWith('/reference-dist/')) {
+    await sendStaticFile(response, REFERENCE_DIST_ROOT, pathname.slice('/reference-dist/'.length));
+    return;
+  }
+  if (pathname.startsWith('/core-wasm/')) {
+    await sendStaticFile(response, CORE_WASM_DIST_ROOT, pathname.slice('/core-wasm/'.length));
+    return;
+  }
   if (pathname === '/vendor/fflate/browser.js') {
     await sendAbsoluteFile(response, FFLATE_BROWSER_PATH);
     return;
@@ -648,6 +857,8 @@ function contentType(filePath) {
       return 'font/woff';
     case '.woff2':
       return 'font/woff2';
+    case '.wasm':
+      return 'application/wasm';
     default:
       return 'application/octet-stream';
   }
@@ -747,9 +958,25 @@ function resolveSpreadIndex(caseConfig) {
   return parsed;
 }
 
+function resolveDiagnosticEngines() {
+  const value = process.env.RITO_DIAG_ENGINE || 'production';
+  if (value === 'both') return [ENGINE_CONFIGS.get('production'), ENGINE_CONFIGS.get('reference')];
+  const engine = ENGINE_CONFIGS.get(value);
+  if (!engine) throw new Error(`Invalid diagnostic engine: ${value}`);
+  return [engine];
+}
+
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+function sha256(buffer) {
+  return createHash('sha256').update(buffer).digest('hex');
+}
+
+function sha256Json(value) {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 function readRecord(value) {
@@ -782,9 +1009,12 @@ Optional environment:
   RITO_DIAG_LINE_BREAKING=greedy|optimal
   RITO_DIAG_SPREAD=0
   RITO_DIAG_DPR=1
+  RITO_DIAG_ENGINE=production|reference|both
   PLAYWRIGHT_BROWSER_CHANNEL=msedge
 
 Notes:
+  Use RITO_DIAG_ENGINE=both, or pnpm diagnose:reader-parity, to compare the
+  Rust-backed production reader against the TypeScript reference reader.
   Use a single-page profile for Rito-vs-browser XHTML comparisons.
   Use double-default only for spread composition and page parity diagnosis.
 `);
@@ -808,7 +1038,9 @@ function renderHtml() {
   {
     "imports": {
       "css-line-break": "/vendor/css-line-break.js",
-      "fflate": "/vendor/fflate/browser.js"
+      "fflate": "/vendor/fflate/browser.js",
+      "@ritojs/core-wasm": "/core-wasm/index.mjs",
+      "@ritojs/core-wasm/decoder": "/core-wasm/decoder.mjs"
     }
   }
 </script>
@@ -822,12 +1054,26 @@ function renderHtml() {
 
   window.renderRitoDiagnosticReady = 'loading';
 
-  import('/dist/web.mjs')
-    .then(({ createReader }) => {
+  const readerModules = new Map();
+  const moduleImports = [
+    ['production', import('/dist/index.mjs')],
+    ['reference', import('/reference-dist/tooling/web.mjs')],
+  ];
+
+  Promise.all(moduleImports.map(async ([engine, promise]) => {
+    readerModules.set(engine, await promise);
+  }))
+    .then(() => {
       window.renderRitoDiagnosticReady = 'ready';
-      window.renderRitoDiagnostic = async ({ bookBase64, profile, lineBreaking, spreadIndex }) => {
+      window.renderRitoDiagnostic = async ({ bookBase64, engine, profile, lineBreaking, spreadIndex }) => {
+        const module = readerModules.get(engine);
+        if (!module || typeof module.createReader !== 'function') {
+          throw new Error(\`Unknown diagnostic reader engine: \${engine}\`);
+        }
         const canvas = document.getElementById('canvas');
-        const reader = await createReader(base64ToArrayBuffer(bookBase64), canvas, {
+        const originalWorker = globalThis.Worker;
+        if (engine === 'production') globalThis.Worker = undefined;
+        const reader = await module.createReader(base64ToArrayBuffer(bookBase64), canvas, {
           width: profile.width,
           height: profile.height,
           margin: profile.margin,
@@ -837,6 +1083,8 @@ function renderHtml() {
           devicePixelRatio: profile.devicePixelRatio,
           backgroundColor: '#ffffff',
           logLevel: 'silent',
+        }).finally(() => {
+          globalThis.Worker = originalWorker;
         });
 
         if (spreadIndex >= reader.totalSpreads) {
@@ -865,6 +1113,12 @@ function renderHtml() {
           totalSpreads,
           spread,
           page,
+          canvas: {
+            width: canvas.width,
+            height: canvas.height,
+            cssWidth: canvas.style.width || '',
+            cssHeight: canvas.style.height || '',
+          },
           chapterMap,
           manifestHrefMap,
           pngBase64: dataUrl.slice(dataUrl.indexOf(',') + 1),

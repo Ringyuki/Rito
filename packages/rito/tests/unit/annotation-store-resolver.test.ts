@@ -3,21 +3,21 @@
  * Phase 3 tests: AnnotationStore + AnnotationResolver.
  */
 import { describe, expect, it } from 'vitest';
-import { createAnnotationStore } from '../../src/interaction/annotations/store';
-import { resolveAnnotations } from '../../src/interaction/annotations/resolver';
-import type { ResolutionContext } from '../../src/interaction/annotations/resolver';
-import type { AnnotationDraft } from '../../src/interaction/annotations/model';
-import type { AnnotationTarget } from '../../src/interaction/anchors/model';
-import { buildChapterTextIndex } from '../../src/interaction/anchors/chapter-text-index';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { layoutBlocks } from '../../src/layout/block';
-import { paginateBlocks } from '../../src/layout/pagination';
-import { buildHitMap } from '../../src/interaction/core/hit-map';
-import { createGreedyLayouter } from '../../src/layout/line-breaker';
-import type { TextMeasurer } from '../../src/layout/text/text-measurer';
-import type { HitMap } from '../../src/interaction/core/types';
+import { createAnnotationStore } from '../../src/reference/ts-core/interaction/annotations/store';
+import { resolveAnnotations } from '../../src/reference/ts-core/interaction/annotations/resolver';
+import type { ResolutionContext } from '../../src/reference/ts-core/interaction/annotations/resolver';
+import type { AnnotationDraft } from '../../src/reference/ts-core/interaction/annotations/model';
+import type { AnnotationTarget } from '../../src/reference/ts-core/interaction/anchors/model';
+import { buildChapterTextIndex } from '../../src/reference/ts-core/interaction/anchors/chapter-text-index';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { paginateBlocks } from '../../src/reference/ts-core/layout/pagination';
+import { buildHitMap } from '../../src/reference/ts-core/interaction/core/hit-map';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker';
+import type { TextMeasurer } from '../../src/reference/ts-core/layout/text/text-measurer';
+import type { HitMap } from '../../src/reference/ts-core/interaction/core/types';
 
 const measurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 8, height: 16 }),

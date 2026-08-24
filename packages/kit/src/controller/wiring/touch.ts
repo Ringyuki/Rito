@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core/web';
+import type { Reader } from '@ritojs/core';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { DisposableCollection } from '../../utils/disposable';
 import type { ReaderControllerEvents } from '../types';
@@ -11,6 +11,7 @@ import { clientToSpreadContent } from '../core/wiring-deps';
 import { buildWiringDeps } from '../core/wiring-deps';
 import { dispatchClick } from './click-dispatch';
 import { wireUnifiedTouchHandler } from './gesture';
+import { createPrimarySelectionDragNavigation } from '../facade/selection-primary-drag';
 
 /**
  * Wire touch gesture handling: canvas rect caching, gesture deps,
@@ -42,6 +43,7 @@ export function wireTouchGestures(
     touchToContent,
     handleTap,
     disposables,
+    createPrimarySelectionDragNavigation(internals, canvas, nav),
   );
 }
 
@@ -56,14 +58,14 @@ function wireTouchRectCache(
   const clearCanvasRect = (): void => {
     rect.current = null;
   };
-  canvas.addEventListener('touchstart', cacheCanvasRect, { passive: true });
-  canvas.addEventListener('touchend', clearCanvasRect);
-  canvas.addEventListener('touchcancel', clearCanvasRect);
   disposables.add(() => {
     canvas.removeEventListener('touchstart', cacheCanvasRect);
     canvas.removeEventListener('touchend', clearCanvasRect);
     canvas.removeEventListener('touchcancel', clearCanvasRect);
   });
+  canvas.addEventListener('touchstart', cacheCanvasRect, { passive: true });
+  canvas.addEventListener('touchend', clearCanvasRect);
+  canvas.addEventListener('touchcancel', clearCanvasRect);
   return rect;
 }
 
@@ -90,11 +92,12 @@ function createGestureDeps(
   return {
     td: runtime.td,
     frameDriver: runtime.frameDriver,
-    goToSpread: (index) => {
-      nav.goToSpread(index);
+    startGestureNavigation: (index, onTransitionStart, onUnavailable) => {
+      return nav.startGestureNavigation(index, onTransitionStart, onUnavailable);
     },
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => reader.totalSpreads,
+    isPaginationComplete: () => reader.pagination?.complete ?? true,
     commitPendingTransition: () => {
       if (runtime.td.isAnimating) runtime.td.forceSettle();
     },

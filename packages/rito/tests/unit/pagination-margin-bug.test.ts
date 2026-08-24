@@ -3,15 +3,15 @@
  * Test that block margins are preserved through pagination.
  */
 import { describe, expect, it } from 'vitest';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { parseCssRules } from '../../src/style/css/rule-parser';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { layoutBlocks } from '../../src/layout/block';
-import { paginateBlocks } from '../../src/layout/pagination';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import { parseCssRules } from '../../src/reference/ts-core/style/css/rule-parser';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { paginateBlocks } from '../../src/reference/ts-core/layout/pagination';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
 
 const measurer = createMockTextMeasurer(0.6);
 const layouter = createGreedyLayouter(measurer);

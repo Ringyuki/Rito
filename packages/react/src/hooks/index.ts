@@ -9,4 +9,5 @@ export { useSearch, type SearchState } from './use-search';
 export { useAnnotations, type AnnotationsState } from './use-annotations';
 export { useReadingPosition, type ReadingPositionState } from './use-reading-position';
 export { useContainerSize, type ContainerSize } from './use-container-size';
+export { useReaderAutoResize, type ReaderAutoResizeOptions } from './use-reader-auto-resize';
 export { useControllerEvent } from '../utils/use-controller-event';

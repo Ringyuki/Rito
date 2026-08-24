@@ -10,6 +10,7 @@ import { LinkDialog } from '@/components/link-dialog';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ReaderContextMenu } from '@/components/reader-context-menu';
 import { type useReader } from '@/hooks/use-reader';
+import { EngineBadge } from '@/components/engine-badge';
 import { Button } from '@/components/ui/button';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 
@@ -44,6 +45,8 @@ export function Reader({
       data-loading={reader.isLoading ? 'true' : 'false'}
       data-current-spread={reader.currentSpread}
       data-total-spreads={reader.totalSpreads}
+      data-pagination-complete={reader.controller?.paginationComplete === true ? 'true' : 'false'}
+      data-transitioning={reader.isTransitioning ? 'true' : 'false'}
       data-book-title={reader.bookTitle}
       data-active-chapter-href={reader.activeChapterHref}
       data-spread-mode={reader.spreadMode}
@@ -53,8 +56,15 @@ export function Reader({
       data-search-results={reader.search.results.length}
       data-search-active-index={reader.search.activeIndex}
       data-search-active-page={reader.search.activeResult?.pageIndex ?? ''}
+      data-selection-active={reader.selection.hasSelection ? 'true' : 'false'}
+      data-selection-text-length={reader.selection.text.length}
+      data-selection-rect-count={reader.selection.viewportRects.length}
+      data-selection-first-rect-y={reader.selection.viewportRects[0]?.y ?? ''}
+      data-selection-first-rect-height={reader.selection.viewportRects[0]?.height ?? ''}
+      data-render-scale={reader.controller?.renderScale ?? ''}
       className="relative flex flex-1 bg-muted/30 select-none"
     >
+      <EngineBadge />
       {reader.isLoading && (
         <div
           data-testid="reader-loading"
@@ -89,7 +99,10 @@ export function Reader({
       )}
 
       {reader.error && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          data-testid="reader-error"
+          className="absolute inset-0 flex items-center justify-center"
+        >
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-6 py-4 text-sm text-destructive">
             {reader.error}
           </div>
@@ -117,7 +130,6 @@ export function Reader({
         selection={reader.selection}
         annotations={reader.annotations}
         controller={reader.controller}
-        zoomScale={reader.zoomScale}
       />
 
       <AnnotationTooltip hover={reader.annotations.hover} />

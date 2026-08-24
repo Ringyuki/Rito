@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { extractPseudoElement, stripPseudoElement } from '../../src/style/cascade/selector-matcher';
-import { calculateSpecificity } from '../../src/style/cascade/specificity';
-import { parseCssRules } from '../../src/style/css/rule-parser';
-import type { BlockNode, DocumentNode, InlineNode, TextNode } from '../../src/parser/xhtml/types';
-import { NODE_TYPES } from '../../src/parser/xhtml/types';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import {
+  extractPseudoElement,
+  stripPseudoElement,
+} from '../../src/reference/ts-core/style/cascade/selector-matcher';
+import { calculateSpecificity } from '../../src/reference/ts-core/style/cascade/specificity';
+import { parseCssRules } from '../../src/reference/ts-core/style/css/rule-parser';
+import type {
+  BlockNode,
+  DocumentNode,
+  InlineNode,
+  TextNode,
+} from '../../src/reference/ts-core/parser/xhtml/types';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types';
 
 const BASE = 16;
 

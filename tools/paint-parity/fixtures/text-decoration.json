@@ -1,0 +1,48 @@
+{
+  "name": "text-decoration",
+  "width": 420,
+  "height": 160,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintText",
+      "text": "underlined link text",
+      "rect": { "x": 10, "y": 10, "width": 200, "height": 20 },
+      "paint": {
+        "color": "#0000ee",
+        "decoration": { "kind": "underline", "y": 17.5, "thickness": 1, "color": "#0000ee" },
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "fractional decoration offset",
+      "rect": { "x": 10, "y": 40.25, "width": 260, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "decoration": { "kind": "underline", "y": 17.125, "thickness": 1, "color": "#778899" },
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "struck through passage",
+      "rect": { "x": 10, "y": 70, "width": 220, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "decoration": { "kind": "line-through", "y": 10.5, "thickness": 1, "color": "#000000" },
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "thick decoration two px",
+      "rect": { "x": 10, "y": 100, "width": 240, "height": 20 },
+      "paint": {
+        "color": "#000000",
+        "decoration": { "kind": "underline", "y": 18, "thickness": 2, "color": "#cc0000" },
+        "font": { "family": "Tinos", "sizePx": 16, "style": "normal", "weight": 400 }
+      }
+    }
+  ]
+}

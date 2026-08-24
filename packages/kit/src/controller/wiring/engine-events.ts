@@ -1,9 +1,29 @@
 import type { DisposableCollection } from '../../utils/disposable';
 import type { WiringDeps } from '../core/wiring-deps';
-import { resolveVisibleAnnotations } from '../annotation-resolution';
+import {
+  refreshNativeAnnotations,
+  resolveVisibleAnnotations,
+  scheduleNativeAnnotationsForSpread,
+  usesNativeAnnotationGeometry,
+} from '../annotation-resolution';
+import {
+  disposeNativeSearchGeometry,
+  replaceNativeSearchResults,
+  usesNativeSearchGeometry,
+} from '../search-resolution';
+import { scheduleNativeSearchForCurrentSpread } from './native-search';
+import type { ReaderControllerEvents } from '../types';
 
 export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   wireSelectionEvents(deps, disposables);
+  disposables.add(
+    deps.engines.selection.onError((error) => {
+      deps.emitter.emit('error', {
+        message: error instanceof Error ? error.message : String(error),
+        source: 'native-text-selection',
+      });
+    }),
+  );
   wireSearchEvents(deps, disposables);
   wireAnnotationStoreEvents(deps, disposables);
 }
@@ -18,14 +38,19 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
         ? rawRects.map((r) => mapper.spreadContentRectToViewport(r))
         : rawRects;
 
-      const focusRect = computeFocusRect(engines.selection, viewportRects);
+      const focusRect = computeFocusRect(engines.selection, viewportRects, mapper);
+      const handles = computeSelectionHandles(engines.selection, mapper);
 
       emitter.emit('selectionChange', {
         range,
+        sourceLocator: engines.selection.getSourceLocator(),
+        sourceSpan: engines.selection.getSourceSpan(),
+        hasSelection: engines.selection.hasSelection(),
         text: engines.selection.getText(),
         rects: rawRects,
         viewportRects,
         focusRect,
+        handles,
       });
       // Selection is per-spread — only invalidate current
       deps.frameDriver.markOverlayDirty(deps.getCurrentSpread());
@@ -33,13 +58,32 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
   );
 }
 
+function computeSelectionHandles(
+  selection: WiringDeps['engines']['selection'],
+  mapper: WiringDeps['coordState']['mapper'],
+): ReaderControllerEvents['selectionChange']['handles'] {
+  const handles = selection.getHandleCarets();
+  if (!handles) return null;
+  const project = (rect: NonNullable<typeof handles.start>) =>
+    mapper ? mapper.spreadContentRectToViewport(rect) : rect;
+  return {
+    start: handles.start ? project(handles.start) : null,
+    end: handles.end ? project(handles.end) : null,
+    focusEdge: handles.focusEdge,
+  };
+}
+
 function computeFocusRect(
   selection: WiringDeps['engines']['selection'],
   viewportRects: readonly { x: number; y: number; width: number; height: number }[],
+  mapper: WiringDeps['coordState']['mapper'],
 ): { x: number; y: number; width: number; height: number } | null {
+  const exactFocus = selection.getFocusRect();
+  if (exactFocus) {
+    return mapper ? mapper.spreadContentRectToViewport(exactFocus) : exactFocus;
+  }
   if (viewportRects.length === 0) return null;
-  const snapshot = selection.getSnapshot();
-  const isForward = !snapshot || snapshot.anchor === snapshot.start;
+  const isForward = selection.getFocusEdge() !== 'start';
   const fr = isForward ? viewportRects[viewportRects.length - 1] : viewportRects[0];
   if (!fr) return null;
   return { x: isForward ? fr.x + fr.width : fr.x, y: fr.y, width: 0, height: fr.height };
@@ -47,9 +91,23 @@ function computeFocusRect(
 
 function wireSearchEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   const { engines, emitter } = deps;
+  if (usesNativeSearchGeometry(deps.reader)) {
+    disposables.add(() => {
+      disposeNativeSearchGeometry(deps.coordState);
+    });
+  }
   disposables.add(
     engines.search.onResultsChange((results) => {
-      emitter.emit('searchResults', { results, activeIndex: engines.search.getActiveIndex() });
+      if (usesNativeSearchGeometry(deps.reader)) {
+        replaceNativeSearchResults(deps.coordState, results);
+        scheduleNativeSearchForCurrentSpread(deps);
+      }
+      emitContainedSearchEvent(
+        emitter,
+        'searchResults',
+        { results, activeIndex: engines.search.getActiveIndex() },
+        'search-results-listener',
+      );
       // Search results are global — invalidate ALL slots so adjacent pages update too
       deps.frameDriver.markAllOverlaysDirty();
     }),
@@ -57,25 +115,94 @@ function wireSearchEvents(deps: WiringDeps, disposables: DisposableCollection): 
   disposables.add(
     engines.search.onActiveResultChange((idx) => {
       const results = engines.search.getResults();
-      emitter.emit('searchActiveChange', { activeIndex: idx, result: results[idx] });
+      scheduleNativeSearchForCurrentSpread(deps);
+      emitContainedSearchEvent(
+        emitter,
+        'searchActiveChange',
+        { activeIndex: idx, result: results[idx] },
+        'search-active-listener',
+      );
       deps.frameDriver.markAllOverlaysDirty();
     }),
   );
 }
 
+function emitContainedSearchEvent<K extends 'searchResults' | 'searchActiveChange'>(
+  emitter: WiringDeps['emitter'],
+  event: K,
+  payload: ReaderControllerEvents[K],
+  failureSource: string,
+): void {
+  try {
+    emitter.emit(event, payload);
+  } catch (error: unknown) {
+    try {
+      emitter.emit('error', {
+        message: error instanceof Error ? error.message : String(error),
+        source: failureSource,
+      });
+    } catch {
+      // Search engine state and overlay invalidation must complete even if consumer listeners fail.
+    }
+  }
+}
+
 function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   const store = deps.coordState.annotationStore;
   if (!store) return;
+  let alive = true;
+  disposables.add(() => {
+    alive = false;
+  });
   disposables.add(
     store.onChange((records) => {
-      deps.coordState.resolvedAnnotations = resolveVisibleAnnotations(
-        store,
-        deps.coordState,
-        deps.reader,
-      );
+      deps.emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
+      if (usesNativeAnnotationGeometry(deps.reader)) {
+        refreshNativeAnnotations(deps.reader, deps.coordState);
+        const spread = deps.reader.spreads[deps.getCurrentSpread()];
+        if (spread) {
+          scheduleNativeAnnotationsForSpread(
+            spread,
+            deps.reader,
+            deps.coordState,
+            () => {
+              deps.frameDriver.markAllOverlaysDirty();
+            },
+            (error) => {
+              deps.emitter.emit('error', {
+                message: error instanceof Error ? error.message : String(error),
+                source: 'native-annotation-geometry',
+              });
+            },
+          );
+        }
+      } else {
+        deps.coordState.resolvedAnnotations = resolveVisibleAnnotations(
+          store,
+          deps.coordState,
+          deps.reader,
+        );
+      }
       deps.emitter.emit('annotationsChange', { annotations: records });
       // Annotations are global — invalidate ALL slots
       deps.frameDriver.markAllOverlaysDirty();
     }),
   );
+  const storage = deps.options.annotationStorage;
+  if (storage) {
+    void store.init(storage).catch((error: unknown) => {
+      if (alive) containAnnotationStorageFailure(error, deps);
+    });
+  }
+}
+
+function containAnnotationStorageFailure(error: unknown, deps: WiringDeps): void {
+  try {
+    deps.emitter.emit('error', {
+      message: error instanceof Error ? error.message : String(error),
+      source: 'annotation-storage',
+    });
+  } catch {
+    // Consumer error listeners must not create an unhandled storage rejection.
+  }
 }

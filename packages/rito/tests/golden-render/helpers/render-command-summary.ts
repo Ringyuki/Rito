@@ -1,7 +1,11 @@
-import type { Spread } from '../../../src/layout/core';
-import { buildSpreadDisplayList, type DisplayList, type DrawCommand } from '../../../src/render';
-import { render } from '../../../src/render/spread';
-import type { EpubDocument, PaginationResult } from '../../../src/runtime/types';
+import type { Spread } from '../../../src/reference/ts-core/layout/core';
+import {
+  buildSpreadDisplayList,
+  type DisplayList,
+  type DrawCommand,
+} from '../../../src/reference/ts-core/render';
+import { render } from '../../../src/reference/ts-core/render/spread';
+import type { EpubDocument, PaginationResult } from '../../../src/reference/ts-core/runtime/types';
 import { createMockCanvasContext } from '../../helpers/mock-canvas-context';
 import type { CanvasRecord } from '../../helpers/mock-canvas-context';
 import { isCall, isPropertySet } from '../../helpers/mock-canvas-context';

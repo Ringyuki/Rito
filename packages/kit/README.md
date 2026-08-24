@@ -2,7 +2,7 @@
 
 Framework-agnostic controller, overlays, and transitions for the Rito Web reader.
 
-`@ritojs/kit` sits above the Web reader from `@ritojs/core/web` and provides app-facing orchestration:
+`@ritojs/kit` sits above the reader from `@ritojs/core` and provides app-facing orchestration:
 page transitions, overlay composition, interaction wiring, keyboard support, and
 storage adapters.
 
@@ -15,7 +15,7 @@ pnpm add @ritojs/core @ritojs/kit
 ## Quick Start
 
 ```ts
-import { createReader } from '@ritojs/core/web';
+import { createReader } from '@ritojs/core';
 import { createController } from '@ritojs/kit';
 
 const container = document.getElementById('reader');
@@ -25,9 +25,12 @@ if (!container) {
   throw new Error('Expected #reader container');
 }
 
+// pinnedFontPolicy is required by @ritojs/core — the engine shapes text
+// with those exact font bytes. See the core getting-started guide.
 const reader = await createReader(epubData, canvas, {
   width: 800,
   height: 600,
+  pinnedFontPolicy: await loadPinnedFontPolicy(),
 });
 
 const controller = createController(reader, canvas, {
@@ -50,9 +53,8 @@ controller.goToSpread(0);
 - [Kit Integration Guide](https://github.com/Ringyuki/Rito/blob/master/docs/integrations/kit.md)
 - [Reader API](https://github.com/Ringyuki/Rito/blob/master/docs/api/reader.md)
 - [Specialized Subpaths](https://github.com/Ringyuki/Rito/blob/master/docs/api/subpaths.md)
-- [Architecture](https://github.com/Ringyuki/Rito/blob/master/docs/architecture.md)
 
 ## Related Packages
 
-- [`@ritojs/core`](https://github.com/Ringyuki/Rito/tree/master/packages/rito) for platform-neutral parser/layout/display-list primitives and the `@ritojs/core/web` reader preset
+- [`@ritojs/core`](https://github.com/Ringyuki/Rito/tree/master/packages/rito) for the Rust-backed reader facade
 - [`@ritojs/react`](https://github.com/Ringyuki/Rito/tree/master/packages/react) for React integration

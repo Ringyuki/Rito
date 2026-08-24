@@ -3,17 +3,17 @@
  * Compare total line count before and after pagination.
  */
 import { describe, expect, it } from 'vitest';
-import { layoutBlocks } from '../../src/layout/block';
-import { paginateBlocks } from '../../src/layout/pagination';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { paginateBlocks } from '../../src/reference/ts-core/layout/pagination';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import { parseCssRules } from '../../src/style/css/rule-parser';
-import type { DocumentNode } from '../../src/parser/xhtml/types';
-import { NODE_TYPES } from '../../src/parser/xhtml/types';
-import type { LayoutBlock } from '../../src/layout/core/types';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import { parseCssRules } from '../../src/reference/ts-core/style/css/rule-parser';
+import type { DocumentNode } from '../../src/reference/ts-core/parser/xhtml/types';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types';
+import type { LayoutBlock } from '../../src/reference/ts-core/layout/core/types';
 
 // CJK-like full-width measurement
 const measurer = createMockTextMeasurer(1.0);

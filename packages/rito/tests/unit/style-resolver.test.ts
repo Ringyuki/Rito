@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
 import type {
   BlockNode,
   DocumentNode,
   ElementAttributes,
   InlineNode,
   TextNode,
-} from '../../src/parser/xhtml/types';
-import { NODE_TYPES } from '../../src/parser/xhtml/types';
+} from '../../src/reference/ts-core/parser/xhtml/types';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types';
 
 function text(content: string): TextNode {
   return { type: NODE_TYPES.Text, content };

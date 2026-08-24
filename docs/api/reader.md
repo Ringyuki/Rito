@@ -1,48 +1,111 @@
 # Reader API
 
-The `Reader` facade is part of the Web Canvas preset. Import it from
-`@ritojs/core/web`, not from the main `@ritojs/core` entry.
+The app-facing `Reader` facade is exported from the root `@ritojs/core`
+package.
 
 ## `createReader(data, canvas, options)`
 
 ```ts
-import { createReader } from '@ritojs/core/web';
+import { createReader } from '@ritojs/core';
 ```
 
 Creates a ready-to-render browser `Reader` from an EPUB `ArrayBuffer`.
 
-It performs the standard browser-side pipeline:
+It performs the standard reader pipeline:
 
 1. parse the EPUB archive
-2. load fonts and decode images
-3. paginate the spine
-4. build spreads
+2. open a long-lived document runtime
+3. create an initial layout revision
+4. build spread frames and resource schedules
 5. bind rendering to the provided Canvas target
 
 Use this when you want the normal app-facing API instead of assembling the pipeline manually.
-For non-Web runtimes, use the stable primitives and provide your own text,
-resource, and rendering adapters.
+For non-Web runtimes, target the Rust runtime contract behind the root package
+instead of the legacy TypeScript Canvas helper path.
+
+The older TypeScript Canvas reader is retained only as source reference code
+inside this repository. New app-facing reader code should depend on the root
+package entry.
 
 ## `ReaderOptions`
 
-| Option             | Type                    | Default                          | Notes                                  |
-| ------------------ | ----------------------- | -------------------------------- | -------------------------------------- |
-| `width`            | `number`                | required                         | Viewport width in logical pixels       |
-| `height`           | `number`                | required                         | Viewport height in logical pixels      |
-| `margin`           | `number`                | `40`                             | Page margin                            |
-| `spread`           | `'single' \| 'double'`  | `'single'`                       | Requested spread mode                  |
-| `spreadGap`        | `number`                | `20`                             | Gap between pages in double mode       |
-| `backgroundColor`  | `string \| null`        | `'#ffffff'`                      | Page background; `null` restores white |
-| `foregroundColor`  | `string \| null`        | unset                            | Reader-wide override; `null` clears it |
-| `devicePixelRatio` | `number`                | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
-| `lineBreaking`     | `'greedy' \| 'optimal'` | `'greedy'`                       | Line-breaking strategy                 |
-| `logLevel`         | `LogLevel`              | `'warn'`                         | Diagnostics verbosity                  |
-| `paginationPolicy` | `PaginationPolicy`      | unset                            | Widow/orphan configuration             |
-| `fontSize`         | `number`                | unset                            | Initial root font-size override        |
-| `lineHeight`       | `number`                | unset                            | Initial line-height override           |
-| `lineHeightForce`  | `boolean`               | `false`                          | Force line height on every node        |
-| `fontFamily`       | `string`                | unset                            | Initial body font-family override      |
-| `fontFamilyForce`  | `boolean`               | `false`                          | Force font family on every node        |
+| Option             | Type                     | Default                          | Notes                                  |
+| ------------------ | ------------------------ | -------------------------------- | -------------------------------------- |
+| `width`            | `number`                 | required                         | Viewport width in logical pixels       |
+| `height`           | `number`                 | required                         | Viewport height in logical pixels      |
+| `margin`           | `number`                 | `40`                             | Page margin                            |
+| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
+| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode       |
+| `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
+| `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
+| `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
+| `lineBreaking`     | `'greedy' \| 'optimal'`  | `'greedy'`                       | Line-breaking strategy                 |
+| `logLevel`         | `LogLevel`               | `'warn'`                         | Diagnostics verbosity                  |
+| `paginationPolicy` | `PaginationPolicy`       | unset                            | Widow/orphan configuration             |
+| `fontSize`         | `number`                 | unset                            | Initial root font-size override        |
+| `lineHeight`       | `number`                 | unset                            | Initial line-height override           |
+| `lineHeightForce`  | `boolean`                | `false`                          | Force line height on every node        |
+| `fontFamily`       | `string`                 | unset                            | Initial body font-family override      |
+| `fontFamilyForce`  | `boolean`                | `false`                          | Force font family on every node        |
+| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | **required**                     | Immutable native/Canvas fallback faces |
+
+`pinnedFontPolicy` supplies the same static TTF/OTF bytes to Rust shaping and
+the browser `FontFace` registry. Each face declares a complete SHA-256 digest,
+a generic role (`serif`, `sansSerif`, or `monospace`), and an optional language
+tag. The reader copies the bytes during `createReader()`, verifies the digest in
+the native core, and uses the native-returned family alias for Canvas paint.
+This keeps exact interaction geometry tied to the font that is actually
+rendered. The policy is fixed for the lifetime of that `Reader`; create a new
+reader to replace it.
+
+A missing or empty policy makes `createReader` **throw**: the WASM engine
+shapes text with exactly these bytes and cannot start without them (there
+is no reachable system font inside the runtime, and no legacy fallback
+pipeline anymore).
+
+The core intentionally does not bundle, download, or choose fallback assets.
+The application owns their licensing, distribution, locale policy, and offline
+availability. If the policy is unset, EPUB-provided fonts can still provide
+exact shapes and browser/system fallback text can still render. Exact native
+selection, copy, and annotation geometry for a host-fallback run is reported as
+unavailable instead of being estimated from character widths.
+
+For example, a Vite application that checks in an audited static font can load
+it during application bootstrap and pass the bytes into every new Reader:
+
+```ts
+import { createReader, type ReaderPinnedFontPolicy } from '@ritojs/core';
+import sourceHanSerifCnUrl from './assets/fonts/SourceHanSerifCN-Regular.otf?url';
+
+const response = await fetch(sourceHanSerifCnUrl);
+if (!response.ok) throw new Error(`Fallback font request failed: ${response.status}`);
+
+const pinnedFontPolicy: ReaderPinnedFontPolicy = {
+  schemaVersion: 1,
+  faces: [
+    {
+      bytes: await response.arrayBuffer(),
+      expectedSha256: '3754ea669c530e2473354f8f6d9f79680a44d7e26ec7d00eeabee4a7e0753c5d',
+      genericRole: 'serif',
+      language: 'zh-Hans',
+    },
+  ],
+};
+
+const reader = await createReader(epubBytes, canvas, {
+  width: 800,
+  height: 600,
+  pinnedFontPolicy,
+});
+```
+
+The digest must come from the application's audited asset manifest rather than
+being calculated from the downloaded bytes and trusted afterward. `?url` is
+Vite-specific; another host may read the bytes from a packaged native resource,
+Cache Storage, IndexedDB, or its own asset loader. Resolve the complete policy
+before calling `createReader()`. Changing the policy object later cannot mutate
+an existing Reader; the replacement takes effect only when the host creates or
+loads a new Reader.
 
 ## `Reader`
 
@@ -106,14 +169,72 @@ when switching from a dark theme back to a book-authored light theme.
 | `measurer`                | Text measurer used by interaction APIs               |
 | `getChapterTextIndices()` | Source-based chapter text indices                    |
 | `getFootnotes()`          | Extracted footnotes keyed by `manifestHref#fragment` |
-| `getImageBlobUrl(src)`    | Create a blob URL for an embedded EPUB image         |
+| `getImageBlobUrl(src)`    | Create or asynchronously resolve an EPUB image URL   |
+| `interactions`            | Optional revision-safe semantic interaction provider |
+
+When present, `interactions` exposes typed page-content targets plus exact-revision
+footnote and source-locator reads. Its `enabled` flag is false while a visual-only
+preview is displayed; callers must not reuse targets from the previous canonical
+revision during that interval. Page targets intentionally cover semantic click
+sources only. When supported, `interactions.textSelection` exposes revision-bound
+point-to-caret and exact document-order range resolution across retained logical
+flows within one chapter. Its carets are opaque and must be passed back by
+identity; selected text preserves native line/block separators and range
+rectangles use page-content coordinates. A caret exposes its `pageIndex` because
+word and paragraph endpoints can cross the page containing the original input
+point. `resolveTextRangeFromPoints()` expands two raw points to complete ICU word
+or retained logical-flow paragraph units; missing or malformed package-language
+metadata falls back to locale-invariant word boundaries. Paragraph carets remain
+exact text/source positions rather than forging the DOM's structural
+next-block boundary. When the following flow is retained in the same chapter,
+`selectedText` still includes the native paragraph separator; at a bounded
+retention edge that trailing separator can appear only after the following flow
+has been retained.
+`resolveTextRangeToPoint()` is the atomic continuation path for an exact caret
+whose bounded revision has since appended an immutable page prefix. It rebinds
+that opaque caret and resolves the live point against one currently committed
+revision, so callers never combine geometry from two versions. A replacement
+layout, worker session, or unrelated revision still fails closed.
+`resolveTextSelectionMovement()`, when supported, atomically rebinds a fixed
+anchor and live focus, advances the focus by a typed character, word, visual-line,
+line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
+Vertical line moves return a `preferredInlinePosition` that callers pass into the
+next vertical move to preserve sticky x. Reaching an incomplete retained tail is
+reported as typed `pending`; endpoints in different chapters remain unavailable.
+`interactions.resolveExactSourceRange`, when supported, atomically projects a
+durable `{ href, sourceRange }` through that same committed revision. `href` is
+the canonical manifest resource href, not a spine idref. It returns exact
+page-content rectangles, a typed lazy-pagination result, or a typed unavailable
+reason; callers must not substitute the legacy interpolated geometry.
+
+Native `search()` results expose `source` as either a proven durable
+`{ href, sourceRange }` or typed `sourceUnavailable`. Geometry is intentionally
+not attached to every result: resolve only visible results through
+`resolveExactSourceRange`. `@ritojs/kit` performs this lazy projection and does
+not fall back to layout-local HitMaps when the native capability is present.
+
+`getImageBlobUrl()` may return either an object URL immediately or a promise for
+one. Every resolved URL is caller-owned and must be revoked when it is replaced
+or no longer displayed. `@ritojs/kit` performs that ownership and stale-request
+handling for its `imageClick` event.
+
+`FootnoteEntry.html` is an allowlist-sanitized fragment. Active elements,
+event/style attributes, host CSS classes, auto-fetching image sources, unsafe
+URL schemes and unapproved attributes are removed before the value crosses the
+Reader boundary. EPUB footnote images remain unavailable until the host can
+rewrite them through an explicit caller-owned resource URL.
 
 ### Lifecycle
 
 | Member                 | What it does                                         |
 | ---------------------- | ---------------------------------------------------- |
 | `onSpreadRendered(cb)` | Subscribe to spread render notifications             |
-| `dispose()`            | Release decoded assets and close the loaded document |
+| `dispose()`            | Start releasing assets and close the loaded document |
+
+Disposal invalidates the Reader synchronously. A browser-backed Reader returns
+a promise that settles after its Worker and native document have been released;
+`await reader.dispose()` before creating a replacement Reader. Synchronous
+Reader implementations may return `void`, which is also safe to `await`.
 
 ## Usage Guidance
 
@@ -123,11 +244,11 @@ when switching from a dark theme back to a book-authored light theme.
 - you want one object that handles loading, pagination, and rendering
 - you do not need custom orchestration between parse/layout/render stages
 
-### Prefer the stable primitives when
+### Prefer source-only reference tooling when
 
-- you need a custom pipeline
-- you want to paginate once and render to multiple contexts
-- you want tighter control over resource loading and lifecycle
+- you are doing diagnostics, parity work, or migration tooling
+- you intentionally need the legacy TypeScript parser/layout/render primitives
+- you understand that this is not the production reader path
 
 ### Prefer `@ritojs/kit` / `@ritojs/react` when
 
@@ -136,6 +257,6 @@ when switching from a dark theme back to a book-authored light theme.
 
 ## Related Docs
 
-- [Stable Primitives](./primitives.md)
-- [Advanced Entry](./advanced.md)
+- [Reference Primitives](./primitives.md)
+- [Advanced Internals](./advanced.md)
 - [Specialized Subpaths](./subpaths.md)

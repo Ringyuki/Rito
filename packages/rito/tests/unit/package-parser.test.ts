@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePackageDocument } from '../../src/parser/epub/package-parser';
+import { parsePackageDocument } from '../../src/reference/ts-core/parser/epub/package-parser';
 
 const VALID_OPF = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">

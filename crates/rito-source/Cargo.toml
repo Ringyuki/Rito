@@ -1,0 +1,22 @@
+[package]
+name = "rito-source"
+description = "Platform-neutral immutable XML source tree for Rito"
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+quick-xml = "=0.40.1"
+roxmltree = "=0.20.0"
+
+[dev-dependencies]
+static_assertions = "=1.1.0"
+
+[lints]
+workspace = true

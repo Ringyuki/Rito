@@ -1,66 +1,102 @@
-// Rito — platform-neutral EPUB rendering core.
-// Web Canvas preset APIs live in `@ritojs/core/web`.
-// Internal APIs (parser, style resolver, layout engine) are in `@ritojs/core/advanced`.
-
-// ── Document / runtime ─────────────────────────────────────────────
-export type { PackageMetadata, TocEntry } from './parser/index';
-export { paginate } from './runtime/index';
-export { loadEpub } from './runtime/index';
+export { createLayoutConfig, createReader, preloadReaderRuntime } from './reader';
+export { openBrowserReaderV1, RitoReaderErrorV1 } from './bindings/browser/reader-v1';
+export {
+  BrowserReaderCanvasUnsupportedErrorV1,
+  createBrowserReaderV1CanvasPresenter,
+} from './bindings/browser/reader-v1-canvas';
+export {
+  BROWSER_READER_IMAGE_RESOURCE_ERROR_CODE,
+  BrowserReaderImageResourceError,
+} from './bindings/browser/image-resource-error';
+export type {
+  BrowserReaderAdjacentDirectionV1,
+  BrowserReaderArtifactRequestV1,
+  BrowserReaderArtifactV1,
+  BrowserReaderBackgroundAdvanceV1,
+  BrowserReaderBackgroundHandoffAckV1,
+  BrowserReaderErrorCodeV1,
+  BrowserReaderForegroundHandoffAckV1,
+  BrowserReaderLayoutV1,
+  BrowserReaderLocatorV1,
+  BrowserReaderPublicationV1,
+  BrowserReaderResourceKindV1,
+  BrowserReaderResourceV1,
+  BrowserReaderSeekOverridesV1,
+  BrowserReaderTextProfileV1,
+  BrowserReaderV1OpenOptions,
+  BrowserReaderV1Session,
+  BrowserReaderWorkBudgetV1,
+} from './bindings/browser/reader-v1';
+export type {
+  BrowserReaderImageLoadOutcome,
+  BrowserReaderImageResourceFailureReason,
+} from './bindings/browser/image-resource-error';
+export type {
+  BrowserReaderCanvasPaintOptionsV1,
+  BrowserReaderCanvasPrepareOptionsV1,
+  BrowserReaderCanvasPresenterV1,
+  BrowserReaderCanvasTargetV1,
+  BrowserReaderPreparedCanvasArtifactV1,
+} from './bindings/browser/reader-v1-canvas';
 export type {
   ChapterRange,
-  EpubDocument,
-  LoadOptions,
-  PaginationResult,
-  ZipLimits,
-} from './runtime/index';
-export type { FootnoteEntry } from './runtime/footnote-extractor';
-
-// ── Layout ─────────────────────────────────────────────────────────
-export { buildSpreads } from './layout/index';
-export { createLayoutConfig } from './layout/index';
-export type {
-  ImageDimensions,
+  ChapterTextIndex,
+  ChapterTextSpan,
+  FontShorthand,
+  FootnoteEntry,
+  FootnoteKind,
   LayoutConfig,
   LayoutConfigInput,
+  LogLevel,
+  MeasurePaint,
+  PackageMetadata,
   Page,
   PaginationPolicy,
+  Reader,
+  ReaderExactSourceRange,
+  ReaderExactSourceRangeRequest,
+  ReaderExactSourceRangeResolution,
+  ReaderIncrementalPagination,
+  ReaderOptions,
+  ReaderPinnedFontPolicy,
+  ReaderThemeOptions,
+  Rect,
+  ReaderExactTextRangeRect,
+  ReaderDocumentSourceSpan,
+  ReaderDocumentSourceSpanEndpoint,
+  ReaderInteractionTarget,
+  ReaderInteractionTargetKind,
+  ReaderInteractions,
+  ReaderLocator,
+  ReaderLocatorMatchedBy,
+  ReaderLocatorResolution,
+  ReaderPageReadingAnchor,
+  ReaderPageSemantics,
+  ReaderPageTargets,
+  ReaderSemanticNode,
+  ReaderTextRange,
+  ReaderTextRangeFromPointsRequest,
+  ReaderTextRangeFromPointsResolution,
+  ReaderTextRangeResolution,
+  ReaderSearchSourceResolution,
+  ReaderSourcePoint,
+  ReaderSourceRange,
+  ReaderTextCaret,
+  ReaderTextCaretGeometry,
+  ReaderTextCaretResolution,
+  ReaderTextInteractionUnavailableReason,
+  ReaderTextPoint,
+  ReaderTextSelectionInteractions,
+  ReaderTextSelectionGranularity,
+  ReaderTextSelectionMovement,
+  ReaderTextSelectionMovementRequest,
+  ReaderTextSelectionMovementResolution,
+  SearchOptions,
+  SearchResult,
   Spread,
-} from './layout/index';
-export type { FontMetrics, FontMetricsProvider, TextMeasurer, TextMetrics } from './layout/index';
-
-// ── Platform-neutral render contracts ──────────────────────────────
-export { buildPageDisplayList, buildSpreadDisplayList } from './render/display-list';
-export type {
-  BlockDecorationPaint,
-  DisplayList,
-  DisplayListOptions,
-  DrawCommand,
-} from './render/display-list';
-export type { DisplayListRenderer, TextMeasurementBackend } from './render/backends';
-
-// ── Resource adapters ──────────────────────────────────────────────
-export { createImageAssetResolver } from './render/assets/image-asset-resolver';
-export { loadFontsWithRegistry } from './render/assets/font-loader';
-export { loadImagesWithDecoder } from './render/assets/image-loader';
-export type { ImageLoadOptions } from './render/assets/image-loader';
-export { createLazyImageLoaderWithDecoder } from './render/assets/lazy-image-loader';
-export { collectPageImageSources, collectSpreadImageSources } from './render/assets/image-sources';
-export type {
-  EpubAssetSource,
-  FontRegistry,
-  FontResource,
-  ImageAssetResolver,
-  ImageDecoder,
-  ImageResource,
-} from './render/assets/types';
-export type { LazyImageLoader } from './render/assets/lazy-image-loader';
-
-// ── Interaction / diagnostics ──────────────────────────────────────
-export type { LogLevel } from './utils/logger';
-export type {
-  PositionProjection,
-  ReadingLocator,
-  ReadingPosition,
+  TextMeasurer,
+  TextMetrics,
   TextPosition,
   TextRange,
-} from './interaction/index';
+  TocEntry,
+} from './reader';

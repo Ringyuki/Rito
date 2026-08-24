@@ -1,4 +1,12 @@
 import { getPreset, type PresetName } from './presets';
+import {
+  acceptsKeyboardInputState,
+  createKeyboardManagerInputState,
+  disposeKeyboardManagerInputState,
+  registerKeyboardManagerInputState,
+  setKeyboardManagerEnabled,
+  type KeyboardManagerInputState,
+} from './input-state';
 import type { KeyboardManager } from './types';
 
 export type { KeyboardManager } from './types';
@@ -27,10 +35,10 @@ function isEditableTarget(target: EventTarget | null): boolean {
 
 function createHandler(
   bindings: Map<string, () => void>,
-  enabled: { value: boolean },
+  state: KeyboardManagerInputState,
 ): (e: KeyboardEvent) => void {
   return (e: KeyboardEvent): void => {
-    if (!enabled.value) return;
+    if (!acceptsKeyboardInputState(state)) return;
     if (isEditableTarget(e.target)) return;
     const shortcut = eventToShortcut(e);
     const action = bindings.get(shortcut);
@@ -43,12 +51,12 @@ function createHandler(
 
 export function createKeyboardManager(target: HTMLElement): KeyboardManager {
   const bindings = new Map<string, () => void>();
-  const enabled = { value: true };
-  const handler = createHandler(bindings, enabled);
+  const state = createKeyboardManagerInputState();
+  const handler = createHandler(bindings, state);
 
   target.addEventListener('keydown', handler);
 
-  return {
+  const manager: KeyboardManager = {
     register(shortcut: string, action: () => void): () => void {
       bindings.set(shortcut, action);
       return () => {
@@ -72,12 +80,25 @@ export function createKeyboardManager(target: HTMLElement): KeyboardManager {
     },
 
     setEnabled(value: boolean): void {
-      enabled.value = value;
+      setKeyboardManagerEnabled(state, value);
     },
 
     dispose(): void {
-      target.removeEventListener('keydown', handler);
-      bindings.clear();
+      disposeKeyboardManager(target, handler, bindings, state);
     },
   };
+  registerKeyboardManagerInputState(manager, state);
+  return manager;
+}
+
+function disposeKeyboardManager(
+  target: HTMLElement,
+  handler: (event: KeyboardEvent) => void,
+  bindings: Map<string, () => void>,
+  state: KeyboardManagerInputState,
+): void {
+  if (state.disposed) return;
+  target.removeEventListener('keydown', handler);
+  bindings.clear();
+  disposeKeyboardManagerInputState(state);
 }

@@ -1,7 +1,8 @@
 import { useCallback, type RefObject } from 'react';
-import type { TocEntry } from '@ritojs/core';
+import type { Reader, TocEntry } from '@ritojs/core';
 import type { ReaderController, TransitionDriverOptions } from '@ritojs/kit';
-import type { ReaderThemeOptions } from '@ritojs/core/web';
+
+type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
 export interface ControllerActions {
   readonly nextSpread: () => void;

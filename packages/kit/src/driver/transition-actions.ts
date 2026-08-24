@@ -45,7 +45,7 @@ export function releaseTrackingMode(state: TransitionDriverState): 'commit' | 'c
   if (state.mode.kind !== 'tracking') return 'cancel';
   const { direction, outgoingSpread, incomingSpread, dx, vx } = state.mode;
   if (incomingSpread === null) {
-    state.mode = { kind: 'boundary-elastic', slotSpread: outgoingSpread, dx, vx };
+    state.mode = { kind: 'boundary-elastic', direction, slotSpread: outgoingSpread, dx, vx };
     return 'cancel';
   }
   if (shouldCancelTracking(direction, dx, vx)) {
@@ -62,6 +62,40 @@ export function releaseTrackingMode(state: TransitionDriverState): 'commit' | 'c
     : 0;
   state.mode = { kind: 'settling', direction, outgoingSpread, incomingSpread, target, dx, vx };
   return committed ? 'commit' : 'cancel';
+}
+
+/** Retarget an owned drag or settle back to its outgoing spread. */
+export function cancelTrackingMode(state: TransitionDriverState): boolean {
+  if (state.mode.kind === 'tracking') {
+    const { direction, outgoingSpread, incomingSpread, dx, vx } = state.mode;
+    state.mode =
+      incomingSpread === null
+        ? { kind: 'boundary-elastic', direction, slotSpread: outgoingSpread, dx, vx }
+        : {
+            kind: 'settling',
+            direction,
+            outgoingSpread,
+            incomingSpread,
+            target: 0,
+            dx,
+            vx,
+          };
+    return true;
+  }
+  if (state.mode.kind === 'settling') {
+    const { direction, outgoingSpread, incomingSpread, dx, vx } = state.mode;
+    state.mode = {
+      kind: 'settling',
+      direction,
+      outgoingSpread,
+      incomingSpread,
+      target: 0,
+      dx,
+      vx,
+    };
+    return true;
+  }
+  return state.mode.kind === 'boundary-elastic';
 }
 
 export function goToTargetMode(
@@ -101,10 +135,10 @@ export function interruptMode(
     return { dx, vx };
   }
   if (state.mode.kind === 'boundary-elastic') {
-    const { slotSpread, dx, vx } = state.mode;
+    const { direction, slotSpread, dx, vx } = state.mode;
     state.mode = {
       kind: 'tracking',
-      direction: 'forward',
+      direction,
       outgoingSpread: slotSpread,
       incomingSpread: null,
       dx,
