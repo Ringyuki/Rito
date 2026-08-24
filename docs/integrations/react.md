@@ -104,11 +104,12 @@ Important behavior:
 
 ### Pinned fallback policy
 
-`useRitoReader()` does not choose or fetch fallback fonts. If the application
-uses a `ReaderPinnedFontPolicy`, finish loading its app-owned static font bytes
-before calling `load()`, then pass the completed policy under
-`options.reader.pinnedFontPolicy`. The hook samples the current Reader options
-when a load starts.
+`useRitoReader()` does not choose or fetch fallback fonts. A
+`ReaderPinnedFontPolicy` is **required** by the core: finish loading the
+app-owned static font bytes before calling `load()`, then pass the completed
+policy under `options.reader.pinnedFontPolicy`. The hook samples the current
+Reader options when a load starts; a missing or empty policy makes the load
+fail immediately.
 
 A pinned policy is immutable for one loaded Reader. Replacing the policy object
 after `load()` does not reconfigure that Reader or its registered `FontFace`s.
