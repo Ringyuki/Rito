@@ -109,16 +109,7 @@ const typeDeclarationSources = [
 ].map((name) => resolve(packageRoot, `src/types/${name}.ts`));
 
 ensureWasmBindgen();
-run('cargo', [
-  'build',
-  '-p',
-  'rito-wasm',
-  '--target',
-  'wasm32-unknown-unknown',
-  '--release',
-  '--jobs',
-  '1',
-]);
+run('cargo', ['build', '-p', 'rito-wasm', '--target', 'wasm32-unknown-unknown', '--release']);
 
 if (!existsSync(wasmInput)) {
   throw new Error(`Expected wasm artifact was not produced: ${wasmInput}`);

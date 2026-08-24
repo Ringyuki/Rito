@@ -41,8 +41,11 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Install Rust toolchain
         run: rustup toolchain install 1.95.0 --profile minimal --component clippy,rustfmt --target wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
       - name: Install matching wasm-bindgen CLI
-        run: cargo install wasm-bindgen-cli --version 0.2.120 --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.120
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
       - name: Verify cross-workflow release token
