@@ -2138,6 +2138,17 @@ impl FormattingContext for ParleyInlineContext {
                             index,
                             max_advance,
                             &item_text_ranges,
+                            &|item| tree.inline_item_in_element(root, item),
+                            &|item| {
+                                matches!(
+                                    &tree.node(root).content,
+                                    FormattingNodeContent::InlineFlow { items }
+                                        if matches!(
+                                            items.get(item),
+                                            Some(InlineItem::Text { ruby_annotation: Some(_), .. })
+                                        )
+                                )
+                            },
                         ) else {
                             continue;
                         };
@@ -5529,6 +5540,8 @@ fn rewind_break_count(
     line_index: usize,
     max_advance: f64,
     item_ranges: &[std::ops::Range<usize>],
+    item_in_element: &dyn Fn(usize) -> bool,
+    item_is_ruby: &dyn Fn(usize) -> bool,
 ) -> Option<u32> {
     let line = layout.get(line_index)?;
     let next = layout.get(line_index + 1)?;
@@ -5539,14 +5552,20 @@ fn rewind_break_count(
     // line extends instead (see `line_end_trim_candidate`).
     let mut line_item: Option<u32> = None;
     let mut crosses = false;
+    let mut line_has_ruby = false;
     for item in line.items() {
         let brush = match item {
-            PositionedLayoutItem::GlyphRun(run) => u32::from_le_bytes(run.style().brush),
+            PositionedLayoutItem::GlyphRun(run) => {
+                let brush = u32::from_le_bytes(run.style().brush);
+                if item_is_ruby(brush as usize) {
+                    line_has_ruby = true;
+                }
+                brush
+            }
             PositionedLayoutItem::InlineBox(inline_box) => u32::MAX - inline_box.id as u32,
         };
         if *line_item.get_or_insert(brush) != brush {
             crosses = true;
-            break;
         }
     }
     if !crosses {
@@ -5590,10 +5609,22 @@ fn rewind_break_count(
         }
         // The extension would fit; the rewound item is the one holding
         // the candidate, and it must begin inside this line.
-        let item_start = item_ranges
+        let (item_index, item_start) = item_ranges
             .iter()
-            .find(|range| range.contains(&byte))
-            .map(|range| range.start)?;
+            .enumerate()
+            .find(|(_, range)| range.contains(&byte))
+            .map(|(index, range)| (index, range.start))?;
+        // Bare paragraph text rewinds as a unit only on a line whose
+        // element boundaries come from ordinary inline boxes: b1's
+        // razor-fit note (span ① + bare note text) sends the whole note
+        // down and leaves the badge alone. A RUBY boundary does not
+        // qualify — Blink keeps the greedy break there (measured: b46's
+        // Fragment-ruby paragraph, whose 37-glyph bare tail stayed put
+        // while the engine's rewind stranded the ruby base alone on a
+        // line). Text inside a real element still rewinds either way.
+        if !item_in_element(item_index) && line_has_ruby {
+            return None;
+        }
         let line_start = line.text_range().start;
         if item_start <= line_start {
             return None;
