@@ -9,10 +9,12 @@
   "pnpm": {
     "overrides": {
       "@babel/core": "7.29.6",
-      "brace-expansion@5": "5.0.6",
-      "js-yaml@3": "3.15.0",
-      "js-yaml@4": "4.2.0",
-      "postcss": "8.5.10"
+      "brace-expansion@5": ">=5.0.9",
+      "brace-expansion@>=3.0.0 <5.0.9": ">=5.0.9",
+      "js-yaml@3": ">=3.15.1",
+      "postcss": ">=8.5.23",
+      "nanoid@<3.3.18": ">=3.3.18",
+      "read-yaml-file>js-yaml": "4.3.1"
     }
   },
   "scripts": {

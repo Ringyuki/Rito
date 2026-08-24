@@ -105,6 +105,21 @@ describe('Browser reader creation', () => {
     vi.unstubAllGlobals();
   });
 
+  it('refuses to open without a pinned font policy', async () => {
+    // The engine shapes text with the pinned bytes; a missing or empty
+    // policy must fail loudly instead of silently rendering wrong.
+    await expect(
+      createReader(new ArrayBuffer(0), readerCanvas(), { width: 800, height: 600 }),
+    ).rejects.toThrow(/pinnedFontPolicy/);
+    await expect(
+      createReader(new ArrayBuffer(0), readerCanvas(), {
+        width: 800,
+        height: 600,
+        pinnedFontPolicy: { schemaVersion: 1, faces: [] },
+      }),
+    ).rejects.toThrow(/pinnedFontPolicy/);
+  });
+
   it('returns the visible reader without waiting for publication font registration', async () => {
     const fontRegistration = deferredVoid();
     const registrationStarted = deferredVoid();

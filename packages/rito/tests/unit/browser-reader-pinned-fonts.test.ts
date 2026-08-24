@@ -155,8 +155,53 @@ describe('Browser reader pinned fonts', () => {
       prepareBrowserReaderPinnedFonts(policy([face(new Uint8Array([1]).buffer, HASH_A, 'serif')])),
     ).toThrow('Browser pinned fonts require FontFace and a mutable FontFaceSet');
   });
-});
+  it('rejects mismatched or duplicated pinned font summaries', async () => {
+    const registry = fontRegistry();
+    stubFontEnvironment(LoadedFontFace, registry);
+    const bytes = new Uint8Array([1]).buffer;
 
+    // A summary face for a request that never sent one.
+    const bare = prepareBrowserReaderPinnedFonts(undefined);
+    await expect(
+      registerBrowserReaderPinnedFonts(bare, summary([summaryFace(HASH_A)])),
+    ).rejects.toThrow(/unexpected pinned font policy/);
+
+    // Count mismatch between the request and the summary.
+    const single = prepareBrowserReaderPinnedFonts(policy([face(bytes, HASH_A, 'serif')]));
+    await expect(registerBrowserReaderPinnedFonts(single, summary([]))).rejects.toThrow(
+      /does not match its request/,
+    );
+
+    // Duplicate SHA sources collapse in the lookup map.
+    const dup = prepareBrowserReaderPinnedFonts(
+      policy([face(bytes, HASH_A, 'serif'), face(bytes, HASH_A, 'serif')]),
+    );
+    await expect(
+      registerBrowserReaderPinnedFonts(dup, summary([summaryFace(HASH_A), summaryFace(HASH_A)])),
+    ).rejects.toThrow(/does not match its request/);
+
+    // A summary face whose SHA the request never declared.
+    const wrong = prepareBrowserReaderPinnedFonts(policy([face(bytes, HASH_A, 'serif')]));
+    await expect(
+      registerBrowserReaderPinnedFonts(wrong, summary([summaryFace('b'.repeat(64))])),
+    ).rejects.toThrow(/does not match its request/);
+  });
+
+  it('requires a FontFaceSet once real faces must register', async () => {
+    // The environment is present at prepare time and lost by register
+    // time (the defensive branch a torn-down document reaches).
+    stubFontEnvironment(LoadedFontFace, fontRegistry());
+    const prepared = prepareBrowserReaderPinnedFonts(
+      policy([face(new Uint8Array([1]).buffer, HASH_A, 'serif')]),
+    );
+    await expect(
+      registerBrowserReaderPinnedFonts(
+        { ...prepared, registry: undefined },
+        summary([summaryFace(HASH_A)]),
+      ),
+    ).rejects.toThrow(/FontFace/);
+  });
+});
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
 
