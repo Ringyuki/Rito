@@ -113,50 +113,6 @@ impl FragmentBuiltLayout {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn chapter(idref: &str, page_count: usize) -> FragmentBackendChapter {
-        FragmentBackendChapter {
-            idref: idref.to_owned(),
-            block_count: 1,
-            page_background: None,
-            page_background_image: None,
-            pages: (0..page_count)
-                .map(|_| FragmentBackendPage {
-                    artifact: FragmentPageArtifact::empty_for_tests(0, 100.0, 200.0),
-                    commands: Vec::new(),
-                })
-                .collect(),
-        }
-    }
-
-    #[test]
-    fn page_lookup_spans_chapter_boundaries() {
-        let layout =
-            FragmentBuiltLayout::new(vec![chapter("a", 2), chapter("b", 0), chapter("c", 3)]);
-
-        assert_eq!(layout.page_count(), 5);
-        assert!(layout.page(1).is_some());
-        assert!(layout.page(2).is_some(), "page 2 opens the third chapter");
-        assert!(layout.page(4).is_some());
-        assert!(layout.page(5).is_none());
-        assert_eq!(
-            layout
-                .chapter_start_pages()
-                .iter()
-                .copied()
-                .collect::<Vec<_>>(),
-            // An empty chapter and its successor share a start page.
-            vec![0, 2],
-        );
-        let (found, start) = layout.chapter("c").expect("chapter c exists");
-        assert_eq!(found.pages.len(), 3);
-        assert_eq!(start, 2);
-    }
-}
-
 impl RuntimeDocument {
     /// Which backend owns a revision's pagination: `"fragment"` when the
     /// fragment page table attached, `"retained"` otherwise, `None` for
@@ -329,5 +285,49 @@ fn collect_page_anchors(
         for child in &inner.children {
             collect_page_anchors(child, node_anchors, page_index, out);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn chapter(idref: &str, page_count: usize) -> FragmentBackendChapter {
+        FragmentBackendChapter {
+            idref: idref.to_owned(),
+            block_count: 1,
+            page_background: None,
+            page_background_image: None,
+            pages: (0..page_count)
+                .map(|_| FragmentBackendPage {
+                    artifact: FragmentPageArtifact::empty_for_tests(0, 100.0, 200.0),
+                    commands: Vec::new(),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn page_lookup_spans_chapter_boundaries() {
+        let layout =
+            FragmentBuiltLayout::new(vec![chapter("a", 2), chapter("b", 0), chapter("c", 3)]);
+
+        assert_eq!(layout.page_count(), 5);
+        assert!(layout.page(1).is_some());
+        assert!(layout.page(2).is_some(), "page 2 opens the third chapter");
+        assert!(layout.page(4).is_some());
+        assert!(layout.page(5).is_none());
+        assert_eq!(
+            layout
+                .chapter_start_pages()
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            // An empty chapter and its successor share a start page.
+            vec![0, 2],
+        );
+        let (found, start) = layout.chapter("c").expect("chapter c exists");
+        assert_eq!(found.pages.len(), 3);
+        assert_eq!(start, 2);
     }
 }

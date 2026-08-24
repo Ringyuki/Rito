@@ -72,7 +72,7 @@ const MAX_DEGRADATION_NOTES: usize = 64;
 
 thread_local! {
     static DEGRADATIONS: std::cell::RefCell<std::collections::BTreeSet<String>> =
-        std::cell::RefCell::new(std::collections::BTreeSet::new());
+        const { std::cell::RefCell::new(std::collections::BTreeSet::new()) };
 }
 
 pub(super) fn note_degradation(subject: impl Into<String>) {

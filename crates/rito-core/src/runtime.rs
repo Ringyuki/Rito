@@ -220,7 +220,8 @@ impl RuntimeDocument {
             if normalized.is_empty() {
                 continue;
             }
-            if self.unavailable_font_families.insert(normalized.clone()) && known.contains(&normalized)
+            if self.unavailable_font_families.insert(normalized.clone())
+                && known.contains(&normalized)
             {
                 added_known = true;
             }
@@ -454,7 +455,7 @@ impl RuntimeDocument {
     /// Page-scoped footnote classifier shared with `get_page_targets`,
     /// so every host surface agrees on what counts as a footnote and on
     /// the exact key its definition is stored under.
-    pub(crate) fn footnote_hit_resolver<'a>(
+    pub(in crate::runtime) fn footnote_hit_resolver<'a>(
         &'a self,
         revision: &'a RuntimeRevision,
         page_index: usize,
@@ -462,12 +463,7 @@ impl RuntimeDocument {
         let context = self
             .page_target_context
             .get_or_init(|| page_target::RuntimePageTargetContext::new(&self.document));
-        page_target::RuntimeFootnoteHitResolver::new(
-            &self.document,
-            context,
-            revision,
-            page_index,
-        )
+        page_target::RuntimeFootnoteHitResolver::new(&self.document, context, revision, page_index)
     }
 
     pub fn get_page_semantics(

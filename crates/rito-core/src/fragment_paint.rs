@@ -224,8 +224,7 @@ fn append_fragment_display_commands_inner(
                             commands.push(DisplayCommand::paint_horizontal_rule(
                                 rect_value(
                                     origin_x + fragment.rect.x,
-                                    origin_y + fragment.rect.y + fragment.rect.height
-                                        - thickness,
+                                    origin_y + fragment.rect.y + fragment.rect.height - thickness,
                                     fragment.rect.width,
                                     thickness,
                                 ),
@@ -246,8 +245,7 @@ fn append_fragment_display_commands_inner(
                             ));
                             commands.push(DisplayCommand::paint_horizontal_rule(
                                 rect_value(
-                                    origin_x + fragment.rect.x + fragment.rect.width
-                                        - thickness,
+                                    origin_x + fragment.rect.x + fragment.rect.width - thickness,
                                     origin_y + fragment.rect.y,
                                     thickness,
                                     fragment.rect.height,
@@ -355,7 +353,9 @@ fn append_fragment_display_commands_inner(
                                         width - left - right,
                                         bottom / 2.0,
                                     ),
-                                    _ => (x + left / 2.0, y + top, left / 2.0, height - top - bottom),
+                                    _ => {
+                                        (x + left / 2.0, y + top, left / 2.0, height - top - bottom)
+                                    }
                                 };
                                 if strip.2 > 0.0 && strip.3 > 0.0 {
                                     commands.push(DisplayCommand::paint_block(
@@ -523,10 +523,15 @@ fn split_collapsed_horizontal_edges(
             continue;
         }
         let width = side.get("width").and_then(Value::as_f64).unwrap_or(0.0);
-        if !(width > 0.0) {
+        // Skips NaN widths too: only a strictly positive width paints.
+        if width.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
             continue;
         }
-        let row = if edge == "top" { rows.first() } else { rows.last() };
+        let row = if edge == "top" {
+            rows.first()
+        } else {
+            rows.last()
+        };
         let Some(row) = row else { continue };
         let mut cuts: Vec<f64> = row
             .children
@@ -551,7 +556,7 @@ fn split_collapsed_horizontal_edges(
             .to_owned();
         let y = if edge == "top" {
             origin_y + fragment.rect.y
-    } else {
+        } else {
             origin_y + fragment.rect.y + fragment.rect.height - width
         };
         let mut start = origin_x + fragment.rect.x;
@@ -633,8 +638,7 @@ fn append_vertical_line_commands(
         // raster paints unrotated, clipping at the page edge like the
         // reference.
         if let Fragment::Image(image) = child {
-            let Some(InlineItem::Image { src, .. }) = items.get(image.item_index as usize)
-            else {
+            let Some(InlineItem::Image { src, .. }) = items.get(image.item_index as usize) else {
                 continue;
             };
             commands.push(DisplayCommand::paint_image(
@@ -736,9 +740,7 @@ fn append_vertical_line_commands(
                             column_x + line.rect.height - annotation_size,
                             column_top + run.rect.x - run.ruby_overhang_px,
                             annotation_size,
-                            run.rect.width
-                                + run.ruby_overhang_px
-                                + run.ruby_overhang_right_px,
+                            run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px,
                         ),
                         paint: ruby_paint,
                         line_height_px: None,
@@ -756,6 +758,7 @@ fn append_vertical_line_commands(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn append_line_commands(
     commands: &mut Vec<DisplayCommand>,
     tree: &FormattingTree,
@@ -912,7 +915,6 @@ fn append_text_run_command(
         .iter()
         .find(|(range, _)| range.start <= start && end <= range.end)
         .cloned()
-        .map(|(range, index)| (range, index))
         .unwrap_or((start..end, 0));
     let mut paint = run_paint(
         style,
@@ -1060,9 +1062,7 @@ fn append_text_run_command(
                 rito_style_contract::RubyAlign::SpaceAround => None,
                 rito_style_contract::RubyAlign::Start => Some(RubyAlignPaint::START),
                 rito_style_contract::RubyAlign::Center => Some(RubyAlignPaint::CENTER),
-                rito_style_contract::RubyAlign::SpaceBetween => {
-                    Some(RubyAlignPaint::SPACE_BETWEEN)
-                }
+                rito_style_contract::RubyAlign::SpaceBetween => Some(RubyAlignPaint::SPACE_BETWEEN),
             },
         }));
     }
@@ -1087,7 +1087,7 @@ fn append_text_run_command(
         source_text_offset: None,
         ruby_align: None,
         align_right: false,
-            vertical: false,
+        vertical: false,
     }));
     Ok(())
 }
@@ -1465,15 +1465,14 @@ pub(crate) fn measure_family_stack(family_key: &str, policy: &PaintFamilyPolicy)
             "serif" | "sans-serif" | "monospace" | "cursive" | "fantasy" | "system-ui"
         )
     };
-    let quoted = |name: &str| {
-        format!(
-            "\"{}\"",
-            name.replace('\\', "\\\\").replace('"', "\\\"")
-        )
-    };
+    let quoted = |name: &str| format!("\"{}\"", name.replace('\\', "\\\\").replace('"', "\\\""));
     let mut parts: Vec<String> = Vec::new();
     let mut aliases_added = false;
-    for raw in family_key.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+    for raw in family_key
+        .split(',')
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+    {
         let bare = raw.trim_matches('"');
         let lower = bare.to_ascii_lowercase();
         if is_generic(lower.as_str()) {
@@ -1918,7 +1917,7 @@ mod tests {
                 ruby_annotation: Some(rito_fragment::RubyAnnotation {
                     text: "かんじ".to_owned(),
                     size_ratio: 0.5,
-                    align: rito_style_contract::RubyAlign::SpaceAround
+                    align: rito_style_contract::RubyAlign::SpaceAround,
                 }),
             }]
         });

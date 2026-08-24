@@ -166,9 +166,10 @@ fn adapt_block_radius(value: &Value) -> Result<ReaderBlockRadiusV1, ReaderDispla
             value,
             "paintBlock.radius.px",
         )?)),
-        (None, Some(value), None) => Ok(ReaderBlockRadiusV1::Percent(
-            super::value::finite_number(value, "paintBlock.radius.pct")?,
-        )),
+        (None, Some(value), None) => Ok(ReaderBlockRadiusV1::Percent(super::value::finite_number(
+            value,
+            "paintBlock.radius.pct",
+        )?)),
         (None, None, Some(value)) => {
             let entries = value
                 .as_array()

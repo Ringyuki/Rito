@@ -13,14 +13,12 @@ use crate::runtime::reader_v1::{
     reader_resource_bytes_max_v1, ReaderAdjacentDirectionV1, ReaderAdjacentRequestV1,
     ReaderArtifactRequestV1, ReaderArtifactV1, ReaderBackgroundAdvanceV1,
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
-    ReaderBackgroundStateV1, ReaderErrorV1, ReaderForegroundHandoffAckV1,
-    ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1, ReaderPublicationV1,
-    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderResourceV1, ReaderSourcePointV1,
-    ReaderSearchRequestV1, ReaderSearchResponseV1, ReaderTextPositionV1,
-    ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
-    ReaderSourceRangeV1, ReaderSpreadModeV1,
-    ReaderTextRenderingProfileV1, ReaderWorkBudgetV1, READER_PROTOCOL_VERSION_V1,
-    READER_PUBLICATION_WIRE_BYTES_MAX_V1,
+    ReaderBackgroundStateV1, ReaderErrorV1, ReaderFootnoteKindV1, ReaderFootnoteV1,
+    ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1,
+    ReaderPublicationV1, ReaderResourceV1, ReaderSearchRequestV1, ReaderSearchResponseV1,
+    ReaderSourcePointV1, ReaderSourceRangeV1, ReaderSpreadModeV1, ReaderTextPositionV1,
+    ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1, ReaderTextRenderingProfileV1,
+    ReaderWorkBudgetV1, READER_PROTOCOL_VERSION_V1, READER_PUBLICATION_WIRE_BYTES_MAX_V1,
 };
 
 pub(super) fn artifact(value: &ReaderArtifactV1) -> Result<Vec<u8>, ReaderErrorV1> {
@@ -289,10 +287,7 @@ pub(super) fn text_range_geometry(
 
 pub(super) fn footnote(value: &ReaderFootnoteV1) -> Result<Vec<u8>, ReaderErrorV1> {
     super::primitives::external_id(value.artifact_id, "artifactId")?;
-    let mut writer = Writer::message(
-        super::READER_FOOTNOTE_WIRE_MAGIC_V1,
-        READER_WIRE_VERSION_V1,
-    );
+    let mut writer = Writer::message(super::READER_FOOTNOTE_WIRE_MAGIC_V1, READER_WIRE_VERSION_V1);
     writer.u64(value.artifact_id);
     writer.string(&value.key, "footnote key")?;
     writer.u32(footnote_kind(value.kind));

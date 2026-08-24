@@ -10,8 +10,8 @@ mod tests;
 use super::{
     ReaderAdjacentRequestV1, ReaderArtifactRequestV1, ReaderArtifactV1, ReaderBackgroundAdvanceV1,
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
-    ReaderErrorV1, ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderPublicationV1,
-    ReaderFootnoteV1, ReaderResourceV1, ReaderSearchRequestV1, ReaderSearchResponseV1,
+    ReaderErrorV1, ReaderFootnoteV1, ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1,
+    ReaderPublicationV1, ReaderResourceV1, ReaderSearchRequestV1, ReaderSearchResponseV1,
     ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
 };
 

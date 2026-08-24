@@ -14,14 +14,13 @@ use crate::runtime::reader_v1::{
     reader_resource_bytes_max_v1, ReaderAdjacentDirectionV1, ReaderAdjacentRequestV1,
     ReaderArtifactRequestV1, ReaderArtifactV1, ReaderBackgroundAdvanceV1,
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
-    ReaderBackgroundStateV1, ReaderErrorV1, ReaderForegroundHandoffAckV1,
-    ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1, ReaderPublicationV1,
-    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderRectV1, ReaderResourceV1,
-    ReaderSearchRequestV1, ReaderSearchResponseV1, ReaderSearchResultV1,
-    ReaderSourcePointV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1,
-    ReaderTextRangeRequestV1, ReaderTextRectV1,
-    ReaderSourceRangeV1, ReaderSpreadModeV1,
-    ReaderTextRenderingProfileV1, ReaderWorkBudgetV1, READER_PUBLICATION_WIRE_BYTES_MAX_V1,
+    ReaderBackgroundStateV1, ReaderErrorV1, ReaderFootnoteKindV1, ReaderFootnoteV1,
+    ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1,
+    ReaderPublicationV1, ReaderRectV1, ReaderResourceV1, ReaderSearchRequestV1,
+    ReaderSearchResponseV1, ReaderSearchResultV1, ReaderSourcePointV1, ReaderSourceRangeV1,
+    ReaderSpreadModeV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
+    ReaderTextRectV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
+    READER_PUBLICATION_WIRE_BYTES_MAX_V1,
 };
 
 pub(super) fn artifact(bytes: &[u8]) -> Result<ReaderArtifactV1, ReaderErrorV1> {
@@ -239,9 +238,7 @@ pub(super) fn search_response(bytes: &[u8]) -> Result<ReaderSearchResponseV1, Re
     Ok(response)
 }
 
-pub(super) fn text_range_request(
-    bytes: &[u8],
-) -> Result<ReaderTextRangeRequestV1, ReaderErrorV1> {
+pub(super) fn text_range_request(bytes: &[u8]) -> Result<ReaderTextRangeRequestV1, ReaderErrorV1> {
     let mut reader = Reader::message(
         bytes,
         super::READER_TEXT_RANGE_REQUEST_WIRE_MAGIC_V1,

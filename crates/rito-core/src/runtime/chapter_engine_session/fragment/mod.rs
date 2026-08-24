@@ -254,9 +254,11 @@ impl<'a> FragmentChapterEngineSession<'a> {
         &self,
         query: PageArtifactExactSourceRangeQuery,
     ) -> PageArtifactExactTextRangeResolution {
-        let Some(start) =
-            self.address_at_source_point(query.first_page..query.last_page + 1, &query.start, false)
-        else {
+        let Some(start) = self.address_at_source_point(
+            query.first_page..query.last_page + 1,
+            &query.start,
+            false,
+        ) else {
             return PageArtifactExactTextRangeResolution::Unavailable(
                 TextInteractionUnavailableReason::SourceUnavailable,
             );
@@ -767,7 +769,7 @@ fn caret_from_point(
         // Vertical proximity dominates so a tap between lines picks the
         // nearer line, not a horizontally closer run elsewhere.
         let distance = dy * 1000.0 + dx;
-        if best.map_or(true, |(best_distance, _)| distance < best_distance) {
+        if best.is_none_or(|(best_distance, _)| distance < best_distance) {
             best = Some((distance, run));
         }
     }

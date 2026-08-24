@@ -117,6 +117,10 @@ pub(crate) struct ChapterStyleOptions<'a> {
     pub font_family_force: bool,
 }
 
+// Only the `bench-internals` feature reads this copy; the reference
+// pipeline keeps its own variant (without `li { display: list-item }`)
+// in the legacy module below.
+#[cfg_attr(not(feature = "bench-internals"), allow(dead_code))]
 pub(crate) const DEFAULT_UA_STYLESHEET: &str = r#"
 h1 { font-size: 2em; font-weight: bold; margin-top: 0.67em; margin-bottom: 0.67em; }
 h2 { font-size: 1.5em; font-weight: bold; margin-top: 0.83em; margin-bottom: 0.83em; }

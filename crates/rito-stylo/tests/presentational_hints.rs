@@ -6,8 +6,7 @@ use rito_style_contract::{
     NonNegativeLengthPercentage, Percentage, PreferredSizeV1,
 };
 use rito_stylo::{
-    supports_body_bgcolor_presentational_hint, supports_svg_geometry_presentational_hint,
-    StyleDocument, StyleError, StylesheetInput, Viewport,
+    supports_body_bgcolor_presentational_hint, StyleDocument, StyleError, StylesheetInput, Viewport,
 };
 
 const URL: &str = "https://example.test/book/chapter.xhtml";
@@ -88,10 +87,7 @@ fn bare_svg_numbers_are_user_unit_px_lengths() {
 
 #[test]
 fn author_size_rules_override_the_zero_specificity_svg_geometry_hint() {
-    let (width, height) = projected_svg_size(
-        r#"width="100%" height="480""#,
-        "svg { width: 50% }",
-    );
+    let (width, height) = projected_svg_size(r#"width="100%" height="480""#, "svg { width: 50% }");
     assert_eq!(width, percent(50.0));
     assert_eq!(height, px(480.0));
 }
@@ -114,9 +110,7 @@ fn svg_geometry_attributes_outside_the_svg_namespace_are_not_hints() {
     let mut document =
         StyleDocument::from_epub_source(Arc::clone(&source), URL, Viewport::default(), &[])
             .expect("style document");
-    let projection = document
-        .resolve_production_slice_v1()
-        .expect("projection");
+    let projection = document.resolve_production_slice_v1().expect("projection");
     let style = projection
         .layout()
         .table()
@@ -138,9 +132,7 @@ fn projected_svg_size(attributes: &str, css: &str) -> (PreferredSizeV1, Preferre
         &stylesheets,
     )
     .expect("style document");
-    let projection = document
-        .resolve_production_slice_v1()
-        .expect("projection");
+    let projection = document.resolve_production_slice_v1().expect("projection");
     let style = projection
         .layout()
         .table()

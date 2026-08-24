@@ -538,8 +538,8 @@ fn search_source_range(
     let mut previous_flow: Option<(Arc<LogicalTextFlow>, u32)> = None;
 
     let close = |current: &mut Option<SearchSourceRange>,
-                     previous_flow: &mut Option<(Arc<LogicalTextFlow>, u32)>,
-                     segments: &mut Vec<SearchSourceRange>| {
+                 previous_flow: &mut Option<(Arc<LogicalTextFlow>, u32)>,
+                 segments: &mut Vec<SearchSourceRange>| {
         if let Some(segment) = current.take() {
             segments.push(segment);
         }

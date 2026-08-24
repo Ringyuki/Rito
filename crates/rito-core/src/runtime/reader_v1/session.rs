@@ -7,12 +7,10 @@ use crate::{
         RuntimeChapterLocalRevisionAdvance, RuntimeChapterLocalRevisionCursor,
         RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalSourceLocatorResolution,
         RuntimeContinueChapterLocalRevisionRequest, RuntimeContinueRevisionRequest,
-        RuntimeDocument, RuntimePageReadingAnchor, RuntimeRevisionWorkBudget,
-        RuntimeRolloverChapterLocalRevisionRequest, RuntimeSourceLocator,
-        RuntimeRevision, RuntimeSearchRequest, RuntimeSourceLocatorMatchedBy,
-        RuntimeSourceLocatorResolution,
-        RuntimeTextRangeGeometryRequest,
-        RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX,
+        RuntimeDocument, RuntimePageReadingAnchor, RuntimeRevision, RuntimeRevisionWorkBudget,
+        RuntimeRolloverChapterLocalRevisionRequest, RuntimeSearchRequest, RuntimeSourceLocator,
+        RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorResolution,
+        RuntimeTextRangeGeometryRequest, RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX,
     },
 };
 
@@ -33,13 +31,12 @@ use super::{
     ReaderAdjacentRequestV1, ReaderArtifactRequestV1, ReaderArtifactV1, ReaderBackgroundAdvanceV1,
     ReaderBackgroundHandoffAckV1, ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1,
     ReaderBackgroundStateV1, ReaderDisposeAckV1, ReaderErrorKindV1, ReaderErrorV1,
-    ReaderForegroundHandoffAckV1, ReaderForegroundHandoffV1, ReaderLocatorV1, ReaderNavigationV1,
-    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderPublicationV1, ReaderRectV1,
-    ReaderResourceKindV1, ReaderSearchRequestV1, ReaderSearchResponseV1,
-    ReaderSearchResultV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1,
-    ReaderTextRangeRequestV1, ReaderTextRectV1,
-    ReaderResourceV1, ReaderTextRenderingProfileV1,
-    ReaderWorkBudgetV1, READER_EXTERNAL_ID_MAX_V1,
+    ReaderFootnoteKindV1, ReaderFootnoteV1, ReaderForegroundHandoffAckV1,
+    ReaderForegroundHandoffV1, ReaderLocatorV1, ReaderNavigationV1, ReaderPublicationV1,
+    ReaderRectV1, ReaderResourceKindV1, ReaderResourceV1, ReaderSearchRequestV1,
+    ReaderSearchResponseV1, ReaderSearchResultV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1,
+    ReaderTextRangeRequestV1, ReaderTextRectV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
+    READER_EXTERNAL_ID_MAX_V1,
 };
 
 mod exact_cache;
@@ -511,7 +508,10 @@ impl ReaderSessionV1 {
         request: ReaderForegroundHandoffV1,
     ) -> Result<ReaderForegroundHandoffAckV1, ReaderErrorV1> {
         self.validate_foreground_handoff_request(request)?;
-        if !self.peeked_artifacts.contains(&request.candidate_artifact_id) {
+        if !self
+            .peeked_artifacts
+            .contains(&request.candidate_artifact_id)
+        {
             return Err(ReaderErrorV1::new(
                 ReaderErrorKindV1::InvalidRequest,
                 "commit candidate was not produced by peek",
@@ -733,7 +733,8 @@ impl ReaderSessionV1 {
             .ok_or_else(|| unknown_artifact(request.artifact_id))?;
         // Ask for one more than the cap so the response can say
         // truthfully whether the list is a prefix.
-        let probe_limit = (request.limit > 0).then(|| usize_from_u32(request.limit, "search limit"))
+        let probe_limit = (request.limit > 0)
+            .then(|| usize_from_u32(request.limit, "search limit"))
             .transpose()?
             .map(|limit| limit.saturating_add(1));
         let runtime_request = RuntimeSearchRequest {
@@ -849,10 +850,14 @@ impl ReaderSessionV1 {
                     .document
                     .require_chapter_local_owner(&owner)
                     .map_err(engine_error)?;
-                let origin = page_display_origin(revision, artifact.local_spread_index, page_index)?;
-                let geometry =
-                    crate::runtime::page::text_range_geometry(&owner.revision_id, revision, runtime_request)
-                        .map_err(engine_error)?;
+                let origin =
+                    page_display_origin(revision, artifact.local_spread_index, page_index)?;
+                let geometry = crate::runtime::page::text_range_geometry(
+                    &owner.revision_id,
+                    revision,
+                    runtime_request,
+                )
+                .map_err(engine_error)?;
                 (geometry, origin)
             }
             ReaderRevisionBackingV1::Publication => {
@@ -866,7 +871,8 @@ impl ReaderSessionV1 {
                     .revisions
                     .get(&owner.revision_id)
                     .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
-                let origin = page_display_origin(revision, artifact.local_spread_index, page_index)?;
+                let origin =
+                    page_display_origin(revision, artifact.local_spread_index, page_index)?;
                 let geometry = crate::runtime::page::text_range_geometry(
                     &owner.revision_id,
                     revision,
@@ -1152,7 +1158,8 @@ impl ReaderSessionV1 {
                     // carries no book page count; offer one last
                     // candidate for the same visible locator so a reader
                     // who never turns a page still learns the total.
-                    let completion_candidate = self.take_completion_handoff(revision_id, &intent)?;
+                    let completion_candidate =
+                        self.take_completion_handoff(revision_id, &intent)?;
                     let moves = completion_candidate.as_ref().is_some_and(|candidate| {
                         self.handoff_moves_visible_content(intent.visible_artifact_id, candidate)
                     });
@@ -1455,7 +1462,7 @@ impl ReaderSessionV1 {
         };
         self.publication_revisions.insert(
             reader_revision_id,
-            ReaderPublicationRevisionOwnerV1::from_advance(reader_revision_id, advance, layout),
+            ReaderPublicationRevisionOwnerV1::from_advance(advance, layout),
         );
         self.active_publication_revision_id = Some(reader_revision_id);
         Ok(reader_revision_id)
@@ -3180,26 +3187,6 @@ fn engine_error(error: impl std::fmt::Display) -> ReaderErrorV1 {
     ReaderErrorV1::new(ReaderErrorKindV1::EngineFailure, error.to_string())
 }
 
-#[cfg(test)]
-mod identity_tests {
-    use super::*;
-
-    #[test]
-    fn generated_identity_stops_after_signed_64_bit_maximum() {
-        let mut next = READER_EXTERNAL_ID_MAX_V1;
-        assert_eq!(
-            take_identity(&mut next, "artifactId").expect("maximum identity remains valid"),
-            READER_EXTERNAL_ID_MAX_V1
-        );
-        assert_eq!(
-            take_identity(&mut next, "artifactId")
-                .expect_err("next identity fails closed")
-                .kind,
-            ReaderErrorKindV1::NumericOverflow
-        );
-    }
-}
-
 const fn reader_footnote_kind(kind: crate::interaction::FootnoteKind) -> ReaderFootnoteKindV1 {
     match kind {
         crate::interaction::FootnoteKind::Footnote => ReaderFootnoteKindV1::Footnote,
@@ -3287,4 +3274,24 @@ fn revision_search_scope(revision: &RuntimeRevision) -> Result<(u32, bool), Read
         u32_from_usize(revision.known_extent.page_count, "searched page count")?,
         revision.final_extent.is_some(),
     ))
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+
+    #[test]
+    fn generated_identity_stops_after_signed_64_bit_maximum() {
+        let mut next = READER_EXTERNAL_ID_MAX_V1;
+        assert_eq!(
+            take_identity(&mut next, "artifactId").expect("maximum identity remains valid"),
+            READER_EXTERNAL_ID_MAX_V1
+        );
+        assert_eq!(
+            take_identity(&mut next, "artifactId")
+                .expect_err("next identity fails closed")
+                .kind,
+            ReaderErrorKindV1::NumericOverflow
+        );
+    }
 }

@@ -19,7 +19,6 @@ pub(super) enum ReaderRevisionBackingV1 {
 
 #[derive(Debug)]
 pub(super) struct ReaderPublicationRevisionOwnerV1 {
-    pub(super) reader_revision_id: u64,
     pub(super) owner: RuntimeRevisionHandle,
     pub(super) continuation: Option<RuntimeRevisionCursor>,
     pub(super) layout: LayoutConfig,
@@ -35,13 +34,8 @@ pub(super) struct ReaderPublicationRevisionOwnerV1 {
 }
 
 impl ReaderPublicationRevisionOwnerV1 {
-    pub(super) fn from_advance(
-        reader_revision_id: u64,
-        advance: RuntimeRevisionAdvance,
-        layout: LayoutConfig,
-    ) -> Self {
+    pub(super) fn from_advance(advance: RuntimeRevisionAdvance, layout: LayoutConfig) -> Self {
         Self {
-            reader_revision_id,
             owner: RuntimeRevisionHandle::from(&advance.revision),
             continuation: advance.continuation,
             layout,

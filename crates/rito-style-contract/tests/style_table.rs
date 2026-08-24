@@ -10,10 +10,9 @@ use rito_style_contract::{
     LengthPercentage, LengthPercentageOrAuto, LineBreak, LineHeight, NonNegativeCssPx,
     NonNegativeLengthPercentage, NonNegativeNumber, OverflowWrap, Percentage, PhysicalSides,
     ResolvedUrlV1, RubyAlign, StyleId, StyleTableError, TextAlign, TextDecoration,
-    TextDecorationLines,
-    TextDecorationStyle, TextIndent, TextJustify, TextShadow, TextTransform, TextTransformCase,
-    TextWrapMode, TransformListV1, TransformOperationV1, UnicodeBidi, UnitInterval,
-    WhiteSpaceCollapse, WordBreak, WritingMode,
+    TextDecorationLines, TextDecorationStyle, TextIndent, TextJustify, TextShadow, TextTransform,
+    TextTransformCase, TextWrapMode, TransformListV1, TransformOperationV1, UnicodeBidi,
+    UnitInterval, WhiteSpaceCollapse, WordBreak, WritingMode,
 };
 
 fn px(value: f32) -> CssPx {

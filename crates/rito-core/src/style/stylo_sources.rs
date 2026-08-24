@@ -406,9 +406,10 @@ pub(crate) fn validate_stylo_source_arena(
         if element.name.local_name == "svg" {
             const SVG_NAMESPACE: &str = "http://www.w3.org/2000/svg";
             if element.name.namespace.as_deref() == Some(SVG_NAMESPACE) {
-                for (name, subject) in
-                    [("width", "attribute svg@width"), ("height", "attribute svg@height")]
-                {
+                for (name, subject) in [
+                    ("width", "attribute svg@width"),
+                    ("height", "attribute svg@height"),
+                ] {
                     let Some(value) = element.attribute(name) else {
                         continue;
                     };
@@ -458,7 +459,6 @@ fn reject_source_issues(
     }
     Ok(())
 }
-
 
 /// Expands a sheet's `@import` rules by inlining the imported
 /// publication sheet's text at the rule's position, recursively. CSS
@@ -516,7 +516,9 @@ fn expand_css_imports(
         // byte fell inside 格 — the whole book failed to open).
         let rest = &bytes[index..];
         if rest.len() >= 8 && rest[..8].eq_ignore_ascii_case(b"@charset") {
-            let end = css[index..].find(';').map_or(css.len(), |at| index + at + 1);
+            let end = css[index..]
+                .find(';')
+                .map_or(css.len(), |at| index + at + 1);
             out.push_str(&css[index..end]);
             index = end;
             continue;
@@ -525,7 +527,9 @@ fn expand_css_imports(
             out.push_str(&css[index..]);
             return out;
         }
-        let end = css[index..].find(';').map_or(css.len(), |at| index + at + 1);
+        let end = css[index..]
+            .find(';')
+            .map_or(css.len(), |at| index + at + 1);
         let statement = &css[index + 7..end.saturating_sub(1).max(index + 7)];
         index = end;
         let Some((target, media)) = parse_import_target(statement) else {
@@ -545,7 +549,7 @@ fn expand_css_imports(
         } else {
             normalize_path(&join_epub_href(sheet_dir, &target))
         };
-        if seen.iter().any(|entry| *entry == resolved) {
+        if seen.contains(&resolved) {
             continue;
         }
         let Some(imported) = ledger

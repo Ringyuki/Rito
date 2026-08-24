@@ -178,8 +178,8 @@ fn malformed_non_void_markup_recovers_like_a_browser() {
     // close, the way every browser's HTML recovery reads it — a
     // malformed calibre chapter must lay instead of vanishing from the
     // book (b39's 生日劵 story, an unclosed div).
-    let arena = SourceArena::from_xhtml("<html><body><p><strong>text</p></body></html>")
-        .expect("recovers");
+    let arena =
+        SourceArena::from_xhtml("<html><body><p><strong>text</p></body></html>").expect("recovers");
     let text: String = arena
         .descendants(arena.root())
         .filter_map(|(_, node)| node.as_text().map(str::to_owned))

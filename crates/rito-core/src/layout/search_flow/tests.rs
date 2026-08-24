@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use super::{
     search_page, summarize_search_flow, SearchFlowQuerySpec, SearchPageText, SearchRunOffset,
-    SearchRunSource, SearchSourcePoint, SearchSourceRange, SearchTextPosition,
+    SearchRunSource, SearchSourcePoint, SearchTextPosition,
 };
 use crate::layout::{
     content::{RuntimeBlock, RuntimeChild},

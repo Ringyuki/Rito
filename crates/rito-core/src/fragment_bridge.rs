@@ -326,10 +326,13 @@ struct TreeBuilder<'a> {
     /// Capability verdict per interned style id, so each distinct style is
     /// checked once per chapter.
     checked_block_styles: std::collections::HashMap<u32, Option<String>>,
-    checked_box_paints:
-        std::collections::HashMap<u32, (Option<(NodePaint, [f64; 4])>, Vec<String>)>,
+    checked_box_paints: std::collections::HashMap<u32, CheckedBoxPaint>,
     checked_inline_styles: std::collections::HashMap<(u32, bool), Option<String>>,
 }
+
+/// One box-paint capability verdict: the paint (with its border widths)
+/// when the style is paintable, plus the degradations it charged.
+type CheckedBoxPaint = (Option<(NodePaint, [f64; 4])>, Vec<String>);
 
 impl TreeBuilder<'_> {
     /// Records one approximation the tree build applied instead of
@@ -703,11 +706,10 @@ impl TreeBuilder<'_> {
         widths: [f64; 4],
         what: &str,
     ) -> EpubResult<LayoutStyleId> {
-        let mut derived = self
+        let mut derived = *self
             .layout
             .style(style)
-            .map_err(|error| EpubError::new(format!("{what} style resolves: {error}")))?
-            .clone();
+            .map_err(|error| EpubError::new(format!("{what} style resolves: {error}")))?;
         let widen = |side: &mut NonNegativeLengthPercentage, width: f64| -> EpubResult<()> {
             if width <= 0.0 {
                 return Ok(());
@@ -785,11 +787,9 @@ impl TreeBuilder<'_> {
             .inline
             .style(style)
             .map_err(|error| EpubError::new(format!("container style resolves: {error}")))?;
-        let zero_side = |side: &c::NonNegativeLengthPercentage| {
-            length_percentage_is_zero(&side.value())
-        };
-        let zero_edge =
-            |edge: &c::BorderEdge| f64::from(edge.resolved_width.get()) == 0.0;
+        let zero_side =
+            |side: &c::NonNegativeLengthPercentage| length_percentage_is_zero(&side.value());
+        let zero_edge = |edge: &c::BorderEdge| f64::from(edge.resolved_width.get()) == 0.0;
         // Margins strip too: the container's own margins are
         // block-level geometry; left on the borrowed text style they
         // would re-enter layout as inline box gaps on every paragraph
@@ -817,9 +817,8 @@ impl TreeBuilder<'_> {
         }
         let mut derived = resolved.clone();
         let zero = c::NonNegativeLengthPercentage::new(c::LengthPercentage::Length(
-            c::CssPx::new(0.0).map_err(|error| {
-                EpubError::new(format!("container text style zero: {error:?}"))
-            })?,
+            c::CssPx::new(0.0)
+                .map_err(|error| EpubError::new(format!("container text style zero: {error:?}")))?,
         ));
         derived.fragment.padding.top = zero;
         derived.fragment.padding.right = zero;
@@ -1287,10 +1286,7 @@ impl TreeBuilder<'_> {
                     // the measured corpus grew every title line one px).
                     let rt_source_index = element_source_index(inner)?;
                     let rt_style = self.inline_style_id(rt_source_index, "rt");
-                    let size_ratio = match (
-                        self.inline.style(rt_style),
-                        self.inline.style(style),
-                    ) {
+                    let size_ratio = match (self.inline.style(rt_style), self.inline.style(style)) {
                         (Ok(rt_resolved), Ok(base_resolved))
                             if base_resolved.font.size.get() > 0.0 =>
                         {
@@ -1634,9 +1630,7 @@ impl TreeBuilder<'_> {
             let id = self.push_node(
                 FormattingNode {
                     style: cell_style,
-                    content: FormattingNodeContent::TableCell {
-                        col_span: col_span as u32,
-                    },
+                    content: FormattingNodeContent::TableCell { col_span },
                     children,
                 },
                 Some(cell_index),
@@ -1940,39 +1934,6 @@ fn shared_box_capability_violation(style: &LayoutFormattingStyleV1) -> Option<St
     None
 }
 
-/// Horizontal margins and any padding shift or shrink content; the block
-/// context lays every box at x = 0 with the full inline size, so only
-/// zero-length values (and auto vertical margins, which resolve to zero)
-/// are implemented.
-fn horizontal_spacing_violation(
-    margin: &rito_style_contract::PhysicalSides<rito_style_contract::LengthPercentageOrAuto>,
-    padding: &rito_style_contract::PhysicalSides<rito_style_contract::NonNegativeLengthPercentage>,
-) -> Option<String> {
-    let zero_or_auto = |side: &rito_style_contract::LengthPercentageOrAuto| match side {
-        rito_style_contract::LengthPercentageOrAuto::Auto => false,
-        rito_style_contract::LengthPercentageOrAuto::Value(value) => {
-            !length_percentage_is_zero(value)
-        }
-    };
-    if zero_or_auto(&margin.left) {
-        return Some("horizontal margin-left".to_owned());
-    }
-    if zero_or_auto(&margin.right) {
-        return Some("horizontal margin-right".to_owned());
-    }
-    for (side, name) in [
-        (&padding.top, "padding-top"),
-        (&padding.right, "padding-right"),
-        (&padding.bottom, "padding-bottom"),
-        (&padding.left, "padding-left"),
-    ] {
-        if !length_percentage_is_zero(&side.value()) {
-            return Some(name.to_owned());
-        }
-    }
-    None
-}
-
 fn length_percentage_is_zero(value: &rito_style_contract::LengthPercentage) -> bool {
     match value {
         rito_style_contract::LengthPercentage::Length(px) => px.get() == 0.0,
@@ -2071,8 +2032,7 @@ fn block_box_paint(
     let mut degradations = Vec::new();
     let mut box_shadows = Vec::new();
     for shadow in style.paint.box_shadows.iter() {
-        let Ok(color) =
-            crate::style::absolute_color(shadow.color.resolve(style.paint.foreground))
+        let Ok(color) = crate::style::absolute_color(shadow.color.resolve(style.paint.foreground))
         else {
             degradations.push("box-shadow color unresolvable, shadow skipped".to_owned());
             continue;
@@ -2144,8 +2104,7 @@ fn block_box_paint(
                 } else {
                     color.clone()
                 };
-                let darken = matches!(index, 0 | 3)
-                    == matches!(edge.style, c::BorderStyle::Inset);
+                let darken = matches!(index, 0 | 3) == matches!(edge.style, c::BorderStyle::Inset);
                 color = inset_outset_shade(&base, darken).unwrap_or(base);
                 "solid"
             }
@@ -2181,10 +2140,7 @@ fn block_box_paint(
                 return None;
             }
         };
-        let position_axis = |axis| match crate::style::background_position_axis_wire(axis) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        };
+        let position_axis = |axis| crate::style::background_position_axis_wire(axis).ok();
         let (x, y) = (
             position_axis(image.position.x),
             position_axis(image.position.y),
@@ -2227,8 +2183,7 @@ fn block_box_paint(
                 Some(serde_json::json!({ "pct": f64::from(ratio.percent()) }))
             }
             c::LengthPercentage::Linear { length, .. } => {
-                degradations
-                    .push("calc() border-radius: percentage component dropped".to_owned());
+                degradations.push("calc() border-radius: percentage component dropped".to_owned());
                 Some(serde_json::json!({ "px": f64::from(length.get()) }))
             }
             _ => None,
@@ -2256,8 +2211,7 @@ fn block_box_paint(
             .collect();
         if lossy {
             degradations.push(
-                "border-radius: elliptical or percentage corner flattened to its length"
-                    .to_owned(),
+                "border-radius: elliptical or percentage corner flattened to its length".to_owned(),
             );
         }
         (px_corners.iter().any(|px| *px > 0.0))
@@ -2401,8 +2355,7 @@ fn two_tone_halves(
     } else {
         0.0
     };
-    let [red, green, blue] =
-        channels.map(|component| (f64::from(component) * scale).round() as u8);
+    let [red, green, blue] = channels.map(|component| (f64::from(component) * scale).round() as u8);
     let dark = format!("#{red:02x}{green:02x}{blue:02x}");
     let base = base.to_owned();
     // Edge indices: 0 top, 1 right, 2 bottom, 3 left.
@@ -2459,10 +2412,8 @@ fn inline_box_capability_violation(
         (&style.fragment.padding.bottom, "padding-bottom"),
         (&style.fragment.padding.left, "padding-left"),
     ] {
-        if !matches!(
-            side.value(),
-            c::LengthPercentage::Length(_)
-        ) && !length_percentage_is_zero(&side.value())
+        if !matches!(side.value(), c::LengthPercentage::Length(_))
+            && !length_percentage_is_zero(&side.value())
         {
             return Some(format!("inline percentage {name}"));
         }
@@ -2484,9 +2435,10 @@ fn inline_box_capability_violation(
 /// (CSS 2.1 §10.8.1: "the proper position for superscripts of the
 /// parent's box"), measured per size against the pinned browser
 /// (sup/sub marker probes, 2026-07-26, Chromium 147): super raises by
-/// `floor64(parent_em / 3) + 1`, sub drops by `floor64(parent_em / 5)
-/// + 1`, where floor64 is Blink's LayoutUnit (1/64 px) floor. The
-/// offsets do not depend on the shifted box's own font size.
+/// `floor64(parent_em / 3) + 1`, sub drops by
+/// `floor64(parent_em / 5) + 1`, where floor64 is Blink's LayoutUnit
+/// (1/64 px) floor. The offsets do not depend on the shifted box's own
+/// font size.
 fn resolved_baseline_shift(
     style: &rito_style_contract::InlineFormattingStyleV1,
     parent_font_size_px: f64,
@@ -2739,10 +2691,12 @@ impl InlineCollector {
                     (None, _) => false,
                 };
             if standalone {
-                let space_style = self.pending_space_style.or_else(|| match self.items.last() {
-                    Some(InlineItem::Text { style, .. }) => Some(*style),
-                    _ => None,
-                });
+                let space_style = self
+                    .pending_space_style
+                    .or_else(|| match self.items.last() {
+                        Some(InlineItem::Text { style, .. }) => Some(*style),
+                        _ => None,
+                    });
                 if let Some(space_style) = space_style {
                     self.items.push(InlineItem::Text {
                         text: " ".to_owned(),
@@ -3092,10 +3046,9 @@ fn fold_through_collapsing_margins(
         top: Option<f64>,
         bottom: Option<f64>,
     ) -> EpubResult<()> {
-        let mut style = layout
+        let mut style = *layout
             .style(nodes[node.0 as usize].style)
-            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
-            .clone();
+            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
         let as_length = |px: f64| -> EpubResult<LengthPercentageOrAuto> {
             Ok(LengthPercentageOrAuto::Value(LengthPercentage::Length(
                 rito_style_contract::CssPx::new(px as f32)
@@ -3131,10 +3084,9 @@ fn fold_through_collapsing_margins(
         if children.is_empty() {
             return Ok(());
         }
-        let style = layout
+        let style = *layout
             .style(nodes[node.0 as usize].style)
-            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
-            .clone();
+            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
         if style.overflow != OverflowV1::Visible {
             return Ok(());
         }
@@ -3173,16 +3125,16 @@ fn fold_through_collapsing_margins(
         // with it (an unguarded skip moved b9's plate floats 22.7k).
         let float_leads = is_root
             && children
-            .iter()
-            .copied()
-            .find(|id| {
-                in_flow(nodes, layout, *id)
-                    || layout
-                        .style(nodes[id.0 as usize].style)
-                        .map(|child| child.float != FloatV1::None)
-                        .unwrap_or(false)
-            })
-            .is_some_and(|id| !in_flow(nodes, layout, id));
+                .iter()
+                .copied()
+                .find(|id| {
+                    in_flow(nodes, layout, *id)
+                        || layout
+                            .style(nodes[id.0 as usize].style)
+                            .map(|child| child.float != FloatV1::None)
+                            .unwrap_or(false)
+                })
+                .is_some_and(|id| !in_flow(nodes, layout, id));
         if zero_padding(style.padding.top) && !float_leads {
             // The escaping set at the container top: the first in-flow
             // child's top margin — and, when that child is a
@@ -3351,10 +3303,9 @@ fn fold_through_collapsing_margins(
         root: FormattingNodeId,
         layout: &mut LayoutStyleTableV1,
     ) -> EpubResult<()> {
-        let mut style = layout
+        let mut style = *layout
             .style(nodes[root.0 as usize].style)
-            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
-            .clone();
+            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
         let mut changed = false;
         let zero = || {
             LengthPercentageOrAuto::Value(LengthPercentage::Length(
@@ -3494,10 +3445,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
 /// suppresses the marker. Ordinal styles follow the browser's counter
 /// formatting; the symbol styles use the marker glyphs the browser
 /// paints.
-fn list_marker_text(
-    style: rito_style_contract::ListMarkerStyleV1,
-    ordinal: u32,
-) -> Option<String> {
+fn list_marker_text(style: rito_style_contract::ListMarkerStyleV1, ordinal: u32) -> Option<String> {
     use rito_style_contract::ListMarkerStyleV1 as M;
     let text = match style {
         M::None => return None,
@@ -3520,7 +3468,11 @@ fn alpha_ordinal(ordinal: u32, upper: bool) -> String {
     while n > 0 {
         n -= 1;
         let letter = b'a' + (n % 26) as u8;
-        out.push(if upper { letter.to_ascii_uppercase() } else { letter } as char);
+        out.push(if upper {
+            letter.to_ascii_uppercase()
+        } else {
+            letter
+        } as char);
         n /= 26;
     }
     out.into_iter().rev().collect()
@@ -3529,9 +3481,19 @@ fn alpha_ordinal(ordinal: u32, upper: bool) -> String {
 /// I, II, III, IV, … CSS `upper-roman` counter formatting.
 fn roman_ordinal(mut n: u32) -> String {
     const TABLE: [(u32, &str); 13] = [
-        (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"),
-        (90, "XC"), (50, "L"), (40, "XL"), (10, "X"), (9, "IX"),
-        (5, "V"), (4, "IV"), (1, "I"),
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
     ];
     let mut out = String::new();
     for (value, digits) in TABLE {
@@ -3691,8 +3653,7 @@ p { margin: 8px 0; }\n\
                             .layout
                             .style(*layout_style)
                             .expect("image layout style resolves");
-                        if let rito_style_contract::PreferredSizeV1::Value(value) =
-                            &resolved.width
+                        if let rito_style_contract::PreferredSizeV1::Value(value) = &resolved.width
                         {
                             let LengthPercentage::Length(px) = value.value() else {
                                 panic!("unexpected width form");
@@ -4107,7 +4068,8 @@ p { margin: 8px 0; }\n\
         }
         let Some(NodePaint::Box {
             paint, border_box, ..
-        }) = built.node_paints.get(&card_id.0) else {
+        }) = built.node_paints.get(&card_id.0)
+        else {
             panic!(
                 "card carries box paint, got {:?}",
                 built.node_paints.get(&card_id.0)
@@ -4251,10 +4213,7 @@ p { margin: 8px 0; }\n\
                 Fragment::Line(line) => {
                     for child in &line.children {
                         if let Fragment::Text(run) = child {
-                            out.push((
-                                off_x + line.rect.x + run.rect.x,
-                                off_y + line.rect.y,
-                            ));
+                            out.push((off_x + line.rect.x + run.rect.x, off_y + line.rect.y));
                         }
                     }
                 }
@@ -4363,8 +4322,7 @@ p { margin: 8px 0; }\n\
         )
         .expect("ridge borders build");
         let root = built.tree.node(built.tree.root());
-        let Some(NodePaint::Box { paint, bevels, .. }) =
-            built.node_paints.get(&root.children[0].0)
+        let Some(NodePaint::Box { paint, bevels, .. }) = built.node_paints.get(&root.children[0].0)
         else {
             panic!("the frame paints its border");
         };
@@ -4374,10 +4332,10 @@ p { margin: 8px 0; }\n\
         assert_eq!(paint["border"]["top"]["style"], "solid");
         assert_eq!(paint["border"]["top"]["color"], "#4682b4");
         assert_eq!(paint["border"]["right"]["color"], "#4682b4");
-        assert_eq!(bevels.as_slice(), &[
-            (0, "#254560".to_owned()),
-            (1, "#254560".to_owned()),
-        ]);
+        assert_eq!(
+            bevels.as_slice(),
+            &[(0, "#254560".to_owned()), (1, "#254560".to_owned()),]
+        );
         assert!(
             !built
                 .degradations
@@ -4787,7 +4745,8 @@ p { margin: 8px 0; }\n\
         )
         .expect("tree builds");
         let engine = BlockFormattingContext::new(
-            ParleyInlineContext::new(vec![tinos_bytes(), source_han_test_bytes()]).expect("fonts register"),
+            ParleyInlineContext::new(vec![tinos_bytes(), source_han_test_bytes()])
+                .expect("fonts register"),
         );
         let cancel = CancelFlag::new();
         let outcome = engine
@@ -4883,10 +4842,26 @@ p { margin: 8px 0; }\n\
         // ONCE inside — the previous inner layout re-resolved the float's
         // %-margin against the float's own 48px width and stacked it onto
         // the heading (h1 +1.9, h2 +13.4; truth line tops 46.518/200.841).
-        assert!((float_boxes[0].0 - 25.0781).abs() < 0.02, "t1 y {}", float_boxes[0].0);
-        assert!((float_boxes[0].1 - 21.4375).abs() < 0.02, "h1 inner y {}", float_boxes[0].1);
-        assert!((float_boxes[1].0 - 175.6094).abs() < 0.02, "t2 y {}", float_boxes[1].0);
-        assert!((float_boxes[1].1 - 25.2188).abs() < 0.05, "h2 inner y {}", float_boxes[1].1);
+        assert!(
+            (float_boxes[0].0 - 25.0781).abs() < 0.02,
+            "t1 y {}",
+            float_boxes[0].0
+        );
+        assert!(
+            (float_boxes[0].1 - 21.4375).abs() < 0.02,
+            "h1 inner y {}",
+            float_boxes[0].1
+        );
+        assert!(
+            (float_boxes[1].0 - 175.6094).abs() < 0.02,
+            "t2 y {}",
+            float_boxes[1].0
+        );
+        assert!(
+            (float_boxes[1].1 - 25.2188).abs() < 0.05,
+            "h2 inner y {}",
+            float_boxes[1].1
+        );
     }
 
     /// #85 phantom-fy probe at BRIDGE level: the b60 title skeleton
@@ -4936,7 +4911,10 @@ p { margin: 8px 0; }\n\
         let mut float_ys: Vec<f64> = Vec::new();
         for child in &root.children {
             if let Fragment::Box(inner) = child {
-                eprintln!("[t85] box source={} y={:.4} h={:.4}", inner.source.0, inner.rect.y, inner.rect.height);
+                eprintln!(
+                    "[t85] box source={} y={:.4} h={:.4}",
+                    inner.source.0, inner.rect.y, inner.rect.height
+                );
                 float_ys.push(inner.rect.y);
             }
             if let Fragment::Line(line) = child {
@@ -5007,7 +4985,10 @@ p { margin: 8px 0; }\n\
                     tops.push(inner.rect.y);
                 }
                 Fragment::Line(line) => {
-                    eprintln!("[t-rank] line y={:.4} h={:.4}", line.rect.y, line.rect.height);
+                    eprintln!(
+                        "[t-rank] line y={:.4} h={:.4}",
+                        line.rect.y, line.rect.height
+                    );
                     tops.push(line.rect.y);
                 }
                 _ => {}

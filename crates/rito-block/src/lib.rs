@@ -74,6 +74,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         self.inline_cache.borrow_mut().clear();
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_container(
         &self,
         tree: &FormattingTree,
@@ -379,39 +380,39 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // page, where the empty-head split resumed both
                     // stripped to the content). Fall through to the
                     // move-whole break below.
-                    let head_consumed = !head_root.children.is_empty()
-                        || outcome.continuation.is_none();
+                    let head_consumed =
+                        !head_root.children.is_empty() || outcome.continuation.is_none();
                     if head_consumed {
-                    let occupy = if outcome.continuation.is_some() {
-                        (page_bottom - fy_probe).max(0.0)
-                    } else {
-                        top_margin.max(0.0) + head_root.rect.height + bottom_margin.max(0.0)
-                    };
-                    let (fx, fy) = floats.place(
-                        child_style.float,
-                        occupy_width,
-                        occupy,
-                        flow_y,
-                        content_width,
-                    );
-                    fragments.push(Fragment::Box(BoxFragment {
-                        source: *child_id,
-                        rect: FragmentRect {
-                            x: content_left + fx + hbox.x,
-                            y: fy + top_margin.max(0.0),
-                            width: hbox.border_width,
-                            height: head_root.rect.height,
-                        },
-                        children: head_root.children,
-                    }));
-                    if let Some(sub_token) = outcome.continuation {
-                        pending_float_breaks.push(FloatBreak {
-                            child: *child_id,
-                            token: sub_token,
-                            depth: 0,
-                        });
-                    }
-                    continue;
+                        let occupy = if outcome.continuation.is_some() {
+                            (page_bottom - fy_probe).max(0.0)
+                        } else {
+                            top_margin.max(0.0) + head_root.rect.height + bottom_margin.max(0.0)
+                        };
+                        let (fx, fy) = floats.place(
+                            child_style.float,
+                            occupy_width,
+                            occupy,
+                            flow_y,
+                            content_width,
+                        );
+                        fragments.push(Fragment::Box(BoxFragment {
+                            source: *child_id,
+                            rect: FragmentRect {
+                                x: content_left + fx + hbox.x,
+                                y: fy + top_margin.max(0.0),
+                                width: hbox.border_width,
+                                height: head_root.rect.height,
+                            },
+                            children: head_root.children,
+                        }));
+                        if let Some(sub_token) = outcome.continuation {
+                            pending_float_breaks.push(FloatBreak {
+                                child: *child_id,
+                                token: sub_token,
+                                depth: 0,
+                            });
+                        }
+                        continue;
                     }
                 }
                 // Unsplittable (an inline-flow float) and over the edge: it
@@ -486,8 +487,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // spacer's border top == the float's bottom, no margin gap).
             let clear_to = floats.bottom_for(child_style.clear);
             let swallowed_set = pending_margin.merge(original_top_set).resolve().max(0.0);
-            let cleared = !child_resumed
-                && clear_to > y + pending_margin.merge(top_set).resolve();
+            let cleared = !child_resumed && clear_to > y + pending_margin.merge(top_set).resolve();
             if cleared {
                 let page_bottom = y + remaining.max(0.0);
                 y = clear_to;
@@ -636,8 +636,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     return Ok(LayoutOutcome {
                         fragments: sealed(container, space.inline_size, y, fragments),
                         continuation,
-                escaped_floats: Vec::new(),
-});
+                        escaped_floats: Vec::new(),
+                    });
                 }
                 FormattingNodeContent::InlineFlow { items } => {
                     let child_style = container_layout_style(tree, *child_id)?;
@@ -699,8 +699,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         .and_then(|band| {
                             let child_left = hbox.x + hbox.padding_left;
                             let child_right = child_left + hbox.content_width;
-                            let left = (band.left_inset - child_left)
-                                .clamp(0.0, hbox.content_width);
+                            let left =
+                                (band.left_inset - child_left).clamp(0.0, hbox.content_width);
                             let right = (child_right - (content_width - band.right_inset))
                                 .clamp(0.0, hbox.content_width);
                             // `band_at` already re-bases the bottom to
@@ -722,13 +722,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // A fixed-height paragraph is a DEFINITE containing
                     // block for its replaced children: percentage block
                     // sizes resolve against its content height.
-                    let definite_content_height = resolve_fixed_height(
-                        child_style,
-                        hbox.padding_top + hbox.padding_bottom,
-                    )?
-                    .map(|fixed| {
-                        (fixed - hbox.padding_top - hbox.padding_bottom).max(0.0)
-                    });
+                    let definite_content_height =
+                        resolve_fixed_height(child_style, hbox.padding_top + hbox.padding_bottom)?
+                            .map(|fixed| (fixed - hbox.padding_top - hbox.padding_bottom).max(0.0));
                     let lines = self.inline_lines(
                         tree,
                         *child_id,
@@ -774,7 +770,6 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             // (measured: Blink's 2px-only blank column
                             // before a full-height illustration).
                             y = layout_unit(y + gap);
-                            remaining -= gap;
                             fragments.push(Fragment::Box(BoxFragment {
                                 source: *child_id,
                                 rect: FragmentRect {
@@ -823,10 +818,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     let mut trailing_deferred = false;
                     let had_lines = !placement.lines.is_empty();
                     if had_lines {
-                        let content_height =
-                            leading_padding + (placement.consumed_end - consumed);
-                        let trailing_fits = content_height + hbox.padding_bottom
-                            <= remaining - gap + f64::EPSILON;
+                        let content_height = leading_padding + (placement.consumed_end - consumed);
+                        let trailing_fits =
+                            content_height + hbox.padding_bottom <= remaining - gap + f64::EPSILON;
                         // A box whose every line fits but whose trailing
                         // padding does not moves WHOLE to the next page
                         // when it can: Blink prefers the class-A break
@@ -906,8 +900,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         let cross_center = if whole_box_here
                             && child_style.display.inside
                                 == rito_style_contract::LayoutDisplayInsideV1::Flex
-                            && child_style.align_items
-                                == rito_style_contract::AlignItemsV1::Center
+                            && child_style.align_items == rito_style_contract::AlignItemsV1::Center
                         {
                             // The flex ITEM is what centers, not the line
                             // box: a replaced item's box excludes the
@@ -940,15 +933,17 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                         }
                                     }
                                 }
-                                if other_content { None } else { image_height }
+                                if other_content {
+                                    None
+                                } else {
+                                    image_height
+                                }
                             };
                             fixed_height
                                 .map(|fixed| {
-                                    let content_box = fixed
-                                        - hbox.padding_top
-                                        - hbox.padding_bottom;
-                                    let item = single_image_height
-                                        .unwrap_or(content_height);
+                                    let content_box =
+                                        fixed - hbox.padding_top - hbox.padding_bottom;
+                                    let item = single_image_height.unwrap_or(content_height);
                                     // An item TALLER than the box still
                                     // centers: the offset goes negative
                                     // and the ink overflows above (b11's
@@ -1147,17 +1142,16 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             continue;
                         }
                         Some(inner) => {
-                            let mut resume_path =
-                                Vec::with_capacity(inner.resume_path.len() + 1);
+                            let mut resume_path = Vec::with_capacity(inner.resume_path.len() + 1);
                             resume_path.push(*child_id);
                             resume_path.extend(inner.resume_path);
                             let mut pending_floats = std::mem::take(&mut pending_float_breaks);
-                            pending_floats.extend(inner.pending_floats.into_iter().map(
-                                |entry| FloatBreak {
+                            pending_floats.extend(inner.pending_floats.into_iter().map(|entry| {
+                                FloatBreak {
                                     depth: entry.depth + 1,
                                     ..entry
-                                },
-                            ));
+                                }
+                            }));
                             return Ok(sealed_with_break(
                                 container,
                                 space.inline_size,
@@ -1203,9 +1197,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // when the child's leading chain joined THIS loop's
                     // collapse set, its first in-flow child must start
                     // flush inside.
-                    let child_leading_consumed = !child_resumed
-                        && !is_flow_root(child_style)
-                        && hbox.padding_top == 0.0;
+                    let child_leading_consumed =
+                        !child_resumed && !is_flow_root(child_style) && hbox.padding_top == 0.0;
                     let outcome = self.layout_container(
                         tree,
                         *child_id,
@@ -1476,6 +1469,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
 
     /// Lays an inline flow out in continuous space through the internal
     /// cache and returns its line fragments in paragraph coordinates.
+    #[allow(clippy::too_many_arguments)]
     fn inline_lines(
         &self,
         tree: &FormattingTree,
@@ -1843,7 +1837,11 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let cell = &row[0];
             let cell_width = grid.cell_width(cell);
             let cell_budget = (budget - y).max(0.0);
-            let inner_token = if resuming_cell { cell_token.take() } else { None };
+            let inner_token = if resuming_cell {
+                cell_token.take()
+            } else {
+                None
+            };
             // A cell opening a fresh page owns it outright — its interior
             // sees a fresh fragmentainer, so the force-placement that
             // guarantees pagination progress applies inside it too.
@@ -2247,8 +2245,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 // content leaves empty space, tall lines overflow visibly
                 // (b74's title pill: `height: 30px; padding-top: 1em` flows
                 // 54px tall around a 20.8px line).
-                let fixed_height =
-                    resolve_fixed_height(&style, padding_top + padding_bottom)?;
+                let fixed_height = resolve_fixed_height(style, padding_top + padding_bottom)?;
                 if padding_left + padding_right + padding_top + padding_bottom == 0.0
                     && fixed_height.is_none()
                 {
@@ -2315,8 +2312,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     container_layout_style(tree, node)?.width,
                     PreferredSizeV1::Value(_)
                 );
-                let fragment =
-                    self.layout_table(tree, node, space.inline_size, fill, cancel)?;
+                let fragment = self.layout_table(tree, node, space.inline_size, fill, cancel)?;
                 Ok(LayoutOutcome {
                     fragments: FragmentTree {
                         root: Fragment::Box(fragment),
@@ -2562,7 +2558,6 @@ struct PlacedFloatBox {
     right_side: bool,
     x0: f64,
     x1: f64,
-    top: f64,
     bottom: f64,
 }
 
@@ -2634,7 +2629,6 @@ impl FloatBands {
                     right_side: false,
                     x0: 0.0,
                     x1: band.left_inset,
-                    top: f64::NEG_INFINITY,
                     bottom: band.bottom,
                 });
             }
@@ -2643,7 +2637,6 @@ impl FloatBands {
                     right_side: true,
                     x0: content_width - band.right_inset,
                     x1: content_width,
-                    top: f64::NEG_INFINITY,
                     bottom: band.bottom,
                 });
             }
@@ -2659,7 +2652,6 @@ impl FloatBands {
                 right_side: true,
                 x0: content_width - float.width,
                 x1: content_width,
-                top: float.top,
                 bottom: float.bottom,
             });
         } else {
@@ -2667,7 +2659,6 @@ impl FloatBands {
                 right_side: false,
                 x0: 0.0,
                 x1: float.width,
-                top: float.top,
                 bottom: float.bottom,
             });
         }
@@ -2739,7 +2730,6 @@ impl FloatBands {
             right_side: !matches!(side, FloatV1::Left),
             x0: x,
             x1: x + width,
-            top: y,
             bottom: y + height,
         });
         self.floor_y = self.floor_y.max(y);
@@ -2971,20 +2961,24 @@ fn distribute_columns(constraints: &[ColumnConstraint], assignable: f64) -> Vec<
     let specified: Vec<f64> = constraints
         .iter()
         .enumerate()
-        .map(|(index, column)| match (column.percentage, column.specified) {
-            (Some(_), _) => percentage[index],
-            (None, Some(width)) => width.max(column.min),
-            (None, None) => column.min,
-        })
+        .map(
+            |(index, column)| match (column.percentage, column.specified) {
+                (Some(_), _) => percentage[index],
+                (None, Some(width)) => width.max(column.min),
+                (None, None) => column.min,
+            },
+        )
         .collect();
     let maximum: Vec<f64> = constraints
         .iter()
         .enumerate()
-        .map(|(index, column)| match (column.percentage, column.specified) {
-            (Some(_), _) => percentage[index].max(column.max),
-            (None, Some(_)) => specified[index].max(column.max),
-            (None, None) => column.max,
-        })
+        .map(
+            |(index, column)| match (column.percentage, column.specified) {
+                (Some(_), _) => percentage[index].max(column.max),
+                (None, Some(_)) => specified[index].max(column.max),
+                (None, None) => column.max,
+            },
+        )
         .collect();
 
     let total = |guess: &[f64]| guess.iter().sum::<f64>();
@@ -3018,17 +3012,32 @@ fn distribute_columns(constraints: &[ColumnConstraint], assignable: f64) -> Vec<
         return widths;
     }
     let pick = |filter: &dyn Fn(&ColumnConstraint) -> bool| -> Vec<usize> {
-        (0..count).filter(|index| filter(&constraints[*index])).collect()
+        (0..count)
+            .filter(|index| filter(&constraints[*index]))
+            .collect()
     };
     let auto = pick(&|column| column.percentage.is_none() && column.specified.is_none());
     let fixed = pick(&|column| column.percentage.is_none() && column.specified.is_some());
     let shares: Vec<(usize, f64)> = if !auto.is_empty() {
-        auto.iter().map(|index| (*index, constraints[*index].max.max(1.0))).collect()
+        auto.iter()
+            .map(|index| (*index, constraints[*index].max.max(1.0)))
+            .collect()
     } else if !fixed.is_empty() {
-        fixed.iter().map(|index| (*index, widths[*index].max(1.0))).collect()
+        fixed
+            .iter()
+            .map(|index| (*index, widths[*index].max(1.0)))
+            .collect()
     } else {
         (0..count)
-            .map(|index| (index, constraints[index].percentage.unwrap_or(0.0).max(f64::EPSILON)))
+            .map(|index| {
+                (
+                    index,
+                    constraints[index]
+                        .percentage
+                        .unwrap_or(0.0)
+                        .max(f64::EPSILON),
+                )
+            })
             .collect()
     };
     let share_total: f64 = shares.iter().map(|(_, share)| share).sum();
@@ -3234,12 +3243,6 @@ fn layout_unit(value: f64) -> f64 {
     (value * 64.0).round() / 64.0
 }
 
-/// CSS margin collapsing for two adjoining margins: the maximum of the
-/// positive margins plus the minimum of the negative ones.
-fn collapse_margins(first: f64, second: f64) -> f64 {
-    first.max(second).max(0.0) + first.min(second).min(0.0)
-}
-
 /// The margin set awaiting collapse below the previous in-flow child.
 /// CSS 8.3.1 collapses ADJOINING margins as a SET — the largest positive
 /// plus the most negative — which a pairwise fold gets wrong on
@@ -3379,13 +3382,22 @@ mod tests {
         assert!(close(x1, 516.5) && close(y1, 0.0), "title1 at ({x1}, {y1})");
         // title1-1: ml -81.531 + w 48 (negative outer width!), bottom 163.953.
         let (x2, y2) = floats.place(FloatV1::Right, -33.531, 163.953, 0.0, cw);
-        assert!(close(x2, 550.031) && close(y2, 0.0), "title1-1 at ({x2}, {y2})");
+        assert!(
+            close(x2, 550.031) && close(y2, 0.0),
+            "title1-1 at ({x2}, {y2})"
+        );
         // title2: same outer shape as title1, bottom 246.844.
         let (x3, y3) = floats.place(FloatV1::Right, 110.719, 246.844, 0.0, cw);
-        assert!(close(x3, 405.781) && close(y3, 0.0), "title2 at ({x3}, {y3})");
+        assert!(
+            close(x3, 405.781) && close(y3, 0.0),
+            "title2 at ({x3}, {y3})"
+        );
         // title3: w 160 + mr -188.156 (right-overhang), bottom 317.5.
         let (x4, y4) = floats.place(FloatV1::Right, -28.156, 317.5, 0.0, cw);
-        assert!(close(x4, 433.937) && close(y4, 0.0), "title3 at ({x4}, {y4})");
+        assert!(
+            close(x4, 433.937) && close(y4, 0.0),
+            "title3 at ({x4}, {y4})"
+        );
     }
 
     /// A float too wide for the space beside active floats steps down to
@@ -3397,8 +3409,10 @@ mod tests {
         let (x1, y1) = floats.place(FloatV1::Left, 300.0, 100.0, 0.0, 400.0);
         assert!((x1, y1) == (0.0, 0.0));
         let (x2, y2) = floats.place(FloatV1::Right, 200.0, 50.0, 0.0, 400.0);
-        assert!((x2 - 200.0).abs() < 1e-9 && (y2 - 100.0).abs() < 1e-9,
-            "second float steps below the first, got ({x2}, {y2})");
+        assert!(
+            (x2 - 200.0).abs() < 1e-9 && (y2 - 100.0).abs() < 1e-9,
+            "second float steps below the first, got ({x2}, {y2})"
+        );
     }
 
     use super::*;
@@ -3741,15 +3755,8 @@ mod tests {
             .intern(block_style(margin_px(0.0), margin_px(0.0)))
             .expect("style interns");
         assert_eq!(plain, LayoutStyleId::from_raw(0));
-        FormattingTree::with_styles(
-            nodes,
-            root,
-            FormattingTreeStyles {
-                layout,
-                inline,
-            },
-        )
-        .expect("tree builds")
+        FormattingTree::with_styles(nodes, root, FormattingTreeStyles { layout, inline })
+            .expect("tree builds")
     }
 
     #[test]
@@ -3773,7 +3780,7 @@ mod tests {
             rito_style_contract::NonNegativeCssPx::new(2.0).expect("finite"),
         );
         let layout = layout_table_with(2, |index| match index {
-            1 => spaced.clone(),
+            1 => spaced,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let nodes = vec![
@@ -3859,7 +3866,11 @@ mod tests {
         assert_eq!(pages.len(), 3);
         for page in &pages {
             let table = table_fragment(page);
-            assert!((table.rect.height - 20.0).abs() < 1e-9, "each table fragment holds two 10px paragraphs, got {}", table.rect.height);
+            assert!(
+                (table.rect.height - 20.0).abs() < 1e-9,
+                "each table fragment holds two 10px paragraphs, got {}",
+                table.rect.height
+            );
             let Fragment::Box(row) = &table.children[0] else {
                 panic!("row fragments are boxes");
             };
@@ -3931,7 +3942,7 @@ mod tests {
             CssPx::new(8.0).expect("finite"),
         ));
         let layout = layout_table_with(3, |index| match index {
-            1 => padded.clone(),
+            1 => padded,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let paragraph = |count: usize| FormattingNodeContent::InlineFlow {
@@ -4006,7 +4017,7 @@ mod tests {
             CssPx::new(8.0).expect("finite"),
         ));
         let layout = layout_table_with(2, |index| match index {
-            0 => padded.clone(),
+            0 => padded,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let nodes = vec![
@@ -4103,7 +4114,11 @@ mod tests {
             FormattingNode {
                 style: node_style_id(&layout, 3),
                 content: FormattingNodeContent::BlockContainer,
-                children: vec![FormattingNodeId(0), FormattingNodeId(1), FormattingNodeId(2)],
+                children: vec![
+                    FormattingNodeId(0),
+                    FormattingNodeId(1),
+                    FormattingNodeId(2),
+                ],
             },
         ];
         let tree = FormattingTree::with_styles(
@@ -4258,7 +4273,7 @@ mod tests {
         ));
         let layout = layout_table_with(3, |index| match index {
             0 => block_style(margin_px(20.0), margin_px(0.0)),
-            1 => padded.clone(),
+            1 => padded,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let paragraph = |count: usize| FormattingNodeContent::InlineFlow {
@@ -4518,7 +4533,11 @@ mod tests {
         // exactly as the browser breaks it.
         assert_eq!(pages.len(), 2);
         let first_children = box_children(&pages[0]);
-        assert_eq!(first_children.len(), 1, "the orphan rule leaves page 1 to the leaf");
+        assert_eq!(
+            first_children.len(),
+            1,
+            "the orphan rule leaves page 1 to the leaf"
+        );
         let second_children = box_children(&pages[1]);
         assert_eq!(second_children.len(), 1);
         let Fragment::Box(rest) = &second_children[0] else {
@@ -4536,7 +4555,7 @@ mod tests {
             CssPx::new(10.0).expect("finite"),
         ));
         let layout = layout_table_with(2, |index| match index {
-            1 => padded.clone(),
+            1 => padded,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let nodes = vec![
@@ -4557,7 +4576,10 @@ mod tests {
         let tree = FormattingTree::with_styles(
             nodes,
             FormattingNodeId(1),
-            FormattingTreeStyles { layout, inline: InlineStyleTableV1::new(1) },
+            FormattingTreeStyles {
+                layout,
+                inline: InlineStyleTableV1::new(1),
+            },
         )
         .expect("tree builds");
         // A 100px monolith under 10px of opener padding in 100px pages:
@@ -4584,7 +4606,7 @@ mod tests {
             CssPx::new(10.0).expect("finite"),
         ));
         let layout = layout_table_with(2, |index| match index {
-            1 => padded.clone(),
+            1 => padded,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let nodes = vec![
@@ -4605,7 +4627,10 @@ mod tests {
         let tree = FormattingTree::with_styles(
             nodes,
             FormattingNodeId(1),
-            FormattingTreeStyles { layout, inline: InlineStyleTableV1::new(1) },
+            FormattingTreeStyles {
+                layout,
+                inline: InlineStyleTableV1::new(1),
+            },
         )
         .expect("tree builds");
         // Taller than ANY page: a break buys nothing, so it places whole
@@ -4635,7 +4660,7 @@ mod tests {
             CssPx::new(2.0).expect("finite"),
         ));
         let layout = layout_table_with(2, |index| match index {
-            1 => padded.clone(),
+            1 => padded,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let nodes = vec![
@@ -5097,7 +5122,10 @@ mod tests {
         let Fragment::Box(empty) = &children[0] else {
             panic!("empty paragraph fragment is a box");
         };
-        assert!((empty.rect.height).abs() < 1e-9, "empty block is zero-height");
+        assert!(
+            (empty.rect.height).abs() < 1e-9,
+            "empty block is zero-height"
+        );
         let Fragment::Box(paragraph) = &children[1] else {
             panic!("paragraph fragment is a box");
         };
@@ -5278,7 +5306,11 @@ mod tests {
             FormattingNode {
                 style: node_style_id(&layout, 3),
                 content: FormattingNodeContent::BlockContainer,
-                children: vec![FormattingNodeId(0), FormattingNodeId(1), FormattingNodeId(2)],
+                children: vec![
+                    FormattingNodeId(0),
+                    FormattingNodeId(1),
+                    FormattingNodeId(2),
+                ],
             },
         ];
         let tree = FormattingTree::with_styles(
@@ -5491,10 +5523,7 @@ mod tests {
         let tree = FormattingTree::with_styles(
             nodes,
             FormattingNodeId(4),
-            rito_fragment::FormattingTreeStyles {
-                layout,
-                inline,
-            },
+            rito_fragment::FormattingTreeStyles { layout, inline },
         )
         .expect("tree builds");
         let outcome = context
@@ -6245,11 +6274,10 @@ single line across page boundaries.";
         };
         let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
         float_style.float = FloatV1::Left;
-        float_style.width = PreferredSizeV1::Value(
-            rito_style_contract::NonNegativeLengthPercentage::new(LengthPercentage::Length(
-                CssPx::new(400.0).expect("width length"),
-            )),
-        );
+        float_style.width =
+            PreferredSizeV1::Value(rito_style_contract::NonNegativeLengthPercentage::new(
+                LengthPercentage::Length(CssPx::new(400.0).expect("width length")),
+            ));
         float_style.padding = PhysicalSides {
             top: pad(3.0),
             right: pad(16.0),
@@ -6258,7 +6286,7 @@ single line across page boundaries.";
         };
         let layout = layout_table_with(2, |index| {
             if index == 0 {
-                float_style.clone()
+                float_style
             } else {
                 block_style(margin_px(0.0), margin_px(0.0))
             }
@@ -6358,7 +6386,7 @@ single line across page boundaries.";
         float_style.margin.right = margin_px(32.0);
         let layout = layout_table_with(2, |index| {
             if index == 0 {
-                float_style.clone()
+                float_style
             } else {
                 block_style(margin_px(0.0), margin_px(0.0))
             }
@@ -6444,7 +6472,7 @@ single line across page boundaries.";
         float_style.margin.left = margin_px(7.0);
         let layout = layout_table_with(3, |index| {
             if index == 1 {
-                float_style.clone()
+                float_style
             } else {
                 block_style(margin_px(0.0), margin_px(0.0))
             }
@@ -6537,8 +6565,8 @@ single line across page boundaries.";
             0 => block_style(margin_px(0.0), margin_px(0.0)),
             1 => block_style(margin_px(-4.0), margin_px(0.0)),
             2 => block_style(margin_px(6.0), margin_px(0.0)),
-            3 => float_style.clone(),
-            4 => spacer_style.clone(),
+            3 => float_style,
+            4 => spacer_style,
             5 => {
                 let mut badge = block_style(margin_px(16.0), margin_px(16.0));
                 badge.margin.left = LengthPercentageOrAuto::Auto;
@@ -6671,8 +6699,8 @@ single line across page boundaries.";
         let mut hoisted = block_style(margin_px(-100.0), margin_px(0.0));
         hoisted.float = FloatV1::Left;
         let layout = layout_table_with(4, |index| match index {
-            1 => clear_style.clone(),
-            2 => hoisted.clone(),
+            1 => clear_style,
+            2 => hoisted,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let paragraph = |node_index: usize| FormattingNode {
@@ -6759,7 +6787,7 @@ single line across page boundaries.";
         ));
         let layout = layout_table_with(2, |index| {
             if index == 0 {
-                padded.clone()
+                padded
             } else {
                 block_style(margin_px(0.0), margin_px(0.0))
             }
@@ -6858,7 +6886,7 @@ single line across page boundaries.";
         ));
         let layout = layout_table_with(2, |index| {
             if index == 0 {
-                padded.clone()
+                padded
             } else {
                 block_style(margin_px(0.0), margin_px(0.0))
             }
@@ -6957,7 +6985,7 @@ single line across page boundaries.";
             CssPx::new(2.0).expect("finite"),
         ));
         let layout = layout_table_with(3, |index| match index {
-            0 => padded.clone(),
+            0 => padded,
             1 => block_style(margin_px(4.0), margin_px(0.0)),
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
@@ -7069,8 +7097,8 @@ single line across page boundaries.";
         let mut clear_style = block_style(margin_px(0.0), margin_px(0.0));
         clear_style.clear = ClearV1::Both;
         let layout = layout_table_with(4, |index| match index {
-            0 => float_style.clone(),
-            1 => clear_style.clone(),
+            0 => float_style,
+            1 => clear_style,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let flow = |style_index: usize| FormattingNode {
@@ -7096,7 +7124,11 @@ single line across page boundaries.";
             FormattingNode {
                 style: node_style_id(&layout, 3),
                 content: FormattingNodeContent::BlockContainer,
-                children: vec![FormattingNodeId(0), FormattingNodeId(1), FormattingNodeId(2)],
+                children: vec![
+                    FormattingNodeId(0),
+                    FormattingNodeId(1),
+                    FormattingNodeId(2),
+                ],
             },
         ];
         let tree = FormattingTree::with_styles(
@@ -7156,7 +7188,7 @@ single line across page boundaries.";
         float_style.float = FloatV1::Left;
         let layout = layout_table_with(3, |index| match index {
             0 => block_style(margin_px(0.0), margin_px(8.0)),
-            1 => float_style.clone(),
+            1 => float_style,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
         });
         let flow = |style_index: usize| FormattingNode {

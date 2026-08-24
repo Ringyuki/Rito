@@ -218,7 +218,7 @@ fn bmp_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
     let width = i32::from_le_bytes([bytes[18], bytes[19], bytes[20], bytes[21]]);
     // A negative height encodes a top-down bitmap.
     let height = i32::from_le_bytes([bytes[22], bytes[23], bytes[24], bytes[25]]).unsigned_abs();
-    (width > 0 && height > 0).then(|| ImageDimensions {
+    (width > 0 && height > 0).then_some(ImageDimensions {
         width: width as u32,
         height,
     })

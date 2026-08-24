@@ -332,10 +332,11 @@ fn adopted_publication_keeps_advancing_and_owns_adjacent_resources_and_disposal(
                 assert_eq!(publication_version(&session), before);
                 // Completion offers one last candidate so the host can
                 // learn the book's page count without turning a page.
-                let final_candidate = step
-                    .artifact
-                    .expect("completion offers a final candidate");
-                assert!(final_candidate.book_page_count.is_some(), "{final_candidate:?}");
+                let final_candidate = step.artifact.expect("completion offers a final candidate");
+                assert!(
+                    final_candidate.book_page_count.is_some(),
+                    "{final_candidate:?}"
+                );
                 session
                     .release_artifact(final_candidate.artifact_id)
                     .expect("the completion candidate releases");
@@ -412,7 +413,10 @@ fn unpublished_publication_adjacent_advances_one_retained_foreground_quantum() {
         }
         visible = next;
     }
-    assert_eq!(visible.navigation.next, ReaderAdjacentAvailabilityV1::Pending);
+    assert_eq!(
+        visible.navigation.next,
+        ReaderAdjacentAvailabilityV1::Pending
+    );
 
     let mut adjacent = adjacent_request(
         209,
@@ -649,14 +653,22 @@ fn live_artifact_cap_requires_and_then_consumes_one_candidate_reserve() {
 
     let next_request_id = u64::from(READER_LIVE_ARTIFACT_CAP_V1) + 1;
     let capped_foreground = session
-        .request_artifact(artifact_request(207, next_request_id, "chapter.xhtml#point-1"))
+        .request_artifact(artifact_request(
+            207,
+            next_request_id,
+            "chapter.xhtml#point-1",
+        ))
         .expect_err("foreground cannot exceed the live cap");
     assert_eq!(capped_foreground.kind, ReaderErrorKindV1::InvalidRequest);
     assert!(session
         .release_artifact(candidate.artifact_id)
         .expect("candidate reserve releases explicitly"));
     let fifth = session
-        .request_artifact(artifact_request(207, next_request_id, "chapter.xhtml#point-1"))
+        .request_artifact(artifact_request(
+            207,
+            next_request_id,
+            "chapter.xhtml#point-1",
+        ))
         .expect("capacity failure does not consume the request id");
 
     let mut ids = locals
@@ -854,8 +866,8 @@ fn plate_adjacent(
 #[test]
 fn publication_turns_cross_image_only_plates_in_both_directions() {
     use crate::runtime::tests::fixture::image_plate_fixture_epub;
-    let mut session = ReaderSessionV1::open_owned(220, image_plate_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        ReaderSessionV1::open_owned(220, image_plate_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(220, 1, "chapter-0.xhtml"))
         .expect("first chapter resolves");
@@ -953,8 +965,8 @@ fn publication_turns_cross_image_only_plates_in_both_directions() {
 #[test]
 fn peek_and_fast_commit_work_from_publication_artifacts() {
     use crate::runtime::tests::fixture::image_plate_fixture_epub;
-    let mut session = ReaderSessionV1::open_owned(221, image_plate_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        ReaderSessionV1::open_owned(221, image_plate_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(221, 1, "chapter-0.xhtml"))
         .expect("first chapter resolves");
@@ -1007,8 +1019,8 @@ fn peek_and_fast_commit_work_from_publication_artifacts() {
 #[test]
 fn publication_artifacts_number_pages_book_wide() {
     use crate::runtime::tests::fixture::image_plate_fixture_epub;
-    let mut session = ReaderSessionV1::open_owned(222, image_plate_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        ReaderSessionV1::open_owned(222, image_plate_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(222, 1, "chapter-0.xhtml"))
         .expect("first chapter resolves");

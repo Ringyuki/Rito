@@ -1,5 +1,3 @@
-use serde_json::json;
-
 use super::fixture::{
     image_only_fixture_epub, layout, long_source_text_fixture_epub, multi_chapter_fixture_epub,
 };
@@ -7,9 +5,8 @@ use crate::{
     layout::LineBreaking,
     runtime::{
         RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimePageReadingAnchor,
-        RuntimePageReadingAnchorUnavailableReason, RuntimeRevisionAccessErrorKind,
-        RuntimeRevisionHandle, RuntimeRevisionWorkBudget, RuntimeSourceLocator,
-        RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
+        RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
+        RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
         RuntimeSourceLocatorResolution,
     },
 };

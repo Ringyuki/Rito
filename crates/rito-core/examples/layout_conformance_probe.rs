@@ -93,15 +93,16 @@ fn main() {
         expected_sha256: format!("{:x}", Sha256::digest(&serif_bytes)),
         bytes: serif_bytes,
         generic_role: RuntimePinnedFontGenericRole::Serif,
-        language: request.serif_language.as_deref().map(|value| {
-            RuntimePinnedFontLanguageTag::parse(value).expect("language tag parses")
-        }),
+        language: request
+            .serif_language
+            .as_deref()
+            .map(|value| RuntimePinnedFontLanguageTag::parse(value).expect("language tag parses")),
     });
     let policy = RuntimePinnedFontPolicyInput { faces };
 
     let bytes = std::fs::read(&request.epub_path).expect("cases epub reads");
-    let mut document = RuntimeDocument::open_with_pinned_font_policy(&bytes, policy)
-        .expect("cases epub opens");
+    let mut document =
+        RuntimeDocument::open_with_pinned_font_policy(&bytes, policy).expect("cases epub opens");
     document.set_fragment_page_table_enabled(true);
     let layout_config = create_layout_config(LayoutConfigInput {
         width: request.content_width + 100.0,
@@ -181,5 +182,8 @@ fn main() {
             serde_json::to_string(&unmet).unwrap_or_default()
         );
     }
-    println!("{}", serde_json::to_string(&chapters).expect("report encodes"));
+    println!(
+        "{}",
+        serde_json::to_string(&chapters).expect("report encodes")
+    );
 }

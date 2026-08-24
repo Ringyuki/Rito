@@ -80,9 +80,6 @@ struct ParagraphLayout {
     /// annotation and widens to at least this advance, which is what the
     /// split-fit rewind checks.
     ruby_annotation_widths: std::collections::HashMap<usize, f64>,
-    /// Per annotated item index: the overhang cap (half the annotation
-    /// size), shared by the split-fit box computation.
-    ruby_annotation_caps: std::collections::HashMap<usize, f64>,
     /// Per item: the paint-side right shift centering a packed base
     /// under its wide `ruby-align: center` annotation.
     ruby_center_shifts: std::collections::HashMap<usize, f64>,
@@ -106,6 +103,10 @@ struct ParagraphLayout {
     /// whichever line the offset falls on.
     empty_box_struts: Vec<(usize, rito_style_contract::StyleId, f64)>,
 }
+
+/// Key of one host metric sample: (family key, size in milli-px, font
+/// blob id, face index, script).
+type HostMetricSampleKey = (String, u64, u64, u32, u16);
 
 /// Inline formatting context backed by Parley shaping and line breaking.
 ///
@@ -141,7 +142,7 @@ pub struct ParleyInlineContext {
     /// universe is the book's, so it may serve two scripts from one font
     /// where the host picks a different fallback per script, and a single
     /// sample would then hide one of the host's two metrics.
-    host_metric_samples: RefCell<std::collections::HashMap<(String, u64, u64, u32, u16), String>>,
+    host_metric_samples: RefCell<std::collections::HashMap<HostMetricSampleKey, String>>,
     /// Per-face `halt` feature presence, keyed by (blob id, face index) —
     /// the Han-kerning trim gate consults it for every trimmed character.
     halt_feature_cache: RefCell<std::collections::HashMap<(u64, u32), bool>>,
@@ -415,27 +416,31 @@ impl ParleyInlineContext {
         // fallback font gives it. Routed to its own map — the line-metric
         // map is keyed per resolved FONT, advances per CHARACTER.
         if let Some(character) = sample.strip_prefix(HOST_CHAR_ADVANCE_SENTINEL) {
-            if let (Some(character), Some(advance)) =
-                (character.chars().next(), metric.advance)
-            {
+            if let (Some(character), Some(advance)) = (character.chars().next(), metric.advance) {
                 self.host_char_advances.borrow_mut().insert(
                     (family_key.to_owned(), host_size_key(size), character),
                     advance,
                 );
                 self.normal_strut_cache.borrow_mut().clear();
-                self.metrics_generation.set(self.metrics_generation.get() + 1);
+                self.metrics_generation
+                    .set(self.metrics_generation.get() + 1);
             }
             return;
         }
         self.host_line_metrics.borrow_mut().insert(
-            (family_key.to_owned(), host_size_key(size), sample.to_owned()),
+            (
+                family_key.to_owned(),
+                host_size_key(size),
+                sample.to_owned(),
+            ),
             metric,
         );
         // Struts measured by shaping before this metric arrived are now
         // stale: a layout that ran without host metrics must not survive
         // into one that has them.
         self.normal_strut_cache.borrow_mut().clear();
-        self.metrics_generation.set(self.metrics_generation.get() + 1);
+        self.metrics_generation
+            .set(self.metrics_generation.get() + 1);
     }
 
     /// Bumped whenever injected metrics change, so cached fragments laid
@@ -609,11 +614,10 @@ impl ParleyInlineContext {
             .style(style_id)
             .map_err(|error| LayoutError::Invalid(error.to_string()))?;
         Ok(Some(match style.font.line_height {
-            LineHeight::Number(_) | LineHeight::Length(_) => used_declared_line_height(
-                style.font.line_height,
-                f64::from(style.font.size.get()),
-            )
-            .unwrap_or(0.0),
+            LineHeight::Number(_) | LineHeight::Length(_) => {
+                used_declared_line_height(style.font.line_height, f64::from(style.font.size.get()))
+                    .unwrap_or(0.0)
+            }
             LineHeight::Normal => {
                 // The host's measured strut is authoritative; the shaped
                 // fallback only covers hosts that never inject metrics.
@@ -822,17 +826,16 @@ impl ParleyInlineContext {
                     // raster paints inside them (measured on the b60
                     // cover's `border: none solid` — dropping the 1px
                     // flanks shifted the whole plate against Blink).
-                    let edge = |side: rito_style_contract::NonNegativeLengthPercentage| {
-                        match side.value() {
-                            LengthPercentage::Length(px) => f64::from(px.get()).max(0.0),
-                            _ => 0.0,
-                        }
+                    let edge = |side: rito_style_contract::NonNegativeLengthPercentage| match side
+                        .value()
+                    {
+                        LengthPercentage::Length(px) => f64::from(px.get()).max(0.0),
+                        _ => 0.0,
                     };
                     let inset_left = edge(layout_style.padding.left);
                     let inset_right = edge(layout_style.padding.right);
                     if inset_left > 0.0 || inset_right > 0.0 {
-                        image_edge_insets
-                            .insert(item_index as u64, (inset_left, inset_right));
+                        image_edge_insets.insert(item_index as u64, (inset_left, inset_right));
                     }
                     image_boxes.push(InlineBox {
                         id: item_index as u64,
@@ -922,10 +925,6 @@ impl ParleyInlineContext {
         // the WHOLE annotation and widens to at least its advance.
         let mut ruby_annotation_widths: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
-        // Per annotated item: half the annotation font size — the
-        // overhang cap the split-fit box shares with the spread law.
-        let mut ruby_annotation_caps: std::collections::HashMap<usize, f64> =
-            std::collections::HashMap::new();
         let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
         // Per item: the paint-side right shift centering a packed base
         // under its wide `ruby-align: center` annotation.
@@ -952,7 +951,6 @@ impl ParleyInlineContext {
                 self.measure_styled_advance(style, Some(annotation_size), &annotation.text);
             let base_advance = self.measure_styled_advance(style, None, base_text);
             ruby_annotation_widths.insert(*item_index, annotation_advance);
-            ruby_annotation_caps.insert(*item_index, f64::from(annotation_size) / 2.0);
             let excess = annotation_advance - base_advance;
             if excess <= 0.01 {
                 continue;
@@ -961,7 +959,13 @@ impl ParleyInlineContext {
                 index
                     .and_then(|index| items.get(index))
                     .is_some_and(|item| {
-                        matches!(item, InlineItem::Text { ruby_annotation: Some(_), .. })
+                        matches!(
+                            item,
+                            InlineItem::Text {
+                                ruby_annotation: Some(_),
+                                ..
+                            }
+                        )
                     })
             };
             let neighbor_item = |byte: Option<usize>| {
@@ -971,7 +975,10 @@ impl ParleyInlineContext {
                         .map(|(_, _, other_index)| *other_index)
                 })
             };
-            let prev_byte = text[..range.start].char_indices().next_back().map(|(i, _)| i);
+            let prev_byte = text[..range.start]
+                .char_indices()
+                .next_back()
+                .map(|(i, _)| i);
             let next_byte = (range.end < text.len()).then_some(range.end);
             if style.text_flow.ruby_align == rito_style_contract::RubyAlign::Center {
                 // `ruby-align: center` under a WIDE annotation (measured
@@ -1011,8 +1018,7 @@ impl ParleyInlineContext {
                         .char_indices()
                         .next_back()
                         .map_or(range.start, |(offset, _)| range.start + offset);
-                    ruby_spread_edits
-                        .push((last_cluster_start..range.end, author + delta as f32));
+                    ruby_spread_edits.push((last_cluster_start..range.end, author + delta as f32));
                 }
                 ruby_spreads.insert(*item_index, 0.0);
                 ruby_spread_overhangs.insert(*item_index, overhang_left);
@@ -1034,17 +1040,15 @@ impl ParleyInlineContext {
             // an adjacent pair widens each column by its inner half).
             let edge_share = excess / (2.0 * cluster_count as f64);
             let cap = f64::from(annotation_size) / 2.0;
-            let eligible = |byte: Option<usize>| {
-                byte.is_some() && !is_ruby_item(neighbor_item(byte))
-            };
+            let eligible =
+                |byte: Option<usize>| byte.is_some() && !is_ruby_item(neighbor_item(byte));
             let (mut overhang_left, mut fold_left, mut absorbed_left) = (0.0, 0.0, edge_share);
             if eligible(prev_byte) {
                 overhang_left = edge_share.min(cap);
                 fold_left = edge_share - overhang_left;
                 absorbed_left = 0.0;
             }
-            let (mut overhang_right, mut fold_right, mut absorbed_right) =
-                (0.0, 0.0, edge_share);
+            let (mut overhang_right, mut fold_right, mut absorbed_right) = (0.0, 0.0, edge_share);
             if eligible(next_byte) {
                 overhang_right = edge_share.min(cap);
                 fold_right = edge_share - overhang_right;
@@ -1087,8 +1091,10 @@ impl ParleyInlineContext {
         let mut fonts = self.fonts.borrow_mut();
         // Computed before the builder takes the font borrow: the trim
         // gate resolves each trimmed character's font to check `halt`.
-        let inline_box_bytes: Vec<usize> =
-            image_boxes.iter().map(|inline_box| inline_box.index).collect();
+        let inline_box_bytes: Vec<usize> = image_boxes
+            .iter()
+            .map(|inline_box| inline_box.index)
+            .collect();
         let punctuation_trims = compute_cjk_punctuation_trims(
             &mut fonts,
             &self.registered_families,
@@ -1191,15 +1197,15 @@ impl ParleyInlineContext {
         let first_line_indent = tree
             .strut_style(node)
             .or_else(|| {
-                items.first().and_then(|item| match item {
+                items.first().map(|item| match item {
                     InlineItem::Text { style, .. }
                     | InlineItem::Image { style, .. }
                     | InlineItem::InlineBlock { style, .. }
-                    | InlineItem::EmptyBox { style, .. } => Some(*style),
+                    | InlineItem::EmptyBox { style, .. } => *style,
                 })
             })
             .and_then(|style_id| styles.inline.style(style_id).ok())
-            .map_or(0.0_f32, |style| resolved_text_indent(&style));
+            .map_or(0.0_f32, resolved_text_indent);
         for (range, style, item_index) in &runs {
             if range.is_empty() {
                 continue;
@@ -1236,7 +1242,11 @@ impl ParleyInlineContext {
                 })
             );
             if is_ruby {
-                let tag = if item_index % 2 == 0 { b"halt" } else { b"vhal" };
+                let tag = if item_index % 2 == 0 {
+                    b"halt"
+                } else {
+                    b"vhal"
+                };
                 builder.push(
                     StyleProperty::FontFeatures(parley::FontFeatures::List(
                         std::borrow::Cow::Owned(vec![parley::FontFeature::new(
@@ -1298,16 +1308,16 @@ impl ParleyInlineContext {
         // author spacing).
         let mut box_edits: Vec<(std::ops::Range<usize>, f32, f32)> = Vec::new();
         let mut leading_box_indent = 0.0_f32;
-        let mut item_box_sheds: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+        let mut item_box_sheds: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
         let mut forced_line_indents: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
         {
-            let box_side = |value: &rito_style_contract::NonNegativeLengthPercentage| match value
-                .value()
-            {
-                LengthPercentage::Length(px) => px.get(),
-                _ => 0.0,
-            };
+            let box_side =
+                |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
+                    LengthPercentage::Length(px) => px.get(),
+                    _ => 0.0,
+                };
             let edge_width = |edge: &rito_style_contract::BorderEdge| {
                 use rito_style_contract::BorderStyle;
                 if matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
@@ -1329,8 +1339,9 @@ impl ParleyInlineContext {
                 rito_style_contract::LengthPercentageOrAuto::Auto => 0.0_f32,
                 rito_style_contract::LengthPercentageOrAuto::Value(inner) => match inner {
                     LengthPercentage::Length(px) => px.get(),
-                    LengthPercentage::Percentage(pct) => available_inline_size
-                        .map_or(0.0, |basis| pct.ratio() * basis as f32),
+                    LengthPercentage::Percentage(pct) => {
+                        available_inline_size.map_or(0.0, |basis| pct.ratio() * basis as f32)
+                    }
                     _ => 0.0,
                 },
             };
@@ -1360,11 +1371,9 @@ impl ParleyInlineContext {
                         // the reserved width — an indented long span may
                         // overfit vs Blink; b60-style badge lines hold
                         // one glyph and are exact.
-                        *forced_line_indents.entry(range.start).or_insert(0.0) +=
-                            f64::from(lead);
-                    } else if let Some((prev_range, prev_style, prev_item)) = runs
-                        .get(..index)
-                        .and_then(|earlier| {
+                        *forced_line_indents.entry(range.start).or_insert(0.0) += f64::from(lead);
+                    } else if let Some((prev_range, prev_style, prev_item)) =
+                        runs.get(..index).and_then(|earlier| {
                             earlier
                                 .iter()
                                 .rev()
@@ -1394,9 +1403,7 @@ impl ParleyInlineContext {
         {
             let mut coalesced: Vec<(std::ops::Range<usize>, f32, f32)> = Vec::new();
             for (range, gap, author) in box_edits.drain(..) {
-                if let Some(existing) =
-                    coalesced.iter_mut().find(|(seen, ..)| *seen == range)
-                {
+                if let Some(existing) = coalesced.iter_mut().find(|(seen, ..)| *seen == range) {
                     existing.1 += gap;
                 } else {
                     coalesced.push((range, gap, author));
@@ -1528,7 +1535,6 @@ impl ParleyInlineContext {
             ruby_spread_overhangs,
             ruby_spread_overhangs_right,
             ruby_annotation_widths,
-            ruby_annotation_caps,
             ruby_center_shifts,
         })
     }
@@ -1559,9 +1565,9 @@ impl FormattingContext for ParleyInlineContext {
         // width and shifted past the left inset; the flow returns to the
         // full inline size below the band. CSS shortens line boxes around
         // a float rather than moving the block box.
-        let band = space.float_band.filter(|band| {
-            band.bottom > 0.0 && (band.left_inset > 0.0 || band.right_inset > 0.0)
-        });
+        let band = space
+            .float_band
+            .filter(|band| band.bottom > 0.0 && (band.left_inset > 0.0 || band.right_inset > 0.0));
         // Lines break through one manual loop so a specific line index can
         // be FORCED to hold an exact cluster count: the browser's rejected
         // line-end trim extension rewinds the whole overflowing item to
@@ -1577,8 +1583,7 @@ impl FormattingContext for ParleyInlineContext {
         // justify target below keeps the true width, exactly as Blink
         // justifies to the unwidened line box.
         const LINE_FIT_EPSILON: f64 = 1.0 / 64.0;
-        let break_lines = |layout: &mut parley::Layout<[u8; 4]>,
-                          forced: &[(usize, u32)]| {
+        let break_lines = |layout: &mut parley::Layout<[u8; 4]>, forced: &[(usize, u32)]| {
             if band.is_none() && forced.is_empty() {
                 layout.break_all_lines(Some((space.inline_size + LINE_FIT_EPSILON) as f32));
                 return;
@@ -1706,422 +1711,87 @@ impl FormattingContext for ParleyInlineContext {
             let mut split_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
             let mut split_spread_rounds = 0u32;
             loop {
-            if cancel.is_cancelled() {
-                return Err(LayoutError::Cancelled);
-            }
-            let ParagraphLayout {
-                mut layout,
-                alignment,
-                shifted_ranges,
-                text,
-                first_line_indent,
-                pair_trims,
-                opener_halt_trims,
-                item_box_sheds,
-                forced_line_indents,
-                ruby_spreads,
-                ruby_spread_overhangs,
-                ruby_spread_overhangs_right,
-                ruby_annotation_widths,
-                ruby_annotation_caps,
-                ruby_center_shifts,
-                inline_block_boxes,
-                inline_block_baselines,
-                image_edge_insets,
-                empty_box_struts,
-            } = self.build_layout(
-                tree,
-                root,
-                Some(space.inline_size),
-                space.fragmentainer_size,
-                space.containing_block_size,
-                PercentageImageSizing::Intrinsic,
-                &end_trims,
-                &suppressed_pair_trims,
-                &split_spread_edits,
-                cancel,
-            )?;
-            break_lines(&mut layout, &forced_line_breaks);
-            // A pair trim is only real while both glyphs share a line
-            // (measured: a line-final comma keeps its full width when its
-            // partner bracket opens the next line, and the line's justify
-            // slack follows). Suppress every straddled pair and re-lay to
-            // a fixpoint; suppression only widens lines, so breaks only
-            // move earlier and the loop is bounded by the pair count.
-            {
-                let mut straddled = false;
-                for (left_byte, right_byte) in &pair_trims {
-                    if layout
-                        .lines()
-                        .any(|line| line.text_range().start == *right_byte)
-                        && !suppressed_pair_trims.contains(left_byte)
-                    {
-                        suppressed_pair_trims.push(*left_byte);
-                        straddled = true;
-                    }
+                if cancel.is_cancelled() {
+                    return Err(LayoutError::Cancelled);
                 }
-                if straddled {
-                    forced_line_breaks.clear();
-                    continue;
-                }
-            }
-            if let Some(byte) = pending_trim.take() {
-                let trimmed_end = byte + text[byte..].chars().next().map_or(1, char::len_utf8);
-                let confirmed = layout.lines().any(|line| line.text_range().end == trimmed_end);
-                if !confirmed {
-                    end_trims.retain(|&trim| trim != byte);
-                    rejected_trims.push(byte);
-                    continue;
-                }
-            }
-            // Ruby split-fit, before any trim reasoning: a soft break
-            // inside a ruby base is legal only while the first segment
-            // still fits carrying its WHOLE annotation — the segment
-            // widens to at least the annotation's advance (measured:
-            // 608px of text plus 异 at 16px fit a 627.2px line, but the
-            // segment carries Talent at 23px and Blink sends the ruby
-            // down; 黄金妖|精 stays split because 黄金妖 at 48px covers
-            // Leprechaun's 44px). An overflowing split rewinds the line
-            // to the item start and re-lays.
-            if !ruby_annotation_widths.is_empty() {
-                let mut rewound_ruby = false;
-                let mut line_top = 0.0_f64;
-                for index in 0..layout.len().saturating_sub(1) {
-                    let indent = if index == 0 { first_line_indent } else { 0.0 };
-                    let max_advance =
-                        f64::from(line_max_advance(line_top) - indent) + LINE_FIT_EPSILON;
-                    line_top += layout
-                        .get(index)
-                        .map_or(0.0, |line| f64::from(line.metrics().line_height));
-                    if forced_line_breaks.iter().any(|(line, _)| *line == index) {
-                        continue;
-                    }
-                    let Some(line) = layout.get(index) else {
-                        continue;
-                    };
-                    if line.break_reason() != parley::layout::BreakReason::Regular {
-                        continue;
-                    }
-                    let range = line.text_range();
-                    let Some((item_start, annotation_width)) = item_text_ranges
-                        .iter()
-                        .enumerate()
-                        .find_map(|(item, item_range)| {
-                            (item_range.start < range.end && range.end < item_range.end)
-                                .then(|| {
-                                    ruby_annotation_widths
-                                        .get(&item)
-                                        .map(|width| (item_range.start, *width))
-                                })
-                                .flatten()
-                        })
-                    else {
-                        continue;
-                    };
-                    // The split's first segment must START on this line;
-                    // a base already split earlier has nothing to rewind.
-                    if item_start < range.start {
-                        continue;
-                    }
-                    let mut segment_advance = 0.0_f64;
-                    let mut cluster =
-                        parley::layout::Cluster::from_byte_index(&layout, item_start);
-                    while let Some(current) = cluster {
-                        if current.text_range().start >= range.end {
-                            break;
-                        }
-                        segment_advance += f64::from(current.advance());
-                        cluster = current.next_logical();
-                    }
-                    // A multi-word annotation splits at its spaces and
-                    // only the words allocated to THIS segment (by
-                    // character-midpoint position) must fit over it —
-                    // 正|规勇者 under "Legal Brave" keeps the split
-                    // because 正 carries only Legal (measured matrix).
-                    let segment_annotation_width = {
-                        let item_index = item_text_ranges
-                            .iter()
-                            .position(|candidate| candidate.start == item_start);
-                        let annotation = item_index.and_then(|index| {
-                            match &tree.node(root).content {
-                                FormattingNodeContent::InlineFlow { items } => {
-                                    match items.get(index) {
-                                        Some(InlineItem::Text {
-                                            ruby_annotation: Some(annotation),
-                                            ..
-                                        }) => Some(annotation.text.clone()),
-                                        _ => None,
-                                    }
-                                }
-                                _ => None,
-                            }
-                        });
-                        let item_range = item_index.map(|index| item_text_ranges[index].clone());
-                        let total_chars = item_range
-                            .as_ref()
-                            .and_then(|item| text.get(item.clone()))
-                            .map_or(0, |base| base.chars().count());
-                        let segment_chars = text
-                            .get(item_start..range.end)
-                            .map_or(0, |segment| segment.chars().count());
-                        match annotation {
-                            Some(annotation) if total_chars > 0 => {
-                                let ratio = segment_chars as f64 / total_chars as f64;
-                                let allocated = rito_fragment::allocate_ruby_annotation(
-                                    &annotation,
-                                    0.0,
-                                    ratio,
-                                );
-                                if allocated == annotation {
-                                    annotation_width
-                                } else if allocated.is_empty() {
-                                    0.0
-                                } else {
-                                    // Approximate the allocated words'
-                                    // advance by character share — exact
-                                    // enough for the fit decision, and
-                                    // both ends stay measurement-free.
-                                    annotation_width * allocated.chars().count() as f64
-                                        / annotation.chars().count().max(1) as f64
-                                }
-                            }
-                            _ => annotation_width,
-                        }
-                    };
-                    // The segment's box presses its allocated
-                    // annotation's advance on the line, minus the RUBY's
-                    // own spread overhang — an unspread ruby (annotation
-                    // narrower than the whole base) overhangs nothing, so
-                    // its full allocated advance presses (measured:
-                    // 异/Talent rewinds at 19.875 where the segment-local
-                    // half-excess would have squeaked by; spread
-                    // 咒/Thaumaturgy keeps its split at 42.95 − 2.74).
-                    let segment_box = {
-                        let overhang = item_text_ranges
-                            .iter()
-                            .position(|candidate| candidate.start == item_start)
-                            .and_then(|index| ruby_spread_overhangs.get(&index))
-                            .copied()
-                            .unwrap_or(0.0);
-                        (segment_annotation_width - overhang).max(segment_advance)
-                    };
-                    if segment_box <= segment_advance + LINE_FIT_EPSILON {
-                        continue;
-                    }
-                    let metrics = line.metrics();
-                    let natural =
-                        f64::from(metrics.advance) - f64::from(metrics.trailing_whitespace);
-                    if natural - segment_advance + segment_box <= max_advance {
-                        continue;
-                    }
-                    if item_start <= range.start {
-                        continue;
-                    }
-                    let Some(count) = text
-                        .get(range.start..item_start)
-                        .map(|held| held.chars().count())
-                        .filter(|count| *count > 0)
-                        .and_then(|count| u32::try_from(count).ok())
-                    else {
-                        continue;
-                    };
-                    forced_line_breaks.push((index, count));
-                    rewound_ruby = true;
-                    break;
-                }
-                if rewound_ruby {
-                    continue;
-                }
-            }
-            // A ruby base SPLIT across lines spreads each on-line
-            // segment to its allocated annotation words' advance
-            // (measured on a walk-mirrored page: 'Leprechaun' over the
-            // split 黄金|妖精 spreads the first segment's 黄 to a
-            // 21.77px box — 16 + excess/(2·n) space-around shares —
-            // while the whole-base test saw a narrow annotation and
-            // left it packed). Once per layout round, capped at two
-            // rounds: the widening itself can move the break.
-            if split_spread_rounds < 2 && !ruby_annotation_widths.is_empty() {
-                let mut new_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
-                for index in 0..layout.len() {
-                    let Some(line) = layout.get(index) else { continue };
-                    let line_range = line.text_range();
-                    for (item, item_range) in item_text_ranges.iter().enumerate() {
-                        let Some(annotation_width) =
-                            ruby_annotation_widths.get(&item).copied()
-                        else {
-                            continue;
-                        };
-                        // Only a SPLIT base qualifies; whole bases took
-                        // the shaping-time spread law already.
-                        let split = item_range.start < line_range.end
-                            && line_range.start < item_range.end
-                            && (item_range.start < line_range.start
-                                || item_range.end > line_range.end);
-                        if !split {
-                            continue;
-                        }
-                        let seg_start = item_range.start.max(line_range.start);
-                        let seg_end = item_range.end.min(line_range.end);
-                        if seg_end <= seg_start {
-                            continue;
-                        }
-                        if split_spread_edits
-                            .iter()
-                            .chain(new_edits.iter())
-                            .any(|(range, _)| range.start == seg_start)
-                        {
-                            continue;
-                        }
-                        let annotation_text = match &tree.node(root).content {
-                            FormattingNodeContent::InlineFlow { items } => {
-                                match items.get(item) {
-                                    Some(InlineItem::Text {
-                                        ruby_annotation: Some(annotation),
-                                        ..
-                                    }) => annotation.text.clone(),
-                                    _ => continue,
-                                }
-                            }
-                            _ => continue,
-                        };
-                        let total_chars = text
-                            .get(item_range.clone())
-                            .map_or(0, |base| base.chars().count());
-                        if total_chars == 0 {
-                            continue;
-                        }
-                        let before = text
-                            .get(item_range.start..seg_start)
-                            .map_or(0.0, |t| t.chars().count() as f64);
-                        let through = text
-                            .get(item_range.start..seg_end)
-                            .map_or(0.0, |t| t.chars().count() as f64);
-                        let allocated = rito_fragment::allocate_ruby_annotation(
-                            &annotation_text,
-                            before / total_chars as f64,
-                            if seg_end >= item_range.end {
-                                f64::INFINITY
-                            } else {
-                                through / total_chars as f64
-                            },
-                        );
-                        if allocated.is_empty() {
-                            continue;
-                        }
-                        let allocated_width = annotation_width
-                            * allocated.chars().count() as f64
-                            / annotation_text.chars().count().max(1) as f64;
-                        let mut segment_advance = 0.0_f64;
-                        let mut cluster = parley::layout::Cluster::from_byte_index(
-                            &layout, seg_start,
-                        );
-                        while let Some(current) = cluster {
-                            if current.text_range().start >= seg_end {
-                                break;
-                            }
-                            segment_advance += f64::from(current.advance());
-                            cluster = current.next_logical();
-                        }
-                        let excess = allocated_width - segment_advance;
-                        if excess <= 0.01 {
-                            continue;
-                        }
-                        let seg_chars = text
-                            .get(seg_start..seg_end)
-                            .map_or(0, |t| t.chars().count());
-                        if seg_chars == 0 {
-                            continue;
-                        }
-                        let n = seg_chars as f64;
-                        let gap = excess / n;
-                        let last_cluster_start = text
-                            .get(seg_start..seg_end)
-                            .and_then(|t| t.char_indices().next_back())
-                            .map_or(seg_start, |(offset, _)| seg_start + offset);
-                        if seg_chars >= 2 && last_cluster_start > seg_start {
-                            new_edits.push((
-                                seg_start..last_cluster_start,
-                                gap as f32,
-                            ));
-                        }
-                        // Edge share carried by the segment's last
-                        // cluster (half a share per side).
-                        new_edits.push((
-                            last_cluster_start..seg_end,
-                            (excess / (2.0 * n)) as f32,
-                        ));
-                    }
-                }
-                if !new_edits.is_empty() {
-                    split_spread_edits.extend(new_edits);
-                    split_spread_rounds += 1;
-                    continue;
-                }
-            }
-            // The straddle pass above holds pairs a line break separated
-            // at full width. For the line-end extension those openers
-            // must be measured back in their mid-line (trimmed) form —
-            // collect (opener byte, pair left byte) for every suppressed
-            // opener-halt pair.
-            let suppressed_openers: Vec<(usize, usize)> = suppressed_pair_trims
-                .iter()
-                .filter_map(|&left_byte| {
-                    let left = text[left_byte..].chars().next()?;
-                    let right_byte = left_byte + left.len_utf8();
-                    let right = text[right_byte..].chars().next()?;
-                    (cjk_punctuation_trim(left, right) == Some(TrimmedGlyph::Right))
-                        .then_some((right_byte, left_byte))
-                })
-                .collect();
-            let mut line_top = 0.0_f64;
-            let candidate = (0..layout.len().saturating_sub(1)).find_map(|index| {
-                // The text-indent margin narrows the first line's
-                // available advance exactly as it narrowed Parley's fit.
-                let indent = if index == 0 { first_line_indent } else { 0.0 };
-                // The trim candidate models the breaker's fit, so it sees
-                // the same epsilon-widened advance the breaker used.
-                let max_advance = line_max_advance(line_top) + LINE_FIT_EPSILON as f32 - indent;
-                line_top += layout
-                    .get(index)
-                    .map_or(0.0, |line| f64::from(line.metrics().line_height));
-                // An engine-forced break (a rewind, a ruby split) is not a
-                // fit decision, but parley stamps it BreakReason::Regular
-                // all the same — extending past one would fabricate a
-                // candidate out of the very content the rewind pushed
-                // down and then unwind the rewind (measured: b1's
-                // razor-fit ① note line re-merged this way).
-                if forced_line_breaks.iter().any(|(line, _)| *line == index) {
-                    return None;
-                }
-                line_end_trim_candidate(
-                    &layout,
-                    &text,
-                    index,
-                    max_advance,
+                let ParagraphLayout {
+                    mut layout,
+                    alignment,
+                    shifted_ranges,
+                    text,
+                    first_line_indent,
+                    pair_trims,
+                    opener_halt_trims,
+                    item_box_sheds,
+                    forced_line_indents,
+                    ruby_spreads,
+                    ruby_spread_overhangs,
+                    ruby_spread_overhangs_right,
+                    ruby_annotation_widths,
+                    ruby_center_shifts,
+                    inline_block_boxes,
+                    inline_block_baselines,
+                    image_edge_insets,
+                    empty_box_struts,
+                } = self.build_layout(
+                    tree,
+                    root,
+                    Some(space.inline_size),
+                    space.fragmentainer_size,
+                    space.containing_block_size,
+                    PercentageImageSizing::Intrinsic,
                     &end_trims,
-                    &rejected_trims,
-                    &suppressed_openers,
-                )
-            });
-            match candidate {
-                Some((byte, unsuppress)) => {
-                    end_trims.push(byte);
-                    suppressed_pair_trims.retain(|left| !unsuppress.contains(left));
-                    pending_trim = Some(byte);
-                    forced_line_breaks.clear();
+                    &suppressed_pair_trims,
+                    &split_spread_edits,
+                    cancel,
+                )?;
+                break_lines(&mut layout, &forced_line_breaks);
+                // A pair trim is only real while both glyphs share a line
+                // (measured: a line-final comma keeps its full width when its
+                // partner bracket opens the next line, and the line's justify
+                // slack follows). Suppress every straddled pair and re-lay to
+                // a fixpoint; suppression only widens lines, so breaks only
+                // move earlier and the loop is bounded by the pair count.
+                {
+                    let mut straddled = false;
+                    for (left_byte, right_byte) in &pair_trims {
+                        if layout
+                            .lines()
+                            .any(|line| line.text_range().start == *right_byte)
+                            && !suppressed_pair_trims.contains(left_byte)
+                        {
+                            suppressed_pair_trims.push(*left_byte);
+                            straddled = true;
+                        }
+                    }
+                    if straddled {
+                        forced_line_breaks.clear();
+                        continue;
+                    }
                 }
-                None => {
-                    // Rejected-extension rewind: when the line-end trim
-                    // extension would fit but the line crosses an element
-                    // boundary (the single-item gate), the browser sends
-                    // the WHOLE overflowing item to the next line instead
-                    // of breaking greedily inside it. Force that line to
-                    // hold exactly the clusters before the item and
-                    // re-lay; one rewind per pass keeps earlier line
-                    // indices stable.
+                if let Some(byte) = pending_trim.take() {
+                    let trimmed_end = byte + text[byte..].chars().next().map_or(1, char::len_utf8);
+                    let confirmed = layout
+                        .lines()
+                        .any(|line| line.text_range().end == trimmed_end);
+                    if !confirmed {
+                        end_trims.retain(|&trim| trim != byte);
+                        rejected_trims.push(byte);
+                        continue;
+                    }
+                }
+                // Ruby split-fit, before any trim reasoning: a soft break
+                // inside a ruby base is legal only while the first segment
+                // still fits carrying its WHOLE annotation — the segment
+                // widens to at least the annotation's advance (measured:
+                // 608px of text plus 异 at 16px fit a 627.2px line, but the
+                // segment carries Talent at 23px and Blink sends the ruby
+                // down; 黄金妖|精 stays split because 黄金妖 at 48px covers
+                // Leprechaun's 44px). An overflowing split rewinds the line
+                // to the item start and re-lays.
+                if !ruby_annotation_widths.is_empty() {
+                    let mut rewound_ruby = false;
                     let mut line_top = 0.0_f64;
-                    let mut rewound = false;
                     for index in 0..layout.len().saturating_sub(1) {
                         let indent = if index == 0 { first_line_indent } else { 0.0 };
                         let max_advance =
@@ -2132,42 +1802,374 @@ impl FormattingContext for ParleyInlineContext {
                         if forced_line_breaks.iter().any(|(line, _)| *line == index) {
                             continue;
                         }
-                        let Some(count) = rewind_break_count(
-                            &layout,
-                            &text,
-                            index,
-                            max_advance,
-                            &item_text_ranges,
-                        ) else {
+                        let Some(line) = layout.get(index) else {
+                            continue;
+                        };
+                        if line.break_reason() != parley::layout::BreakReason::Regular {
+                            continue;
+                        }
+                        let range = line.text_range();
+                        let Some((item_start, annotation_width)) = item_text_ranges
+                            .iter()
+                            .enumerate()
+                            .find_map(|(item, item_range)| {
+                                (item_range.start < range.end && range.end < item_range.end)
+                                    .then(|| {
+                                        ruby_annotation_widths
+                                            .get(&item)
+                                            .map(|width| (item_range.start, *width))
+                                    })
+                                    .flatten()
+                            })
+                        else {
+                            continue;
+                        };
+                        // The split's first segment must START on this line;
+                        // a base already split earlier has nothing to rewind.
+                        if item_start < range.start {
+                            continue;
+                        }
+                        let mut segment_advance = 0.0_f64;
+                        let mut cluster =
+                            parley::layout::Cluster::from_byte_index(&layout, item_start);
+                        while let Some(current) = cluster {
+                            if current.text_range().start >= range.end {
+                                break;
+                            }
+                            segment_advance += f64::from(current.advance());
+                            cluster = current.next_logical();
+                        }
+                        // A multi-word annotation splits at its spaces and
+                        // only the words allocated to THIS segment (by
+                        // character-midpoint position) must fit over it —
+                        // 正|规勇者 under "Legal Brave" keeps the split
+                        // because 正 carries only Legal (measured matrix).
+                        let segment_annotation_width = {
+                            let item_index = item_text_ranges
+                                .iter()
+                                .position(|candidate| candidate.start == item_start);
+                            let annotation =
+                                item_index.and_then(|index| match &tree.node(root).content {
+                                    FormattingNodeContent::InlineFlow { items } => {
+                                        match items.get(index) {
+                                            Some(InlineItem::Text {
+                                                ruby_annotation: Some(annotation),
+                                                ..
+                                            }) => Some(annotation.text.clone()),
+                                            _ => None,
+                                        }
+                                    }
+                                    _ => None,
+                                });
+                            let item_range =
+                                item_index.map(|index| item_text_ranges[index].clone());
+                            let total_chars = item_range
+                                .as_ref()
+                                .and_then(|item| text.get(item.clone()))
+                                .map_or(0, |base| base.chars().count());
+                            let segment_chars = text
+                                .get(item_start..range.end)
+                                .map_or(0, |segment| segment.chars().count());
+                            match annotation {
+                                Some(annotation) if total_chars > 0 => {
+                                    let ratio = segment_chars as f64 / total_chars as f64;
+                                    let allocated = rito_fragment::allocate_ruby_annotation(
+                                        &annotation,
+                                        0.0,
+                                        ratio,
+                                    );
+                                    if allocated == annotation {
+                                        annotation_width
+                                    } else if allocated.is_empty() {
+                                        0.0
+                                    } else {
+                                        // Approximate the allocated words'
+                                        // advance by character share — exact
+                                        // enough for the fit decision, and
+                                        // both ends stay measurement-free.
+                                        annotation_width * allocated.chars().count() as f64
+                                            / annotation.chars().count().max(1) as f64
+                                    }
+                                }
+                                _ => annotation_width,
+                            }
+                        };
+                        // The segment's box presses its allocated
+                        // annotation's advance on the line, minus the RUBY's
+                        // own spread overhang — an unspread ruby (annotation
+                        // narrower than the whole base) overhangs nothing, so
+                        // its full allocated advance presses (measured:
+                        // 异/Talent rewinds at 19.875 where the segment-local
+                        // half-excess would have squeaked by; spread
+                        // 咒/Thaumaturgy keeps its split at 42.95 − 2.74).
+                        let segment_box = {
+                            let overhang = item_text_ranges
+                                .iter()
+                                .position(|candidate| candidate.start == item_start)
+                                .and_then(|index| ruby_spread_overhangs.get(&index))
+                                .copied()
+                                .unwrap_or(0.0);
+                            (segment_annotation_width - overhang).max(segment_advance)
+                        };
+                        if segment_box <= segment_advance + LINE_FIT_EPSILON {
+                            continue;
+                        }
+                        let metrics = line.metrics();
+                        let natural =
+                            f64::from(metrics.advance) - f64::from(metrics.trailing_whitespace);
+                        if natural - segment_advance + segment_box <= max_advance {
+                            continue;
+                        }
+                        if item_start <= range.start {
+                            continue;
+                        }
+                        let Some(count) = text
+                            .get(range.start..item_start)
+                            .map(|held| held.chars().count())
+                            .filter(|count| *count > 0)
+                            .and_then(|count| u32::try_from(count).ok())
+                        else {
                             continue;
                         };
                         forced_line_breaks.push((index, count));
-                        rewound = true;
+                        rewound_ruby = true;
                         break;
                     }
-                    if rewound {
+                    if rewound_ruby {
                         continue;
                     }
-                    break (
-                        layout,
-                        alignment,
-                        shifted_ranges,
-                        first_line_indent,
-                        item_box_sheds,
-                        forced_line_indents,
-                        ruby_spreads,
-                        ruby_spread_overhangs,
-                        ruby_spread_overhangs_right,
-                        ruby_center_shifts,
-                        opener_halt_trims,
-                        inline_block_boxes,
-                        inline_block_baselines,
-                        image_edge_insets,
-                        empty_box_struts,
-                    );
+                }
+                // A ruby base SPLIT across lines spreads each on-line
+                // segment to its allocated annotation words' advance
+                // (measured on a walk-mirrored page: 'Leprechaun' over the
+                // split 黄金|妖精 spreads the first segment's 黄 to a
+                // 21.77px box — 16 + excess/(2·n) space-around shares —
+                // while the whole-base test saw a narrow annotation and
+                // left it packed). Once per layout round, capped at two
+                // rounds: the widening itself can move the break.
+                if split_spread_rounds < 2 && !ruby_annotation_widths.is_empty() {
+                    let mut new_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
+                    for index in 0..layout.len() {
+                        let Some(line) = layout.get(index) else {
+                            continue;
+                        };
+                        let line_range = line.text_range();
+                        for (item, item_range) in item_text_ranges.iter().enumerate() {
+                            let Some(annotation_width) = ruby_annotation_widths.get(&item).copied()
+                            else {
+                                continue;
+                            };
+                            // Only a SPLIT base qualifies; whole bases took
+                            // the shaping-time spread law already.
+                            let split = item_range.start < line_range.end
+                                && line_range.start < item_range.end
+                                && (item_range.start < line_range.start
+                                    || item_range.end > line_range.end);
+                            if !split {
+                                continue;
+                            }
+                            let seg_start = item_range.start.max(line_range.start);
+                            let seg_end = item_range.end.min(line_range.end);
+                            if seg_end <= seg_start {
+                                continue;
+                            }
+                            if split_spread_edits
+                                .iter()
+                                .chain(new_edits.iter())
+                                .any(|(range, _)| range.start == seg_start)
+                            {
+                                continue;
+                            }
+                            let annotation_text = match &tree.node(root).content {
+                                FormattingNodeContent::InlineFlow { items } => {
+                                    match items.get(item) {
+                                        Some(InlineItem::Text {
+                                            ruby_annotation: Some(annotation),
+                                            ..
+                                        }) => annotation.text.clone(),
+                                        _ => continue,
+                                    }
+                                }
+                                _ => continue,
+                            };
+                            let total_chars = text
+                                .get(item_range.clone())
+                                .map_or(0, |base| base.chars().count());
+                            if total_chars == 0 {
+                                continue;
+                            }
+                            let before = text
+                                .get(item_range.start..seg_start)
+                                .map_or(0.0, |t| t.chars().count() as f64);
+                            let through = text
+                                .get(item_range.start..seg_end)
+                                .map_or(0.0, |t| t.chars().count() as f64);
+                            let allocated = rito_fragment::allocate_ruby_annotation(
+                                &annotation_text,
+                                before / total_chars as f64,
+                                if seg_end >= item_range.end {
+                                    f64::INFINITY
+                                } else {
+                                    through / total_chars as f64
+                                },
+                            );
+                            if allocated.is_empty() {
+                                continue;
+                            }
+                            let allocated_width = annotation_width
+                                * allocated.chars().count() as f64
+                                / annotation_text.chars().count().max(1) as f64;
+                            let mut segment_advance = 0.0_f64;
+                            let mut cluster =
+                                parley::layout::Cluster::from_byte_index(&layout, seg_start);
+                            while let Some(current) = cluster {
+                                if current.text_range().start >= seg_end {
+                                    break;
+                                }
+                                segment_advance += f64::from(current.advance());
+                                cluster = current.next_logical();
+                            }
+                            let excess = allocated_width - segment_advance;
+                            if excess <= 0.01 {
+                                continue;
+                            }
+                            let seg_chars = text
+                                .get(seg_start..seg_end)
+                                .map_or(0, |t| t.chars().count());
+                            if seg_chars == 0 {
+                                continue;
+                            }
+                            let n = seg_chars as f64;
+                            let gap = excess / n;
+                            let last_cluster_start = text
+                                .get(seg_start..seg_end)
+                                .and_then(|t| t.char_indices().next_back())
+                                .map_or(seg_start, |(offset, _)| seg_start + offset);
+                            if seg_chars >= 2 && last_cluster_start > seg_start {
+                                new_edits.push((seg_start..last_cluster_start, gap as f32));
+                            }
+                            // Edge share carried by the segment's last
+                            // cluster (half a share per side).
+                            new_edits
+                                .push((last_cluster_start..seg_end, (excess / (2.0 * n)) as f32));
+                        }
+                    }
+                    if !new_edits.is_empty() {
+                        split_spread_edits.extend(new_edits);
+                        split_spread_rounds += 1;
+                        continue;
+                    }
+                }
+                // The straddle pass above holds pairs a line break separated
+                // at full width. For the line-end extension those openers
+                // must be measured back in their mid-line (trimmed) form —
+                // collect (opener byte, pair left byte) for every suppressed
+                // opener-halt pair.
+                let suppressed_openers: Vec<(usize, usize)> = suppressed_pair_trims
+                    .iter()
+                    .filter_map(|&left_byte| {
+                        let left = text[left_byte..].chars().next()?;
+                        let right_byte = left_byte + left.len_utf8();
+                        let right = text[right_byte..].chars().next()?;
+                        (cjk_punctuation_trim(left, right) == Some(TrimmedGlyph::Right))
+                            .then_some((right_byte, left_byte))
+                    })
+                    .collect();
+                let mut line_top = 0.0_f64;
+                let candidate = (0..layout.len().saturating_sub(1)).find_map(|index| {
+                    // The text-indent margin narrows the first line's
+                    // available advance exactly as it narrowed Parley's fit.
+                    let indent = if index == 0 { first_line_indent } else { 0.0 };
+                    // The trim candidate models the breaker's fit, so it sees
+                    // the same epsilon-widened advance the breaker used.
+                    let max_advance = line_max_advance(line_top) + LINE_FIT_EPSILON as f32 - indent;
+                    line_top += layout
+                        .get(index)
+                        .map_or(0.0, |line| f64::from(line.metrics().line_height));
+                    // An engine-forced break (a rewind, a ruby split) is not a
+                    // fit decision, but parley stamps it BreakReason::Regular
+                    // all the same — extending past one would fabricate a
+                    // candidate out of the very content the rewind pushed
+                    // down and then unwind the rewind (measured: b1's
+                    // razor-fit ① note line re-merged this way).
+                    if forced_line_breaks.iter().any(|(line, _)| *line == index) {
+                        return None;
+                    }
+                    line_end_trim_candidate(
+                        &layout,
+                        &text,
+                        index,
+                        max_advance,
+                        &end_trims,
+                        &rejected_trims,
+                        &suppressed_openers,
+                    )
+                });
+                match candidate {
+                    Some((byte, unsuppress)) => {
+                        end_trims.push(byte);
+                        suppressed_pair_trims.retain(|left| !unsuppress.contains(left));
+                        pending_trim = Some(byte);
+                        forced_line_breaks.clear();
+                    }
+                    None => {
+                        // Rejected-extension rewind: when the line-end trim
+                        // extension would fit but the line crosses an element
+                        // boundary (the single-item gate), the browser sends
+                        // the WHOLE overflowing item to the next line instead
+                        // of breaking greedily inside it. Force that line to
+                        // hold exactly the clusters before the item and
+                        // re-lay; one rewind per pass keeps earlier line
+                        // indices stable.
+                        let mut line_top = 0.0_f64;
+                        let mut rewound = false;
+                        for index in 0..layout.len().saturating_sub(1) {
+                            let indent = if index == 0 { first_line_indent } else { 0.0 };
+                            let max_advance =
+                                f64::from(line_max_advance(line_top) - indent) + LINE_FIT_EPSILON;
+                            line_top += layout
+                                .get(index)
+                                .map_or(0.0, |line| f64::from(line.metrics().line_height));
+                            if forced_line_breaks.iter().any(|(line, _)| *line == index) {
+                                continue;
+                            }
+                            let Some(count) = rewind_break_count(
+                                &layout,
+                                &text,
+                                index,
+                                max_advance,
+                                &item_text_ranges,
+                            ) else {
+                                continue;
+                            };
+                            forced_line_breaks.push((index, count));
+                            rewound = true;
+                            break;
+                        }
+                        if rewound {
+                            continue;
+                        }
+                        break (
+                            layout,
+                            alignment,
+                            shifted_ranges,
+                            first_line_indent,
+                            item_box_sheds,
+                            forced_line_indents,
+                            ruby_spreads,
+                            ruby_spread_overhangs,
+                            ruby_spread_overhangs_right,
+                            ruby_center_shifts,
+                            opener_halt_trims,
+                            inline_block_boxes,
+                            inline_block_baselines,
+                            image_edge_insets,
+                            empty_box_struts,
+                        );
+                    }
                 }
             }
-        }};
+        };
         let mut layout = layout;
         // Always align, `Start` included: alignment is where Parley applies
         // the first-line indent's start-edge offset, so skipping it for the
@@ -2302,12 +2304,12 @@ impl FormattingContext for ParleyInlineContext {
             // Env-gated line forensics for the native probe binary (wasm
             // has no env; the flag simply never sets there).
             // Flow-text ranges of the spread ruby bases: justification must
-        // not open interior opportunities inside them.
-        let spread_ranges: Vec<std::ops::Range<usize>> = ruby_spreads
-            .keys()
-            .filter_map(|index| item_text_ranges.get(*index).cloned())
-            .collect();
-        let line_debug = std::env::var_os("RITO_LINE_DEBUG").is_some();
+            // not open interior opportunities inside them.
+            let spread_ranges: Vec<std::ops::Range<usize>> = ruby_spreads
+                .keys()
+                .filter_map(|index| item_text_ranges.get(*index).cloned())
+                .collect();
+            let line_debug = std::env::var_os("RITO_LINE_DEBUG").is_some();
             let mut debug_misses: Vec<String> = Vec::new();
             let ink_top = f64::from(metrics.block_min_coord);
             // css-text: trailing white space HANGS at the line end and is
@@ -2336,16 +2338,17 @@ impl FormattingContext for ParleyInlineContext {
                         break;
                     }
                     byte -= character.len_utf8();
-                    if let Some(cluster) =
-                        parley::layout::Cluster::from_byte_index(&layout, byte)
-                    {
+                    if let Some(cluster) = parley::layout::Cluster::from_byte_index(&layout, byte) {
                         hang += f64::from(cluster.advance());
                         if character == '\u{a0}' {
                             nbsp_kept += f64::from(cluster.advance());
                         }
                     }
                 }
-                ((hang - f64::from(metrics.trailing_whitespace)).max(0.0), nbsp_kept)
+                (
+                    (hang - f64::from(metrics.trailing_whitespace)).max(0.0),
+                    nbsp_kept,
+                )
             };
             // A span opening this forced-break line indents it by its box
             // lead (margins/padding/border of a post-<br/> span land on
@@ -2409,11 +2412,14 @@ impl FormattingContext for ParleyInlineContext {
             let justify_plan = if justify
                 && matches!(
                     line.break_reason(),
-                    parley::layout::BreakReason::Regular
-                        | parley::layout::BreakReason::Emergency
+                    parley::layout::BreakReason::Regular | parley::layout::BreakReason::Emergency
                 ) {
                 let range = line.text_range();
-                let indent = if range.start == 0 { first_line_indent } else { 0.0 };
+                let indent = if range.start == 0 {
+                    first_line_indent
+                } else {
+                    0.0
+                };
                 let target =
                     f64::from(line_max_advance(line_top)) - f64::from(indent) - forced_indent;
                 // The hanging U+3000 tail leaves the measure like parley's
@@ -2466,8 +2472,8 @@ impl FormattingContext for ParleyInlineContext {
                 // width, inflating the slack 0.416px and phasing every
                 // share-driven glyph mid-line).
                 {
-                    use skrifa::MetadataProvider as _;
                     use skrifa::raw::TableProvider as _;
+                    use skrifa::MetadataProvider as _;
                     let content = flow_text
                         .get(range.clone())
                         .map(str::trim_end)
@@ -2517,9 +2523,7 @@ impl FormattingContext for ParleyInlineContext {
                                     .glyphs()
                                     .map(|glyph| {
                                         glyph_metrics
-                                            .advance_width(skrifa::GlyphId::new(u32::from(
-                                                glyph.id,
-                                            )))
+                                            .advance_width(skrifa::GlyphId::new(glyph.id))
                                             .map(|units| f64::from(units) * scale)
                                             .unwrap_or(f64::from(glyph.advance))
                                     })
@@ -2634,8 +2638,7 @@ impl FormattingContext for ParleyInlineContext {
             // measured on b20's note badge, which painted 5.67px (run1's
             // whole expansion) left of Blink until this ride-along.
             let mut atom_justify = |id: u64| -> f64 {
-                let (Some(plan), Some(range)) =
-                    (&justify_plan, item_text_ranges.get(id as usize))
+                let (Some(plan), Some(range)) = (&justify_plan, item_text_ranges.get(id as usize))
                 else {
                     return 0.0;
                 };
@@ -2703,7 +2706,7 @@ impl FormattingContext for ParleyInlineContext {
                                 }
                                 seen_scripts.push(script);
                                 let sample =
-                                    self.run_sample(&style, glyph_run.run().font(), character);
+                                    self.run_sample(style, glyph_run.run().font(), character);
                                 if !line_run_samples
                                     .iter()
                                     .any(|(index, seen)| *index == item_index && *seen == sample)
@@ -2724,8 +2727,8 @@ impl FormattingContext for ParleyInlineContext {
                         let run_box_snap = style_tables.and_then(|tables| {
                             let entry = item_line_heights.get(item_index)?.as_ref()?;
                             let resolved = tables.inline.style(entry.style).ok()?;
-                            let metric = self.host_normal_line_peek(&resolved, "");
-                            item_box_snap(&resolved, metric)
+                            let metric = self.host_normal_line_peek(resolved, "");
+                            item_box_snap(resolved, metric)
                         });
                         // A ruby spread's interior gap re-applies at paint
                         // as extra letter spacing (like justify spacing,
@@ -2733,8 +2736,10 @@ impl FormattingContext for ParleyInlineContext {
                         // from it while justify shares never widen the
                         // annotation).
                         let ruby_gap = ruby_spreads.get(&item_index).copied().unwrap_or(0.0);
-                        let ruby_overhang =
-                            ruby_spread_overhangs.get(&item_index).copied().unwrap_or(0.0);
+                        let ruby_overhang = ruby_spread_overhangs
+                            .get(&item_index)
+                            .copied()
+                            .unwrap_or(0.0);
                         let ruby_overhang_right = ruby_spread_overhangs_right
                             .get(&item_index)
                             .copied()
@@ -2746,9 +2751,7 @@ impl FormattingContext for ParleyInlineContext {
                                         justify_px: f64| {
                             let opener_trim_px = opener_halt_trims
                                 .iter()
-                                .find(|(halt, _)| {
-                                    halt.start < range.end && range.start < halt.end
-                                })
+                                .find(|(halt, _)| halt.start < range.end && range.start < halt.end)
                                 .map_or(0.0, |(_, half)| *half);
                             children.push((
                                 Fragment::Text(TextFragment {
@@ -2815,17 +2818,15 @@ impl FormattingContext for ParleyInlineContext {
                                 let run_advance = f64::from(glyph_run.advance());
                                 let run_x = match &mut natural_item_track {
                                     slot @ None => {
-                                        *slot =
-                                            Some((item_index, run_x, run_x, run_advance));
+                                        *slot = Some((item_index, run_x, run_x, run_advance));
                                         run_x
                                     }
                                     Some((item, truth_start, engine_start, item_width)) => {
                                         if *item != item_index {
                                             let delta = run_x - *engine_start;
                                             let gap = delta - *item_width;
-                                            let ceiled = ((*item_width - 1.0 / 1024.0) * 64.0)
-                                                .ceil()
-                                                / 64.0;
+                                            let ceiled =
+                                                ((*item_width - 1.0 / 1024.0) * 64.0).ceil() / 64.0;
                                             // Only a genuinely off-grid item
                                             // width anchors; a grid width
                                             // plus shaper dust keeps the
@@ -2845,8 +2846,7 @@ impl FormattingContext for ParleyInlineContext {
                                             *item_width = run_advance;
                                             truth
                                         } else {
-                                            let truth =
-                                                *truth_start + (run_x - *engine_start);
+                                            let truth = *truth_start + (run_x - *engine_start);
                                             *item_width += run_advance;
                                             truth
                                         }
@@ -2875,9 +2875,8 @@ impl FormattingContext for ParleyInlineContext {
                                 // name-pun ruby pages grew when the
                                 // split first landed unguarded).
                                 let run_has_ruby = match &tree.node(root).content {
-                                    FormattingNodeContent::InlineFlow { items } => items
-                                        .get(item_index)
-                                        .is_some_and(|item| {
+                                    FormattingNodeContent::InlineFlow { items } => {
+                                        items.get(item_index).is_some_and(|item| {
                                             matches!(
                                                 item,
                                                 InlineItem::Text {
@@ -2885,7 +2884,8 @@ impl FormattingContext for ParleyInlineContext {
                                                     ..
                                                 }
                                             )
-                                        }),
+                                        })
+                                    }
                                     _ => false,
                                 };
                                 // A shadowed run also keeps one piece:
@@ -2898,24 +2898,17 @@ impl FormattingContext for ParleyInlineContext {
                                 // the unguarded split).
                                 let run_has_shadow = style_tables
                                     .and_then(|tables| {
-                                        let item_style =
-                                            match &tree.node(root).content {
-                                                FormattingNodeContent::InlineFlow {
-                                                    items,
-                                                } => items.get(item_index).map(|item| {
-                                                    match item {
-                                                        InlineItem::Text { style, .. }
-                                                        | InlineItem::Image { style, .. }
-                                                        | InlineItem::InlineBlock {
-                                                            style, ..
-                                                        }
-                                                        | InlineItem::EmptyBox {
-                                                            style, ..
-                                                        } => *style,
-                                                    }
-                                                }),
-                                                _ => None,
-                                            }?;
+                                        let item_style = match &tree.node(root).content {
+                                            FormattingNodeContent::InlineFlow { items } => {
+                                                items.get(item_index).map(|item| match item {
+                                                    InlineItem::Text { style, .. }
+                                                    | InlineItem::Image { style, .. }
+                                                    | InlineItem::InlineBlock { style, .. }
+                                                    | InlineItem::EmptyBox { style, .. } => *style,
+                                                })
+                                            }
+                                            _ => None,
+                                        }?;
                                         tables.inline.style(item_style).ok()
                                     })
                                     .is_some_and(|resolved| {
@@ -2923,31 +2916,22 @@ impl FormattingContext for ParleyInlineContext {
                                     });
                                 let run_letter_spacing = style_tables
                                     .and_then(|tables| {
-                                        let item_style =
-                                            match &tree.node(root).content {
-                                                FormattingNodeContent::InlineFlow {
-                                                    items,
-                                                } => items.get(item_index).map(|item| {
-                                                    match item {
-                                                        InlineItem::Text { style, .. }
-                                                        | InlineItem::Image { style, .. }
-                                                        | InlineItem::InlineBlock {
-                                                            style, ..
-                                                        }
-                                                        | InlineItem::EmptyBox {
-                                                            style, ..
-                                                        } => *style,
-                                                    }
-                                                }),
-                                                _ => None,
-                                            }?;
+                                        let item_style = match &tree.node(root).content {
+                                            FormattingNodeContent::InlineFlow { items } => {
+                                                items.get(item_index).map(|item| match item {
+                                                    InlineItem::Text { style, .. }
+                                                    | InlineItem::Image { style, .. }
+                                                    | InlineItem::InlineBlock { style, .. }
+                                                    | InlineItem::EmptyBox { style, .. } => *style,
+                                                })
+                                            }
+                                            _ => None,
+                                        }?;
                                         tables.inline.style(item_style).ok()
                                     })
                                     .map_or(0.0_f64, |resolved| {
                                         match resolved.text_flow.letter_spacing {
-                                            LengthPercentage::Length(px) => {
-                                                f64::from(px.get())
-                                            }
+                                            LengthPercentage::Length(px) => f64::from(px.get()),
                                             _ => 0.0,
                                         }
                                     });
@@ -3006,19 +2990,17 @@ impl FormattingContext for ParleyInlineContext {
                                 ) = if !has_space
                                     && !run_has_ruby
                                     && !run_has_shadow
-                                    && flow_text
-                                        .get(run_range.clone())
-                                        .is_some_and(|text| {
-                                            !text.is_empty()
-                                                && text.chars().all(|ch| {
-                                                    matches!(u32::from(ch),
+                                    && flow_text.get(run_range.clone()).is_some_and(|text| {
+                                        !text.is_empty()
+                                            && text.chars().all(|ch| {
+                                                matches!(u32::from(ch),
                                                         0xB7
                                                         | 0x2E80..=0x9FFF
                                                         | 0xF900..=0xFAFF
                                                         | 0xFF00..=0xFFEF
                                                         | 0x20000..=0x3FFFF)
-                                                })
-                                        }) {
+                                            })
+                                    }) {
                                     // The run anchor is parley's raw f32
                                     // cumulative from the line start;
                                     // re-express the prefix in the
@@ -3059,8 +3041,7 @@ impl FormattingContext for ParleyInlineContext {
                                             break;
                                         }
                                         if byte > run_range.start {
-                                            let scaled =
-                                                (anchor_correction + cumulative) * 64.0;
+                                            let scaled = (anchor_correction + cumulative) * 64.0;
                                             if (scaled - scaled.round()).abs() > 1e-3 {
                                                 splits.push((byte, cumulative));
                                             }
@@ -3083,7 +3064,8 @@ impl FormattingContext for ParleyInlineContext {
                                             emit(
                                                 seg_start..byte,
                                                 run_x + cjk_anchor_correction + seg_offset,
-                                                cumulative - seg_offset
+                                                cumulative
+                                                    - seg_offset
                                                     - if byte == run_range.end {
                                                         box_shed
                                                     } else {
@@ -3107,23 +3089,17 @@ impl FormattingContext for ParleyInlineContext {
                                     let mut seg_x = run_x;
                                     let mut natural_x = run_x;
                                     let mut previous_space = false;
-                                    let mut cluster =
-                                        parley::layout::Cluster::from_byte_index(
-                                            &layout,
-                                            run_range.start,
-                                        );
+                                    let mut cluster = parley::layout::Cluster::from_byte_index(
+                                        &layout,
+                                        run_range.start,
+                                    );
                                     while let Some(current) = cluster {
                                         let byte = current.text_range().start;
                                         if byte >= run_range.end {
                                             break;
                                         }
                                         if previous_space && byte > seg_start {
-                                            emit(
-                                                seg_start..byte,
-                                                seg_x,
-                                                natural_x - seg_x,
-                                                0.0,
-                                            );
+                                            emit(seg_start..byte, seg_x, natural_x - seg_x, 0.0);
                                             seg_start = byte;
                                             seg_x = natural_x;
                                         }
@@ -3183,16 +3159,12 @@ impl FormattingContext for ParleyInlineContext {
                                         // fifth of a pixel).
                                         if flow_text
                                             .get(byte..current.text_range().end)
-                                            .is_some_and(|t| {
-                                                t.chars().any(char::is_whitespace)
-                                            })
+                                            .is_some_and(|t| t.chars().any(char::is_whitespace))
                                         {
                                             correction = 0.0;
                                             break;
                                         }
-                                        correction += hb_fixed_cluster_advance(
-                                            &current, 0.0,
-                                        )
+                                        correction += hb_fixed_cluster_advance(&current, 0.0)
                                             - f64::from(current.advance());
                                         prefix = current.next_logical();
                                     }
@@ -3208,12 +3180,13 @@ impl FormattingContext for ParleyInlineContext {
                                 // cursor so a postil span doesn't leave
                                 // the rest of its line a fraction adrift
                                 // of the browser's raster ties.
-                                let justified_x = run_x
-                                    + plan.share * f64::from(justify_shares_used);
+                                let justified_x =
+                                    run_x + plan.share * f64::from(justify_shares_used);
                                 // Shaper-dust margin like the natural
                                 // cursor: an on-grid item end plus float
                                 // dust must not bump a whole 1/64.
-                                let ceil64 = |value: f64| ((value - 1.0 / 1024.0) * 64.0).ceil() / 64.0;
+                                let ceil64 =
+                                    |value: f64| ((value - 1.0 / 1024.0) * 64.0).ceil() / 64.0;
                                 let run_x = run_x
                                     + match &mut justify_item_track {
                                         slot @ None => {
@@ -3279,21 +3252,18 @@ impl FormattingContext for ParleyInlineContext {
                                                 joins_with_identical_neighbor(character)
                                                     && flow_text
                                                         .get(
-                                                            current.text_range().end
-                                                                ..run_range.end,
+                                                            current.text_range().end..run_range.end,
                                                         )
                                                         .and_then(|text| text.chars().next())
                                                         == Some(character)
                                                     && flow_text
                                                         .get(run_range.start..byte)
-                                                        .and_then(|text| {
-                                                            text.chars().next_back()
-                                                        })
+                                                        .and_then(|text| text.chars().next_back())
                                                         != Some(character)
                                             });
                                         if !ink_shift
                                             && count <= 1
-                                            && uniform.map_or(true, |value| value == count)
+                                            && uniform.is_none_or(|value| value == count)
                                             && !joined_entry
                                         {
                                             uniform = Some(count);
@@ -3343,9 +3313,7 @@ impl FormattingContext for ParleyInlineContext {
                             .copied()
                             .unwrap_or(0.0);
                         max_rise = max_rise.max(shift);
-                        if let Some((baseline, mini)) =
-                            inline_block_boxes.remove(&inline_box.id)
-                        {
+                        if let Some((baseline, mini)) = inline_block_boxes.remove(&inline_box.id) {
                             // Parley rests the box bottom on the text
                             // baseline; an inline-block instead hangs its
                             // LAST line's baseline there (CSS §10.8.1),
@@ -3370,8 +3338,7 @@ impl FormattingContext for ParleyInlineContext {
                                         } else {
                                             f64::from(inline_box.x) - parley_line_x + justified
                                         },
-                                        y: f64::from(inline_box.y) - ink_top
-                                            + (height - baseline),
+                                        y: f64::from(inline_box.y) - ink_top + (height - baseline),
                                         width: f64::from(inline_box.width),
                                         height,
                                     },
@@ -3391,9 +3358,8 @@ impl FormattingContext for ParleyInlineContext {
                             // like any inline item boundary: its shifted
                             // position lands on ceil64 (Range-measured:
                             // cum 49.579 paints the atom at 49.59375).
-                            let atom_x = f64::from(inline_box.x) - parley_line_x
-                                + inset_left
-                                + justified;
+                            let atom_x =
+                                f64::from(inline_box.x) - parley_line_x + inset_left + justified;
                             let atom_x = if justify_plan.is_some() {
                                 (atom_x * 64.0).ceil() / 64.0
                             } else {
@@ -3615,8 +3581,7 @@ impl FormattingContext for ParleyInlineContext {
                             .filter(|(_, shift)| **shift != 0.0)
                             .filter_map(|(index, shift)| {
                                 let item = item_line_heights.get(index)?.as_ref()?;
-                                let resolved =
-                                    style_tables?.inline.style(item.style).ok()?;
+                                let resolved = style_tables?.inline.style(item.style).ok()?;
                                 // A span that DECLARES its own line-height
                                 // keeps the fixed-box path (measured exact on
                                 // b1's .postil-b1, line-height 1.2); the probe
@@ -3624,18 +3589,11 @@ impl FormattingContext for ParleyInlineContext {
                                 if resolved.font.line_height_is_declared {
                                     return None;
                                 }
-                                let ratio =
-                                    f64::from(resolved.font.size.get()) / strut_size;
-                                let sentinel = if *shift > 0.0 {
-                                    '\u{E00C}'
-                                } else {
-                                    '\u{E00D}'
-                                };
-                                let line_height = used_declared_line_height(
-                                    strut.font.line_height,
-                                    strut_size,
-                                )
-                                .map_or_else(|| "n".to_owned(), |px| format!("{px}"));
+                                let ratio = f64::from(resolved.font.size.get()) / strut_size;
+                                let sentinel = if *shift > 0.0 { '\u{E00C}' } else { '\u{E00D}' };
+                                let line_height =
+                                    used_declared_line_height(strut.font.line_height, strut_size)
+                                        .map_or_else(|| "n".to_owned(), |px| format!("{px}"));
                                 Some((index, format!("{sentinel}{ratio:.4}:{line_height}")))
                             })
                             .collect()
@@ -3654,9 +3612,9 @@ impl FormattingContext for ParleyInlineContext {
                         (range.start < end && start < range.end)
                             || (range.start <= end
                                 && end < range.end
-                                && flow_text.get(end..).is_some_and(|rest| {
-                                    rest.starts_with('\n')
-                                }))
+                                && flow_text
+                                    .get(end..)
+                                    .is_some_and(|rest| rest.starts_with('\n')))
                     });
                     if !on_line || range.is_empty() {
                         continue;
@@ -3773,29 +3731,26 @@ impl FormattingContext for ParleyInlineContext {
                     // normal-ascent 14 + raise, where the fixed-height
                     // model overshot by two rows (measured; totals agreed
                     // and only the baseline moved).
-                    let (item_above, item_below) = if sample.starts_with('\u{E00C}')
-                        || sample.starts_with('\u{E00D}')
-                    {
-                        // Host-measured super/sub line envelope: the probe's
-                        // baseline/height are the line's above/below with the
-                        // raise already embedded (shift is 0 on this entry).
-                        (asc, desc)
-                    } else if shift != 0.0
-                        && !resolved.font.line_height_is_declared
-                    {
-                        (asc, desc)
-                    } else {
-                        match used_declared_line_height(
-                            resolved.font.line_height,
-                            f64::from(resolved.font.size.get()),
-                        ) {
-                            None => (asc, desc),
-                            Some(height) => {
-                                let a = metric.fixed_baseline(height);
-                                (a, height - a)
+                    let (item_above, item_below) =
+                        if sample.starts_with('\u{E00C}') || sample.starts_with('\u{E00D}') {
+                            // Host-measured super/sub line envelope: the probe's
+                            // baseline/height are the line's above/below with the
+                            // raise already embedded (shift is 0 on this entry).
+                            (asc, desc)
+                        } else if shift != 0.0 && !resolved.font.line_height_is_declared {
+                            (asc, desc)
+                        } else {
+                            match used_declared_line_height(
+                                resolved.font.line_height,
+                                f64::from(resolved.font.size.get()),
+                            ) {
+                                None => (asc, desc),
+                                Some(height) => {
+                                    let a = metric.fixed_baseline(height);
+                                    (a, height - a)
+                                }
                             }
-                        }
-                    };
+                        };
                     above = above.max(item_above + shift);
                     below = below.max(item_below - shift);
                 }
@@ -3810,11 +3765,18 @@ impl FormattingContext for ParleyInlineContext {
                 let mut top_aligned_heights: Vec<f64> = Vec::new();
                 for (fragment, shift) in &children {
                     if let Fragment::Image(image) = fragment {
-                        let align_top = tree_items
-                            .get(image.item_index as usize)
-                            .is_some_and(|item| {
-                                matches!(item, InlineItem::Image { align_top: true, .. })
-                            });
+                        let align_top =
+                            tree_items
+                                .get(image.item_index as usize)
+                                .is_some_and(|item| {
+                                    matches!(
+                                        item,
+                                        InlineItem::Image {
+                                            align_top: true,
+                                            ..
+                                        }
+                                    )
+                                });
                         if align_top {
                             // A top-aligned box sits outside the baseline
                             // envelope; it only grows the line DOWNWARD
@@ -3824,12 +3786,13 @@ impl FormattingContext for ParleyInlineContext {
                             above = above.max(image.rect.height + shift);
                             below = below.max(-shift);
                         }
-                        let item = tree_items
-                            .get(image.item_index as usize)
-                            .and_then(|item| match item {
-                                InlineItem::Image { style, .. } => Some(*style),
-                                _ => None,
-                            });
+                        let item =
+                            tree_items
+                                .get(image.item_index as usize)
+                                .and_then(|item| match item {
+                                    InlineItem::Image { style, .. } => Some(*style),
+                                    _ => None,
+                                });
                         let resolved = item.and_then(|style_id| {
                             style_tables.and_then(|tables| tables.inline.style(style_id).ok())
                         });
@@ -3960,8 +3923,8 @@ impl FormattingContext for ParleyInlineContext {
                     Some((content_height, ascent)) => (ascent, content_height - ascent),
                     None => (0.0, 0.0),
                 };
-                let envelope = f64::from(metrics.ascent).max(above)
-                    + f64::from(metrics.descent).max(below);
+                let envelope =
+                    f64::from(metrics.ascent).max(above) + f64::from(metrics.descent).max(below);
                 envelope.max(strut_height.unwrap_or(0.0))
             } else if let Some(declared) = line_declared_height {
                 declared.max(strut_height.unwrap_or(0.0))
@@ -4009,17 +3972,16 @@ impl FormattingContext for ParleyInlineContext {
                 max_rise + f64::from(metrics.ascent).max(host_line.map_or(0.0, |(_, a)| a))
             } else {
                 match host_line {
-                Some((content_height, ascent)) => match strut_envelope {
-                    Some((strut_ascent, _)) => max_rise + ascent.max(strut_ascent),
-                    None => max_rise + ((base_height - content_height) / 2.0).floor() + ascent,
-                },
-                None => {
-                    let half_leading = (base_height
-                        - f64::from(metrics.ascent)
-                        - f64::from(metrics.descent))
-                        / 2.0;
-                    max_rise + half_leading + f64::from(metrics.ascent)
-                }
+                    Some((content_height, ascent)) => match strut_envelope {
+                        Some((strut_ascent, _)) => max_rise + ascent.max(strut_ascent),
+                        None => max_rise + ((base_height - content_height) / 2.0).floor() + ascent,
+                    },
+                    None => {
+                        let half_leading =
+                            (base_height - f64::from(metrics.ascent) - f64::from(metrics.descent))
+                                / 2.0;
+                        max_rise + half_leading + f64::from(metrics.ascent)
+                    }
                 }
             };
             // Ruby annotations grow the line. Measured to exactness (24/24
@@ -4070,8 +4032,7 @@ impl FormattingContext for ParleyInlineContext {
                     tables.inline.style(strut).ok()
                 })
                 .is_some_and(|strut| {
-                    strut.bidi.writing_mode
-                        == rito_style_contract::WritingMode::VerticalRightToLeft
+                    strut.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
                 });
             let ruby_growth = if vertical_flow {
                 let mut growth = 0.0_f64;
@@ -4197,9 +4158,8 @@ impl FormattingContext for ParleyInlineContext {
                         .get(range.clone())
                         .is_some_and(|base| !base.chars().any(is_cjk));
                     let prev_mixed = !prev_line_fonts.is_empty()
-                        && base_font.is_some_and(|base| {
-                            prev_line_fonts.iter().any(|key| *key != base)
-                        });
+                        && base_font
+                            .is_some_and(|base| prev_line_fonts.iter().any(|key| *key != base));
                     let one_sentinel = match (base_latin, anno_cjk) {
                         (false, false) => '\u{E000}',
                         (false, true) => '\u{E002}',
@@ -4254,8 +4214,7 @@ impl FormattingContext for ParleyInlineContext {
                         }
                         _ => typo_desc.round(),
                     };
-                    let prev_gap =
-                        prev_ruby_below.map_or(0.0, |below| (below - reuse).max(0.0));
+                    let prev_gap = prev_ruby_below.map_or(0.0, |below| (below - reuse).max(0.0));
                     growth = growth.max((required - baseline - prev_gap).max(0.0));
                 }
                 // The browser pushes a growing FIRST line down
@@ -4280,9 +4239,7 @@ impl FormattingContext for ParleyInlineContext {
                     // here and absorb nothing.
                     let padding_absorb = tree
                         .styles()
-                        .and_then(|tables| {
-                            tables.layout.style(tree.node(root).style).ok()
-                        })
+                        .and_then(|tables| tables.layout.style(tree.node(root).style).ok())
                         .map_or(0.0, |style| match style.padding.top.value() {
                             rito_style_contract::LengthPercentage::Length(px) => {
                                 f64::from(px.get())
@@ -4308,9 +4265,7 @@ impl FormattingContext for ParleyInlineContext {
                     }
                 }
             }
-            if line_debug
-                && (has_inline_box || item_shifts.iter().any(|shift| *shift != 0.0))
-            {
+            if line_debug && (has_inline_box || item_shifts.iter().any(|shift| *shift != 0.0)) {
                 eprintln!(
                     "[line-debug] contributions={contributions:?} host_line={host_line:?} \
                      baseline={baseline} height={line_height} max_rise={max_rise} \
@@ -4343,11 +4298,18 @@ impl FormattingContext for ParleyInlineContext {
                         // tallest thing on the line; whenever the strut
                         // reaches higher, the image has to come down.
                         Fragment::Image(image) => {
-                            let align_top = tree_items
-                                .get(image.item_index as usize)
-                                .is_some_and(|item| {
-                                    matches!(item, InlineItem::Image { align_top: true, .. })
-                                });
+                            let align_top =
+                                tree_items
+                                    .get(image.item_index as usize)
+                                    .is_some_and(|item| {
+                                        matches!(
+                                            item,
+                                            InlineItem::Image {
+                                                align_top: true,
+                                                ..
+                                            }
+                                        )
+                                    });
                             image.rect.y = if align_top {
                                 // `vertical-align: top` aligns to the line
                                 // box top as if nothing were shifted, but
@@ -4494,11 +4456,11 @@ impl FormattingContext for ParleyInlineContext {
             .strut_style(node)
             .or_else(|| match &tree.node(node).content {
                 FormattingNodeContent::InlineFlow { items } => {
-                    items.first().and_then(|item| match item {
+                    items.first().map(|item| match item {
                         InlineItem::Text { style, .. }
                         | InlineItem::Image { style, .. }
                         | InlineItem::InlineBlock { style, .. }
-                        | InlineItem::EmptyBox { style, .. } => Some(*style),
+                        | InlineItem::EmptyBox { style, .. } => *style,
                     })
                 }
                 _ => None,
@@ -4507,7 +4469,7 @@ impl FormattingContext for ParleyInlineContext {
                 tree.styles()
                     .and_then(|styles| styles.inline.style(style_id).ok())
             })
-            .map_or(0.0_f32, |style| resolved_text_indent(&style));
+            .map_or(0.0_f32, resolved_text_indent);
         let indent = if intrinsic.text.is_empty() && max_text <= 0.0 {
             0.0
         } else {
@@ -4614,8 +4576,8 @@ fn cjk_quote_reclassification(context: parley::LineBreakContext) -> Option<bool>
     // the dash pair on the next line while the quote closes the first;
     // treating the pair as unbreakable-after-quote dragged 怕” down
     // with it and re-broke every following line of the chapter).
-    let after_joins_cjk = is_cjk_context(context.after)
-        || matches!(context.after, '\u{2014}' | '\u{2015}');
+    let after_joins_cjk =
+        is_cjk_context(context.after) || matches!(context.after, '\u{2014}' | '\u{2015}');
     if CLOSE_QUOTES.contains(&context.before)
         && after_joins_cjk
         && fullwidth_punctuation_class(context.after) != PunctuationClass::CloseOrStop
@@ -4791,7 +4753,8 @@ fn line_justify_plan(
     spread_ranges: &[std::ops::Range<usize>],
     atom_positions: &[usize],
 ) -> Option<JustifyPlan> {
-    if !(slack > 0.0) {
+    // Bails on NaN slack too: only a strictly positive slack justifies.
+    if slack.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
         return None;
     }
     let content = text.get(range.clone())?.trim_end();
@@ -5712,8 +5675,20 @@ fn line_end_trim_candidate(
 fn line_end_trim_eligible(character: char) -> bool {
     matches!(
         character,
-        '」' | '』' | '）' | '】' | '〕' | '》' | '〉' | '〗' | '〙' | '〛' | '｝' | '］'
-            | '｠' | '’' | '”'
+        '」' | '』'
+            | '）'
+            | '】'
+            | '〕'
+            | '》'
+            | '〉'
+            | '〗'
+            | '〙'
+            | '〛'
+            | '｝'
+            | '］'
+            | '｠'
+            | '’'
+            | '”'
     )
 }
 
@@ -5985,9 +5960,8 @@ pub fn plain_paragraph_style(
         Direction, FontStyleV1, FontWeight, InlineBidiV1, InlineFragmentStyleV1,
         InlinePaintStyleV1, InlineTextFlowV1, LengthPercentageOrAuto, LineBreak, NonNegativeCssPx,
         NonNegativeLengthPercentage, OverflowWrap, PhysicalSides, RubyAlign, TextAlign,
-        TextDecoration,
-        TextDecorationLines, TextDecorationStyle, TextIndent, TextJustify, TextTransform,
-        TextTransformCase, TextWrapMode, TransformListV1, UnicodeBidi, UnitInterval,
+        TextDecoration, TextDecorationLines, TextDecorationStyle, TextIndent, TextJustify,
+        TextTransform, TextTransformCase, TextWrapMode, TransformListV1, UnicodeBidi, UnitInterval,
         WhiteSpaceCollapse, WordBreak, WritingMode,
     };
     use std::sync::Arc;
@@ -6162,6 +6136,7 @@ enum PercentageImageSizing {
 /// (min/max-content) sizing there is none, and percentage-based fields are
 /// treated as their auto/none behavior per CSS. Everything else fails
 /// closed.
+#[allow(clippy::too_many_arguments)]
 fn image_display_size(
     intrinsic_width: f64,
     intrinsic_height: f64,
@@ -6225,22 +6200,20 @@ fn image_display_size(
                 .map(|basis| f64::from(length.get()) + f64::from(percentage.ratio()) * basis),
         }
     };
-    let preferred = |value: PreferredSizeV1,
-                     axis: &str,
-                     block: bool|
-     -> Result<Option<f64>, LayoutError> {
-        match value {
-            PreferredSizeV1::Auto => Ok(None),
-            PreferredSizeV1::Value(value) => Ok(if block {
-                resolve_block(value.value())
-            } else {
-                resolve(value.value())
-            }),
-            other => Err(LayoutError::Invalid(format!(
-                "image {axis} sizing {other:?} is not representable yet"
-            ))),
-        }
-    };
+    let preferred =
+        |value: PreferredSizeV1, axis: &str, block: bool| -> Result<Option<f64>, LayoutError> {
+            match value {
+                PreferredSizeV1::Auto => Ok(None),
+                PreferredSizeV1::Value(value) => Ok(if block {
+                    resolve_block(value.value())
+                } else {
+                    resolve(value.value())
+                }),
+                other => Err(LayoutError::Invalid(format!(
+                    "image {axis} sizing {other:?} is not representable yet"
+                ))),
+            }
+        };
     // The ELEMENT box of an svg-folded image sizes by the svg's own
     // viewBox ratio, not the inner raster's (they differ on covers:
     // viewBox 1434x2048 vs raster 1119x1600); the raster then
@@ -6387,9 +6360,7 @@ fn image_display_size(
 /// subpixel phase shifted and the whole line lit up as AA diff).
 fn resolved_text_indent(style: &InlineFormattingStyleV1) -> f32 {
     match style.text_flow.text_indent.value {
-        LengthPercentage::Length(px) => {
-            ((f64::from(px.get()) * 64.0).trunc() / 64.0) as f32
-        }
+        LengthPercentage::Length(px) => ((f64::from(px.get()) * 64.0).trunc() / 64.0) as f32,
         _ => 0.0,
     }
 }
@@ -6403,8 +6374,8 @@ mod tests {
         FontFamilies, FontFamilyName, FontStyleV1, FontWeight, InlineBidiV1, InlineFragmentStyleV1,
         InlinePaintStyleV1, InlineStyleTableV1, InlineTextFlowV1, LayoutStyleTableV1,
         LengthPercentageOrAuto, NonNegativeCssPx, NonNegativeLengthPercentage, PhysicalSides,
-        RubyAlign, TextAlign, TextDecoration, TextDecorationLines, TextDecorationStyle,
-        TextIndent, TextJustify, TextTransform, TextTransformCase, TextWrapMode, TransformListV1, UnitInterval,
+        RubyAlign, TextAlign, TextDecoration, TextDecorationLines, TextDecorationStyle, TextIndent,
+        TextJustify, TextTransform, TextTransformCase, TextWrapMode, TransformListV1, UnitInterval,
         WhiteSpaceCollapse, WordBreak,
     };
     use rito_style_contract::{Direction, LineBreak, OverflowWrap, UnicodeBidi, WritingMode};
@@ -6814,11 +6785,22 @@ running through the quiet forest until the morning light returns.";
         .expect("pinned serif reads");
         let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
         let mut inline = InlineStyleTableV1::new(4);
-        let families = || rito_style_contract::FontFamilies::new(vec![FontFamily::Named(
-            FontFamilyName::new("NoSuchFace"),
-        )]).expect("family list");
+        let families = || {
+            rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
+                "NoSuchFace",
+            ))])
+            .expect("family list")
+        };
         let mut items = Vec::new();
-        for (index, (text, size)) in [("为", 40.0), ("美", 48.0), ("好", 48.0), ("的\u{3000}\u{3000}\u{3000}", 40.0)].into_iter().enumerate() {
+        for (index, (text, size)) in [
+            ("为", 40.0),
+            ("美", 48.0),
+            ("好", 48.0),
+            ("的\u{3000}\u{3000}\u{3000}", 40.0),
+        ]
+        .into_iter()
+        .enumerate()
+        {
             let mut style = plain_paragraph_style(families(), size, 0.0);
             style.text_flow.text_align = TextAlign::Center;
             let style_id = inline.intern_for_node(index, style).expect("style interns");
@@ -6844,10 +6826,20 @@ running through the quiet forest until the morning light returns.";
         )
         .expect("inline tree builds");
         let outcome = context
-            .layout(&tree, tree.root(), &ConstraintSpace::continuous(319.055), None, &CancelFlag::new())
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(319.055),
+                None,
+                &CancelFlag::new(),
+            )
             .expect("layout succeeds");
-        let Fragment::Box(root) = &outcome.fragments.root else { panic!() };
-        let Fragment::Line(line) = &root.children[0] else { panic!() };
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!()
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!()
+        };
         let Some(Fragment::Text(first)) = line.children.first() else {
             panic!("line has runs");
         };
@@ -7011,14 +7003,28 @@ running through the quiet forest until the morning light returns.";
         )
         .expect("inline tree builds");
         let outcome = context
-            .layout(&tree, tree.root(), &ConstraintSpace::continuous(640.0), None, &CancelFlag::new())
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(640.0),
+                None,
+                &CancelFlag::new(),
+            )
             .expect("layout succeeds");
-        let Fragment::Box(root) = &outcome.fragments.root else { panic!() };
-        let Fragment::Line(line) = &root.children[0] else { panic!() };
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!()
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!()
+        };
         for child in &line.children {
             if let Fragment::Text(run) = child {
-                eprintln!("[sym] '{}' x={:.4} w={:.4}",
-                    &text[run.text_start as usize..run.text_end as usize], run.rect.x, run.rect.width);
+                eprintln!(
+                    "[sym] '{}' x={:.4} w={:.4}",
+                    &text[run.text_start as usize..run.text_end as usize],
+                    run.rect.x,
+                    run.rect.width
+                );
             }
         }
     }
@@ -7038,19 +7044,23 @@ running through the quiet forest until the morning light returns.";
         .expect("pinned serif reads");
         let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
         let mut inline = InlineStyleTableV1::new(2);
-        let families = || rito_style_contract::FontFamilies::new(vec![FontFamily::Named(
-            FontFamilyName::new("NoSuchFace"),
-        )]).expect("family list");
+        let families = || {
+            rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
+                "NoSuchFace",
+            ))])
+            .expect("family list")
+        };
         let plain = inline
             .intern_for_node(0, plain_paragraph_style(families(), 32.0, 0.0))
             .expect("style interns");
         let mut badge_style = plain_paragraph_style(families(), 22.4, 0.0);
-        badge_style.fragment.margin.left = rito_style_contract::LengthPercentageOrAuto::Value(
-            LengthPercentage::Percentage(
+        badge_style.fragment.margin.left =
+            rito_style_contract::LengthPercentageOrAuto::Value(LengthPercentage::Percentage(
                 rito_style_contract::Percentage::from_ratio(0.3).expect("finite ratio"),
-            ),
-        );
-        let badge = inline.intern_for_node(1, badge_style).expect("style interns");
+            ));
+        let badge = inline
+            .intern_for_node(1, badge_style)
+            .expect("style interns");
         let nodes = vec![FormattingNode {
             style: rito_style_contract::LayoutStyleId::from_raw(0),
             content: FormattingNodeContent::InlineFlow {
@@ -7081,7 +7091,13 @@ running through the quiet forest until the morning light returns.";
         )
         .expect("inline tree builds");
         let outcome = context
-            .layout(&tree, tree.root(), &ConstraintSpace::continuous(100.0), None, &CancelFlag::new())
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(100.0),
+                None,
+                &CancelFlag::new(),
+            )
             .expect("layout succeeds");
         let Fragment::Box(root) = &outcome.fragments.root else {
             panic!("root is a box");
@@ -7606,9 +7622,18 @@ running through the quiet forest until the morning light returns.";
         assert!(justify_expands_after('\u{25CB}'), "circle expands after");
         assert!(justify_expands_after('\u{25A0}'), "square expands after");
         assert!(justify_expands_after('\u{2605}'), "star expands after");
-        assert!(!justify_expands_after('\u{2220}'), "angle stays non-expansive");
-        assert!(!justify_expands_after('\u{2014}'), "em dash stays non-expansive");
-        assert!(!justify_expands_after('\u{03B1}'), "Greek alpha stays non-expansive");
+        assert!(
+            !justify_expands_after('\u{2220}'),
+            "angle stays non-expansive"
+        );
+        assert!(
+            !justify_expands_after('\u{2014}'),
+            "em dash stays non-expansive"
+        );
+        assert!(
+            !justify_expands_after('\u{03B1}'),
+            "Greek alpha stays non-expansive"
+        );
     }
 
     /// A kern pair straddling a line break does not apply: the browser
@@ -7677,9 +7702,7 @@ running through the quiet forest until the morning light returns.";
             .children
             .iter()
             .find_map(|child| match child {
-                Fragment::Text(run)
-                    if text[run.text_start as usize..].starts_with('レ') =>
-                {
+                Fragment::Text(run) if text[run.text_start as usize..].starts_with('レ') => {
                     Some(run)
                 }
                 _ => None,
@@ -7828,7 +7851,9 @@ running through the quiet forest until the morning light returns.";
                 &CancelFlag::new(),
             )
             .expect("layout succeeds");
-        let Fragment::Box(root) = &outcome.fragments.root else { panic!("box"); };
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("box");
+        };
         let mut lines = Vec::new();
         for child in &root.children {
             if let Fragment::Line(line) = child {
@@ -7903,7 +7928,9 @@ running through the quiet forest until the morning light returns.";
                 &CancelFlag::new(),
             )
             .expect("layout succeeds");
-        let Fragment::Box(root) = &outcome.fragments.root else { panic!("box"); };
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("box");
+        };
         let mut lines = Vec::new();
         for child in &root.children {
             if let Fragment::Line(line) = child {
@@ -7957,14 +7984,17 @@ the follower's punctuation class) is still unmeasured"]
         style.text_flow.text_align = TextAlign::Justify;
         let style_id = inline.intern_for_node(0, style).expect("style interns");
         let image_style = inline
-            .intern_for_node(1, plain_paragraph_style(
-                FontFamilies::new(vec![FontFamily::Generic(
-                    rito_style_contract::GenericFontFamily::Serif,
-                )])
-                .expect("family list"),
-                16.0,
-                0.0,
-            ))
+            .intern_for_node(
+                1,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Generic(
+                        rito_style_contract::GenericFontFamily::Serif,
+                    )])
+                    .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
             .expect("image style interns");
         let mut layout = LayoutStyleTableV1::new(1);
         let image_layout = layout
@@ -7994,7 +8024,8 @@ the follower's punctuation class) is still unmeasured"]
                             baseline_shift_px: 0.0,
                         },
                         InlineItem::Text {
-                            text: "丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥甲乙丙丁戊己庚辛".to_owned(),
+                            text: "丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥甲乙丙丁戊己庚辛"
+                                .to_owned(),
                             style: style_id,
                             baseline_shift_px: 0.0,
                             ruby_annotation: None,
@@ -8004,10 +8035,7 @@ the follower's punctuation class) is still unmeasured"]
                 children: Vec::new(),
             }],
             FormattingNodeId(0),
-            rito_fragment::FormattingTreeStyles {
-                layout,
-                inline,
-            },
+            rito_fragment::FormattingTreeStyles { layout, inline },
         )
         .expect("inline tree builds");
         let outcome = context
@@ -8019,8 +8047,12 @@ the follower's punctuation class) is still unmeasured"]
                 &CancelFlag::new(),
             )
             .expect("layout succeeds");
-        let Fragment::Box(root) = &outcome.fragments.root else { panic!("box"); };
-        let Fragment::Line(line) = &root.children[0] else { panic!("line"); };
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("box");
+        };
+        let Fragment::Line(line) = &root.children[0] else {
+            panic!("line");
+        };
         let mut image_x = None;
         let mut after_atom_x = None;
         let mut saw_image = false;
@@ -8067,7 +8099,12 @@ the follower's punctuation class) is still unmeasured"]
                 inside: LayoutDisplayInsideV1::Flow,
                 is_list_item: false,
             },
-            margin: PhysicalSides { top: auto, right: auto, bottom: auto, left: auto },
+            margin: PhysicalSides {
+                top: auto,
+                right: auto,
+                bottom: auto,
+                left: auto,
+            },
             padding: PhysicalSides {
                 top: zero_padding,
                 right: zero_padding,
@@ -8089,7 +8126,12 @@ the follower's punctuation class) is still unmeasured"]
             overflow: OverflowV1::Visible,
             list_style_type: ListMarkerStyleV1::None,
             position: PositionV1::Static,
-            inset: PhysicalSides { top: auto, right: auto, bottom: auto, left: auto },
+            inset: PhysicalSides {
+                top: auto,
+                right: auto,
+                bottom: auto,
+                left: auto,
+            },
             vertical_align: CellVerticalAlignV1::Baseline,
             border_spacing: (
                 NonNegativeCssPx::new(0.0).expect("zero"),
@@ -8312,7 +8354,8 @@ the follower's punctuation class) is still unmeasured"]
         style.text_flow.text_align = TextAlign::Justify;
         let mut inline = InlineStyleTableV1::new(1);
         let style_id = inline.intern_for_node(0, style).expect("style interns");
-        let text = "「原本打算自己吃的饼干，现在换成马剃同学吃了——知道这意味着什么吗？来，小鞠回答！」";
+        let text =
+            "「原本打算自己吃的饼干，现在换成马剃同学吃了——知道这意味着什么吗？来，小鞠回答！」";
         let pair = text.find('\u{2014}').expect("text has the dash pair");
         let nodes = vec![FormattingNode {
             style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -8349,7 +8392,9 @@ the follower's punctuation class) is still unmeasured"]
         };
         let mut carrier: Option<(usize, usize)> = None;
         for child in &root.children {
-            let Fragment::Line(line) = child else { continue };
+            let Fragment::Line(line) = child else {
+                continue;
+            };
             for run in &line.children {
                 let Fragment::Text(run) = run else { continue };
                 let (start, end) = (run.text_start as usize, run.text_end as usize);
@@ -8376,9 +8421,8 @@ the follower's punctuation class) is still unmeasured"]
     /// a mid-page line onto the wrong device row.
     #[test]
     fn a_number_line_height_multiplies_the_grid_rounded_font_size() {
-        let number = LineHeight::Number(
-            rito_style_contract::NonNegativeNumber::new(1.35).expect("finite"),
-        );
+        let number =
+            LineHeight::Number(rito_style_contract::NonNegativeNumber::new(1.35).expect("finite"));
         let used = |font_size: f32| {
             used_declared_line_height(number, f64::from(font_size)).expect("declared")
         };
@@ -8455,17 +8499,16 @@ the follower's punctuation class) is still unmeasured"]
                 .map(|child| child.rect().width)
                 .sum::<f64>()
         };
-        let text_item =
-            |text: &str, annotation: Option<&str>, style| InlineItem::Text {
-                text: text.to_owned(),
-                style,
-                baseline_shift_px: 0.0,
-                ruby_annotation: annotation.map(|note| rito_fragment::RubyAnnotation {
-                    text: note.to_owned(),
-                    size_ratio: 0.5,
-                    align: rito_style_contract::RubyAlign::SpaceAround
-                }),
-            };
+        let text_item = |text: &str, annotation: Option<&str>, style| InlineItem::Text {
+            text: text.to_owned(),
+            style,
+            baseline_shift_px: 0.0,
+            ruby_annotation: annotation.map(|note| rito_fragment::RubyAnnotation {
+                text: note.to_owned(),
+                size_ratio: 0.5,
+                align: rito_style_contract::RubyAlign::SpaceAround,
+            }),
+        };
         let merged = lay(&|style| vec![text_item("ウ，可", None, style)]);
         assert!(
             (merged - 44.384).abs() < 0.05,
@@ -8584,7 +8627,7 @@ the follower's punctuation class) is still unmeasured"]
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         ),
-            border_collapse: false,
+                        border_collapse: false,
                     },
                 )
                 .expect("layout style interns");
@@ -8747,7 +8790,7 @@ the follower's punctuation class) is still unmeasured"]
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         ),
-            border_collapse: false,
+                        border_collapse: false,
                     },
                 )
                 .expect("layout style interns");
@@ -8891,7 +8934,7 @@ the follower's punctuation class) is still unmeasured"]
                 ruby_annotation: Some(rito_fragment::RubyAnnotation {
                     text: "Shouichi".to_owned(),
                     size_ratio: 0.7,
-                    align: rito_style_contract::RubyAlign::SpaceAround
+                    align: rito_style_contract::RubyAlign::SpaceAround,
                 }),
             },
             InlineItem::Text {
@@ -9020,7 +9063,7 @@ the follower's punctuation class) is still unmeasured"]
                             ruby_annotation: Some(rito_fragment::RubyAnnotation {
                                 text: "Shouko".to_owned(),
                                 size_ratio: 0.7,
-                                align: rito_style_contract::RubyAlign::SpaceAround
+                                align: rito_style_contract::RubyAlign::SpaceAround,
                             }),
                         },
                         InlineItem::Text {
@@ -9140,7 +9183,7 @@ the follower's punctuation class) is still unmeasured"]
             ruby_annotation: Some(rito_fragment::RubyAnnotation {
                 text: ann.to_owned(),
                 size_ratio: 0.7,
-                align: rito_style_contract::RubyAlign::SpaceAround
+                align: rito_style_contract::RubyAlign::SpaceAround,
             }),
         };
         let text = |t: &str| InlineItem::Text {
@@ -9218,8 +9261,8 @@ the follower's punctuation class) is still unmeasured"]
     }
 
     /// #71 advance-sum autopsy: the b20 badge line replica. Truth
-    /// (b20-line.json, Range per-char): 14 chars 居然能一人給一套這麼合適的振袖
-    /// + note badge (w 13.671875) + ，有錢人果然猛。… on a justified
+    /// (b20-line.json, Range per-char): 14 chars 居然能一人給一套這麼合適的振袖 plus
+    /// note badge (w 13.671875) plus ，有錢人果然猛。… on a justified
     /// 15.2px line of width 590.78125; the ， inks at 247.640625 from
     /// the line start (= floor64 of the float cumulative). If the
     /// engine's float basis (advances + share + atom accounting)
@@ -9302,7 +9345,7 @@ the follower's punctuation class) is still unmeasured"]
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
-            border_collapse: false,
+                    border_collapse: false,
                 },
             )
             .expect("layout style interns");
@@ -9371,7 +9414,10 @@ the follower's punctuation class) is still unmeasured"]
                     }
                 }
                 Fragment::Image(image) => {
-                    eprintln!("[badge] atom x={:.6} w={:.6}", image.rect.x, image.rect.width);
+                    eprintln!(
+                        "[badge] atom x={:.6} w={:.6}",
+                        image.rect.x, image.rect.width
+                    );
                 }
                 _ => {}
             }
@@ -9663,11 +9709,7 @@ the follower's punctuation class) is still unmeasured"]
         let Fragment::Line(first) = &root.children[0] else {
             panic!("first child is a line");
         };
-        let first_width: f64 = first
-            .children
-            .iter()
-            .map(|child| child.rect().width)
-            .sum();
+        let first_width: f64 = first.children.iter().map(|child| child.rect().width).sum();
         assert!(
             (first_width - 168.0).abs() < 0.1,
             "the kept closer advances half an em: {first_width}"
@@ -9677,7 +9719,11 @@ the follower's punctuation class) is still unmeasured"]
         // early, dragging the kinsoku-chained ideograph down with it.
         let outcome = lay(&text, 167.0);
         let lines = line_texts(&outcome, &text);
-        assert_eq!(lines[0], "永".repeat(9), "no trim when the half does not fit");
+        assert_eq!(
+            lines[0],
+            "永".repeat(9),
+            "no trim when the half does not fit"
+        );
 
         // At 176 the full-width closer fits: nothing is trimmed.
         let outcome = lay(&text, 176.0);
@@ -9689,11 +9735,7 @@ the follower's punctuation class) is still unmeasured"]
         let Fragment::Line(first) = &root.children[0] else {
             panic!("first child is a line");
         };
-        let first_width: f64 = first
-            .children
-            .iter()
-            .map(|child| child.rect().width)
-            .sum();
+        let first_width: f64 = first.children.iter().map(|child| child.rect().width).sum();
         assert!(
             (first_width - 176.0).abs() < 0.1,
             "a closer that fits keeps its full advance: {first_width}"
@@ -9771,7 +9813,11 @@ the follower's punctuation class) is still unmeasured"]
             "永".repeat(11),
             "the widened first line holds one extra ideograph"
         );
-        assert_eq!(lines[1], "永".repeat(10), "continuation lines are unwidened");
+        assert_eq!(
+            lines[1],
+            "永".repeat(10),
+            "continuation lines are unwidened"
+        );
         let Fragment::Box(root) = &outcome.fragments.root else {
             panic!("root is a box");
         };
@@ -10119,16 +10165,22 @@ the follower's punctuation class) is still unmeasured"]
         // unchanged; only the comma's own x shifts one share left.
         let text = "中中，中";
         let atoms = vec![6usize];
-        let plan =
-            line_justify_plan(text, 0..text.len(), 5.0, &[], &atoms).expect("plan builds");
-        assert_eq!(plan.share, 1.25, "4 opportunities: deferral keeps the total");
+        let plan = line_justify_plan(text, 0..text.len(), 5.0, &[], &atoms).expect("plan builds");
+        assert_eq!(
+            plan.share, 1.25,
+            "4 opportunities: deferral keeps the total"
+        );
         assert_eq!(plan.count_at(3), 1);
         assert_eq!(
             plan.count_at(6),
             1,
             "only the [text|atom] boundary at the comma's key; [atom|，] defers"
         );
-        assert_eq!(plan.count_at(9), 2, "the deferred share lands after the comma");
+        assert_eq!(
+            plan.count_at(9),
+            2,
+            "the deferred share lands after the comma"
+        );
         assert_eq!(
             plan.atom_shares_at(6, 0),
             Some(2),
@@ -10136,7 +10188,11 @@ the follower's punctuation class) is still unmeasured"]
         );
         let control =
             line_justify_plan(text, 0..text.len(), 5.0, &[], &[]).expect("control plan builds");
-        assert_eq!(control.share, 5.0 / 3.0, "without the atom: 3 opportunities");
+        assert_eq!(
+            control.share,
+            5.0 / 3.0,
+            "without the atom: 3 opportunities"
+        );
     }
 
     #[test]
@@ -10215,7 +10271,13 @@ the follower's punctuation class) is still unmeasured"]
         let constraint = ConstraintSpace::continuous(10_000.0);
         let sup_key = "\u{E00C}0.8000:20.796875";
         let _ = context
-            .layout(&tree, FormattingNodeId(0), &constraint, None, &CancelFlag::new())
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &constraint,
+                None,
+                &CancelFlag::new(),
+            )
             .expect("first layout succeeds");
         let requests = context.take_host_metric_requests();
         assert!(
@@ -10236,7 +10298,13 @@ the follower's punctuation class) is still unmeasured"]
             },
         );
         let outcome = context
-            .layout(&tree, FormattingNodeId(0), &constraint, None, &CancelFlag::new())
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &constraint,
+                None,
+                &CancelFlag::new(),
+            )
             .expect("measured layout succeeds");
         let Fragment::Box(root) = &outcome.fragments.root else {
             panic!("root is a box");
@@ -10357,7 +10425,7 @@ the follower's punctuation class) is still unmeasured"]
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
-            border_collapse: false,
+                    border_collapse: false,
                 },
             )
             .expect("layout style interns");
@@ -10372,7 +10440,7 @@ the follower's punctuation class) is still unmeasured"]
                         ruby_annotation: None,
                     },
                     InlineItem::Image {
-                    source: 0,
+                        source: 0,
                         src: "images/note.png".to_owned(),
                         intrinsic_width: 500.0,
                         intrinsic_height: 500.0,
@@ -10495,7 +10563,7 @@ the follower's punctuation class) is still unmeasured"]
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
-            border_collapse: false,
+                    border_collapse: false,
                 },
             )
             .expect("layout style interns");
@@ -10510,7 +10578,7 @@ the follower's punctuation class) is still unmeasured"]
                         ruby_annotation: None,
                     },
                     InlineItem::Image {
-                    source: 0,
+                        source: 0,
                         src: "images/figure.png".to_owned(),
                         intrinsic_width: 40.0,
                         intrinsic_height: 30.0,
@@ -10726,9 +10794,7 @@ the follower's punctuation class) is still unmeasured"]
             0.0,
         );
         let mut inline = InlineStyleTableV1::new(1);
-        let interned = inline
-            .intern_for_node(0, style)
-            .expect("style interns");
+        let interned = inline.intern_for_node(0, style).expect("style interns");
         let nodes = vec![FormattingNode {
             style: rito_style_contract::LayoutStyleId::from_raw(0),
             content: FormattingNodeContent::InlineFlow {
@@ -10746,7 +10812,7 @@ the follower's punctuation class) is still unmeasured"]
                         ruby_annotation: Some(rito_fragment::RubyAnnotation {
                             text: "an".to_owned(),
                             size_ratio: 0.5,
-                            align: rito_style_contract::RubyAlign::SpaceAround
+                            align: rito_style_contract::RubyAlign::SpaceAround,
                         }),
                     },
                 ],
@@ -10826,7 +10892,7 @@ the follower's punctuation class) is still unmeasured"]
                             // base, so no space-around spread joins in).
                             text: "wwwwww".to_owned(),
                             size_ratio: 0.5,
-                            align: rito_style_contract::RubyAlign::SpaceAround
+                            align: rito_style_contract::RubyAlign::SpaceAround,
                         }),
                     },
                 ],
@@ -10924,8 +10990,14 @@ the follower's punctuation class) is still unmeasured"]
             .iter()
             .filter(|child| matches!(child, Fragment::Line(_)))
             .collect();
-        assert_eq!(lines.len(), 1, "the zero-line-height paragraph keeps its line");
-        let Fragment::Line(line) = lines[0] else { unreachable!() };
+        assert_eq!(
+            lines.len(),
+            1,
+            "the zero-line-height paragraph keeps its line"
+        );
+        let Fragment::Line(line) = lines[0] else {
+            unreachable!()
+        };
         assert!(
             line.children
                 .iter()
@@ -10973,7 +11045,7 @@ the follower's punctuation class) is still unmeasured"]
                         ruby_annotation: Some(rito_fragment::RubyAnnotation {
                             text: "annotation".to_owned(),
                             size_ratio: ratio,
-                            align: rito_style_contract::RubyAlign::SpaceAround
+                            align: rito_style_contract::RubyAlign::SpaceAround,
                         }),
                     },
                     InlineItem::Text {
@@ -11045,5 +11117,4 @@ the follower's punctuation class) is still unmeasured"]
             "the neighbour starts right after the spread base"
         );
     }
-
 }

@@ -90,7 +90,13 @@ impl RuntimeDocument {
         loop {
             let outcome = engine
                 .engine
-                .layout(&built.tree, built.tree.root(), &space, token.as_ref(), &cancel)
+                .layout(
+                    &built.tree,
+                    built.tree.root(),
+                    &space,
+                    token.as_ref(),
+                    &cancel,
+                )
                 .map_err(|error| {
                     EpubError::new(format!("probe pagination failed on page {page}: {error:?}"))
                 })?;
@@ -106,7 +112,9 @@ impl RuntimeDocument {
             }
             page += 1;
             if page > 2000 {
-                return Err(EpubError::new("probe pagination did not converge".to_owned()));
+                return Err(EpubError::new(
+                    "probe pagination did not converge".to_owned(),
+                ));
             }
             match outcome.continuation {
                 Some(next) => token = Some(next),
@@ -133,15 +141,12 @@ fn collect_probe_blocks(
     blocks: &mut Vec<ProbeBlock>,
 ) {
     if let Fragment::Box(inner) = fragment {
-        let style = built
-            .tree
-            .styles()
-            .and_then(|styles| {
-                styles
-                    .layout
-                    .style(built.tree.node(inner.source).style)
-                    .ok()
-            });
+        let style = built.tree.styles().and_then(|styles| {
+            styles
+                .layout
+                .style(built.tree.node(inner.source).style)
+                .ok()
+        });
         blocks.push(ProbeBlock {
             page: 0,
             x: x_offset + inner.rect.x,
@@ -157,7 +162,13 @@ fn collect_probe_blocks(
                 .unwrap_or_default(),
         });
         for child in &inner.children {
-            collect_probe_blocks(child, built, x_offset + inner.rect.x, y_offset + inner.rect.y, blocks);
+            collect_probe_blocks(
+                child,
+                built,
+                x_offset + inner.rect.x,
+                y_offset + inner.rect.y,
+                blocks,
+            );
         }
     }
 }

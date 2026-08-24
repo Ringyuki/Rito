@@ -127,8 +127,7 @@ fn background_messages_are_fixed_width_or_length_framed_and_round_trip() {
         // moves-visible-content flag + the nested blob's length.
         let prefix = usize::try_from(READER_BACKGROUND_ADVANCE_WIRE_PREFIX_BYTES_V1).unwrap();
         if advance.artifact.is_some() {
-            let nested_length =
-                u64::from_le_bytes(wire[prefix - 8..prefix].try_into().unwrap());
+            let nested_length = u64::from_le_bytes(wire[prefix - 8..prefix].try_into().unwrap());
             assert_eq!(usize::try_from(nested_length).unwrap(), wire.len() - prefix);
             assert_eq!(&wire[prefix..prefix + 8], b"RITOART1");
         } else {

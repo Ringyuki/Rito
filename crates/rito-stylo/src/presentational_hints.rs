@@ -151,14 +151,14 @@ mod tests {
     #[test]
     fn accepts_svg_geometry_values_the_css_grammar_accepts() {
         for value in [
-            "100%",     // the SVG-wrapped image idiom
-            "240",      // bare user units are px
-            " 613\t",   // XML white space around the value
-            "12.5",     // fractional user units
-            "1e2",      // SVG number grammar carries an exponent
-            "40px",     // explicit CSS length
-            "auto",     // width/height accept auto
-            "10em",     // font-relative lengths are valid CSS widths
+            "100%",   // the SVG-wrapped image idiom
+            "240",    // bare user units are px
+            " 613\t", // XML white space around the value
+            "12.5",   // fractional user units
+            "1e2",    // SVG number grammar carries an exponent
+            "40px",   // explicit CSS length
+            "auto",   // width/height accept auto
+            "10em",   // font-relative lengths are valid CSS widths
         ] {
             assert!(
                 supports_svg_geometry_presentational_hint(value),
@@ -188,17 +188,17 @@ mod tests {
     #[test]
     fn rejects_svg_geometry_values_browsers_also_ignore() {
         for value in [
-            "",               // empty attribute
-            " \t\r\n",        // white space only
-            "-5",             // negative lengths are invalid for width/height
-            "abc",            // not a length
-            "100 %",          // broken percentage
-            "100%;height:3px", // declaration smuggling
+            "",                 // empty attribute
+            " \t\r\n",          // white space only
+            "-5",               // negative lengths are invalid for width/height
+            "abc",              // not a length
+            "100 %",            // broken percentage
+            "100%;height:3px",  // declaration smuggling
             "100% ! important", // priority smuggling
-            "var(--x)",       // custom-property references are not attribute grammar
-            "calc(",          // unbalanced
-            "nan",            // f64-parseable but not an SVG number
-            "inf",            // likewise
+            "var(--x)",         // custom-property references are not attribute grammar
+            "calc(",            // unbalanced
+            "nan",              // f64-parseable but not an SVG number
+            "inf",              // likewise
         ] {
             assert!(
                 !supports_svg_geometry_presentational_hint(value),

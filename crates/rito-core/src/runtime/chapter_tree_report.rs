@@ -248,9 +248,9 @@ impl RuntimeDocument {
         use rito_fragment::{CancelFlag, ConstraintSpace, FormattingContext, Fragment};
 
         let built = self.chapter_formatting_tree_unfiltered(revision_id, idref)?;
-        let engine = self.fragment_engine().ok_or_else(|| {
-            crate::epub::EpubError::new("no fragment engine (no pinned faces)")
-        })?;
+        let engine = self
+            .fragment_engine()
+            .ok_or_else(|| crate::epub::EpubError::new("no fragment engine (no pinned faces)"))?;
         let space = ConstraintSpace::continuous(content_width);
         let outcome = engine
             .engine
@@ -388,9 +388,7 @@ impl RuntimeDocument {
             .into_iter()
             .map(|(family, size, sample)| {
                 let measure = match &policy {
-                    Some(policy) => {
-                        crate::fragment_paint::measure_family_stack(&family, policy)
-                    }
+                    Some(policy) => crate::fragment_paint::measure_family_stack(&family, policy),
                     None => family.clone(),
                 };
                 (family, measure, size, sample)

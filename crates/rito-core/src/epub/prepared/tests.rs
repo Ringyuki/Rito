@@ -91,7 +91,8 @@ fn unparseable_chapter_still_degrades_to_the_warning_fallback() {
     // An unterminated tag (no closing `>`) is beyond both
     // character-level repair and the tag-pairing recovery (unclosed
     // ELEMENTS now close implicitly, the way a browser recovers).
-    let prepared = parse_loaded_chapter_source(&chapter("<html><body><p>a <b broken</p></body></html>"));
+    let prepared =
+        parse_loaded_chapter_source(&chapter("<html><body><p>a <b broken</p></body></html>"));
 
     assert!(prepared.source_arena.is_none());
     assert!(prepared.parsed.nodes.is_empty());

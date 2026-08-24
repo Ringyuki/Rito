@@ -6,18 +6,18 @@ use std::{
 
 use rito_core::runtime::{
     decode_reader_artifact_v1, decode_reader_background_advance_v1,
-    decode_reader_background_handoff_ack_v1, decode_reader_foreground_handoff_ack_v1,
-    decode_reader_footnote_v1, decode_reader_publication_v1, decode_reader_resource_v1,
-    decode_reader_search_response_v1, decode_reader_text_range_geometry_v1,
-    encode_reader_search_request_v1, encode_reader_text_range_request_v1, ReaderSearchRequestV1,
-    ReaderTextPositionV1, ReaderTextRangeRequestV1,
-    encode_reader_adjacent_request_v1,
+    decode_reader_background_handoff_ack_v1, decode_reader_footnote_v1,
+    decode_reader_foreground_handoff_ack_v1, decode_reader_publication_v1,
+    decode_reader_resource_v1, decode_reader_search_response_v1,
+    decode_reader_text_range_geometry_v1, encode_reader_adjacent_request_v1,
     encode_reader_artifact_request_v1, encode_reader_background_handoff_v1,
     encode_reader_background_request_v1, encode_reader_foreground_handoff_v1,
+    encode_reader_search_request_v1, encode_reader_text_range_request_v1,
     ReaderAdjacentDirectionV1, ReaderAdjacentRequestV1, ReaderArtifactRequestV1,
     ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderBackgroundStateV1,
     ReaderErrorKindV1, ReaderErrorV1, ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1,
-    ReaderResourceKindV1, ReaderSpreadModeV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
+    ReaderResourceKindV1, ReaderSearchRequestV1, ReaderSpreadModeV1, ReaderTextPositionV1,
+    ReaderTextRangeRequestV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
     READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES_V1, READER_FOREGROUND_HANDOFF_WIRE_BYTES_V1,
     READER_WIRE_HEADER_BYTES_V1,
 };
@@ -25,20 +25,17 @@ use rito_core::runtime::{
 use crate::{
     abi::copy_owned_buffer_for_test, error::FfiError, rito_adopt_background_candidate_v1,
     rito_adopt_foreground_candidate_v1, rito_advance_background_v1, rito_buffer_free_v1,
-    rito_commit_peeked_artifact_v1, rito_dispose_v1, rito_open_v1,
-    rito_open_with_pinned_fonts_v1, rito_peek_adjacent_v1, rito_read_publication_v1,
-    rito_get_text_range_geometry_v1, rito_read_footnote_v1, rito_read_resource_v1,
-    rito_search_v1,
-    rito_release_artifact_v1,
-    rito_request_adjacent_v1,
-    rito_request_artifact_v1, RitoOwnedBufferV1, RitoPinnedFontFaceV1,
-    RITO_ACTOR_MAX_IN_FLIGHT_V1, RITO_PINNED_FONT_ROLE_SERIF_V1,
-    RITO_PUBLICATION_WIRE_BYTES_MAX_V1,
-    RITO_RESOURCE_KIND_IMAGE_V1, RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_ALREADY_EXISTS_V1,
-    RITO_STATUS_BUSY_V1, RITO_STATUS_EXACT_SEEK_PENDING_V1, RITO_STATUS_INVALID_ARGUMENT_V1,
-    RITO_STATUS_NOT_FOUND_V1, RITO_STATUS_OK_V1, RITO_STATUS_QUEUE_FULL_V1,
-    RITO_STATUS_SESSION_TERMINATED_V1, RITO_STATUS_STALE_REQUEST_V1,
-    RITO_STATUS_TARGET_NOT_PUBLISHED_V1, RITO_STATUS_UNSUPPORTED_PROFILE_V1,
+    rito_commit_peeked_artifact_v1, rito_dispose_v1, rito_get_text_range_geometry_v1, rito_open_v1,
+    rito_open_with_pinned_fonts_v1, rito_peek_adjacent_v1, rito_read_footnote_v1,
+    rito_read_publication_v1, rito_read_resource_v1, rito_release_artifact_v1,
+    rito_request_adjacent_v1, rito_request_artifact_v1, rito_search_v1, RitoOwnedBufferV1,
+    RitoPinnedFontFaceV1, RITO_ACTOR_MAX_IN_FLIGHT_V1, RITO_PINNED_FONT_ROLE_SERIF_V1,
+    RITO_PUBLICATION_WIRE_BYTES_MAX_V1, RITO_RESOURCE_KIND_IMAGE_V1,
+    RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_ALREADY_EXISTS_V1, RITO_STATUS_BUSY_V1,
+    RITO_STATUS_EXACT_SEEK_PENDING_V1, RITO_STATUS_INVALID_ARGUMENT_V1, RITO_STATUS_NOT_FOUND_V1,
+    RITO_STATUS_OK_V1, RITO_STATUS_QUEUE_FULL_V1, RITO_STATUS_SESSION_TERMINATED_V1,
+    RITO_STATUS_STALE_REQUEST_V1, RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
+    RITO_STATUS_UNSUPPORTED_PROFILE_V1,
 };
 
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(10_000);
@@ -980,10 +977,11 @@ fn adjacent_wire(session_id: u64, request_id: u64, from_artifact_id: u64) -> Vec
 #[test]
 fn pinned_font_open_declares_embedded_publication_faces() {
     let session_id = next_session_id();
-    let epub_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/reader/src/assets/demo.epub");
+    let epub_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/reader/src/assets/demo.epub");
     let epub = fs::read(epub_path).expect("demo fixture is readable");
-    let pinned_path =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/reader/src/assets/fonts/Tinos-Regular.ttf");
+    let pinned_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../apps/reader/src/assets/fonts/Tinos-Regular.ttf");
     let pinned = fs::read(pinned_path).expect("pinned face is readable");
     let sha256 = {
         use sha2::{Digest, Sha256};
@@ -1078,7 +1076,11 @@ fn peek_and_commit_round_trip_without_foreground_side_effects() {
         })
         .expect("handoff encodes"),
     );
-    assert_eq!(adopted_next.status, RITO_STATUS_OK_V1, "{}", adopted_next.error);
+    assert_eq!(
+        adopted_next.status, RITO_STATUS_OK_V1,
+        "{}",
+        adopted_next.error
+    );
 
     let peek_wire = encode_reader_adjacent_request_v1(&ReaderAdjacentRequestV1 {
         session_id,
@@ -1146,9 +1148,8 @@ fn footnote_hits_read_back_through_the_abi() {
     // The corpus book carries real notereds; walk forward until a page
     // publishes one, then read its definition with the key verbatim.
     let mut current = artifact;
-    let mut request_id = 2;
     let mut found = None;
-    for _ in 0..24 {
+    for request_id in 2..26 {
         if let Some(key) = current
             .pages
             .iter()
@@ -1166,7 +1167,6 @@ fn footnote_hits_read_back_through_the_abi() {
             work: request(session_id).work,
         })
         .expect("adjacent encodes");
-        request_id += 1;
         let next = call_request_adjacent(session_id, &wire);
         if next.status != RITO_STATUS_OK_V1 {
             break;
@@ -1177,8 +1177,7 @@ fn footnote_hits_read_back_through_the_abi() {
     if let Some((artifact_id, key)) = found {
         let result = call_read_footnote(session_id, artifact_id, key.as_bytes());
         assert_eq!(result.status, RITO_STATUS_OK_V1, "{}", result.error);
-        let footnote =
-            decode_reader_footnote_v1(&result.resource).expect("footnote wire decodes");
+        let footnote = decode_reader_footnote_v1(&result.resource).expect("footnote wire decodes");
         assert_eq!(footnote.key, key);
         assert_eq!(footnote.artifact_id, artifact_id);
         assert!(!footnote.text.is_empty(), "{footnote:?}");
@@ -1202,13 +1201,8 @@ fn text_range_geometry_crosses_the_abi_in_display_list_space() {
     let mut artifact = decode_reader_artifact_v1(&opened.artifact).expect("artifact decodes");
     // The opening spread of the corpus book can be a plate with no text
     // runs; walk forward until a page actually carries one.
-    let mut request_id = 2;
-    for _ in 0..12 {
-        if artifact
-            .pages
-            .iter()
-            .any(|page| !page.text_runs.is_empty())
-        {
+    for request_id in 2..14 {
+        if artifact.pages.iter().any(|page| !page.text_runs.is_empty()) {
             break;
         }
         let wire = encode_reader_adjacent_request_v1(&ReaderAdjacentRequestV1 {
@@ -1219,7 +1213,6 @@ fn text_range_geometry_crosses_the_abi_in_display_list_space() {
             work: request(session_id).work,
         })
         .expect("adjacent encodes");
-        request_id += 1;
         let next = call_request_adjacent(session_id, &wire);
         if next.status != RITO_STATUS_OK_V1 {
             break;

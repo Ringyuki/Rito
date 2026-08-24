@@ -52,6 +52,7 @@ fn first_inline_strut(
 
 /// Lays `tree` out page by page into `content_width` × `content_height`
 /// fragmentainers and paints each page at `(origin_x, origin_y)`.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn paginate_chapter(
     engine: &dyn FormattingContext,
     tree: &FormattingTree,
@@ -85,7 +86,11 @@ pub(crate) fn paginate_chapter(
         vertical_frame: vertical.then_some((origin_x + content_width, origin_y)),
         ..paint_context
     };
-    let (origin_x, origin_y) = if vertical { (0.0, 0.0) } else { (origin_x, origin_y) };
+    let (origin_x, origin_y) = if vertical {
+        (0.0, 0.0)
+    } else {
+        (origin_x, origin_y)
+    };
     let mut token = None;
     let mut pages = Vec::new();
     loop {

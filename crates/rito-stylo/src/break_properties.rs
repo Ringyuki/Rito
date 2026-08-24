@@ -275,7 +275,11 @@ pub(crate) fn project_border_collapse(styles: &ComputedValues) -> bool {
     custom
         .inherited
         .get(&Atom::from(BORDER_COLLAPSE_ATOM_NAME))
-        .or_else(|| custom.non_inherited.get(&Atom::from(BORDER_COLLAPSE_ATOM_NAME)))
+        .or_else(|| {
+            custom
+                .non_inherited
+                .get(&Atom::from(BORDER_COLLAPSE_ATOM_NAME))
+        })
         .map(|value| value.to_css_string())
         .is_some_and(|value| value.trim().eq_ignore_ascii_case("collapse"))
 }

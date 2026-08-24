@@ -738,10 +738,7 @@ fn three_published_flips_reuse_revision_without_reflow() {
         artifacts.push(next);
     }
 
-    assert_eq!(
-        session.live_artifact_count(),
-        READER_LIVE_ARTIFACT_CAP_V1
-    );
+    assert_eq!(session.live_artifact_count(), READER_LIVE_ARTIFACT_CAP_V1);
     let capped = session
         .request_adjacent(adjacent(
             61,
@@ -1567,7 +1564,15 @@ fn collect_double_spread_text(
 #[test]
 fn previous_chapter_tail_publishes_when_the_chapter_completes_within_budget() {
     use crate::runtime::tests::fixture::short_previous_chapter_fixture_epub;
-    for tail in ["text", "trailing-image", "image-only", "hidden-tail", "ruby-tail", "svg-image", "empty-tail"] {
+    for tail in [
+        "text",
+        "trailing-image",
+        "image-only",
+        "hidden-tail",
+        "ruby-tail",
+        "svg-image",
+        "empty-tail",
+    ] {
         let mut session =
             ReaderSessionV1::open_owned(97, short_previous_chapter_fixture_epub(tail))
                 .expect("reader session opens");
@@ -2065,8 +2070,9 @@ fn reader_layout(config: &crate::layout::LayoutConfig) -> ReaderLayoutV1 {
 
 #[test]
 fn text_range_geometry_lands_in_display_list_space() {
-    let mut session = ReaderSessionV1::open_owned(160, crate::runtime::tests::fixture::fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        ReaderSessionV1::open_owned(160, crate::runtime::tests::fixture::fixture_epub())
+            .expect("reader session opens");
     let artifact = session
         .request_artifact(request(160, 1, ""))
         .expect("artifact resolves");

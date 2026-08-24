@@ -278,7 +278,6 @@ struct ArtifactBuilder<'a> {
     semantics: Vec<FragmentSemanticRecord>,
 }
 
-
 impl ArtifactBuilder<'_> {
     fn collect(
         &mut self,

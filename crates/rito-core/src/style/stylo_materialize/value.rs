@@ -25,7 +25,6 @@ pub(crate) enum MaterializeField {
     Padding,
     Width,
     Height,
-    MaxWidth,
     Inset,
 }
 

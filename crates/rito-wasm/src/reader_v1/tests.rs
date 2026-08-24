@@ -410,8 +410,9 @@ fn background_handoff_and_adopted_adjacent_are_byte_identical_to_core() {
                 .expect("completion handoff decodes"),
         )
         .expect("direct completion candidate adopts");
-    let direct_completion_ack_wire = encode_reader_background_handoff_ack_v1(&direct_completion_ack)
-        .expect("direct completion ack encodes");
+    let direct_completion_ack_wire =
+        encode_reader_background_handoff_ack_v1(&direct_completion_ack)
+            .expect("direct completion ack encodes");
     let wasm_completion_ack_wire = wasm
         .adopt_background_candidate_v1(completion_handoff)
         .unwrap_or_else(|_| panic!("WASM completion candidate adopts"));

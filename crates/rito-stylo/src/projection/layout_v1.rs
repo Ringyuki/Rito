@@ -2,13 +2,12 @@ use std::{collections::HashMap, fmt};
 
 use rito_source::NodeId;
 use rito_style_contract::{
-    AlignItemsV1, ClearV1, CssPx, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
-    LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleId,
-    CellVerticalAlignV1, LayoutStyleTableError, LayoutStyleTableV1, LengthPercentage,
-    LengthPercentageOrAuto,
-    ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, NonNegativeCssPx,
-    NonNegativeLengthPercentage, NumericError, OverflowV1, PageBreakV1, Percentage, PhysicalSides,
-    PositionV1, PreferredSizeV1,
+    AlignItemsV1, CellVerticalAlignV1, ClearV1, CssPx, FloatV1, JustifyContentV1,
+    LayoutDisplayInsideV1, LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1,
+    LayoutStyleId, LayoutStyleTableError, LayoutStyleTableV1, LengthPercentage,
+    LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1,
+    NonNegativeCssPx, NonNegativeLengthPercentage, NumericError, OverflowV1, PageBreakV1,
+    Percentage, PhysicalSides, PositionV1, PreferredSizeV1,
 };
 use style::{
     counter_style::CounterStyle,
@@ -207,10 +206,7 @@ fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingSty
             // registered custom property only accepts lengths, and the
             // parser floors them at zero.
             let (horizontal, vertical) = crate::break_properties::project_border_spacing(styles);
-            (
-                non_negative_px(horizontal),
-                non_negative_px(vertical),
-            )
+            (non_negative_px(horizontal), non_negative_px(vertical))
         },
         border_collapse: crate::break_properties::project_border_collapse(styles),
         margin: margin(styles)?,

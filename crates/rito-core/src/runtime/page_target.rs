@@ -322,8 +322,7 @@ impl<'a> RuntimeFootnoteHitResolver<'a> {
     /// its definition is still awaiting indexing. `None` for anything
     /// that is not a semantic noteref.
     pub(super) fn resolve(&self, href: &str) -> Option<(String, bool)> {
-        let canonical =
-            canonical_destination(self.document, self.context, self.chapter, href).href;
+        let canonical = canonical_destination(self.document, self.context, self.chapter, href).href;
         match target_kind(self.revision, Some(canonical.as_str()), None) {
             RuntimePageTargetKind::Footnote => Some((canonical, false)),
             RuntimePageTargetKind::FootnotePending => Some((canonical, true)),

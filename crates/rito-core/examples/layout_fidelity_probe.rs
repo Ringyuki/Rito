@@ -96,7 +96,7 @@ fn main() {
     let bytes = std::fs::read(&request.epub_path).expect("epub reads");
     let spread_count = request.spread_count.unwrap_or(6);
 
-    let mut collect = |fragment: bool| -> (usize, Vec<ProbeSpread>) {
+    let collect = |fragment: bool| -> (usize, Vec<ProbeSpread>) {
         let mut document = RuntimeDocument::open_with_pinned_font_policy(&bytes, policy.clone())
             .expect("document opens");
         document.set_fragment_page_table_enabled(fragment);

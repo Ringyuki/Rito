@@ -558,9 +558,7 @@ impl<B: Brush> LayoutData<B> {
             // keeps it (a float shrink-to-fit box ending in nbsp sizes
             // wider than its space-tailed control by the nbsp advance).
             cluster
-                .filter(|cluster| {
-                    cluster.info.whitespace() == crate::analysis::cluster::Whitespace::Space
-                })
+                .filter(|cluster| cluster.info.whitespace() == Whitespace::Space)
                 .map_or(0.0, |cluster| cluster.advance)
         }
 
@@ -606,9 +604,7 @@ impl<B: Brush> LayoutData<B> {
                             // boundary lands on the NEXT cluster, and the
                             // trailing-whitespace trim there needs the
                             // space BEFORE the newline, not the newline.
-                            if cluster.info.whitespace()
-                                != crate::analysis::cluster::Whitespace::Newline
-                            {
+                            if cluster.info.whitespace() != Whitespace::Newline {
                                 prev_cluster = Some(cluster);
                             }
                         }
