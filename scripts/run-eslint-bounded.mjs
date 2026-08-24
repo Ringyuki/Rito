@@ -1,11 +1,18 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const eslint = resolve(root, 'node_modules/eslint/bin/eslint.js');
 const extraArgs = parseArgs(process.argv.slice(2));
+// benchmarks/ is a local-only spike tree that is not committed; lint it
+// when present so clean clones (CI) do not fail on the missing pattern.
 const scopes = [
-  ['eslint.config.mjs', 'scripts', 'benchmarks'],
+  [
+    'eslint.config.mjs',
+    'scripts',
+    ...(existsSync(resolve(root, 'benchmarks')) ? ['benchmarks'] : []),
+  ],
   ['packages/rito'],
   ['packages/rito-core-wasm'],
   ['packages/kit'],
