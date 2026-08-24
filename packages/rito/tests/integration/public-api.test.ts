@@ -57,24 +57,9 @@ describe('public API surface', () => {
     expect((api as Record<string, unknown>)['createLogger']).toBeUndefined();
   });
 
-  it('keeps the 0.13 compatibility subpaths resolvable for published consumers', async () => {
-    // Consumers of the published 0.13 API (hikari reader among them)
-    // import `@ritojs/core/web`, `/position`, `/annotations`... — the
-    // package must keep those specifiers resolving across the Rust-core
-    // transition so a version bump is not a breaking change.
+  it('does not keep legacy TypeScript compatibility subpaths in package exports', async () => {
     const packageJson = await import('../../package.json');
     const exportsMap = packageJson.default.exports as Record<string, unknown>;
-    expect(Object.keys(exportsMap).sort()).toEqual([
-      '.',
-      './a11y',
-      './advanced',
-      './annotations',
-      './dom',
-      './package.json',
-      './position',
-      './search',
-      './selection',
-      './web',
-    ]);
+    expect(Object.keys(exportsMap).sort()).toEqual(['.', './package.json']);
   });
 });
