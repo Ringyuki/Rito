@@ -218,6 +218,8 @@ void _text(
   writer.option(() => writer.string('#note'));
   writer.option(() => writer.string('source $text'));
   writer.option(() => writer.uint64(9));
+  // ruby-align tail field (wire schema addition)
+  writer.option(opcode == 10 ? () => writer.string('space-around') : null);
 }
 
 void _borderEdge(TestWireWriter writer, {int styleTag = 5}) {

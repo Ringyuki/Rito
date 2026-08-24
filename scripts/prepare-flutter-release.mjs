@@ -18,31 +18,34 @@ function run(command, arguments_) {
 }
 
 function localPackageClosure(metadata, rootName) {
-  const byDirectory = new Map(
-    metadata.packages.map((package_) => [dirname(resolve(package_.manifest_path)), package_]),
+  // Walk the RESOLVE graph, not the declared dependencies: a
+  // [patch.crates-io] override (the vendored parley fork) keeps its
+  // registry semantics in `dependencies[]` and only the resolve nodes
+  // point at the in-repo package that actually builds.
+  const byId = new Map(metadata.packages.map((package_) => [package_.id, package_]));
+  const nodesById = new Map(metadata.resolve.nodes.map((node) => [node.id, node]));
+  const rootPackage = metadata.packages.find(
+    (package_) => package_.name === rootName && package_.source === null,
   );
-  const rootPackage = metadata.packages.find((package_) => package_.name === rootName);
   if (rootPackage === undefined) {
     throw new Error(`Cargo metadata does not contain ${rootName}.`);
   }
 
-  const pending = [rootPackage];
+  const pending = [rootPackage.id];
   const closure = new Map();
   while (pending.length > 0) {
-    const package_ = pending.pop();
-    if (package_ === undefined || closure.has(package_.manifest_path)) {
+    const id = pending.pop();
+    if (id === undefined || closure.has(id)) {
       continue;
     }
-    closure.set(package_.manifest_path, package_);
-    for (const dependency of package_.dependencies) {
-      if (typeof dependency.path !== 'string') {
-        continue;
-      }
-      const localPackage = byDirectory.get(resolve(dependency.path));
-      if (localPackage === undefined) {
-        throw new Error(`Local dependency ${dependency.name} is absent from Cargo metadata.`);
-      }
-      pending.push(localPackage);
+    const package_ = byId.get(id);
+    if (package_ === undefined || package_.source !== null) {
+      continue;
+    }
+    closure.set(id, package_);
+    const node = nodesById.get(id);
+    for (const dependency of node?.deps ?? []) {
+      pending.push(dependency.pkg);
     }
   }
   return [...closure.values()];
@@ -81,7 +84,11 @@ function copyRepositoryFile(path, targetRoot) {
 }
 
 function prepare() {
-  const metadata = JSON.parse(run('cargo', ['metadata', '--format-version', '1', '--no-deps']));
+  // Full metadata (not --no-deps): vendored path dependencies such as
+  // crates/vendor/parley are workspace DEPENDENCIES without being
+  // workspace members, and the members-only view silently drops them
+  // from the closure (the staged manifest then fails its own check).
+  const metadata = JSON.parse(run('cargo', ['metadata', '--format-version', '1']));
   const packages = localPackageClosure(metadata, 'rito-ffi');
   const cratePaths = packages
     .map((package_) => repositoryPath(dirname(package_.manifest_path)))

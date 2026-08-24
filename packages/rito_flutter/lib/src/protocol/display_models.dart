@@ -111,6 +111,7 @@ sealed class RitoTextPaintCommand extends RitoCommand {
     this.href,
     this.sourceText,
     this.sourceTextOffset,
+    this.rubyAlign,
   });
 
   final String text;
@@ -120,6 +121,10 @@ sealed class RitoTextPaintCommand extends RitoCommand {
   final String? href;
   final String? sourceText;
   final int? sourceTextOffset;
+
+  /// The annotation's computed `ruby-align` keyword, when the engine
+  /// sends one (wire tail field added with the ruby-align law).
+  final String? rubyAlign;
 }
 
 final class RitoPaintText extends RitoTextPaintCommand {
@@ -131,6 +136,7 @@ final class RitoPaintText extends RitoTextPaintCommand {
     super.href,
     super.sourceText,
     super.sourceTextOffset,
+    super.rubyAlign,
   });
 
   @override
@@ -146,6 +152,7 @@ final class RitoPaintRuby extends RitoTextPaintCommand {
     super.href,
     super.sourceText,
     super.sourceTextOffset,
+    super.rubyAlign,
   });
 
   @override

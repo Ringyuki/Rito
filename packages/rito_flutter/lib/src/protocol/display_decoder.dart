@@ -142,6 +142,10 @@ final class RitoDisplayListDecoder {
       'source text offset',
       () => reader.uint64('source text offset'),
     );
+    final rubyAlign = reader.option(
+      'ruby align',
+      () => reader.string('ruby align'),
+    );
     if (ruby) {
       return RitoPaintRuby(
         text: text,
@@ -151,6 +155,7 @@ final class RitoDisplayListDecoder {
         href: href,
         sourceText: sourceText,
         sourceTextOffset: sourceOffset,
+        rubyAlign: rubyAlign,
       );
     }
     return RitoPaintText(
@@ -161,6 +166,7 @@ final class RitoDisplayListDecoder {
       href: href,
       sourceText: sourceText,
       sourceTextOffset: sourceOffset,
+      rubyAlign: rubyAlign,
     );
   }
 }
