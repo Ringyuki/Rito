@@ -64,7 +64,7 @@ export function useReader(
       spread: spreadMode,
       lineBreaking,
       pinnedFontPolicy,
-      experimentalFragmentPagination: FRAGMENT_PAGINATION_ENABLED,
+      fragmentPagination: FRAGMENT_PAGINATION_ENABLED,
       ...getThemeOptions(theme),
     },
     controller: {

@@ -215,11 +215,12 @@ export interface ReaderOptions {
   /** Required, immutable fallback faces shared by native shaping and Canvas paint. */
   readonly pinnedFontPolicy?: ReaderPinnedFontPolicy;
   /**
-   * Cutover lever: lets completed whole-book revisions hand pagination to
-   * the fragment engine when it can represent every chapter. Experimental
-   * while the fragment backend's interaction surface is completed.
+   * The fragment engine is the production pagination path and the only
+   * pixel-verified renderer; it is ON by default. `false` opts into the
+   * legacy pagination path, kept solely as an A/B oracle for conformance
+   * tooling — its output is not pixel-accurate.
    */
-  readonly experimentalFragmentPagination?: boolean;
+  readonly fragmentPagination?: boolean;
 }
 export interface ReaderThemeOptions {
   readonly backgroundColor?: string | null;

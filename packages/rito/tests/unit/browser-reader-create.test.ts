@@ -116,6 +116,7 @@ describe('Browser reader creation', () => {
     } as unknown as HTMLCanvasElement;
 
     const readerPromise = createReader(new ArrayBuffer(0), canvas, {
+      fragmentPagination: false,
       width: 800,
       height: 600,
     });
@@ -158,6 +159,7 @@ describe('Browser reader creation', () => {
     const factory = installWorkerFactory(worker, cleanup.promise);
 
     const creation = createReader(new ArrayBuffer(0), readerCanvas(), {
+      fragmentPagination: false,
       width: 800,
       height: 600,
     });
@@ -193,7 +195,11 @@ describe('Browser reader creation', () => {
     const factory = installWorkerFactory(worker);
 
     await expect(
-      createReader(new ArrayBuffer(0), readerCanvas(), { width: 800, height: 600 }),
+      createReader(new ArrayBuffer(0), readerCanvas(), {
+        fragmentPagination: false,
+        width: 800,
+        height: 600,
+      }),
     ).rejects.toBe(primaryError);
 
     expect(factory.dispose).toHaveBeenCalledOnce();
@@ -232,6 +238,7 @@ describe('Browser reader creation', () => {
     const callerBytes = new Uint8Array([1, 2, 3]).buffer;
 
     const readerPromise = createReader(readerData(), readerCanvas(), {
+      fragmentPagination: false,
       width: 800,
       height: 600,
       pinnedFontPolicy: {
@@ -297,6 +304,7 @@ describe('Browser reader creation', () => {
 
     await expect(
       createReader(readerData(), readerCanvas(), {
+        fragmentPagination: false,
         width: 800,
         height: 600,
         pinnedFontPolicy: {
@@ -339,6 +347,7 @@ describe('Browser reader creation', () => {
 
     await expect(
       createReader(readerData(), readerCanvas(), {
+        fragmentPagination: false,
         width: 800,
         height: 600,
         pinnedFontPolicy: {

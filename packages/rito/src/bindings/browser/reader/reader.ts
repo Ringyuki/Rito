@@ -61,12 +61,13 @@ export async function createReader(
   // legacy pagination path and renders something else entirely. Refuse
   // the contradictory configuration loudly instead.
   if (
-    options.experimentalFragmentPagination === true &&
+    options.fragmentPagination !== false &&
     (options.pinnedFontPolicy === undefined || options.pinnedFontPolicy.faces.length === 0)
   ) {
     throw new Error(
-      'experimentalFragmentPagination requires a pinnedFontPolicy with at least one face: ' +
-        'the fragment engine shapes text with those exact font bytes and cannot start without them',
+      'the fragment engine (on by default) requires a pinnedFontPolicy with at least one ' +
+        'face: it shapes text with those exact font bytes and cannot start without them. ' +
+        'Pass a policy, or opt into the legacy path with fragmentPagination: false',
     );
   }
   const module = await loadRuntimeCoreModule();
@@ -81,7 +82,7 @@ export async function createReader(
       worker,
       data,
       options.pinnedFontPolicy,
-      options.experimentalFragmentPagination === true,
+      options.fragmentPagination !== false,
     );
     pinnedFonts = opened.pinnedFonts;
     state = createInitialState(
@@ -261,7 +262,7 @@ function createInitialState(
     decodeFrameCommandBuffer: module.decodeRitoFrameCommandBuffer,
     documentData,
     pinnedFonts,
-    fragmentPagination: options.experimentalFragmentPagination === true,
+    fragmentPagination: options.fragmentPagination !== false,
     canvas,
     ctx,
     fontMetrics: createHostFontMetrics(),
