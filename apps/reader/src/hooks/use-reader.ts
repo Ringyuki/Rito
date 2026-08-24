@@ -26,16 +26,6 @@ function getThemeOptions(theme: 'light' | 'dark') {
   return { backgroundColor: '#ffffff', foregroundColor: null };
 }
 
-/**
- * The fragment engine paginates every representable book (unsupported
- * constructs degrade with a recorded approximation instead of blocking).
- * `?fragmentPagination=0` is the kill switch back to the retained
- * engine while it still exists.
- */
-const FRAGMENT_PAGINATION_ENABLED =
-  typeof window === 'undefined' ||
-  new URLSearchParams(window.location.search).get('fragmentPagination') !== '0';
-
 export function useReader(
   theme: 'light' | 'dark',
   containerWidth: number,
@@ -64,7 +54,6 @@ export function useReader(
       spread: spreadMode,
       lineBreaking,
       pinnedFontPolicy,
-      fragmentPagination: FRAGMENT_PAGINATION_ENABLED,
       ...getThemeOptions(theme),
     },
     controller: {
@@ -77,7 +66,7 @@ export function useReader(
     },
   });
 
-  if (FRAGMENT_PAGINATION_ENABLED && typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     // Debug probe for the fragment-pagination cutover: lets headless
     // verification drive and inspect the controller directly.
     (window as unknown as { __ritoController?: unknown }).__ritoController = rito.controller;

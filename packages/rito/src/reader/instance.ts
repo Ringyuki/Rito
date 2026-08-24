@@ -214,13 +214,6 @@ export interface ReaderOptions {
   readonly fontFamilyForce?: boolean;
   /** Required, immutable fallback faces shared by native shaping and Canvas paint. */
   readonly pinnedFontPolicy?: ReaderPinnedFontPolicy;
-  /**
-   * The fragment engine is the production pagination path and the only
-   * pixel-verified renderer; it is ON by default. `false` opts into the
-   * legacy pagination path, kept solely as an A/B oracle for conformance
-   * tooling — its output is not pixel-accurate.
-   */
-  readonly fragmentPagination?: boolean;
 }
 export interface ReaderThemeOptions {
   readonly backgroundColor?: string | null;

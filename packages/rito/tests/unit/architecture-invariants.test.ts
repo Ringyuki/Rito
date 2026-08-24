@@ -287,9 +287,11 @@ describe('Architecture invariant: public entries are split by platform', () => {
     );
   });
 
-  it('legacy TypeScript compatibility code stays source-only for reference and golden tooling', () => {
-    expect(read(join(COMPATIBILITY, 'web.ts'))).toContain("from '../reference'");
-    expect(read(join(COMPATIBILITY, 'advanced.ts'))).toContain("from '../reference/ts-core/");
+  it('the retired compatibility layer stays deleted', () => {
+    // The 0.13 subpath presets were removed with the legacy pagination
+    // opt-out: the fragment engine is the only pipeline, and nothing may
+    // quietly reintroduce a parallel API surface for the old one.
+    expect(existsSync(COMPATIBILITY)).toBe(false);
   });
 
   it('package exports do not expose the internal reference implementation', () => {

@@ -96,7 +96,6 @@ async function openBook(file: File): Promise<void> {
     margin: MARGIN,
     spread: 'single',
     pinnedFontPolicy,
-    fragmentPagination: true,
   });
   if (reader.pagination && !reader.pagination.complete) {
     await reader.pagination.ensureSpread(Number.MAX_SAFE_INTEGER).catch(() => undefined);

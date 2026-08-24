@@ -84,7 +84,21 @@ describe('Browser reader creation', () => {
       ),
     });
     mocks.startBrowserReaderInitialReflow.mockResolvedValue();
-    mocks.browserFontFaceRegistry.mockReturnValue(undefined);
+    // Pinned fonts are mandatory since the legacy pagination opt-out was
+    // removed: default every test to an immediately-loaded fake face and
+    // a registry that accepts it (tests exercising registration replace
+    // both with their own doubles).
+    class ImmediateFontFace {
+      constructor(
+        readonly family: string,
+        readonly source: ArrayBuffer,
+      ) {}
+      load(): Promise<ImmediateFontFace> {
+        return Promise.resolve(this);
+      }
+    }
+    vi.stubGlobal('FontFace', ImmediateFontFace);
+    mocks.browserFontFaceRegistry.mockReturnValue({ add: vi.fn(), delete: vi.fn() });
   });
 
   afterEach(() => {
@@ -116,9 +130,14 @@ describe('Browser reader creation', () => {
     } as unknown as HTMLCanvasElement;
 
     const readerPromise = createReader(new ArrayBuffer(0), canvas, {
-      fragmentPagination: false,
       width: 800,
       height: 600,
+      pinnedFontPolicy: {
+        schemaVersion: 1,
+        faces: [
+          { bytes: new ArrayBuffer(3), expectedSha256: 'a'.repeat(64), genericRole: 'serif' },
+        ],
+      },
     });
     let settled = false;
     void readerPromise.then(
@@ -159,9 +178,14 @@ describe('Browser reader creation', () => {
     const factory = installWorkerFactory(worker, cleanup.promise);
 
     const creation = createReader(new ArrayBuffer(0), readerCanvas(), {
-      fragmentPagination: false,
       width: 800,
       height: 600,
+      pinnedFontPolicy: {
+        schemaVersion: 1,
+        faces: [
+          { bytes: new ArrayBuffer(3), expectedSha256: 'a'.repeat(64), genericRole: 'serif' },
+        ],
+      },
     });
     let settled = false;
     void creation.then(
@@ -196,9 +220,14 @@ describe('Browser reader creation', () => {
 
     await expect(
       createReader(new ArrayBuffer(0), readerCanvas(), {
-        fragmentPagination: false,
         width: 800,
         height: 600,
+        pinnedFontPolicy: {
+          schemaVersion: 1,
+          faces: [
+            { bytes: new ArrayBuffer(3), expectedSha256: 'a'.repeat(64), genericRole: 'serif' },
+          ],
+        },
       }),
     ).rejects.toBe(primaryError);
 
@@ -238,7 +267,6 @@ describe('Browser reader creation', () => {
     const callerBytes = new Uint8Array([1, 2, 3]).buffer;
 
     const readerPromise = createReader(readerData(), readerCanvas(), {
-      fragmentPagination: false,
       width: 800,
       height: 600,
       pinnedFontPolicy: {
@@ -304,7 +332,6 @@ describe('Browser reader creation', () => {
 
     await expect(
       createReader(readerData(), readerCanvas(), {
-        fragmentPagination: false,
         width: 800,
         height: 600,
         pinnedFontPolicy: {
@@ -347,7 +374,6 @@ describe('Browser reader creation', () => {
 
     await expect(
       createReader(readerData(), readerCanvas(), {
-        fragmentPagination: false,
         width: 800,
         height: 600,
         pinnedFontPolicy: {
@@ -453,9 +479,11 @@ function publicationWithFont() {
 }
 
 function openResultWithFont() {
+  // The summary must answer the request: since pinned fonts became
+  // mandatory, every createReader call in this file sends one face.
   return {
     publication: publicationWithFont(),
-    pinnedFontPolicy: { schemaVersion: 1 as const, policyId: '01'.repeat(32), faces: [] },
+    pinnedFontPolicy: pinnedFontPolicySummary(),
   };
 }
 

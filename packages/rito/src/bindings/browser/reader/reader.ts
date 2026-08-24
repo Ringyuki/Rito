@@ -60,14 +60,10 @@ export async function createReader(
   // font bytes; without them the wasm side silently falls back to the
   // legacy pagination path and renders something else entirely. Refuse
   // the contradictory configuration loudly instead.
-  if (
-    options.fragmentPagination !== false &&
-    (options.pinnedFontPolicy === undefined || options.pinnedFontPolicy.faces.length === 0)
-  ) {
+  if (options.pinnedFontPolicy === undefined || options.pinnedFontPolicy.faces.length === 0) {
     throw new Error(
-      'the fragment engine (on by default) requires a pinnedFontPolicy with at least one ' +
-        'face: it shapes text with those exact font bytes and cannot start without them. ' +
-        'Pass a policy, or opt into the legacy path with fragmentPagination: false',
+      'createReader requires a pinnedFontPolicy with at least one face: the engine ' +
+        'shapes text with those exact font bytes and cannot start without them',
     );
   }
   const module = await loadRuntimeCoreModule();
@@ -78,12 +74,7 @@ export async function createReader(
     const worker = workerFactory();
     const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
     if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
-    const opened = await openBrowserReaderDocument(
-      worker,
-      data,
-      options.pinnedFontPolicy,
-      options.fragmentPagination !== false,
-    );
+    const opened = await openBrowserReaderDocument(worker, data, options.pinnedFontPolicy, true);
     pinnedFonts = opened.pinnedFonts;
     state = createInitialState(
       worker,
@@ -262,7 +253,7 @@ function createInitialState(
     decodeFrameCommandBuffer: module.decodeRitoFrameCommandBuffer,
     documentData,
     pinnedFonts,
-    fragmentPagination: options.fragmentPagination !== false,
+    fragmentPagination: true,
     canvas,
     ctx,
     fontMetrics: createHostFontMetrics(),
