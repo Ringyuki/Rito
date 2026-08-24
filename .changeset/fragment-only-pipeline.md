@@ -1,6 +1,6 @@
 ---
-'@ritojs/core': minor
-'@ritojs/kit': minor
+'@ritojs/core': major
+'@ritojs/kit': major
 ---
 
 The fragment engine is now the only pagination pipeline, and misconfiguration fails loudly.

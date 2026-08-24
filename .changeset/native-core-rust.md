@@ -1,7 +1,7 @@
 ---
-'@ritojs/core': minor
-'@ritojs/kit': minor
-'@ritojs/react': minor
+'@ritojs/core': major
+'@ritojs/kit': major
+'@ritojs/react': major
 ---
 
 Replace the public TypeScript reader runtime with the Rust/WASM-backed native core, move the old
