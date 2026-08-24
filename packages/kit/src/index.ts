@@ -28,7 +28,8 @@ export type {
   SearchResult,
   TextRange,
 } from './interaction/index';
-export { parseReadingPosition } from './interaction/index';
+export { parseReadingPosition, resolveAnnotations } from './interaction/index';
+export { buildHitMap } from './public-interaction';
 
 export type { OverlayLayer, Rect } from './painter/types';
 export type { TransitionDriverOptions } from './driver/types';
