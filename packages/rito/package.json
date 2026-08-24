@@ -1,7 +1,7 @@
 {
   "name": "@ritojs/core",
   "type": "module",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "description": "Rust-backed EPUB reader core with browser package bindings",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",

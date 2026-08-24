@@ -24,7 +24,7 @@
     "release:pack-check": "node ./scripts/check-release-tarballs.mjs",
     "version-packages": "changeset version",
     "release:publish": "pnpm publish -r",
-    "release:ci": "pnpm run check && pnpm release:pack-check && pnpm release:publish --tag next",
+    "release:ci": "pnpm run check && pnpm release:pack-check && pnpm release:publish --tag next --no-git-checks",
     "bootstrap:core-wasm": "node scripts/ensure-core-wasm-dist.mjs",
     "dev": "pnpm -r --parallel run dev",
     "dev:reader": "pnpm --filter @ritojs/reader dev",
