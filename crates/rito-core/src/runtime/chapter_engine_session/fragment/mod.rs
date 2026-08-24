@@ -601,6 +601,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
         };
         let mut selected_text = String::new();
         let mut previous_block: Option<(usize, usize)> = None;
+        let mut previous_source_path: Option<Vec<usize>> = None;
         let mut rects = Vec::new();
         for page_index in start.page_index..=end.page_index {
             let Some(artifact) = self.artifact(page_index) else {
@@ -627,13 +628,28 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 }
                 // A soft-wrapped line inside one block reads as
                 // continuous text (a browser selection keeps no line
-                // break there); only a block boundary separates.
+                // break there). A block boundary separates: one line
+                // break when both sides are sibling text nodes of the
+                // same source element (a <br/> split), a blank line
+                // between distinct source elements (paragraphs) — the
+                // separators a browser selection copies.
                 if let Some(previous) = previous_block {
                     if previous != (page_index, run.block_index) {
-                        selected_text.push('\n');
+                        let sibling = previous_source_path
+                            .as_deref()
+                            .zip(run.source.as_ref().map(|source| source.path.as_slice()))
+                            .is_some_and(|(before, after)| {
+                                !before.is_empty()
+                                    && before.len() == after.len()
+                                    && before[..before.len() - 1] == after[..after.len() - 1]
+                            });
+                        selected_text.push_str(if sibling { "\n" } else { "\n\n" });
                     }
                 }
                 previous_block = Some((page_index, run.block_index));
+                if let Some(source) = run.source.as_ref() {
+                    previous_source_path = Some(source.path.clone());
+                }
                 selected_text.extend(
                     char::decode_utf16(
                         artifact

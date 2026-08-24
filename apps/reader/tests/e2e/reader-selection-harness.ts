@@ -323,7 +323,7 @@ export async function copySelection(page: Page): Promise<string> {
   return page.evaluate(() => navigator.clipboard.readText());
 }
 
-async function readCanvasTextBands(page: Page): Promise<readonly CanvasTextBand[]> {
+export async function readCanvasTextBands(page: Page): Promise<readonly CanvasTextBand[]> {
   return readerSurface(page).evaluate((element) => {
     if (!(element instanceof HTMLCanvasElement)) throw new Error('Reader Canvas is unavailable');
     const canvas = element;
