@@ -24,6 +24,24 @@ Rito is intentionally focused on EPUB rendering, not browser-equivalent web layo
 - `setTypography()` is reader-wide and coarse
 - it overrides root/body behavior
 - it does not rewrite EPUB-authored selectors
+- `fontFamily` / `fontFamilyForce` are accepted but do not change the rendered
+  faces yet: the pinned fallback chain applies in policy order, and selecting
+  faces by the override's generic family is not implemented. Offer font
+  choices by opening the reader with a policy containing the chosen faces.
+
+## Durable Source Locators
+
+Under the fragment engine (the only pipeline), durable source-locator
+projection resolves unavailable today:
+
+- exact source-anchored reading-position restore (page-index persistence works)
+- `search()` result `source` ranges (matches and navigation work; callers
+  recover durable ranges through `getChapterTextIndices()`)
+- search highlights painted from a committed source range
+- internal-link navigation that must grow pagination past the known extent
+
+`resolveExactSourceRange` itself works, including across soft-wrapped lines,
+so annotation re-projection from stored source ranges is unaffected.
 
 ## Loading Model
 

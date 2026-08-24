@@ -50,8 +50,10 @@ async function loadPinnedFontPolicy(): Promise<ReaderPinnedFontPolicy> {
   return {
     schemaVersion: 1,
     faces: [
-      { bytes: latin, expectedSha256: '', genericRole: 'serif', language: 'und' },
-      { bytes: cjk, expectedSha256: '', genericRole: 'serif', language: 'zh-Hans' },
+      // expectedSha256 is required and verified: paste each font file's real
+      // digest (e.g. `shasum -a 256 Tinos-Regular.ttf`).
+      { bytes: latin, expectedSha256: TINOS_SHA256, genericRole: 'serif', language: 'und' },
+      { bytes: cjk, expectedSha256: SOURCE_HAN_SHA256, genericRole: 'serif', language: 'zh-Hans' },
     ],
   };
 }
@@ -101,7 +103,6 @@ reader.setTheme({
 reader.setTypography({
   fontSize: 18,
   lineHeight: 1.6,
-  fontFamily: 'Georgia, serif',
 });
 
 const firstEntry = reader.toc[0];

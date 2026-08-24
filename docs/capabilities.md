@@ -6,7 +6,7 @@ This page describes what Rito is designed to support today.
 
 - EPUB 3 container metadata, manifest, and spine parsing
 - NAV and NCX table of contents parsing
-- lazy chapter reads via `EpubDocument.readChapter()`
+- lazy chapter loading inside the runtime (chapters parse on demand)
 - embedded stylesheet, font, image, and SVG cover extraction
 
 ## XHTML Parsing
@@ -67,8 +67,10 @@ This page describes what Rito is designed to support today.
 - link maps
 - text selection
 - full-text search
-- source-anchored annotations
-- reading position tracking
+- source-anchored annotations (stored ranges re-project via
+  `resolveExactSourceRange`)
+- reading position tracking (page-index persistence; exact source-anchored
+  restore is a known limitation under the fragment engine)
 - semantic tree generation
 - accessibility mirror helpers
 

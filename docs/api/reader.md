@@ -45,8 +45,8 @@ package entry.
 | `fontSize`         | `number`                 | unset                            | Initial root font-size override        |
 | `lineHeight`       | `number`                 | unset                            | Initial line-height override           |
 | `lineHeightForce`  | `boolean`                | `false`                          | Force line height on every node        |
-| `fontFamily`       | `string`                 | unset                            | Initial body font-family override      |
-| `fontFamilyForce`  | `boolean`                | `false`                          | Force font family on every node        |
+| `fontFamily`       | `string`                 | unset                            | Accepted but inert today (see below)   |
+| `fontFamilyForce`  | `boolean`                | `false`                          | Accepted but inert today (see below)   |
 | `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | **required**                     | Immutable native/Canvas fallback faces |
 
 `pinnedFontPolicy` supplies the same static TTF/OTF bytes to Rust shaping and
@@ -65,10 +65,8 @@ pipeline anymore).
 
 The core intentionally does not bundle, download, or choose fallback assets.
 The application owns their licensing, distribution, locale policy, and offline
-availability. If the policy is unset, EPUB-provided fonts can still provide
-exact shapes and browser/system fallback text can still render. Exact native
-selection, copy, and annotation geometry for a host-fallback run is reported as
-unavailable instead of being estimated from character widths.
+availability. EPUB-embedded fonts still provide exact shapes for the runs they
+cover; the pinned faces are the only fallback beneath them.
 
 For example, a Vite application that checks in an audited static font can load
 it during application bootstrap and pass the bytes into every new Reader:
@@ -139,7 +137,14 @@ coarse:
 - `fontFamily` overrides body font family
 
 EPUB element-level rules continue to win in coarse mode. Set
-`lineHeightForce` or `fontFamilyForce` to apply that override to every element.
+`lineHeightForce` to apply the line-height override to every element.
+
+> **Known limitation:** `fontFamily` does not change the rendered faces yet.
+> The engine shapes and paints with the pinned font policy's faces applied in
+> policy order, and selecting faces by the override's generic family is not
+> implemented. Hosts that offer a font choice should open the reader with a
+> pinned font policy containing the chosen faces instead (the pattern the
+> Flutter reader uses).
 
 For `setTheme()`, omitted fields remain unchanged. Pass `null` to clear a
 foreground override or restore the default white background; this is useful
@@ -208,10 +213,12 @@ page-content rectangles, a typed lazy-pagination result, or a typed unavailable
 reason; callers must not substitute the legacy interpolated geometry.
 
 Native `search()` results expose `source` as either a proven durable
-`{ href, sourceRange }` or typed `sourceUnavailable`. Geometry is intentionally
-not attached to every result: resolve only visible results through
-`resolveExactSourceRange`. `@ritojs/kit` performs this lazy projection and does
-not fall back to layout-local HitMaps when the native capability is present.
+`{ href, sourceRange }` or typed `sourceUnavailable`. Under the fragment
+engine, results currently report `sourceUnavailable` — matches and navigation
+still work, and callers recover a durable range through
+`getChapterTextIndices()` (the fallback `@ritojs/kit` uses). Geometry is
+intentionally not attached to every result: resolve ranges through
+`resolveExactSourceRange`.
 
 `getImageBlobUrl()` may return either an object URL immediately or a promise for
 one. Every resolved URL is caller-owned and must be revoked when it is replaced

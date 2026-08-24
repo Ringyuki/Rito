@@ -30,7 +30,7 @@ green before publication.
 
 ## Versioning Strategy
 
-Rito uses pre-1.0 lockstep versioning:
+Rito uses lockstep versioning (semver from 1.0.0):
 
 - all three public packages share the same version
 - the tested, supported combination is the same version across all three packages
@@ -55,7 +55,7 @@ Day-to-day flow:
 
 1. run `pnpm changeset`
 2. for public releases, select `@ritojs/core`, `@ritojs/kit`, and `@ritojs/react`
-3. choose `patch` or `minor`
+3. choose `patch`, `minor`, or `major` (breaking changes are `major`)
 4. write a short user-facing summary
 5. commit the generated `.changeset/*.md` file with the code change
 
@@ -72,10 +72,12 @@ If you make additional release-prep changes after a version has already been cut
 Package changelogs under `packages/*/CHANGELOG.md` are written by Changesets when `pnpm version-packages` runs. A root changelog, if the repository adds one later, is a repository-level summary and remains manual unless you decide to update it yourself.
 
 The repository also includes an automated release workflow at
-[release.yml](../../.github/workflows/release.yml). It starts only after the
-complete `CI` workflow succeeds, then uses `changesets/action` to open or
-update the version PR and, after that PR is merged, publish the packages with
-`pnpm release:ci`. Once npm publishing succeeds, the same workflow creates the
+[release.yml](../../.github/workflows/release.yml). It runs on every master
+push (PRs are the verification round; master is protected by required checks),
+uses `changesets/action` to open or update the version PR and, after that PR
+is merged, publish the packages with `pnpm release:ci` — which reruns the full
+check before publishing — and create the GitHub releases. Once npm publishing
+succeeds, the same workflow creates the
 unpublished `rito_flutter-vX.Y.Z` tag; that tag starts `flutter-release.yml`,
 which validates and publishes the matching Flutter package through pub.dev
 OIDC.
@@ -121,9 +123,10 @@ automated publishing rule for repository `Ringyuki/Rito` and tag pattern
 
 The normal coordinated sequence is:
 
-1. merge the feature PR to `master`; successful CI causes Changesets to create
-   or update the Release PR
-2. merge the Release PR; successful CI publishes the npm packages
+1. merge the feature PR to `master`; the Release workflow creates or updates
+   the Release PR
+2. merge the Release PR; the next Release run republishes after its own full
+   check
 3. after npm succeeds, `release.yml` creates the Flutter version tag with
    `RELEASE_GITHUB_TOKEN`
 4. the tag-triggered Flutter workflow publishes the version to pub.dev
@@ -134,10 +137,11 @@ the tag exists but pub.dev does not have the version, rerun the failed
 
 ## Bump Rules
 
-Use these rules while the project remains pre-1.0:
+Semver applies from 1.0.0:
 
-- patch release: bug fixes, docs, packaging cleanup, low-risk additive work
-- minor release: breaking API changes, renamed packages, changed runtime behavior that requires migration, export-surface reshaping
+- patch release: bug fixes, docs, packaging cleanup
+- minor release: backwards-compatible additive work
+- major release: breaking API changes, renamed packages, changed runtime behavior that requires migration, export-surface reshaping
 
 ## Release Checklist
 
@@ -168,4 +172,4 @@ Consumers should treat matching package versions as the supported combination.
 
 Example:
 
-- `@ritojs/core@0.6.0` + `@ritojs/kit@0.6.0` + `@ritojs/react@0.6.0` is a supported same-line combination
+- `@ritojs/core@1.0.0` + `@ritojs/kit@1.0.0` + `@ritojs/react@1.0.0` is a supported same-line combination

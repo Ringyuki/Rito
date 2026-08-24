@@ -25,6 +25,7 @@ Public releases are lockstep-versioned across:
 - `@ritojs/core`
 - `@ritojs/kit`
 - `@ritojs/react`
+- `rito_flutter` (Dart/Flutter package, versioned independently, published to pub.dev)
 
 `@ritojs/reader` is intentionally excluded from npm publishing.
 
@@ -74,14 +75,22 @@ Typical flow:
 4. run local checks
 5. open a PR targeting `master`
 
-CI runs on both pushes to `master` and pull requests targeting `master`. The CI workflow currently verifies:
+CI runs on pull requests targeting `master` (master is protected: all jobs
+are required checks and branches must be up to date before merging, so the PR
+round verifies the exact merge result). The pipeline fans out into parallel
+jobs:
 
-- `pnpm run check`
-- `pnpm run audit:dependencies`
-- `pnpm run test:coverage`
-- `pnpm run test:e2e`
-- `pnpm run test:golden:pixel` on macOS
-- `pnpm release:pack-check`
+- Rust Checks (fmt, clippy, workspace tests)
+- WASM Bindings (wasm target check, bindings build and node tests)
+- Static Checks (dependency audit, typecheck, lint, format)
+- Unit & Golden Tests
+- Build & Pack (full build, DOM-free reference check, `release:pack-check`)
+- Reader E2E, sharded four ways
+- Pixel Golden on macOS, split by book range
+- Coverage Gate
+
+A separate non-blocking Pixel E2E workflow observes the canvas-pixel suites on
+master pushes.
 
 Please keep PRs focused. Small, single-purpose changes are easier to review and less likely to break the layout/render boundary.
 
@@ -123,21 +132,23 @@ For public releases, select all three public packages:
 - `@ritojs/kit`
 - `@ritojs/react`
 
-Versioning guidance while the project is pre-1.0:
+Versioning guidance (the packages follow semver from 1.0.0):
 
-- `patch` — bug fixes, docs, packaging cleanup, low-risk additive work
-- `minor` — breaking API changes, renamed packages, runtime behavior changes that require migration, export-surface reshaping
+- `patch` — bug fixes, docs, packaging cleanup
+- `minor` — backwards-compatible additions
+- `major` — breaking API changes, renamed packages, runtime behavior changes that require migration, export-surface reshaping
 
 ### How Publishing Works
 
-Publishing is a two-step process:
+Publishing flow:
 
 1. contributors merge normal PRs that include code and any needed changesets
-2. the release workflow opens or updates an automated `release: version packages` PR
+2. every master push triggers the Release workflow; with pending changesets it
+   opens or updates the automated `release: version packages` PR
 3. maintainers review and merge that release PR
-4. after that merge, the workflow publishes packages
-
-At the moment, automated publishes go to the npm `next` dist-tag, not `latest`.
+4. the next Release run detects the unpublished version, reruns the full check,
+   publishes to npm (`latest`), creates GitHub releases, and tags
+   `rito_flutter-vX.Y.Z` for the pub.dev OIDC workflow when needed
 
 ## Architecture Rules
 

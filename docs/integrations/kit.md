@@ -137,19 +137,13 @@ instead of allowing raw EPUB-relative browser navigation. An empty image `alt` i
 treated as decorative; a missing `alt` remains an image with unknown alternative
 text. Readers without the capability retain the legacy layout-derived mirror.
 
-When `interactions.getPageReadingAnchor` is present, Kit persists the first
-source-resolved locator from the visible spread rather than treating page or
-spread indexes as durable identity. Restore and `goToPosition` resolve that
-locator against the current Rust revision; legacy archives are upgraded through
-their canonical manifest href when possible. `goToPosition` is asynchronous and
-returns `Promise<number | undefined>`. When a bounded preview has not paginated
-the target, the Reader atomically replaces preview/deferred work with a
-locator-owned full revision, commits Rust's selected frame, and verifies the
-final exact projection before the Promise settles. Layout callbacks do not
-restart that navigation or cause a second jump. Newer user navigation and
-disposal abort the old intent, and position storage never falls back to a stale
-page index. Readers without the native capability retain the legacy synchronous
-projection internally, exposed through the same Promise API.
+Position persistence: Kit stores the visible spread's reading position and
+restores it through the asynchronous `goToPosition`
+(`Promise<number | undefined>`). Exact source-anchored locators are the design
+target, but under the fragment engine durable source-locator projection
+currently resolves unavailable (see the limitations page), so persistence and
+restore operate on page-indexed positions today. Newer user navigation and
+disposal abort an in-flight restore.
 Position action promises preserve completion semantics: an awaited `savePosition()`
 means the exact position has settled and the adapter write has completed. Storage
 adapter `load()` and `save()` callbacks must therefore not call controller position

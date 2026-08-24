@@ -20,7 +20,6 @@ protect browser-rendered output.
 | Reader e2e            | `pnpm test:e2e`                                                                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                                  |
 | Reader load profile   | `RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile`                                 | Opt-in production bounded-Worker phase timings, revision extents, Long Tasks, and browser errors.                           |
 | Reader usability gate | `RITO_READER_USABILITY_GATE=/abs/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` | Strict named-machine isolated-process cold-start, pinned-corpus load, reflow, and first-frame/until-stable turn thresholds. |
-| Reader release gate   | `pnpm test:e2e:release-protocol`                                                                     | Pending-response drain, transfer/revision release, dispose ACK, and safe Worker reuse/termination.                          |
 | Reader memory gate    | `pnpm test:e2e:memory-gate`                                                                          | Named-machine physical-footprint checkpoints, replacement growth, terminal release, and Worker lifecycle.                   |
 | Coverage              | `pnpm test:coverage`                                                                                 | V8 coverage for all published packages, checked against package baselines.                                                  |
 | Dependency audit      | `pnpm audit:dependencies`                                                                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                               |
@@ -40,7 +39,12 @@ tests.
 
 ### Pull Requests
 
-The CI workflow uses:
+CI runs on pull requests only (master is protected by required checks with
+branches required to be up to date, so the PR round verifies the merge
+result). The pipeline fans out into parallel jobs — Rust checks, WASM
+bindings, static checks (audit/typecheck/lint/format), unit & golden tests,
+build & pack, sharded reader e2e, pixel goldens, and the coverage gate.
+Locally, the equivalent aggregate remains:
 
 ```bash
 pnpm run test:ci
@@ -61,15 +65,14 @@ This includes:
 CI also audits the exact frozen dependency graph and rejects high-severity
 advisories with `pnpm run audit:dependencies`.
 
-The GitHub CI workflow also installs Chromium and runs:
+In CI the reader e2e suite runs sharded four ways
+(`playwright test --shard=N/4`) with the canvas-pixel suites excluded
+(`RITO_E2E_SKIP_PIXEL_SUITES=1`); those pixel suites run in the separate
+non-blocking `pixel-e2e.yml` workflow on master pushes. Pixel goldens run as
+two macOS matrix slices split by book range. Locally the aggregates are:
 
 ```bash
 pnpm test:e2e
-```
-
-Pixel goldens run in a separate macOS CI job:
-
-```bash
 pnpm test:golden:pixel
 ```
 
@@ -102,12 +105,11 @@ that style.
 
 ### Release Checks
 
-Release workflows should run the PR gate plus packaging checks:
+The Release workflow publishes through `pnpm release:ci`, which reruns the
+full check and the packaging verification before `pnpm publish`:
 
 ```bash
-pnpm run test:ci
-pnpm test:golden:pixel
-pnpm test:e2e
+pnpm run check
 pnpm release:pack-check
 ```
 
@@ -428,35 +430,22 @@ process across fresh contexts; its worst p95s (67.5 ms open, 62.0 ms
 bounded-to-presentation, 249.3 ms input-to-Canvas, 47.8 ms growth, 201.4 ms
 reflow and 70.0 ms Long Task) are retained only as pre-isolation history and are
 not directly comparable to this table. Neither calibration is permission to
-silently rebase a red result. The 2026-07-16 release-candidate run exceeded
-`book-01` limits for navigation/input-to-Canvas, cached turn, reflow and Long
-Tasks, so the latency gate is currently red. An isolated `b0b192a` comparison
-reproduced a 608.3 ms Canvas, 516.5 ms reflow and 171 ms Long-Task outlier even
-though three shared-process profiles were stable, ruling out the current
-lifecycle patch as the source of this cold-process instability.
+silently rebase a red result. (The 2026-07-16 latency figures in this section
+are retained as measurement history from the retained-pipeline era; they are
+not release gates for the shipped fragment engine.)
 
-The two lifecycle gates are:
+The opt-in lifecycle gate is:
 
 ```bash
-pnpm test:e2e:release-protocol
 pnpm test:e2e:memory-gate
 ```
 
-The release test holds a completed bounded-continuation response at the
-Worker-to-main-thread delivery boundary while replacing the Reader. It verifies
-the exact continuation -> transfer release -> cancel -> revision release ->
-dispose-ack sequence, then requires the old physical Worker to be either the
-replacement Worker or terminated, with exactly the replacement Worker left
-live. This scenario covers a main-thread-pending RPC response; it does not claim
-to preempt Worker-side computation before a response exists. The memory gate
+The memory gate
 pins the same machine/browser/font environment, runs
 load/growth/reflow/eight-replacement/dispose scenarios in three isolated browser
 processes, samples stable physical footprint, records page-isolate diagnostics,
-and rejects incomplete Worker-session histories. On 2026-07-16 the protocol
-test passed repeatedly and every memory-gate session/Worker released, but
-replacement-growth p95 was 107.719 MiB against a 96 MiB limit. The formal Phase
-1 declaration therefore remains blocked by measured latency and
-replacement-memory limits.
+and rejects incomplete Worker-session histories. (The former release-protocol
+e2e retired with the legacy continuation-drain worker protocol.)
 
 For a repeatable decode-only comparison on one fixed real payload, run:
 

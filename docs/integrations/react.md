@@ -43,6 +43,7 @@ Components:
 ```tsx
 import { useEffect, useRef } from 'react';
 import { Reader, useContainerSize, useRitoReader } from '@ritojs/react';
+import { pinnedFontPolicy } from './pinned-fonts'; // app-owned font bytes + digests
 
 export function App() {
   const [containerRef, containerSize] = useContainerSize();
@@ -55,6 +56,8 @@ export function App() {
       height,
       margin: 40,
       spread: 'double',
+      // Required: the engine shapes with pinned font bytes only.
+      pinnedFontPolicy,
     },
     controller: {
       transition: { stiffness: 180, damping: 22 },
