@@ -3,6 +3,20 @@
 This is the handoff entrypoint for contributors and coding agents continuing the
 Rust-backed core migration.
 
+## Snapshot (2026-08-24, pre-0.14)
+
+- The fragment engine is the only pagination pipeline: the legacy path, its
+  `fragmentPagination` opt-out, the demo kill-switch URL and the 0.13
+  compatibility subpaths are all removed. `createReader` requires a
+  `pinnedFontPolicy` and throws without one.
+- Pixel parity against pinned Chromium is tracked per book over a 123-book
+  corpus: 3 books render at pixel zero, ~20 more within dust (≤300px), the
+  large remainders are image-resample floor (canvas vs DOM decode) and the
+  not-yet-attacked vertical-writing family.
+- Interaction data tools (`buildHitMap`, `resolveAnnotations`, reading
+  positions) live in `@ritojs/kit`; the TS reference core is a frozen parity
+  oracle whose tooling entries build from `src/reference/tooling/`.
+
 Read this file first, then follow the links in the order below. Do not start
 from the historical native reader or Flutter spike docs unless you need context
 for a specific decision.

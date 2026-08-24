@@ -33,6 +33,14 @@ Supporting exports:
 - `createLocalStorageAnnotationAdapter`
 - `createLocalStoragePositionAdapter`
 - `PositionStorageAdapter`
+
+Interaction data tools (moved here from the retired `@ritojs/core`
+subpaths — this is their production home):
+
+- `buildHitMap(page)` — hit map for a production `reader.pages` page
+- `resolveAnnotations(records, context)`
+- `parseReadingPosition` and the `ReadingPosition` type
+- `AnnotationRecord`, `AnnotationRecordPatch`, `RecordStorageAdapter`
 - `OverlayLayer`
 - `Rect`
 - `TransitionDriverOptions`
@@ -55,6 +63,8 @@ if (!container) throw new Error('Expected #reader container');
 const reader = await createReader(epubData, canvas, {
   width: 800,
   height: 600,
+  // Required: the engine shapes text with pinned font bytes.
+  pinnedFontPolicy: await loadPinnedFontPolicy(),
 });
 
 const controller = createController(reader, canvas, {

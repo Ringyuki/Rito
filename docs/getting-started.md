@@ -31,6 +31,35 @@ pnpm install
 pnpm run build
 ```
 
+## Fonts Are Required
+
+The engine shapes text inside its WASM runtime, where no system font is
+reachable: layout metrics and Canvas paint must share the exact same font
+bytes, so `createReader` **requires** a `pinnedFontPolicy` with at least
+one face. Ship a Latin face and a CJK face (the reference reader pins
+Tinos and Source Han Serif CN) and load their bytes yourself:
+
+```ts
+import type { ReaderPinnedFontPolicy } from '@ritojs/core';
+
+async function loadPinnedFontPolicy(): Promise<ReaderPinnedFontPolicy> {
+  const [latin, cjk] = await Promise.all([
+    fetch('/fonts/Tinos-Regular.ttf').then((r) => r.arrayBuffer()),
+    fetch('/fonts/SourceHanSerifCN-Regular.otf').then((r) => r.arrayBuffer()),
+  ]);
+  return {
+    schemaVersion: 1,
+    faces: [
+      { bytes: latin, expectedSha256: '', genericRole: 'serif', language: 'und' },
+      { bytes: cjk, expectedSha256: '', genericRole: 'serif', language: 'zh-Hans' },
+    ],
+  };
+}
+```
+
+A missing or empty policy makes `createReader` throw immediately — the
+engine cannot start without shapeable font bytes.
+
 ## Smallest Web Canvas Example
 
 ```ts
@@ -48,6 +77,7 @@ const reader = await createReader(await response.arrayBuffer(), canvas, {
   height: 600,
   margin: 40,
   spread: 'double',
+  pinnedFontPolicy: await loadPinnedFontPolicy(),
 });
 
 reader.renderSpread(0);

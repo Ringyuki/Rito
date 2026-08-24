@@ -47,7 +47,7 @@ package entry.
 | `lineHeightForce`  | `boolean`                | `false`                          | Force line height on every node        |
 | `fontFamily`       | `string`                 | unset                            | Initial body font-family override      |
 | `fontFamilyForce`  | `boolean`                | `false`                          | Force font family on every node        |
-| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | unset                            | Immutable native/Canvas fallback faces |
+| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | **required**                     | Immutable native/Canvas fallback faces |
 
 `pinnedFontPolicy` supplies the same static TTF/OTF bytes to Rust shaping and
 the browser `FontFace` registry. Each face declares a complete SHA-256 digest,
@@ -57,6 +57,11 @@ the native core, and uses the native-returned family alias for Canvas paint.
 This keeps exact interaction geometry tied to the font that is actually
 rendered. The policy is fixed for the lifetime of that `Reader`; create a new
 reader to replace it.
+
+A missing or empty policy makes `createReader` **throw**: the WASM engine
+shapes text with exactly these bytes and cannot start without them (there
+is no reachable system font inside the runtime, and no legacy fallback
+pipeline anymore).
 
 The core intentionally does not bundle, download, or choose fallback assets.
 The application owns their licensing, distribution, locale policy, and offline

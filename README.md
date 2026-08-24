@@ -29,11 +29,15 @@ import { createReader } from '@ritojs/core';
 const response = await fetch('book.epub');
 const canvas = document.querySelector('canvas')!;
 
+// The engine shapes text with pinned font bytes (no system font is
+// reachable inside the WASM runtime) — a pinnedFontPolicy is required.
+// See docs/getting-started.md for a complete loader.
 const reader = await createReader(await response.arrayBuffer(), canvas, {
   width: 800,
   height: 600,
   margin: 40,
   spread: 'double',
+  pinnedFontPolicy: await loadPinnedFontPolicy(),
 });
 
 reader.renderSpread(0);

@@ -25,9 +25,12 @@ if (!container) {
   throw new Error('Expected #reader container');
 }
 
+// pinnedFontPolicy is required by @ritojs/core — the engine shapes text
+// with those exact font bytes. See the core getting-started guide.
 const reader = await createReader(epubData, canvas, {
   width: 800,
   height: 600,
+  pinnedFontPolicy: await loadPinnedFontPolicy(),
 });
 
 const controller = createController(reader, canvas, {

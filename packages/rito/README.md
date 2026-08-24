@@ -26,11 +26,15 @@ if (!(canvas instanceof HTMLCanvasElement)) {
   throw new Error('Expected a <canvas>');
 }
 
+// pinnedFontPolicy is REQUIRED: the WASM engine shapes text with these
+// exact font bytes (layout and paint share them). See the repository's
+// getting-started guide for a complete loader.
 const reader = await createReader(await response.arrayBuffer(), canvas, {
   width: 800,
   height: 600,
   margin: 40,
   spread: 'double',
+  pinnedFontPolicy: await loadPinnedFontPolicy(),
 });
 
 reader.renderSpread(0);
