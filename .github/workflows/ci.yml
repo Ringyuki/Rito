@@ -32,7 +32,7 @@ jobs:
       - name: Verify Rust workspace
         run: pnpm run rust:check
       - name: Verify WASM target and bindings
-        run: pnpm run rust:wasm:check && pnpm --filter @ritojs/core-wasm run test
+        run: pnpm run rust:wasm:check && pnpm --filter @ritojs/core-wasm run build && pnpm --filter @ritojs/core-wasm run test
       - name: Run PR Test Pipeline
         run: pnpm run test:ci
       - name: Run Reader E2E

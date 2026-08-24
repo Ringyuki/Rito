@@ -89,7 +89,7 @@ describe('reader parity review', () => {
   it('lazily ensures selected spreads before exact bounded completion', () => {
     const html = readerParityReviewHtml();
 
-    expect(html).toContain("import('/reference-dist/compatibility/web.mjs')");
+    expect(html).toContain("import('/reference-dist/tooling/web.mjs')");
     expect(html).toContain("import('/dist/index.mjs')");
     expect(html).toContain('const matches = await reader.search(query)');
     expect(html).toContain('reader.findSpread(match.pageIndex)');

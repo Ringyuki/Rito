@@ -26,7 +26,7 @@ export function readerParityReviewHtml(): string {
   window.renderRitoReaderParityReady = 'loading';
 
   Promise.all([
-    import('/reference-dist/compatibility/web.mjs'),
+    import('/reference-dist/tooling/web.mjs'),
     import('/dist/index.mjs'),
   ])
     .then(([referenceModule, productionModule]) => {
