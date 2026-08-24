@@ -19,7 +19,7 @@ type TranslateTransform = Extract<
   { readonly kind: 'translate' }
 >;
 type ClipCommand = Extract<CoreFrameCommand, { readonly kind: 'clipRect' }>;
-type FrameCommandImageResolver = (src: string) => CanvasImageSource | undefined;
+type FrameCommandImageResolver = (src: string) => ImageBitmap | HTMLImageElement | undefined;
 
 export interface FrameCommandRenderOptions {
   readonly pixelRatio?: number;

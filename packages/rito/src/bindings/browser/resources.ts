@@ -208,7 +208,7 @@ export function ensureFrameImageResourceLoaded(state: BrowserReaderState, href: 
     .readResourceAtRevision(coreRevisionHandle(revision), 'image', href)
     .then(
       ({ value }) => loadImageBytes(state, href, value.payload.mediaType, value.bytes),
-      (error): BrowserReaderImageLoadOutcome => ({
+      (error: unknown): BrowserReaderImageLoadOutcome => ({
         status: 'failed',
         reason: 'resource-unavailable',
         detail: String(error).slice(0, 400),
@@ -339,11 +339,13 @@ function decodeReaderImage(
     typeof URL !== 'undefined' &&
     typeof URL.createObjectURL === 'function'
   ) {
-    return decodeReaderImageElement(blob).then((element) => {
-      if (element) return element;
-      if (!bitmapFallback) throw new Error('image element decode failed without a bitmap path');
-      return bitmapFallback();
-    });
+    return decodeReaderImageElement(blob).then(
+      (element): BrowserReaderDecodedImage | Promise<BrowserReaderDecodedImage> => {
+        if (element) return element;
+        if (!bitmapFallback) throw new Error('image element decode failed without a bitmap path');
+        return bitmapFallback();
+      },
+    );
   }
   return bitmapFallback?.();
 }

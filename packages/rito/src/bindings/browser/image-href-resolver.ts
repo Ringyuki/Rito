@@ -22,7 +22,7 @@ const AMBIGUOUS_HREF = Symbol('ambiguous image href');
 /** Resolve frame image hrefs against the manifest-keyed browser bitmap cache. */
 export function createCanvasImageResolver(
   images: ReadonlyMap<string, BrowserReaderDecodedImage>,
-): (src: string) => ImageBitmap | undefined {
+): (src: string) => BrowserReaderDecodedImage | undefined {
   const index = buildImageHrefIndex(images);
   return (src) => {
     const exact = index.rawExact.get(src);
@@ -40,7 +40,7 @@ export function createCanvasImageResolver(
 function buildImageHrefIndex(
   images: ReadonlyMap<string, BrowserReaderDecodedImage>,
 ): ImageHrefIndex {
-  const rawExact = new Map<string, ImageBitmap>();
+  const rawExact = new Map<string, BrowserReaderDecodedImage>();
   const paths = emptyLookupIndex();
   const aliases = emptyLookupIndex();
 
@@ -61,7 +61,11 @@ function emptyLookupIndex(): MutableImageHrefLookupIndex {
   };
 }
 
-function insertHref(index: MutableImageHrefLookupIndex, href: string, image: ImageBitmap): void {
+function insertHref(
+  index: MutableImageHrefLookupIndex,
+  href: string,
+  image: BrowserReaderDecodedImage,
+): void {
   insertUnique(index.byHref, href, image);
   const parts = href.split('/');
   for (let partIndex = 1; partIndex < parts.length; partIndex += 1) {
@@ -73,7 +77,7 @@ function insertHref(index: MutableImageHrefLookupIndex, href: string, image: Ima
 function insertUnique(
   values: Map<string, BrowserReaderDecodedImage | null>,
   key: string,
-  image: ImageBitmap,
+  image: BrowserReaderDecodedImage,
 ): void {
   values.set(key, values.has(key) ? null : image);
 }
@@ -82,7 +86,7 @@ function resolveAgainstIndex(
   hrefIndex: ImageHrefLookupIndex,
   src: string,
   stopOnAmbiguous: boolean,
-): ImageBitmap | typeof AMBIGUOUS_HREF | undefined {
+): BrowserReaderDecodedImage | typeof AMBIGUOUS_HREF | undefined {
   const exact = lookupCandidate(hrefIndex.byHref, src, stopOnAmbiguous);
   if (exact !== undefined) return exact;
 
@@ -111,7 +115,7 @@ function lookupCandidate(
   values: ReadonlyMap<string, BrowserReaderDecodedImage | null>,
   key: string,
   stopOnAmbiguous: boolean,
-): ImageBitmap | typeof AMBIGUOUS_HREF | undefined {
+): BrowserReaderDecodedImage | typeof AMBIGUOUS_HREF | undefined {
   const value = values.get(key);
   if (value !== null) return value;
   return stopOnAmbiguous ? AMBIGUOUS_HREF : undefined;

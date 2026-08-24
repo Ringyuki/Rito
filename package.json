@@ -69,7 +69,6 @@
     "test:e2e:downloads-smoke": "pnpm --filter @ritojs/reader test:e2e:downloads-smoke",
     "test:e2e:load-profile": "pnpm --filter @ritojs/reader test:e2e:load-profile",
     "test:e2e:memory-gate": "pnpm --filter @ritojs/reader test:e2e:memory-gate",
-    "test:e2e:release-protocol": "pnpm --filter @ritojs/reader test:e2e:release-protocol",
     "test:e2e:usability-gate": "pnpm --filter @ritojs/reader test:e2e:usability-gate",
     "test:coverage": "pnpm run bootstrap:core-wasm && pnpm -r --workspace-concurrency=1 --if-present run test:coverage",
     "test:ci": "pnpm run bootstrap:core-wasm && pnpm run css:contract:check && pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:unit && pnpm run test:integration && pnpm run test:golden:books && pnpm run test:golden:render && pnpm run build && pnpm --filter @ritojs/core run test:dom-free:reference",

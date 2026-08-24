@@ -1,6 +1,7 @@
 import type { CoreFrameCommand } from './core-contracts';
 import type { BrowserReaderArtifactV1, BrowserReaderV1Session } from './reader-v1';
 import { BrowserReaderCanvasUnsupportedErrorV1 } from './reader-v1-canvas-error';
+import type { BrowserReaderCanvasDecodedImageV1 } from './reader-v1-canvas-image-cache-support';
 import {
   BrowserReaderCanvasImageCacheV1,
   type BrowserReaderCanvasImageLeaseV1,
@@ -21,7 +22,7 @@ const DISPOSED_DURING_PREPARE =
 
 export interface BrowserReaderCanvasArtifactResourcesV1 {
   hasImage(href: string): boolean;
-  resolveImage(href: string): ImageBitmap | undefined;
+  resolveImage(href: string): BrowserReaderCanvasDecodedImageV1 | undefined;
   release(): void;
 }
 

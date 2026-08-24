@@ -16,6 +16,9 @@ export interface CanvasBlockResolvedRadius {
   readonly corners?: readonly [number, number, number, number];
 }
 
+/** A decoded raster the block painter can draw and measure. */
+export type CanvasBlockDrawableImage = ImageBitmap | HTMLImageElement;
+
 export type CanvasBlockImageResolver = (
   src: NonNullable<CanvasBlockBackgroundPaint['image']>,
-) => ImageBitmap | undefined;
+) => CanvasBlockDrawableImage | undefined;

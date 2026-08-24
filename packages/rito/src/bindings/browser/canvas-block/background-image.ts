@@ -1,6 +1,7 @@
 import { traceCornerRoundedRect, traceRoundedRect } from '../canvas-path';
 import type {
   CanvasBlockBackgroundPaint,
+  CanvasBlockDrawableImage,
   CanvasBlockImageResolver,
   CanvasBlockRect,
 } from './types';
@@ -10,7 +11,7 @@ type BackgroundPosition = NonNullable<CanvasBlockBackgroundPaint['position']>;
 type LengthPercentage = BackgroundPosition['x'];
 
 interface BackgroundImageGeometry {
-  readonly bitmap: ImageBitmap;
+  readonly bitmap: CanvasBlockDrawableImage;
   readonly drawX: number;
   readonly drawY: number;
   readonly drawW: number;
@@ -58,12 +59,12 @@ export function renderBackgroundImage(
 export function resolveCanvasImage(
   imageResolver: CanvasBlockImageResolver,
   src: NonNullable<CanvasBlockBackgroundPaint['image']>,
-): ImageBitmap | undefined {
+): CanvasBlockDrawableImage | undefined {
   return imageResolver(src);
 }
 
 function resolveImageGeometry(
-  bitmap: ImageBitmap,
+  bitmap: CanvasBlockDrawableImage,
   background: CanvasBlockBackgroundPaint,
   blockX: number,
   blockY: number,

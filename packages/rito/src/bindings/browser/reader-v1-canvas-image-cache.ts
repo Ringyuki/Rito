@@ -28,7 +28,7 @@ import { settleCanvasResourcesWithLimiterV1 } from './reader-v1-canvas-resource-
 
 export interface BrowserReaderCanvasImageLeaseV1 {
   has(href: string): boolean;
-  resolve(href: string): ImageBitmap | undefined;
+  resolve(href: string): BrowserReaderCanvasDecodedImageV1 | undefined;
   release(): void;
 }
 
