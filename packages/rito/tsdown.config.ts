@@ -17,6 +17,12 @@ export default defineConfig({
     dom: 'src/compatibility/dom.ts',
   },
   format: 'esm',
+  // The package ships browser code end to end: resolve dependencies via
+  // their browser condition (fflate's node ESM entry probes
+  // worker_threads through createRequire, which breaks vite consumers).
+  platform: 'browser',
+  // keep the historical .mjs artifact names the exports map points at
+  fixedExtension: true,
   dts: true,
   sourcemap: true,
   clean: true,
