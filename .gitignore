@@ -18,3 +18,11 @@ test-results/
 
 AGENTS.md
 MEMORY.md
+
+# corpus-oracle run artifacts: pixel-walk output trees, their logs, and
+# sweep boards are per-run instruments, never source.
+tools/corpus-oracle/walk-*/
+tools/corpus-oracle/walk-*.log
+tools/corpus-oracle/walk-*.txt
+tools/corpus-oracle/sweep/
+tools/corpus-oracle/tmp-*
