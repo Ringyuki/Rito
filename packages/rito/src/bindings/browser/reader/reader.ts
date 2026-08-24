@@ -56,6 +56,19 @@ export async function createReader(
   canvas: HTMLCanvasElement | OffscreenCanvas,
   options: ReaderOptions,
 ): Promise<Reader> {
+  // The fragment engine constructs its shaping context FROM the pinned
+  // font bytes; without them the wasm side silently falls back to the
+  // legacy pagination path and renders something else entirely. Refuse
+  // the contradictory configuration loudly instead.
+  if (
+    options.experimentalFragmentPagination === true &&
+    (options.pinnedFontPolicy === undefined || options.pinnedFontPolicy.faces.length === 0)
+  ) {
+    throw new Error(
+      'experimentalFragmentPagination requires a pinnedFontPolicy with at least one face: ' +
+        'the fragment engine shapes text with those exact font bytes and cannot start without them',
+    );
+  }
   const module = await loadRuntimeCoreModule();
   const workerFactory = createBrowserReaderWorkerClientFactory(module);
   let pinnedFonts: BrowserReaderPinnedFonts | undefined;
