@@ -48,6 +48,10 @@ jobs:
           tool: wasm-bindgen@0.2.120
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build WASM Bindings
+        run: pnpm --filter @ritojs/core-wasm run build
+      - name: Install Playwright Browser
+        run: pnpm exec playwright install --with-deps chromium
       - name: Verify cross-workflow release token
         env:
           RELEASE_GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
