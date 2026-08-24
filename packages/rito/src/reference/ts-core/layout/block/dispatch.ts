@@ -115,7 +115,9 @@ function placeHr(state: LayoutState, node: StyledNode, contentWidth: number): vo
   const useBorder = bt.width > 0 && bt.style !== 'none';
   const hrColor = useBorder ? bt.color : node.style.color;
   const hrHeight = useBorder ? bt.width : 1;
-  const hrStyle = useBorder ? bt.style : 'solid';
+  // The frozen reference draws only solid/dotted/dashed rules; a
+  // 'double' border falls back to solid.
+  const hrStyle = useBorder && bt.style !== 'double' ? bt.style : 'solid';
   state.blocks.push(layoutHorizontalRule(contentWidth, state.y, hrColor, hrHeight, hrStyle));
   state.y += hrHeight;
   state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);

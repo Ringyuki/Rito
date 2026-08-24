@@ -121,8 +121,12 @@ function scan(
 }
 
 describe('Browser reader architecture invariant: browser reader binding stays product-facing', () => {
-  it('keeps decoded frame commands structurally equal to the Canvas contract', () => {
-    expectTypeOf<RitoCoreWasmFrameCommand>().toEqualTypeOf<DrawCommand>();
+  it('keeps the reference Canvas contract a subset of decoded frame commands', () => {
+    // The wasm frame contract grew past the frozen reference (vertical
+    // rotate/scale transforms, underline paint); every command the
+    // reference renderer knows must still decode identically, while the
+    // production-only kinds are allowed to extend the union.
+    expectTypeOf<DrawCommand>().toExtend<RitoCoreWasmFrameCommand>();
   });
 
   it('stays within the counted thin-shell budget', () => {

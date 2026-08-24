@@ -53,7 +53,7 @@ const CHAPTER_XHTML = `<?xml version="1.0"?>
   <body><p>DOM-free &amp; worker-safe.</p></body>
 </html>`;
 
-await assertReferenceGraph(new URL('reference/index.mjs', REFERENCE_BUILD_URL), true);
+await assertReferenceGraph(new URL('index.mjs', REFERENCE_BUILD_URL), true);
 await assertReferenceGraph(new URL('tooling/web.mjs', REFERENCE_BUILD_URL), false);
 
 const epubBytes = buildEpub();
@@ -63,7 +63,7 @@ const epub = epubBytes.buffer.slice(
 );
 const worker = new Worker(new URL('./dom-free-dist-worker.mjs', import.meta.url), {
   workerData: {
-    moduleUrl: new URL('../.output/reference-build/reference/index.mjs', import.meta.url).href,
+    moduleUrl: new URL('../.output/reference-build/index.mjs', import.meta.url).href,
     epub,
   },
   transferList: [epub],

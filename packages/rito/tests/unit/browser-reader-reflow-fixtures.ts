@@ -254,6 +254,7 @@ export function createWorker(
     releaseChapterLocalRevision: vi.fn<BrowserReaderWorkerClient['releaseChapterLocalRevision']>(),
     dispose,
     whenDisposed,
+    chapterFragmentProbe: vi.fn<BrowserReaderWorkerClient['chapterFragmentProbe']>(),
   };
   return {
     worker,

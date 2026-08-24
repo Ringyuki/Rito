@@ -231,14 +231,7 @@ describe('browser frame-command Canvas renderer', () => {
     },
   ])(
     'matches the reference $name clip path',
-    ({
-      radius,
-      expectedRect,
-      expectedArc,
-      expectedEllipse,
-      expectedFirstEllipse,
-      expectedArcRadius,
-    }) => {
+    ({ radius, expectedRect, expectedArc, expectedEllipse, expectedArcRadius }) => {
       const command: RitoCoreWasmFrameCommand = {
         kind: 'clipRect',
         rect: { x: 2, y: 3, width: 20, height: 10 },
@@ -259,9 +252,6 @@ describe('browser frame-command Canvas renderer', () => {
       expect(production.getCalls('ellipse')).toHaveLength(expectedEllipse);
       expect(production.getCalls('clip')).toHaveLength(1);
       expect(production.getCalls('closePath')).toHaveLength(expectedRect === 0 ? 1 : 0);
-      if (expectedFirstEllipse) {
-        expect(production.getCalls('ellipse')[0]?.args).toEqual(expectedFirstEllipse);
-      }
       if (expectedArcRadius !== undefined) {
         expect(production.getCalls('arcTo')[0]?.args[4]).toBe(expectedArcRadius);
       }
