@@ -18,6 +18,18 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
+/** The 0.13 compatibility subpaths build from src/compatibility/. */
+const COMPATIBILITY_ENTRIES = new Set([
+  'web',
+  'advanced',
+  'selection',
+  'search',
+  'annotations',
+  'position',
+  'a11y',
+  'dom',
+]);
+
 const SRC = join(import.meta.dirname, '../../src');
 const PACKAGE_ROOT = join(SRC, '..');
 const WORKSPACE_ROOT = join(PACKAGE_ROOT, '../..');
@@ -185,6 +197,9 @@ function distTargetToSourceEntry(target: string): string {
   if (match?.[1] === undefined) {
     throw new Error(`package export target ${target} is not a dist entry`);
   }
+  if (COMPATIBILITY_ENTRIES.has(match[1])) {
+    return `src/compatibility/${match[1]}.ts`;
+  }
   return `src/${match[1]}.ts`;
 }
 
@@ -279,16 +294,35 @@ describe('Architecture invariant: public entries are split by platform', () => {
     expect(source).not.toContain("from './parser/");
   });
 
-  it('legacy TypeScript compatibility subpaths are not public package entries', () => {
+  it('keeps the 0.13 compatibility subpaths as public package entries', () => {
+    // Published consumers import `@ritojs/core/web`, `/position`,
+    // `/annotations`... — those specifiers must keep resolving across
+    // the Rust-core transition (the entries build from
+    // src/compatibility/, never from bare src/ files).
     const exported = Object.keys(PACKAGE_JSON_RECORD['exports'] as Record<string, unknown>);
-    expect(exported.sort()).toEqual(['.', './package.json']);
+    expect(exported.sort()).toEqual([
+      '.',
+      './a11y',
+      './advanced',
+      './annotations',
+      './dom',
+      './package.json',
+      './position',
+      './search',
+      './selection',
+      './web',
+    ]);
     expect(read(TSDOWN_CONFIG)).not.toMatch(
       /src\/(?:advanced|web|selection|search|annotations|position|a11y|dom)\.ts/,
     );
   });
 
-  it('legacy TypeScript compatibility code stays source-only for reference and golden tooling', () => {
-    expect(read(join(COMPATIBILITY, 'web.ts'))).toContain("from '../reference'");
+  it('compatibility entries wrap the reference core, except the reader triple', () => {
+    // `@ritojs/core/web` hands out the PRODUCTION reader; everything
+    // else in the compatibility layer stays on the frozen TS reference.
+    const web = read(join(COMPATIBILITY, 'web.ts'));
+    expect(web).toContain("from '../reader'");
+    expect(web).toContain("from '../reference/ts-core/");
     expect(read(join(COMPATIBILITY, 'advanced.ts'))).toContain("from '../reference/ts-core/");
   });
 

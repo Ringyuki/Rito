@@ -8,7 +8,11 @@ describe('TypeScript reference core facade', () => {
     expect(createReferenceReader).not.toBe(createRootReader);
   });
 
-  it('keeps the source-only web compatibility reader on the reference implementation', () => {
-    expect(createWebCompatibilityReader).toBe(createReferenceReader);
+  it('serves the production Rust-core reader through the web compatibility preset', () => {
+    // `@ritojs/core/web` is the published 0.13 entry point real readers
+    // import from; it must hand out the production pipeline, not the
+    // frozen TS reference (same createReader contract either way).
+    expect(createWebCompatibilityReader).toBe(createRootReader);
+    expect(createWebCompatibilityReader).not.toBe(createReferenceReader);
   });
 });

@@ -1,13 +1,12 @@
-// Deprecated compatibility Web Canvas preset for the legacy TypeScript core.
-// Production reader code should import from `@ritojs/core`.
+// Compatibility Web preset: the reader triple resolves to the PRODUCTION
+// Rust-core pipeline (same createReader(data, canvas, options) contract
+// the 0.13 preset had), so published consumers of `@ritojs/core/web`
+// ride the new engine without an import change. The remaining legacy
+// TS-core conveniences below keep their historical behaviour.
 
-// ── Reader ─────────────────────────────────────────────────────────
-export {
-  createReader,
-  type Reader,
-  type ReaderOptions,
-  type ReaderThemeOptions,
-} from '../reference';
+// ── Reader (production Rust core) ──────────────────────────────────
+export { createReader } from '../reader';
+export type { Reader, ReaderOptions, ReaderThemeOptions } from '../reader';
 
 // ── Core conveniences re-exported for browser users ────────────────
 export { loadEpub, paginate } from '../reference/ts-core/runtime/index';
