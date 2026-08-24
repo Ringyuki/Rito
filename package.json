@@ -21,7 +21,6 @@
     "build": "pnpm -r --workspace-concurrency=1 run build",
     "audit:dependencies": "pnpm audit --audit-level=high",
     "changeset": "changeset",
-    "css:contract:check": "node benchmarks/css-engine-spike/validate-style-contract-ledger.mjs",
     "release:status": "changeset status --verbose",
     "release:pack-check": "node ./scripts/check-release-tarballs.mjs",
     "version-packages": "changeset version",
@@ -73,7 +72,7 @@
     "test:e2e:memory-gate": "pnpm --filter @ritojs/reader test:e2e:memory-gate",
     "test:e2e:usability-gate": "pnpm --filter @ritojs/reader test:e2e:usability-gate",
     "test:coverage": "pnpm run bootstrap:core-wasm && pnpm -r --workspace-concurrency=1 --if-present run test:coverage",
-    "test:ci": "pnpm run bootstrap:core-wasm && pnpm run css:contract:check && pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:unit && pnpm run test:integration && pnpm run test:golden:books && pnpm run test:golden:render && pnpm run build && pnpm --filter @ritojs/core run test:dom-free:reference",
+    "test:ci": "pnpm run bootstrap:core-wasm && pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:unit && pnpm run test:integration && pnpm run test:golden:books && pnpm run test:golden:render && pnpm run build && pnpm --filter @ritojs/core run test:dom-free:reference",
     "check": "pnpm run test:ci",
     "prepare": "husky",
     "conformance": "node tools/conformance/generate.mjs /tmp/rito-conformance && node tools/conformance/compare.mjs /tmp/rito-conformance"

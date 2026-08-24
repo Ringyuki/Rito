@@ -42,7 +42,12 @@ export function productionParityHtml(): string {
         try {
           installedFonts.push(...(await installTestFonts(fonts)));
           const reference = await renderEngine(referenceModule, bookBase64, false);
-          const production = await renderEngine(productionModule, bookBase64, true);
+          const production = await renderEngine(
+            productionModule,
+            bookBase64,
+            true,
+            await pinnedPolicyFromFonts(fonts),
+          );
           return { reference, production };
         } finally {
           for (const face of installedFonts) document.fonts.delete(face);
@@ -77,7 +82,23 @@ export function productionParityHtml(): string {
     }
   }
 
-  async function renderEngine(module, bookBase64, waitForFullLayout) {
+  // The production engine refuses to open without pinned faces; the
+  // first provided test font stands in as the policy's serif face.
+  async function pinnedPolicyFromFonts(fonts) {
+    const primary = fonts.find((font) => font.fontBase64);
+    if (!primary) throw new Error('Pixel parity fixture provides no policy font');
+    const bytes = base64ToArrayBuffer(primary.fontBase64);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const sha = Array.from(new Uint8Array(digest))
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
+    return {
+      schemaVersion: 1,
+      faces: [{ bytes, expectedSha256: sha, genericRole: 'serif', language: 'und' }],
+    };
+  }
+
+  async function renderEngine(module, bookBase64, waitForFullLayout, pinnedFontPolicy) {
     if (typeof module.createReader !== 'function') {
       throw new Error('Pixel parity reader module does not export createReader');
     }
@@ -92,6 +113,7 @@ export function productionParityHtml(): string {
       devicePixelRatio: PROFILE.devicePixelRatio,
       backgroundColor: '#ffffff',
       logLevel: 'silent',
+      ...(pinnedFontPolicy ? { pinnedFontPolicy } : {}),
     });
     try {
       if (waitForFullLayout) await waitForNextLayoutCommit(reader);

@@ -637,3 +637,128 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
     };
     assert_eq!(projected.selected_text, "quick");
 }
+
+#[test]
+fn a_forced_sans_serif_override_changes_the_painted_frame() {
+    use super::pinned_font_policy_fixtures::illustration_font;
+    let open = || {
+        RuntimeDocument::open_with_pinned_font_policy(
+            &multi_chapter_fixture_epub(),
+            policy(vec![
+                face(
+                    serif_text_font(),
+                    RuntimePinnedFontGenericRole::Serif,
+                    Some("en"),
+                ),
+                face(
+                    illustration_font(),
+                    RuntimePinnedFontGenericRole::SansSerif,
+                    Some("en"),
+                ),
+            ]),
+        )
+        .expect("document opens")
+    };
+    let frame_for = |family: &str| {
+        let mut document = open();
+        document.set_fragment_page_table_enabled(true);
+        let mut layout = font_aware_layout();
+        layout.font_family_override = Some(family.to_owned());
+        layout.font_family_force = Some(true);
+        let summary = document
+            .create_revision(&layout)
+            .expect("revision is created");
+        let revision = document
+            .revisions
+            .get(&summary.revision_id)
+            .expect("revision is retained");
+        assert!(
+            revision.fragment_layout.is_some(),
+            "fragment page table attaches for the {family} override"
+        );
+        let frame = revision
+            .chapter_engine_session()
+            .frame(0)
+            .expect("spread 0 has a frame");
+        format!("{:?}", frame.commands)
+    };
+    // The serialized frames differ because the paint family chain carries
+    // the override's generic tail. This proves the override reaches the
+    // painted frame — NOT that the visible glyphs change: the pinned
+    // fallback chain is still applied in policy order, so face selection
+    // by generic role is a separate, currently missing behavior.
+    let serif = frame_for("serif");
+    let sans = frame_for("sans-serif");
+    assert_ne!(
+        serif, sans,
+        "switching the forced family must reach the painted frame"
+    );
+}
+
+#[test]
+fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
+    use super::pinned_font_policy_fixtures::illustration_font;
+    let frame_for = |family: &str| {
+        let mut document = RuntimeDocument::open_with_pinned_font_policy(
+            &multi_chapter_fixture_epub(),
+            policy(vec![
+                face(
+                    serif_text_font(),
+                    RuntimePinnedFontGenericRole::Serif,
+                    Some("en"),
+                ),
+                face(
+                    illustration_font(),
+                    RuntimePinnedFontGenericRole::SansSerif,
+                    Some("en"),
+                ),
+            ]),
+        )
+        .expect("document opens");
+        document.set_fragment_page_table_enabled(true);
+        let mut layout = font_aware_layout();
+        layout.font_family_override = Some(family.to_owned());
+        layout.font_family_force = Some(true);
+        let mut advance = document
+            .create_bounded_revision(RuntimeBoundedRevisionRequest {
+                layout_config: layout,
+                line_breaking: crate::layout::LineBreaking::Greedy,
+                budget: RuntimeRevisionWorkBudget {
+                    max_top_level_nodes: 1,
+                },
+            })
+            .expect("bounded revision starts");
+        while let Some(cursor) = advance.continuation.clone() {
+            advance = document
+                .continue_revision(RuntimeContinueRevisionRequest {
+                    revision_id: cursor.revision_id,
+                    revision_version: cursor.revision_version,
+                    cursor: cursor.cursor,
+                    budget: RuntimeRevisionWorkBudget {
+                        max_top_level_nodes: 1,
+                    },
+                })
+                .expect("bounded revision advances");
+        }
+        assert_eq!(
+            advance.revision.pagination_backend.as_deref(),
+            Some("fragment"),
+            "the completed bounded session hands over for the {family} override"
+        );
+        let revision = document
+            .revisions
+            .get(&advance.revision.revision_id)
+            .expect("revision is retained");
+        let frame = revision
+            .chapter_engine_session()
+            .frame(0)
+            .expect("spread 0 has a frame");
+        format!("{:?}", frame.commands)
+    };
+    let serif = frame_for("serif");
+    let sans = frame_for("sans-serif");
+    assert_ne!(
+        serif, sans,
+        "a bounded session forced family switch must reach the painted frame"
+    );
+}

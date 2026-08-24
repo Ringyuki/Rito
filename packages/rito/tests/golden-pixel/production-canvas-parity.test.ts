@@ -80,7 +80,13 @@ test.describe('production Canvas pixel parity', () => {
     await server?.close();
   });
 
-  test('matches the reference renderer for representative paint features', async ({
+  // Retired with the fragment-only pipeline: the production engine now
+  // targets pinned-Chromium pixel parity (covered by the golden snapshot
+  // suite), not equality with the TypeScript reference renderer, and the
+  // full-layout commit event this harness waits on is a retained-pipeline
+  // signal. Kept for the reference tooling until the harness is rebuilt
+  // against the browser oracle.
+  test.fixme('matches the reference renderer for representative paint features', async ({
     page,
   }, testInfo) => {
     if (!server) throw new Error('Pixel render server did not start');
