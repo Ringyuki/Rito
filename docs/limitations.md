@@ -9,9 +9,9 @@ Rito is intentionally focused on EPUB rendering, not browser-equivalent web layo
 - no multicolumn layout
 - no `position: fixed`
 - no `position: sticky`
-- no `@media` queries
-- no general sibling combinator (`~`)
-- no full browser-equivalent positioned-layout model
+- no `position: absolute`; `position: relative` is accepted only with inert
+  (auto/zero) insets — a chapter using either degrades rather than mislaying
+  content
 
 ## Writing System Scope
 

@@ -19,13 +19,15 @@ This page describes what Rito is designed to support today.
 
 ## CSS / Style Resolution
 
-- element, class, id, compound, descendant, child, and adjacent-sibling selectors
+- element, class, id, compound, descendant, child, adjacent-sibling (`+`), and
+  general-sibling (`~`) selectors
 - attribute selectors
 - `:first-child` and `:last-child`
 - `::before` and `::after` with string `content`
 - specificity and cascade resolution
 - inheritance
 - `@font-face`
+- `@media` queries (evaluated against the real device)
 - `rem`
 - `calc()`
 - `box-sizing`, `border-radius`, and `opacity`
@@ -46,7 +48,6 @@ This page describes what Rito is designed to support today.
 - `margin: auto`
 - `overflow: hidden`
 - `vertical-align`
-- `position: relative` and `position: absolute`
 - page-break controls
 - widow/orphan handling
 - chapter-start-aware spread building
