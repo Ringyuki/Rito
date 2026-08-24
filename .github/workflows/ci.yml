@@ -198,8 +198,10 @@ jobs:
     # fewer on the page, line boxes touching) and the pixel scans misread
     # it even though the underlying selection data assertions pass. The
     # dev-vs-build metric drift is tracked for investigation; selection
-    # logic stays gated by the Linux shards.
+    # logic stays gated by the Linux shards. Runs on master pushes only so
+    # a known-red observation job never holds a PR round hostage.
     continue-on-error: true
+    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
