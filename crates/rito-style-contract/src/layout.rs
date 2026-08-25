@@ -208,6 +208,20 @@ pub struct LayoutFormattingStyleV1 {
     /// paints per cell segment with the pattern phase restarting at
     /// each cell's edge. Inherited like its CSS source.
     pub border_collapse: bool,
+    /// Computed `object-fit` (CSS Images 3 §5.4): how a replaced
+    /// element's content fits its box. Meaningful only on replaced
+    /// elements; the UA stylesheet sets `contain` on `img`.
+    pub object_fit: ObjectFitV1,
+}
+
+/// Computed `object-fit` values (CSS Images 3 §5.4).
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ObjectFitV1 {
+    Fill,
+    Contain,
+    Cover,
+    None,
+    ScaleDown,
 }
 
 /// How a table cell aligns its content box within the row box.

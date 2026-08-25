@@ -1230,6 +1230,7 @@ fn style_property_has_typed_bridge(property: &str) -> bool {
             | "writing-mode"
             | "overflow-wrap"
             | "overflow"
+            | "object-fit"
             | "opacity"
             | "border"
             | "border-width"

@@ -7184,6 +7184,7 @@ running through the quiet forest until the morning light returns.";
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
+            object_fit: rito_style_contract::ObjectFitV1::Fill,
         };
         let (width, height) = image_display_size(
             705.0,
@@ -8019,6 +8020,7 @@ the follower's punctuation class) is still unmeasured"]
                             style: image_style,
                             layout_style: image_layout,
                             fit_contain: false,
+                            object_fit: rito_style_contract::ObjectFitV1::Fill,
                             viewport: None,
                             align_top: false,
                             baseline_shift_px: 0.0,
@@ -8138,6 +8140,7 @@ the follower's punctuation class) is still unmeasured"]
                 NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
+            object_fit: rito_style_contract::ObjectFitV1::Fill,
         }
     }
 
@@ -8628,6 +8631,7 @@ the follower's punctuation class) is still unmeasured"]
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         ),
                         border_collapse: false,
+                        object_fit: rito_style_contract::ObjectFitV1::Fill,
                     },
                 )
                 .expect("layout style interns");
@@ -8649,6 +8653,7 @@ the follower's punctuation class) is still unmeasured"]
                     viewport: None,
                     baseline_shift_px: shift_px,
                     align_top: true,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 },
                 InlineItem::Text {
                     text: "的彭彭".to_owned(),
@@ -8791,6 +8796,7 @@ the follower's punctuation class) is still unmeasured"]
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         ),
                         border_collapse: false,
+                        object_fit: rito_style_contract::ObjectFitV1::Fill,
                     },
                 )
                 .expect("layout style interns");
@@ -8812,6 +8818,7 @@ the follower's punctuation class) is still unmeasured"]
                     viewport: None,
                     baseline_shift_px: 0.0,
                     align_top: false,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 });
             }
             items.push(InlineItem::Text {
@@ -9346,6 +9353,7 @@ the follower's punctuation class) is still unmeasured"]
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
                     border_collapse: false,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 },
             )
             .expect("layout style interns");
@@ -9367,6 +9375,7 @@ the follower's punctuation class) is still unmeasured"]
                 baseline_shift_px: 0.0,
                 align_top: false,
                 fit_contain: false,
+                object_fit: rito_style_contract::ObjectFitV1::Fill,
             },
             InlineItem::Text {
                 text: "，有錢人果然猛。不過鶴屋學姊不管做出什麼事好中中中中中".to_owned(),
@@ -10426,6 +10435,7 @@ the follower's punctuation class) is still unmeasured"]
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
                     border_collapse: false,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 },
             )
             .expect("layout style interns");
@@ -10447,6 +10457,7 @@ the follower's punctuation class) is still unmeasured"]
                         style: image_inline_style,
                         layout_style: image_layout,
                         fit_contain: false,
+                        object_fit: rito_style_contract::ObjectFitV1::Fill,
                         viewport: None,
                         baseline_shift_px: 6.328125,
                         align_top: false,
@@ -10564,6 +10575,7 @@ the follower's punctuation class) is still unmeasured"]
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
                     border_collapse: false,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 },
             )
             .expect("layout style interns");
@@ -10585,6 +10597,7 @@ the follower's punctuation class) is still unmeasured"]
                         style: text_style,
                         layout_style: image_layout,
                         fit_contain: false,
+                        object_fit: rito_style_contract::ObjectFitV1::Fill,
                         viewport: None,
                         baseline_shift_px: 0.0,
                         align_top: false,

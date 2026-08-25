@@ -1107,6 +1107,7 @@ fn append_image_command(
         intrinsic_height,
         fit_contain,
         viewport,
+        object_fit,
         ..
     }) = items.get(image.item_index as usize)
     else {
@@ -1160,6 +1161,41 @@ fn append_image_command(
             width: right - left,
             height: bottom - top,
         };
+        // Computed `object-fit: contain` (the UA stylesheet's reading-
+        // system default, see rito-stylo's ua.rs): the raster letterboxes
+        // inside the snapped box, exposing the page ground in the gap —
+        // no clamp-bleed slivers, those model SVG viewBox clamp
+        // addressing. The box itself, its border and its background keep
+        // the author's rect. Guard band, judged on the UNSNAPPED layout
+        // box (the snap itself shifts a small box's ratio by up to a
+        // pixel per axis): an auto-sized box differs from the raster
+        // ratio only by LayoutUnit quantization dust, so skipping those
+        // keeps every ratio-true image bit-identical to the plain fill
+        // it always painted (the pixel-walk zero books stay zero). Only
+        // a box the author forced off the raster ratio letterboxes.
+        if *object_fit == rito_style_contract::ObjectFitV1::Contain
+            && *intrinsic_width > 0.0
+            && *intrinsic_height > 0.0
+            && image.rect.width > 0.0
+            && image.rect.height > 0.0
+            && draw.width > 0.0
+            && draw.height > 0.0
+        {
+            let box_ratio = image.rect.width / image.rect.height;
+            let raster_ratio = intrinsic_width / intrinsic_height;
+            let skew = (box_ratio / raster_ratio).max(raster_ratio / box_ratio);
+            if skew > 1.01 {
+                let scale = (draw.width / intrinsic_width).min(draw.height / intrinsic_height);
+                let width = intrinsic_width * scale;
+                let height = intrinsic_height * scale;
+                draw = rito_fragment::FragmentRect {
+                    x: draw.x + (draw.width - width) / 2.0,
+                    y: draw.y + (draw.height - height) / 2.0,
+                    width,
+                    height,
+                };
+            }
+        }
     }
     if *fit_contain && *intrinsic_width > 0.0 && *intrinsic_height > 0.0 {
         let contain = |outer: rito_fragment::FragmentRect, ratio_w: f64, ratio_h: f64| {
@@ -1941,8 +1977,11 @@ mod tests {
         assert_eq!(base.rect, rect_value(14.0, 26.2, 32.0, 16.0));
     }
 
-    #[test]
-    fn images_paint_with_their_source_reference() {
+    fn painted_image_rect(
+        intrinsic_width: f64,
+        intrinsic_height: f64,
+        object_fit: rito_style_contract::ObjectFitV1,
+    ) -> Value {
         use rito_style_contract::{
             AlignItemsV1, BoxSizingV1, ClearV1, CssPx, FloatV1, JustifyContentV1,
             LayoutDisplayInsideV1, LayoutDisplayOutsideV1, LayoutDisplayV1,
@@ -2002,6 +2041,7 @@ mod tests {
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
                     border_collapse: false,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 },
             )
             .expect("layout style interns");
@@ -2011,14 +2051,15 @@ mod tests {
                 items: vec![InlineItem::Image {
                     source: 0,
                     src: "images/portrait.png".to_owned(),
-                    intrinsic_width: 40.0,
-                    intrinsic_height: 30.0,
+                    intrinsic_width,
+                    intrinsic_height,
                     style: text_style,
                     layout_style: image_layout,
                     fit_contain: false,
                     viewport: None,
                     baseline_shift_px: 0.0,
                     align_top: false,
+                    object_fit,
                 }],
             },
             children: Vec::new(),
@@ -2045,7 +2086,39 @@ mod tests {
             panic!("expected an image command, got {:?}", commands[0]);
         };
         assert_eq!(src, "images/portrait.png");
-        assert_eq!(*rect, rect_value(19.0, 28.0, 40.0, 30.0));
+        rect.clone()
+    }
+
+    #[test]
+    fn images_paint_with_their_source_reference() {
+        use rito_style_contract::ObjectFitV1;
+        assert_eq!(
+            painted_image_rect(40.0, 30.0, ObjectFitV1::Fill),
+            rect_value(19.0, 28.0, 40.0, 30.0)
+        );
+    }
+
+    #[test]
+    fn a_ratio_true_box_paints_identically_under_object_fit_contain() {
+        use rito_style_contract::ObjectFitV1;
+        // The guard band: contain equals fill when the box already has
+        // the raster ratio, bit for bit.
+        assert_eq!(
+            painted_image_rect(40.0, 30.0, ObjectFitV1::Contain),
+            rect_value(19.0, 28.0, 40.0, 30.0)
+        );
+    }
+
+    #[test]
+    fn an_author_box_off_the_raster_ratio_letterboxes_under_contain() {
+        use rito_style_contract::ObjectFitV1;
+        // A portrait 30x40 raster inside the landscape 40x30 box scales
+        // by 0.75 to 22.5x30, centered on the inline axis; the box (and
+        // its border and background) keeps the author's rect.
+        assert_eq!(
+            painted_image_rect(30.0, 40.0, ObjectFitV1::Contain),
+            rect_value(27.75, 28.0, 22.5, 30.0)
+        );
     }
 
     #[test]

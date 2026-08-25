@@ -212,6 +212,7 @@ fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingSty
         margin: margin(styles)?,
         padding: padding(styles)?,
         box_sizing: box_sizing(styles),
+        object_fit: object_fit(styles),
     })
 }
 
@@ -438,6 +439,18 @@ fn box_sizing(styles: &ComputedValues) -> rito_style_contract::BoxSizingV1 {
     match styles.clone_box_sizing() {
         T::ContentBox => rito_style_contract::BoxSizingV1::ContentBox,
         T::BorderBox => rito_style_contract::BoxSizingV1::BorderBox,
+    }
+}
+
+fn object_fit(styles: &ComputedValues) -> rito_style_contract::ObjectFitV1 {
+    use style::properties::longhands::object_fit::computed_value::T;
+
+    match styles.clone_object_fit() {
+        T::Fill => rito_style_contract::ObjectFitV1::Fill,
+        T::Contain => rito_style_contract::ObjectFitV1::Contain,
+        T::Cover => rito_style_contract::ObjectFitV1::Cover,
+        T::None => rito_style_contract::ObjectFitV1::None,
+        T::ScaleDown => rito_style_contract::ObjectFitV1::ScaleDown,
     }
 }
 
