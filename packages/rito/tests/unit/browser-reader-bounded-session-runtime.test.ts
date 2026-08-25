@@ -515,7 +515,10 @@ describe('Browser bounded session runtime', () => {
     expect(fixture.state.boundedSessions.current?.worker).toBe(candidate);
     expect(fixture.state.revisionBundle.revision.revisionId).toBe('calibrated');
     expect(committed).toHaveBeenCalledOnce();
-    expect(committed).toHaveBeenCalledWith(1);
+    // A growth commit extends the table without moving the visible
+    // spread: the reader stays where it is and the navigation layer
+    // performs the turn when it resumes off this commit.
+    expect(committed).toHaveBeenCalledWith(0);
   });
 
   it('commits a complete final miss before returning false', async () => {

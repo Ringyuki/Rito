@@ -189,23 +189,59 @@ function publishBoundedCommit(
   }
   const candidate = state.boundedSessions.candidate === input.owner;
   const retiredOwner = candidate ? state.boundedSessions.current : undefined;
-  const preservedActiveSpread = input.preserveActiveSpread?.()
-    ? state.activeSpreadIndex
-    : undefined;
   if (candidate) {
     state.boundedSessions.current = input.owner;
     state.publishedHostLineMetricsEpoch = state.hostLineMetricsEpoch;
     state.boundedSessions.candidate = undefined;
     input.owner.readsSuspended = false;
   }
+  const spreadsBefore = state.revisionBundle.navigation.spreads.map((spread) =>
+    spread.pageIndexes.join(','),
+  );
   applyBoundedRevisionState(state, prepared);
-  state.activeSpreadIndex =
-    preservedActiveSpread === undefined
-      ? boundedCommitActiveSpread(state, prepared)
-      : clampBrowserReaderSpreadIndex(
-          preservedActiveSpread,
-          prepared.result.bundle.revision.spreadCount,
-        );
+  {
+    const spreadCount = prepared.result.bundle.revision.spreadCount;
+    // An unchanged or purely-appended spread mapping never repositions
+    // the reader: every existing index still names the same content, so
+    // the anchor round-trip adds nothing and can only drift (measured on
+    // eg.epub: the reading anchor of an image-boundary page resolved one
+    // spread back, and every metrics-refresh candidate that landed while
+    // the reader sat there yanked it backwards). Only a commit that
+    // actually reshuffles existing spreads applies its anchor
+    // resolution.
+    const spreadsAfter = state.revisionBundle.navigation.spreads;
+    const mappingIsPrefix =
+      spreadsBefore.length <= spreadsAfter.length &&
+      spreadsBefore.every((pages, i) => pages === spreadsAfter[i]?.pageIndexes.join(','));
+    // Decided at the assignment instant, not earlier: async gaps inside
+    // the commit let the reader navigate between an early check and this
+    // write, and a request-time anchor landing here yanked the reader
+    // backwards. The commit's target applies only when the reader still
+    // sits where the request expected it (or the request carried no
+    // expectation and asked for no preservation); any newer user
+    // navigation wins and the live spread is kept, clamped to the new
+    // extent.
+    const preserveNow =
+      (candidate &&
+        input.expectedActiveSpreadIndex !== undefined &&
+        mappingIsPrefix &&
+        spreadsBefore.length > 0) ||
+      input.preserveActiveSpread?.() === true ||
+      (input.expectedActiveSpreadIndex !== undefined &&
+        state.activeSpreadIndex !== input.expectedActiveSpreadIndex);
+    const next = preserveNow
+      ? clampBrowserReaderSpreadIndex(state.activeSpreadIndex, spreadCount)
+      : boundedCommitActiveSpread(state, prepared);
+    // A locator seek is asked to move the reader; every other commit
+    // moving the visible spread is a defect worth reporting loudly.
+    if (next !== state.activeSpreadIndex && prepared.input.snapshot.target.kind !== 'locator') {
+      console.error(
+        `[rito] bounded revision commit moved activeSpreadIndex ${String(state.activeSpreadIndex)} -> ${String(next)} ` +
+          `(target=${prepared.input.snapshot.target.kind})`,
+      );
+    }
+    state.activeSpreadIndex = next;
+  }
   reopenCurrentExactReads(state, input, candidate);
   notifyBrowserReaderCommitCallback(state, input.onCommitted);
   if (shouldNotifyLayoutCommitted(input)) notifyBrowserReaderLayoutCommitted(state);

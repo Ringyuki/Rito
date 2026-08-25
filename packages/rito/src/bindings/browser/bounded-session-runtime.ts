@@ -171,11 +171,20 @@ export function ensureBrowserReaderBoundedSpread(
     if (spreadIndex < state.revisionBundle.revision.spreadCount) return true;
     if (state.revisionBundle.revision.status === 'complete') return false;
     activateBrowserReaderContinuationBatchTargetWithoutPreview(state, continuationBatchIntent);
+    // A growth commit extends the page table; it never moves the visible
+    // spread. The reader may have navigated while this layout was in
+    // flight, and the request-time target is stale by then — the
+    // navigation layer performs the actual turn when it resumes off the
+    // commit (measured: rapid keyboard turns during pagination bounced
+    // back to the growth target one spread behind).
     const snapshot = await mutateCurrent(
       state,
       (owner) => owner.controller.ensureSpread(spreadIndex),
       false,
       () => ({ targetSpreadIndex: spreadIndex }),
+      undefined,
+      undefined,
+      () => true,
     );
     if (!snapshot || signal?.aborted) return undefined;
     return spreadIndex < snapshot.revision.spreadCount;
@@ -239,6 +248,9 @@ export function completeBrowserReaderBoundedSession(
     // baseline one row high).
     const refresh = options?.refreshHostLineMetrics === true;
     if (!refresh && state.revisionBundle.revision.status === 'complete') return true;
+    // Completion also only extends/settles the table; the visible spread
+    // stays wherever the reader is at commit time (the request-time
+    // capture below is stale once the user turns mid-flight).
     const snapshot = await mutateCurrent(
       state,
       async (owner) => {
@@ -252,6 +264,9 @@ export function completeBrowserReaderBoundedSession(
       },
       true,
       () => ({ targetSpreadIndex: state.activeSpreadIndex, complete: true }),
+      undefined,
+      undefined,
+      () => true,
     );
     if (!snapshot || signal?.aborted) return undefined;
     if (snapshot.target.kind !== 'complete' || snapshot.revision.status !== 'complete') {
@@ -268,6 +283,7 @@ async function mutateCurrent(
   replacementTarget: () => BrowserReaderBoundedReplacementTarget,
   isCurrent: () => boolean = () => true,
   whenSuperseded?: () => Promise<void>,
+  preserveActiveSpread?: () => boolean,
 ): Promise<BrowserReaderBoundedSnapshot | undefined> {
   const owner = state.boundedSessions.current;
   if (!owner) throw new Error('Browser reader has no current bounded session');
@@ -287,7 +303,7 @@ async function mutateCurrent(
       notifyLayoutCommitted,
       isCurrent,
       superseded: whenSuperseded?.(),
-      preserveActiveSpread: () => !isCurrent(),
+      preserveActiveSpread: preserveActiveSpread ?? (() => !isCurrent()),
     });
     if (result.committed) return result.committedSnapshot ?? snapshot;
     if (result.requiresFontGeometryReflow) {
@@ -297,7 +313,7 @@ async function mutateCurrent(
         replacementTarget,
         true, // Font-geometry fallback always replaces the stable-prefix session.
         startBrowserReaderBoundedCandidate,
-        () => !isCurrent(),
+        preserveActiveSpread ?? (() => !isCurrent()),
       );
       if (replacement) return replacement;
     }
