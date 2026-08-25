@@ -241,6 +241,7 @@ fn jpeg_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
     }
 
     let mut offset = 2;
+    let mut quarter_turned = false;
     while offset + 3 < bytes.len() {
         while offset < bytes.len() && bytes[offset] != 0xff {
             offset += 1;
@@ -261,11 +262,16 @@ fn jpeg_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
         if segment_length < 2 || offset + segment_length > bytes.len() {
             return None;
         }
+        if marker == 0xe1 {
+            quarter_turned = quarter_turned
+                || exif_quarter_turned(&bytes[offset + 2..offset + segment_length]);
+        }
         if is_jpeg_sof_marker(marker) && segment_length >= 7 {
-            return Some(ImageDimensions {
+            let stored = ImageDimensions {
                 height: read_u16be(bytes, offset + 3)? as u32,
                 width: read_u16be(bytes, offset + 5)? as u32,
-            });
+            };
+            return Some(oriented(stored, quarter_turned));
         }
         offset += segment_length;
     }
@@ -273,11 +279,68 @@ fn jpeg_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
     None
 }
 
+/// Whether the Exif payload (after the APP1 length) declares a 90°-family
+/// orientation (values 5–8). Browsers decode with `image-orientation:
+/// from-image`, so a camera JPEG shot in portrait presents with its stored
+/// width and height SWAPPED — layout must size the box the same way or the
+/// rotated raster paints squeezed into a transposed box.
+fn exif_quarter_turned(payload: &[u8]) -> bool {
+    let Some(tiff) = payload.strip_prefix(b"Exif\0\0") else {
+        return false;
+    };
+    let read_u16 = |bytes: &[u8], at: usize, little: bool| -> Option<u16> {
+        let pair = bytes.get(at..at + 2)?;
+        Some(if little {
+            u16::from_le_bytes([pair[0], pair[1]])
+        } else {
+            u16::from_be_bytes([pair[0], pair[1]])
+        })
+    };
+    let little = match tiff.get(..2) {
+        Some(b"II") => true,
+        Some(b"MM") => false,
+        _ => return false,
+    };
+    let ifd = {
+        let quad = match tiff.get(4..8) {
+            Some(quad) => quad,
+            None => return false,
+        };
+        (if little {
+            u32::from_le_bytes([quad[0], quad[1], quad[2], quad[3]])
+        } else {
+            u32::from_be_bytes([quad[0], quad[1], quad[2], quad[3]])
+        }) as usize
+    };
+    let Some(entries) = read_u16(tiff, ifd, little) else {
+        return false;
+    };
+    for index in 0..usize::from(entries) {
+        let at = ifd + 2 + index * 12;
+        if read_u16(tiff, at, little) == Some(0x0112) {
+            return matches!(read_u16(tiff, at + 8, little), Some(5..=8));
+        }
+    }
+    false
+}
+
+fn oriented(stored: ImageDimensions, quarter_turned: bool) -> ImageDimensions {
+    if quarter_turned {
+        ImageDimensions {
+            width: stored.height,
+            height: stored.width,
+        }
+    } else {
+        stored
+    }
+}
+
 fn jpeg_dimensions_from_reader(reader: &mut dyn Read) -> std::io::Result<Option<ImageDimensions>> {
     let mut signature = [0_u8; 2];
     if !read_exact_or_eof(reader, &mut signature)? || signature != [0xff, 0xd8] {
         return Ok(None);
     }
+    let mut quarter_turned = false;
     loop {
         let Some(marker) = next_jpeg_marker(reader)? else {
             return Ok(None);
@@ -302,10 +365,19 @@ fn jpeg_dimensions_from_reader(reader: &mut dyn Read) -> std::io::Result<Option<
             if payload_length < header.len() || !read_exact_or_eof(reader, &mut header)? {
                 return Ok(None);
             }
-            return Ok(Some(ImageDimensions {
+            let stored = ImageDimensions {
                 height: u32::from(u16::from_be_bytes([header[1], header[2]])),
                 width: u32::from(u16::from_be_bytes([header[3], header[4]])),
-            }));
+            };
+            return Ok(Some(oriented(stored, quarter_turned)));
+        }
+        if marker == 0xe1 && !quarter_turned {
+            let mut payload = vec![0_u8; payload_length];
+            if !read_exact_or_eof(reader, &mut payload)? {
+                return Ok(None);
+            }
+            quarter_turned = exif_quarter_turned(&payload);
+            continue;
         }
         if !discard_exact(reader, payload_length)? {
             return Ok(None);
