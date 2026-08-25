@@ -1,3 +1,11 @@
+## Unreleased
+
+- EXIF quarter-turned JPEGs validate against the engine's presented dimensions
+  (a rotated plate no longer fails artifact preparation).
+- A failing image degrades to a recorded absence instead of blocking the page
+  turn: `resolveImage` now returns null for it (breaking), the fault is
+  reported through `FlutterError`, and the lease lists it in `failedImages`.
+
 ## 0.1.0 - 2026-07-31
 
 - Introduce the Flutter adapter for Rito's native EPUB reader protocol, with

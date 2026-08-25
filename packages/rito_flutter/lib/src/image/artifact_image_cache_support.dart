@@ -20,6 +20,7 @@ final class RitoArtifactImageLease {
     required this.sessionId,
     required this.artifactId,
     required Map<String, _CacheKey> images,
+    required this.failedImages,
   }) : _owner = owner,
        _images = images;
 
@@ -27,19 +28,28 @@ final class RitoArtifactImageLease {
   final Map<String, _CacheKey> _images;
   final int sessionId;
   final int artifactId;
+
+  /// Images whose preparation failed, by href, with the fault that was
+  /// reported. They paint as absence; the page still turns.
+  final Map<String, Object> failedImages;
+
   bool _released = false;
 
   bool get isReleased => _released;
 
-  /// Returns a borrowed image for immediate synchronous Canvas replay.
+  /// Returns a borrowed image for immediate synchronous Canvas replay,
+  /// or null for an image whose preparation failed and was recorded.
   ///
   /// Callers must not retain or dispose it. Ownership remains with this lease.
-  ui.Image resolveImage(String href) {
+  ui.Image? resolveImage(String href) {
     if (_released) {
       throw StateError('Artifact image lease has been released.');
     }
     final key = _images[href];
     if (key == null) {
+      if (failedImages.containsKey(href)) {
+        return null;
+      }
       throw StateError('Image was not prepared for this artifact: $href');
     }
     return _owner._resolve(key);

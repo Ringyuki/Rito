@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter.dart';
 
@@ -110,21 +111,21 @@ void main() {
     final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
     final cache = RitoArtifactImageCache(decoder: decoder);
 
-    await expectLater(
-      cache.prepare(
+    final lease = await preparedWithContainedFailure(
+      cache: cache,
+      artifact: artifact,
+      readResource: (reference) async => imageResource(
         artifact: artifact,
-        pixelRatio: 1,
-        readResource: (reference) async => imageResource(
-          artifact: artifact,
-          reference: reference,
-          spec: spec,
-          returnedArtifactId: artifact.artifactId + 1,
-        ),
+        reference: reference,
+        spec: spec,
+        returnedArtifactId: artifact.artifactId + 1,
       ),
-      throwsStateError,
     );
 
     expect(decoder.openedCodes, isEmpty);
+    expect(lease.resolveImage(href), isNull);
+    expect(lease.failedImages[href], isA<StateError>());
+    lease.release();
     cache.dispose();
   });
 
@@ -145,21 +146,24 @@ void main() {
       limits: const RitoArtifactImageLimits(maxTargetPixelsPerLease: 999),
     );
 
-    await expectLater(
-      cache.prepare(
+    final lease = await preparedWithContainedFailure(
+      cache: cache,
+      artifact: artifact,
+      readResource: (reference) async => imageResource(
         artifact: artifact,
-        pixelRatio: 1,
-        readResource: (reference) async => imageResource(
-          artifact: artifact,
-          reference: reference,
-          spec: spec,
-        ),
+        reference: reference,
+        spec: spec,
       ),
-      throwsA(isA<RitoImageBudgetExceededException>()),
     );
 
     expect(decoder.decodedCodes, isEmpty);
     expect(decoder.disposedSources, 1);
+    expect(lease.resolveImage(href), isNull);
+    expect(
+      lease.failedImages[href],
+      isA<RitoImageBudgetExceededException>(),
+    );
+    lease.release();
     cache.dispose();
   });
 
@@ -174,21 +178,49 @@ void main() {
     final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
     final cache = RitoArtifactImageCache(decoder: decoder);
 
-    await expectLater(
-      cache.prepare(
+    final lease = await preparedWithContainedFailure(
+      cache: cache,
+      artifact: artifact,
+      readResource: (reference) async => imageResource(
         artifact: artifact,
-        pixelRatio: 1,
-        readResource: (reference) async => imageResource(
-          artifact: artifact,
-          reference: reference,
-          spec: spec,
-        ),
+        reference: reference,
+        spec: spec,
       ),
-      throwsA(isA<RitoImageBudgetExceededException>()),
     );
 
     expect(decoder.decodedCodes, isEmpty);
     expect(decoder.disposedSources, 1);
+    expect(lease.resolveImage(href), isNull);
+    expect(
+      lease.failedImages[href],
+      isA<RitoImageBudgetExceededException>(),
+    );
+    lease.release();
     cache.dispose();
   });
+}
+
+/// Prepares while capturing the FlutterError report the contained image
+/// fault must produce; exactly one report is part of the contract.
+Future<RitoArtifactImageLease> preparedWithContainedFailure({
+  required RitoArtifactImageCache cache,
+  required RitoArtifact artifact,
+  required Future<RitoResource> Function(RitoResourceRef reference)
+  readResource,
+}) async {
+  final reports = <FlutterErrorDetails>[];
+  final priorOnError = FlutterError.onError;
+  FlutterError.onError = reports.add;
+  final RitoArtifactImageLease lease;
+  try {
+    lease = await cache.prepare(
+      artifact: artifact,
+      pixelRatio: 1,
+      readResource: readResource,
+    );
+  } finally {
+    FlutterError.onError = priorOnError;
+  }
+  expect(reports, hasLength(1));
+  return lease;
 }

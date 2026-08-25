@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter.dart';
 
@@ -37,7 +36,7 @@ void main() {
       imageCache: cache,
       imagePixelRatio: 2,
     );
-    final oldImage = session.firstArtifact.resolveImage(href);
+    final oldImage = session.firstArtifact.resolveImage(href)!;
     expect(
       () => session.firstArtifact.resolveImage('images/unprepared.png'),
       throwsStateError,
@@ -67,8 +66,11 @@ void main() {
   });
 
   test(
-    'failed candidate decode releases native candidate and keeps visible',
+    'a candidate with a failed image still adopts and records the absence',
     () async {
+      // A broken plate must not block the page turn: the candidate
+      // adopts, the failed image is recorded and paints as absence, and
+      // ownership still cleans up without leaks.
       const firstHref = 'images/first.png';
       const nextHref = 'images/failed.png';
       const firstSpec = TestImageSpec(code: 1, width: 40, height: 40);
@@ -108,21 +110,26 @@ void main() {
         request: _request(12),
         imageCache: cache,
       );
-      final visibleImage = session.firstArtifact.resolveImage(firstHref);
+      final visibleImage = session.firstArtifact.resolveImage(firstHref)!;
 
-      await expectLater(
-        session.turn(
+      final reports = <FlutterErrorDetails>[];
+      final priorOnError = FlutterError.onError;
+      FlutterError.onError = reports.add;
+      final RitoPreparedArtifact adopted;
+      try {
+        adopted = await session.turn(
           from: session.firstArtifact,
           requestId: 13,
           direction: RitoAdjacentDirection.next,
           work: _work,
-        ),
-        throwsStateError,
-      );
+        );
+      } finally {
+        FlutterError.onError = priorOnError;
+      }
 
-      expect(session.visibleArtifactId, 7001);
-      expect(gateway.releasedArtifactIds, <int>[7002]);
-      expect(visibleImage.debugDisposed, isFalse);
+      expect(adopted.artifactId, 7002);
+      expect(adopted.resolveImage(nextHref), isNull);
+      expect(reports, hasLength(1));
       await session.dispose();
       expect(visibleImage.debugDisposed, isTrue);
       cache.dispose();
