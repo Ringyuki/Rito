@@ -56,9 +56,15 @@ extension _ImageCacheValidation on RitoArtifactImageCache {
     }
     final declaredWidth = resource.width;
     final declaredHeight = resource.height;
+    // The engine declares the PRESENTED dimensions: an EXIF
+    // quarter-turned JPEG (orientations 5-8) reports its rotated width
+    // and height. A decoder that reads the stored scan instead yields
+    // the transpose of the same raster, so both orders are the same
+    // image and neither is a header mismatch.
     if ((declaredWidth == null) != (declaredHeight == null) ||
         (declaredWidth != null &&
-            (declaredWidth != width || declaredHeight != height))) {
+            !((declaredWidth == width && declaredHeight == height) ||
+                (declaredWidth == height && declaredHeight == width)))) {
       throw FormatException(
         'Image ${resource.href} dimensions do not match its resource header.',
       );
