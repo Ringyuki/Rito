@@ -1,20 +1,25 @@
 import type { NavigationDeps } from './index';
-import type { NavigationState, PendingLocatorNavigation } from './state';
+import {
+  enqueueIntent,
+  queuedLocatorSeek,
+  type NavigationMachine,
+  type PendingLocatorNavigation,
+} from './machine';
 
 export function continueResolvedLocatorNavigation(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingLocatorNavigation,
   spreadIndex: number,
 ): void {
   if (
-    state.disposed ||
-    state.pendingLocatorNavigation !== pending ||
-    state.navigationAttemptId !== pending.attemptId
+    machine.disposed ||
+    queuedLocatorSeek(machine) !== pending ||
+    machine.claimSeq !== pending.attemptId
   ) {
     return;
   }
-  state.pendingLocatorNavigation = undefined;
+  enqueueIntent(machine, undefined);
   try {
     pending.onResolved(spreadIndex);
   } catch (error) {

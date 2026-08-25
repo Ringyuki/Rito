@@ -16,7 +16,6 @@ export interface WiringDeps {
   coordState: CoordinatorState;
   canvas: HTMLCanvasElement;
   getCurrentSpread: () => number;
-  setCurrentSpread: (idx: number) => void;
   getRenderScale: () => number;
   positionPersistence: PositionPersistence;
   /** Navigate to a spread with transition animation. */
@@ -56,13 +55,10 @@ export function buildWiringDeps(
     coordState: internals.coordState,
     canvas,
     getCurrentSpread: () => internals.currentSpread,
-    setCurrentSpread: (i) => {
-      internals.currentSpread = i;
-    },
     getRenderScale: () => internals.renderScale,
     positionPersistence: internals.positionPersistence,
     goToSpread: (i) => {
-      nav.goToSpread(i);
+      nav.goToSpread(i, 'pointer');
     },
     navigateToLocator: (locator) => {
       nav.navigateToLocator(locator);

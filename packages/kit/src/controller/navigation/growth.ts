@@ -2,20 +2,25 @@ import type { Reader, ReaderIncrementalPagination } from '@ritojs/core';
 import type { NavigationDeps } from './index';
 import { emitNavigationStart } from './start';
 import {
+  enqueueIntent,
+  foregroundIsBusy,
+  queuedSpreadTurn,
   type GestureNavigationRequest,
   type NavigationAttempt,
-  type NavigationState,
+  type NavigationIntentSource,
+  type NavigationMachine,
   type PendingNavigation,
-} from './state';
+} from './machine';
 
 export function createSpreadGrowthAttempt(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pagination: ReaderIncrementalPagination,
   attemptId: number,
   target: number,
   previous: number,
   continuityDx: number,
+  source: NavigationIntentSource,
   gesture?: GestureNavigationRequest,
 ): NavigationAttempt {
   const growthAbort = new AbortController();
@@ -25,11 +30,12 @@ export function createSpreadGrowthAttempt(
     direction: 'forward',
     previous,
     continuityDx,
+    source,
     growthAbort,
     growthPagination: pagination,
     ...(gesture ? { gesture } : {}),
   };
-  state.pendingNavigation = pending;
+  enqueueIntent(machine, { kind: 'spread', turn: pending });
   let task: Promise<boolean | undefined>;
   try {
     task = Promise.resolve(pagination.ensureSpread(target, growthAbort.signal));
@@ -38,32 +44,32 @@ export function createSpreadGrowthAttempt(
   }
   void task
     .then((available) => {
-      settleSpreadGrowth(state, deps, pending, available);
+      settleSpreadGrowth(machine, deps, pending, available);
     })
     .catch((error: unknown) => {
-      handleSpreadGrowthFailure(state, deps, pending, error);
+      handleSpreadGrowthFailure(machine, deps, pending, error);
     });
   return { claimedIntent: true, attemptId, pendingNavigation: pending };
 }
 
 export function continuePendingNavigation(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   spreadIndex: number,
 ): void {
-  if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) return;
-  const pending = currentPending(state, spreadIndex);
+  if (foregroundIsBusy(machine)) return;
+  const pending = currentPending(machine, spreadIndex);
   if (!pending || pending.gesture?.cancelled) return;
   if (!ensureIncomingSlot(deps, pending.target, pending.direction)) {
     deps.frameDriver.scheduleComposite();
     return;
   }
-  if (currentPending(state, spreadIndex) !== pending) return;
+  if (currentPending(machine, spreadIndex) !== pending) return;
   const reader = deps.getReader();
   if (!reader) return;
-  state.pendingNavigation = undefined;
+  enqueueIntent(machine, undefined);
   emitNavigationStart(
-    state,
+    machine,
     deps,
     reader,
     pending.attemptId,
@@ -105,13 +111,13 @@ export function navigationTarget(
 
 /** Grow one forward spread for an active selection without stealing navigation ownership. */
 export async function ensureSelectionSpread(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   target: number,
   signal: AbortSignal,
 ): Promise<boolean | undefined> {
   const reader = deps.getReader();
-  if (state.disposed || signal.aborted || !reader) return undefined;
+  if (machine.disposed || signal.aborted || !reader) return undefined;
   if (target < reader.totalSpreads) return true;
   const pagination = reader.pagination;
   if (!pagination || pagination.complete || target !== reader.totalSpreads) return false;
@@ -123,9 +129,9 @@ export async function ensureSelectionSpread(
   };
   try {
     const available = await Promise.resolve(pagination.ensureSpread(target, signal));
-    return settleSelectionGrowth(state, deps, snapshot, target, signal, available);
+    return settleSelectionGrowth(machine, deps, snapshot, target, signal, available);
   } catch (error: unknown) {
-    if (!ownsSelectionGrowth(state, deps, snapshot)) return undefined;
+    if (!ownsSelectionGrowth(machine, deps, snapshot)) return undefined;
     publishSelectionExtentChange(deps, snapshot);
     if (selectionGrowthWasAborted(signal)) {
       return undefined;
@@ -143,14 +149,14 @@ interface SelectionGrowthSnapshot {
 }
 
 function settleSelectionGrowth(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   snapshot: SelectionGrowthSnapshot,
   target: number,
   signal: AbortSignal,
   available: boolean | undefined,
 ): boolean | undefined {
-  if (!ownsSelectionGrowth(state, deps, snapshot)) return undefined;
+  if (!ownsSelectionGrowth(machine, deps, snapshot)) return undefined;
   const extentChanged = selectionExtentChanged(snapshot);
   if (selectionGrowthWasAborted(signal)) {
     if (extentChanged) deps.onPaginationChanged?.();
@@ -167,13 +173,13 @@ function settleSelectionGrowth(
 }
 
 function ownsSelectionGrowth(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   snapshot: SelectionGrowthSnapshot,
 ): boolean {
   const currentReader = deps.getReader();
   return (
-    !state.disposed &&
+    !machine.disposed &&
     currentReader === snapshot.reader &&
     currentReader.pagination === snapshot.pagination
   );
@@ -205,12 +211,12 @@ function failSelectionGrowth(deps: NavigationDeps, error: unknown): void {
 }
 
 function settleSpreadGrowth(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingNavigation,
   available: boolean | undefined,
 ): void {
-  if (currentPending(state, pending.target) !== pending) return;
+  if (currentPending(machine, pending.target) !== pending) return;
   pending.growthAbort = undefined;
   if (available === false && pending.growthPagination?.complete !== true) {
     throw new Error('Reader returned a final pagination miss before committing completion');
@@ -219,53 +225,53 @@ function settleSpreadGrowth(
     console.error(
       `[rito] queued navigation to spread ${String(pending.target)} abandoned: the spread never became available`,
     );
-    state.pendingNavigation = undefined;
+    enqueueIntent(machine, undefined);
     pending.gesture?.onUnavailable?.();
     if (available === false) {
       deps.onPaginationChanged?.();
     }
-    if (pending.attemptId === state.navigationAttemptId) deps.onNavigationCancelled?.();
+    if (pending.attemptId === machine.claimSeq) deps.onNavigationCancelled?.();
     return;
   }
   deps.onPaginationChanged?.();
-  if (currentPending(state, pending.target) !== pending) return;
+  if (currentPending(machine, pending.target) !== pending) return;
   const reader = deps.getReader();
   if (!reader || pending.target >= reader.totalSpreads) {
     failSpreadGrowth(
-      state,
+      machine,
       deps,
       pending,
       new Error('Reader reported a spread available without committing its extent'),
     );
     return;
   }
-  continuePendingNavigation(state, deps, pending.target);
+  continuePendingNavigation(machine, deps, pending.target);
 }
 
 function handleSpreadGrowthFailure(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingNavigation,
   error: unknown,
 ): void {
   try {
-    failSpreadGrowth(state, deps, pending, error);
+    failSpreadGrowth(machine, deps, pending, error);
   } catch {
-    if (currentPending(state, pending.target) === pending) state.pendingNavigation = undefined;
+    if (currentPending(machine, pending.target) === pending) enqueueIntent(machine, undefined);
   }
 }
 
 function failSpreadGrowth(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingNavigation,
   error: unknown,
 ): void {
-  if (currentPending(state, pending.target) !== pending) return;
+  if (currentPending(machine, pending.target) !== pending) return;
   pending.growthAbort = undefined;
-  state.pendingNavigation = undefined;
+  enqueueIntent(machine, undefined);
   pending.gesture?.onUnavailable?.();
-  if (pending.attemptId === state.navigationAttemptId) deps.onNavigationCancelled?.();
+  if (pending.attemptId === machine.claimSeq) deps.onNavigationCancelled?.();
   deps.emitter.emit('error', {
     message: error instanceof Error ? error.message : String(error),
     source: 'reader pagination',
@@ -273,11 +279,11 @@ function failSpreadGrowth(
 }
 
 function currentPending(
-  state: NavigationState,
+  machine: NavigationMachine,
   spreadIndex: number,
 ): PendingNavigation | undefined {
-  const pending = state.pendingNavigation;
-  return pending?.attemptId === state.navigationAttemptId && pending.target === spreadIndex
+  const pending = queuedSpreadTurn(machine);
+  return pending?.attemptId === machine.claimSeq && pending.target === spreadIndex
     ? pending
     : undefined;
 }

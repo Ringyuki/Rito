@@ -1,9 +1,19 @@
 import type { Reader } from '@ritojs/core';
+import { publishSpreadChange } from '../core/spread-change';
+import { claimOf, type NavigationClaim } from './claim';
 import type { NavigationDeps } from './index';
-import type { GestureNavigationRequest, NavigationState } from './state';
+import type { GestureNavigationRequest, NavigationMachine } from './machine';
+import { ownsPresentation, presentSpread } from './present';
 
+/**
+ * Presents an accepted spread turn and starts its transition. A gesture
+ * may be cancelled between any two externally observable steps (the
+ * engine notification and the event listeners run synchronously), so the
+ * cancellation check is re-evaluated after each checkpoint instead of
+ * being folded into the shared presentation helper.
+ */
 export function emitNavigationStart(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   reader: Reader,
   attemptId: number,
@@ -13,19 +23,19 @@ export function emitNavigationStart(
   continuityDx: number,
   gesture?: GestureNavigationRequest,
 ): void {
-  if (gesture?.cancelled || attemptId !== state.navigationAttemptId) return;
-  const spread = reader.spreads[target];
-  deps.setCurrentSpread(target);
+  const claim = claimOf(machine, attemptId);
+  if (gesture?.cancelled || !claim.owns()) return;
+  deps.setCurrentSpread(target, 'navigation-start');
   reader.notifyActiveSpread(target);
-  if (!ownsNavigationStart(state, deps, attemptId, target)) return;
+  if (!ownsPresentation(deps, claim, target)) return;
   if (gesture?.cancelled) {
-    restoreCancelledGesture(state, deps, reader, attemptId, previous, false);
+    revertCancelledGesture(deps, reader, claim, previous, false);
     return;
   }
-  if (spread) deps.emitter.emit('spreadChange', { spreadIndex: target, spread });
-  if (!ownsNavigationStart(state, deps, attemptId, target)) return;
+  publishSpreadChange(deps.emitter, reader, target);
+  if (!ownsPresentation(deps, claim, target)) return;
   if (gesture?.cancelled) {
-    restoreCancelledGesture(state, deps, reader, attemptId, previous, true);
+    revertCancelledGesture(deps, reader, claim, previous, true);
     return;
   }
   deps.td.goToTarget(direction, previous, target, continuityDx);
@@ -37,32 +47,17 @@ export function emitNavigationStart(
   deps.frameDriver.scheduleComposite();
 }
 
-function restoreCancelledGesture(
-  state: NavigationState,
+function revertCancelledGesture(
   deps: NavigationDeps,
   reader: Reader,
-  attemptId: number,
+  claim: NavigationClaim,
   previous: number,
-  targetWasEmitted: boolean,
+  targetWasPublished: boolean,
 ): void {
-  deps.setCurrentSpread(previous);
-  reader.notifyActiveSpread(previous);
-  if (!ownsNavigationStart(state, deps, attemptId, previous)) return;
-  const spread = reader.spreads[previous];
-  if (targetWasEmitted && spread) {
-    deps.emitter.emit('spreadChange', { spreadIndex: previous, spread });
-    if (!ownsNavigationStart(state, deps, attemptId, previous)) return;
+  if (!presentSpread(deps, reader, claim, previous, 'navigation-cancel', targetWasPublished)) {
+    return;
   }
   deps.onNavigationCancelled?.();
-  if (!ownsNavigationStart(state, deps, attemptId, previous)) return;
+  if (!ownsPresentation(deps, claim, previous)) return;
   deps.frameDriver.scheduleComposite();
-}
-
-function ownsNavigationStart(
-  state: NavigationState,
-  deps: NavigationDeps,
-  attemptId: number,
-  spreadIndex: number,
-): boolean {
-  return attemptId === state.navigationAttemptId && deps.getCurrentSpread() === spreadIndex;
 }

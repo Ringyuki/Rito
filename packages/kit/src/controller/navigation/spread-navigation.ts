@@ -1,60 +1,71 @@
 import type { Reader } from '@ritojs/core';
+import { claimNavigation } from './claim';
 import type { GestureNavigationToken, NavigationDeps } from './index';
 import * as growth from './growth';
-import * as jump from './jump';
+import {
+  clearQueuedIntent,
+  enqueueIntent,
+  foregroundIsBusy,
+  queuedSpreadTurn,
+  settleNavigationAttemptForContinuity,
+  type GestureNavigationRequest,
+  type NavigationAttempt,
+  type NavigationIntentSource,
+  type NavigationMachine,
+} from './machine';
 import { emitNavigationStart } from './start';
-import * as navState from './state';
-
-type State = navState.NavigationState;
-type Attempt = navState.NavigationAttempt;
-type GestureRequest = navState.GestureNavigationRequest;
 
 export function createLocatorNavigator(
-  state: State,
+  machine: NavigationMachine,
   deps: NavigationDeps,
 ): (spreadIndex: number) => void {
   return (spreadIndex): void => {
-    replaceWithNavigation(state, deps, goToSpread(state, deps, spreadIndex));
+    replaceWithNavigation(machine, deps, goToSpread(machine, deps, spreadIndex, 'locator'));
   };
 }
 
-export function startNavigation(state: State, deps: NavigationDeps, index: number): void {
-  replaceWithNavigation(state, deps, goToSpread(state, deps, index));
+export function startNavigation(
+  machine: NavigationMachine,
+  deps: NavigationDeps,
+  index: number,
+  source: NavigationIntentSource = 'api',
+): void {
+  replaceWithNavigation(machine, deps, goToSpread(machine, deps, index, source));
 }
 
 export function startGestureNavigation(
-  state: State,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   index: number,
   onTransitionStart: () => void,
   onUnavailable?: () => void,
 ): GestureNavigationToken {
-  if (state.disposed) {
+  if (machine.disposed) {
     onUnavailable?.();
     return { cancel() {} };
   }
-  const request: GestureRequest = {
+  const request: GestureNavigationRequest = {
     onTransitionStart,
     ...(onUnavailable ? { onUnavailable } : {}),
     started: false,
     cancelled: false,
   };
-  replaceWithNavigation(state, deps, goToSpread(state, deps, index, request));
-  return createGestureToken(state, deps, request);
+  replaceWithNavigation(machine, deps, goToSpread(machine, deps, index, 'gesture', request));
+  return createGestureToken(machine, deps, request);
 }
 
 function createGestureToken(
-  state: State,
+  machine: NavigationMachine,
   deps: NavigationDeps,
-  request: GestureRequest,
+  request: GestureNavigationRequest,
 ): GestureNavigationToken {
   return {
     cancel(): void {
       if (request.started) return;
       request.cancelled = true;
-      if (state.pendingNavigation?.gesture === request) {
-        state.navigationAttemptId += 1;
-        navState.clearPendingNavigation(state);
+      if (queuedSpreadTurn(machine)?.gesture === request) {
+        machine.claimSeq += 1;
+        clearQueuedIntent(machine);
         deps.onNavigationCancelled?.();
       }
     },
@@ -62,101 +73,121 @@ function createGestureToken(
 }
 
 function goToSpread(
-  state: State,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   index: number,
-  gesture?: GestureRequest,
-): Attempt {
+  source: NavigationIntentSource,
+  gesture?: GestureNavigationRequest,
+): NavigationAttempt {
   const initialReader = deps.getReader();
-  if (state.disposed || !initialReader) return { claimedIntent: false };
+  if (machine.disposed || !initialReader) return { claimedIntent: false };
   const initialTarget = growth.navigationTarget(initialReader, index);
   const initialPrevious = deps.getCurrentSpread();
-  const attemptId = jump.claimNavigationAttempt(state, deps);
-  if (attemptId !== state.navigationAttemptId) return { claimedIntent: true, attemptId };
+  const claim = claimNavigation(machine, deps);
+  if (!claim.owns()) return { claimedIntent: true, attemptId: claim.id };
   if (initialTarget.index === initialPrevious && !initialTarget.pagination) {
-    return completeNoOpNavigation(deps, attemptId, gesture);
+    return completeNoOpNavigation(deps, claim.id, gesture);
   }
 
-  const continuityDx = navigationContinuity(state, deps, attemptId);
+  const continuityDx = navigationContinuity(machine, deps, claim.id);
   const previous = deps.getCurrentSpread();
-  if (attemptId !== state.navigationAttemptId) return { claimedIntent: true, attemptId };
+  if (!claim.owns()) return { claimedIntent: true, attemptId: claim.id };
   const reader = deps.getReader();
-  if (!reader) return { claimedIntent: true, attemptId };
+  if (!reader) return { claimedIntent: true, attemptId: claim.id };
   const target = growth.navigationTarget(reader, index);
   if (target.index === previous && !target.pagination) {
-    return completeNoOpNavigation(deps, attemptId, gesture);
+    return completeNoOpNavigation(deps, claim.id, gesture);
   }
   return createResolvedSpreadAttempt(
-    state,
+    machine,
     deps,
     reader,
-    attemptId,
+    claim.id,
     target,
     previous,
     continuityDx,
+    source,
     gesture,
   );
 }
 
-function navigationContinuity(state: State, deps: NavigationDeps, attemptId: number): number {
-  if (!deps.td.isAnimating && state.zeroContinuityAttemptId !== attemptId) return 0;
-  return navState.settleNavigationAttemptForContinuity(state, deps.td, attemptId);
+function navigationContinuity(
+  machine: NavigationMachine,
+  deps: NavigationDeps,
+  attemptId: number,
+): number {
+  if (!deps.td.isAnimating && machine.zeroContinuityClaim !== attemptId) return 0;
+  return settleNavigationAttemptForContinuity(machine, deps.td, attemptId);
 }
 
 function createResolvedSpreadAttempt(
-  state: State,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   reader: Reader,
   attemptId: number,
   target: ReturnType<typeof growth.navigationTarget>,
   previous: number,
   continuityDx: number,
-  gesture?: GestureRequest,
-): Attempt {
-  if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) {
-    return createChapterLocalPendingAttempt(state, deps, attemptId, target, previous, gesture);
+  source: NavigationIntentSource,
+  gesture?: GestureNavigationRequest,
+): NavigationAttempt {
+  if (foregroundIsBusy(machine)) {
+    return createLocalPreviewPendingAttempt(
+      machine,
+      deps,
+      attemptId,
+      target,
+      previous,
+      source,
+      gesture,
+    );
   }
   if (target.pagination) {
     return growth.createSpreadGrowthAttempt(
-      state,
+      machine,
       deps,
       target.pagination,
       attemptId,
       target.index,
       previous,
       continuityDx,
+      source,
       gesture,
     );
   }
   return createKnownSpreadAttempt(
-    state,
+    machine,
     deps,
     reader,
     attemptId,
     target.index,
     previous,
     continuityDx,
+    source,
     gesture,
   );
 }
 
-function createChapterLocalPendingAttempt(
-  state: State,
+/** A turn arriving while a chapter-local presentation owns the raster parks behind it. */
+function createLocalPreviewPendingAttempt(
+  machine: NavigationMachine,
   deps: NavigationDeps,
   attemptId: number,
   target: ReturnType<typeof growth.navigationTarget>,
   previous: number,
-  gesture?: GestureRequest,
-): Attempt {
+  source: NavigationIntentSource,
+  gesture?: GestureNavigationRequest,
+): NavigationAttempt {
   if (target.pagination) {
     return growth.createSpreadGrowthAttempt(
-      state,
+      machine,
       deps,
       target.pagination,
       attemptId,
       target.index,
       previous,
       0,
+      source,
       gesture,
     );
   }
@@ -169,21 +200,23 @@ function createChapterLocalPendingAttempt(
       direction: target.index > previous ? 'forward' : 'backward',
       previous,
       continuityDx: 0,
+      source,
       ...(gesture ? { gesture } : {}),
     },
   };
 }
 
 function createKnownSpreadAttempt(
-  state: State,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   reader: Reader,
   attemptId: number,
   target: number,
   previous: number,
   continuityDx: number,
-  gesture?: GestureRequest,
-): Attempt {
+  source: NavigationIntentSource,
+  gesture?: GestureNavigationRequest,
+): NavigationAttempt {
   const direction = target > previous ? 'forward' : 'backward';
   if (!growth.ensureIncomingSlot(deps, target, direction)) {
     deps.frameDriver.scheduleComposite();
@@ -196,12 +229,13 @@ function createKnownSpreadAttempt(
         direction,
         previous,
         continuityDx,
+        source,
         ...(gesture ? { gesture } : {}),
       },
     };
   }
   emitNavigationStart(
-    state,
+    machine,
     deps,
     reader,
     attemptId,
@@ -217,8 +251,8 @@ function createKnownSpreadAttempt(
 function completeNoOpNavigation(
   deps: NavigationDeps,
   attemptId: number,
-  gesture?: GestureRequest,
-): Attempt {
+  gesture?: GestureNavigationRequest,
+): NavigationAttempt {
   if (gesture && !gesture.started) {
     gesture.cancelled = true;
     gesture.onUnavailable?.();
@@ -227,15 +261,22 @@ function completeNoOpNavigation(
   return { claimedIntent: true, attemptId };
 }
 
-function replaceWithNavigation(state: State, deps: NavigationDeps, attempt: Attempt): void {
+function replaceWithNavigation(
+  machine: NavigationMachine,
+  deps: NavigationDeps,
+  attempt: NavigationAttempt,
+): void {
   if (!attempt.claimedIntent) {
-    const cancelledIntent = navState.clearPendingNavigation(state);
+    const cancelledIntent = clearQueuedIntent(machine);
     if (cancelledIntent) {
-      state.navigationAttemptId += 1;
+      machine.claimSeq += 1;
       deps.onNavigationCancelled?.();
     }
     return;
   }
-  if (attempt.attemptId !== state.navigationAttemptId) return;
-  state.pendingNavigation = attempt.pendingNavigation;
+  if (attempt.attemptId !== machine.claimSeq) return;
+  enqueueIntent(
+    machine,
+    attempt.pendingNavigation ? { kind: 'spread', turn: attempt.pendingNavigation } : undefined,
+  );
 }

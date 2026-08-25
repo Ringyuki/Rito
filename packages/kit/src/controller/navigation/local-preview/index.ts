@@ -1,20 +1,25 @@
-import type { SettledEvent } from '../../driver/types';
 import {
-  finishChapterLocalLease,
-  ownedPendingLocator,
-  type ResolvedLocator,
-} from './chapter-local-preview-shared';
+  activeLocalPreview,
+  beginLocalFinalizing,
+  dismissLocalPreview,
+  endLocalFinalizing,
+  enqueueIntent,
+  queuedLocatorSeek,
+} from '../machine';
+import type { NavigationMachine, PendingLocatorNavigation } from '../machine';
+import type { SettledEvent } from '../../../driver/types';
+import { finishChapterLocalLease, ownedPendingLocator, type ResolvedLocator } from './shared';
 import {
   settleChapterLocalIncoming,
   settleChapterLocalRollback,
   promoteChapterLocalExact,
   startChapterLocalTermination,
-} from './chapter-local-preview-settle';
+} from './settle';
 import {
   queueChapterLocalPreviewInvalidation,
   resumeQueuedChapterLocalNavigation,
   startChapterLocalPresentation,
-} from './chapter-local-preview-start';
+} from './start';
 import {
   fatalChapterLocalContainment,
   releaseProvisionalForTerminalMutation,
@@ -22,63 +27,62 @@ import {
   safelyDriveActiveChapterLocal,
   tryCompleteExactFallback,
   tryFinishRestoredMount,
-} from './chapter-local-preview-terminal';
-import type { NavigationDeps } from './index';
-import type { NavigationState, PendingLocatorNavigation } from './state';
+} from './terminal';
+import type { NavigationDeps } from '../index';
 
 export { resumeQueuedChapterLocalNavigation };
 
 export function presentChapterLocalInvalidation(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   spreadIndex: number,
 ): boolean {
-  if (state.disposed || spreadIndex !== deps.getCurrentSpread()) return false;
-  if (state.finalizingChapterLocalTransition) {
-    return queueChapterLocalPreviewInvalidation(state, deps, spreadIndex);
+  if (machine.disposed || spreadIndex !== deps.getCurrentSpread()) return false;
+  if (machine.foreground.kind === 'local-finalizing') {
+    return queueChapterLocalPreviewInvalidation(machine, deps, spreadIndex);
   }
-  const active = state.activeChapterLocalTransition;
+  const active = activeLocalPreview(machine);
   if (active) {
     if (spreadIndex !== active.mountSpreadIndex) return false;
     active.mountExactPaintRequired = true;
     active.mountExactInvalidated = false;
-    const queued = ownedPendingLocator(state);
+    const queued = ownedPendingLocator(machine);
     if (queued && queued !== active.pending) queued.previewReadySpread = spreadIndex;
     if (active.phase === 'restoringExact' || active.phase === 'awaitingExactFallback') {
-      safelyDriveActiveChapterLocal(state, deps, active, () => {
-        tryFinishRestoredMount(state, deps, active);
+      safelyDriveActiveChapterLocal(machine, deps, active, () => {
+        tryFinishRestoredMount(machine, deps, active);
       });
     } else if (active.phase === 'committed' && active.pending.exactResolution) {
-      safelyDriveActiveChapterLocal(state, deps, active, () => {
-        promoteChapterLocalExact(state, deps, active);
+      safelyDriveActiveChapterLocal(machine, deps, active, () => {
+        promoteChapterLocalExact(machine, deps, active);
       });
     }
     return true;
   }
-  const pending = ownedPendingLocator(state);
+  const pending = ownedPendingLocator(machine);
   if (!pending || pending.provisionalPhase !== 'none') return false;
   if (deps.td.isAnimating) {
-    return queueChapterLocalPreviewInvalidation(state, deps, spreadIndex);
+    return queueChapterLocalPreviewInvalidation(machine, deps, spreadIndex);
   }
-  return startChapterLocalPresentation(state, deps, pending, spreadIndex);
+  return startChapterLocalPresentation(machine, deps, pending, spreadIndex);
 }
 
 export function settleChapterLocalExact(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingLocatorNavigation,
   resolution: ResolvedLocator,
 ): boolean {
-  const active = state.activeChapterLocalTransition;
+  const active = activeLocalPreview(machine);
   if (active?.pending === pending) {
     pending.exactResolution = resolution;
     if (active.phase === 'committed') {
-      safelyDriveActiveChapterLocal(state, deps, active, () => {
-        promoteChapterLocalExact(state, deps, active);
+      safelyDriveActiveChapterLocal(machine, deps, active, () => {
+        promoteChapterLocalExact(machine, deps, active);
       });
     } else if (active.phase === 'awaitingExactFallback') {
-      safelyDriveActiveChapterLocal(state, deps, active, () => {
-        tryCompleteExactFallback(state, deps, active);
+      safelyDriveActiveChapterLocal(machine, deps, active, () => {
+        tryCompleteExactFallback(machine, deps, active);
       });
     }
     return true;
@@ -88,7 +92,7 @@ export function settleChapterLocalExact(
     return true;
   }
   if (pending.previewReadySpread !== undefined) {
-    if (deps.td.isAnimating || state.finalizingChapterLocalTransition) {
+    if (deps.td.isAnimating || machine.foreground.kind === 'local-finalizing') {
       pending.exactResolution = resolution;
       return true;
     }
@@ -98,57 +102,54 @@ export function settleChapterLocalExact(
 }
 
 export function failChapterLocalLocator(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingLocatorNavigation,
   error?: unknown,
 ): boolean {
-  const active = state.activeChapterLocalTransition;
+  const active = activeLocalPreview(machine);
   if (!active || active.pending !== pending) return false;
   active.termination =
     error === undefined
       ? { kind: 'cancelled' }
       : { kind: 'failed', error, failureSource: pending.failureSource };
-  safelyDriveActiveChapterLocal(state, deps, active, () => {
-    startChapterLocalTermination(state, deps, active);
+  safelyDriveActiveChapterLocal(machine, deps, active, () => {
+    startChapterLocalTermination(machine, deps, active);
   });
   return true;
 }
 
-export function supersedeChapterLocalTransition(
-  state: NavigationState,
-  deps: NavigationDeps,
-): boolean {
-  const active = state.activeChapterLocalTransition;
+export function supersedeLocalPreview(machine: NavigationMachine, deps: NavigationDeps): boolean {
+  const active = activeLocalPreview(machine);
   if (!active) return false;
   active.termination = { kind: 'superseded' };
-  safelyDriveActiveChapterLocal(state, deps, active, () => {
-    startChapterLocalTermination(state, deps, active);
+  safelyDriveActiveChapterLocal(machine, deps, active, () => {
+    startChapterLocalTermination(machine, deps, active);
   });
   return true;
 }
 
 export function handleChapterLocalTransitionSettled(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   event: SettledEvent,
 ): boolean {
-  const active = state.activeChapterLocalTransition;
+  const active = activeLocalPreview(machine);
   if (!active) {
     queueMicrotask(() => {
-      resumeQueuedChapterLocalNavigation(state, deps);
+      resumeQueuedChapterLocalNavigation(machine, deps);
     });
     return false;
   }
   try {
     if (active.phase === 'animating') {
-      return settleChapterLocalIncoming(state, deps, active, event);
+      return settleChapterLocalIncoming(machine, deps, active, event);
     }
     if (active.phase === 'rollingBack') {
-      return settleChapterLocalRollback(state, deps, active, event);
+      return settleChapterLocalRollback(machine, deps, active, event);
     }
     fatalChapterLocalContainment(
-      state,
+      machine,
       deps,
       active,
       active.phase === 'committed'
@@ -157,9 +158,9 @@ export function handleChapterLocalTransitionSettled(
     );
     return true;
   } catch (error) {
-    if (state.activeChapterLocalTransition === active) {
+    if (activeLocalPreview(machine) === active) {
       fatalChapterLocalContainment(
-        state,
+        machine,
         deps,
         active,
         error instanceof Error ? error.message : 'chapter-local settle failed',
@@ -169,31 +170,34 @@ export function handleChapterLocalTransitionSettled(
   }
 }
 
-export function disposeChapterLocalTransition(state: NavigationState, deps: NavigationDeps): void {
-  const active = state.activeChapterLocalTransition;
+export function disposeChapterLocalTransition(
+  machine: NavigationMachine,
+  deps: NavigationDeps,
+): void {
+  const active = activeLocalPreview(machine);
   if (!active) return;
   releaseProvisionalForTerminalMutation(deps, active);
   finishChapterLocalLease(active);
-  state.activeChapterLocalTransition = undefined;
+  dismissLocalPreview(machine);
   deps.provisionalRuntime?.cancel(active.direction);
 }
 
 export function terminateChapterLocalTransitionForLayout(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
 ): (() => void) | undefined {
-  const active = state.activeChapterLocalTransition;
+  const active = activeLocalPreview(machine);
   if (!active) return undefined;
   deps.td.reset();
   releaseProvisionalForTerminalMutation(deps, active);
   finishChapterLocalLease(active);
-  state.activeChapterLocalTransition = undefined;
-  if (state.pendingLocatorNavigation === active.pending) {
-    state.pendingLocatorNavigation = undefined;
+  dismissLocalPreview(machine);
+  if (queuedLocatorSeek(machine) === active.pending) {
+    enqueueIntent(machine, undefined);
     active.pending.locatorAbort.abort();
   }
   const finishRuntime = deps.provisionalRuntime?.deferForLayout(active.direction);
-  state.finalizingChapterLocalTransition = true;
+  beginLocalFinalizing(machine);
   let finished = false;
   return () => {
     if (finished) return;
@@ -201,23 +205,23 @@ export function terminateChapterLocalTransitionForLayout(
     try {
       finishRuntime?.();
     } finally {
-      state.finalizingChapterLocalTransition = false;
-      resumeAllQueuedNavigation(state, deps);
+      endLocalFinalizing(machine);
+      resumeAllQueuedNavigation(machine, deps);
     }
   };
 }
 
 export function refreshChapterLocalTransitionTheme(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
 ): void {
-  const active = state.activeChapterLocalTransition;
+  const active = activeLocalPreview(machine);
   if (!active) return;
   active.mountExactPaintRequired = true;
   if (active.phase === 'restoringExact' || active.phase === 'awaitingExactFallback') {
     active.mountExactInvalidated = false;
-    safelyDriveActiveChapterLocal(state, deps, active, () => {
-      tryFinishRestoredMount(state, deps, active);
+    safelyDriveActiveChapterLocal(machine, deps, active, () => {
+      tryFinishRestoredMount(machine, deps, active);
     });
     return;
   }
@@ -239,24 +243,24 @@ export function refreshChapterLocalTransitionTheme(
       fallbackToExact: true,
     };
   }
-  safelyDriveActiveChapterLocal(state, deps, active, () => {
-    startChapterLocalTermination(state, deps, active);
+  safelyDriveActiveChapterLocal(machine, deps, active, () => {
+    startChapterLocalTermination(machine, deps, active);
   });
 }
 
 export function notifyChapterLocalContentReady(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   spreadIndex: number,
 ): boolean {
-  const active = state.activeChapterLocalTransition;
+  const active = activeLocalPreview(machine);
   if (!active) return false;
   if (
     (active.phase === 'restoringExact' || active.phase === 'awaitingExactFallback') &&
     active.mountSpreadIndex === spreadIndex
   ) {
-    safelyDriveActiveChapterLocal(state, deps, active, () => {
-      tryFinishRestoredMount(state, deps, active);
+    safelyDriveActiveChapterLocal(machine, deps, active, () => {
+      tryFinishRestoredMount(machine, deps, active);
     });
     return true;
   }
@@ -264,15 +268,15 @@ export function notifyChapterLocalContentReady(
     active.phase === 'awaitingExactFallback' &&
     active.pending.exactResolution?.spreadIndex === spreadIndex
   ) {
-    safelyDriveActiveChapterLocal(state, deps, active, () => {
-      tryCompleteExactFallback(state, deps, active);
+    safelyDriveActiveChapterLocal(machine, deps, active, () => {
+      tryCompleteExactFallback(machine, deps, active);
     });
     return true;
   }
   if (active.phase !== 'committed') return false;
   if (active.pending.exactResolution?.spreadIndex !== spreadIndex) return false;
-  safelyDriveActiveChapterLocal(state, deps, active, () => {
-    promoteChapterLocalExact(state, deps, active);
+  safelyDriveActiveChapterLocal(machine, deps, active, () => {
+    promoteChapterLocalExact(machine, deps, active);
   });
   return true;
 }

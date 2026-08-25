@@ -1,9 +1,10 @@
-import type { ReaderLocatorResolution } from '@ritojs/core';
+import { queuedLocatorSeek } from '../machine';
 import type {
   ActiveChapterLocalTransition,
-  NavigationState,
+  NavigationMachine,
   PendingLocatorNavigation,
-} from './state';
+} from '../machine';
+import type { ReaderLocatorResolution } from '@ritojs/core';
 
 export type ResolvedLocator = Extract<ReaderLocatorResolution, { readonly status: 'resolved' }>;
 
@@ -17,16 +18,18 @@ export function finishChapterLocalLease(active: ActiveChapterLocalTransition): v
   }
 }
 
-export function ownedPendingLocator(state: NavigationState): PendingLocatorNavigation | undefined {
-  const pending = state.pendingLocatorNavigation;
-  return pending && ownsPendingLocator(state, pending) ? pending : undefined;
+export function ownedPendingLocator(
+  machine: NavigationMachine,
+): PendingLocatorNavigation | undefined {
+  const pending = queuedLocatorSeek(machine);
+  return pending && ownsPendingLocator(machine, pending) ? pending : undefined;
 }
 
 export function ownsPendingLocator(
-  state: NavigationState,
+  machine: NavigationMachine,
   pending: PendingLocatorNavigation,
 ): boolean {
-  return !state.disposed && pending.attemptId === state.navigationAttemptId;
+  return !machine.disposed && pending.attemptId === machine.claimSeq;
 }
 
 export function oppositeDirection(direction: 'forward' | 'backward'): 'forward' | 'backward' {

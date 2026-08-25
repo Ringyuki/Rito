@@ -1,17 +1,20 @@
 import {
-  canClaimChapterLocalPresentation,
-  claimChapterLocalPresentation,
-} from './chapter-local-capability';
-import type { NavigationDeps } from './index';
-import type { ProvisionalTransitionRuntime } from '../runtime-frame';
-import { ownedPendingLocator, ownsPendingLocator } from './chapter-local-preview-shared';
+  activeLocalPreview,
+  dismissLocalPreview,
+  foregroundIsBusy,
+  mountLocalPreview,
+} from '../machine';
 import type {
   ActiveChapterLocalTransition,
   ChapterLocalPresentationLease,
-  NavigationState,
+  NavigationMachine,
   PendingLocatorNavigation,
-} from './state';
-import { continueResolvedLocatorNavigation } from './locator-continuation';
+} from '../machine';
+import { canClaimChapterLocalPresentation, claimChapterLocalPresentation } from './capability';
+import type { NavigationDeps } from '../index';
+import type { ProvisionalTransitionRuntime } from '../../runtime-frame';
+import { ownedPendingLocator, ownsPendingLocator } from './shared';
+import { continueResolvedLocatorNavigation } from '../locator-continuation';
 
 interface PresentationStartProgress {
   token: number | undefined;
@@ -20,14 +23,14 @@ interface PresentationStartProgress {
 }
 
 export function startChapterLocalPresentation(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingLocatorNavigation,
   spreadIndex: number,
 ): boolean {
   const reader = deps.getReader();
   const runtime = deps.provisionalRuntime;
-  if (!reader || !runtime || !ownsPendingLocator(state, pending) || deps.td.isAnimating) {
+  if (!reader || !runtime || !ownsPendingLocator(machine, pending) || deps.td.isAnimating) {
     return false;
   }
   const lease = claimChapterLocalPresentation(reader, pending.locator, spreadIndex);
@@ -38,10 +41,10 @@ export function startChapterLocalPresentation(
     transitionStarted: false,
   };
   try {
-    return installPresentationStart(state, deps, pending, spreadIndex, lease, runtime, progress);
+    return installPresentationStart(machine, deps, pending, spreadIndex, lease, runtime, progress);
   } catch (error) {
     containPresentationStartFailure(
-      state,
+      machine,
       deps,
       pending,
       spreadIndex,
@@ -55,7 +58,7 @@ export function startChapterLocalPresentation(
 }
 
 function installPresentationStart(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingLocatorNavigation,
   spreadIndex: number,
@@ -72,12 +75,7 @@ function installPresentationStart(
     lease.finish();
     return false;
   }
-  state.activeChapterLocalTransition = createActiveTransition(
-    pending,
-    spreadIndex,
-    stage.token,
-    lease,
-  );
+  mountLocalPreview(machine, createActiveTransition(pending, spreadIndex, stage.token, lease));
   pending.provisionalPhase = 'animating';
   pending.previewReadySpread = undefined;
   runtime.begin(lease.direction);
@@ -113,7 +111,7 @@ function createActiveTransition(
 }
 
 function containPresentationStartFailure(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingLocatorNavigation,
   spreadIndex: number,
@@ -122,15 +120,15 @@ function containPresentationStartFailure(
   progress: PresentationStartProgress,
   error: unknown,
 ): void {
-  const ownsActive = state.activeChapterLocalTransition?.pending === pending;
+  const ownsActive = activeLocalPreview(machine)?.pending === pending;
   if (ownsActive && progress.transitionStarted) deps.td.reset();
   releaseFailedStage(
     deps,
     progress.token,
     spreadIndex,
-    ownsActive || state.activeChapterLocalTransition === undefined,
+    ownsActive || activeLocalPreview(machine) === undefined,
   );
-  if (ownsActive) state.activeChapterLocalTransition = undefined;
+  if (ownsActive) dismissLocalPreview(machine);
   pending.provisionalPhase = 'none';
   finishFailedStartLease(lease);
   releaseFailedStartRuntime(runtime, lease, progress, ownsActive);
@@ -173,36 +171,31 @@ function reportPresentationStartFailure(deps: NavigationDeps, error: unknown): v
 }
 
 export function resumeQueuedChapterLocalNavigation(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
 ): void {
-  if (
-    state.disposed ||
-    state.activeChapterLocalTransition ||
-    state.finalizingChapterLocalTransition ||
-    deps.td.isAnimating
-  ) {
+  if (machine.disposed || foregroundIsBusy(machine) || deps.td.isAnimating) {
     return;
   }
-  const pending = ownedPendingLocator(state);
+  const pending = ownedPendingLocator(machine);
   if (!pending) return;
   if (pending.exactResolution) {
-    continueResolvedLocatorNavigation(state, deps, pending, pending.exactResolution.spreadIndex);
+    continueResolvedLocatorNavigation(machine, deps, pending, pending.exactResolution.spreadIndex);
     return;
   }
   if (pending.previewReadySpread !== undefined) {
     const spreadIndex = pending.previewReadySpread;
     pending.previewReadySpread = undefined;
-    startChapterLocalPresentation(state, deps, pending, spreadIndex);
+    startChapterLocalPresentation(machine, deps, pending, spreadIndex);
   }
 }
 
 export function queueChapterLocalPreviewInvalidation(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   spreadIndex: number,
 ): boolean {
-  const pending = ownedPendingLocator(state);
+  const pending = ownedPendingLocator(machine);
   const reader = deps.getReader();
   if (
     !pending ||

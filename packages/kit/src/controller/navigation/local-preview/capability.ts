@@ -1,5 +1,5 @@
 import type { Reader, ReaderLocator } from '@ritojs/core';
-import type { ChapterLocalPresentationLease } from './state';
+import type { ChapterLocalPresentationLease } from '../machine';
 
 const PRESENTATION = Symbol.for('@ritojs/core/browser/chapter-local-preview-presentation');
 

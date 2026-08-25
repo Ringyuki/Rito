@@ -3,6 +3,8 @@ import { createFrameDriver, type FrameDriver } from '../driver/frame-driver';
 import type { TransitionDriver } from '../driver/transition-driver';
 import type { ContentRenderer, OverlayProvider, PageBufferPool } from '../painter/buffer-pool';
 import type { DisplaySurface } from '../painter/display-surface';
+import { commitCurrentSpread } from './core/current-spread';
+import { publishSpreadChange } from './core/spread-change';
 import { syncCanvasSize, type Internals } from './facade';
 import type { Emitter, RuntimeComponents } from './facade/types';
 import { createCoordinateMapper } from './geometry/coordinate-mapper';
@@ -101,7 +103,7 @@ export function wireSettledEvents(
     if (event.committed) {
       if (event.direction === 'forward') pool.rotateForward();
       else pool.rotateBackward();
-      internals.currentSpread = event.targetSpread;
+      commitCurrentSpread(internals, event.targetSpread, 'settle-commit');
       prerenderScheduler.schedule({
         getCurrentSpread: () => internals.currentSpread,
         isAnimating: () => transitionDriver.isAnimating,
@@ -154,9 +156,8 @@ function restoreCanceledTransition(
   console.error(
     `[rito] page turn settled uncommitted, snapping back from spread ${String(internals.currentSpread)} to ${String(outgoing)}`,
   );
-  internals.currentSpread = outgoing;
+  commitCurrentSpread(internals, outgoing, 'settle-snap-back');
   reader.notifyActiveSpread(outgoing);
   if (internals.currentSpread !== outgoing) return;
-  const spread = reader.spreads[outgoing];
-  if (spread) emitter.emit('spreadChange', { spreadIndex: outgoing, spread });
+  publishSpreadChange(emitter, reader, outgoing);
 }
