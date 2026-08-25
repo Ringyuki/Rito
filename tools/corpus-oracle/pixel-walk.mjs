@@ -573,9 +573,15 @@ ${
     : `html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }`
 }
 body { margin:0; padding:0; position:relative; }
-img, svg { max-width: 100%; }`;
+img, svg { max-width: 100%; }
+img { object-fit: contain; }`;
           document.head.insertBefore(s, document.head.firstChild);
-          // Reader UA policy mirror (rito-inline image_display_size), in
+          // Reader UA policy mirror. `img { object-fit: contain }` above
+          // mirrors the engine's UA stylesheet declaration (rito-stylo
+          // src/ua.rs, guarded by rito-core's ua_image_policy_mirror
+          // test): the truth browser letterboxes author-distorted boxes
+          // natively, exactly like the engine's paint. The SIZE mirror
+          // (rito-inline image_display_size) stays in
           // two aspect-preserving halves: the WIDTH cap is the plain
           // `max-width: 100%` above (a replaced element never exceeds its
           // container; Blink shrinks the auto cross axis with it), and the
