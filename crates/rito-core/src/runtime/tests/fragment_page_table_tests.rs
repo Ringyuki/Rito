@@ -852,8 +852,7 @@ fn the_ua_stylesheet_letterboxes_an_author_box_off_the_raster_ratio() {
 
 #[test]
 fn an_author_object_fit_fill_overrides_the_ua_default() {
-    let rects =
-        painted_image_rects("img { width: 30px; height: 20px; object-fit: fill; }\n");
+    let rects = painted_image_rects("img { width: 30px; height: 20px; object-fit: fill; }\n");
     assert_eq!(rects.len(), 1);
     let (width, height) = rects[0];
     assert!(

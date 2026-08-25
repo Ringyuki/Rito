@@ -263,8 +263,8 @@ fn jpeg_dimensions(bytes: &[u8]) -> Option<ImageDimensions> {
             return None;
         }
         if marker == 0xe1 {
-            quarter_turned = quarter_turned
-                || exif_quarter_turned(&bytes[offset + 2..offset + segment_length]);
+            quarter_turned =
+                quarter_turned || exif_quarter_turned(&bytes[offset + 2..offset + segment_length]);
         }
         if is_jpeg_sof_marker(marker) && segment_length >= 7 {
             let stored = ImageDimensions {
