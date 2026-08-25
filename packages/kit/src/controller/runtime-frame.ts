@@ -151,6 +151,9 @@ function restoreCanceledTransition(
   outgoing: number,
 ): void {
   if (internals.currentSpread === outgoing) return;
+  console.error(
+    `[rito] page turn settled uncommitted, snapping back from spread ${String(internals.currentSpread)} to ${String(outgoing)}`,
+  );
   internals.currentSpread = outgoing;
   reader.notifyActiveSpread(outgoing);
   if (internals.currentSpread !== outgoing) return;

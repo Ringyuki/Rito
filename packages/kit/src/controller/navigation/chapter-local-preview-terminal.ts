@@ -140,6 +140,9 @@ export function fatalChapterLocalContainment(
   message: string,
 ): void {
   if (state.activeChapterLocalTransition !== active) return;
+  console.error(
+    `[rito] chapter-local presentation failed, rolling back to spread ${String(active.mountSpreadIndex)}: ${message}`,
+  );
   try {
     deps.td.reset();
   } catch {

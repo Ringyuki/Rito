@@ -216,6 +216,9 @@ function settleSpreadGrowth(
     throw new Error('Reader returned a final pagination miss before committing completion');
   }
   if (available !== true) {
+    console.error(
+      `[rito] queued navigation to spread ${String(pending.target)} abandoned: the spread never became available`,
+    );
     state.pendingNavigation = undefined;
     pending.gesture?.onUnavailable?.();
     if (available === false) {
