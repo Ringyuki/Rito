@@ -9,52 +9,12 @@ pub(super) enum SourceProjection {
     NoPageProjection,
 }
 
-pub(super) fn project_source_offset(
-    starts: &[PageArtifactSourceRunStart],
-    source_index: &RuntimeSourceChapterIndex,
-    target_offset: usize,
-) -> SourceProjection {
-    project_source_offset_from_starts(starts, source_index, target_offset)
-}
-
 pub(super) fn project_source_point(
     starts: &[PageArtifactSourceRunStart],
     source_index: &RuntimeSourceChapterIndex,
     point: &RuntimeSourcePoint,
 ) -> SourceProjection {
     project_source_point_from_starts(starts, source_index, point)
-}
-
-fn project_source_offset_from_starts(
-    starts: &[PageArtifactSourceRunStart],
-    source_index: &RuntimeSourceChapterIndex,
-    target_offset: usize,
-) -> SourceProjection {
-    let mut nearest_before: Option<(usize, usize)> = None;
-    let mut nearest_after: Option<(usize, usize)> = None;
-    let mut sealed_end = None;
-    for start in starts {
-        let Some(offset) = source_run_start_offset(source_index, start) else {
-            continue;
-        };
-        if let Some(end) = source_run_end_offset(source_index, start) {
-            sealed_end = Some(sealed_end.map_or(end, |current: usize| current.max(end)));
-        }
-        update_nearest_pages(
-            offset,
-            start.page_index,
-            target_offset,
-            &mut nearest_before,
-            &mut nearest_after,
-        );
-    }
-    if sealed_end.is_none_or(|end| target_offset > end) {
-        return SourceProjection::BeyondSealedExtent;
-    }
-    nearest_before
-        .or(nearest_after)
-        .map(|(_, page_index)| SourceProjection::Page(page_index))
-        .unwrap_or(SourceProjection::NoPageProjection)
 }
 
 fn project_source_point_from_starts(
@@ -119,36 +79,12 @@ fn update_nearest_pages(
     }
 }
 
-fn source_run_start_offset(
-    index: &RuntimeSourceChapterIndex,
-    start: &PageArtifactSourceRunStart,
-) -> Option<usize> {
-    let span = index.span(&start.node_path)?;
-    (start.text_offset >= span.source_start && start.text_offset <= span.source_end)
-        .then(|| span.normalized_start + start.text_offset - span.source_start)
-}
-
-fn source_run_end_offset(
-    index: &RuntimeSourceChapterIndex,
-    start: &PageArtifactSourceRunStart,
-) -> Option<usize> {
-    let span = index.span(&start.node_path)?;
-    let source_end = start
-        .text_offset
-        .saturating_add(start.text_length)
-        .min(span.source_end);
-    (source_end >= span.source_start)
-        .then(|| span.normalized_start + source_end - span.source_start)
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
 
     use super::super::RuntimeSourceChapterIndex;
-    use super::{
-        project_source_offset_from_starts, project_source_point_from_starts, SourceProjection,
-    };
+    use super::{project_source_point_from_starts, SourceProjection};
     use crate::runtime::{
         page_artifact::PageArtifactSourceRunStart, RuntimeChapterTextIndex, RuntimeChapterTextSpan,
         RuntimeSourcePoint,
@@ -184,10 +120,6 @@ mod tests {
                     text_offset: 0,
                 }
             ),
-            SourceProjection::BeyondSealedExtent
-        );
-        assert_eq!(
-            project_source_offset_from_starts(&starts, &index, 7),
             SourceProjection::BeyondSealedExtent
         );
     }

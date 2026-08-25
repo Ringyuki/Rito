@@ -1,5 +1,6 @@
 use super::fixture::{
-    image_only_fixture_epub, layout, long_source_text_fixture_epub, multi_chapter_fixture_epub,
+    image_only_fixture_epub, image_plates_before_text_fixture_epub, layout,
+    long_source_text_fixture_epub, multi_chapter_fixture_epub,
 };
 use crate::{
     layout::LineBreaking,
@@ -77,6 +78,49 @@ fn exact_page_anchor_round_trips_to_the_same_source_after_reflow() {
     assert_eq!(matched_by, RuntimeSourceLocatorMatchedBy::SourcePoint);
     assert_eq!(projected_locator, locator);
     assert_ne!(page_index, captured_page);
+}
+
+#[test]
+fn every_page_reading_anchor_resolves_back_to_its_own_page() {
+    // A page's own reading anchor is the identity the runtime commits
+    // against: if it resolves to a different page, a metrics-refresh
+    // commit yanks the reader off the spread they are looking at. The
+    // text-free plate pages here used to capture a chapter-position
+    // progression that resolution then projected onto the chapter's
+    // TEXT, collapsing every plate onto the caption page.
+    let mut document = RuntimeDocument::open(&image_plates_before_text_fixture_epub())
+        .expect("plates document opens");
+    let revision = document
+        .create_revision(&layout())
+        .expect("plates revision is created");
+    let handle = RuntimeRevisionHandle::from(&revision);
+    assert!(
+        revision.page_count >= 4,
+        "fixture must paginate each plate onto its own page (got {})",
+        revision.page_count
+    );
+    for page_index in 0..revision.page_count {
+        let response = document
+            .get_page_reading_anchor_at(&handle, page_index)
+            .expect("known page anchor is returned");
+        let RuntimePageReadingAnchor::Resolved { locator, .. } = response.value else {
+            panic!("page {page_index} must resolve a durable anchor");
+        };
+        let projection = document
+            .resolve_source_locator_at(&handle, locator)
+            .expect("page anchor resolves on its own revision");
+        let RuntimeSourceLocatorResolution::Resolved {
+            page_index: resolved_page,
+            ..
+        } = projection.value
+        else {
+            panic!("page {page_index} anchor should project onto a page");
+        };
+        assert_eq!(
+            resolved_page, page_index,
+            "page {page_index} anchor resolved onto page {resolved_page}"
+        );
+    }
 }
 
 #[test]

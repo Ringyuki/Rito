@@ -120,6 +120,15 @@ pub fn image_only_fixture_epub() -> Vec<u8> {
     )
 }
 
+/// One chapter whose three full-page plates precede its only paragraph:
+/// each text-free page must own a reading anchor that resolves back to
+/// itself, not to the page that happens to hold the chapter's text.
+pub fn image_plates_before_text_fixture_epub() -> Vec<u8> {
+    fixture_epub_with_chapter(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><img src="Images/cover.png" alt="plate one" style="height: 580px"/><img src="Images/cover.png" alt="plate two" style="height: 580px"/><img src="Images/cover.png" alt="plate three" style="height: 580px"/><p>plate captions arrive after the plates</p></body></html>"#,
+    )
+}
+
 pub fn fixture_epub_with_stylesheet(stylesheet: &str) -> Vec<u8> {
     fixture_epub_with_chapter_and_stylesheet(
         br##"<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><link rel="stylesheet" href="style.css"/></head><body><p id="intro">Hello runtime<a epub:type="noteref" href="#fn1">1</a></p><aside epub:type="footnote" id="fn1"><p>Runtime note</p></aside><img src="Images/cover.png" alt="cover"/></body></html>"##,

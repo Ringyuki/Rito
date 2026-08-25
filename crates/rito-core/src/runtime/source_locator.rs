@@ -15,7 +15,7 @@ pub(super) use href::RuntimeSourceLocatorCanonicalizer;
 use href::{canonicalize_source_locator, CanonicalSourceLocator};
 use index::RuntimeSourceAnchor;
 pub(super) use index::RuntimeSourceChapterIndex;
-use projection::{project_source_offset, project_source_point, SourceProjection};
+use projection::{project_source_point, SourceProjection};
 pub use types::*;
 
 pub(super) struct PreparedExactSourceRange {
@@ -487,30 +487,36 @@ fn resolve_canonical_source_locator(
                 })
                 .unwrap_or(SourceProjection::NoPageProjection)
         }
-        (RuntimeSourceLocatorMatchedBy::Progression, Some(source_index)) => {
-            let progression = canonical.locator.progression.unwrap_or(0.0);
-            let text_length = normalized_text_length(&source_index.text);
-            if text_length == 0 {
-                SourceProjection::Page(chapter_range.start_page)
+        (RuntimeSourceLocatorMatchedBy::Progression, _) => {
+            // A progression is a page-position fraction inside its chapter
+            // (Readium locator semantics: position through the resource in
+            // reading order), and every producer in this engine writes it
+            // that way — the text-free-page reading anchor
+            // ((page - start) / span), the chapter-local artifact fallback
+            // (local_page / (page_count - 1)), and the previous-chapter
+            // tail seek (1.0). Projecting the fraction through the
+            // chapter's normalized TEXT instead collapsed every text-free
+            // page onto whichever page holds the chapter's text, so a
+            // commit re-applying a plate page's own anchor moved the
+            // reader off that page. While the chapter is still paginating
+            // its page span is not final, so the fraction stays pending —
+            // the same retry contract the sealed-extent rule gave the old
+            // text projection (hidden display:none tails included: the
+            // page grid, unlike the text index, never contains them).
+            let sealed = revision.status == RuntimeRevisionStatus::Complete
+                || revision
+                    .interactions
+                    .completed_chapter_idrefs
+                    .contains(&canonical.spine_idref);
+            if sealed {
+                let progression = canonical.locator.progression.unwrap_or(0.0).clamp(0.0, 1.0);
+                let span = chapter_range
+                    .end_page
+                    .saturating_sub(chapter_range.start_page);
+                let offset = ((progression * span as f64).round() as usize).min(span);
+                SourceProjection::Page(chapter_range.start_page.saturating_add(offset))
             } else {
-                let offset = (progression * text_length as f64).round() as usize;
-                let projection =
-                    project_source_offset(&source_starts, source_index, offset.min(text_length));
-                // A progression target is a ratio, not an exact point: once
-                // the revision is complete it must always publish. Hidden
-                // text (display:none tails and the like) sits in the
-                // normalized index but never enters paint runs, so a 1.0
-                // progression lands beyond the sealed extent forever —
-                // clamp it to the chapter's last page instead of leaving
-                // the completed revision unresolvable (the previous-chapter
-                // tail crash).
-                if projection == SourceProjection::BeyondSealedExtent
-                    && revision.status == RuntimeRevisionStatus::Complete
-                {
-                    SourceProjection::Page(chapter_range.end_page)
-                } else {
-                    projection
-                }
+                SourceProjection::BeyondSealedExtent
             }
         }
         (RuntimeSourceLocatorMatchedBy::Href, _) => {
