@@ -370,6 +370,70 @@ pub fn strut_collision_fixture_epub() -> Vec<u8> {
     writer.finish().expect("zip finalizes").into_inner()
 }
 
+/// A chapter far longer than any local page cap, followed by a short
+/// one: entering the long chapter BACKWARD and walking to its start is
+/// the shape the windowed pipeline broke (a tail window mistaken for
+/// the whole chapter skipped every earlier page).
+pub fn long_then_short_fixture_epub() -> Vec<u8> {
+    let paragraphs = (0..520)
+        .map(|index| {
+            format!(
+                r#"<p id="deep-point-{index}">Deep paragraph {index:03} keeps stable text for a full backward walk across the whole chapter.</p>"#
+            )
+        })
+        .collect::<String>();
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options: FileOptions<'_, ()> = FileOptions::default();
+    add_file(
+        &mut writer,
+        options,
+        "META-INF/container.xml",
+        br#"<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+<rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/package.opf",
+        br#"<?xml version="1.0"?>
+<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Long then short</dc:title>
+<dc:language>en</dc:language>
+<dc:identifier id="id">long-then-short</dc:identifier>
+  </metadata>
+  <manifest>
+<item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/>
+<item id="chapter-2" href="chapter-2.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+<itemref idref="chapter-1"/>
+<itemref idref="chapter-2"/>
+  </spine>
+</package>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/chapter-1.xhtml",
+        format!(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>{paragraphs}</body></html>"#
+        )
+        .as_bytes(),
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/chapter-2.xhtml",
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p>short follower</p></body></html>"#,
+    );
+    writer.finish().expect("zip finalizes").into_inner()
+}
+
 pub fn many_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
     many_chapter_fixture_epub_with(chapter_count, |index| {
         chapter_fixture_xhtml(&format!("chapter {index}"))

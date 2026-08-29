@@ -467,6 +467,72 @@ fn chapter_boundary_previous_resolves_the_tail_in_one_request() {
 }
 
 #[test]
+fn a_backward_walk_crosses_into_a_long_chapter_and_serves_every_page() {
+    // The shape the windowed pipeline broke in the field: entering a
+    // long chapter backward built a tail window, and walking past its
+    // first page skipped the rest of the chapter. One-pass revisions
+    // hold the whole chapter, so the walk must serve every page and
+    // cross the start boundary only at local page zero.
+    let publication = crate::runtime::tests::fixture::long_then_short_fixture_epub();
+    let mut session = open_test_session(153, publication).expect("reader session");
+    let visible = session
+        .request_artifact(request(153, 1, "chapter-2.xhtml"))
+        .expect("short follower resolves");
+    adopt_initial(&mut session, 153, visible.artifact_id);
+
+    let mut request_id = 1u64;
+    request_id += 1;
+    let mut current = session
+        .request_adjacent(adjacent(
+            153,
+            request_id,
+            visible.artifact_id,
+            ReaderAdjacentDirectionV1::Previous,
+        ))
+        .expect("previous chapter tail resolves");
+    assert_eq!(current.locator.href, "chapter-1.xhtml");
+    let tail_index = usize::try_from(current.local_page_index).expect("page index fits");
+    assert!(
+        tail_index + 1 > 16,
+        "the fixture must exceed any local page cap (got {} pages)",
+        tail_index + 1
+    );
+
+    let mut visited = 1usize;
+    while current.local_page_index > 0 {
+        request_id += 1;
+        let next = session
+            .request_adjacent(adjacent(
+                153,
+                request_id,
+                current.artifact_id,
+                ReaderAdjacentDirectionV1::Previous,
+            ))
+            .expect("every backward page serves");
+        assert_eq!(
+            next.locator.href, "chapter-1.xhtml",
+            "the walk must not leave the chapter before its first page"
+        );
+        assert_eq!(
+            next.local_page_index + 1,
+            current.local_page_index,
+            "backward pages step one at a time"
+        );
+        session
+            .release_artifact(current.artifact_id)
+            .expect("previous artifact releases");
+        current = next;
+        visited += 1;
+    }
+    assert_eq!(visited, tail_index + 1, "every page of the chapter served");
+    assert_eq!(
+        current.navigation.previous,
+        ReaderAdjacentAvailabilityV1::Terminal,
+        "local page zero is the publication start here"
+    );
+}
+
+#[test]
 fn session_rejects_wrong_identity_stale_request_and_unknown_artifact() {
     let mut session =
         open_test_session(51, source_locator_fixture_epub()).expect("reader session opens");
