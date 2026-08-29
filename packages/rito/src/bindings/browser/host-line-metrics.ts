@@ -337,7 +337,32 @@ function measureGridMetric(
 ): { gridAscent: number; gridDescent: number } | undefined {
   if (!gridContext) return undefined;
   gridContext.font = `${String(size)}px ${measured}`;
-  const text = gridContext.measureText(sample.length > 0 ? sample : 'x');
+  const probeText = sample.length > 0 ? sample : 'x';
+  let text = gridContext.measureText(probeText);
+  if (sample.length > 0) {
+    // Canvas fontBoundingBox always reports the list's FIRST family, not
+    // the face that serves the sample glyph, so a fallback-served sample
+    // (a CJK char under a Latin-first pin) would take the wrong grid.
+    // Fingerprint the serving face: the first family whose solo advance
+    // and ink box match the full list's rendering is the one that drew
+    // the glyph; take ITS bounding box. 1/64 px tolerance — canvas
+    // metrics quantize on that grid.
+    const reference = text;
+    for (const family of measured.split(',')) {
+      const candidate = family.trim();
+      if (candidate.length === 0) continue;
+      gridContext.font = `${String(size)}px ${candidate}`;
+      const solo = gridContext.measureText(probeText);
+      if (
+        Math.abs(solo.width - reference.width) < 0.015625 &&
+        Math.abs(solo.actualBoundingBoxAscent - reference.actualBoundingBoxAscent) < 0.015625 &&
+        Math.abs(solo.actualBoundingBoxDescent - reference.actualBoundingBoxDescent) < 0.015625
+      ) {
+        text = solo;
+        break;
+      }
+    }
+  }
   const gridAscent = text.fontBoundingBoxAscent;
   const gridDescent = text.fontBoundingBoxDescent;
   if (!Number.isFinite(gridAscent) || !Number.isFinite(gridDescent)) return undefined;
