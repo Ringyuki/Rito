@@ -3,19 +3,16 @@ name: Pixel E2E
 on:
   push:
     branches: [master]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
 
 jobs:
   pixel-e2e:
     name: Reader E2E (pixel suites)
     runs-on: macos-26
-    # Non-blocking observation: these suites assert canvas-pixel heuristics
-    # calibrated against the vite dev server's rendering; the built preview
-    # lays the fixture out with different metrics and the pixel scans
-    # misread it even though the selection data assertions pass. Kept in
-    # its own workflow so it never stretches the CI round the Release
-    # workflow waits on.
-    continue-on-error: true
+    # Kept in its own workflow so it never stretches the CI round the
+    # Release workflow waits on.
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
