@@ -4,6 +4,17 @@ use std::{
     path::Path,
 };
 
+fn open_test_projection(
+    publication: Vec<u8>,
+    session_id: u64,
+) -> Result<ReaderSessionProjectionV1, super::ReaderProjectionErrorV1> {
+    ReaderSessionProjectionV1::open_with_pinned_font_policy(
+        publication,
+        session_id,
+        crate::tests::fixture::pinned_test_policy_input(),
+    )
+}
+
 use rito_core::runtime::{
     decode_reader_adjacent_request_v1, decode_reader_artifact_request_v1,
     decode_reader_artifact_v1, decode_reader_background_advance_v1,
@@ -57,8 +68,8 @@ fn wasm_error_codes_match_actionable_core_reader_kinds() {
 
 #[test]
 fn wasm_pending_query_projects_the_retained_exact_seek_without_message_parsing() {
-    let mut projection = ReaderSessionProjectionV1::open(source_locator_fixture_epub(), SESSION_ID)
-        .expect("projection opens");
+    let mut projection =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
     let mut request =
         decode_reader_artifact_request_v1(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-47"))
             .expect("request decodes");
@@ -66,53 +77,40 @@ fn wasm_pending_query_projects_the_retained_exact_seek_without_message_parsing()
     request.work.max_foreground_quanta = 1;
     let wire = encode_reader_artifact_request_v1(&request).expect("single quantum request encodes");
 
-    let pending = projection
+    // One-pass: the deep exact locator resolves inside this single call
+    // regardless of the request's budget, and no pending continuation is
+    // ever retained.
+    let artifact_wire = projection
         .request_artifact(&wire)
-        .expect_err("deep exact locator remains pending after one quantum");
-    assert_eq!(
-        pending.code,
-        ReaderProjectionErrorCodeV1::TargetNotPublished
-    );
-    assert!(projection.has_pending_exact_seek());
+        .expect("deep exact locator resolves in one request");
+    let artifact = decode_reader_artifact_v1(&artifact_wire).expect("artifact decodes");
+    assert_eq!(artifact.locator.anchor_id.as_deref(), Some("point-47"));
+    assert!(!projection.has_pending_exact_seek());
 
     let wasm = RitoReaderSessionV1 { inner: projection };
-    assert!(wasm.has_pending_exact_seek_v1());
+    assert!(!wasm.has_pending_exact_seek_v1());
 }
 
 #[test]
 fn wasm_pending_query_projects_retained_adjacent_without_message_parsing() {
-    let mut projection = ReaderSessionProjectionV1::open(source_locator_fixture_epub(), SESSION_ID)
-        .expect("projection opens");
+    let mut projection =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
     let mut initial =
         decode_reader_artifact_request_v1(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-0"))
             .expect("initial request decodes");
     initial.work.max_top_level_nodes_per_quantum = 1;
     initial.work.max_foreground_quanta = 1;
-    // Sealed pages are the publication unit; single-node exact retries keep
-    // the retained owner until the first anchor's page publishes.
-    let mut next_request_id = 1_u64;
-    let artifact = loop {
-        initial.request_id = next_request_id;
-        next_request_id += 1;
-        let initial_wire = encode_reader_artifact_request_v1(&initial).expect("initial encodes");
-        match projection.request_artifact(&initial_wire) {
-            Ok(artifact_wire) => {
-                break decode_reader_artifact_v1(&artifact_wire).expect("artifact decodes");
-            }
-            Err(error) => {
-                assert_eq!(error.code, ReaderProjectionErrorCodeV1::TargetNotPublished);
-                assert!(projection.has_pending_exact_seek());
-                assert!(
-                    next_request_id <= 64,
-                    "single-node exact retries must publish the first anchor"
-                );
-            }
-        }
-    };
+    // One-pass: the open resolves immediately, and an adjacent turn on a
+    // whole-chapter revision publishes without retained cooperative work.
+    let initial_wire = encode_reader_artifact_request_v1(&initial).expect("initial encodes");
+    let artifact_wire = projection
+        .request_artifact(&initial_wire)
+        .expect("exact locator resolves in one request");
+    let artifact = decode_reader_artifact_v1(&artifact_wire).expect("artifact decodes");
 
     let mut adjacent = decode_reader_adjacent_request_v1(&adjacent_wire(
         SESSION_ID,
-        next_request_id,
+        2,
         artifact.artifact_id,
         ReaderAdjacentDirectionV1::Next,
     ))
@@ -120,23 +118,19 @@ fn wasm_pending_query_projects_retained_adjacent_without_message_parsing() {
     adjacent.work.max_top_level_nodes_per_quantum = 1;
     adjacent.work.max_foreground_quanta = 1;
     let adjacent_wire = encode_reader_adjacent_request_v1(&adjacent).expect("adjacent encodes");
-    let pending = projection
+    projection
         .request_adjacent(&adjacent_wire)
-        .expect_err("one adjacent quantum remains pending");
-    assert_eq!(
-        pending.code,
-        ReaderProjectionErrorCodeV1::TargetNotPublished
-    );
-    assert!(projection.has_pending_adjacent());
+        .expect("the adjacent page publishes in one request");
+    assert!(!projection.has_pending_adjacent());
 
     let wasm = RitoReaderSessionV1 { inner: projection };
-    assert!(wasm.has_pending_adjacent_v1());
+    assert!(!wasm.has_pending_adjacent_v1());
 }
 
 #[test]
 fn foreground_handoff_binding_rejects_wrong_length_and_preserves_candidate_after_failed_cas() {
-    let mut projection = ReaderSessionProjectionV1::open(source_locator_fixture_epub(), SESSION_ID)
-        .expect("projection opens");
+    let mut projection =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
     let initial_wire = projection
         .request_artifact(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-1"))
         .expect("initial candidate resolves");
@@ -199,8 +193,12 @@ fn wasm_projection_is_byte_identical_to_core_for_a_nonfirst_page_locator() {
     let publication = source_locator_fixture_epub();
     let request_wire = request_wire(SESSION_ID, 7, "chapter.xhtml#point-47");
 
-    let mut direct = ReaderSessionV1::open_owned(SESSION_ID, publication.clone())
-        .expect("direct Core session opens");
+    let mut direct = ReaderSessionV1::open_owned_with_pinned_font_policy(
+        SESSION_ID,
+        publication.clone(),
+        crate::tests::fixture::pinned_test_policy_input(),
+    )
+    .expect("direct Core session opens");
     let direct_request =
         decode_reader_artifact_request_v1(&request_wire).expect("request wire decodes");
     let direct_artifact = direct
@@ -209,8 +207,9 @@ fn wasm_projection_is_byte_identical_to_core_for_a_nonfirst_page_locator() {
     let direct_wire =
         encode_reader_artifact_v1(&direct_artifact).expect("direct Core artifact encodes");
 
-    let mut wasm = RitoReaderSessionV1::new(publication, SESSION_ID)
-        .unwrap_or_else(|_| panic!("WASM reader session opens"));
+    let mut wasm = RitoReaderSessionV1::from_projection(
+        open_test_projection(publication, SESSION_ID).expect("WASM reader session opens"),
+    );
     let wasm_wire = wasm
         .request_artifact_v1(request_wire)
         .unwrap_or_else(|_| panic!("WASM reader artifact resolves"));
@@ -230,16 +229,21 @@ fn wasm_projection_is_byte_identical_to_core_for_a_nonfirst_page_locator() {
 fn adjacent_projection_is_core_identical_across_three_bounded_turns() {
     let publication = source_locator_fixture_epub();
     let first_request = request_wire(SESSION_ID, 1, "chapter.xhtml#point-1");
-    let mut direct = ReaderSessionV1::open_owned(SESSION_ID, publication.clone())
-        .expect("direct Core session opens");
+    let mut direct = ReaderSessionV1::open_owned_with_pinned_font_policy(
+        SESSION_ID,
+        publication.clone(),
+        crate::tests::fixture::pinned_test_policy_input(),
+    )
+    .expect("direct Core session opens");
     let direct_first = direct
         .request_artifact(
             decode_reader_artifact_request_v1(&first_request).expect("first request decodes"),
         )
         .expect("direct first artifact resolves");
 
-    let mut wasm = RitoReaderSessionV1::new(publication, SESSION_ID)
-        .unwrap_or_else(|_| panic!("WASM reader session opens"));
+    let mut wasm = RitoReaderSessionV1::from_projection(
+        open_test_projection(publication, SESSION_ID).expect("WASM reader session opens"),
+    );
     let wasm_first = wasm
         .request_artifact_v1(first_request)
         .unwrap_or_else(|_| panic!("WASM first artifact resolves"));
@@ -297,16 +301,21 @@ fn adjacent_projection_is_core_identical_across_three_bounded_turns() {
 fn background_handoff_and_adopted_adjacent_are_byte_identical_to_core() {
     let publication = source_locator_fixture_epub();
     let first_request = request_wire(SESSION_ID, 1, "chapter.xhtml#point-0");
-    let mut direct = ReaderSessionV1::open_owned(SESSION_ID, publication.clone())
-        .expect("direct Core session opens");
+    let mut direct = ReaderSessionV1::open_owned_with_pinned_font_policy(
+        SESSION_ID,
+        publication.clone(),
+        crate::tests::fixture::pinned_test_policy_input(),
+    )
+    .expect("direct Core session opens");
     let direct_first = direct
         .request_artifact(
             decode_reader_artifact_request_v1(&first_request).expect("first request decodes"),
         )
         .expect("direct first artifact resolves");
 
-    let mut wasm = RitoReaderSessionV1::new(publication, SESSION_ID)
-        .unwrap_or_else(|_| panic!("WASM reader session opens"));
+    let mut wasm = RitoReaderSessionV1::from_projection(
+        open_test_projection(publication, SESSION_ID).expect("WASM reader session opens"),
+    );
     let wasm_first = wasm
         .request_artifact_v1(first_request)
         .unwrap_or_else(|_| panic!("WASM first artifact resolves"));
@@ -462,15 +471,19 @@ fn background_handoff_and_adopted_adjacent_are_byte_identical_to_core() {
 fn each_background_transport_call_matches_exactly_one_core_quantum() {
     let publication = source_locator_fixture_epub();
     let first_request = request_wire(SESSION_ID, 1, "chapter.xhtml#point-47");
-    let mut direct = ReaderSessionV1::open_owned(SESSION_ID, publication.clone())
-        .expect("direct Core session opens");
+    let mut direct = ReaderSessionV1::open_owned_with_pinned_font_policy(
+        SESSION_ID,
+        publication.clone(),
+        crate::tests::fixture::pinned_test_policy_input(),
+    )
+    .expect("direct Core session opens");
     let direct_first = direct
         .request_artifact(
             decode_reader_artifact_request_v1(&first_request).expect("first request decodes"),
         )
         .expect("direct tail artifact resolves");
     let mut projection =
-        ReaderSessionProjectionV1::open(publication, SESSION_ID).expect("WASM projection opens");
+        open_test_projection(publication, SESSION_ID).expect("WASM projection opens");
     let projected_first = projection
         .request_artifact(&first_request)
         .expect("projected tail artifact resolves");
@@ -519,20 +532,32 @@ fn each_background_transport_call_matches_exactly_one_core_quantum() {
                     if post_index_calls == 0 {
                         ReaderBackgroundStateV1::Started
                     } else {
-                        ReaderBackgroundStateV1::Advanced
+                        // One-pass: the book is already paginated; later
+                        // calls report the unadopted candidate.
+                        ReaderBackgroundStateV1::CandidatePending
                     }
                 );
+                // One-pass background pagination publishes the whole book
+                // at Started and carries the first candidate with it.
+                if post_index_calls == 0 {
+                    assert!(
+                        projected_step.artifact.is_some(),
+                        "Started carries the first publication candidate"
+                    );
+                }
                 post_index_calls += 1;
             }
         }
-        assert!(projected_step.artifact.is_none());
+        if projected_step.state == ReaderBackgroundStateV1::Indexing {
+            assert!(projected_step.artifact.is_none());
+        }
     }
 }
 
 #[test]
 fn stale_background_cas_is_typed_and_does_not_replace_the_new_intent() {
-    let mut session = ReaderSessionProjectionV1::open(source_locator_fixture_epub(), SESSION_ID)
-        .expect("projection opens");
+    let mut session =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
     let old_wire = session
         .request_artifact(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-0"))
         .expect("old local artifact resolves");
@@ -578,8 +603,8 @@ fn stale_background_cas_is_typed_and_does_not_replace_the_new_intent() {
 
 #[test]
 fn projection_reports_typed_wire_and_session_errors() {
-    let mut session = ReaderSessionProjectionV1::open(source_locator_fixture_epub(), SESSION_ID)
-        .expect("projection opens");
+    let mut session =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
     let valid = request_wire(SESSION_ID, 1, "chapter.xhtml#point-47");
 
     let truncated = session
@@ -634,8 +659,8 @@ fn projection_reports_typed_wire_and_session_errors() {
 
 #[test]
 fn background_wires_reject_truncation_trailing_bytes_and_top_bit_ids() {
-    let mut session = ReaderSessionProjectionV1::open(source_locator_fixture_epub(), SESSION_ID)
-        .expect("projection opens");
+    let mut session =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
     let artifact_wire = session
         .request_artifact(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-0"))
         .expect("source artifact resolves");
@@ -721,8 +746,8 @@ fn background_wires_reject_truncation_trailing_bytes_and_top_bit_ids() {
 
 #[test]
 fn release_and_dispose_are_idempotent_and_disposed_requests_are_typed() {
-    let mut session = ReaderSessionProjectionV1::open(source_locator_fixture_epub(), SESSION_ID)
-        .expect("projection opens");
+    let mut session =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
     let artifact_wire = session
         .request_artifact(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-47"))
         .expect("artifact resolves");
@@ -760,8 +785,8 @@ fn release_and_dispose_are_idempotent_and_disposed_requests_are_typed() {
 
 #[test]
 fn one_session_supports_followup_seek_reflow_and_rejects_stale_request_ids() {
-    let mut session = ReaderSessionProjectionV1::open(source_locator_fixture_epub(), SESSION_ID)
-        .expect("projection opens");
+    let mut session =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
     let first_wire = session
         .request_artifact(&request_wire(SESSION_ID, 10, "chapter.xhtml#point-1"))
         .expect("first artifact resolves");
@@ -795,8 +820,12 @@ fn resource_projection_is_core_identical_for_the_real_0005_image() {
     let publication = book_10_publication();
     let artifact_request = request_wire(SESSION_ID, 1, "OEBPS/Text/Section001.xhtml");
 
-    let mut direct = ReaderSessionV1::open_owned(SESSION_ID, publication.clone())
-        .expect("direct Core session opens");
+    let mut direct = ReaderSessionV1::open_owned_with_pinned_font_policy(
+        SESSION_ID,
+        publication.clone(),
+        crate::tests::fixture::pinned_test_policy_input(),
+    )
+    .expect("direct Core session opens");
     let direct_request =
         decode_reader_artifact_request_v1(&artifact_request).expect("request decodes");
     let direct_artifact = direct
@@ -818,8 +847,9 @@ fn resource_projection_is_core_identical_for_the_real_0005_image() {
         .expect("direct resource resolves");
     let direct_wire = encode_reader_resource_v1(&direct_resource).expect("direct resource encodes");
 
-    let mut wasm = RitoReaderSessionV1::new(publication, SESSION_ID)
-        .unwrap_or_else(|_| panic!("WASM reader session opens"));
+    let mut wasm = RitoReaderSessionV1::from_projection(
+        open_test_projection(publication, SESSION_ID).expect("WASM reader session opens"),
+    );
     let artifact_wire = wasm
         .request_artifact_v1(artifact_request)
         .unwrap_or_else(|_| panic!("WASM artifact resolves"));
@@ -912,8 +942,8 @@ fn wasm_projection_rejects_top_bit_ids_instead_of_converting_them_to_negative() 
     );
     assert!(!invalid_session.message.contains("-9223372036854775808"));
 
-    let mut session = ReaderSessionProjectionV1::open(source_locator_fixture_epub(), SESSION_ID)
-        .expect("projection opens");
+    let mut session =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
     let artifact_wire = session
         .request_artifact(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-1"))
         .expect("source artifact resolves");
@@ -1219,8 +1249,7 @@ fn tmp_pt_margin_probe() {
     );
     let epub = writer.finish().expect("zip finalizes").into_inner();
 
-    let mut projection =
-        ReaderSessionProjectionV1::open(epub, SESSION_ID).expect("projection opens");
+    let mut projection = open_test_projection(epub, SESSION_ID).expect("projection opens");
     let request = request_wire(SESSION_ID, 1, "chapter.xhtml#point-0");
     projection.request_artifact(&request).expect("artifact");
 }

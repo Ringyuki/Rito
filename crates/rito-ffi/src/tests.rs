@@ -318,7 +318,40 @@ fn open_release_and_dispose_are_owned_and_idempotent() {
 }
 
 #[test]
-fn pending_open_registers_a_ready_session_and_resumes_with_a_new_request_id() {
+fn an_open_without_pinned_fonts_fails_closed() {
+    // Chapter-local pagination shapes with pinned faces only; a bare
+    // open cannot produce browser-identical pages, so it fails instead
+    // of guessing (documented in rito_ffi.h).
+    let session_id = next_session_id();
+    let publication = publication();
+    let wire = encode_reader_artifact_request_v1(&request(session_id)).expect("request encodes");
+    let mut artifact = RitoOwnedBufferV1::EMPTY;
+    let mut error = RitoOwnedBufferV1::EMPTY;
+    let status = rito_open_v1(
+        publication.as_ptr(),
+        u64::try_from(publication.len()).expect("publication length is representable"),
+        wire.as_ptr(),
+        u64::try_from(wire.len()).expect("request length is representable"),
+        &mut artifact,
+        &mut error,
+    );
+    let diagnostic = String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned();
+    rito_buffer_free_v1(&mut artifact);
+    rito_buffer_free_v1(&mut error);
+    assert_ne!(status, RITO_STATUS_OK_V1);
+    assert!(
+        diagnostic.contains("fragment engine") || diagnostic.contains("pinned"),
+        "the diagnostic names the missing pinned faces: {diagnostic}"
+    );
+    assert_eq!(
+        call_read_publication(session_id).status,
+        RITO_STATUS_NOT_FOUND_V1,
+        "a failed open must not register a session"
+    );
+}
+
+#[test]
+fn open_resolves_a_deep_target_in_one_call_regardless_of_budget() {
     let session_id = next_session_id();
     let publication = publication();
     let initial = pending_open_request(session_id, 10);
@@ -326,18 +359,19 @@ fn pending_open_registers_a_ready_session_and_resumes_with_a_new_request_id() {
         encode_reader_artifact_request_v1(&initial).expect("pending open request encodes");
     let opened = call_open(&publication, &initial_wire);
 
-    assert_eq!(
-        opened.status, RITO_STATUS_EXACT_SEEK_PENDING_V1,
-        "{}",
-        opened.error
-    );
-    assert!(opened.artifact.is_empty());
-    assert!(!opened.error.is_empty());
+    // One-pass: the deep progression target resolves in this single
+    // call regardless of the request's budget — no pending status, no
+    // resume loop.
+    assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
+    let artifact = decode_reader_artifact_v1(&opened.artifact).expect("open artifact decodes");
+    assert_eq!(artifact.session_id, session_id);
+    assert_eq!(artifact.request_id, 10);
+    assert_eq!(artifact.locator.progression, Some(0.95));
     assert_eq!(call_read_publication(session_id).status, RITO_STATUS_OK_V1);
     assert_eq!(
         call_open(&publication, &initial_wire).status,
         RITO_STATUS_ALREADY_EXISTS_V1,
-        "pending open must already own its session identity"
+        "an open session owns its identity"
     );
 
     let mut wrong_session = initial.clone();
@@ -355,42 +389,27 @@ fn pending_open_registers_a_ready_session_and_resumes_with_a_new_request_id() {
         "the open request id was already accepted"
     );
 
-    let mut resumed = initial;
-    resumed.request_id = 11;
-    let one_quantum_wire =
-        encode_reader_artifact_request_v1(&resumed).expect("bounded resume request encodes");
-    let still_pending = call_request_artifact(session_id, &one_quantum_wire);
-    assert_eq!(
-        still_pending.status, RITO_STATUS_EXACT_SEEK_PENDING_V1,
-        "{}",
-        still_pending.error
-    );
-    assert!(still_pending.artifact.is_empty());
-    assert_eq!(call_read_publication(session_id).status, RITO_STATUS_OK_V1);
-
-    resumed.request_id = 12;
-    resumed.work.max_top_level_nodes_per_quantum = 32;
-    resumed.work.max_foreground_quanta = 512;
-    let resumed_wire =
-        encode_reader_artifact_request_v1(&resumed).expect("final resume request encodes");
-    let result = call_request_artifact(session_id, &resumed_wire);
+    let mut reseek = initial;
+    reseek.request_id = 12;
+    reseek.work.max_top_level_nodes_per_quantum = 32;
+    reseek.work.max_foreground_quanta = 512;
+    let reseek_wire = encode_reader_artifact_request_v1(&reseek).expect("reseek request encodes");
+    let result = call_request_artifact(session_id, &reseek_wire);
     assert_eq!(result.status, RITO_STATUS_OK_V1, "{}", result.error);
-    let artifact = decode_reader_artifact_v1(&result.artifact).expect("resumed artifact decodes");
-    assert_eq!(artifact.session_id, session_id);
-    assert_eq!(artifact.request_id, 12);
-    assert_eq!(artifact.revision_id, 1);
-    assert_eq!(artifact.artifact_id, 1);
-    assert_eq!(artifact.locator.progression, Some(0.95));
+    let reseeked = decode_reader_artifact_v1(&result.artifact).expect("reseek artifact decodes");
+    assert_eq!(reseeked.session_id, session_id);
+    assert_eq!(reseeked.request_id, 12);
+    assert_eq!(reseeked.locator.progression, Some(0.95));
 
     assert_eq!(
-        call_release(session_id, artifact.artifact_id),
+        call_release(session_id, reseeked.artifact_id),
         RITO_STATUS_OK_V1
     );
     assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
 }
 
 #[test]
-fn disposing_a_pending_open_releases_the_session_for_reuse() {
+fn disposing_an_open_session_releases_it_for_reuse() {
     let session_id = next_session_id();
     let publication = publication();
     let initial = pending_open_request(session_id, 1);
@@ -398,7 +417,8 @@ fn disposing_a_pending_open_releases_the_session_for_reuse() {
         encode_reader_artifact_request_v1(&initial).expect("pending open request encodes");
     assert_eq!(
         call_open(&publication, &initial_wire).status,
-        RITO_STATUS_EXACT_SEEK_PENDING_V1
+        RITO_STATUS_OK_V1,
+        "one-pass opens resolve immediately"
     );
 
     assert_eq!(call_dispose(session_id), RITO_STATUS_OK_V1);
@@ -702,14 +722,41 @@ struct OwnedWireResult {
     error: String,
 }
 
+/// Chapter-local pagination shapes with pinned faces only, so the shared
+/// open helper routes through the pinned-fonts entry point; the bare
+/// `rito_open_v1` keeps its own fail-closed test.
 fn call_open(publication: &[u8], request: &[u8]) -> OpenResult {
+    let pinned_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../apps/reader/src/assets/fonts/Tinos-Regular.ttf");
+    let pinned = fs::read(pinned_path).expect("pinned face is readable");
+    let sha256 = {
+        use sha2::{Digest, Sha256};
+        let digest: [u8; 32] = Sha256::digest(&pinned).into();
+        let mut hex = [0u8; 64];
+        for (index, byte) in digest.iter().enumerate() {
+            let table = b"0123456789abcdef";
+            hex[index * 2] = table[usize::from(byte >> 4)];
+            hex[index * 2 + 1] = table[usize::from(byte & 0x0f)];
+        }
+        hex
+    };
+    let face = RitoPinnedFontFaceV1 {
+        bytes_data: pinned.as_ptr(),
+        bytes_len: u64::try_from(pinned.len()).expect("face length is representable"),
+        sha256_hex: sha256,
+        generic_role: RITO_PINNED_FONT_ROLE_SERIF_V1,
+        language_data: std::ptr::null(),
+        language_len: 0,
+    };
     let mut artifact = RitoOwnedBufferV1::EMPTY;
     let mut error = RitoOwnedBufferV1::EMPTY;
-    let status = rito_open_v1(
+    let status = rito_open_with_pinned_fonts_v1(
         publication.as_ptr(),
         u64::try_from(publication.len()).expect("publication length is representable"),
         request.as_ptr(),
         u64::try_from(request.len()).expect("request length is representable"),
+        &face,
+        1,
         &mut artifact,
         &mut error,
     );

@@ -114,7 +114,9 @@ fn exact_seek_pending_status_requires_core_owned_resumable_state() {
     assert!(registry.contains("InitialArtifactReply::Failed(error)"));
     assert!(header.contains("RITO_STATUS_EXACT_SEEK_PENDING_V1"));
     assert!(header.contains("RITO_STATUS_ADJACENT_PENDING_V1"));
-    assert!(header.contains("The session is\n * ready and retained"));
+    assert!(header.contains("paginated whole in\n * this one call"));
+    assert!(header.contains("never\n * returned by the current core"));
+    assert!(header.contains("without\n * a pinned font policy fails closed"));
     assert!(header.contains("RITO_STATUS_TARGET_NOT_PUBLISHED_V1 is terminal"));
 }
 

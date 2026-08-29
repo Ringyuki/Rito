@@ -20,6 +20,15 @@ pub struct RitoReaderSessionV1 {
     inner: ReaderSessionProjectionV1,
 }
 
+#[cfg(test)]
+impl RitoReaderSessionV1 {
+    /// Native tests wrap an already-opened projection; the js-facing
+    /// factories convert errors through JsValue, which panics off-wasm.
+    fn from_projection(inner: ReaderSessionProjectionV1) -> Self {
+        Self { inner }
+    }
+}
+
 #[wasm_bindgen(js_class = RitoReaderSessionV1)]
 impl RitoReaderSessionV1 {
     /// Opens an owned EPUB reader session. `session_id` is a JavaScript
@@ -29,6 +38,38 @@ impl RitoReaderSessionV1 {
         ReaderSessionProjectionV1::open(publication_bytes, session_id)
             .map(|inner| Self { inner })
             .map_err(ReaderProjectionErrorV1::into_js_value)
+    }
+
+    /// Opens a session with pinned fallback faces — the form chapter-local
+    /// pagination requires (the fragment engine shapes with pinned faces
+    /// only, so a bare open fails closed at layout time).
+    /// `metadata_json` and `face_bytes` follow the same contract as
+    /// `RitoWasmDocument.openWithPinnedFontPolicy`.
+    #[wasm_bindgen(js_name = openWithPinnedFontPolicy)]
+    pub fn open_with_pinned_font_policy(
+        publication_bytes: Vec<u8>,
+        session_id: u64,
+        metadata_json: &str,
+        face_bytes: JsValue,
+    ) -> Result<Self, JsValue> {
+        let face_bytes = crate::binding::pinned_font::require_face_byte_array(face_bytes)
+            .map_err(crate::binding::error_to_js_value)?;
+        let metadata = crate::pinned_font::validate_pinned_font_policy_metadata(
+            metadata_json,
+            face_bytes.length() as usize,
+        )
+        .map_err(crate::binding::error_to_js_value)?;
+        crate::binding::pinned_font::validate_face_byte_array_types(&face_bytes)
+            .map_err(crate::binding::error_to_js_value)?;
+        let face_bytes = crate::binding::pinned_font::copy_face_byte_arrays(&face_bytes);
+        let input = crate::pinned_font::pinned_font_policy_input(metadata, face_bytes);
+        ReaderSessionProjectionV1::open_with_pinned_font_policy(
+            publication_bytes,
+            session_id,
+            input,
+        )
+        .map(|inner| Self { inner })
+        .map_err(ReaderProjectionErrorV1::into_js_value)
     }
 
     /// Returns the immutable session publication snapshot as one owned
@@ -172,6 +213,26 @@ impl ReaderSessionProjectionV1 {
             "sessionId",
         )?;
         let session = ReaderSessionV1::open_owned(session_id, publication_bytes)?;
+        Ok(Self {
+            session: Some(session),
+        })
+    }
+
+    fn open_with_pinned_font_policy(
+        publication_bytes: Vec<u8>,
+        session_id: u64,
+        input: rito_core::runtime::RuntimePinnedFontPolicyInput,
+    ) -> ProjectionResult<Self> {
+        validate_external_id(
+            session_id,
+            ReaderProjectionErrorCodeV1::InvalidSession,
+            "sessionId",
+        )?;
+        let session = ReaderSessionV1::open_owned_with_pinned_font_policy(
+            session_id,
+            publication_bytes,
+            input,
+        )?;
         Ok(Self {
             session: Some(session),
         })

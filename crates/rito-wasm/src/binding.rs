@@ -6,7 +6,7 @@ use crate::{WasmRuntimeDocument, WasmRuntimeError};
 
 mod chapter_local;
 mod continuation;
-mod pinned_font;
+pub(crate) mod pinned_font;
 mod resource;
 mod versioned;
 
@@ -408,7 +408,7 @@ fn parse_resource_kind(kind: &str) -> Result<RuntimeResourceKind, WasmRuntimeErr
     }
 }
 
-fn error_to_js_value(error: WasmRuntimeError) -> JsValue {
+pub(crate) fn error_to_js_value(error: WasmRuntimeError) -> JsValue {
     JsValue::from_str(&error_json_string(error))
 }
 
