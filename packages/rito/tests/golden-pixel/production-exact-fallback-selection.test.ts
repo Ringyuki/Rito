@@ -99,15 +99,15 @@ test.describe('production exact fallback selection', () => {
         MAX_WIDTH_DRIFT_PX,
       );
     }
-    // Known gap: under the fragment engine, search results do not resolve
-    // durable source ranges yet (search still scans the retained layout
-    // pages), so every sample legitimately falls back to the chapter text
-    // index. The exact-range geometry above is the assertion that matters;
-    // restore the strict `search` origin expectation when fragment search
-    // gains source resolution.
+    // Fragment search resolves durable source ranges (contiguous runs of
+    // one node merge into one anchor, so a match that font fallback
+    // split across faces still anchors whole). The chapter-index
+    // fallback stays a legitimate escape for a sample whose anchor does
+    // not validate, but the search origin must be alive.
     for (const sample of proof.samples) {
       expect(['search', 'chapterIndex']).toContain(sample.sourceOrigin);
     }
+    expect(proof.samples.some((sample) => sample.sourceOrigin === 'search')).toBe(true);
     expect(proof.samples.at(-1)?.rectCount).toBeGreaterThan(1);
   });
 });
