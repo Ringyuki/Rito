@@ -47,6 +47,12 @@ pub(in crate::runtime) struct FragmentRunRecord {
     pub(in crate::runtime) y: f64,
     pub(in crate::runtime) width: f64,
     pub(in crate::runtime) height: f64,
+    /// The run's font box (top, height) in the same coordinates — the
+    /// primary font's grid ascent/descent hung from the line baseline,
+    /// which is the extent Chromium gives a native selection rect.
+    /// Absent when the host injected no grid metric; consumers fall
+    /// back to the line box above.
+    pub(in crate::runtime) font_box: Option<(f64, f64)>,
     /// Destination of the enclosing link, when the run sits inside one.
     pub(in crate::runtime) href: Option<String>,
     /// Source-locator mapping for the run, when its item has one.
@@ -399,6 +405,9 @@ impl ArtifactBuilder<'_> {
                                 Some(RunSourceMap { path, segments })
                             });
                             let length = run_text.encode_utf16().count();
+                            let font_box = run.font_grid.map(|(ascent, descent)| {
+                                (line_y + line.baseline - ascent, ascent + descent)
+                            });
                             self.runs.push(FragmentRunRecord {
                                 block_index,
                                 line_index: *line_index,
@@ -409,6 +418,7 @@ impl ArtifactBuilder<'_> {
                                 y: line_y,
                                 width: run.rect.width,
                                 height: line.rect.height,
+                                font_box,
                                 href,
                                 source,
                             });
@@ -619,11 +629,15 @@ impl PageArtifact for FragmentPageArtifact {
             } else {
                 0.0
             };
+            // Chromium's native selection rect spans the FONT box, not
+            // the line box; the line box is the documented fallback for
+            // hosts that inject no grid metrics.
+            let (rect_y, rect_height) = run.font_box.unwrap_or((run.y, run.height));
             rects.push(PageArtifactTextRangeRect {
                 x: run.x + per_char * from_char as f64,
-                y: run.y,
+                y: rect_y,
                 width: per_char * (to_char - from_char) as f64,
-                height: run.height,
+                height: rect_height,
                 block_index: run.block_index,
                 line_index: run.line_index,
                 run_index: run.run_index,

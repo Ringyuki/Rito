@@ -3105,6 +3105,14 @@ fn revision_search_scope(revision: &RuntimeRevision) -> Result<(u32, bool), Read
 }
 
 #[cfg(test)]
+impl ReaderSessionV1 {
+    /// Test-only document access for host-metric injection cycles.
+    pub(crate) fn document_for_tests(&self) -> &RuntimeDocument {
+        &self.document
+    }
+}
+
+#[cfg(test)]
 mod identity_tests {
     use super::*;
 

@@ -117,6 +117,14 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                     }
                 }
             }
+            match &fragment.font_grid {
+                None => out.push(0),
+                Some((ascent, descent)) => {
+                    out.push(1);
+                    out.extend_from_slice(&ascent.to_bits().to_le_bytes());
+                    out.extend_from_slice(&descent.to_bits().to_le_bytes());
+                }
+            }
         }
         Fragment::Image(fragment) => {
             out.push(FRAGMENT_TAG_IMAGE);
@@ -197,6 +205,11 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 }),
                 tag => return Err(format!("unknown text box-snap tag {tag}")),
             };
+            let font_grid = match reader.u8()? {
+                0 => None,
+                1 => Some((reader.f64()?, reader.f64()?)),
+                tag => return Err(format!("unknown text font-grid tag {tag}")),
+            };
             Ok(Fragment::Text(TextFragment {
                 source,
                 rect,
@@ -207,6 +220,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 ruby_overhang_px,
                 opener_trim_px,
                 box_snap,
+                font_grid,
                 ruby_center_shift_px,
                 ruby_overhang_right_px,
             }))
@@ -456,6 +470,7 @@ mod tests {
                             text_start: 0,
                             text_end: 42,
                             box_snap: None,
+                            font_grid: None,
                             ruby_center_shift_px: 0.0,
                             justify_px: 0.25,
                             ruby_gap_px: 1.5,
