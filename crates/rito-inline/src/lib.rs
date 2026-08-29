@@ -5789,7 +5789,9 @@ fn normal_strut_key(style: &InlineFormattingStyleV1) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     family_stack_source(style).hash(&mut hasher);
-    shaping_font_size(style.font.size.get()).to_bits().hash(&mut hasher);
+    shaping_font_size(style.font.size.get())
+        .to_bits()
+        .hash(&mut hasher);
     style.font.weight.get().to_bits().hash(&mut hasher);
     match style.font.slant {
         FontSlant::Normal => 0u8.hash(&mut hasher),

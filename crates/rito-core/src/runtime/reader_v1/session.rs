@@ -452,7 +452,7 @@ impl ReaderSessionV1 {
         // rollover and adjacent-chapter creation are shared pagination
         // progress, exactly like in-chapter continuation. The one piece
         // of foreground state those helpers touch is the pending exact
-        let result = match request.direction {
+        match request.direction {
             ReaderAdjacentDirectionV1::Previous if source.local_spread_index > 0 => self
                 .publish_revision_artifact(
                     source.revision_id,
@@ -465,8 +465,7 @@ impl ReaderSessionV1 {
             ReaderAdjacentDirectionV1::Next => {
                 self.request_next(source, request.request_id, request.work)
             }
-        };
-        result
+        }
     }
 
     /// Commits a previously peeked artifact as the visible foreground

@@ -384,8 +384,8 @@ impl RuntimeDocument {
         .map_err(|error| format!("chapter {idref} pagination: {}", error.message()))?;
         let block_count = built.tree.node(built.tree.root()).children.len();
         let mut backend_pages = Vec::with_capacity(pages.len());
-        let mut page_index = page_index_base;
-        for page in pages {
+        for (offset, page) in pages.into_iter().enumerate() {
+            let page_index = page_index_base + offset;
             collect_page_anchors(&page.root, &built.node_anchors, page_index, anchors);
             backend_pages.push(FragmentBackendPage {
                 // Artifact geometry is spread-content space (the
@@ -398,13 +398,12 @@ impl RuntimeDocument {
                     page_width,
                     page_height,
                     &page.root,
-                    &built,
+                    built,
                     0.0,
                     0.0,
                 ),
                 commands: page.commands,
             });
-            page_index += 1;
         }
         Ok(FragmentBackendChapter {
             idref: idref.to_owned(),

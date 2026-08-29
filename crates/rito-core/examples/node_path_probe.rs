@@ -8,7 +8,10 @@ fn describe(node: &DocumentNode) -> String {
     match node {
         DocumentNode::Block(el) => format!("<{}> block", el.tag),
         DocumentNode::Inline(el) => format!("<{}> inline", el.tag),
-        DocumentNode::Text(text) => format!("text {:?}", text.content.chars().take(24).collect::<String>()),
+        DocumentNode::Text(text) => format!(
+            "text {:?}",
+            text.content.chars().take(24).collect::<String>()
+        ),
         DocumentNode::Image(image) => format!("IMG src={} alt={:?}", image.src, image.alt),
     }
 }

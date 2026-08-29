@@ -336,7 +336,9 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
 
     let mut warmed = open_pinned_document(&publication).expect("warmed document");
     warmed.set_fragment_page_table_enabled(true);
-    let revision = warmed.create_revision(&layout()).expect("whole-book layout");
+    let revision = warmed
+        .create_revision(&layout())
+        .expect("whole-book layout");
     let advance = warmed
         .create_bounded_chapter_local_revision(local_request(
             layout(),
@@ -382,9 +384,7 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
     );
 }
 
-fn handle(
-    advance: &RuntimeChapterLocalRevisionAdvance,
-) -> RuntimeChapterLocalRevisionHandle {
+fn handle(advance: &RuntimeChapterLocalRevisionAdvance) -> RuntimeChapterLocalRevisionHandle {
     RuntimeChapterLocalRevisionHandle {
         revision_id: advance.revision.revision_id.clone(),
         revision_version: advance.revision.revision_version,

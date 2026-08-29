@@ -66,10 +66,7 @@ fn adapt_background(value: &Value) -> Result<ReaderBackgroundPaintV1, ReaderDisp
     Ok(ReaderBackgroundPaintV1 {
         color,
         image: optional_string(object, "image", "paintBlock.background.image")?.map(str::to_owned),
-        size: object
-            .get("size")
-            .map(adapt_background_size)
-            .transpose()?,
+        size: object.get("size").map(adapt_background_size).transpose()?,
         repeat: optional_string(object, "repeat", "paintBlock.background.repeat")?
             .map(adapt_background_repeat)
             .transpose()?,
@@ -161,7 +158,11 @@ fn adapt_border_edge(value: &Value) -> Result<ReaderBorderEdgePaintV1, ReaderDis
     // The fragment engine's edges also carry their width (the canvas
     // renderer strokes from it); V1 transports widths in borderBox, so
     // the field is redundant here and simply accepted.
-    let object = exact_object(value, &["color", "style", "width"], "paintBlock.border.edge")?;
+    let object = exact_object(
+        value,
+        &["color", "style", "width"],
+        "paintBlock.border.edge",
+    )?;
     Ok(ReaderBorderEdgePaintV1 {
         color: adapt_color(
             field_string(object, "color", "paintBlock.border.edge.color")?,
@@ -374,7 +375,11 @@ fn adapt_typed_border_edge(
 pub(super) fn adapt_horizontal_rule_paint(
     value: &Value,
 ) -> Result<ReaderHorizontalRulePaintV1, ReaderDisplayListWireError> {
-    let object = exact_object(value, &["color", "style", "width"], "paintHorizontalRule.paint")?;
+    let object = exact_object(
+        value,
+        &["color", "style", "width"],
+        "paintHorizontalRule.paint",
+    )?;
     Ok(ReaderHorizontalRulePaintV1 {
         color: adapt_color(
             field_string(object, "color", "paintHorizontalRule.paint.color")?,
