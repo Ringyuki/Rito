@@ -5,6 +5,7 @@ Rito is split into a core reader package and optional integration layers:
 - [`@ritojs/core`](../packages/rito/README.md) — app-facing Rust-backed reader contract
 - [`@ritojs/kit`](./integrations/kit.md) — framework-agnostic controller, transitions, overlays, keyboard, and storage helpers
 - [`@ritojs/react`](./integrations/react.md) — React hooks and mount component built on top of `@ritojs/core` and `@ritojs/kit`
+- [Direct FFI](./integrations/ffi.md) — bridging the engine's C ABI from hosts that are neither web nor Flutter (build `rito-ffi` from source, wire lockstep rules)
 
 ## Start Here
 
