@@ -189,83 +189,229 @@ impl RuntimeDocument {
         {
             return Err("only completed whole-book revisions route".to_owned());
         }
+        let prepared = self
+            .prepared
+            .as_ref()
+            .ok_or_else(|| "document is not prepared".to_owned())?;
+        let mut chapters = Vec::with_capacity(prepared.chapters.len());
+        let mut anchors = BTreeMap::new();
+        let mut page_index = 0;
+        let chapter_idrefs: Vec<String> = prepared
+            .chapters
+            .iter()
+            .map(|chapter| chapter.source.idref.clone())
+            .collect();
+        for idref in chapter_idrefs {
+            let chapter =
+                self.build_fragment_chapter(revision_id, &idref, page_index, &mut anchors)?;
+            page_index += chapter.pages.len();
+            chapters.push(chapter);
+        }
+        let mut layout = FragmentBuiltLayout::new(chapters);
+        layout.anchors = anchors;
+        Ok(layout)
+    }
+
+    /// Builds ONE chapter's complete fragment page table for a
+    /// chapter-local revision: parse and style the chapter in a
+    /// single-chapter prepared window (the whole-book preparation is
+    /// untouched), bridge it, and paginate the entire chapter in one
+    /// pass. Page indexes are chapter-local (base 0).
+    pub(super) fn build_chapter_local_fragment_layout(
+        &mut self,
+        revision_id: &str,
+        chapter_index: usize,
+    ) -> Result<FragmentBuiltLayout, String> {
+        let config = self
+            .any_revision(revision_id)
+            .ok_or_else(|| format!("unknown revision: {revision_id}"))?
+            .layout_config
+            .clone();
+        self.document
+            .ensure_chapter_loaded(chapter_index)
+            .map_err(|error| format!("chapter source load: {}", error.message()))?;
+        // Image intrinsic dimensions must load before the bridge, exactly
+        // like every whole-book build: without them each image lays out as
+        // the broken-image placeholder (16×16 icon + inline alt text), the
+        // chapter paginates differently from the same chapter in the book
+        // table, and the background candidate's painted pages never match
+        // the visible ones.
+        self.document
+            .ensure_chapter_image_dimensions_loaded(chapter_index, 1)
+            .map_err(|error| format!("chapter image dimensions: {}", error.message()))?;
+        // Footnote filtering must use the WHOLE publication's target
+        // index, exactly like the whole-book fragment build: a chapter's
+        // aside can be referenced from another chapter, and filtering
+        // with a partial prefix leaves it in the flow — the chapter then
+        // paginates differently from the same chapter in the book table,
+        // and the background candidate's painted pages never match the
+        // visible ones.
+        self.publication_footnote_index()
+            .map_err(|error| format!("publication footnote index: {}", error.message()))?;
+        let footnote_targets = self
+            .prepare_chapter_footnote_targets(chapter_index)
+            .map_err(|error| format!("chapter footnote index: {}", error.message()))?;
+        let mut prepared = self
+            .prepare_cached_document_window(chapter_index, 1, &footnote_targets)
+            .map_err(|error| format!("chapter window preparation: {}", error.message()))?;
+        // Chapter interactions (footnote entries and their pending
+        // cross-chapter targets) assemble exactly like the retained
+        // pipeline's chapter start: without them, artifact hits carry no
+        // footnote keys.
+        let mut interactions =
+            crate::runtime::revision::runtime_chapter_revision_interactions(&prepared);
+        self.record_prepared_chapter_footnotes(std::mem::take(&mut prepared.interaction.footnotes));
+        let (resolved_footnotes, pending_footnote_keys, footnote_index_complete) =
+            self.chapter_footnote_interactions(chapter_index);
+        interactions.footnotes = resolved_footnotes;
+        interactions.pending_footnote_keys =
+            crate::interaction::FootnoteTargetSet::new(pending_footnote_keys);
+        interactions.footnote_index_complete = footnote_index_complete;
+        let font_fallbacks = {
+            let mut font_fallbacks = self
+                .pinned_font_policy
+                .family_fallbacks_for_layout(&config, &self.document.package.metadata.language);
+            if let Some(policy) = font_fallbacks.as_mut() {
+                let pinned_faces = self
+                    .pinned_font_policy
+                    .measurement_faces_for_layout(&config);
+                let available_families =
+                    crate::epub::shapeable_publication_families_for_layout_with_sources(
+                        &self.document,
+                        self.resolved_font_face_sources(),
+                        &config,
+                        &pinned_faces,
+                    );
+                policy.set_available_publication_families(available_families);
+            }
+            font_fallbacks
+        };
+        let chapter = crate::epub::prepare_runtime_layout_chapter(
+            &prepared,
+            &config,
+            font_fallbacks.as_ref(),
+        )
+        .map_err(|error| format!("chapter style resolution: {}", error.message()))?
+        .ok_or_else(|| "prepared runtime chapter is unavailable".to_owned())?;
+        let idref = chapter.idref.clone();
+        let tables = super::frame::RuntimeChapterStyleTables {
+            layout: chapter.layout_style_table,
+            inline: chapter.inline_style_table,
+        };
+        let built = self
+            .formatting_tree_from_prepared(&prepared, &tables, &idref, true)
+            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+        let revision = self
+            .any_revision_mut(revision_id)
+            .ok_or_else(|| format!("unknown revision: {revision_id}"))?;
+        revision.chapter_style_tables.insert(idref.clone(), tables);
+        let publication_footnotes =
+            std::mem::take(&mut revision.interactions.publication_footnotes);
+        revision.interactions = interactions;
+        revision.interactions.publication_footnotes = publication_footnotes;
+        let mut anchors = BTreeMap::new();
+        let backend_chapter =
+            self.paginate_built_chapter(&built, &config, &idref, 0, &mut anchors)?;
+        let mut layout = FragmentBuiltLayout::new(vec![backend_chapter]);
+        layout.anchors = anchors;
+        Ok(layout)
+    }
+
+    /// Paginates ONE chapter with the fragment engine and returns its
+    /// backend pages, with `page_index_base` as the first page's global
+    /// index and this chapter's anchors merged into `anchors`. The
+    /// revision must retain the chapter's style tables (a prefix
+    /// revision retains them only for its window, so partial books fail
+    /// here and stay retained).
+    pub(super) fn build_fragment_chapter(
+        &self,
+        revision_id: &str,
+        idref: &str,
+        page_index_base: usize,
+        anchors: &mut BTreeMap<String, usize>,
+    ) -> Result<FragmentBackendChapter, String> {
+        let revision = self
+            .any_revision(revision_id)
+            .ok_or_else(|| format!("unknown revision: {revision_id}"))?;
+        let config = revision.layout_config.clone();
+        let built = self
+            .chapter_formatting_tree(revision_id, idref)
+            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+        self.paginate_built_chapter(&built, &config, idref, page_index_base, anchors)
+    }
+
+    /// The pagination half of a chapter build: lays a bridged formatting
+    /// tree out into backend pages under the given layout config.
+    pub(super) fn paginate_built_chapter(
+        &self,
+        built: &crate::fragment_bridge::ChapterFormattingTree,
+        config: &crate::layout::LayoutConfig,
+        idref: &str,
+        page_index_base: usize,
+        anchors: &mut BTreeMap<String, usize>,
+    ) -> Result<FragmentBackendChapter, String> {
         let family_policy = self
             .fragment_paint_family_policy()
             .ok_or_else(|| "pinned-alias collision or no fragment engine".to_owned())?;
         let engine = self
             .fragment_engine()
             .ok_or_else(|| "no fragment engine (no pinned faces)".to_owned())?;
-        let prepared = self
-            .prepared
-            .as_ref()
-            .ok_or_else(|| "document is not prepared".to_owned())?;
-        let config = &revision.layout_config;
         let content_width = config.page_width - config.margin_left - config.margin_right;
         let content_height = config.page_height - config.margin_top - config.margin_bottom;
         if content_width <= 0.0 || content_height <= 0.0 {
             return Err("page content box is empty".to_owned());
         }
-        let mut chapters = Vec::with_capacity(prepared.chapters.len());
-        let mut anchors = BTreeMap::new();
-        let mut page_index = 0;
-        for chapter in &prepared.chapters {
-            let idref = chapter.source.idref.clone();
-            // A prefix revision retains style tables only for its window,
-            // so partial books fail here and stay retained.
-            let built = self
-                .chapter_formatting_tree(revision_id, &idref)
-                .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-            let pages = paginate_chapter(
-                &engine.engine,
-                &built.tree,
-                content_width,
-                content_height,
-                config.margin_left,
-                config.margin_top,
-                FragmentPaintContext {
-                    family_policy: Some(&family_policy),
-                    node_paints: Some(&built.node_paints),
-                    image_border_paints: Some(&built.image_border_paints),
-                    list_markers: Some(&built.list_markers),
-                    vertical_frame: None,
-                },
-                &CancelFlag::new(),
-            )
-            .map_err(|error| format!("chapter {idref} pagination: {}", error.message()))?;
-            let block_count = built.tree.node(built.tree.root()).children.len();
-            let mut backend_pages = Vec::with_capacity(pages.len());
-            for page in pages {
-                collect_page_anchors(&page.root, &built.node_anchors, page_index, &mut anchors);
-                backend_pages.push(FragmentBackendPage {
-                    // Artifact geometry is spread-content space (the
-                    // legacy backend's convention, which every consumer —
-                    // the selection mapper, tap targets, search bounds —
-                    // translates to the viewport). Page margins must not
-                    // be baked in here.
-                    artifact: FragmentPageArtifact::build(
-                        page_index,
-                        config.page_width,
-                        config.page_height,
-                        &page.root,
-                        &built,
-                        0.0,
-                        0.0,
-                    ),
-                    commands: page.commands,
-                });
-                page_index += 1;
-            }
-            chapters.push(FragmentBackendChapter {
-                idref,
-                block_count,
-                page_background: built.page_background.clone(),
-                page_background_image: built.page_background_image.clone(),
-                pages: backend_pages,
+        let page_width = config.page_width;
+        let page_height = config.page_height;
+        let margin_left = config.margin_left;
+        let margin_top = config.margin_top;
+        let pages = paginate_chapter(
+            &engine.engine,
+            &built.tree,
+            content_width,
+            content_height,
+            margin_left,
+            margin_top,
+            FragmentPaintContext {
+                family_policy: Some(&family_policy),
+                node_paints: Some(&built.node_paints),
+                image_border_paints: Some(&built.image_border_paints),
+                list_markers: Some(&built.list_markers),
+                vertical_frame: None,
+            },
+            &CancelFlag::new(),
+        )
+        .map_err(|error| format!("chapter {idref} pagination: {}", error.message()))?;
+        let block_count = built.tree.node(built.tree.root()).children.len();
+        let mut backend_pages = Vec::with_capacity(pages.len());
+        for (offset, page) in pages.into_iter().enumerate() {
+            let page_index = page_index_base + offset;
+            collect_page_anchors(&page.root, &built.node_anchors, page_index, anchors);
+            backend_pages.push(FragmentBackendPage {
+                // Artifact geometry is spread-content space (the
+                // legacy backend's convention, which every consumer —
+                // the selection mapper, tap targets, search bounds —
+                // translates to the viewport). Page margins must not
+                // be baked in here.
+                artifact: FragmentPageArtifact::build(
+                    page_index,
+                    page_width,
+                    page_height,
+                    &page.root,
+                    built,
+                    0.0,
+                    0.0,
+                ),
+                commands: page.commands,
             });
         }
-        let mut layout = FragmentBuiltLayout::new(chapters);
-        layout.anchors = anchors;
-        Ok(layout)
+        Ok(FragmentBackendChapter {
+            idref: idref.to_owned(),
+            block_count,
+            page_background: built.page_background.clone(),
+            page_background_image: built.page_background_image.clone(),
+            pages: backend_pages,
+        })
     }
 }
 

@@ -1,6 +1,10 @@
-import { supersedeNavigationForDirectInteraction, type NavigationState } from './state';
+import {
+  foregroundIsBusy,
+  supersedeNavigationForDirectInteraction,
+  type NavigationMachine,
+} from './machine';
 import type { NavigationDeps } from './index';
-import { supersedeChapterLocalTransition } from './chapter-local-preview';
+import { supersedeLocalPreview } from './local-preview';
 
 type DirectInteractionDeps = Pick<
   NavigationDeps,
@@ -22,29 +26,29 @@ export interface NavigationSelectionInputBarrier {
 }
 
 export function supersedeNavigationForSelectionIntent(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: DirectInteractionDeps,
 ): NavigationSelectionInputBarrier | null {
-  const attemptId = supersedeDirectInteraction(state, deps);
-  if (attemptId === null || attemptId !== state.navigationAttemptId) return null;
-  return { owns: () => !state.disposed && state.navigationAttemptId === attemptId };
+  const attemptId = supersedeDirectInteraction(machine, deps);
+  if (attemptId === null || attemptId !== machine.claimSeq) return null;
+  return { owns: () => !machine.disposed && machine.claimSeq === attemptId };
 }
 
 export function supersedeNavigationForPositionIntent(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: DirectInteractionDeps,
 ): void {
-  supersedeDirectInteraction(state, deps);
+  supersedeDirectInteraction(machine, deps);
 }
 
 function supersedeDirectInteraction(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: DirectInteractionDeps,
 ): number | null {
-  if (state.disposed) return null;
+  if (machine.disposed) return null;
   deps.onContentInteractionIntent?.();
-  supersedeChapterLocalTransition(state, deps as NavigationDeps);
-  const result = supersedeNavigationForDirectInteraction(state, deps.td);
-  if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) return null;
+  supersedeLocalPreview(machine, deps as NavigationDeps);
+  const result = supersedeNavigationForDirectInteraction(machine, deps.td);
+  if (foregroundIsBusy(machine)) return null;
   return result.attemptId;
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter.dart';
 
@@ -196,7 +197,7 @@ void main() {
       pixelRatio: 1,
       readResource: (reference) => reader(incoming, reference),
     );
-    final image = current.resolveImage(href);
+    final image = current.resolveImage(href)!;
 
     expect(identical(image, next.resolveImage(href)), isTrue);
     expect(reads, 1);
@@ -208,7 +209,10 @@ void main() {
     cache.dispose();
   });
 
-  test('partial preparation failure rolls back every acquired image', () async {
+  test('a failing image degrades to recorded absence, not a blocked page', () async {
+    // One broken plate must never take down the whole artifact: the
+    // page still turns, the healthy image paints, the fault is reported
+    // through FlutterError and recorded on the lease.
     const firstSpec = TestImageSpec(code: 1, width: 40, height: 40);
     const failedSpec = TestImageSpec(
       code: 2,
@@ -232,8 +236,12 @@ void main() {
       maxConcurrentDecodes: 1,
     );
 
-    await expectLater(
-      cache.prepare(
+    final reports = <FlutterErrorDetails>[];
+    final priorOnError = FlutterError.onError;
+    FlutterError.onError = reports.add;
+    final RitoArtifactImageLease lease;
+    try {
+      lease = await cache.prepare(
         artifact: artifact,
         pixelRatio: 1,
         readResource: (reference) async => imageResource(
@@ -241,13 +249,18 @@ void main() {
           reference: reference,
           spec: reference.href.endsWith('one.png') ? firstSpec : failedSpec,
         ),
-      ),
-      throwsA(isA<StateError>()),
-    );
+      );
+    } finally {
+      FlutterError.onError = priorOnError;
+    }
 
-    expect(decoder.createdImages, hasLength(1));
-    expect(decoder.createdImages.single.debugDisposed, isTrue);
+    expect(lease.resolveImage('images/one.png'), isNotNull);
+    expect(lease.resolveImage('images/two.png'), isNull);
+    expect(lease.failedImages.keys, ['images/two.png']);
+    expect(reports, hasLength(1));
     expect(decoder.disposedSources, 2);
+    lease.release();
+    expect(decoder.createdImages.single.debugDisposed, isTrue);
     cache.dispose();
   });
 
@@ -270,7 +283,7 @@ void main() {
         spec: spec,
       ),
     );
-    final image = lease.resolveImage(href);
+    final image = lease.resolveImage(href)!;
 
     lease.release();
     lease.release();
@@ -306,7 +319,7 @@ void main() {
     );
 
     expect(decoder.decodedCodes, hasLength(1));
-    expect(lease.resolveImage('images/plate.png').height, 182);
+    expect(lease.resolveImage('images/plate.png')!.height, 182);
     lease.release();
     cache.dispose();
   });
@@ -339,13 +352,13 @@ void main() {
     );
 
     expect(decoder.decodedCodes, hasLength(2), reason: 'fallback re-decodes');
-    final image = lease.resolveImage('images/broken-scale.png');
+    final image = lease.resolveImage('images/broken-scale.png')!;
     expect((image.width, image.height), (800, 600));
     lease.release();
     cache.dispose();
   });
 
-  test('an image that cannot reproduce itself fails with full numbers', () async {
+  test('an image that cannot reproduce itself is recorded with full numbers', () async {
     const spec = TestImageSpec(
       code: 43,
       width: 402,
@@ -362,22 +375,32 @@ void main() {
     final decoder = TestImageDecoder(const [spec]);
     final cache = RitoArtifactImageCache(decoder: decoder);
 
-    await expectLater(
-      cache.prepare(
+    final reports = <FlutterErrorDetails>[];
+    final priorOnError = FlutterError.onError;
+    FlutterError.onError = reports.add;
+    final RitoArtifactImageLease lease;
+    try {
+      lease = await cache.prepare(
         artifact: artifact,
         pixelRatio: 1,
         readResource: (reference) async =>
             imageResource(artifact: artifact, reference: reference, spec: spec),
-      ),
-      throwsA(
-        isA<FormatException>().having(
-          (error) => error.message,
-          'message',
-          allOf(contains('decoded=50x50'), contains('source=402x183')),
-        ),
+      );
+    } finally {
+      FlutterError.onError = priorOnError;
+    }
+    expect(decoder.decodedCodes, hasLength(2));
+    expect(lease.resolveImage('images/broken.png'), isNull);
+    expect(
+      lease.failedImages['images/broken.png'],
+      isA<FormatException>().having(
+        (error) => error.message,
+        'message',
+        allOf(contains('decoded=50x50'), contains('source=402x183')),
       ),
     );
-    expect(decoder.decodedCodes, hasLength(2));
+    expect(reports, hasLength(1));
+    lease.release();
     cache.dispose();
   });
 }

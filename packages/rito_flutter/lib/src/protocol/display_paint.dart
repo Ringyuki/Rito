@@ -28,9 +28,18 @@ final class RitoBorderStyle {
 }
 
 final class RitoBackgroundSize {
-  const RitoBackgroundSize._(this.name);
+  const RitoBackgroundSize._(this.name) : x = null, y = null;
+
+  /// CSS `background-size` with explicit axes (`auto 40%`, `100% 100%`).
+  /// A null axis is `auto`: it derives from the image's intrinsic ratio
+  /// once the other axis resolves.
+  const RitoBackgroundSize.explicit({this.x, this.y}) : name = 'explicit';
 
   final String name;
+  final RitoLength? x;
+  final RitoLength? y;
+
+  bool get isExplicit => name == 'explicit';
 
   static const RitoBackgroundSize auto = RitoBackgroundSize._('auto');
   static const RitoBackgroundSize cover = RitoBackgroundSize._('cover');
@@ -269,6 +278,10 @@ final class RitoRunPaint {
     this.decoration,
     this.padding,
     this.border,
+    this.boxTopPx,
+    this.boxBottomPx,
+    this.boxStart = true,
+    this.boxEnd = true,
   }) : textShadows = List<RitoTextShadow>.unmodifiable(textShadows);
 
   final RitoFontPaint font;
@@ -281,6 +294,18 @@ final class RitoRunPaint {
   final RitoRunDecoration? decoration;
   final RitoSpacing? padding;
   final RitoRunBorder? border;
+
+  /// Engine-computed inline box top/bottom relative to the run rect top;
+  /// null when the run carries no box paint (extents then derive from
+  /// font metrics).
+  final double? boxTopPx;
+  final double? boxBottomPx;
+
+  /// Whether this run opens/closes its inline box. A run split across
+  /// lines squares the split ends: rounding and start/end borders apply
+  /// only where the box actually opens or closes.
+  final bool boxStart;
+  final bool boxEnd;
 }
 
 final class RitoHorizontalRulePaint {

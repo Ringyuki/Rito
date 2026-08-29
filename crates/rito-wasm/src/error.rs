@@ -83,8 +83,13 @@ impl WasmRuntimeError {
             RuntimeContinuationErrorKind::StaleRevisionVersion => {
                 WasmRuntimeErrorCode::StaleRevisionVersion
             }
-            RuntimeContinuationErrorKind::RevisionNotContinuable
-            | RuntimeContinuationErrorKind::EngineFailure => WasmRuntimeErrorCode::EngineError,
+            // A one-pass revision is complete by construction; asking to
+            // continue it is a request-contract violation, not an engine
+            // fault.
+            RuntimeContinuationErrorKind::RevisionNotContinuable => {
+                WasmRuntimeErrorCode::BadRequest
+            }
+            RuntimeContinuationErrorKind::EngineFailure => WasmRuntimeErrorCode::EngineError,
         };
         Self {
             code,

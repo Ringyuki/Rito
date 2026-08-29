@@ -2,17 +2,30 @@ use crate::runtime::{
     tests::fixture::{
         layout as runtime_layout, long_chapter_window_fixture_epub, multi_chapter_fixture_epub,
         multi_chapter_image_fixture_epub, retained_adjacent_fixture_epub,
-        source_locator_fixture_epub, source_locator_image_fixture_epub,
+        source_locator_fixture_epub,
     },
     RuntimeDocument,
 };
 
 use super::{publication::ReaderRevisionBackingV1, session::READER_LIVE_ARTIFACT_CAP_V1, *};
 
+pub(super) fn open_test_session(
+    session_id: u64,
+    publication_bytes: Vec<u8>,
+) -> Result<ReaderSessionV1, ReaderErrorV1> {
+    // Chapter-local pagination runs on the fragment engine, which
+    // shapes with pinned faces only.
+    ReaderSessionV1::open_owned_with_pinned_font_policy(
+        session_id,
+        publication_bytes,
+        crate::runtime::tests::fixture::pinned_test_font_policy(),
+    )
+}
+
 #[test]
 fn session_exposes_one_static_publication_snapshot() {
-    let session = ReaderSessionV1::open_owned(39, multi_chapter_fixture_epub())
-        .expect("reader session opens");
+    let session =
+        open_test_session(39, multi_chapter_fixture_epub()).expect("reader session opens");
     let publication = session.publication_v1();
 
     assert_eq!(publication.session_id, 39);
@@ -44,8 +57,8 @@ fn session_exposes_one_static_publication_snapshot() {
 
 #[test]
 fn an_empty_href_opens_the_book_at_its_first_linear_chapter() {
-    let mut session = ReaderSessionV1::open_owned(53, multi_chapter_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(53, multi_chapter_fixture_epub()).expect("reader session opens");
     let first_spine_href = session.publication_v1().spine[0].href.clone();
 
     let artifact = session
@@ -58,8 +71,8 @@ fn an_empty_href_opens_the_book_at_its_first_linear_chapter() {
 
 #[test]
 fn a_fragment_without_a_path_is_not_a_start_of_book_locator() {
-    let mut session = ReaderSessionV1::open_owned(54, multi_chapter_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(54, multi_chapter_fixture_epub()).expect("reader session opens");
 
     assert!(
         session
@@ -71,8 +84,8 @@ fn a_fragment_without_a_path_is_not_a_start_of_book_locator() {
 
 #[test]
 fn exact_nonzero_locator_owns_first_artifact_and_lifecycle() {
-    let mut session = ReaderSessionV1::open_owned(41, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(41, source_locator_fixture_epub()).expect("reader session opens");
     let artifact = session
         .request_artifact(request(41, 7, "chapter.xhtml#point-47"))
         .expect("exact artifact resolves");
@@ -106,8 +119,8 @@ fn exact_nonzero_locator_owns_first_artifact_and_lifecycle() {
 
 #[test]
 fn exact_seek_reuses_a_published_revision_without_layout_work() {
-    let mut session = ReaderSessionV1::open_owned(122, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(122, source_locator_fixture_epub()).expect("reader session opens");
     let first = session
         .request_artifact(request(122, 1, "chapter.xhtml#point-47"))
         .expect("exact source artifact resolves");
@@ -144,8 +157,8 @@ fn exact_seek_reuses_a_published_revision_without_layout_work() {
 
 #[test]
 fn exact_href_seek_reuses_only_a_chapter_origin_revision() {
-    let mut origin_session = ReaderSessionV1::open_owned(127, source_locator_fixture_epub())
-        .expect("origin reader session opens");
+    let mut origin_session =
+        open_test_session(127, source_locator_fixture_epub()).expect("origin reader session opens");
     let origin = origin_session
         .request_artifact(request(127, 1, "chapter.xhtml"))
         .expect("chapter-origin artifact resolves");
@@ -157,8 +170,8 @@ fn exact_href_seek_reuses_only_a_chapter_origin_revision() {
     assert_eq!(origin_session.exact_cache_hit_count(), 1);
     assert_eq!(origin_session.exact_layout_quantum_count(), origin_quanta);
 
-    let mut tail_session = ReaderSessionV1::open_owned(128, source_locator_fixture_epub())
-        .expect("tail reader session opens");
+    let mut tail_session =
+        open_test_session(128, source_locator_fixture_epub()).expect("tail reader session opens");
     let tail = tail_session
         .request_artifact(request(128, 1, "chapter.xhtml#point-47"))
         .expect("tail artifact resolves");
@@ -177,8 +190,8 @@ fn exact_href_seek_reuses_only_a_chapter_origin_revision() {
 
 #[test]
 fn exact_cache_falls_back_for_layout_cap_and_unpublished_target_misses() {
-    let mut session = ReaderSessionV1::open_owned(123, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(123, source_locator_fixture_epub()).expect("reader session opens");
     let first = session
         .request_artifact(request(123, 1, "chapter.xhtml#point-0"))
         .expect("initial exact artifact resolves");
@@ -192,23 +205,27 @@ fn exact_cache_falls_back_for_layout_cap_and_unpublished_target_misses() {
     let recap = session
         .request_artifact(cap_change)
         .expect("different page cap creates a fresh exact revision");
-    let quanta_before_miss = session.exact_layout_quantum_count();
-    let miss = session
+    let quanta_before_far_target = session.exact_layout_quantum_count();
+    // The chapter paginated whole in one pass, so a far anchor in the
+    // same chapter reuses the existing revision without new layout.
+    let far = session
         .request_artifact(request(123, 4, "chapter.xhtml#point-47"))
-        .expect("an unpublished exact locator uses the retained exact fallback");
+        .expect("a far same-chapter anchor resolves from the whole-chapter revision");
 
     assert_ne!(relayout.revision_id, first.revision_id);
     assert_ne!(recap.revision_id, first.revision_id);
-    assert_ne!(miss.revision_id, first.revision_id);
-    assert_eq!(miss.locator.anchor_id.as_deref(), Some("point-47"));
-    assert_eq!(session.exact_cache_hit_count(), 0);
-    assert!(session.exact_layout_quantum_count() > quanta_before_miss);
+    assert_eq!(far.locator.anchor_id.as_deref(), Some("point-47"));
+    assert_eq!(
+        session.exact_layout_quantum_count(),
+        quanta_before_far_target,
+        "no new layout for a target inside an already-paginated chapter"
+    );
 }
 
 #[test]
 fn rapid_cached_exact_candidates_keep_latest_cas_ownership() {
-    let mut session = ReaderSessionV1::open_owned(124, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(124, source_locator_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(124, 1, "chapter.xhtml#point-47"))
         .expect("initial exact artifact resolves");
@@ -248,8 +265,8 @@ fn rapid_cached_exact_candidates_keep_latest_cas_ownership() {
 
 #[test]
 fn foreground_result_is_not_visible_until_initial_cas_adoption() {
-    let mut session = ReaderSessionV1::open_owned(42, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(42, source_locator_fixture_epub()).expect("reader session opens");
     let candidate = session
         .request_artifact(request(42, 1, "chapter.xhtml#point-0"))
         .expect("foreground candidate resolves");
@@ -277,8 +294,8 @@ fn foreground_result_is_not_visible_until_initial_cas_adoption() {
 
 #[test]
 fn foreground_cas_rejects_stale_expected_visible_without_mutation() {
-    let mut session = ReaderSessionV1::open_owned(43, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(43, source_locator_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(43, 1, "chapter.xhtml#point-0"))
         .expect("initial candidate resolves");
@@ -308,8 +325,8 @@ fn foreground_cas_rejects_stale_expected_visible_without_mutation() {
 
 #[test]
 fn superseded_or_released_foreground_candidate_never_changes_visible() {
-    let mut session = ReaderSessionV1::open_owned(44, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(44, source_locator_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(44, 1, "chapter.xhtml#point-0"))
         .expect("initial candidate resolves");
@@ -355,8 +372,8 @@ fn superseded_or_released_foreground_candidate_never_changes_visible() {
 
 #[test]
 fn adjacent_and_seek_candidates_adopt_without_releasing_prior_frames() {
-    let mut session = ReaderSessionV1::open_owned(45, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(45, source_locator_fixture_epub()).expect("reader session opens");
     let first = session
         .request_artifact(request(45, 1, "chapter.xhtml#point-0"))
         .expect("initial candidate resolves");
@@ -389,8 +406,8 @@ fn adjacent_and_seek_candidates_adopt_without_releasing_prior_frames() {
 
 #[test]
 fn terminal_foreground_request_preserves_visible_and_allocates_no_candidate() {
-    let mut session = ReaderSessionV1::open_owned(46, multi_chapter_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(46, multi_chapter_fixture_epub()).expect("reader session opens");
     let last = session
         .request_artifact(request(46, 1, "chapter-3.xhtml"))
         .expect("last chapter candidate resolves");
@@ -411,117 +428,12 @@ fn terminal_foreground_request_preserves_visible_and_allocates_no_candidate() {
 }
 
 #[test]
-fn pending_exact_seek_preserves_visible_and_allocates_no_candidate() {
-    let mut session = ReaderSessionV1::open_owned(47, source_locator_fixture_epub())
-        .expect("reader session opens");
-    let visible = session
-        .request_artifact(request(47, 1, "chapter.xhtml#point-0"))
-        .expect("initial candidate resolves");
-    adopt_initial(&mut session, 47, visible.artifact_id);
-    let mut pending = request(47, 2, "chapter.xhtml#point-47");
-    pending.work.max_top_level_nodes_per_quantum = 1;
-    pending.work.max_foreground_quanta = 1;
-
-    let error = session
-        .request_artifact(pending)
-        .expect_err("bounded exact seek remains pending");
-    assert_eq!(error.kind, ReaderErrorKindV1::TargetNotPublished);
-    assert_eq!(session.visible_artifact_id(), Some(visible.artifact_id));
-    assert_eq!(session.foreground_candidate_artifact_id(), None);
-    assert_eq!(session.live_artifact_count(), 1);
-    assert_eq!(session.pending_exact_seek_count(), 1);
-    let background = session
-        .advance_background_once(ReaderBackgroundRequestV1 {
-            session_id: 47,
-            expected_visible_artifact_id: visible.artifact_id,
-            max_top_level_nodes_per_quantum: 1,
-        })
-        .expect_err("background work must yield to retained exact foreground work");
-    assert_eq!(background.kind, ReaderErrorKindV1::StaleRequest);
-    assert_eq!(session.visible_artifact_id(), Some(visible.artifact_id));
-    assert_eq!(session.pending_exact_seek_count(), 1);
-}
-
-#[test]
-fn same_chapter_adjacent_retries_retain_one_quantum_progress() {
-    let mut session = ReaderSessionV1::open_owned(48, source_locator_fixture_epub())
-        .expect("reader session opens");
-    let mut initial = request(48, 1, "chapter.xhtml#point-0");
-    initial.work.max_top_level_nodes_per_quantum = 1;
-    initial.work.max_foreground_quanta = 1;
-    // Sealed pages are the publication unit, so a single-node quantum cannot
-    // publish the first spread immediately; the exact seek retains its owner
-    // and each strictly-increasing retry performs exactly one more quantum.
-    let mut next_request_id = 1_u64;
-    let visible = loop {
-        initial.request_id = next_request_id;
-        next_request_id += 1;
-        match session.request_artifact(initial.clone()) {
-            Ok(artifact) => break artifact,
-            Err(error) => {
-                assert_eq!(error.kind, ReaderErrorKindV1::TargetNotPublished);
-                assert_eq!(session.pending_exact_seek_count(), 1);
-                assert!(
-                    next_request_id <= 64,
-                    "single-node exact retries must publish the first anchor"
-                );
-            }
-        }
-    };
-    adopt_initial(&mut session, 48, visible.artifact_id);
-
-    let first_adjacent_request_id = next_request_id;
-    let mut adjacent = adjacent(
-        48,
-        first_adjacent_request_id,
-        visible.artifact_id,
-        ReaderAdjacentDirectionV1::Next,
-    );
-    next_request_id += 1;
-    adjacent.work.max_top_level_nodes_per_quantum = 1;
-    adjacent.work.max_foreground_quanta = 1;
-    let pending = session
-        .request_adjacent(adjacent)
-        .expect_err("one additional node cannot publish the next spread");
-    assert_eq!(pending.kind, ReaderErrorKindV1::TargetNotPublished);
-    assert!(session.has_pending_adjacent_v1());
-    assert_eq!(session.pending_adjacent_count(), 1);
-    assert_eq!(session.pending_exact_seek_count(), 0);
-    assert_eq!(session.visible_artifact_id(), Some(visible.artifact_id));
-
-    let background = session
-        .advance_background_once(ReaderBackgroundRequestV1 {
-            session_id: 48,
-            expected_visible_artifact_id: visible.artifact_id,
-            max_top_level_nodes_per_quantum: 1,
-        })
-        .expect_err("background yields to retained adjacent work");
-    assert_eq!(background.kind, ReaderErrorKindV1::StaleRequest);
-
-    let mut resolved = None;
-    for request_id in next_request_id..=next_request_id + 125 {
-        adjacent.request_id = request_id;
-        match session.request_adjacent(adjacent) {
-            Ok(artifact) => {
-                resolved = Some(artifact);
-                break;
-            }
-            Err(error) => {
-                assert_eq!(error.kind, ReaderErrorKindV1::TargetNotPublished);
-                assert!(session.has_pending_adjacent_v1());
-            }
-        }
-    }
-    let resolved = resolved.expect("same adjacent intent eventually publishes from retained work");
-    assert!(resolved.request_id > first_adjacent_request_id);
-    assert!(!session.has_pending_adjacent_v1());
-    assert_eq!(session.visible_artifact_id(), Some(visible.artifact_id));
-}
-
-#[test]
-fn chapter_boundary_adjacent_reuses_retained_exact_owner() {
-    let mut session = ReaderSessionV1::open_owned(49, retained_adjacent_fixture_epub())
-        .expect("reader session opens");
+fn chapter_boundary_previous_resolves_the_tail_in_one_request() {
+    // The fragment engine paginates the whole previous chapter in one
+    // pass, so a backward chapter turn lands on its final page without
+    // any cooperative-retry loop, and leaves no pending seek behind.
+    let mut session =
+        open_test_session(49, retained_adjacent_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(49, 1, "chapter-1.xhtml"))
         .expect("source chapter resolves");
@@ -535,90 +447,95 @@ fn chapter_boundary_adjacent_reuses_retained_exact_owner() {
     adjacent.work.max_top_level_nodes_per_quantum = 1;
     adjacent.work.max_foreground_quanta = 1;
 
-    let first = session
+    let resolved = session
         .request_adjacent(adjacent)
-        .expect_err("previous chapter tail needs cooperative continuation");
-    assert_eq!(first.kind, ReaderErrorKindV1::TargetNotPublished);
-    assert!(session.has_pending_adjacent_v1());
-    assert!(session.has_pending_exact_seek_v1());
-    let first_owner = session
-        .pending_exact_seek_owner()
-        .expect("boundary adjacent retains its exact owner");
-
-    adjacent.request_id = 3;
-    let second = session
-        .request_adjacent(adjacent)
-        .expect_err("the next single quantum remains pending");
-    assert_eq!(second.kind, ReaderErrorKindV1::TargetNotPublished);
-    let second_owner = session
-        .pending_exact_seek_owner()
-        .expect("same adjacent retry keeps its exact owner");
-    assert_eq!(second_owner.revision_id, first_owner.revision_id);
-    assert!(second_owner.revision_version > first_owner.revision_version);
-
-    let mut resolved = None;
-    for request_id in 4..=256 {
-        adjacent.request_id = request_id;
-        match session.request_adjacent(adjacent) {
-            Ok(artifact) => {
-                resolved = Some(artifact);
-                break;
-            }
-            Err(error) => assert_eq!(error.kind, ReaderErrorKindV1::TargetNotPublished),
-        }
-    }
-    let resolved = resolved.expect("previous chapter tail eventually resolves");
+        .expect("previous chapter tail resolves in one request");
     assert_eq!(resolved.locator.href, "chapter-0.xhtml");
+    assert_eq!(resolved.locator.progression, Some(1.0));
+    let last = resolved
+        .local_page_indexes
+        .last()
+        .copied()
+        .expect("tail artifact publishes pages");
+    assert_eq!(
+        usize::try_from(resolved.local_page_index).expect("page index fits"),
+        usize::try_from(last).expect("page index fits"),
+        "the tail artifact shows the chapter's final page"
+    );
     assert!(!session.has_pending_adjacent_v1());
     assert!(!session.has_pending_exact_seek_v1());
 }
 
 #[test]
-fn superseding_or_releasing_adjacent_source_cancels_retained_work() {
-    let mut session = ReaderSessionV1::open_owned(50, retained_adjacent_fixture_epub())
-        .expect("reader session opens");
-    let source = session
-        .request_artifact(request(50, 1, "chapter-1.xhtml"))
-        .expect("source chapter resolves");
-    let mut pending = adjacent(
-        50,
-        2,
-        source.artifact_id,
-        ReaderAdjacentDirectionV1::Previous,
+fn a_backward_walk_crosses_into_a_long_chapter_and_serves_every_page() {
+    // The shape the windowed pipeline broke in the field: entering a
+    // long chapter backward built a tail window, and walking past its
+    // first page skipped the rest of the chapter. One-pass revisions
+    // hold the whole chapter, so the walk must serve every page and
+    // cross the start boundary only at local page zero.
+    let publication = crate::runtime::tests::fixture::long_then_short_fixture_epub();
+    let mut session = open_test_session(153, publication).expect("reader session");
+    let visible = session
+        .request_artifact(request(153, 1, "chapter-2.xhtml"))
+        .expect("short follower resolves");
+    adopt_initial(&mut session, 153, visible.artifact_id);
+
+    let mut request_id = 1u64;
+    request_id += 1;
+    let mut current = session
+        .request_adjacent(adjacent(
+            153,
+            request_id,
+            visible.artifact_id,
+            ReaderAdjacentDirectionV1::Previous,
+        ))
+        .expect("previous chapter tail resolves");
+    assert_eq!(current.locator.href, "chapter-1.xhtml");
+    let tail_index = usize::try_from(current.local_page_index).expect("page index fits");
+    assert!(
+        tail_index + 1 > 16,
+        "the fixture must exceed any local page cap (got {} pages)",
+        tail_index + 1
     );
-    pending.work.max_top_level_nodes_per_quantum = 1;
-    pending.work.max_foreground_quanta = 1;
-    session
-        .request_adjacent(pending)
-        .expect_err("boundary adjacent remains pending");
-    assert!(session.has_pending_adjacent_v1());
-    assert!(session.has_pending_exact_seek_v1());
 
-    let replacement = session
-        .request_artifact(request(50, 3, "chapter-1.xhtml"))
-        .expect("different foreground intent supersedes retained adjacent work");
-    assert!(!session.has_pending_adjacent_v1());
-    assert!(!session.has_pending_exact_seek_v1());
-    session
-        .release_artifact(replacement.artifact_id)
-        .expect("replacement releases");
-
-    pending.request_id = 4;
-    session
-        .request_adjacent(pending)
-        .expect_err("boundary adjacent can become pending again");
-    assert!(session.has_pending_adjacent_v1());
-    session
-        .release_artifact(source.artifact_id)
-        .expect("releasing the source cancels retained adjacent work");
-    assert!(!session.has_pending_adjacent_v1());
-    assert!(!session.has_pending_exact_seek_v1());
+    let mut visited = 1usize;
+    while current.local_page_index > 0 {
+        request_id += 1;
+        let next = session
+            .request_adjacent(adjacent(
+                153,
+                request_id,
+                current.artifact_id,
+                ReaderAdjacentDirectionV1::Previous,
+            ))
+            .expect("every backward page serves");
+        assert_eq!(
+            next.locator.href, "chapter-1.xhtml",
+            "the walk must not leave the chapter before its first page"
+        );
+        assert_eq!(
+            next.local_page_index + 1,
+            current.local_page_index,
+            "backward pages step one at a time"
+        );
+        session
+            .release_artifact(current.artifact_id)
+            .expect("previous artifact releases");
+        current = next;
+        visited += 1;
+    }
+    assert_eq!(visited, tail_index + 1, "every page of the chapter served");
+    assert_eq!(
+        current.navigation.previous,
+        ReaderAdjacentAvailabilityV1::Terminal,
+        "local page zero is the publication start here"
+    );
 }
 
 #[test]
 fn session_rejects_wrong_identity_stale_request_and_unknown_artifact() {
-    let mut session = ReaderSessionV1::open_owned(51, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(51, source_locator_fixture_epub()).expect("reader session opens");
     let wrong = session
         .request_artifact(request(52, 1, "chapter.xhtml#point-1"))
         .expect_err("wrong session is rejected");
@@ -644,12 +561,12 @@ fn session_rejects_wrong_identity_stale_request_and_unknown_artifact() {
 #[test]
 fn session_rejects_external_id_sign_bit_before_lookup_or_work() {
     let high_bit = READER_EXTERNAL_ID_MAX_V1 + 1;
-    let invalid_session = ReaderSessionV1::open_owned(high_bit, Vec::new())
+    let invalid_session = open_test_session(high_bit, Vec::new())
         .expect_err("high-bit session id is rejected before publication parsing");
     assert_eq!(invalid_session.kind, ReaderErrorKindV1::InvalidSession);
 
-    let mut session = ReaderSessionV1::open_owned(52, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(52, source_locator_fixture_epub()).expect("reader session opens");
     let mut invalid_request = request(52, high_bit, "chapter.xhtml#point-0");
     let invalid = session
         .request_artifact(invalid_request.clone())
@@ -678,8 +595,8 @@ fn session_rejects_external_id_sign_bit_before_lookup_or_work() {
 
 #[test]
 fn failed_revision_retirement_restores_artifact_ownership() {
-    let mut session = ReaderSessionV1::open_owned(53, source_locator_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(53, source_locator_fixture_epub()).expect("reader session opens");
     let artifact = session
         .request_artifact(request(53, 1, "chapter.xhtml#point-0"))
         .expect("artifact resolves");
@@ -714,8 +631,8 @@ fn failed_revision_retirement_restores_artifact_ownership() {
 
 #[test]
 fn three_published_flips_reuse_revision_without_reflow() {
-    let mut session = ReaderSessionV1::open_owned(61, long_chapter_window_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(61, long_chapter_window_fixture_epub()).expect("reader session opens");
     let mut initial_request = request(61, 1, "chapter.xhtml#window-point-0");
     initial_request.work.max_top_level_nodes_per_quantum = 64;
     let first = session
@@ -757,134 +674,9 @@ fn three_published_flips_reuse_revision_without_reflow() {
 }
 
 #[test]
-fn continuation_advances_shared_owner_without_invalidating_siblings() {
-    let mut session = ReaderSessionV1::open_owned(71, source_locator_image_fixture_epub())
-        .expect("reader session opens");
-    let mut initial_request = request(71, 1, "chapter.xhtml#point-0");
-    initial_request.work.max_top_level_nodes_per_quantum = 1;
-    let first = session
-        .request_artifact(initial_request)
-        .expect("first bounded artifact resolves");
-    let resource_ref = first
-        .resources
-        .iter()
-        .find(|resource| resource.kind == ReaderResourceKindV1::Image)
-        .expect("fixture image is declared")
-        .clone();
-    let second = session
-        .request_adjacent(adjacent(
-            71,
-            2,
-            first.artifact_id,
-            ReaderAdjacentDirectionV1::Next,
-        ))
-        .expect("continuation publishes the adjacent spread");
-
-    assert_eq!(second.revision_id, first.revision_id);
-    assert!(second.revision_version > first.revision_version);
-    let resource = session
-        .read_resource(first.artifact_id, resource_ref.kind, &resource_ref.href)
-        .expect("old artifact reads through the revision's advanced owner");
-    assert!(!resource.bytes.is_empty());
-    session
-        .release_artifact(first.artifact_id)
-        .expect("old sibling releases without retiring shared revision");
-    let previous = session
-        .request_adjacent(adjacent(
-            71,
-            3,
-            second.artifact_id,
-            ReaderAdjacentDirectionV1::Previous,
-        ))
-        .expect("remaining sibling still projects from the current owner");
-    assert_eq!(previous.revision_id, second.revision_id);
-    assert_eq!(previous.local_spread_index, first.local_spread_index);
-    session
-        .release_artifact(second.artifact_id)
-        .expect("second sibling releases");
-    session
-        .release_artifact(previous.artifact_id)
-        .expect("last sibling retires revision");
-}
-
-#[test]
-fn page_cap_rolls_forward_and_retains_one_window_for_previous() {
-    let mut session = ReaderSessionV1::open_owned(72, source_locator_image_fixture_epub())
-        .expect("reader session opens");
-    let mut initial_request = request(72, 1, "chapter.xhtml#point-0");
-    initial_request.work.local_page_cap = 2;
-    initial_request.work.max_top_level_nodes_per_quantum = 64;
-    let first = session
-        .request_artifact(initial_request)
-        .expect("first capped spread resolves");
-    let first_image = first
-        .resources
-        .iter()
-        .find(|resource| resource.kind == ReaderResourceKindV1::Image)
-        .expect("first window declares its image")
-        .clone();
-    let second = session
-        .request_adjacent(ReaderAdjacentRequestV1 {
-            session_id: 72,
-            request_id: 2,
-            from_artifact_id: first.artifact_id,
-            direction: ReaderAdjacentDirectionV1::Next,
-            work: ReaderWorkBudgetV1 {
-                max_top_level_nodes_per_quantum: 8,
-                max_foreground_quanta: 8,
-                local_page_cap: 2,
-            },
-        })
-        .expect("last published capped spread resolves without layout");
-    assert_eq!(
-        second.navigation.next,
-        ReaderAdjacentAvailabilityV1::Pending
-    );
-    let rolled = session
-        .request_adjacent(ReaderAdjacentRequestV1 {
-            session_id: 72,
-            request_id: 3,
-            from_artifact_id: second.artifact_id,
-            direction: ReaderAdjacentDirectionV1::Next,
-            work: ReaderWorkBudgetV1 {
-                max_top_level_nodes_per_quantum: 8,
-                max_foreground_quanta: 8,
-                local_page_cap: 2,
-            },
-        })
-        .expect("page cap rolls into the next bounded revision");
-    assert_ne!(rolled.revision_id, second.revision_id);
-    assert_eq!(rolled.local_spread_index, 0);
-    assert_ne!(
-        rolled.pages, first.pages,
-        "rollover must not replay page one"
-    );
-    assert!(!session
-        .read_resource(first.artifact_id, first_image.kind, &first_image.href)
-        .expect("old window resource remains readable after rollover")
-        .bytes
-        .is_empty());
-    let previous = session
-        .request_adjacent(ReaderAdjacentRequestV1 {
-            session_id: 72,
-            request_id: 4,
-            from_artifact_id: rolled.artifact_id,
-            direction: ReaderAdjacentDirectionV1::Previous,
-            work: ReaderWorkBudgetV1 {
-                max_top_level_nodes_per_quantum: 8,
-                max_foreground_quanta: 8,
-                local_page_cap: 2,
-            },
-        })
-        .expect("retained adjacent window supports previous");
-    assert_eq!(previous.revision_id, second.revision_id);
-    assert_eq!(previous.local_spread_index, second.local_spread_index);
-}
-
-#[test]
 fn adjacent_identity_boundaries_and_terminal_are_fail_closed() {
-    let mut session = ReaderSessionV1::open_owned(81, multi_chapter_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(81, multi_chapter_fixture_epub()).expect("reader session opens");
     let middle = session
         .request_artifact(request(81, 1, "chapter-2.xhtml"))
         .expect("middle chapter resolves");
@@ -960,8 +752,8 @@ fn adjacent_identity_boundaries_and_terminal_are_fail_closed() {
 
 #[test]
 fn artifact_resources_follow_their_revision_release_order() {
-    let mut session = ReaderSessionV1::open_owned(91, multi_chapter_image_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(91, multi_chapter_image_fixture_epub()).expect("reader session opens");
     let image = session
         .request_artifact(request(91, 1, "chapter-2.xhtml"))
         .expect("image artifact resolves");
@@ -992,15 +784,129 @@ fn artifact_resources_follow_their_revision_release_order() {
 }
 
 #[test]
-fn long_chapter_rollover_matches_full_layout_for_twenty_adjacent_pages() {
-    let publication = long_chapter_window_fixture_epub();
-    let mut reference = RuntimeDocument::open(&publication).expect("reference document");
-    // Reader sessions measure font-aware; the full-layout reference must
-    // measure the same way or its line breaks (and pages) diverge.
-    let mut reference_layout = runtime_layout();
-    reference_layout.text_measurement = crate::layout::TextMeasurementMode::FontAware;
+fn a_chapter_local_page_lays_images_out_with_their_real_dimensions() {
+    // A chapter-local build must load image intrinsic dimensions before
+    // bridging, exactly like the whole-book table: without them every
+    // image degrades to the broken-image placeholder and its alt text
+    // joins the flow — the chapter then paginates differently from the
+    // book table and no background candidate can ever be adopted.
+    let publication = crate::runtime::tests::fixture::image_plates_before_text_fixture_epub();
+    let mut reference = RuntimeDocument::open_with_pinned_font_policy(
+        &publication,
+        crate::runtime::tests::fixture::pinned_test_font_policy(),
+    )
+    .expect("reference document");
+    reference.set_fragment_page_table_enabled(true);
     let reference_revision = reference
-        .create_revision(&reference_layout)
+        .create_revision(&runtime_layout())
+        .expect("full reference layout");
+    let expected = (0..reference_revision.page_count)
+        .map(|page_index| {
+            reference
+                .get_page_text_positions(&reference_revision.revision_id, page_index)
+                .expect("reference page text")
+                .text
+        })
+        .collect::<Vec<_>>();
+
+    let mut session = open_test_session(97, publication).expect("reader session");
+    let mut current = session
+        .request_artifact(request(97, 1, "chapter.xhtml"))
+        .expect("first page artifact");
+    let mut actual = vec![single_page_text(&current)];
+    let mut request_id = 1u64;
+    for _ in 1..reference_revision.page_count {
+        request_id += 1;
+        let next = session
+            .request_adjacent(adjacent(
+                97,
+                request_id,
+                current.artifact_id,
+                ReaderAdjacentDirectionV1::Next,
+            ))
+            .expect("adjacent page");
+        actual.push(single_page_text(&next));
+        session
+            .release_artifact(current.artifact_id)
+            .expect("previous artifact releases");
+        current = next;
+    }
+    for text in &actual {
+        assert!(
+            !text.contains("plate one"),
+            "alt text in the flow means the image laid out as the broken-image placeholder: {text:?}"
+        );
+    }
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn an_open_locator_with_a_dead_source_point_degrades_to_progression() {
+    // A persisted reading position can name content that no longer lays
+    // out — a position saved on a broken-image placeholder's alt run
+    // carries the image's node path, which owns no text span. Opening
+    // with such a locator must fall back to its progression instead of
+    // refusing to open the book.
+    let publication = crate::runtime::tests::fixture::image_plates_before_text_fixture_epub();
+    let mut session = open_test_session(141, publication).expect("reader session");
+    let mut open = request(141, 1, "chapter.xhtml");
+    open.locator.source_point = Some(ReaderSourcePointV1 {
+        node_path: vec![0],
+        text_offset: 0,
+    });
+    open.locator.progression = Some(1.0);
+    let artifact = session
+        .request_artifact(open)
+        .expect("open degrades past the dead source point");
+    assert_eq!(artifact.matched_by, ReaderLocatorMatchV1::Progression);
+    assert!(
+        artifact.local_page_index > 0,
+        "progression 1.0 must land past the chapter start"
+    );
+}
+
+#[test]
+fn an_open_locator_with_only_a_dead_selector_degrades_to_the_chapter_start() {
+    let publication = crate::runtime::tests::fixture::image_plates_before_text_fixture_epub();
+    let mut session = open_test_session(142, publication).expect("reader session");
+    let mut open = request(142, 1, "chapter.xhtml");
+    open.locator.source_point = Some(ReaderSourcePointV1 {
+        node_path: vec![97, 3],
+        text_offset: 12,
+    });
+    let artifact = session
+        .request_artifact(open)
+        .expect("open degrades to the chapter itself");
+    assert_eq!(artifact.matched_by, ReaderLocatorMatchV1::Href);
+    assert_eq!(artifact.local_page_index, 0);
+}
+
+#[test]
+fn an_open_locator_with_an_unknown_href_still_fails() {
+    // The fallback ladder stops at the chapter: a missing resource is a
+    // real error the host must see, not a place to guess.
+    let publication = crate::runtime::tests::fixture::image_plates_before_text_fixture_epub();
+    let mut session = open_test_session(143, publication).expect("reader session");
+    let error = session
+        .request_artifact(request(143, 1, "missing.xhtml"))
+        .expect_err("an unknown href must stay a hard error");
+    assert_eq!(error.kind, ReaderErrorKindV1::InvalidLocator);
+}
+
+#[test]
+fn chapter_local_pages_match_the_whole_book_fragment_layout() {
+    // The golden equivalence of the chapter-local cutover: the same
+    // chapter paginated chapter-locally must produce page-for-page the
+    // same text as the whole-book fragment page table.
+    let publication = long_chapter_window_fixture_epub();
+    let mut reference = RuntimeDocument::open_with_pinned_font_policy(
+        &publication,
+        crate::runtime::tests::fixture::pinned_test_font_policy(),
+    )
+    .expect("reference document");
+    reference.set_fragment_page_table_enabled(true);
+    let reference_revision = reference
+        .create_revision(&runtime_layout())
         .expect("full reference layout");
     assert!(
         reference_revision.page_count > 40,
@@ -1015,345 +921,103 @@ fn long_chapter_rollover_matches_full_layout_for_twenty_adjacent_pages() {
         })
         .collect::<Vec<_>>();
 
-    let mut session = ReaderSessionV1::open_owned(101, publication).expect("reader session");
-    let mut first_request = request(101, 1, "chapter.xhtml");
-    first_request.work.local_page_cap = 4;
-    first_request.work.max_top_level_nodes_per_quantum = 8;
-    first_request.work.max_foreground_quanta = 128;
+    let mut session = open_test_session(101, publication).expect("reader session");
     let mut current = session
-        .request_artifact(first_request)
+        .request_artifact(request(101, 1, "chapter.xhtml"))
         .expect("first page artifact");
     let mut actual = vec![single_page_text(&current)];
     let mut request_id = 1u64;
-    let mut checked_cross_window_previous = false;
-
     for _ in 0..20 {
         request_id += 1;
         let next = session
-            .request_adjacent(adjacent_with_cap(
+            .request_adjacent(adjacent(
                 101,
                 request_id,
                 current.artifact_id,
                 ReaderAdjacentDirectionV1::Next,
-                4,
             ))
-            .expect("bounded adjacent page");
+            .expect("adjacent page");
         actual.push(single_page_text(&next));
-        if next.revision_id != current.revision_id && !checked_cross_window_previous {
-            let expected_previous = single_page_text(&current);
-            session
-                .release_artifact(current.artifact_id)
-                .expect("old boundary artifact releases while its window stays retained");
-            request_id += 1;
-            let previous = session
-                .request_adjacent(adjacent_with_cap(
-                    101,
-                    request_id,
-                    next.artifact_id,
-                    ReaderAdjacentDirectionV1::Previous,
-                    4,
-                ))
-                .expect("previous crosses the retained window boundary");
-            assert_eq!(single_page_text(&previous), expected_previous);
-            session
-                .release_artifact(previous.artifact_id)
-                .expect("previous projection releases");
-            checked_cross_window_previous = true;
-        } else {
-            session
-                .release_artifact(current.artifact_id)
-                .expect("previous page artifact releases");
-        }
+        session
+            .release_artifact(current.artifact_id)
+            .expect("previous artifact releases");
         current = next;
-        assert!(session.max_known_local_page_count() <= 4);
-        assert!(session.retained_window_count() <= 2);
-        assert!(session.live_revision_count() <= 3);
-        assert!(
-            session.cleanup_backlog_is_empty(),
-            "rollover must not accumulate retired window owners"
-        );
     }
-
-    assert!(checked_cross_window_previous);
-    assert_eq!(actual, expected, "rollover must have no page gap or replay");
-    let ack = session.dispose().expect("all rollover owners dispose");
-    assert_eq!(ack.released_artifacts, 1);
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn exact_cache_does_not_reuse_an_evicted_window() {
-    let mut session = ReaderSessionV1::open_owned(125, long_chapter_window_fixture_epub())
-        .expect("reader session");
-    let mut initial = request(125, 1, "chapter.xhtml#window-point-0");
-    initial.work.local_page_cap = 4;
-    initial.work.max_top_level_nodes_per_quantum = 8;
-    initial.work.max_foreground_quanta = 128;
+fn exact_cache_does_not_reuse_an_evicted_revision() {
+    // Retained zero-ref revisions are capped; walking far enough away
+    // evicts the oldest, and a seek back must relayout instead of
+    // resurrecting freed state.
+    let mut session = open_test_session(
+        125,
+        crate::runtime::tests::fixture::many_chapter_fixture_epub(8),
+    )
+    .expect("reader session");
     let mut current = session
-        .request_artifact(initial)
-        .expect("first exact window resolves");
+        .request_artifact(request(125, 1, "chapter-0.xhtml"))
+        .expect("first chapter resolves");
     let evicted_revision_id = current.revision_id;
     let mut request_id = 1u64;
-
     while session.has_live_revision(evicted_revision_id) {
         request_id += 1;
-        assert!(request_id < 96, "fixture must reach a third bounded window");
+        assert!(
+            request_id < 64,
+            "walking forward must evict the first chapter"
+        );
         let next = session
-            .request_adjacent(adjacent_with_cap(
+            .request_adjacent(adjacent(
                 125,
                 request_id,
                 current.artifact_id,
                 ReaderAdjacentDirectionV1::Next,
-                4,
             ))
-            .expect("adjacent work reaches the next retained window");
+            .expect("adjacent walk crosses chapters");
         session
             .release_artifact(current.artifact_id)
-            .expect("old window artifact releases");
+            .expect("old artifact releases");
         current = next;
     }
 
     let cache_hits = session.exact_cache_hit_count();
     let layout_quanta = session.exact_layout_quantum_count();
     request_id += 1;
-    let mut seek = request(125, request_id, "chapter.xhtml#window-point-0");
-    seek.work.local_page_cap = 4;
-    seek.work.max_top_level_nodes_per_quantum = 8;
-    seek.work.max_foreground_quanta = 128;
     let recovered = session
-        .request_artifact(seek)
+        .request_artifact(request(125, request_id, "chapter-0.xhtml"))
         .expect("evicted target falls back to a fresh exact revision");
 
     assert_ne!(recovered.revision_id, evicted_revision_id);
     assert_eq!(session.exact_cache_hit_count(), cache_hits);
     assert!(session.exact_layout_quantum_count() > layout_quanta);
-    assert!(recovered
-        .pages
-        .iter()
-        .any(|page| page.text.contains("Window paragraph 000")));
 }
 
 #[test]
-fn exact_cache_reuses_a_zero_ref_retained_window() {
-    let mut session = ReaderSessionV1::open_owned(126, long_chapter_window_fixture_epub())
-        .expect("reader session");
-    let mut initial = request(126, 1, "chapter.xhtml#window-point-0");
-    initial.work.local_page_cap = 4;
-    initial.work.max_top_level_nodes_per_quantum = 8;
-    initial.work.max_foreground_quanta = 128;
-    let mut current = session
-        .request_artifact(initial)
-        .expect("first exact window resolves");
-    let retained_revision_id = current.revision_id;
-    let mut request_id = 1u64;
-
-    while current.revision_id == retained_revision_id {
-        request_id += 1;
-        assert!(
-            request_id < 48,
-            "fixture must cross its first bounded window"
-        );
-        let next = session
-            .request_adjacent(adjacent_with_cap(
-                126,
-                request_id,
-                current.artifact_id,
-                ReaderAdjacentDirectionV1::Next,
-                4,
-            ))
-            .expect("adjacent work reaches the next retained window");
-        session
-            .release_artifact(current.artifact_id)
-            .expect("old window artifact releases");
-        current = next;
-    }
-    assert!(session.has_live_revision(retained_revision_id));
+fn exact_cache_reuses_the_whole_chapter_revision_for_a_repeat_target() {
+    // The whole chapter paginates once; a repeat seek to the same
+    // target is a pure cache hit with zero further layout.
+    let mut session =
+        open_test_session(126, long_chapter_window_fixture_epub()).expect("reader session");
+    let current = session
+        .request_artifact(request(126, 1, "chapter.xhtml#window-point-0"))
+        .expect("first exact target resolves");
     let layout_quanta = session.exact_layout_quantum_count();
-    request_id += 1;
-    let mut seek = request(126, request_id, "chapter.xhtml#window-point-0");
-    seek.locator.progression = Some(0.0);
-    seek.work.local_page_cap = 4;
-    seek.work.max_top_level_nodes_per_quantum = 8;
-    seek.work.max_foreground_quanta = 1;
-    let cached = session
-        .request_artifact(seek)
-        .expect("published target resolves from the retained window without work");
 
-    assert_eq!(cached.revision_id, retained_revision_id);
+    let cached = session
+        .request_artifact(request(126, 2, "chapter.xhtml#window-point-0"))
+        .expect("repeat target resolves from the cached revision");
+
+    assert_eq!(cached.revision_id, current.revision_id);
     assert_eq!(cached.locator.anchor_id.as_deref(), Some("window-point-0"));
-    assert_eq!(cached.locator.progression, Some(0.0));
     assert_eq!(session.exact_cache_hit_count(), 1);
     assert_eq!(session.exact_layout_quantum_count(), layout_quanta);
 }
 
 #[test]
-fn exact_tail_locator_exhaustion_is_typed_and_retains_only_the_pending_owner() {
-    let mut session = ReaderSessionV1::open_owned(102, long_chapter_window_fixture_epub())
-        .expect("reader session");
-    let mut tail_request = request(102, 1, "chapter.xhtml#window-point-519");
-    tail_request.work.local_page_cap = 4;
-    tail_request.work.max_top_level_nodes_per_quantum = 8;
-    tail_request.work.max_foreground_quanta = 24;
-    let error = session
-        .request_artifact(tail_request.clone())
-        .expect_err("bounded exact scan fails closed before accepting the tail target");
-
-    assert_eq!(error.kind, ReaderErrorKindV1::TargetNotPublished);
-    assert_eq!(session.live_artifact_count(), 0);
-    assert_eq!(session.live_revision_count(), 0);
-    assert_eq!(session.pending_exact_seek_count(), 1);
-    assert!(session.has_pending_exact_seek_v1());
-    assert!(!session.has_visible_intent());
-    assert_eq!(session.foreground_candidate_artifact_id(), None);
-    assert_eq!(session.live_runtime_chapter_local_revision_count(), 1);
-    assert_eq!(session.live_continuation_count(), 1);
-    assert_eq!(session.retained_window_count(), 0);
-    assert!(session.cleanup_backlog_is_empty());
-
-    tail_request.request_id = 2;
-    tail_request.work.max_foreground_quanta = 512;
-    let tail = session
-        .request_artifact(tail_request)
-        .expect("same exact target resumes the retained scan");
-    assert_eq!(tail.request_id, 2);
-    assert_eq!(tail.locator.anchor_id.as_deref(), Some("window-point-519"));
-    assert!(tail
-        .pages
-        .iter()
-        .any(|page| page.text.contains("Window paragraph 519")));
-    assert!(!tail
-        .pages
-        .iter()
-        .any(|page| page.text.contains("Window paragraph 000")));
-    assert_eq!(session.pending_exact_seek_count(), 0);
-    assert!(!session.has_pending_exact_seek_v1());
-    assert_eq!(session.live_revision_count(), 1);
-    assert_eq!(session.live_runtime_chapter_local_revision_count(), 1);
-}
-
-#[test]
-fn same_exact_target_resumes_one_quantum_without_publishing_page_one() {
-    let mut session =
-        ReaderSessionV1::open_owned(106, source_locator_fixture_epub()).expect("reader session");
-    let mut seek = request(106, 1, "chapter.xhtml#point-47");
-    seek.work.max_top_level_nodes_per_quantum = 1;
-    seek.work.max_foreground_quanta = 1;
-
-    let first = session
-        .request_artifact(seek.clone())
-        .expect_err("one quantum cannot resolve the tail anchor");
-    assert_eq!(first.kind, ReaderErrorKindV1::TargetNotPublished);
-    assert_eq!(session.live_artifact_count(), 0);
-    assert_eq!(session.live_revision_count(), 0);
-    assert_eq!(session.pending_exact_seek_count(), 1);
-    assert_eq!(session.foreground_candidate_artifact_id(), None);
-    assert_eq!(session.live_runtime_chapter_local_revision_count(), 1);
-    let first_owner = session
-        .pending_exact_seek_owner()
-        .expect("pending seek retains its runtime owner");
-
-    let stale = session
-        .request_artifact(seek.clone())
-        .expect_err("pending continuation still enforces monotonic request ids");
-    assert_eq!(stale.kind, ReaderErrorKindV1::StaleRequest);
-    assert_eq!(
-        session
-            .pending_exact_seek_owner()
-            .expect("stale retry cannot consume the owner"),
-        first_owner
-    );
-
-    seek.request_id = 2;
-    let second = session
-        .request_artifact(seek.clone())
-        .expect_err("the second bounded quantum is still pending");
-    assert_eq!(second.kind, ReaderErrorKindV1::TargetNotPublished);
-    assert_eq!(session.foreground_candidate_artifact_id(), None);
-    let second_owner = session
-        .pending_exact_seek_owner()
-        .expect("same-target retry keeps the owner");
-    assert_eq!(second_owner.revision_id, first_owner.revision_id);
-    assert!(second_owner.revision_version > first_owner.revision_version);
-    assert_eq!(session.live_runtime_chapter_local_revision_count(), 1);
-
-    let mut artifact = None;
-    for request_id in 3..=128 {
-        seek.request_id = request_id;
-        match session.request_artifact(seek.clone()) {
-            Ok(resolved) => {
-                artifact = Some(resolved);
-                break;
-            }
-            Err(error) => assert_eq!(error.kind, ReaderErrorKindV1::TargetNotPublished),
-        }
-    }
-    let artifact = artifact.expect("bounded same-target retries eventually resolve");
-    assert_eq!(artifact.artifact_id, 1);
-    assert_eq!(artifact.revision_id, 1);
-    assert_eq!(artifact.locator.anchor_id.as_deref(), Some("point-47"));
-    assert!(artifact.local_page_index > 0);
-    assert!(artifact
-        .pages
-        .iter()
-        .all(|page| !page.text.contains("Source locator paragraph 0 ")));
-    assert_eq!(session.pending_exact_seek_count(), 0);
-    assert_eq!(session.live_artifact_count(), 1);
-}
-
-#[test]
-fn new_target_or_layout_supersedes_pending_owner_and_dispose_releases_it() {
-    let mut session =
-        ReaderSessionV1::open_owned(107, source_locator_fixture_epub()).expect("reader session");
-    let mut seek = request(107, 1, "chapter.xhtml#point-47");
-    seek.work.max_top_level_nodes_per_quantum = 1;
-    seek.work.max_foreground_quanta = 1;
-    session
-        .request_artifact(seek.clone())
-        .expect_err("first seek remains pending");
-    let first_owner = session
-        .pending_exact_seek_owner()
-        .expect("first pending owner");
-
-    seek.request_id = 2;
-    seek.layout.viewport_width = 360.0;
-    session
-        .request_artifact(seek.clone())
-        .expect_err("layout change starts a replacement pending seek");
-    let relayout_owner = session
-        .pending_exact_seek_owner()
-        .expect("replacement layout owner");
-    assert_ne!(relayout_owner.revision_id, first_owner.revision_id);
-    assert_eq!(session.live_runtime_chapter_local_revision_count(), 1);
-    assert_eq!(session.live_continuation_count(), 1);
-
-    seek.request_id = 3;
-    seek.locator.href = "chapter.xhtml#point-46".to_owned();
-    session
-        .request_artifact(seek)
-        .expect_err("new target starts another replacement pending seek");
-    let replacement_owner = session
-        .pending_exact_seek_owner()
-        .expect("replacement target owner");
-    assert_ne!(replacement_owner.revision_id, relayout_owner.revision_id);
-    assert_eq!(session.live_artifact_count(), 0);
-    assert_eq!(session.live_runtime_chapter_local_revision_count(), 1);
-    assert!(session.cleanup_backlog_is_empty());
-
-    assert_eq!(
-        session
-            .dispose_in_place_for_test()
-            .expect("dispose releases pending exact seek"),
-        0
-    );
-    assert_eq!(session.pending_exact_seek_count(), 0);
-    assert_eq!(session.live_runtime_chapter_local_revision_count(), 0);
-    assert_eq!(session.live_continuation_count(), 0);
-    assert!(session.cleanup_backlog_is_empty());
-}
-
-#[test]
 fn exact_tail_locator_returns_only_its_target_window_with_sufficient_work() {
-    let mut session = ReaderSessionV1::open_owned(105, long_chapter_window_fixture_epub())
-        .expect("reader session");
+    let mut session =
+        open_test_session(105, long_chapter_window_fixture_epub()).expect("reader session");
     let mut tail_request = request(105, 1, "chapter.xhtml#window-point-519");
     tail_request.work.local_page_cap = 4;
     tail_request.work.max_top_level_nodes_per_quantum = 8;
@@ -1363,18 +1027,11 @@ fn exact_tail_locator_returns_only_its_target_window_with_sufficient_work() {
         .expect("tail locator scans bounded provisional windows with sufficient work");
 
     assert_eq!(tail.locator.anchor_id.as_deref(), Some("window-point-519"));
-    assert!(tail.local_page_index < 4);
     assert!(tail
         .pages
         .iter()
         .any(|page| page.text.contains("Window paragraph 519")));
-    assert!(!tail
-        .pages
-        .iter()
-        .any(|page| page.text.contains("Window paragraph 000")));
     assert_eq!(session.live_revision_count(), 1);
-    assert_eq!(session.retained_window_count(), 0);
-    assert!(session.max_known_local_page_count() <= 4);
 }
 
 #[test]
@@ -1526,7 +1183,7 @@ fn collect_double_spread_text(
     local_page_cap: u32,
     turn_count: usize,
 ) -> Vec<String> {
-    let mut session = ReaderSessionV1::open_owned(session_id, publication).expect("reader session");
+    let mut session = open_test_session(session_id, publication).expect("reader session");
     let mut initial = request(session_id, 1, "chapter.xhtml");
     initial.layout.viewport_width = 900.0;
     initial.layout.spread_mode = ReaderSpreadModeV1::Double;
@@ -1573,9 +1230,8 @@ fn previous_chapter_tail_publishes_when_the_chapter_completes_within_budget() {
         "svg-image",
         "empty-tail",
     ] {
-        let mut session =
-            ReaderSessionV1::open_owned(97, short_previous_chapter_fixture_epub(tail))
-                .expect("reader session opens");
+        let mut session = open_test_session(97, short_previous_chapter_fixture_epub(tail))
+            .expect("reader session opens");
         let visible = session
             .request_artifact(request(97, 1, "chapter-1.xhtml"))
             .expect("source chapter resolves");
@@ -1615,8 +1271,8 @@ fn previous_chapter_tail_publishes_when_the_chapter_completes_within_budget() {
 
 #[test]
 fn peek_publishes_known_neighbors_without_foreground_side_effects() {
-    let mut session = ReaderSessionV1::open_owned(120, long_chapter_window_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(120, long_chapter_window_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(120, 1, ""))
         .expect("source chapter resolves");
@@ -1690,8 +1346,8 @@ fn peek_publishes_known_neighbors_without_foreground_side_effects() {
 
 #[test]
 fn peek_declines_at_the_terminal_publication_boundary() {
-    let mut session = ReaderSessionV1::open_owned(121, long_chapter_window_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(121, long_chapter_window_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(121, 1, ""))
         .expect("first chapter resolves");
@@ -1715,8 +1371,8 @@ fn peek_declines_at_the_terminal_publication_boundary() {
 
 #[test]
 fn commit_peeked_artifact_is_a_pure_visible_swap() {
-    let mut session = ReaderSessionV1::open_owned(122, long_chapter_window_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(122, long_chapter_window_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(122, 1, ""))
         .expect("source chapter resolves");
@@ -1798,8 +1454,8 @@ fn peek_crosses_single_page_chapter_boundaries_in_both_directions() {
     // neighbor — next peeks the following chapter's first spread,
     // previous the preceding chapter's last — and the turn fast path
     // commits the peeked artifact unchanged.
-    let mut session = ReaderSessionV1::open_owned(123, many_chapter_fixture_epub(4))
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(123, many_chapter_fixture_epub(4)).expect("reader session opens");
     let visible = session
         .request_artifact(request(123, 1, "chapter-0.xhtml"))
         .expect("first chapter resolves");
@@ -1876,8 +1532,8 @@ fn peek_crosses_single_page_chapter_boundaries_in_both_directions() {
 #[test]
 fn artifact_hits_carry_footnote_keys_that_read_back_directly() {
     use crate::runtime::tests::fixture::interaction_target_fixture_epub;
-    let mut session = ReaderSessionV1::open_owned(130, interaction_target_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(130, interaction_target_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(130, 1, ""))
         .expect("first chapter resolves");
@@ -1922,8 +1578,8 @@ fn artifact_hits_carry_footnote_keys_that_read_back_directly() {
 
 #[test]
 fn chapter_local_artifacts_have_no_book_page_numbering() {
-    let mut session = ReaderSessionV1::open_owned(131, long_chapter_window_fixture_epub())
-        .expect("reader session opens");
+    let mut session =
+        open_test_session(131, long_chapter_window_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(131, 1, ""))
         .expect("first chapter resolves");
@@ -1939,32 +1595,33 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
     // A host hit-tests against the pixels it painted. If the artifact's
     // hits and its display list disagree by the page margins, every tap
     // lands short — which is exactly what shipped before this test.
-    for (label, mut layout) in [
+    //
+    // Fragment paint commands carry no hrefs (link hotspots live only in
+    // the artifact hits), so the painted reference is the text-run
+    // origins of the link labels, from a fragment-engine reference
+    // revision of the same book.
+    for (label, layout) in [
         ("single", crate::runtime::tests::fixture::layout()),
         ("double", crate::runtime::tests::fixture::double_layout()),
     ] {
-        // reader_v1 always lays out font-aware; the reference revision
-        // must match or the two disagree on advances for reasons that
-        // have nothing to do with coordinate space.
-        layout.text_measurement = crate::layout::TextMeasurementMode::FontAware;
-        let mut document =
-            crate::runtime::RuntimeDocument::open_owned(interaction_target_fixture_epub())
-                .expect("document opens");
+        let mut document = crate::runtime::RuntimeDocument::open_with_pinned_font_policy(
+            &interaction_target_fixture_epub(),
+            crate::runtime::tests::fixture::pinned_test_font_policy(),
+        )
+        .expect("document opens");
+        document.set_fragment_page_table_enabled(true);
         let summary = document.create_revision(&layout).expect("revision");
         let frame = document
             .get_frame(&summary.revision_id, 0)
             .expect("frame publishes");
-        // Where the pen actually draws every href-carrying command. One
-        // href can paint more than once (a text link and an image link
-        // sharing a target), so origins collect per href.
         let mut painted: std::collections::BTreeMap<String, Vec<(f64, f64)>> =
             std::collections::BTreeMap::new();
         for command in &frame.commands {
             let Some(object) = command.as_object() else {
                 continue;
             };
-            let (Some(href), Some(rect)) = (
-                object.get("href").and_then(|value| value.as_str()),
+            let (Some(text), Some(rect)) = (
+                object.get("text").and_then(|value| value.as_str()),
                 object.get("rect").and_then(|value| value.as_object()),
             ) else {
                 continue;
@@ -1975,11 +1632,11 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
             ) else {
                 continue;
             };
-            painted.entry(href.to_owned()).or_default().push((x, y));
+            painted.entry(text.to_owned()).or_default().push((x, y));
         }
-        assert!(!painted.is_empty(), "{label}: fixture must paint links");
+        assert!(!painted.is_empty(), "{label}: fixture must paint text");
 
-        let mut session = ReaderSessionV1::open_owned(150, interaction_target_fixture_epub())
+        let mut session = open_test_session(150, interaction_target_fixture_epub())
             .expect("reader session opens");
         let artifact = session
             .request_artifact(ReaderArtifactRequestV1 {
@@ -1987,30 +1644,42 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
                 ..request(150, 1, "")
             })
             .expect("artifact resolves");
+        // The fixture's text links and their labels.
+        let link_labels = [
+            ("#intro", "internal"),
+            ("https://example.com/help#reader", "external"),
+        ];
         let mut checked = 0;
-        for hit in artifact.pages.iter().flat_map(|page| page.hits.iter()) {
-            let Some(href) = hit.href.as_deref() else {
-                continue;
-            };
+        for (href, label_text) in link_labels {
             let origins = painted
-                .get(href)
-                .unwrap_or_else(|| panic!("{label}: {href:?} is hit but never painted"));
-            // The display list's JSON scalars ride the contract's f32
-            // decimal snap, so the two carry the same geometry to within
-            // that rounding, not bit for bit.
+                .get(label_text)
+                .unwrap_or_else(|| panic!("{label}: label {label_text:?} is never painted"));
+            let matched = artifact
+                .pages
+                .iter()
+                .flat_map(|page| page.hits.iter())
+                .filter(|hit| hit.href.as_deref() == Some(href))
+                .any(|hit| {
+                    origins.iter().any(|(x, y)| {
+                        // Same inline start; the text run's rect top sits
+                        // inside the link's line box, so y agrees to the
+                        // half-leading, not exactly.
+                        (x - hit.bounds.x).abs() < 0.01 && (y - hit.bounds.y).abs() < 4.0
+                    })
+                });
             assert!(
-                origins.iter().any(|(x, y)| (x - hit.bounds.x).abs() < 0.01
-                    && (y - hit.bounds.y).abs() < 0.01),
-                "{label}: hit for {href:?} at {:?} is not where the display list paints it ({origins:?})",
-                (hit.bounds.x, hit.bounds.y)
-            );
-            assert!(
-                hit.bounds.x >= layout.margin_left && hit.bounds.y >= layout.margin_top,
-                "{label}: hits sit inside the page margins, not at the page corner"
+                matched,
+                "{label}: no hit for {href:?} matches its painted label at {origins:?}"
             );
             checked += 1;
         }
         assert!(checked > 0, "{label}: the fixture must publish link hits");
+        for hit in artifact.pages.iter().flat_map(|page| page.hits.iter()) {
+            assert!(
+                hit.bounds.x >= layout.margin_left && hit.bounds.y >= layout.margin_top,
+                "{label}: hits sit inside the page margins, not at the page corner"
+            );
+        }
     }
 }
 
@@ -2020,9 +1689,11 @@ fn double_spread_hits_carry_their_page_offset() {
     // its hits must carry the same translation or every tap on the right
     // page resolves against the left page's geometry.
     let layout = crate::runtime::tests::fixture::double_layout();
-    let mut session =
-        ReaderSessionV1::open_owned(151, crate::runtime::tests::fixture::fixture_epub())
-            .expect("reader session opens");
+    let mut session = open_test_session(
+        151,
+        crate::runtime::tests::fixture::long_source_text_fixture_epub(),
+    )
+    .expect("reader session opens");
     let artifact = session
         .request_artifact(ReaderArtifactRequestV1 {
             layout: reader_layout(&layout),
@@ -2070,9 +1741,8 @@ fn reader_layout(config: &crate::layout::LayoutConfig) -> ReaderLayoutV1 {
 
 #[test]
 fn text_range_geometry_lands_in_display_list_space() {
-    let mut session =
-        ReaderSessionV1::open_owned(160, crate::runtime::tests::fixture::fixture_epub())
-            .expect("reader session opens");
+    let mut session = open_test_session(160, crate::runtime::tests::fixture::fixture_epub())
+        .expect("reader session opens");
     let artifact = session
         .request_artifact(request(160, 1, ""))
         .expect("artifact resolves");
@@ -2136,9 +1806,8 @@ fn text_range_geometry_lands_in_display_list_space() {
 
 #[test]
 fn search_hits_feed_straight_into_text_geometry() {
-    let mut session =
-        ReaderSessionV1::open_owned(170, crate::runtime::tests::fixture::fixture_epub())
-            .expect("reader session opens");
+    let mut session = open_test_session(170, crate::runtime::tests::fixture::fixture_epub())
+        .expect("reader session opens");
     let artifact = session
         .request_artifact(request(170, 1, ""))
         .expect("artifact resolves");
@@ -2165,6 +1834,11 @@ fn search_hits_feed_straight_into_text_geometry() {
     assert_eq!(response.query, needle);
     let hit = response.results.first().expect("the word is found");
     assert!(hit.context.contains(&needle), "{hit:?}");
+    // A durable anchor is what a host stores; page indexes move.
+    assert!(
+        hit.locator.is_some(),
+        "a text hit must carry a storable locator: {hit:?}"
+    );
 
     // The whole point of the positions: they resolve to paintable
     // geometry without the host inventing coordinates.
@@ -2206,4 +1880,37 @@ fn search_hits_feed_straight_into_text_geometry() {
         })
         .expect_err("an empty query is rejected");
     assert_eq!(empty.kind, ReaderErrorKindV1::InvalidRequest);
+}
+
+#[test]
+fn every_kitchen_sink_page_survives_display_list_encoding() {
+    // Artifact publication encodes each spread's fragment commands into
+    // the V1 wire; any command shape outside the adapter's domain kills
+    // the whole session ("legacy display value is not representable").
+    // Walk every page of a style-heavy chapter so the full command
+    // stream crosses the encoder.
+    let mut session = open_test_session(
+        163,
+        crate::runtime::tests::fixture::paint_command_kitchen_sink_fixture_epub(),
+    )
+    .expect("reader session opens");
+    let mut current = session
+        .request_artifact(request(163, 1, "chapter.xhtml"))
+        .expect("first styled page encodes");
+    let mut request_id = 1u64;
+    while current.navigation.next == ReaderAdjacentAvailabilityV1::Available {
+        request_id += 1;
+        let next = session
+            .request_adjacent(adjacent(
+                163,
+                request_id,
+                current.artifact_id,
+                ReaderAdjacentDirectionV1::Next,
+            ))
+            .expect("every styled page encodes");
+        session
+            .release_artifact(current.artifact_id)
+            .expect("previous page releases");
+        current = next;
+    }
 }

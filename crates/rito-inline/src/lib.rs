@@ -118,10 +118,14 @@ pub struct ParleyInlineContext {
     fonts: RefCell<FontContext>,
     layouts: RefCell<LayoutContext<[u8; 4]>>,
     registered_families: Vec<String>,
-    /// `line-height: normal` strut heights per inline style, measured by
-    /// shaping with the style's own resolved font (what a browser's strut
-    /// does), cached because struts repeat per paragraph.
-    normal_strut_cache: RefCell<std::collections::HashMap<u32, f64>>,
+    /// `line-height: normal` strut heights, measured by shaping with the
+    /// style's own resolved font (what a browser's strut does), cached
+    /// because struts repeat per paragraph. Keyed by the font inputs the
+    /// measurement shapes with (family stack, size, weight, slant) —
+    /// NEVER by style-table id: ids restart per chapter, so on an engine
+    /// shared across a book one chapter's strut would serve another
+    /// chapter's unrelated style.
+    normal_strut_cache: RefCell<std::collections::HashMap<u64, f64>>,
     /// Host-measured `line-height: normal` metrics per (family key, size,
     /// sample): the rendering host measures them because its font scaler
     /// grid-fits ascent and descent to integers per size, which font
@@ -624,13 +628,12 @@ impl ParleyInlineContext {
                 if let Some(host) = self.host_normal_line(style, "") {
                     return Ok(Some(host.height));
                 }
-                if let Some(cached) = self.normal_strut_cache.borrow().get(&style_id.raw()) {
+                let key = normal_strut_key(style);
+                if let Some(cached) = self.normal_strut_cache.borrow().get(&key) {
                     return Ok(Some(*cached));
                 }
                 let measured = self.measure_normal_line_height(style)?;
-                self.normal_strut_cache
-                    .borrow_mut()
-                    .insert(style_id.raw(), measured);
+                self.normal_strut_cache.borrow_mut().insert(key, measured);
                 measured
             }
         }))
@@ -5780,6 +5783,27 @@ fn shaping_font_size(size: f32) -> f32 {
     hundredths.trunc() / 100.0_f32
 }
 
+/// Cache key for a `line-height: normal` strut: exactly the font inputs
+/// `measure_normal_line_height` shapes with, so equal keys measure equal.
+fn normal_strut_key(style: &InlineFormattingStyleV1) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    family_stack_source(style).hash(&mut hasher);
+    shaping_font_size(style.font.size.get())
+        .to_bits()
+        .hash(&mut hasher);
+    style.font.weight.get().to_bits().hash(&mut hasher);
+    match style.font.slant {
+        FontSlant::Normal => 0u8.hash(&mut hasher),
+        FontSlant::Italic => 1u8.hash(&mut hasher),
+        FontSlant::Oblique(angle) => {
+            2u8.hash(&mut hasher);
+            angle.degrees().to_bits().hash(&mut hasher);
+        }
+    }
+    hasher.finish()
+}
+
 fn push_item_styles(
     builder: &mut RangedBuilder<'_, [u8; 4]>,
     style: &InlineFormattingStyleV1,
@@ -7184,6 +7208,7 @@ running through the quiet forest until the morning light returns.";
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
+            object_fit: rito_style_contract::ObjectFitV1::Fill,
         };
         let (width, height) = image_display_size(
             705.0,
@@ -8019,6 +8044,7 @@ the follower's punctuation class) is still unmeasured"]
                             style: image_style,
                             layout_style: image_layout,
                             fit_contain: false,
+                            object_fit: rito_style_contract::ObjectFitV1::Fill,
                             viewport: None,
                             align_top: false,
                             baseline_shift_px: 0.0,
@@ -8138,6 +8164,7 @@ the follower's punctuation class) is still unmeasured"]
                 NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
+            object_fit: rito_style_contract::ObjectFitV1::Fill,
         }
     }
 
@@ -8628,6 +8655,7 @@ the follower's punctuation class) is still unmeasured"]
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         ),
                         border_collapse: false,
+                        object_fit: rito_style_contract::ObjectFitV1::Fill,
                     },
                 )
                 .expect("layout style interns");
@@ -8649,6 +8677,7 @@ the follower's punctuation class) is still unmeasured"]
                     viewport: None,
                     baseline_shift_px: shift_px,
                     align_top: true,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 },
                 InlineItem::Text {
                     text: "的彭彭".to_owned(),
@@ -8791,6 +8820,7 @@ the follower's punctuation class) is still unmeasured"]
                             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                         ),
                         border_collapse: false,
+                        object_fit: rito_style_contract::ObjectFitV1::Fill,
                     },
                 )
                 .expect("layout style interns");
@@ -8812,6 +8842,7 @@ the follower's punctuation class) is still unmeasured"]
                     viewport: None,
                     baseline_shift_px: 0.0,
                     align_top: false,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 });
             }
             items.push(InlineItem::Text {
@@ -9346,6 +9377,7 @@ the follower's punctuation class) is still unmeasured"]
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
                     border_collapse: false,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 },
             )
             .expect("layout style interns");
@@ -9367,6 +9399,7 @@ the follower's punctuation class) is still unmeasured"]
                 baseline_shift_px: 0.0,
                 align_top: false,
                 fit_contain: false,
+                object_fit: rito_style_contract::ObjectFitV1::Fill,
             },
             InlineItem::Text {
                 text: "，有錢人果然猛。不過鶴屋學姊不管做出什麼事好中中中中中".to_owned(),
@@ -10426,6 +10459,7 @@ the follower's punctuation class) is still unmeasured"]
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
                     border_collapse: false,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 },
             )
             .expect("layout style interns");
@@ -10447,6 +10481,7 @@ the follower's punctuation class) is still unmeasured"]
                         style: image_inline_style,
                         layout_style: image_layout,
                         fit_contain: false,
+                        object_fit: rito_style_contract::ObjectFitV1::Fill,
                         viewport: None,
                         baseline_shift_px: 6.328125,
                         align_top: false,
@@ -10564,6 +10599,7 @@ the follower's punctuation class) is still unmeasured"]
                         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     ),
                     border_collapse: false,
+                    object_fit: rito_style_contract::ObjectFitV1::Fill,
                 },
             )
             .expect("layout style interns");
@@ -10585,6 +10621,7 @@ the follower's punctuation class) is still unmeasured"]
                         style: text_style,
                         layout_style: image_layout,
                         fit_contain: false,
+                        object_fit: rito_style_contract::ObjectFitV1::Fill,
                         viewport: None,
                         baseline_shift_px: 0.0,
                         align_top: false,

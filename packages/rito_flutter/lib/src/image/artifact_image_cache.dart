@@ -3,6 +3,8 @@ import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
+
 import '../protocol/artifact_models.dart';
 import '../protocol/display_geometry.dart';
 import '../protocol/display_models.dart';
@@ -84,19 +86,44 @@ final class RitoArtifactImageCache {
     }
     final budget = _LeaseBudget(limits);
     final acquired = <String, _CacheKey>{};
+    final failed = <String, Object>{};
     try {
       await Future.wait<void>(
         plan.hrefs.map(
           (href) => _limiter.run(() async {
             _requireOpen();
-            final key = await _acquire(
-              artifact: artifact,
-              reference: declarations[href]!,
-              plan: plan,
-              budget: budget,
-              readResource: readResource,
-            );
-            acquired[href] = key;
+            try {
+              final key = await _acquire(
+                artifact: artifact,
+                reference: declarations[href]!,
+                plan: plan,
+                budget: budget,
+                readResource: readResource,
+              );
+              acquired[href] = key;
+            } on Object catch (error, stackTrace) {
+              // Cache teardown is structural and fails the whole
+              // preparation. Everything else is one image's own fault
+              // (unreadable bytes, header mismatch, budget, a codec
+              // that cannot reproduce itself): that image paints as
+              // absence and the page still turns — reported loudly,
+              // never silently.
+              if (_disposed) {
+                rethrow;
+              }
+              failed[href] = error;
+              FlutterError.reportError(
+                FlutterErrorDetails(
+                  exception: error,
+                  stack: stackTrace,
+                  library: 'rito_flutter',
+                  context: ErrorDescription(
+                    'preparing artifact image $href; the image will paint '
+                    'as absence',
+                  ),
+                ),
+              );
+            }
           }),
         ),
       );
@@ -106,6 +133,7 @@ final class RitoArtifactImageCache {
         sessionId: artifact.sessionId,
         artifactId: artifact.artifactId,
         images: Map<String, _CacheKey>.unmodifiable(acquired),
+        failedImages: Map<String, Object>.unmodifiable(failed),
       );
     } on Object catch (error, stackTrace) {
       Object? rollbackError;

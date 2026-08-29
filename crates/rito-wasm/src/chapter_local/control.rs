@@ -174,11 +174,11 @@ mod tests {
     };
     use serde_json::json;
 
-    use crate::{tests::fixture, WasmRuntimeDocument, WasmRuntimeError};
+    use crate::{tests::fixture, WasmRuntimeError};
 
     #[test]
     fn create_encoder_failure_releases_the_new_local_revision() {
-        let mut document = WasmRuntimeDocument::from_loaded_document(fixture::fixture_document());
+        let mut document = fixture::pinned_fixture_wasm_document();
         let request = super::parse_create_request(&request_json(64)).expect("request");
         let advance = document
             .document
@@ -199,15 +199,18 @@ mod tests {
     }
 
     #[test]
-    fn continuation_encoder_failure_releases_predecessor_leases_and_candidate() {
-        let mut document = WasmRuntimeDocument::from_loaded_document(fixture::fixture_document());
+    fn continue_on_a_one_pass_revision_fails_typed_and_preserves_leases() {
+        // One-pass revisions never yield a continuation; a replayed
+        // cursor fails through the non-committed error path, which must
+        // leave the predecessor revision and its leases untouched.
+        let mut document = fixture::pinned_fixture_wasm_document();
         let request = super::parse_create_request(&request_json(1)).expect("request");
         let initial = document
             .document
             .create_bounded_chapter_local_revision(request)
-            .expect("partial local revision");
-        let continuation = initial.continuation.expect("fixture remains continuable");
-        let previous_owner = continuation.owner.clone();
+            .expect("one-pass local revision");
+        assert!(initial.continuation.is_none(), "advances are complete");
+        let previous_owner = super::owner_from_advance(&initial);
         let resource = document
             .document
             .get_chapter_local_resource(
@@ -220,33 +223,37 @@ mod tests {
             .chapter_local_transfers
             .store_at(&previous_owner, resource)
             .expect("predecessor lease");
-        let advance = document
+
+        let error = document
             .document
             .continue_chapter_local_revision(RuntimeContinueChapterLocalRevisionRequest {
-                continuation,
+                continuation: rito_core::runtime::RuntimeChapterLocalRevisionCursor {
+                    owner: previous_owner.clone(),
+                    cursor: "windowed-era-cursor".to_owned(),
+                    target_locator: rito_core::runtime::RuntimeSourceLocator {
+                        href: "chapter.xhtml".to_owned(),
+                        anchor_id: None,
+                        source_point: None,
+                        source_range: None,
+                        progression: None,
+                    },
+                },
                 budget: RuntimeRevisionWorkBudget {
                     max_top_level_nodes: 64,
                 },
                 max_quanta: None,
             })
-            .expect("local continuation");
-        let candidate_owner = super::owner_from_advance(&advance);
-        let injected = WasmRuntimeError::internal_error("injected continue encoder failure");
-
-        let result = document.finish_local_continuation(previous_owner.clone(), advance, |_| {
-            Err::<String, _>(injected.clone())
-        });
-
-        assert_eq!(result, Err(injected));
+            .expect_err("one-pass revisions are not continuable");
+        let error = document.finish_local_continuation_error(previous_owner.clone(), error);
+        assert_eq!(error.code(), crate::WasmRuntimeErrorCode::BadRequest);
         assert!(document
             .chapter_local_transfers
             .read_at(&previous_owner, &payload.transfer_id)
-            .is_err());
+            .is_ok());
         assert!(document
             .document
-            .get_chapter_local_revision_summary(&candidate_owner)
-            .is_err());
-        assert_eq!(document.chapter_local_transfers.len(), 0);
+            .get_chapter_local_revision_summary(&previous_owner)
+            .is_ok());
     }
 
     fn request_json(max_top_level_nodes: usize) -> String {

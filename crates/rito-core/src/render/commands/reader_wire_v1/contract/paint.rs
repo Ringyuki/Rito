@@ -116,11 +116,18 @@ impl ReaderBorderStyleV1 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum ReaderBackgroundSizeV1 {
     Auto,
     Cover,
     Contain,
+    /// CSS `background-size` with explicit axes (`auto 40%`, `100% 100%`).
+    /// A `None` axis is `auto`: it derives from the image's intrinsic
+    /// ratio once the other axis resolves.
+    Explicit {
+        x: Option<ReaderLengthV1>,
+        y: Option<ReaderLengthV1>,
+    },
 }
 
 impl ReaderBackgroundSizeV1 {
@@ -129,6 +136,7 @@ impl ReaderBackgroundSizeV1 {
             Self::Auto => 1,
             Self::Cover => 2,
             Self::Contain => 3,
+            Self::Explicit { .. } => 4,
         }
     }
 }
@@ -308,6 +316,15 @@ pub(crate) struct ReaderRunPaintV1 {
     pub decoration: Option<ReaderRunDecorationV1>,
     pub padding: Option<ReaderSpacingV1>,
     pub border: Option<ReaderRunBorderV1>,
+    /// Engine-computed inline box top/bottom, relative to the run rect
+    /// top. Absent when the run carries no box paint; the renderer then
+    /// derives extents from font metrics.
+    pub box_offsets: Option<(f64, f64)>,
+    /// Whether this run opens/closes its inline box. A run split across
+    /// lines squares the split ends: rounding and start/end borders
+    /// apply only where the box actually opens or closes.
+    pub box_start: bool,
+    pub box_end: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

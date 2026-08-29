@@ -143,6 +143,19 @@ impl RuntimeDocument {
         let prepared = self.prepared.as_ref().ok_or_else(|| {
             crate::epub::EpubError::new("document is not prepared for tree construction")
         })?;
+        self.formatting_tree_from_prepared(prepared, tables, idref, filter_footnotes)
+    }
+
+    /// Builds one chapter's formatting tree from an explicit prepared
+    /// window (which may hold only that chapter), without touching the
+    /// document's whole-book preparation.
+    pub(super) fn formatting_tree_from_prepared(
+        &self,
+        prepared: &crate::epub::PreparedLoadedDocument,
+        tables: &super::frame::RuntimeChapterStyleTables,
+        idref: &str,
+        filter_footnotes: bool,
+    ) -> EpubResult<ChapterFormattingTree> {
         let chapter = prepared
             .chapters
             .iter()

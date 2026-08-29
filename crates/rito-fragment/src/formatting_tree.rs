@@ -123,6 +123,13 @@ pub enum InlineItem {
         /// strut still raises the envelope). It only grows the line
         /// DOWNWARD when taller than the baseline envelope.
         align_top: bool,
+        /// Computed `object-fit` from the cascade (the UA stylesheet
+        /// sets `contain` on `img`; authors can override). Consumed at
+        /// paint time: `Fill` stretches into the box, everything else
+        /// letterboxes the raster inside it. Distinct from
+        /// `fit_contain`, which is the SVG-fold geometry (two-stage
+        /// viewBox + raster placement with clamp-bleed slivers).
+        object_fit: rito_style_contract::ObjectFitV1,
     },
     /// An inline-block whose content is itself inline-only: an atomic
     /// inline laid out as its own mini paragraph (shrink-to-fit width,
@@ -468,6 +475,7 @@ fn fingerprint(
                             fit_contain,
                             viewport,
                             align_top,
+                            object_fit,
                         } => {
                             mixer.mix(&[1]);
                             mixer.mix(&(src.len() as u32).to_le_bytes());
@@ -485,6 +493,7 @@ fn fingerprint(
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
                             mixer.mix(&[u8::from(*fit_contain)]);
                             mixer.mix(&[u8::from(*align_top)]);
+                            mixer.mix(&[*object_fit as u8]);
                         }
                         InlineItem::InlineBlock {
                             node,
@@ -677,6 +686,7 @@ mod tests {
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
+            object_fit: rito_style_contract::ObjectFitV1::Fill,
             inset: PhysicalSides {
                 top: LengthPercentageOrAuto::Auto,
                 right: LengthPercentageOrAuto::Auto,

@@ -142,6 +142,7 @@ async function openChapterInOracle(chapterFile) {
         // baseline too: an image never exceeds one page. Without it the
         // two sides would be compared under different UA stylesheets.
         'img { max-width: 100%; max-height: 650px; }',
+        'img { object-fit: contain; }',
       ].join('\n');
       document.head.prepend(reset);
       const declared = new Set();

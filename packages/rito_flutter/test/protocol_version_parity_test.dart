@@ -9,6 +9,21 @@ import 'package:rito_flutter/rito_flutter_protocol.dart';
 /// bricks that message type at runtime while hand-built fixtures keep
 /// agreeing with the stale gate, so this reads the real constant out of
 /// the Rust source and pins every mirror to it.
+
+RitoPinnedFontPolicy _testPinnedPolicy() {
+  final pinned = File(
+    '../../apps/reader/src/assets/fonts/Tinos-Regular.ttf',
+  ).readAsBytesSync();
+  return RitoPinnedFontPolicy(
+    faces: <RitoPinnedFontFace>[
+      RitoPinnedFontFace(
+        bytes: pinned,
+        genericRole: RitoPinnedFontGenericRole.serif,
+      ),
+    ],
+  );
+}
+
 void main() {
   final repoRoot = _findRepoRoot();
 
@@ -84,6 +99,7 @@ void main() {
     try {
       artifact = bindings.openEncoded(
         publicationBytes: publication,
+        pinnedFontPolicy: _testPinnedPolicy(),
         requestBytes: const RitoRequestEncoder().encode(
           const RitoArtifactRequest(
             sessionId: sessionId,

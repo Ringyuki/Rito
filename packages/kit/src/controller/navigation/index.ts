@@ -5,9 +5,10 @@ import type { ContentRenderer, PageBufferPool } from '../../painter/buffer-pool'
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { ReaderControllerEvents } from '../types';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
-import * as navState from './state';
+import * as machine from './machine';
 import * as jump from './jump';
 import * as growth from './growth';
+import { claimNavigation } from './claim';
 import {
   supersedeNavigationForPositionIntent,
   supersedeNavigationForSelectionIntent,
@@ -28,9 +29,9 @@ import {
   presentChapterLocalInvalidation,
   refreshChapterLocalTransitionTheme,
   terminateChapterLocalTransitionForLayout,
-} from './chapter-local-preview';
+} from './local-preview';
 
-type State = navState.NavigationState;
+type Machine = machine.NavigationMachine;
 type EntryActionName =
   | 'goToSpread'
   | 'startGestureNavigation'
@@ -47,7 +48,7 @@ type RuntimeActionName = Exclude<keyof NavigationActions, EntryActionName>;
 export interface NavigationDeps {
   getReader: () => Reader | null;
   getCurrentSpread: () => number;
-  setCurrentSpread: (index: number) => void;
+  setCurrentSpread: (index: number, reason: NavigationSpreadWriteReason) => void;
   getRenderScale: () => number;
   emitter: TypedEmitter<ReaderControllerEvents>;
   td: TransitionDriver;
@@ -69,14 +70,14 @@ export interface NavigationDeps {
 }
 
 export interface NavigationActions {
-  goToSpread(index: number): void;
+  goToSpread(index: number, source?: machine.NavigationIntentSource): void;
   startGestureNavigation(
     index: number,
     onTransitionStart: () => void,
     onUnavailable?: () => void,
   ): GestureNavigationToken;
-  nextSpread(): void;
-  prevSpread(): void;
+  nextSpread(source?: machine.NavigationIntentSource): void;
+  prevSpread(source?: machine.NavigationIntentSource): void;
   navigateToTocEntry(entry: TocEntry): void;
   /** Grow and navigate to a durable locator under the shared latest-wins navigation owner. */
   navigateToLocator(locator: ReaderLocator): void;
@@ -112,94 +113,103 @@ export interface GestureNavigationToken {
   cancel(): void;
 }
 
+/** The navigation-owned subset of the visible-spread write reasons. */
+export type NavigationSpreadWriteReason =
+  | 'navigation-start'
+  | 'navigation-cancel'
+  | 'jump'
+  | 'chapter-local-promotion';
+
 export function createNavigation(deps: NavigationDeps): NavigationActions {
-  const state = navState.createNavigationState();
-  const locatorNavigator = createLocatorNavigator(state, deps);
+  const nav = machine.createNavigationMachine();
+  const locatorNavigator = createLocatorNavigator(nav, deps);
+  // Support diagnostics: one console call answers "what is navigation
+  // doing right now" without instrumented builds.
+  (globalThis as { __ritoNavigationPhase?: () => string }).__ritoNavigationPhase = () =>
+    machine.describeNavigationPhase(nav);
   return {
-    ...createEntryActions(state, deps, locatorNavigator),
-    ...createRuntimeActions(state, deps, locatorNavigator),
+    ...createEntryActions(nav, deps, locatorNavigator),
+    ...createRuntimeActions(nav, deps, locatorNavigator),
   };
 }
 
 function createEntryActions(
-  state: State,
+  nav: Machine,
   deps: NavigationDeps,
   locatorNavigator: (spreadIndex: number) => void,
 ): Pick<NavigationActions, EntryActionName> {
   return {
-    goToSpread: startNavigation.bind(undefined, state, deps),
+    goToSpread(index, source) {
+      startNavigation(nav, deps, index, source);
+    },
     startGestureNavigation(index, onTransitionStart, onUnavailable) {
-      return startGestureNavigation(state, deps, index, onTransitionStart, onUnavailable);
+      return startGestureNavigation(nav, deps, index, onTransitionStart, onUnavailable);
     },
-    nextSpread() {
-      startNavigation(state, deps, deps.getCurrentSpread() + 1);
+    nextSpread(source) {
+      startNavigation(nav, deps, deps.getCurrentSpread() + 1, source);
     },
-    prevSpread() {
-      startNavigation(state, deps, deps.getCurrentSpread() - 1);
+    prevSpread(source) {
+      startNavigation(nav, deps, deps.getCurrentSpread() - 1, source);
     },
     navigateToTocEntry(entry) {
-      navigateTocEntry(state, deps, entry, locatorNavigator);
+      navigateTocEntry(nav, deps, entry, locatorNavigator);
     },
     navigateToLocator(locator) {
-      navigateReaderLocator(state, deps, locator, locatorNavigator);
+      navigateReaderLocator(nav, deps, locator, locatorNavigator);
     },
     jumpToSpread(index, preservePositionIntent) {
-      if (state.disposed) return false;
-      const attemptId = jump.claimNavigationAttempt(state, deps, preservePositionIntent);
-      if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) {
-        return false;
-      }
-      return jump.jumpToSpread(state, deps, attemptId, index);
+      if (nav.disposed) return false;
+      const claim = claimNavigation(nav, deps, preservePositionIntent);
+      if (machine.foregroundIsBusy(nav)) return false;
+      return jump.jumpToSpread(deps, claim, index);
     },
     jumpToSpreadIfReady(index, selectionGesture) {
-      return jump.performReadyJump(state, deps, index, selectionGesture);
+      return jump.performReadyJump(nav, deps, index, selectionGesture);
     },
     prepareSpreadForJump(index) {
-      if (state.disposed) return 'superseded';
-      if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) {
-        return 'not-ready';
-      }
+      if (nav.disposed) return 'superseded';
+      if (machine.foregroundIsBusy(nav)) return 'not-ready';
       return jump.prepareSpreadForJump(deps, index);
     },
     ensureSelectionSpread: (index, signal) =>
-      growth.ensureSelectionSpread(state, deps, index, signal),
+      growth.ensureSelectionSpread(nav, deps, index, signal),
   };
 }
 
 function createRuntimeActions(
-  state: State,
+  nav: Machine,
   deps: NavigationDeps,
   locatorNavigator: (spreadIndex: number) => void,
 ): Pick<NavigationActions, RuntimeActionName> {
   return {
     notifyContentReady(spreadIndex) {
-      if (state.disposed) return;
-      if (notifyChapterLocalContentReady(state, deps, spreadIndex)) return;
-      growth.continuePendingNavigation(state, deps, spreadIndex);
+      if (nav.disposed) return;
+      if (notifyChapterLocalContentReady(nav, deps, spreadIndex)) return;
+      growth.continuePendingNavigation(nav, deps, spreadIndex);
     },
     presentChapterLocalInvalidation: (spreadIndex) =>
-      presentChapterLocalInvalidation(state, deps, spreadIndex),
-    handleTransitionSettled: (event) => handleChapterLocalTransitionSettled(state, deps, event),
-    terminateChapterLocalForLayout: () => terminateChapterLocalTransitionForLayout(state, deps),
+      presentChapterLocalInvalidation(nav, deps, spreadIndex),
+    handleTransitionSettled: (event) => handleChapterLocalTransitionSettled(nav, deps, event),
+    terminateChapterLocalForLayout: () => terminateChapterLocalTransitionForLayout(nav, deps),
     refreshChapterLocalTheme: () => {
-      refreshChapterLocalTransitionTheme(state, deps);
+      refreshChapterLocalTransitionTheme(nav, deps);
     },
     notifyLayoutCommitted() {
-      if (state.disposed) return;
-      retryPendingTocEntry(state, deps, locatorNavigator);
+      if (nav.disposed) return;
+      retryPendingTocEntry(nav, deps, locatorNavigator);
     },
-    supersedeForSelectionIntent: () => supersedeNavigationForSelectionIntent(state, deps),
+    supersedeForSelectionIntent: () => supersedeNavigationForSelectionIntent(nav, deps),
     supersedeForPositionIntent: () => {
-      supersedeNavigationForPositionIntent(state, deps);
+      supersedeNavigationForPositionIntent(nav, deps);
     },
-    dispose: disposeNavigation.bind(undefined, state, deps),
+    dispose: disposeNavigation.bind(undefined, nav, deps),
   };
 }
 
-function disposeNavigation(state: State, deps: NavigationDeps): void {
-  if (state.disposed) return;
-  disposeChapterLocalTransition(state, deps);
-  state.disposed = true;
-  state.navigationAttemptId += 1;
-  navState.clearPendingNavigation(state);
+function disposeNavigation(nav: Machine, deps: NavigationDeps): void {
+  if (nav.disposed) return;
+  disposeChapterLocalTransition(nav, deps);
+  nav.disposed = true;
+  nav.claimSeq += 1;
+  machine.clearQueuedIntent(nav);
 }

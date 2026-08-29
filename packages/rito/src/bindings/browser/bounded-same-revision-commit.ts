@@ -90,9 +90,11 @@ export function publishBrowserReaderSameRevisionFrame(
   prepared: PreparedSameRevisionFrame,
 ): BrowserReaderBoundedCommitResult {
   const { input } = prepared;
-  const preservedActiveSpread = input.preserveActiveSpread?.()
-    ? state.activeSpreadIndex
-    : undefined;
+  // Evaluated before the exact-read gate restores: a throwing preserve
+  // predicate must fail the commit while reads stay closed. This path
+  // is synchronous, so the early result cannot go stale before the
+  // assignment below.
+  const preserveRequested = input.preserveActiveSpread?.() === true;
   const gate = input.exactReadGate;
   if (!gate || !restoreBrowserReaderExactReads(state, gate)) {
     throw new Error('Bounded reader same-revision commit could not restore its exact-read gate');
@@ -106,13 +108,27 @@ export function publishBrowserReaderSameRevisionFrame(
   applyBrowserReaderFrameWindow(state, revision, prepared.result.frameWindow, {
     notifyFrameInvalidation: false,
   });
-  state.activeSpreadIndex =
-    preservedActiveSpread === undefined
-      ? sameRevisionActiveSpread(state, prepared)
-      : clampBrowserReaderSpreadIndex(
-          preservedActiveSpread,
-          state.revisionBundle.revision.spreadCount,
-        );
+  {
+    const spreadCount = state.revisionBundle.revision.spreadCount;
+    // Mirrors the revision commit's rule: a newer user navigation
+    // always wins over the request-time target.
+    const preserveNow =
+      preserveRequested ||
+      (input.expectedActiveSpreadIndex !== undefined &&
+        state.activeSpreadIndex !== input.expectedActiveSpreadIndex);
+    const next = preserveNow
+      ? clampBrowserReaderSpreadIndex(state.activeSpreadIndex, spreadCount)
+      : sameRevisionActiveSpread(state, prepared);
+    // A locator seek is asked to move the reader; every other
+    // same-revision commit moving the visible spread is a defect.
+    if (next !== state.activeSpreadIndex && prepared.input.snapshot.target.kind !== 'locator') {
+      console.error(
+        `[rito] same-revision frame commit moved activeSpreadIndex ${String(state.activeSpreadIndex)} -> ${String(next)} ` +
+          `(target=${prepared.input.snapshot.target.kind})`,
+      );
+    }
+    state.activeSpreadIndex = next;
+  }
   notifyBrowserReaderCommitCallback(state, input.onCommitted);
   if (input.notifyLayoutCommitted !== false) notifyBrowserReaderLayoutCommitted(state);
   return { committed: true };

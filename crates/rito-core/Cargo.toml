@@ -42,6 +42,18 @@ name = "reader-v1-turn-probe"
 path = "examples/reader_v1_turn_probe.rs"
 
 [[example]]
+name = "reader-v1-prev-probe"
+path = "examples/reader_v1_prev_probe.rs"
+
+[[example]]
+name = "anchor-roundtrip-probe"
+path = "examples/anchor_roundtrip_probe.rs"
+
+[[example]]
+name = "layout-engine-bench"
+path = "examples/layout_engine_bench.rs"
+
+[[example]]
 name = "reader-v1-stage-probe"
 path = "examples/reader_v1_stage_probe.rs"
 required-features = ["bench-internals"]

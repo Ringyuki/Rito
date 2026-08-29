@@ -191,11 +191,11 @@ mod tests {
     use rito_core::runtime::RuntimeResourceKind;
     use serde_json::{json, Value};
 
-    use crate::{tests::fixture, WasmRuntimeDocument, WasmRuntimeError};
+    use crate::{tests::fixture, WasmRuntimeError};
 
     #[test]
     fn resource_payload_reports_the_lookup_href_not_the_canonical_manifest_href() {
-        let mut document = WasmRuntimeDocument::from_loaded_document(fixture::fixture_document());
+        let mut document = fixture::pinned_fixture_wasm_document();
         let advance = document
             .create_bounded_chapter_local_revision_json(
                 &json!({
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn resource_payload_encoder_failure_rolls_back_only_its_new_exact_lease() {
-        let mut document = WasmRuntimeDocument::from_loaded_document(fixture::fixture_document());
+        let mut document = fixture::pinned_fixture_wasm_document();
         let advance = document
             .create_bounded_chapter_local_revision_json(
                 &json!({

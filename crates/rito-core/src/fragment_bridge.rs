@@ -1453,6 +1453,28 @@ impl TreeBuilder<'_> {
                     .map(|parent| f64::from(parent.font.size.get()))
                     .map_err(|error| EpubError::new(format!("image parent style: {error}")))?,
             );
+        // Computed `object-fit` from the cascade (the UA stylesheet sets
+        // `contain` on `img`, authors can override). Only fill and
+        // contain paint distinctly today; cover/none/scale-down
+        // approximate as contain with a degradation note.
+        let object_fit = {
+            let resolved = self
+                .layout
+                .style(layout_style)
+                .map_err(|error| EpubError::new(format!("image layout style: {error}")))?
+                .object_fit;
+            match resolved {
+                rito_style_contract::ObjectFitV1::Fill
+                | rito_style_contract::ObjectFitV1::Contain => resolved,
+                other => {
+                    self.degrade(format!(
+                        "object-fit {other:?} approximated as contain: {}",
+                        image.src
+                    ));
+                    rito_style_contract::ObjectFitV1::Contain
+                }
+            }
+        };
         collector.push_image(
             InlineItem::Image {
                 src: image.src.clone(),
@@ -1465,6 +1487,7 @@ impl TreeBuilder<'_> {
                 viewport: image.svg_viewport,
                 align_top,
                 baseline_shift_px,
+                object_fit,
             },
             source_index,
             image.source_ref.node_path.clone(),
@@ -3582,6 +3605,7 @@ fn anonymous_block_style() -> LayoutFormattingStyleV1 {
             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
         ),
         border_collapse: false,
+        object_fit: rito_style_contract::ObjectFitV1::Fill,
     }
 }
 

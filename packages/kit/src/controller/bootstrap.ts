@@ -5,6 +5,7 @@ import type { ContentRenderer, PageBufferPool } from '../painter/buffer-pool';
 import type { createDisposableCollection } from '../utils/disposable';
 import type { createEmitter } from '../utils/event-emitter';
 import type { ConstructionOwner } from './construction-owner';
+import { commitCurrentSpread } from './core/current-spread';
 import { buildWiringDeps } from './core/wiring-deps';
 import { syncCanvasSize, type Internals } from './facade';
 import { commitLayoutChange, publishPaginationChange } from './facade/layout-actions';
@@ -82,8 +83,8 @@ function createRuntimeNavigation(
   return createNavigation({
     getReader: () => internals.reader,
     getCurrentSpread: () => internals.currentSpread,
-    setCurrentSpread: (index) => {
-      internals.currentSpread = index;
+    setCurrentSpread: (index, reason) => {
+      commitCurrentSpread(internals, index, reason);
     },
     getRenderScale: () => internals.renderScale,
     emitter,

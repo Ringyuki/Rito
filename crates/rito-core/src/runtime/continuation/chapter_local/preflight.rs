@@ -1,16 +1,13 @@
-use std::num::NonZeroUsize;
-
 use crate::{
     layout::create_empty_runtime_layout,
     runtime::{
         frame::{into_chapter_window_layout_config, RuntimeRevision},
         metadata::layout_key,
         RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalCoordinate,
-        RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionExtent,
-        RuntimeChapterLocalRevisionHandle, RuntimeContinuationErrorKind,
-        RuntimeContinueChapterLocalRevisionRequest, RuntimeContinueRevisionRequest,
-        RuntimeDocument, RuntimeRevisionWorkBudget, RuntimeRolloverChapterLocalRevisionRequest,
-        RuntimeSourceLocator,
+        RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionHandle,
+        RuntimeContinuationErrorKind, RuntimeContinueChapterLocalRevisionRequest,
+        RuntimeContinueRevisionRequest, RuntimeDocument, RuntimeRevisionWorkBudget,
+        RuntimeRolloverChapterLocalRevisionRequest, RuntimeSourceLocator,
     },
 };
 
@@ -23,28 +20,12 @@ use super::{
     },
 };
 
-pub(super) struct InitializedChapterLocalRevision {
-    pub(super) record: RuntimeContinuationRecord,
-    pub(super) budget: NonZeroUsize,
-    pub(super) max_quanta: NonZeroUsize,
-    pub(super) coordinate: RuntimeChapterLocalCoordinate,
-    pub(super) target_locator: RuntimeSourceLocator,
-}
-
 pub(super) struct PreparedChapterLocalContinuation {
     pub(super) record: RuntimeContinuationRecord,
-    pub(super) budget: NonZeroUsize,
-    pub(super) max_quanta: NonZeroUsize,
-    pub(super) previous_extent: RuntimeChapterLocalRevisionExtent,
-    pub(super) revision_id: String,
-    pub(super) target_locator: RuntimeSourceLocator,
 }
 
 pub(super) struct InitializedChapterLocalRollover {
     pub(super) record: RuntimeContinuationRecord,
-    pub(super) budget: NonZeroUsize,
-    pub(super) coordinate: RuntimeChapterLocalCoordinate,
-    pub(super) target_locator: RuntimeSourceLocator,
 }
 
 pub(super) fn prepare_chapter_local_continuation(
@@ -70,14 +51,14 @@ pub(super) fn prepare_chapter_local_continuation(
     let record = document
         .take_continuation(&generic_request)
         .map_err(local_error_from_continuation)?;
-    Ok(PreparedChapterLocalContinuation {
-        record,
+    let _ = (
         budget,
         max_quanta,
         previous_extent,
         revision_id,
         target_locator,
-    })
+    );
+    Ok(PreparedChapterLocalContinuation { record })
 }
 
 pub(super) fn initialize_chapter_local_rollover(
@@ -140,12 +121,8 @@ pub(super) fn initialize_chapter_local_rollover(
         local_page_cap,
     );
     document.insert_new_chapter_local_revision(revision_id, revision);
-    Ok(InitializedChapterLocalRollover {
-        record,
-        budget,
-        coordinate,
-        target_locator,
-    })
+    let _ = (budget, coordinate, target_locator);
+    Ok(InitializedChapterLocalRollover { record })
 }
 
 struct ChapterLocalPreflight {
@@ -155,21 +132,32 @@ struct ChapterLocalPreflight {
     footnotes: std::collections::BTreeMap<String, crate::interaction::FootnoteEntry>,
 }
 
-pub(super) fn initialize_chapter_local_revision(
+pub(super) struct InitializedChapterLocalFragment {
+    pub(super) revision_id: String,
+    pub(super) layout_key: String,
+    pub(super) coordinate: RuntimeChapterLocalCoordinate,
+    pub(super) target_locator: RuntimeSourceLocator,
+}
+
+/// The fragment-engine variant of chapter-local initialization: same
+/// validation, preflight, and warming-revision insertion, but no
+/// continuous-continuation record — the fragment engine paginates the
+/// whole chapter in one pass and leaves nothing to continue.
+pub(super) fn initialize_chapter_local_fragment(
     document: &mut RuntimeDocument,
     request: RuntimeBoundedChapterLocalRevisionRequest,
-) -> Result<InitializedChapterLocalRevision, RuntimeChapterLocalRevisionError> {
+) -> Result<InitializedChapterLocalFragment, RuntimeChapterLocalRevisionError> {
     let RuntimeBoundedChapterLocalRevisionRequest {
         layout_config,
-        line_breaking,
+        line_breaking: _,
         target_chapter_index,
         target_locator,
         local_page_cap,
         budget,
         max_quanta,
     } = request;
-    let budget = checked_local_budget(budget)?;
-    let max_quanta = checked_local_quanta(max_quanta)?;
+    checked_local_budget(budget)?;
+    checked_local_quanta(max_quanta)?;
     validate_local_page_cap(&layout_config, local_page_cap)?;
     let (coordinate, target_locator) =
         document.validate_chapter_local_target(target_chapter_index, target_locator)?;
@@ -193,19 +181,9 @@ pub(super) fn initialize_chapter_local_revision(
         required_font_face_catalog,
         footnotes,
     );
-    let record = RuntimeContinuationRecord::new_chapter_local(
+    Ok(InitializedChapterLocalFragment {
         revision_id,
         layout_key,
-        layout_config,
-        line_breaking,
-        coordinate.chapter_index,
-        local_page_cap,
-        target_locator.clone(),
-    );
-    Ok(InitializedChapterLocalRevision {
-        record,
-        budget,
-        max_quanta,
         coordinate,
         target_locator,
     })

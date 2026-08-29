@@ -127,11 +127,22 @@ extension _BlockPainting on RitoCanvasPaintTarget {
   }
 
   /// Clockwise rounded-rect path with CSS radius clamping, the analogue
-  /// of the browser pen's traceRoundedRect.
+  /// of the browser pen's traceRoundedRect: when either axis would make
+  /// adjacent corners cross on a short edge, BOTH axes shrink by the
+  /// same factor (CSS Backgrounds §5.5). Per-axis clamping kept the long
+  /// axis at its authored radius and turned a wide `border-radius: 30px`
+  /// badge into an ellipse where Blink draws a stadium.
   ui.RRect _roundedRect(ui.Rect rect, ui.Radius radius) {
-    final rx = math.min(radius.x, rect.width / 2);
-    final ry = math.min(radius.y, rect.height / 2);
-    return ui.RRect.fromRectXY(rect, math.max(0, rx), math.max(0, ry));
+    final rx = math.max(0.0, radius.x);
+    final ry = math.max(0.0, radius.y);
+    final scale = math.min(
+      1.0,
+      math.min(
+        rx > 0 ? rect.width / (2 * rx) : 1.0,
+        ry > 0 ? rect.height / (2 * ry) : 1.0,
+      ),
+    );
+    return ui.RRect.fromRectXY(rect, rx * scale, ry * scale);
   }
 
   /// Outer box shadows per the browser pen: painted back-to-front, the
@@ -247,7 +258,15 @@ extension _BlockPainting on RitoCanvasPaintTarget {
     final size = background.size ?? RitoBackgroundSize.auto;
     var width = source.width;
     var height = source.height;
-    if (size != RitoBackgroundSize.auto) {
+    if (size.isExplicit) {
+      // CSS Backgrounds 3 §3.9: a length axis resolves against the
+      // positioning area, an auto axis derives from the intrinsic ratio
+      // once the other axis resolves.
+      final x = _explicitAxis(size.x, box.width);
+      final y = _explicitAxis(size.y, box.height);
+      width = x ?? (y == null ? source.width : y * source.width / source.height);
+      height = y ?? (x == null ? source.height : x * source.height / source.width);
+    } else if (size != RitoBackgroundSize.auto) {
       final scale = size == RitoBackgroundSize.cover
           ? math.max(box.width / source.width, box.height / source.height)
           : math.min(box.width / source.width, box.height / source.height);
@@ -279,6 +298,14 @@ extension _BlockPainting on RitoCanvasPaintTarget {
     };
   }
 
+  double? _explicitAxis(RitoLength? axis, double boxExtent) {
+    return switch (axis) {
+      null => null,
+      RitoPxLength(:final value) => value,
+      RitoPercentLength(:final value) => boxExtent * value / 100,
+    };
+  }
+
   void _paintBlockBorders(
     ui.Rect rect,
     ui.Radius radius,
@@ -292,32 +319,41 @@ extension _BlockPainting on RitoCanvasPaintTarget {
       _paintRoundedBlockBorders(rect, radius, borders, box);
       return;
     }
+    // The browser rasters a border box on whole device pixels — each
+    // edge rounds independently (browser pen renderStraightBorders).
+    final right = (rect.left + rect.width).roundToDouble();
+    final bottom = (rect.top + rect.height).roundToDouble();
+    final left = rect.left.roundToDouble();
+    final top = rect.top.roundToDouble();
     _borderSide(
-      ui.Offset(rect.left, rect.top + box.topWidth / 2),
-      ui.Offset(rect.right, rect.top + box.topWidth / 2),
+      ui.Offset(left, top + box.topWidth / 2),
+      ui.Offset(right, top + box.topWidth / 2),
       box.topWidth,
       borders.top,
     );
     _borderSide(
-      ui.Offset(rect.left, rect.bottom - box.bottomWidth / 2),
-      ui.Offset(rect.right, rect.bottom - box.bottomWidth / 2),
+      ui.Offset(left, bottom - box.bottomWidth / 2),
+      ui.Offset(right, bottom - box.bottomWidth / 2),
       box.bottomWidth,
       borders.bottom,
     );
     _borderSide(
-      ui.Offset(rect.left + box.leftWidth / 2, rect.top),
-      ui.Offset(rect.left + box.leftWidth / 2, rect.bottom),
+      ui.Offset(left + box.leftWidth / 2, top),
+      ui.Offset(left + box.leftWidth / 2, bottom),
       box.leftWidth,
       borders.left,
     );
     _borderSide(
-      ui.Offset(rect.right - box.rightWidth / 2, rect.top),
-      ui.Offset(rect.right - box.rightWidth / 2, rect.bottom),
+      ui.Offset(right - box.rightWidth / 2, top),
+      ui.Offset(right - box.rightWidth / 2, bottom),
       box.rightWidth,
       borders.right,
     );
   }
 
+  /// One straight border edge, mirroring the browser pen's strokeBorder
+  /// dispatch: the caller hands the whole band's CENTERLINE on an
+  /// already-snapped border box.
   void _borderSide(
     ui.Offset start,
     ui.Offset end,
@@ -332,57 +368,224 @@ extension _BlockPainting on RitoCanvasPaintTarget {
         edge.style == RitoBorderStyle.hidden) {
       return;
     }
-    if (edge.style == RitoBorderStyle.dotted && width == 1) {
-      _strokeHairlineDotted(start, end, edge.color);
+    final horizontal = start.dy == end.dy;
+    if (edge.style == RitoBorderStyle.dotted && width.round() >= 1) {
+      if (width.round() <= 3) {
+        _strokeBinaryDotted(edge.color, width, start, end, horizontal);
+      } else {
+        _strokeMeasuredDotCircles(edge.color, width, start, end, horizontal);
+      }
       return;
     }
-    // Straight block edges snap to the device grid: endpoints round,
-    // odd widths ride the half-pixel (browser pen strokeBorder).
-    final snap = width % 2 == 1 ? 0.5 : 0.0;
-    _strokeStyledLine(
-      ui.Offset(
-        start.dx.roundToDouble() + snap,
-        start.dy.roundToDouble() + snap,
-      ),
-      ui.Offset(end.dx.roundToDouble() + snap, end.dy.roundToDouble() + snap),
-      width,
-      edge.color,
-      edge.style,
-    );
+    if (edge.style == RitoBorderStyle.dashed) {
+      _strokeMeasuredDashed(edge.color, width, start, end, horizontal);
+      return;
+    }
+    // Blink's double border: two lines of a third each with a third of
+    // gap, the sub-lines' centerlines at ±width/3 around the band's.
+    if (edge.style == RitoBorderStyle.double) {
+      final third = width / 3;
+      final line = RitoBorderEdgePaint(
+        color: edge.color,
+        style: RitoBorderStyle.solid,
+      );
+      final shift = horizontal
+          ? ui.Offset(0, third)
+          : ui.Offset(third, 0);
+      _borderSide(start - shift, end - shift, third, line);
+      _borderSide(start + shift, end + shift, third, line);
+      return;
+    }
+    // Measured Blink solid-border raster (browser pen strokeBorder): the
+    // band is BINARY device rows — it starts at round(border-box edge)
+    // and spans max(1, floor(width)) rows, no antialiasing at any
+    // sub-pixel phase. Groove/ridge/inset/outset reach the pen as solid
+    // strokes (the bridge pre-shades them), so every remaining style
+    // takes the binary band.
+    final paint = ui.Paint()..color = _color(edge.color);
+    final band = math.max(1.0, width.floorToDouble());
+    if (horizontal) {
+      final left = math.min(start.dx, end.dx).roundToDouble();
+      final right = math.max(start.dx, end.dx).roundToDouble();
+      final row = (start.dy - width / 2).roundToDouble();
+      _canvas.drawRect(ui.Rect.fromLTWH(left, row, right - left, band), paint);
+    } else {
+      final top = math.min(start.dy, end.dy).roundToDouble();
+      final bottom = math.max(start.dy, end.dy).roundToDouble();
+      final column = (start.dx - width / 2).roundToDouble();
+      _canvas.drawRect(
+        ui.Rect.fromLTWH(column, top, band, bottom - top),
+        paint,
+      );
+    }
   }
 
-  /// Measured against pinned Chromium (browser pen strokeHairlineDotted):
-  /// a 1px dotted edge rasters as BINARY full pixels — the span's
-  /// endpoints round to the device grid, dots repeat every 2px anchored
-  /// at BOTH ends, and an even span resolves the parity clash with a
-  /// double dot at the start: offsets {0,1,3,5,…,L−1}; an odd span is
-  /// {0,2,…,L−1}. The centerline rides half a pixel below the border-box
-  /// edge; the painted row is the edge rounded to the grid.
-  void _strokeHairlineDotted(ui.Offset from, ui.Offset to, RitoColor color) {
+  /// Chromium's thin-dotted stroke (browser pen strokeBinaryDotted,
+  /// width rounding to 1-3): BINARY square dashes of side = the rounded
+  /// width on an exact 2-width period, phase anchored at the span start,
+  /// plus an endpoint-enforcement table that redraws the first/last dot
+  /// and shifts the dash run so full dots land on both ends whenever the
+  /// span's remainder modulo the period allows it.
+  void _strokeBinaryDotted(
+    RitoColor color,
+    double width,
+    ui.Offset from,
+    ui.Offset to,
+    bool horizontal,
+  ) {
     final paint = ui.Paint()..color = _color(color);
-    final horizontal = from.dy == to.dy;
-    final start = (horizontal ? from.dx : from.dy).round();
-    final end = (horizontal ? to.dx : to.dy).round();
-    final row = ((horizontal ? from.dy : from.dx) - 0.5).roundToDouble();
+    final size = width.round();
+    final start = (horizontal ? math.min(from.dx, to.dx) : math.min(from.dy, to.dy)).round();
+    final end = (horizontal ? math.max(from.dx, to.dx) : math.max(from.dy, to.dy)).round();
+    // The caller hands the CENTERLINE; the painted band anchors at the
+    // rounded border-box edge.
+    final row = ((horizontal ? from.dy : from.dx) - width / 2).roundToDouble();
+    final band = math.max(1.0, width.floorToDouble());
     final span = end - start;
-    void dot(int offset) {
-      final along = (start + offset).toDouble();
+    void put(num offset, num length) {
+      if (length <= 0) return;
       _canvas.drawRect(
         horizontal
-            ? ui.Rect.fromLTWH(along, row, 1, 1)
-            : ui.Rect.fromLTWH(row, along, 1, 1),
+            ? ui.Rect.fromLTWH(
+                (start + offset).toDouble(), row, length.toDouble(), band)
+            : ui.Rect.fromLTWH(
+                row, (start + offset).toDouble(), band, length.toDouble()),
         paint,
       );
     }
 
-    var fromOffset = 0;
-    if (span > 1 && span.isEven) {
-      dot(0);
-      dot(1);
-      fromOffset = 3;
+    final mod4 = span % 4;
+    final mod6 = span % 6;
+    var useStartDot = false;
+    var startDotGrowth = 0;
+    var startLineOffset = 0;
+    var useEndDot = false;
+    var endDotGrowth = 0;
+    if ((size == 1 && span % 2 == 0) || (size == 3 && mod6 == 0)) {
+      useStartDot = true;
+      startDotGrowth = 1;
+      startLineOffset = 1;
     }
-    for (var offset = fromOffset; offset < span; offset += 2) {
-      dot(offset);
+    if ((size == 2 && (mod4 == 0 || mod4 == 1)) ||
+        (size == 3 && (mod6 == 1 || mod6 == 2))) {
+      useStartDot = true;
+      startLineOffset = -1;
+    }
+    if ((size == 2 && mod4 == 0) || (size == 3 && mod6 == 1)) {
+      useEndDot = true;
+    }
+    if ((size == 2 && mod4 == 3) || (size == 3 && (mod6 == 4 || mod6 == 5))) {
+      useStartDot = true;
+      startLineOffset = 1;
+    }
+    if (size == 3 && mod6 == 5) {
+      useEndDot = true;
+    } else if (size == 3 && mod6 == 0) {
+      useEndDot = true;
+      endDotGrowth = 1;
+    }
+    var lineStart = 0;
+    var lineEnd = span;
+    if (useStartDot) {
+      put(0, size + startDotGrowth);
+      lineStart = 2 * size + startLineOffset;
+    }
+    if (useEndDot) {
+      put(span - size - endDotGrowth, size + endDotGrowth);
+      lineEnd = span - (size + endDotGrowth + 1);
+    }
+    for (var offset = lineStart; offset < lineEnd; offset += 2 * size) {
+      put(offset, math.min(size, lineEnd - offset));
+    }
+  }
+
+  /// Chromium's thick-dotted stroke (browser pen
+  /// strokeMeasuredDotCircles, width rounding above 3): round dots of
+  /// diameter = width, spaced by the gap that best approximates one
+  /// width between dots, pitch minus a 0.01 epsilon so the final dot
+  /// survives float accumulation.
+  void _strokeMeasuredDotCircles(
+    RitoColor color,
+    double width,
+    ui.Offset from,
+    ui.Offset to,
+    bool horizontal,
+  ) {
+    final paint = ui.Paint()..color = _color(color);
+    final start = (horizontal ? math.min(from.dx, to.dx) : math.min(from.dy, to.dy)).roundToDouble();
+    final end = (horizontal ? math.max(from.dx, to.dx) : math.max(from.dy, to.dy)).roundToDouble();
+    // The caller hands the CENTERLINE; the dot row centers on it.
+    final center = horizontal ? from.dy : from.dx;
+    final span = end - start;
+    // Spacing follows the rounded width; the dot keeps the true stroke
+    // diameter.
+    final dashWidth = width.roundToDouble();
+    final radius = width / 2;
+    void dot(double at) {
+      _canvas.drawCircle(
+        horizontal ? ui.Offset(at, center) : ui.Offset(center, at),
+        radius,
+        paint,
+      );
+    }
+
+    final minDashes = ((span + dashWidth) / (2 * dashWidth)).floorToDouble();
+    final maxDashes = minDashes + 1;
+    final minGap = (span - minDashes * dashWidth) / (minDashes - 1);
+    final maxGap = (span - maxDashes * dashWidth) / (maxDashes - 1);
+    final useMin = maxGap <= 0 ||
+        (minGap - dashWidth).abs() < (maxGap - dashWidth).abs();
+    final count = (useMin ? minDashes : maxDashes).toInt();
+    final gap = useMin ? minGap : maxGap;
+    if (span < 2 * dashWidth || count <= 1 || !gap.isFinite) {
+      dot(start + dashWidth / 2);
+      return;
+    }
+    final pitch = dashWidth + gap - 0.01;
+    for (var index = 0; index < count; index += 1) {
+      dot(start + dashWidth / 2 + index * pitch);
+    }
+  }
+
+  /// Chromium's dashed edge (browser pen strokeMeasuredDashed): the SAME
+  /// binary device band as a solid edge, with the browser's STRETCHED
+  /// cadence — base dash 3w with base gap 2w picks the dash count
+  /// n = floor((L + 2w) / 5w), then the gap stretches so a full dash
+  /// lands flush at BOTH ends. Dash extents stay fractional along the
+  /// run axis; their AA ends match the browser's.
+  void _strokeMeasuredDashed(
+    RitoColor color,
+    double width,
+    ui.Offset from,
+    ui.Offset to,
+    bool horizontal,
+  ) {
+    final paint = ui.Paint()..color = _color(color);
+    final band = math.max(1.0, width.floorToDouble());
+    final start = (horizontal ? math.min(from.dx, to.dx) : math.min(from.dy, to.dy)).roundToDouble();
+    final end = (horizontal ? math.max(from.dx, to.dx) : math.max(from.dy, to.dy)).roundToDouble();
+    // The caller hands the CENTERLINE; the band anchors at the rounded
+    // border-box edge, exactly like the solid arm.
+    final row = ((horizontal ? from.dy : from.dx) - width / 2).roundToDouble();
+    final span = end - start;
+    final dash = 3 * width;
+    final count = ((span + 2 * width) / (5 * width)).floor();
+    void put(double at, double length) {
+      _canvas.drawRect(
+        horizontal
+            ? ui.Rect.fromLTWH(at, row, length, band)
+            : ui.Rect.fromLTWH(row, at, band, length),
+        paint,
+      );
+    }
+
+    if (count <= 1 || span <= dash) {
+      put(start, math.min(span, dash));
+      return;
+    }
+    final gap = (span - dash * count) / (count - 1);
+    for (var index = 0; index < count; index += 1) {
+      put(start + index * (dash + gap), dash);
     }
   }
 
@@ -423,7 +626,7 @@ extension _BlockPainting on RitoCanvasPaintTarget {
         );
     final outline = _roundedRect(rect, radius);
     if (uniform) {
-      _strokeStyledRRect(outline, edges.first.$1!, edges.first.$2);
+      _strokeStyledRRect(rect, radius, edges.first.$1!, edges.first.$2);
       return;
     }
 
@@ -465,7 +668,7 @@ extension _BlockPainting on RitoCanvasPaintTarget {
             ..close(),
         );
         if (edge.style != RitoBorderStyle.solid) {
-          _strokeStyledRRect(outline, edge, width);
+          _strokeStyledRRect(rect, radius, edge, width);
         } else {
           final fill = ui.Path()
             ..fillType = ui.PathFillType.evenOdd
@@ -490,23 +693,50 @@ extension _BlockPainting on RitoCanvasPaintTarget {
   /// dots every 1.5w, dashed runs 3w on / 2w off, anything else strokes
   /// solid at full width.
   void _strokeStyledRRect(
-    ui.RRect outline,
+    ui.Rect rect,
+    ui.Radius radius,
     RitoBorderEdgePaint edge,
     double width,
   ) {
     final style = edge.style;
+    // The border ink lives INSIDE the border box (browser pen
+    // renderUniformRoundedBorder): the stroke centerline sits half a
+    // width in from the rounded outer path, matching Blink's ink span
+    // from the border-box edge to the padding-box edge. Stroking the
+    // outer path itself hangs half the ink outside the box.
+    ui.RRect ring(double inset) => _roundedRect(
+      rect.deflate(inset),
+      ui.Radius.elliptical(
+        math.max(0, radius.x - inset),
+        math.max(0, radius.y - inset),
+      ),
+    );
+    if (style == RitoBorderStyle.double) {
+      // Blink's double: two lines of a third each, a third of gap — the
+      // outer line's centerline sits width/6 in from the outer path,
+      // the inner line's width/6 out from the padding path.
+      final third = width / 3;
+      final paint = ui.Paint()
+        ..style = ui.PaintingStyle.stroke
+        ..color = _color(edge.color)
+        ..strokeWidth = third;
+      for (final inset in <double>[third / 2, width - third / 2]) {
+        _canvas.drawRRect(ring(inset), paint);
+      }
+      return;
+    }
     final paint = ui.Paint()
       ..style = ui.PaintingStyle.stroke
       ..color = _color(edge.color)
       ..strokeWidth = style == RitoBorderStyle.dotted ? width * .75 : width;
     if (style != RitoBorderStyle.dotted && style != RitoBorderStyle.dashed) {
-      _canvas.drawRRect(outline, paint);
+      _canvas.drawRRect(ring(width / 2), paint);
       return;
     }
     paint.strokeCap = style == RitoBorderStyle.dotted
         ? ui.StrokeCap.round
         : ui.StrokeCap.butt;
-    final path = ui.Path()..addRRect(outline);
+    final path = ui.Path()..addRRect(ring(width / 2));
     final dash = style == RitoBorderStyle.dotted ? .001 : width * 3;
     final gap = style == RitoBorderStyle.dotted ? width * 1.5 : width * 2;
     for (final metric in path.computeMetrics()) {

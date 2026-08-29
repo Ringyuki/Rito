@@ -792,3 +792,71 @@ fn search_finds_text_after_the_fragment_page_table_attaches() {
         response.value.result_count
     );
 }
+
+fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
+    let epub = fixture_epub_with_chapter_and_stylesheet(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p><img src="Images/cover.png" alt="plate"/></p></body></html>"#,
+        css,
+    );
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("image fixture opens");
+    document.set_fragment_page_table_enabled(true);
+    let mut layout = font_aware_layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let revision = document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained");
+    assert!(revision.fragment_layout.is_some());
+    let session = revision.chapter_engine_session();
+    let frame = session.frame(0).expect("spread 0 has a frame");
+    frame
+        .commands
+        .iter()
+        .filter_map(|command| {
+            let crate::render::DisplayCommand::PaintImage { rect, .. } = command else {
+                return None;
+            };
+            Some((
+                rect.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                rect.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0),
+            ))
+        })
+        .collect()
+}
+
+#[test]
+fn the_ua_stylesheet_letterboxes_an_author_box_off_the_raster_ratio() {
+    // The fixture raster is 2x3 (portrait); the author forces a 30x20
+    // landscape box. The UA `img { object-fit: contain }` letterboxes
+    // the raster inside it at its own ratio.
+    let rects = painted_image_rects("img { width: 30px; height: 20px; }\n");
+    assert_eq!(rects.len(), 1);
+    let (width, height) = rects[0];
+    assert!(
+        (height - 20.0).abs() < 0.6 && (width / height - 2.0 / 3.0).abs() < 0.01,
+        "the raster keeps its 2:3 ratio inside the 30x20 box, got {width}x{height}"
+    );
+}
+
+#[test]
+fn an_author_object_fit_fill_overrides_the_ua_default() {
+    let rects = painted_image_rects("img { width: 30px; height: 20px; object-fit: fill; }\n");
+    assert_eq!(rects.len(), 1);
+    let (width, height) = rects[0];
+    assert!(
+        (width - 30.0).abs() < 0.6 && (height - 20.0).abs() < 0.6,
+        "author fill stretches into the authored box, got {width}x{height}"
+    );
+}

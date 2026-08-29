@@ -200,3 +200,36 @@ pub fn minimal_png() -> Vec<u8> {
     bytes[20..24].copy_from_slice(&3u32.to_be_bytes());
     bytes
 }
+
+/// Pinned test policy for wasm-side sessions: chapter-local pagination
+/// shapes with pinned faces only.
+pub fn pinned_test_policy_input() -> rito_core::runtime::RuntimePinnedFontPolicyInput {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/Tinos-Regular.ttf"
+    );
+    let bytes = std::fs::read(path).expect("pinned Tinos test font reads");
+    rito_core::runtime::RuntimePinnedFontPolicyInput {
+        faces: vec![rito_core::runtime::RuntimePinnedFontFaceInput {
+            expected_sha256: {
+                use sha2::{Digest, Sha256};
+                format!("{:x}", Sha256::digest(&bytes))
+            },
+            bytes,
+            generic_role: rito_core::runtime::RuntimePinnedFontGenericRole::Serif,
+            language: None,
+        }],
+    }
+}
+
+/// A wasm document over the in-memory fixture with the pinned test
+/// policy attached (chapter-local builds require pinned faces).
+pub fn pinned_fixture_wasm_document() -> crate::WasmRuntimeDocument {
+    let document =
+        rito_core::runtime::RuntimeDocument::from_loaded_document_with_pinned_font_policy(
+            fixture_document(),
+            pinned_test_policy_input(),
+        )
+        .expect("pinned fixture document builds");
+    crate::WasmRuntimeDocument::from_runtime_document(document)
+}

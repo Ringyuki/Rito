@@ -92,7 +92,9 @@ final class RitoPreparedArtifact {
 
   bool get hasPreparedImages => _imageLease != null || _testImages != null;
 
-  ui.Image resolveImage(String href) {
+  /// Null means the image's preparation failed and was recorded on the
+  /// lease: it paints as absence. An href nothing prepared still throws.
+  ui.Image? resolveImage(String href) {
     final testImages = _testImages;
     if (testImages != null) {
       final image = testImages[href];

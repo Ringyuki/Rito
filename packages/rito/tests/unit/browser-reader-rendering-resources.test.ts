@@ -68,7 +68,7 @@ describe('Browser reader resource-backed rendering', () => {
     expect(readResourceAtRevision).not.toHaveBeenCalled();
   });
 
-  it('keeps an image-backed frame unready until its resources decode', async () => {
+  it('paints an image-backed frame immediately and gains the bitmap once it decodes', async () => {
     vi.stubGlobal(
       'createImageBitmap',
       vi.fn(() => Promise.resolve(fakeImageBitmap())),
@@ -79,15 +79,25 @@ describe('Browser reader resource-backed rendering', () => {
       spreadContentInvalidatedListeners: new Set([(index: number) => invalidated.push(index)]),
     });
     const ctx = fakeCanvasContext();
+    const scope = globalThis as {
+      __ritoDegradedSpreadPaints?: { spreadIndex: number; pending: string[] }[];
+    };
+    scope.__ritoDegradedSpreadPaints = [];
 
-    expect(renderSpreadToContext(state, 0, ctx)).toBe(false);
-    expect(ctx.clearRect).not.toHaveBeenCalled();
+    // Progressive rendering: the frame paints at once without the
+    // undecoded bitmap (a page turn never parks on image decode), and
+    // the degraded paint is recorded explicitly, never silent.
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
+    expect(ctx.clearRect).toHaveBeenCalledOnce();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+    expect(scope.__ritoDegradedSpreadPaints).toEqual([
+      expect.objectContaining({ spreadIndex: 0, pending: ['cover.png'] }),
+    ]);
 
     await flushPromises();
     expect(state.images.has('cover.png')).toBe(true);
     expect(invalidated).toEqual([0]);
     expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
-    expect(ctx.clearRect).toHaveBeenCalledOnce();
     expect(ctx.drawImage).toHaveBeenCalledOnce();
   });
 
@@ -123,7 +133,7 @@ describe('Browser reader resource-backed rendering', () => {
     expect(warmFrameWindow).not.toHaveBeenCalled();
   });
 
-  it('preserves the bound canvas and active spread until an image-backed frame is ready', () => {
+  it('commits the bound canvas to an image-backed frame before its bitmap decodes', () => {
     vi.stubGlobal(
       'createImageBitmap',
       vi.fn(() => new Promise<ImageBitmap>(() => undefined)),
@@ -150,19 +160,20 @@ describe('Browser reader resource-backed rendering', () => {
     });
     state.revisionBundle = {
       ...state.revisionBundle,
+      revision: { ...state.revisionBundle.revision, pageCount: 2 },
       navigation: {
         ...state.revisionBundle.navigation,
         spreads: [spreadNavigationSlot(0, 0), spreadNavigationSlot(1, 1)],
       },
     };
 
-    expect(renderSpreadToBoundCanvas(state, 1, 0.5)).toBe(false);
+    // Progressive rendering: the bound canvas commits to the new spread
+    // immediately, without waiting for the bitmap.
+    expect(renderSpreadToBoundCanvas(state, 1, 0.5)).toBe(true);
 
-    expect(canvas.width).toBe(640);
-    expect(canvas.height).toBe(960);
-    expect(clearRect).not.toHaveBeenCalled();
-    expect(rendered).toEqual([]);
-    expect(state.activeSpreadIndex).toBe(0);
+    expect(clearRect).toHaveBeenCalled();
+    expect(rendered).toEqual([1]);
+    expect(state.activeSpreadIndex).toBe(1);
   });
 
   it('does not clear or report success when the target canvas aspect ratio is incompatible', () => {

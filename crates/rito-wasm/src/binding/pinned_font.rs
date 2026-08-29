@@ -33,7 +33,7 @@ impl RitoWasmDocument {
     }
 }
 
-fn require_face_byte_array(value: JsValue) -> Result<Array, WasmRuntimeError> {
+pub(crate) fn require_face_byte_array(value: JsValue) -> Result<Array, WasmRuntimeError> {
     if !Array::is_array(&value) {
         return Err(WasmRuntimeError::bad_request(
             "pinned font face bytes must be an array of Uint8Array values",
@@ -42,7 +42,7 @@ fn require_face_byte_array(value: JsValue) -> Result<Array, WasmRuntimeError> {
     Ok(Array::from(&value))
 }
 
-fn validate_face_byte_array_types(values: &Array) -> Result<(), WasmRuntimeError> {
+pub(crate) fn validate_face_byte_array_types(values: &Array) -> Result<(), WasmRuntimeError> {
     for (index, value) in values.iter().enumerate() {
         if !value.is_instance_of::<Uint8Array>() {
             return Err(WasmRuntimeError::bad_request(format!(
@@ -58,7 +58,7 @@ fn validate_face_byte_array_types(values: &Array) -> Result<(), WasmRuntimeError
     Ok(())
 }
 
-fn copy_face_byte_arrays(values: &Array) -> Vec<Vec<u8>> {
+pub(crate) fn copy_face_byte_arrays(values: &Array) -> Vec<Vec<u8>> {
     values
         .iter()
         .map(|value| Uint8Array::new(&value).to_vec())

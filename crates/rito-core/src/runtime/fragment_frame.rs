@@ -73,10 +73,20 @@ impl RuntimeDocument {
                     {
                         continue;
                     }
-                    let resource = self.document.fonts.get(source.resource_index())?;
-                    context
+                    // A missing or codec-rejected face paints as its
+                    // fallback stack; it must not take the whole fragment
+                    // engine down with it (degrade, never block). Its
+                    // family simply never registers, so paint resolves
+                    // past it exactly like layout does.
+                    let Some(resource) = self.document.fonts.get(source.resource_index()) else {
+                        continue;
+                    };
+                    if context
                         .register_named_font(source.family(), resource.bytes.clone())
-                        .ok()?;
+                        .is_err()
+                    {
+                        continue;
+                    }
                 }
                 Some(RuntimeFragmentEngine {
                     engine: BlockFormattingContext::new(context),

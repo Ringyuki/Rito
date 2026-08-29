@@ -1822,11 +1822,23 @@ fn resolves_source_locators_by_href_anchor_point_range_and_progression() {
         "chapter.xhtml",
         0,
     );
-    assert_resolved_source_locator(
-        &progression,
-        RuntimeSourceLocatorMatchedBy::Progression,
-        "chapter.xhtml",
-        0,
+    let RuntimeSourceLocatorResolution::Resolved {
+        matched_by: progression_match,
+        page_index: progression_page,
+        ..
+    } = progression
+    else {
+        panic!("progression locator should be resolved");
+    };
+    assert_eq!(
+        progression_match,
+        RuntimeSourceLocatorMatchedBy::Progression
+    );
+    // A progression is a page-position fraction: 0.5 lands on the middle
+    // of the chapter's page grid, not wherever half the text sits.
+    assert_eq!(
+        progression_page,
+        ((revision.page_count - 1) as f64 * 0.5).round() as usize
     );
     let RuntimeSourceLocatorResolution::Resolved { locator, .. } = anchor else {
         panic!("anchor should be resolved");

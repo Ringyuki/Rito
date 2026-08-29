@@ -74,6 +74,20 @@ hr { margin-block: 0.5em; }
 sup { vertical-align: super; font-size: smaller; }
 sub { vertical-align: sub; font-size: smaller; }
 
+/* Reading-system image policy: the raster letterboxes inside the
+   author's box instead of stretching to fill it. Authority: Readium CSS
+   (the reference stylesheet for EPUB reading systems),
+   css/dist/ReadiumCSS-before.css — `img, svg|svg, video { object-fit:
+   contain; ... }`; semantics per CSS Images 3 §5.4. An auto-sized box
+   resolves to the raster ratio, where contain equals fill, so only an
+   author box that contradicts the raster changes. The legacy JSON
+   pipeline carries the same policy as a hardcoded default
+   (rito-core stylo_materialize: "Replaced-element defaults are Rito
+   layout policy"); this rule is the cascade-visible, author-overridable
+   form for the fragment pipeline. The pixel-walk truth harness injects
+   the same declaration (guarded by a rito-core integration test). */
+img { object-fit: contain; }
+
 /* Chromium's light-mode UA link styling (measured rgb(0,0,238) on the
    pinned truth): publication TOCs lean on it. No :visited distinction —
    the engine has no history, and the truth browser's fresh profile

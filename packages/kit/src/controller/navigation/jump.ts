@@ -1,8 +1,9 @@
 import type { SlotPosition } from '../../painter/types';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
+import { claimNavigation, type NavigationClaim } from './claim';
 import type { NavigationDeps } from './index';
-import { clearPendingNavigation, type NavigationState } from './state';
-import { supersedeChapterLocalTransition } from './chapter-local-preview';
+import { foregroundIsBusy, type NavigationMachine } from './machine';
+import { presentSpread } from './present';
 
 export type NavigationJumpOutcome = 'committed' | 'not-ready' | 'superseded';
 export type NavigationJumpReadiness = 'ready' | 'not-ready' | 'superseded';
@@ -18,98 +19,66 @@ export function prepareSpreadForJump(deps: NavigationDeps, index: number): Navig
   return deps.pool.ensureContent(slot, deps.contentRenderer) ? 'ready' : 'not-ready';
 }
 
-export function claimNavigationAttempt(
-  state: NavigationState,
-  deps: NavigationDeps,
-  preservePositionIntent = false,
-): number {
-  const supersededChapterLocal = supersedeChapterLocalTransition(state, deps);
-  const attemptId = ++state.navigationAttemptId;
-  state.zeroContinuityAttemptId = supersededChapterLocal ? attemptId : undefined;
-  clearPendingNavigation(state);
-  deps.onContentInteractionIntent?.();
-  if (!preservePositionIntent) deps.onNavigationIntent?.();
-  return attemptId;
-}
-
 /** Claim and perform one paint-ready snap, optionally preserving one exact native gesture. */
 export function performReadyJump(
-  state: NavigationState,
+  machine: NavigationMachine,
   deps: NavigationDeps,
   index: number,
   selectionGesture?: SelectionGestureLease,
 ): NavigationJumpOutcome {
-  if (state.disposed) return 'superseded';
-  const attemptId = claimNavigationAttempt(state, deps);
-  if (state.activeChapterLocalTransition || state.finalizingChapterLocalTransition) {
-    return 'not-ready';
-  }
-  if (attemptId !== state.navigationAttemptId) return 'superseded';
+  if (machine.disposed) return 'superseded';
+  const claim = claimNavigation(machine, deps);
+  if (foregroundIsBusy(machine)) return 'not-ready';
+  if (!claim.owns()) return 'superseded';
   const endTransfer = selectionGesture
     ? deps.beginSelectionProjectionTransfer?.(index, selectionGesture)
     : undefined;
   try {
-    return jumpToSpreadIfReady(state, deps, attemptId, index);
+    return jumpToSpreadIfReady(deps, claim, index);
   } finally {
     endTransfer?.();
   }
 }
 
-export function jumpToSpread(
-  state: NavigationState,
-  deps: NavigationDeps,
-  attemptId: number,
-  index: number,
-): boolean {
-  if (attemptId !== state.navigationAttemptId) return false;
+export function jumpToSpread(deps: NavigationDeps, claim: NavigationClaim, index: number): boolean {
+  if (!claim.owns()) return false;
   const reader = deps.getReader();
   if (!reader) return false;
   const target = Math.max(0, Math.min(index, reader.totalSpreads - 1));
   if (deps.td.isAnimating) deps.td.forceSettle();
-  if (attemptId !== state.navigationAttemptId) return false;
+  if (!claim.owns()) return false;
   deps.pool.jump(target);
   deps.pool.ensureContent('curr', deps.contentRenderer);
-  return commitJump(state, deps, attemptId, target);
+  return commitJump(deps, claim, target);
 }
 
 export function jumpToSpreadIfReady(
-  state: NavigationState,
   deps: NavigationDeps,
-  attemptId: number,
+  claim: NavigationClaim,
   index: number,
 ): NavigationJumpOutcome {
-  if (attemptId !== state.navigationAttemptId) return 'superseded';
+  if (!claim.owns()) return 'superseded';
   const reader = deps.getReader();
   if (!reader) return 'superseded';
   const target = Math.max(0, Math.min(index, reader.totalSpreads - 1));
   if (deps.td.isAnimating) deps.td.forceSettle();
-  if (attemptId !== state.navigationAttemptId) return 'superseded';
+  if (!claim.owns()) return 'superseded';
 
   const previous = deps.getCurrentSpread();
   const slot = incomingSlot(previous, target);
   if (deps.pool.getSlotFor(target) !== slot) deps.pool.assignSlot(slot, target);
   const ready = deps.pool.ensureContent(slot, deps.contentRenderer);
-  if (attemptId !== state.navigationAttemptId) return 'superseded';
+  if (!claim.owns()) return 'superseded';
   if (!ready) return 'not-ready';
 
   promoteIncomingSlot(deps, previous, target);
-  return commitJump(state, deps, attemptId, target) ? 'committed' : 'superseded';
+  return commitJump(deps, claim, target) ? 'committed' : 'superseded';
 }
 
-function commitJump(
-  state: NavigationState,
-  deps: NavigationDeps,
-  attemptId: number,
-  target: number,
-): boolean {
+function commitJump(deps: NavigationDeps, claim: NavigationClaim, target: number): boolean {
   const reader = deps.getReader();
-  if (!reader || attemptId !== state.navigationAttemptId) return false;
-  deps.setCurrentSpread(target);
-  reader.notifyActiveSpread(target);
-  if (!stillOwnsJump(state, deps, attemptId, target)) return false;
-  const spread = reader.spreads[target];
-  if (spread) deps.emitter.emit('spreadChange', { spreadIndex: target, spread });
-  if (!stillOwnsJump(state, deps, attemptId, target)) return false;
+  if (!reader || !claim.owns()) return false;
+  if (!presentSpread(deps, reader, claim, target, 'jump')) return false;
   deps.frameDriver.scheduleComposite();
   return true;
 }
@@ -123,13 +92,4 @@ function promoteIncomingSlot(deps: NavigationDeps, previous: number, target: num
   if (target === previous) return;
   if (target > previous) deps.pool.rotateForward();
   else deps.pool.rotateBackward();
-}
-
-function stillOwnsJump(
-  state: NavigationState,
-  deps: NavigationDeps,
-  attemptId: number,
-  target: number,
-): boolean {
-  return attemptId === state.navigationAttemptId && deps.getCurrentSpread() === target;
 }

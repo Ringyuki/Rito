@@ -59,9 +59,31 @@ function prepareSpreadRender(
     return undefined;
   }
   const resolveImage = createCanvasImageResolver(state.images);
-  if (!requiredFrameImagesAreReady(state, index, frame, resolveImage)) return undefined;
+  // A loaded frame ALWAYS paints — progressive rendering, the browser
+  // and reading-app norm. Undecoded images are kicked onto both
+  // recovery lanes and simply skip their paint command; the settled
+  // invalidation repaints the spread with the bitmaps once they land.
+  // Gating the paint here instead used to gate NAVIGATION: a page turn
+  // onto an image spread silently parked until the user pressed again
+  // (web) or forever (a terminally wedged decode). The degraded paint
+  // is recorded explicitly below, never silent.
+  const pendingImages = pendingFrameImages(state, index, frame, resolveImage);
+  if (pendingImages.length > 0) recordDegradedSpreadPaint(index, pendingImages);
   touchBrowserReaderDecodedImages(state.images, frame.resourceRefs.images);
   return { frame, resolveImage };
+}
+
+/**
+ * Publishes a degraded paint for support diagnostics: which spread
+ * painted while which images were still undecoded. Capped, latest last.
+ */
+function recordDegradedSpreadPaint(spreadIndex: number, pendingImages: readonly string[]): void {
+  const scope = globalThis as {
+    __ritoDegradedSpreadPaints?: { spreadIndex: number; pending: string[]; at: string }[];
+  };
+  const log = (scope.__ritoDegradedSpreadPaints ??= []);
+  log.push({ spreadIndex, pending: [...pendingImages], at: new Date().toISOString() });
+  if (log.length > 40) log.splice(0, log.length - 40);
 }
 
 /** Paint a lease-owned frame without routing it through publication spread lookup. */
@@ -107,30 +129,30 @@ function paintBackground(ctx: CanvasRenderingTarget, color: string): void {
   canvasCtx.restore();
 }
 
-function requiredFrameImagesAreReady(
+function pendingFrameImages(
   state: BrowserReaderState,
   index: number,
   frame: BrowserReaderFrame,
   resolveImage: CanvasImageResolver,
-): boolean {
-  let ready = true;
+): string[] {
+  const pending: string[] = [];
   for (const href of frame.resourceRefs.images) {
     if (resolveImage(href) === undefined) {
       // A terminally-failed image paints as absence, exactly like the
-      // browser: it neither gates readiness nor re-warms (and it must
+      // browser: it neither counts as pending nor re-warms (and it must
       // never throw — an exception here rode up the navigation stack and
       // wedged the forward page turn forever on b69's missing 015 plate).
       if (browserReaderImageResourceFailed(state, href)) continue;
-      ready = false;
+      pending.push(href);
       // Two recovery lanes: the frame window re-warms siblings, and the
       // direct read covers a bitmap the window machinery never delivered
       // (an aborted prefetch, an evicted decode). Without the second lane
-      // a spread can hold the previous canvas forever.
+      // a degraded paint would never gain its bitmaps.
       ensureFrameImageResourceLoaded(state, href);
       void warmBrowserReaderFrameWindow(state, index);
     }
   }
-  return ready;
+  return pending;
 }
 
 function renderFrameToCanvas(

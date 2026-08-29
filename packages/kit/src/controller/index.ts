@@ -108,13 +108,13 @@ function wireIntegrations(
     {
       emitter,
       nextSpread: () => {
-        nav.nextSpread();
+        nav.nextSpread('keyboard');
       },
       prevSpread: () => {
-        nav.prevSpread();
+        nav.prevSpread('keyboard');
       },
       goToSpread: (index) => {
-        nav.goToSpread(index);
+        nav.goToSpread(index, 'keyboard');
       },
       getTotalSpreads: () => internals.reader.totalSpreads,
       searchNext: () => internals.engines.search.nextResult(),

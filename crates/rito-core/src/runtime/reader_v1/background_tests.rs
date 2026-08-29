@@ -9,40 +9,34 @@ use super::session::READER_LIVE_ARTIFACT_CAP_V1;
 use super::*;
 
 #[test]
-fn first_artifact_never_waits_for_publication_footnote_index() {
-    let mut session = ReaderSessionV1::open_owned(210, cross_chapter_footnote_fixture_epub())
+fn the_first_artifact_completes_the_footnote_index_without_parsing_other_chapters() {
+    // Chapter-local pagination filters footnote asides with the WHOLE
+    // publication's target index (a partial prefix paginates the chapter
+    // differently from the book table and wedges background adoption),
+    // so the first artifact completes the index up front. The index is
+    // a light source scan: no other chapter's DOM is parsed and no
+    // publication layout runs before the background stream starts it.
+    let mut session = super::tests::open_test_session(210, cross_chapter_footnote_fixture_epub())
         .expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(210, 1, "chapter-1.xhtml"))
         .expect("first chapter resolves");
-
-    assert_eq!(session.publication_footnote_source_scan_count(), 1);
-    assert_eq!(session.publication_footnote_definition_parse_count(), 0);
+    assert!(session.publication_footnote_source_scan_count() >= 1);
+    assert_eq!(session.publication_revision_count(), 0);
     adopt_initial(&mut session, 210, visible.artifact_id);
-
-    for _ in 0..4 {
-        let before = session.publication_footnote_source_scan_count()
-            + session.publication_footnote_definition_parse_count();
-        let step = session
-            .advance_background_once(background_request(210, visible.artifact_id, 1))
-            .expect("one index quantum advances");
-        assert_eq!(step.state, ReaderBackgroundStateV1::Indexing);
-        assert!(step.artifact.is_none());
-        assert_eq!(session.publication_revision_count(), 0);
-        let after = session.publication_footnote_source_scan_count()
-            + session.publication_footnote_definition_parse_count();
-        assert_eq!(after, before + 1);
-    }
 
     let started = session
         .advance_background_once(background_request(210, visible.artifact_id, 1))
-        .expect("publication layout starts only after index completion");
+        .expect("publication layout starts on the completed index");
     assert_eq!(started.state, ReaderBackgroundStateV1::Started);
 }
 
 #[test]
-fn background_call_advances_at_most_one_publication_quantum() {
-    let mut session = ReaderSessionV1::open_owned(201, source_locator_fixture_epub())
+fn background_start_paginates_the_whole_book_in_one_pass() {
+    // The fragment engine paginates the publication whole: the starting
+    // background call already carries the handoff candidate, and the
+    // next call parks on it instead of advancing further versions.
+    let mut session = super::tests::open_test_session(201, source_locator_fixture_epub())
         .expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(201, 1, "chapter.xhtml#point-47"))
@@ -51,26 +45,21 @@ fn background_call_advances_at_most_one_publication_quantum() {
 
     let started = advance_past_indexing(&mut session, 201, visible.artifact_id, 1);
     assert_eq!(started.state, ReaderBackgroundStateV1::Started);
-    assert!(started.artifact.is_none());
+    let candidate = started
+        .artifact
+        .expect("whole-book pagination lands with the starting call");
+    assert!(candidate.book_page_count.is_some());
     assert_eq!(session.publication_revision_count(), 1);
-    let mut previous_version = publication_version(&session);
+    let version = publication_version(&session);
 
-    for _ in 0..3 {
-        let advanced = session
-            .advance_background_once(background_request(201, visible.artifact_id, 1))
-            .expect("one publication quantum advances");
-        assert_eq!(advanced.state, ReaderBackgroundStateV1::Advanced);
-        assert!(advanced.artifact.is_none());
-        let next_version = publication_version(&session);
-        assert_eq!(
-            next_version,
-            previous_version + 1,
-            "each call must expose exactly one revision-version step"
-        );
-        previous_version = next_version;
-    }
+    let parked = session
+        .advance_background_once(background_request(201, visible.artifact_id, 1))
+        .expect("a further background call parks on the candidate");
+    assert_eq!(parked.state, ReaderBackgroundStateV1::CandidatePending);
+    assert!(parked.artifact.is_none());
+    assert_eq!(publication_version(&session), version);
 
-    release_all(&mut session, [visible.artifact_id]);
+    release_all(&mut session, [visible.artifact_id, candidate.artifact_id]);
     assert_eq!(
         session
             .dispose()
@@ -82,7 +71,7 @@ fn background_call_advances_at_most_one_publication_quantum() {
 
 #[test]
 fn newer_seek_makes_old_background_guards_stale_without_mutating_refs_or_intent() {
-    let mut session = ReaderSessionV1::open_owned(202, source_locator_fixture_epub())
+    let mut session = super::tests::open_test_session(202, source_locator_fixture_epub())
         .expect("reader session opens");
     let old_visible = session
         .request_artifact(artifact_request(202, 1, "chapter.xhtml#point-47"))
@@ -173,7 +162,7 @@ fn newer_seek_makes_old_background_guards_stale_without_mutating_refs_or_intent(
 
 #[test]
 fn background_candidate_adoption_is_cas_and_keeps_replaced_artifact_live() {
-    let mut session = ReaderSessionV1::open_owned(203, source_locator_fixture_epub())
+    let mut session = super::tests::open_test_session(203, source_locator_fixture_epub())
         .expect("reader session opens");
     let local = session
         .request_artifact(artifact_request(203, 1, "chapter.xhtml#point-0"))
@@ -244,7 +233,7 @@ fn background_candidate_adoption_is_cas_and_keeps_replaced_artifact_live() {
 
 #[test]
 fn releasing_current_visible_fails_closed_without_orphaning_background_candidate() {
-    let mut session = ReaderSessionV1::open_owned(208, source_locator_fixture_epub())
+    let mut session = super::tests::open_test_session(208, source_locator_fixture_epub())
         .expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(208, 1, "chapter.xhtml#point-0"))
@@ -288,7 +277,7 @@ fn releasing_current_visible_fails_closed_without_orphaning_background_candidate
 
 #[test]
 fn adopted_publication_keeps_advancing_and_owns_adjacent_resources_and_disposal() {
-    let mut session = ReaderSessionV1::open_owned(204, source_locator_image_fixture_epub())
+    let mut session = super::tests::open_test_session(204, source_locator_image_fixture_epub())
         .expect("reader session opens");
     let local = session
         .request_artifact(artifact_request(204, 1, "chapter.xhtml#point-0"))
@@ -316,36 +305,18 @@ fn adopted_publication_keeps_advancing_and_owns_adjacent_resources_and_disposal(
         .expect("adopted publication artifact owns its resource");
     assert!(!resource.bytes.is_empty());
 
-    let mut observed_advance = false;
-    for _ in 0..128 {
-        let before = publication_version(&session);
-        let step = session
-            .advance_background_once(background_request(204, candidate.artifact_id, 1))
-            .expect("adopted publication continues cooperatively");
-        match step.state {
-            ReaderBackgroundStateV1::Advanced => {
-                assert!(step.artifact.is_none());
-                observed_advance = true;
-                assert_eq!(publication_version(&session), before + 1);
-            }
-            ReaderBackgroundStateV1::Complete => {
-                assert_eq!(publication_version(&session), before);
-                // Completion offers one last candidate so the host can
-                // learn the book's page count without turning a page.
-                let final_candidate = step.artifact.expect("completion offers a final candidate");
-                assert!(
-                    final_candidate.book_page_count.is_some(),
-                    "{final_candidate:?}"
-                );
-                session
-                    .release_artifact(final_candidate.artifact_id)
-                    .expect("the completion candidate releases");
-                break;
-            }
-            state => panic!("unexpected post-adoption background state: {state:?}"),
-        }
+    // The publication paginated whole at start; a post-adoption call
+    // reports completion with nothing further to offer.
+    let step = session
+        .advance_background_once(background_request(204, candidate.artifact_id, 1))
+        .expect("post-adoption background call resolves");
+    assert_eq!(step.state, ReaderBackgroundStateV1::Complete);
+    assert!(candidate.book_page_count.is_some());
+    if let Some(final_candidate) = step.artifact {
+        session
+            .release_artifact(final_candidate.artifact_id)
+            .expect("the completion candidate releases");
     }
-    assert!(observed_advance, "fixture must exercise post-adoption work");
 
     let next = session
         .request_adjacent(adjacent_request(
@@ -371,113 +342,8 @@ fn adopted_publication_keeps_advancing_and_owns_adjacent_resources_and_disposal(
 }
 
 #[test]
-fn unpublished_publication_adjacent_advances_one_retained_foreground_quantum() {
-    let mut session = ReaderSessionV1::open_owned(209, source_locator_fixture_epub())
-        .expect("reader session opens");
-    let local = session
-        .request_artifact(artifact_request(209, 1, "chapter.xhtml#point-0"))
-        .expect("local first frame resolves");
-    adopt_initial(&mut session, 209, local.artifact_id);
-    let publication = advance_to_candidate(&mut session, 209, local.artifact_id, 1)
-        .artifact
-        .expect("first publication spread becomes a candidate");
-    session
-        .adopt_background_candidate(ReaderBackgroundHandoffV1 {
-            session_id: 209,
-            expected_visible_artifact_id: local.artifact_id,
-            candidate_artifact_id: publication.artifact_id,
-        })
-        .expect("publication candidate adopts");
-
-    // A handoff only happens once the reader's spread is sealed, which
-    // means the spread after it already exists. Walk to the frontier —
-    // where `next` is still Pending — to exercise the bounded-work
-    // contract this test is about.
-    let mut visible = publication.clone();
-    let mut walk_id = 500;
-    while visible.navigation.next == ReaderAdjacentAvailabilityV1::Available {
-        walk_id += 1;
-        let next = session
-            .request_adjacent(adjacent_request(
-                209,
-                walk_id,
-                visible.artifact_id,
-                ReaderAdjacentDirectionV1::Next,
-            ))
-            .expect("published spreads turn without extra work");
-        adopt_replacement(&mut session, 209, visible.artifact_id, next.artifact_id);
-        if visible.artifact_id != publication.artifact_id {
-            session
-                .release_artifact(visible.artifact_id)
-                .expect("intermediate spread releases");
-        }
-        visible = next;
-    }
-    assert_eq!(
-        visible.navigation.next,
-        ReaderAdjacentAvailabilityV1::Pending
-    );
-
-    let mut adjacent = adjacent_request(
-        209,
-        walk_id + 1,
-        visible.artifact_id,
-        ReaderAdjacentDirectionV1::Next,
-    );
-    adjacent.work.max_top_level_nodes_per_quantum = 1;
-    adjacent.work.max_foreground_quanta = 1;
-    let before = publication_version(&session);
-    let pending = session
-        .request_adjacent(adjacent)
-        .expect_err("one foreground quantum cannot publish the next spread");
-    assert_eq!(pending.kind, ReaderErrorKindV1::TargetNotPublished);
-    assert!(session.has_pending_adjacent_v1());
-    assert_eq!(publication_version(&session), before + 1);
-    let background = session
-        .advance_background_once(background_request(209, visible.artifact_id, 1))
-        .expect_err("background yields while publication adjacent owns continuation");
-    assert_eq!(background.kind, ReaderErrorKindV1::StaleRequest);
-
-    let mut resolved = None;
-    for request_id in walk_id + 2..=walk_id + 128 {
-        adjacent.request_id = request_id;
-        match session.request_adjacent(adjacent) {
-            Ok(artifact) => {
-                resolved = Some(artifact);
-                break;
-            }
-            Err(error) => {
-                assert_eq!(error.kind, ReaderErrorKindV1::TargetNotPublished);
-                assert!(session.has_pending_adjacent_v1());
-            }
-        }
-    }
-    let resolved = resolved.expect("retained publication work eventually publishes adjacent");
-    assert_eq!(resolved.revision_id, publication.revision_id);
-    assert!(!session.has_pending_adjacent_v1());
-    assert_eq!(session.visible_artifact_id(), Some(visible.artifact_id));
-
-    release_all(
-        &mut session,
-        [
-            local.artifact_id,
-            publication.artifact_id,
-            visible.artifact_id,
-            resolved.artifact_id,
-        ],
-    );
-    assert_eq!(
-        session
-            .dispose()
-            .expect("publication session disposes")
-            .released_artifacts,
-        0
-    );
-}
-
-#[test]
 fn foreground_adjacent_replaces_intent_and_stales_old_background_request() {
-    let mut session = ReaderSessionV1::open_owned(205, source_locator_fixture_epub())
+    let mut session = super::tests::open_test_session(205, source_locator_fixture_epub())
         .expect("reader session opens");
     let first = session
         .request_artifact(artifact_request(205, 1, "chapter.xhtml#point-0"))
@@ -545,7 +411,7 @@ fn foreground_adjacent_replaces_intent_and_stales_old_background_request() {
 
 #[test]
 fn same_layout_seek_reuses_existing_publication_without_another_quantum() {
-    let mut session = ReaderSessionV1::open_owned(206, source_locator_fixture_epub())
+    let mut session = super::tests::open_test_session(206, source_locator_fixture_epub())
         .expect("reader session opens");
     let first_local = session
         .request_artifact(artifact_request(206, 1, "chapter.xhtml#point-47"))
@@ -605,7 +471,7 @@ fn same_layout_seek_reuses_existing_publication_without_another_quantum() {
 
 #[test]
 fn live_artifact_cap_requires_and_then_consumes_one_candidate_reserve() {
-    let mut session = ReaderSessionV1::open_owned(207, source_locator_fixture_epub())
+    let mut session = super::tests::open_test_session(207, source_locator_fixture_epub())
         .expect("reader session opens");
     let mut locals = Vec::new();
     for request_id in 1..=u64::from(READER_LIVE_ARTIFACT_CAP_V1) {
@@ -866,8 +732,8 @@ fn plate_adjacent(
 #[test]
 fn publication_turns_cross_image_only_plates_in_both_directions() {
     use crate::runtime::tests::fixture::image_plate_fixture_epub;
-    let mut session =
-        ReaderSessionV1::open_owned(220, image_plate_fixture_epub()).expect("reader session opens");
+    let mut session = super::tests::open_test_session(220, image_plate_fixture_epub())
+        .expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(220, 1, "chapter-0.xhtml"))
         .expect("first chapter resolves");
@@ -965,8 +831,8 @@ fn publication_turns_cross_image_only_plates_in_both_directions() {
 #[test]
 fn peek_and_fast_commit_work_from_publication_artifacts() {
     use crate::runtime::tests::fixture::image_plate_fixture_epub;
-    let mut session =
-        ReaderSessionV1::open_owned(221, image_plate_fixture_epub()).expect("reader session opens");
+    let mut session = super::tests::open_test_session(221, image_plate_fixture_epub())
+        .expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(221, 1, "chapter-0.xhtml"))
         .expect("first chapter resolves");
@@ -1019,8 +885,8 @@ fn peek_and_fast_commit_work_from_publication_artifacts() {
 #[test]
 fn publication_artifacts_number_pages_book_wide() {
     use crate::runtime::tests::fixture::image_plate_fixture_epub;
-    let mut session =
-        ReaderSessionV1::open_owned(222, image_plate_fixture_epub()).expect("reader session opens");
+    let mut session = super::tests::open_test_session(222, image_plate_fixture_epub())
+        .expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(222, 1, "chapter-0.xhtml"))
         .expect("first chapter resolves");
@@ -1071,12 +937,12 @@ fn publication_artifacts_number_pages_book_wide() {
 }
 
 #[test]
-fn completion_hands_the_book_page_count_to_a_reader_who_never_turns() {
+fn the_first_publication_candidate_carries_the_book_page_count() {
     use crate::runtime::tests::fixture::many_chapter_fixture_epub;
-    // Long enough that the first handoff candidate is minted while the
-    // whole-book layout is still growing — the exact window where the
-    // total used to be unreachable without a page turn.
-    let mut session = ReaderSessionV1::open_owned(223, many_chapter_fixture_epub(24))
+    // The publication paginates whole in one pass, so the very first
+    // handoff candidate already numbers the reader's page against the
+    // final book total — no page turn, no waiting for completion.
+    let mut session = super::tests::open_test_session(223, many_chapter_fixture_epub(24))
         .expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(223, 1, "chapter-0.xhtml"))
@@ -1085,10 +951,11 @@ fn completion_hands_the_book_page_count_to_a_reader_who_never_turns() {
     let candidate = advance_to_candidate(&mut session, 223, visible.artifact_id, 64)
         .artifact
         .expect("publication produces a handoff candidate");
-    assert_eq!(
-        candidate.book_page_count, None,
-        "an in-progress layout has no total yet"
-    );
+    let total = candidate
+        .book_page_count
+        .expect("the first candidate carries the book page count");
+    assert!(total >= 24, "{total}");
+    assert!(candidate.book_page_index.is_some());
     session
         .adopt_background_candidate(ReaderBackgroundHandoffV1 {
             session_id: 223,
@@ -1096,48 +963,6 @@ fn completion_hands_the_book_page_count_to_a_reader_who_never_turns() {
             candidate_artifact_id: candidate.artifact_id,
         })
         .expect("publication candidate adopts");
-    session
-        .release_artifact(visible.artifact_id)
-        .expect("the chapter-local artifact releases");
-
-    // Pump to completion without ever turning a page.
-    let mut final_candidate = None;
-    let mut completions = 0;
-    for _ in 0..512 {
-        let step = session
-            .advance_background_once(background_request(223, candidate.artifact_id, 64))
-            .expect("background advances");
-        if step.state == ReaderBackgroundStateV1::Complete {
-            completions += 1;
-            if let Some(artifact) = step.artifact {
-                assert!(final_candidate.is_none(), "the offer must happen once");
-                final_candidate = Some(artifact);
-            }
-            if completions >= 3 {
-                break;
-            }
-        }
-    }
-    let final_candidate =
-        final_candidate.expect("completion offers a candidate carrying the total");
-    assert!(completions >= 3, "later Complete steps must stay quiet");
-    let total = final_candidate
-        .book_page_count
-        .expect("the completion candidate carries the book page count");
-    assert!(total >= 1, "{total}");
-    assert_eq!(
-        final_candidate.book_page_index, candidate.book_page_index,
-        "the completion candidate is the same page, only better numbered"
-    );
-
-    // It rides the ordinary adopt channel — no new host API.
-    session
-        .adopt_background_candidate(ReaderBackgroundHandoffV1 {
-            session_id: 223,
-            expected_visible_artifact_id: candidate.artifact_id,
-            candidate_artifact_id: final_candidate.artifact_id,
-        })
-        .expect("the completion candidate adopts like any other");
 }
 
 #[test]
@@ -1148,7 +973,7 @@ fn every_publication_candidate_locator_describes_the_page_it_draws() {
     // carry identical locators while drawing different pages — a host
     // gating on "same locator, safe to adopt" would be swapped onto
     // another page with no way to see it.
-    let mut session = ReaderSessionV1::open_owned(224, many_chapter_fixture_epub(24))
+    let mut session = super::tests::open_test_session(224, many_chapter_fixture_epub(24))
         .expect("reader session opens");
     let visible = session
         .request_artifact(artifact_request(224, 1, "chapter-0.xhtml"))
@@ -1222,7 +1047,7 @@ fn no_handoff_ever_moves_the_reader() {
     // to move the reader, in either order depending on where the
     // frontier happened to be.
     for start in ["chapter-0.xhtml", "chapter-11.xhtml", "chapter-22.xhtml"] {
-        let mut session = ReaderSessionV1::open_owned(226, many_chapter_fixture_epub(24))
+        let mut session = super::tests::open_test_session(226, many_chapter_fixture_epub(24))
             .expect("reader session opens");
         let visible = session
             .request_artifact(artifact_request(226, 1, start))
@@ -1269,4 +1094,35 @@ fn no_handoff_ever_moves_the_reader() {
             "{start}: the reader ends up with a book page count"
         );
     }
+}
+
+#[test]
+fn a_mid_book_candidate_paints_the_same_page_as_the_visible_chapter_local_artifact() {
+    // The chapter-local build must filter footnote asides with the WHOLE
+    // publication's target index, like the book table does. A partial
+    // prefix left another chapter's referenced aside in the flow, the
+    // chapter paginated differently from the same chapter in the book
+    // table, and every background candidate read as "moves the reader" —
+    // the host dropped candidates forever and navigation wedged.
+    let mut session = super::tests::open_test_session(298, cross_chapter_footnote_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(artifact_request(298, 1, "chapter-1.xhtml"))
+        .expect("mid chapter resolves");
+    adopt_initial(&mut session, 298, visible.artifact_id);
+    let step = advance_past_indexing(&mut session, 298, visible.artifact_id, 64);
+    let candidate = step.artifact.expect("candidate exists");
+    assert!(
+        !step.moves_visible_content,
+        "candidate must paint the visible page: visible={:?} candidate={:?}",
+        visible.pages.iter().map(|p| &p.text).collect::<Vec<_>>(),
+        candidate.pages.iter().map(|p| &p.text).collect::<Vec<_>>(),
+    );
+    session
+        .adopt_background_candidate(ReaderBackgroundHandoffV1 {
+            session_id: 298,
+            expected_visible_artifact_id: visible.artifact_id,
+            candidate_artifact_id: candidate.artifact_id,
+        })
+        .expect("mid-book candidate adopts");
 }

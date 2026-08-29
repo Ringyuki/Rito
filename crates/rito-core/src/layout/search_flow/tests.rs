@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use super::{
-    search_page, summarize_search_flow, SearchFlowQuerySpec, SearchPageText, SearchRunOffset,
-    SearchRunSource, SearchSourcePoint, SearchTextPosition,
+    search_page, search_prebuilt_runtime_pages, summarize_search_flow, SearchFlowQuerySpec,
+    SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource, SearchRunOffset, SearchRunSource,
+    SearchSourcePoint, SearchTextPosition,
 };
 use crate::layout::{
     content::{RuntimeBlock, RuntimeChild},
@@ -49,6 +50,7 @@ fn case_insensitive_search_maps_folded_offsets_to_original_text() {
             line_index: 3,
             run_index: 4,
             source: None,
+            direct: None,
         }],
     };
     let spec = SearchFlowQuerySpec {
@@ -93,6 +95,7 @@ fn case_insensitive_search_expansion_uses_outward_source_boundaries() {
             line_index: 3,
             run_index: 4,
             source: None,
+            direct: None,
         }],
     };
 
@@ -139,6 +142,7 @@ fn search_match_retains_exact_durable_source_boundaries() {
                     source_start: 10,
                     source_length: 10,
                 }),
+                direct: None,
             },
             SearchRunOffset {
                 start: 10,
@@ -154,6 +158,7 @@ fn search_match_retains_exact_durable_source_boundaries() {
                     source_start: 30,
                     source_length: 10,
                 }),
+                direct: None,
             },
         ],
     };
@@ -214,6 +219,7 @@ fn search_match_shrinks_to_the_sourced_side_of_generated_content() {
                     source_start: 0,
                     source_length: 1,
                 }),
+                direct: None,
             },
             SearchRunOffset {
                 start: 1,
@@ -222,6 +228,7 @@ fn search_match_shrinks_to_the_sourced_side_of_generated_content() {
                 line_index: 0,
                 run_index: 1,
                 source: None,
+                direct: None,
             },
             SearchRunOffset {
                 start: 2,
@@ -237,6 +244,7 @@ fn search_match_shrinks_to_the_sourced_side_of_generated_content() {
                     source_start: 2,
                     source_length: 1,
                 }),
+                direct: None,
             },
         ],
     };
@@ -313,4 +321,83 @@ fn page_with_text(text: &str) -> RuntimePage<RuntimeBlock<LineBox>> {
             })],
         }],
     }
+}
+
+#[test]
+fn a_direct_match_split_across_contiguous_runs_keeps_its_full_anchor() {
+    // Font fallback splits one source text node across shaping runs; a
+    // match spanning the split must anchor the WHOLE match, not shrink
+    // to the longest run's slice.
+    let direct = |source_start: u32, len: u32| {
+        Some(SearchPrebuiltRunSource {
+            node_path: vec![3, 1],
+            segments: vec![(0, source_start, len)],
+        })
+    };
+    let page = SearchPageText::from_parts(
+        0,
+        "柊丁".to_owned(),
+        vec![
+            SearchPrebuiltRun {
+                start: 0,
+                end: 1,
+                block_index: 0,
+                line_index: 0,
+                run_index: 0,
+                source: direct(5, 1),
+            },
+            SearchPrebuiltRun {
+                start: 1,
+                end: 2,
+                block_index: 0,
+                line_index: 0,
+                run_index: 1,
+                source: direct(6, 1),
+            },
+        ],
+    );
+    let matches = search_prebuilt_runtime_pages(&[page], "柊丁", false, false, None);
+    let matched = matches.first().expect("the split match is found");
+    assert_eq!(matched.selected_text, "柊丁");
+    let range = matched.source_range.as_ref().expect("a source range");
+    assert_eq!(range.start.node_path, vec![3, 1]);
+    assert_eq!(range.start.text_offset, 5);
+    assert_eq!(range.end.text_offset, 7);
+}
+
+#[test]
+fn direct_runs_of_different_nodes_keep_the_longest_segment() {
+    let page = SearchPageText::from_parts(
+        0,
+        "abcd".to_owned(),
+        vec![
+            SearchPrebuiltRun {
+                start: 0,
+                end: 1,
+                block_index: 0,
+                line_index: 0,
+                run_index: 0,
+                source: Some(SearchPrebuiltRunSource {
+                    node_path: vec![1],
+                    segments: vec![(0, 0, 1)],
+                }),
+            },
+            SearchPrebuiltRun {
+                start: 1,
+                end: 4,
+                block_index: 0,
+                line_index: 0,
+                run_index: 1,
+                source: Some(SearchPrebuiltRunSource {
+                    node_path: vec![2],
+                    segments: vec![(0, 0, 3)],
+                }),
+            },
+        ],
+    );
+    let matches = search_prebuilt_runtime_pages(&[page], "abcd", false, false, None);
+    let matched = matches.first().expect("the match is found");
+    let range = matched.source_range.as_ref().expect("a source range");
+    assert_eq!(range.start.node_path, vec![2]);
+    assert_eq!(matched.selected_text, "bcd");
 }

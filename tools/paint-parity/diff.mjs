@@ -97,3 +97,35 @@ for (const r of results) {
 lines.push('');
 writeFileSync(path.join(outRoot, 'report.md'), lines.join('\n'));
 console.log(lines.join('\n'));
+
+// ---- Budget gate: the residual floor is a contract, not a trend. ----
+// budgets.json pins each fixture's allowed diff-pixel count and channel
+// delta (current floor plus modest headroom). A fixture over budget, an
+// errored fixture, or a fixture with no budget at all fails the run, so
+// pen drift and un-budgeted coverage both surface here instead of in a
+// real book.
+const budgets = JSON.parse(readFileSync(path.join(HERE, 'budgets.json'), 'utf8'));
+const violations = [];
+for (const r of results) {
+  if (r.error) {
+    violations.push(`${r.name}: ${r.error}`);
+    continue;
+  }
+  const budget = budgets[r.name];
+  if (!budget) {
+    violations.push(`${r.name}: no budget in budgets.json (add one consciously)`);
+    continue;
+  }
+  if (r.diffCount > budget.maxDiffPx) {
+    violations.push(`${r.name}: ${r.diffCount} diff px exceeds budget ${budget.maxDiffPx}`);
+  }
+  if (r.maxDelta > budget.maxDelta) {
+    violations.push(`${r.name}: max delta ${r.maxDelta} exceeds budget ${budget.maxDelta}`);
+  }
+}
+if (violations.length > 0) {
+  console.error('\npaint-parity budget violations:');
+  for (const violation of violations) console.error(`  - ${violation}`);
+  process.exit(1);
+}
+console.log('\nbudget gate: all fixtures within budgets.json');

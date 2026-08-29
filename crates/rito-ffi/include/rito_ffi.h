@@ -83,11 +83,17 @@ typedef struct rito_owned_buffer_v1 {
  * is empty. The candidate is not visible until it is committed through
  * rito_adopt_foreground_candidate_v1 with an expected visible artifact of
  * none for the initial frame.
- * If exact locator work is resumably pending, this call returns
- * RITO_STATUS_EXACT_SEEK_PENDING_V1 with an empty artifact_out. The session is
- * ready and retained. The caller must keep the same session ID and submit
- * the same locator/layout/local-page-cap through rito_request_artifact_v1 with
- * a strictly newer request ID. RITO_STATUS_TARGET_NOT_PUBLISHED_V1 is terminal
+ *
+ * Cost model: the target chapter is parsed, styled, and paginated whole in
+ * this one call — there are no page-cap windows to pump and no pending
+ * continuations to retry. RITO_STATUS_EXACT_SEEK_PENDING_V1 is never
+ * returned by the current core (the constant remains for ABI stability).
+ * Chapter-local pagination shapes with pinned faces only: an open without
+ * a pinned font policy fails closed. An open locator is treated as
+ * persisted host data — a source point or anchor that no longer resolves
+ * degrades to the locator's progression, then to the chapter itself, and
+ * the artifact's matchedBy reports what actually resolved; only an
+ * unknown href is terminal. RITO_STATUS_TARGET_NOT_PUBLISHED_V1 is terminal
  * and does not retain a session when returned by open.
  *
  * On every other failure, artifact_out is empty, error_out owns a UTF-8
@@ -122,10 +128,10 @@ uint32_t rito_read_publication_v1(uint64_t session_id,
  * complete RITOREQ1 message may describe a seek or reflow; adjacent turns use
  * rito_request_adjacent_v1. Its session_id must equal the explicit session_id
  * argument. This is the latest-wins foreground operation described above.
- * It is also the continuation entry point after rito_open_v1 reports a
- * resumably pending exact locator; every retry requires a newer request ID.
- * RITO_STATUS_EXACT_SEEK_PENDING_V1 means Core still owns that continuation.
- * RITO_STATUS_TARGET_NOT_PUBLISHED_V1 is terminal for the requested target.
+ * A seek builds its target chapter whole in this one call, exactly like
+ * open; RITO_STATUS_EXACT_SEEK_PENDING_V1 is never returned by the current
+ * core. RITO_STATUS_TARGET_NOT_PUBLISHED_V1 is terminal for the requested
+ * target.
  * A successful result is an owned candidate and does not become visible until
  * rito_adopt_foreground_candidate_v1 accepts its compare-and-swap request.
  */
@@ -142,9 +148,13 @@ uint32_t rito_request_artifact_v1(uint64_t session_id,
  * request with the message's bounded work budget and never exposes a cursor or
  * platform-sized integer through this ABI. A successful result remains an
  * invisible candidate until rito_adopt_foreground_candidate_v1 accepts it.
- * RITO_STATUS_ADJACENT_PENDING_V1 means Core retains resumable adjacent work;
- * retry the same source artifact, direction, and local-page cap with a strictly
- * newer request ID. TARGET_NOT_PUBLISHED without that status is terminal.
+ * A turn that crosses a chapter boundary paginates the whole neighbor
+ * chapter in this one call (a previous turn lands directly on the tail
+ * page; there is no paginate-then-seek retry loop).
+ * RITO_STATUS_ADJACENT_PENDING_V1 means Core retains resumable adjacent
+ * work; retry the same source artifact, direction, and local-page cap with
+ * a strictly newer request ID. TARGET_NOT_PUBLISHED without that status is
+ * terminal.
  */
 uint32_t rito_request_adjacent_v1(uint64_t session_id,
                                   const uint8_t *request_data,

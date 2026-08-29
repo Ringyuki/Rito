@@ -3515,6 +3515,7 @@ mod tests {
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
+            object_fit: rito_style_contract::ObjectFitV1::Fill,
         }
     }
 

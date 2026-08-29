@@ -7,6 +7,21 @@ import 'package:rito_flutter/rito_flutter.dart';
 import 'package:rito_flutter/rito_flutter_native.dart';
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 
+
+RitoPinnedFontPolicy _testPinnedPolicy() {
+  final pinned = File(
+    '../../apps/reader/src/assets/fonts/Tinos-Regular.ttf',
+  ).readAsBytesSync();
+  return RitoPinnedFontPolicy(
+    faces: <RitoPinnedFontFace>[
+      RitoPinnedFontFace(
+        bytes: pinned,
+        genericRole: RitoPinnedFontGenericRole.serif,
+      ),
+    ],
+  );
+}
+
 void main() {
   test('real Rust Native Asset round-trips RITOART1 and RITONAV1', () {
     final publication = File(
@@ -47,6 +62,7 @@ void main() {
       first = bindings.openEncoded(
         publicationBytes: publication,
         requestBytes: encoder.encode(request),
+        pinnedFontPolicy: _testPinnedPolicy(),
       );
       expect(first.sessionId, sessionId);
       expect(first.requestId, 1);
@@ -214,6 +230,7 @@ void main() {
           locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
           work: work,
         ),
+        pinnedFontPolicy: _testPinnedPolicy(),
       );
       try {
         final first = session.firstArtifact;
@@ -298,6 +315,7 @@ void main() {
           locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
           work: work,
         ),
+        pinnedFontPolicy: _testPinnedPolicy(),
       );
       try {
         final first = session.firstArtifact;
@@ -394,7 +412,8 @@ void main() {
         locator: RitoLocator(href: 'OEBPS/Text/Section002.xhtml'),
         work: work,
       ),
-    );
+      pinnedFontPolicy: _testPinnedPolicy(),
+      );
     try {
       var current = session.firstArtifact;
       // A chapter-local artifact has no book-wide numbering: its page
@@ -484,7 +503,8 @@ void main() {
         locator: RitoLocator(href: 'OEBPS/Text/Section011.xhtml'),
         work: work,
       ),
-    );
+      pinnedFontPolicy: _testPinnedPolicy(),
+      );
     try {
       final first = session.firstArtifact;
       expect(first.artifact.bookPageIndex, isNull);
@@ -560,7 +580,8 @@ void main() {
         locator: RitoLocator(href: 'OEBPS/Text/Section002.xhtml'),
         work: work,
       ),
-    );
+      pinnedFontPolicy: _testPinnedPolicy(),
+      );
     try {
       final prepared = session.firstArtifact;
       final page = prepared.artifact.pages.firstWhere(
@@ -595,16 +616,19 @@ void main() {
           .toList();
       expect(painted, isNotEmpty);
       final rect = geometry.rects.first;
+      // Geometry rects are line-box rects while a painted run's rect is
+      // its em-box anchor; they differ by the half-leading, never by a
+      // page margin. Same-space overlap is the decisive property.
       expect(
         painted.any(
           (candidate) =>
-              rect.bounds.x >= candidate.x - 1 &&
-              rect.bounds.x <= candidate.x + candidate.width + 1 &&
-              rect.bounds.y >= candidate.y - 1 &&
-              rect.bounds.y <= candidate.y + candidate.height + 1,
+              rect.bounds.x < candidate.x + candidate.width &&
+              rect.bounds.x + rect.bounds.width > candidate.x &&
+              rect.bounds.y < candidate.y + candidate.height &&
+              rect.bounds.y + rect.bounds.height > candidate.y,
         ),
         isTrue,
-        reason: 'geometry must land inside a painted run, not offset by margins',
+        reason: 'geometry must overlap a painted run, not sit offset by margins',
       );
     } finally {
       await session.dispose();
@@ -644,7 +668,8 @@ void main() {
         locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
         work: work,
       ),
-    );
+      pinnedFontPolicy: _testPinnedPolicy(),
+      );
     try {
       final prepared = session.firstArtifact;
       final needle = prepared.artifact.pages
@@ -659,8 +684,10 @@ void main() {
       expect(response.searchedPageCount, greaterThan(0));
       expect(
         response.scopeComplete,
-        isFalse,
-        reason: 'a chapter-local artifact has not paginated the book',
+        isTrue,
+        reason:
+            'a one-pass chapter-local revision holds its whole chapter, '
+            'so a chapter-scoped search reports a complete scope',
       );
       final hit = response.results.first;
       expect(hit.context, contains(needle));

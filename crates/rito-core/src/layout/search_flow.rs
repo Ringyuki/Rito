@@ -73,6 +73,7 @@ impl SearchPageText {
                     line_index: run.line_index,
                     run_index: run.run_index,
                     source: None,
+                    direct: run.source,
                 })
                 .collect(),
         }
@@ -87,6 +88,38 @@ pub(crate) struct SearchPrebuiltRun {
     pub(crate) block_index: usize,
     pub(crate) line_index: usize,
     pub(crate) run_index: usize,
+    /// The run's source identity, when its builder retained one — a hit
+    /// without it still finds text but cannot anchor a durable locator.
+    pub(crate) source: Option<SearchPrebuiltRunSource>,
+}
+
+/// Direct source mapping of a prebuilt run: the source node path and the
+/// run's piecewise-linear text mapping, `(run_start, source_start, len)`
+/// in run-local UTF-16 (the fragment artifact's own record).
+#[derive(Debug, Clone)]
+pub(crate) struct SearchPrebuiltRunSource {
+    pub(crate) node_path: Vec<usize>,
+    pub(crate) segments: Vec<(u32, u32, u32)>,
+}
+
+impl SearchPrebuiltRunSource {
+    /// The source offset for a run-local caret offset. Offsets inside a
+    /// collapsed gap snap to the nearest following stretch (or the end
+    /// of the last one) — the same seam rule the artifact's own mapping
+    /// uses.
+    fn source_offset(&self, run_offset: u32) -> Option<u32> {
+        for (run_start, source_start, len) in &self.segments {
+            if run_offset < *run_start {
+                return Some(*source_start);
+            }
+            if run_offset <= run_start + len {
+                return Some(source_start + (run_offset - run_start));
+            }
+        }
+        self.segments
+            .last()
+            .map(|(_, source_start, len)| source_start + len)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -97,6 +130,9 @@ struct SearchRunOffset {
     line_index: usize,
     run_index: usize,
     source: Option<SearchRunSource>,
+    /// Direct source mapping for prebuilt fragment runs, which carry
+    /// their node path and text mapping instead of a logical flow.
+    direct: Option<SearchPrebuiltRunSource>,
 }
 
 #[derive(Debug, Clone)]
@@ -521,6 +557,7 @@ fn collect_search_line_offsets(
                 line_index,
                 run_index,
                 source: search_run_source(&run.text_mapping),
+                direct: None,
             });
             text.push_str(&run.text);
             state.offset += length;
@@ -615,10 +652,59 @@ fn search_source_range(
             close(&mut current, &mut previous_flow, &mut segments);
         }
         cursor = part_end;
+        if let Some(direct) = entry.direct.as_ref() {
+            // A prebuilt fragment run maps its own text to source offsets
+            // directly. Consecutive runs of the same source node with
+            // contiguous offsets extend one segment — a match that font
+            // fallback split across two runs must keep its full anchor,
+            // not shrink to the longest run's slice.
+            previous_flow = None;
+            let head = u32::try_from(part_start - entry.start)
+                .ok()
+                .and_then(|offset| direct.source_offset(offset));
+            let tail = u32::try_from(part_end - entry.start)
+                .ok()
+                .and_then(|offset| direct.source_offset(offset));
+            let (Some(head), Some(tail)) = (head, tail) else {
+                close(&mut current, &mut previous_flow, &mut segments);
+                continue;
+            };
+            let continues = current.as_ref().is_some_and(|segment| {
+                segment.end.node_path == direct.node_path
+                    && segment.end.text_offset == head as usize
+                    && segment.covered_end == part_start
+            });
+            let tail_point = SearchSourcePoint {
+                node_path: direct.node_path.clone(),
+                text_offset: tail as usize,
+            };
+            if continues {
+                let segment = current.as_mut().expect("continuity checked");
+                segment.end = tail_point;
+                segment.covered_end = part_end;
+            } else {
+                close(&mut current, &mut previous_flow, &mut segments);
+                current = Some(SearchSourceRange {
+                    start: SearchSourcePoint {
+                        node_path: direct.node_path.clone(),
+                        text_offset: head as usize,
+                    },
+                    end: tail_point,
+                    covered_start: part_start,
+                    covered_end: part_end,
+                });
+            }
+            continue;
+        }
         let Some(source) = entry.source.as_ref() else {
             close(&mut current, &mut previous_flow, &mut segments);
             continue;
         };
+        // A segment opened by a direct run never extends through the
+        // flow arm: flow contiguity is tracked by `previous_flow` alone.
+        if previous_flow.is_none() {
+            close(&mut current, &mut previous_flow, &mut segments);
+        }
         let local_start = part_start - entry.start;
         let local_end = part_end - entry.start;
         let (Some(logical_start), Some(logical_end)) = (

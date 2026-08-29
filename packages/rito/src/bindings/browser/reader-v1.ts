@@ -43,6 +43,13 @@ export interface BrowserReaderV1OpenOptions {
   readonly layout: BrowserReaderLayoutV1;
   readonly work: BrowserReaderWorkBudgetV1;
   readonly textProfile?: BrowserReaderTextProfileV1 | undefined;
+  /**
+   * Pinned fallback faces. Chapter-local pagination shapes with pinned
+   * faces only, so an open without a policy fails closed in the engine.
+   */
+  readonly pinnedFontPolicy?:
+    | { readonly metadataJson: string; readonly faces: readonly Uint8Array[] }
+    | undefined;
 }
 
 export interface BrowserReaderV1Session {
@@ -119,7 +126,11 @@ export async function openBrowserReaderV1WithWorker(
     textProfile: options.textProfile ?? 'platform-string-runs',
   };
   try {
-    const initialArtifact = await client.open(publication, initialRequest);
+    const initialArtifact = await client.open(
+      publication,
+      initialRequest,
+      options.pinnedFontPolicy,
+    );
     return browserReaderV1Session(client, initialArtifact);
   } catch (error: unknown) {
     await client.dispose().catch(() => undefined);

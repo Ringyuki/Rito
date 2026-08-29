@@ -263,6 +263,12 @@ impl<'a> FragmentChapterEngineSession<'a> {
                         block_index: run.block_index,
                         line_index: run.line_index,
                         run_index: run.run_index,
+                        source: run.source.as_ref().map(|source| {
+                            crate::layout::SearchPrebuiltRunSource {
+                                node_path: source.path.clone(),
+                                segments: source.segments.clone(),
+                            }
+                        }),
                     })
                     .collect();
                 Some(crate::layout::SearchPageText::from_parts(

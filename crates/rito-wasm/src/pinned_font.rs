@@ -154,7 +154,7 @@ fn reject_duplicate_pinned_font_faces(
     Ok(())
 }
 
-fn pinned_font_policy_input(
+pub(crate) fn pinned_font_policy_input(
     metadata: ValidatedPinnedFontPolicyMetadata,
     face_bytes: Vec<Vec<u8>>,
 ) -> RuntimePinnedFontPolicyInput {

@@ -234,6 +234,15 @@ async function createBoundedCandidate(
         expectedActiveSpreadIndex: anchor.activeSpreadIndex,
         onCommitted: request.onCommitted,
         ...(anchor.preserveLocator ? { preserveLocator: anchor.preserveLocator } : {}),
+        // Evaluated at COMMIT time, not capture time: if the reader
+        // navigated while this candidate laid out, the user's live
+        // spread wins over the request-time anchor (a whole-book
+        // candidate can take seconds; landing its stale anchor yanked
+        // the reader back one spread — measured on rapid keyboard turns
+        // during pagination). When the reader stayed put, the anchor
+        // resolution applies as before, so a genuine remap (config
+        // change shifting page boundaries) still repositions.
+        preserveActiveSpread: () => state.activeSpreadIndex !== anchor.activeSpreadIndex,
       },
       signal,
     );

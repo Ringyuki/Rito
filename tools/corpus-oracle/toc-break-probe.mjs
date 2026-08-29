@@ -38,7 +38,8 @@ await page.evaluate(
 @font-face { font-family: "__rito_pin_cjk"; src: url("${pinCjk}"); }
 html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }
 body { margin:0; padding:0; }
-img, svg { max-height: ${contentH}px !important; max-width: 100%; }`;
+img, svg { max-height: ${contentH}px !important; max-width: 100%; }
+img { object-fit: contain; }`;
     document.head.insertBefore(s, document.head.firstChild);
     await document.fonts.load('16px "__rito_pin_latin"', 'H');
     await document.fonts.load('16px "__rito_pin_cjk"', '试');

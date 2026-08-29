@@ -166,17 +166,31 @@ final class RitoCanvasPaintTarget implements RitoPaintTarget {
   void paintHorizontalRule(RitoPaintHorizontalRule command) {
     final rect = _rect(command.rect);
     _validateHorizontalRulePaint(command);
-    // Browser pen snap: centerline rounds to the grid, odd heights ride
-    // the half-pixel, endpoints round.
-    final rawY = rect.top + rect.height / 2;
-    final y = rawY.roundToDouble() + (rect.height % 2 == 1 ? 0.5 : 0.0);
-    _strokeStyledLine(
-      ui.Offset(rect.left.roundToDouble(), y),
-      ui.Offset(rect.right.roundToDouble(), y),
-      rect.height,
-      command.paint.color,
-      command.paint.style,
+    // A rule is a border edge in Blink (the hr's border-top), so every
+    // style strokes through the same measured border model as straight
+    // block borders. A rect taller than wide is an hr box's vertical
+    // bevel edge and strokes along y (browser pen paintHorizontalRule).
+    final edge = RitoBorderEdgePaint(
+      color: command.paint.color,
+      style: command.paint.style,
     );
+    if (rect.height > rect.width) {
+      final centerX = rect.left + rect.width / 2;
+      _borderSide(
+        ui.Offset(centerX, rect.top),
+        ui.Offset(centerX, rect.bottom),
+        rect.width,
+        edge,
+      );
+    } else {
+      final centerY = rect.top + rect.height / 2;
+      _borderSide(
+        ui.Offset(rect.left, centerY),
+        ui.Offset(rect.right, centerY),
+        rect.height,
+        edge,
+      );
+    }
   }
 
   void _applyTransform(

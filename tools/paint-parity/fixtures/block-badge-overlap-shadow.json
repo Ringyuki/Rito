@@ -1,0 +1,74 @@
+{
+  "name": "block-badge-overlap-shadow",
+  "width": 420,
+  "height": 300,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 40, "y": 20, "width": 120, "height": 30 },
+      "paint": {
+        "background": { "color": "#000000" },
+        "border": {
+          "top": { "width": 3, "color": "#39D6FF", "style": "double" },
+          "right": { "width": 3, "color": "#39D6FF", "style": "double" },
+          "bottom": { "width": 3, "color": "#39D6FF", "style": "double" },
+          "left": { "width": 3, "color": "#39D6FF", "style": "double" }
+        },
+        "radius": { "px": 30 }
+      },
+      "borderBox": { "topWidth": 3, "rightWidth": 3, "bottomWidth": 3, "leftWidth": 3 }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 200, "y": 20, "width": 120, "height": 30 },
+      "paint": {
+        "background": { "color": "#000000" },
+        "border": {
+          "top": { "width": 3, "color": "#E93D96", "style": "double" },
+          "right": { "width": 3, "color": "#E93D96", "style": "double" },
+          "bottom": { "width": 3, "color": "#E93D96", "style": "double" },
+          "left": { "width": 3, "color": "#E93D96", "style": "double" }
+        },
+        "radius": { "px": 30 }
+      },
+      "borderBox": { "topWidth": 3, "rightWidth": 3, "bottomWidth": 3, "leftWidth": 3 }
+    },
+    {
+      "kind": "paintText",
+      "text": "white on glow line one",
+      "rect": { "x": 40, "y": 80, "width": 300, "height": 24 },
+      "paint": {
+        "color": "#ffffff",
+        "textShadow": [{ "offsetX": 0, "offsetY": 0, "blur": 3, "color": "#39D6FF" }],
+        "font": { "family": "Tinos", "sizePx": 22, "style": "normal", "weight": 700 }
+      }
+    },
+    {
+      "kind": "paintText",
+      "text": "white on glow line two",
+      "rect": { "x": 40, "y": 120, "width": 300, "height": 24 },
+      "paint": {
+        "color": "#ffffff",
+        "textShadow": [{ "offsetX": 0, "offsetY": 0, "blur": 3, "color": "#E93D96" }],
+        "font": { "family": "Tinos", "sizePx": 22, "style": "normal", "weight": 700 }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 40, "y": 170, "width": 60, "height": 60 },
+      "paint": {
+        "background": { "color": "#446688" },
+        "radius": { "px": 30 }
+      }
+    },
+    {
+      "kind": "paintBlock",
+      "rect": { "x": 130, "y": 170, "width": 180, "height": 40 },
+      "paint": {
+        "background": { "color": "#884466" },
+        "radius": { "px": 36 }
+      }
+    }
+  ]
+}

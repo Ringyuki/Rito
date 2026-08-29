@@ -37,12 +37,24 @@ export interface RitoReaderSeekOverridesV1 {
   readonly textProfile?: RitoReaderTextProfileV1 | undefined;
 }
 
+/**
+ * Pinned fallback faces for a reader-v1 session. Chapter-local pagination
+ * shapes with pinned faces only, so an open without a policy fails closed.
+ * `metadataJson` and `faces` follow the same contract as
+ * `RitoWasmDocument.openWithPinnedFontPolicy`.
+ */
+export interface RitoReaderV1PinnedFontPolicyInput {
+  readonly metadataJson: string;
+  readonly faces: readonly Uint8Array[];
+}
+
 export interface RitoCoreWasmReaderV1WorkerClient {
   readonly sessionId: bigint;
   /** Opens the worker-owned session and returns an unadopted initial candidate. */
   open(
     publication: ArrayBuffer,
     initialRequest: RitoReaderArtifactRequestInputV1,
+    pinnedFontPolicy?: RitoReaderV1PinnedFontPolicyInput,
   ): Promise<RitoReaderArtifactV1>;
   /** Reads Core's immutable, session-owned RITOPUB1 metadata snapshot. */
   readPublication(): Promise<RitoReaderPublicationV1>;
@@ -118,8 +130,15 @@ export interface RitoReaderV1RawSession {
 
 export interface RitoReaderV1WorkerHandlerDependencies {
   readonly initRitoCoreWasm: () => Promise<unknown>;
-  readonly RitoReaderSessionV1: new (
+  readonly RitoReaderSessionV1: (new (
     publication: Uint8Array,
     sessionId: bigint,
-  ) => RitoReaderV1RawSession;
+  ) => RitoReaderV1RawSession) & {
+    openWithPinnedFontPolicy(
+      publication: Uint8Array,
+      sessionId: bigint,
+      metadataJson: string,
+      faces: readonly Uint8Array[],
+    ): RitoReaderV1RawSession;
+  };
 }

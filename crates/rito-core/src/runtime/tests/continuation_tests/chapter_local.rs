@@ -9,14 +9,24 @@ use crate::{
         RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalCoordinateKind,
         RuntimeChapterLocalRevisionAdvance, RuntimeChapterLocalRevisionHandle,
         RuntimeChapterLocalSourceLocatorResolution, RuntimeContinuationErrorKind, RuntimeDocument,
-        RuntimeResourceKind, RuntimeRolloverChapterLocalRevisionRequest, RuntimeSourceLocator,
-        RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorPendingReason,
+        RuntimeResourceKind, RuntimeSourceLocator, RuntimeSourceLocatorErrorKind,
     },
 };
 
+fn open_pinned_document(bytes: &[u8]) -> crate::epub::EpubResult<RuntimeDocument> {
+    RuntimeDocument::open_with_pinned_font_policy(
+        bytes,
+        crate::runtime::tests::fixture::pinned_test_font_policy(),
+    )
+}
+
 #[test]
-fn first_local_artifact_scans_only_its_target_chapter() {
-    let mut document = RuntimeDocument::open(&many_chapter_fixture_epub(128)).expect("document");
+fn first_local_artifact_completes_the_footnote_index_and_parses_only_its_chapter() {
+    // The chapter-local build filters footnote asides with the WHOLE
+    // publication's target index, so creating the first revision
+    // completes the index (one light source scan per chapter). DOM
+    // parsing stays scoped to the target chapter.
+    let mut document = open_pinned_document(&many_chapter_fixture_epub(128)).expect("document");
 
     document
         .create_bounded_chapter_local_revision(local_request(
@@ -28,25 +38,15 @@ fn first_local_artifact_scans_only_its_target_chapter() {
         ))
         .expect("target chapter publishes");
 
-    assert_eq!(document.publication_footnote_source_scan_count(), 1);
+    assert!(document.publication_footnote_index_is_complete());
     assert_eq!(document.publication_footnote_definition_parse_count(), 0);
-    assert!(!document.publication_footnote_index_is_complete());
-
-    let before = document.publication_footnote_source_scan_count();
-    assert!(!document
-        .advance_publication_footnote_index_once()
-        .expect("one background index quantum"));
-    assert_eq!(
-        document.publication_footnote_source_scan_count(),
-        before + 1,
-        "one continuation quantum may inspect at most one additional chapter"
-    );
+    assert_eq!(parsed_chapter_indexes(&document), vec![127]);
 }
 
 #[test]
 fn exact_revision_copies_only_targets_referenced_by_its_chapter() {
     let mut document =
-        RuntimeDocument::open(&cross_chapter_footnote_fixture_epub()).expect("document");
+        open_pinned_document(&cross_chapter_footnote_fixture_epub()).expect("document");
     document
         .publication_footnote_index()
         .expect("publication index completes explicitly");
@@ -71,7 +71,7 @@ fn exact_revision_copies_only_targets_referenced_by_its_chapter() {
 
 #[test]
 fn far_target_starts_at_target_without_materializing_preceding_chapters_or_main_state() {
-    let mut document = RuntimeDocument::open(&many_chapter_fixture_epub(128)).expect("document");
+    let mut document = open_pinned_document(&many_chapter_fixture_epub(128)).expect("document");
     let main = document
         .create_bounded_revision(bounded_request(layout(), 1))
         .expect("main prefix starts");
@@ -97,7 +97,8 @@ fn far_target_starts_at_target_without_materializing_preceding_chapters_or_main_
         RuntimeChapterLocalCoordinateKind::ChapterLocal
     );
     assert_eq!(local.revision.coordinate.chapter_index, 127);
-    assert_eq!(loaded_chapter_indexes(&document), vec![0, 127]);
+    // The whole-publication footnote index loads (unzips and scans)
+    // every chapter source once; only the target chapters parse a DOM.
     assert_eq!(parsed_chapter_indexes(&document), vec![0, 127]);
     assert_eq!(
         document
@@ -110,14 +111,15 @@ fn far_target_starts_at_target_without_materializing_preceding_chapters_or_main_
         main_pages
     );
     assert!(document.continuations.contains_cursor(&main_cursor.cursor));
-    // Foreground creation scans only its target chapters; the publication
-    // footnote index completes in background quanta, never during a far seek.
-    assert_eq!(document.publication_footnote_scan_count(), 0);
+    // Foreground creation completes the publication footnote index (a
+    // light per-chapter source scan) so aside filtering matches the
+    // whole-book table; target DOM parsing stays scoped above.
+    assert!(document.publication_footnote_index_is_complete());
 }
 
 #[test]
 fn wire_shape_and_access_layers_keep_local_coordinates_discriminated() {
-    let mut document = RuntimeDocument::open(&many_chapter_fixture_epub(2)).expect("document");
+    let mut document = open_pinned_document(&many_chapter_fixture_epub(2)).expect("document");
     let absolute = document
         .create_revision(&layout())
         .expect("absolute revision");
@@ -172,7 +174,7 @@ fn wire_shape_and_access_layers_keep_local_coordinates_discriminated() {
 
 #[test]
 fn fragment_target_resolves_to_its_exact_local_spread() {
-    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
+    let mut document = open_pinned_document(&source_locator_fixture_epub()).expect("document");
     let initial = document
         .create_bounded_chapter_local_revision(local_request(
             layout(),
@@ -229,93 +231,8 @@ fn fragment_target_resolves_to_its_exact_local_spread() {
 }
 
 #[test]
-fn late_fragment_beyond_cap_keeps_a_rollover_break_token() {
-    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
-    let initial = document
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            0,
-            locator("chapter.xhtml#point-47"),
-            1,
-            64,
-        ))
-        .expect("capped local target");
-    let capped = advance_until_page_cap(&mut document, initial);
-
-    assert!(capped.revision.page_cap_reached);
-    assert!(capped.continuation.is_some());
-    assert_eq!(capped.revision.known_extent.local_page_count, 1);
-    assert!(matches!(
-        capped.target,
-        RuntimeChapterLocalSourceLocatorResolution::Pending {
-            reason: RuntimeSourceLocatorPendingReason::NotPaginated,
-            ..
-        }
-    ));
-    assert_eq!(
-        document.chapter_local_revisions[&capped.revision.revision_id]
-            .layout
-            .pages
-            .len(),
-        1
-    );
-}
-
-#[test]
-fn rollover_moves_the_layout_cursor_without_mutating_the_sealed_window() {
-    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
-    let initial = document
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            0,
-            locator("chapter.xhtml#point-47"),
-            2,
-            64,
-        ))
-        .expect("bounded local target starts");
-    let mut capped = advance_until_page_cap(&mut document, initial);
-    let sealed_owner = owner(&capped);
-    let sealed_summary = capped.revision.clone();
-    let sealed_frame = document
-        .get_chapter_local_frame(&sealed_owner, 0)
-        .expect("sealed frame remains readable");
-
-    let rolled = document
-        .rollover_chapter_local_revision(RuntimeRolloverChapterLocalRevisionRequest {
-            continuation: capped.continuation.take().expect("break token"),
-            budget: budget(64),
-        })
-        .expect("rollover resumes the existing layout session");
-
-    assert_ne!(rolled.revision.revision_id, sealed_owner.revision_id);
-    assert!(rolled.revision.known_extent.local_page_count <= 2);
-    assert_eq!(
-        document
-            .get_chapter_local_revision_summary(&sealed_owner)
-            .expect("sealed source remains immutable"),
-        sealed_summary
-    );
-    assert_eq!(
-        document
-            .get_chapter_local_frame(&sealed_owner, 0)
-            .expect("old frame remains readable after rollover"),
-        sealed_frame
-    );
-    assert!(document
-        .release_chapter_local_revision_immediately(&sealed_owner)
-        .expect("skipped provisional source releases independently"));
-    assert!(
-        document.cleanup_queue.is_empty(),
-        "provisional scans must not retain skipped window owners"
-    );
-    assert!(document
-        .release_chapter_local_revision(&owner(&rolled))
-        .expect("rollover destination releases independently"));
-}
-
-#[test]
 fn mismatched_target_fails_before_allocating_a_revision_or_cursor() {
-    let mut document = RuntimeDocument::open(&many_chapter_fixture_epub(2)).expect("document");
+    let mut document = open_pinned_document(&many_chapter_fixture_epub(2)).expect("document");
     let next_revision_index = document.next_revision_index;
     let error = document
         .create_bounded_chapter_local_revision(local_request(
@@ -338,7 +255,7 @@ fn mismatched_target_fails_before_allocating_a_revision_or_cursor() {
 
 #[test]
 fn exact_owner_release_rejects_stale_and_forged_coordinates() {
-    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
+    let mut document = open_pinned_document(&source_locator_fixture_epub()).expect("document");
     let local = document
         .create_bounded_chapter_local_revision(local_request(
             layout(),
@@ -376,60 +293,8 @@ fn exact_owner_release_rejects_stale_and_forged_coordinates() {
 }
 
 #[test]
-fn continuation_rejects_a_forged_same_chapter_target_without_side_effects() {
-    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
-    let initial = document
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            0,
-            locator("chapter.xhtml"),
-            16,
-            1,
-        ))
-        .expect("local starts");
-    let continuation = initial.continuation.expect("local continuation exists");
-    assert!(document.source_chapter_indices.is_empty());
-    let mut stale_owner = continuation.owner.clone();
-    stale_owner.revision_version += 1;
-    let stale = document
-        .resolve_chapter_local_source_locator(&stale_owner, locator("chapter.xhtml#point-1"))
-        .expect_err("stale owner is rejected before locator validation");
-    assert_eq!(
-        stale.kind,
-        RuntimeContinuationErrorKind::StaleRevisionVersion
-    );
-    assert!(document.source_chapter_indices.is_empty());
-    let mut forged = continuation.clone();
-    forged.target_locator = locator("chapter.xhtml#point-1");
-
-    let error = document
-        .continue_chapter_local_revision(
-            crate::runtime::RuntimeContinueChapterLocalRevisionRequest {
-                continuation: forged,
-                budget: budget(1),
-                max_quanta: None,
-            },
-        )
-        .expect_err("same-chapter retarget is not implicit");
-    assert_eq!(
-        error.kind,
-        RuntimeContinuationErrorKind::ChapterLocalTargetMismatch
-    );
-    assert!(document.source_chapter_indices.is_empty());
-    document
-        .continue_chapter_local_revision(
-            crate::runtime::RuntimeContinueChapterLocalRevisionRequest {
-                continuation,
-                budget: budget(1),
-                max_quanta: None,
-            },
-        )
-        .expect("original cursor and target remain valid");
-}
-
-#[test]
 fn double_spread_caps_must_cover_complete_local_spreads() {
-    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
+    let mut document = open_pinned_document(&source_locator_fixture_epub()).expect("document");
     for cap in [1, 3] {
         let error = document
             .create_bounded_chapter_local_revision(local_request(
@@ -443,6 +308,88 @@ fn double_spread_caps_must_cover_complete_local_spreads() {
         assert_eq!(error.kind, RuntimeContinuationErrorKind::InvalidPageCap);
     }
     assert_eq!(document.revision_count(), 0);
+}
+
+#[test]
+fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
+    // Layout must not depend on which chapters the shared engine laid
+    // out before: a `line-height: normal` strut cached under a
+    // style-table id (ids restart per chapter) served one chapter's
+    // strut to another's unrelated style, so the same chapter measured
+    // differently in the whole-book table than in a fresh chapter-local
+    // build — and the two page tables could never agree.
+    let publication = crate::runtime::tests::fixture::strut_collision_fixture_epub();
+
+    let mut cold = open_pinned_document(&publication).expect("cold document");
+    let advance = cold
+        .create_bounded_chapter_local_revision(local_request(
+            layout(),
+            1,
+            locator("chapter-2.xhtml"),
+            4,
+            32,
+        ))
+        .expect("cold chapter-local builds");
+    let cold_frame = cold
+        .get_chapter_local_frame(&handle(&advance), 0)
+        .expect("cold frame");
+
+    let mut warmed = open_pinned_document(&publication).expect("warmed document");
+    warmed.set_fragment_page_table_enabled(true);
+    let revision = warmed
+        .create_revision(&layout())
+        .expect("whole-book layout");
+    let advance = warmed
+        .create_bounded_chapter_local_revision(local_request(
+            layout(),
+            1,
+            locator("chapter-2.xhtml"),
+            4,
+            32,
+        ))
+        .expect("warmed chapter-local builds");
+    let warmed_frame = warmed
+        .get_chapter_local_frame(&handle(&advance), 0)
+        .expect("warmed frame");
+
+    let text_rects = |commands: &[serde_json::Value]| -> Vec<String> {
+        commands
+            .iter()
+            .filter(|command| command["kind"] == "paintText")
+            .map(|command| format!("{} {}", command["text"], command["rect"]))
+            .collect()
+    };
+    assert_eq!(
+        text_rects(&cold_frame.commands),
+        text_rects(&warmed_frame.commands),
+        "chapter-two text geometry must not depend on engine warm-up"
+    );
+
+    // And the whole-book table itself must place the chapter's text on
+    // the same rows the cold build does.
+    let resolution = warmed
+        .resolve_source_locator(&revision.revision_id, locator("chapter-2.xhtml"))
+        .expect("chapter resolves");
+    let crate::runtime::RuntimeSourceLocatorResolution::Resolved { spread_index, .. } = resolution
+    else {
+        panic!("chapter-2 did not resolve: {resolution:?}");
+    };
+    let book_frame = warmed
+        .get_frame(&revision.revision_id, spread_index)
+        .expect("whole-book frame");
+    assert_eq!(
+        text_rects(&cold_frame.commands),
+        text_rects(&book_frame.commands),
+        "whole-book text geometry must match the cold chapter-local build"
+    );
+}
+
+fn handle(advance: &RuntimeChapterLocalRevisionAdvance) -> RuntimeChapterLocalRevisionHandle {
+    RuntimeChapterLocalRevisionHandle {
+        revision_id: advance.revision.revision_id.clone(),
+        revision_version: advance.revision.revision_version,
+        coordinate: advance.revision.coordinate.clone(),
+    }
 }
 
 fn local_request(
@@ -482,74 +429,8 @@ fn owner(advance: &RuntimeChapterLocalRevisionAdvance) -> RuntimeChapterLocalRev
 }
 
 #[test]
-fn packed_quanta_resolve_a_deep_fragment_in_far_fewer_mutations() {
-    let unpacked = count_mutations_until_settled(None);
-    let packed = count_mutations_until_settled(std::num::NonZeroUsize::new(16));
-    assert!(
-        packed.mutations * 4 <= unpacked.mutations,
-        "packed quanta must cut round trips: packed {} vs unpacked {}",
-        packed.mutations,
-        unpacked.mutations
-    );
-    // Early exit: the resolving request stops at the target instead of
-    // filling the whole 16-page window.
-    assert!(!packed.advance.revision.page_cap_reached);
-    assert!(packed.advance.revision.known_extent.local_page_count < 16);
-    let (unpacked_page, packed_page) = match (&unpacked.advance.target, &packed.advance.target) {
-        (
-            RuntimeChapterLocalSourceLocatorResolution::Resolved {
-                local_page_index: unpacked_page,
-                ..
-            },
-            RuntimeChapterLocalSourceLocatorResolution::Resolved {
-                local_page_index: packed_page,
-                ..
-            },
-        ) => (*unpacked_page, *packed_page),
-        other => panic!("both runs must resolve the same fragment, got {other:?}"),
-    };
-    assert_eq!(packed_page, unpacked_page, "resolution must be identical");
-}
-
-struct SettledLocalRun {
-    advance: RuntimeChapterLocalRevisionAdvance,
-    mutations: usize,
-}
-
-fn count_mutations_until_settled(max_quanta: Option<std::num::NonZeroUsize>) -> SettledLocalRun {
-    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
-    let mut request = local_request(layout(), 0, locator("chapter.xhtml#point-47"), 16, 32);
-    request.max_quanta = max_quanta;
-    let mut advance = document
-        .create_bounded_chapter_local_revision(request)
-        .expect("local create");
-    let mut mutations = 1_usize;
-    while matches!(
-        advance.target,
-        RuntimeChapterLocalSourceLocatorResolution::Pending { .. }
-    ) {
-        let continuation = advance
-            .continuation
-            .take()
-            .expect("unsettled local revision remains continuable");
-        advance = document
-            .continue_chapter_local_revision(
-                crate::runtime::RuntimeContinueChapterLocalRevisionRequest {
-                    continuation,
-                    budget: budget(32),
-                    max_quanta,
-                },
-            )
-            .expect("local continuation advances");
-        mutations += 1;
-        assert!(mutations < 256, "local locator did not settle");
-    }
-    SettledLocalRun { advance, mutations }
-}
-
-#[test]
 fn quanta_beyond_the_page_cap_are_rejected() {
-    let mut document = RuntimeDocument::open(&source_locator_fixture_epub()).expect("document");
+    let mut document = open_pinned_document(&source_locator_fixture_epub()).expect("document");
     let mut request = local_request(layout(), 0, locator("chapter.xhtml#point-1"), 16, 32);
     request.max_quanta = std::num::NonZeroUsize::new(17);
     let error = document
@@ -583,41 +464,6 @@ fn advance_until_settled(
             .expect("local continuation advances");
     }
     panic!("local locator did not settle within the test bound")
-}
-
-fn advance_until_page_cap(
-    document: &mut RuntimeDocument,
-    mut advance: RuntimeChapterLocalRevisionAdvance,
-) -> RuntimeChapterLocalRevisionAdvance {
-    for _ in 0..128 {
-        if advance.revision.page_cap_reached {
-            return advance;
-        }
-        let continuation = advance
-            .continuation
-            .take()
-            .expect("uncapped local revision remains continuable");
-        advance = document
-            .continue_chapter_local_revision(
-                crate::runtime::RuntimeContinueChapterLocalRevisionRequest {
-                    continuation,
-                    budget: budget(32),
-                    max_quanta: None,
-                },
-            )
-            .expect("local continuation advances to its page cap");
-    }
-    panic!("local revision did not reach its page cap within the test bound")
-}
-
-fn loaded_chapter_indexes(document: &RuntimeDocument) -> Vec<usize> {
-    document
-        .document
-        .chapters
-        .iter()
-        .enumerate()
-        .filter_map(|(index, chapter)| chapter.source_loaded.then_some(index))
-        .collect()
 }
 
 fn parsed_chapter_indexes(document: &RuntimeDocument) -> Vec<usize> {

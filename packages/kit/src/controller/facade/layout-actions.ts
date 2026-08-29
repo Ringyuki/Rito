@@ -3,6 +3,8 @@ import type { FrameDriver } from '../../driver/frame-driver';
 import type { ReadingPosition } from '../../interaction/index';
 import type { LayoutPositionPlan } from '../../interaction/position/tracker';
 import { asLegacyPages } from '../compat/legacy-page';
+import { commitCurrentSpread } from '../core/current-spread';
+import { publishSpreadChange } from '../core/spread-change';
 import { syncCanvasSize } from './lifecycle';
 import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from './types';
 import {
@@ -141,10 +143,13 @@ function applyLayoutCommitMutation(
   );
   const preserved = positionPlan?.kind === 'legacy' ? positionPlan.position : null;
   const clearedNativeAnnotationHover = invalidateNativeLayoutGeometry(internals);
-  internals.currentSpread =
+  commitCurrentSpread(
+    internals,
     committedSpreadIndex === undefined
       ? resolveCommittedSpread(internals, preserved)
-      : clampSpreadIndex(internals, committedSpreadIndex);
+      : clampSpreadIndex(internals, committedSpreadIndex),
+    'layout-commit',
+  );
   syncCanvasSize(internals, runtime);
   runtime.pool.invalidateAllContent();
   runtime.pool.assignSlot('curr', internals.currentSpread);
@@ -263,6 +268,5 @@ function emitCommittedSpreadChangeIfCurrent(
   committedSpread: number,
 ): void {
   if (internals.currentSpread !== committedSpread || committedSpread === previousSpread) return;
-  const spread = internals.reader.spreads[committedSpread];
-  if (spread) emitter.emit('spreadChange', { spreadIndex: committedSpread, spread });
+  publishSpreadChange(emitter, internals.reader, committedSpread);
 }
