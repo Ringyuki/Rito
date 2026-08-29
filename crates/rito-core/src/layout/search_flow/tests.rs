@@ -49,6 +49,7 @@ fn case_insensitive_search_maps_folded_offsets_to_original_text() {
             line_index: 3,
             run_index: 4,
             source: None,
+            direct: None,
         }],
     };
     let spec = SearchFlowQuerySpec {
@@ -93,6 +94,7 @@ fn case_insensitive_search_expansion_uses_outward_source_boundaries() {
             line_index: 3,
             run_index: 4,
             source: None,
+            direct: None,
         }],
     };
 
@@ -139,6 +141,7 @@ fn search_match_retains_exact_durable_source_boundaries() {
                     source_start: 10,
                     source_length: 10,
                 }),
+                direct: None,
             },
             SearchRunOffset {
                 start: 10,
@@ -154,6 +157,7 @@ fn search_match_retains_exact_durable_source_boundaries() {
                     source_start: 30,
                     source_length: 10,
                 }),
+                direct: None,
             },
         ],
     };
@@ -214,6 +218,7 @@ fn search_match_shrinks_to_the_sourced_side_of_generated_content() {
                     source_start: 0,
                     source_length: 1,
                 }),
+                direct: None,
             },
             SearchRunOffset {
                 start: 1,
@@ -222,6 +227,7 @@ fn search_match_shrinks_to_the_sourced_side_of_generated_content() {
                 line_index: 0,
                 run_index: 1,
                 source: None,
+                direct: None,
             },
             SearchRunOffset {
                 start: 2,
@@ -237,6 +243,7 @@ fn search_match_shrinks_to_the_sourced_side_of_generated_content() {
                     source_start: 2,
                     source_length: 1,
                 }),
+                direct: None,
             },
         ],
     };
