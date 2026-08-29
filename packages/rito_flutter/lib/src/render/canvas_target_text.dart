@@ -62,20 +62,25 @@ extension _TextPainting on RitoCanvasPaintTarget {
         ? ui.Offset(x, topAnchorY)
         : ui.Offset(x, baselineRow - baselineOffset);
     if (command.paint.textShadows.isNotEmpty) {
-      // The browser pen's shadow scratch pass anchors with textBaseline
-      // 'top' at the rect — deliberately NOT the glyph's snapped
-      // alphabetic anchor. Mirror that offset exactly; the remaining
-      // divergence is Chromium's sub-pixel AA phase, which Skia's
-      // whole-row glyph snap cannot reproduce (accounted AA exemption).
-      _paintTextShadows(painter, command.paint, ui.Offset(x, topAnchorY));
+      // Shadow ink must be congruent with the glyph ink it copies: the
+      // browser pen's scratch blit lands the shadow at the same baseline
+      // its own glyph paints on, offset only by the shadow's offsets.
+      // Anchoring the shadow at the ruby top anchor while the glyph
+      // paints at the snapped alphabetic row floated every glow a few
+      // pixels above its glyphs (b52 colorpages dialogue).
+      _paintTextShadows(painter, command.paint, origin);
     }
     painter.paint(_canvas, origin);
     _paintDecoration(rect, command.paint.decoration);
   }
 
   /// Mirrors the browser pen's scratch-canvas shadow pass: layers render
-  /// back-to-front, the glyph body is knocked out of the accumulated
-  /// shadow bitmap, and the glyph itself paints on top afterwards.
+  /// back-to-front UNDER the glyph in full — Blink composites shadow
+  /// underneath and body on top, the shadow color blending through the
+  /// glyph's antialiased edges. Knocking the glyph body out of the
+  /// shadow first weighted every edge fringe by (1-a) twice, and a
+  /// white glyph on a pure-blur colored glow read hollow and washed
+  /// out against the browser (b52 colorpages dialogue).
   /// Canvas `shadowBlur` is twice the Gaussian sigma, so the mask filter
   /// gets `blur / 2` directly instead of Flutter's radius conversion.
   void _paintTextShadows(
@@ -113,16 +118,6 @@ extension _TextPainting on RitoCanvasPaintTarget {
           origin.translate(shadow.offsetX, shadow.offsetY),
         );
       }
-      // Knock the glyph body out so the shadow never tints it; the real
-      // glyph paints over the hole afterwards.
-      _paintRunWithPaint(
-        painter,
-        paint,
-        ui.Paint()
-          ..color = const ui.Color(0xff000000)
-          ..blendMode = ui.BlendMode.dstOut,
-        origin,
-      );
     } finally {
       _canvas.restore();
     }
@@ -277,6 +272,19 @@ extension _TextPainting on RitoCanvasPaintTarget {
     final borderTop = border?.top?.widthPx ?? 0;
     final borderBottom = border?.bottom?.widthPx ?? 0;
 
+    // The engine's own inline box extents are authoritative when the
+    // paint carries them (browser pen computeInlineBoxRect prefers
+    // paint.box); font metrics only cover paints without them.
+    final boxTop = paint.boxTopPx;
+    final boxBottom = paint.boxBottomPx;
+    if (boxTop != null && boxBottom != null) {
+      return ui.Rect.fromLTRB(
+        (rect.left - paddingLeft - borderLeft).roundToDouble(),
+        (rect.top + boxTop).roundToDouble(),
+        (rect.left + rect.width + paddingRight + borderRight).roundToDouble(),
+        (rect.top + boxBottom).roundToDouble(),
+      );
+    }
     final size = paint.font.sizePx;
     var contentTop = rect.top;
     var contentHeight = size;
@@ -287,17 +295,38 @@ extension _TextPainting on RitoCanvasPaintTarget {
       contentTop = rect.top + _canvasTopAscentRatio * size - ascent;
       contentHeight = ascent + descent;
     }
-    return ui.Rect.fromLTWH(
-      rect.left - paddingLeft - borderLeft,
-      contentTop - paddingTop - borderTop,
-      rect.width + paddingLeft + paddingRight + borderLeft + borderRight,
-      contentHeight + paddingTop + paddingBottom + borderTop + borderBottom,
+    // The inline box rasters on whole device pixels — all four edges
+    // round independently (browser pen computeInlineBoxRect), so band
+    // tops and bottoms are binary rows instead of AA smears.
+    return ui.Rect.fromLTRB(
+      (rect.left - paddingLeft - borderLeft).roundToDouble(),
+      (contentTop - paddingTop - borderTop).roundToDouble(),
+      (rect.left + rect.width + paddingRight + borderRight).roundToDouble(),
+      (contentTop + contentHeight + paddingBottom + borderBottom)
+          .roundToDouble(),
     );
   }
 
-  ui.RRect _inlineRoundedRect(ui.Rect box, double radius) {
+  ui.RRect _inlineRoundedRect(
+    ui.Rect box,
+    double radius, {
+    bool roundStart = true,
+    bool roundEnd = true,
+  }) {
+    // An inline box split across shaping runs paints one continuous
+    // background: only the opening segment rounds its left corners and
+    // only the closing one its right corners (browser pen
+    // traceInlineRoundedRect).
     final resolved = math.min(radius, math.min(box.width / 2, box.height / 2));
-    return ui.RRect.fromRectAndRadius(box, ui.Radius.circular(resolved));
+    final start = roundStart ? ui.Radius.circular(resolved) : ui.Radius.zero;
+    final end = roundEnd ? ui.Radius.circular(resolved) : ui.Radius.zero;
+    return ui.RRect.fromRectAndCorners(
+      box,
+      topLeft: start,
+      bottomLeft: start,
+      topRight: end,
+      bottomRight: end,
+    );
   }
 
   void _paintInlineBackground(ui.Rect rect, RitoRunPaint paint) {
@@ -309,7 +338,15 @@ extension _TextPainting on RitoCanvasPaintTarget {
     final radius = paint.backgroundRadius ?? 0;
     final fill = ui.Paint()..color = _color(color);
     if (radius > 0) {
-      _canvas.drawRRect(_inlineRoundedRect(box, radius), fill);
+      _canvas.drawRRect(
+        _inlineRoundedRect(
+          box,
+          radius,
+          roundStart: paint.boxStart,
+          roundEnd: paint.boxEnd,
+        ),
+        fill,
+      );
     } else {
       _canvas.drawRect(box, fill);
     }

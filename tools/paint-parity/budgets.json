@@ -1,0 +1,82 @@
+{
+  "block-background-image": {
+    "maxDelta": 25,
+    "maxDiffPx": 13518
+  },
+  "block-badge-overlap-shadow": {
+    "maxDelta": 27,
+    "maxDiffPx": 8273
+  },
+  "block-border-dotted-1px": {
+    "maxDelta": 2,
+    "maxDiffPx": 50
+  },
+  "block-borders-solid": {
+    "maxDelta": 7,
+    "maxDiffPx": 278
+  },
+  "block-box-shadow": {
+    "maxDelta": 25,
+    "maxDiffPx": 4844
+  },
+  "block-radius": {
+    "maxDelta": 144,
+    "maxDiffPx": 756
+  },
+  "hr-styles": {
+    "maxDelta": 13,
+    "maxDiffPx": 699
+  },
+  "image-source-rect": {
+    "maxDelta": 16,
+    "maxDiffPx": 13293
+  },
+  "state-transform-clip": {
+    "maxDelta": 4,
+    "maxDiffPx": 4022
+  },
+  "text-baseline-phases": {
+    "maxDelta": 42,
+    "maxDiffPx": 191
+  },
+  "text-colors-fonts": {
+    "maxDelta": 5,
+    "maxDiffPx": 1845
+  },
+  "text-decoration": {
+    "maxDelta": 4,
+    "maxDiffPx": 545
+  },
+  "text-family-fallback": {
+    "maxDelta": 3,
+    "maxDiffPx": 416
+  },
+  "text-inline-box": {
+    "maxDelta": 4,
+    "maxDiffPx": 1818
+  },
+  "text-letter-spacing": {
+    "maxDelta": 3,
+    "maxDiffPx": 62
+  },
+  "text-shadow-ruby": {
+    "maxDelta": 239,
+    "maxDiffPx": 2377
+  },
+  "text-synthetic-bold": {
+    "maxDelta": 126,
+    "maxDiffPx": 7176
+  },
+  "theme-designed-page": {
+    "maxDelta": 105,
+    "maxDiffPx": 6212
+  },
+  "theme-override-dark": {
+    "maxDelta": 4,
+    "maxDiffPx": 3900
+  },
+  "theme-white-page-inline-band": {
+    "maxDelta": 91,
+    "maxDiffPx": 7010
+  }
+}

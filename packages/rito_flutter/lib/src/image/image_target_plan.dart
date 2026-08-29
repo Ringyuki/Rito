@@ -238,13 +238,33 @@ final class _RitoBackgroundImageUse extends _RitoImageUse {
     }
     var width = sourceWidth.toDouble();
     var height = sourceHeight.toDouble();
-    final widthScale = boxWidth / sourceWidth;
-    final heightScale = boxHeight / sourceHeight;
-    final cssScale = size == RitoBackgroundSize.cover
-        ? math.max(widthScale, heightScale)
-        : math.min(widthScale, heightScale);
-    width *= cssScale;
-    height *= cssScale;
+    if (size.isExplicit) {
+      // CSS Backgrounds 3 §3.9: a length axis resolves against the
+      // positioning area, an auto axis derives from the intrinsic ratio
+      // once the other axis resolves.
+      final x = switch (size.x) {
+        null => null,
+        RitoPxLength(:final value) => value,
+        RitoPercentLength(:final value) => boxWidth * value / 100,
+      };
+      final y = switch (size.y) {
+        null => null,
+        RitoPxLength(:final value) => value,
+        RitoPercentLength(:final value) => boxHeight * value / 100,
+      };
+      final intrinsicWidth = width;
+      final intrinsicHeight = height;
+      width = x ?? (y == null ? width : y * intrinsicWidth / intrinsicHeight);
+      height = y ?? (x == null ? height : x * intrinsicHeight / intrinsicWidth);
+    } else {
+      final widthScale = boxWidth / sourceWidth;
+      final heightScale = boxHeight / sourceHeight;
+      final cssScale = size == RitoBackgroundSize.cover
+          ? math.max(widthScale, heightScale)
+          : math.min(widthScale, heightScale);
+      width *= cssScale;
+      height *= cssScale;
+    }
     if (repeat == RitoBackgroundRepeat.round) {
       width = boxWidth / math.max(1, (boxWidth / width).round());
       height = boxHeight / math.max(1, (boxHeight / height).round());
