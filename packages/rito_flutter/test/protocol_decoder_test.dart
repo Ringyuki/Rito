@@ -124,6 +124,13 @@ void main() {
     for (var tag = 1; tag <= 3; tag += 1) {
       decoder.decode(displayFixture(backgroundSizeTag: tag));
     }
+    final explicit = decoder.decode(displayFixture(backgroundSizeTag: 4));
+    final explicitSize =
+        (explicit.commands[7] as RitoPaintBlock).paint.background!.size!;
+    expect(explicitSize.isExplicit, isTrue);
+    expect(explicitSize.x, isNull);
+    expect(explicitSize.y, isA<RitoPercentLength>());
+    expect(explicitSize.y!.value, 40);
     for (var tag = 1; tag <= 2; tag += 1) {
       decoder.decode(displayFixture(fontStyleTag: tag));
       decoder.decode(displayFixture(decorationKindTag: tag));
@@ -165,7 +172,7 @@ void main() {
       displayFixture(pageColorSpaceTag: 16),
       displayFixture(pageColorFlags: 0x10),
       displayFixture(pageColorRed: double.infinity),
-      displayFixture(backgroundSizeTag: 4),
+      displayFixture(backgroundSizeTag: 5),
       displayFixture(backgroundRepeatTag: 7),
       displayFixture(blockRadiusTag: 4),
       displayFixture(shadowInsetTag: 2),

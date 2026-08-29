@@ -55,18 +55,26 @@ extension _RitoDisplayPaintReader on RitoBinaryReader {
     );
   }
 
+  RitoBackgroundSize readBackgroundSize() {
+    final tag = uint8('background size tag');
+    return switch (tag) {
+      1 => RitoBackgroundSize.auto,
+      2 => RitoBackgroundSize.cover,
+      3 => RitoBackgroundSize.contain,
+      // Explicit axes: two optional lengths, a missing axis is auto.
+      4 => RitoBackgroundSize.explicit(
+        x: option('background size x', () => readLength('background size x')),
+        y: option('background size y', () => readLength('background size y')),
+      ),
+      _ => fail('unknown background size tag: $tag'),
+    };
+  }
+
   RitoBackgroundPaint readBackgroundPaint() {
     return RitoBackgroundPaint(
       color: option('background color', readColor),
       image: option('background image', () => string('background image')),
-      size: option(
-        'background size',
-        () => _wireEnum(this, 'background size', const <RitoBackgroundSize>[
-          RitoBackgroundSize.auto,
-          RitoBackgroundSize.cover,
-          RitoBackgroundSize.contain,
-        ]),
-      ),
+      size: option('background size', readBackgroundSize),
       repeat: option(
         'background repeat',
         () => _wireEnum(this, 'background repeat', const <RitoBackgroundRepeat>[
@@ -158,6 +166,12 @@ extension _RitoDisplayPaintReader on RitoBinaryReader {
     for (var index = 0; index < shadowCount; index += 1) {
       shadows.add(readTextShadow());
     }
+    final decoration = option('text decoration', readRunDecoration);
+    final padding = option('text padding', readSpacing);
+    final border = option('text border', readRunBorder);
+    final boxOffsets = option('inline box offsets', () {
+      return (float64('inline box top'), float64('inline box bottom'));
+    });
     return RitoRunPaint(
       font: font,
       color: color,
@@ -166,9 +180,13 @@ extension _RitoDisplayPaintReader on RitoBinaryReader {
       backgroundColor: backgroundColor,
       backgroundRadius: backgroundRadius,
       textShadows: shadows,
-      decoration: option('text decoration', readRunDecoration),
-      padding: option('text padding', readSpacing),
-      border: option('text border', readRunBorder),
+      decoration: decoration,
+      padding: padding,
+      border: border,
+      boxTopPx: boxOffsets?.$1,
+      boxBottomPx: boxOffsets?.$2,
+      boxStart: boolean('inline box start'),
+      boxEnd: boolean('inline box end'),
     );
   }
 

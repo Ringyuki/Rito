@@ -1,8 +1,8 @@
 use super::super::{
     contract::{
-        ReaderBackgroundPaintV1, ReaderBlockPaintV1, ReaderBorderBoxV1, ReaderBorderEdgePaintV1,
-        ReaderColorV1, ReaderHorizontalRulePaintV1, ReaderPagePaintV1, ReaderRunBorderEdgeV1,
-        ReaderRunPaintV1, ReaderTextShadowV1,
+        ReaderBackgroundPaintV1, ReaderBackgroundSizeV1, ReaderBlockPaintV1, ReaderBorderBoxV1,
+        ReaderBorderEdgePaintV1, ReaderColorV1, ReaderHorizontalRulePaintV1, ReaderPagePaintV1,
+        ReaderRunBorderEdgeV1, ReaderRunPaintV1, ReaderTextShadowV1,
     },
     ReaderDisplayListWireError,
 };
@@ -65,6 +65,14 @@ fn write_background(
     })?;
     write_optional(output, background.size.as_ref(), |output, size| {
         output.push(size.tag());
+        if let ReaderBackgroundSizeV1::Explicit { x, y } = size {
+            for axis in [x, y] {
+                write_optional(output, axis.as_ref(), |output, length| {
+                    output.push(length.tag());
+                    write_finite_f64(output, length.value())
+                })?;
+            }
+        }
         Ok(())
     })?;
     write_optional(output, background.repeat.as_ref(), |output, repeat| {
@@ -123,7 +131,14 @@ pub(super) fn write_run_paint(
         write_optional(output, border.bottom.as_ref(), write_run_border_edge)?;
         write_optional(output, border.start.as_ref(), write_run_border_edge)?;
         write_optional(output, border.end.as_ref(), write_run_border_edge)
-    })
+    })?;
+    write_optional(output, paint.box_offsets.as_ref(), |output, offsets| {
+        write_finite_f64(output, offsets.0)?;
+        write_finite_f64(output, offsets.1)
+    })?;
+    output.push(u8::from(paint.box_start));
+    output.push(u8::from(paint.box_end));
+    Ok(())
 }
 
 fn write_optional_f64(

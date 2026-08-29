@@ -66,7 +66,8 @@ fn adapt_background(value: &Value) -> Result<ReaderBackgroundPaintV1, ReaderDisp
     Ok(ReaderBackgroundPaintV1 {
         color,
         image: optional_string(object, "image", "paintBlock.background.image")?.map(str::to_owned),
-        size: optional_string(object, "size", "paintBlock.background.size")?
+        size: object
+            .get("size")
             .map(adapt_background_size)
             .transpose()?,
         repeat: optional_string(object, "repeat", "paintBlock.background.repeat")?
@@ -80,16 +81,33 @@ fn adapt_background(value: &Value) -> Result<ReaderBackgroundPaintV1, ReaderDisp
 }
 
 fn adapt_background_size(
-    value: &str,
+    value: &Value,
 ) -> Result<ReaderBackgroundSizeV1, ReaderDisplayListWireError> {
-    match value {
-        "auto" => Ok(ReaderBackgroundSizeV1::Auto),
-        "cover" => Ok(ReaderBackgroundSizeV1::Cover),
-        "contain" => Ok(ReaderBackgroundSizeV1::Contain),
-        _ => Err(ReaderDisplayListWireError::UnsupportedLegacyValue(
-            "paintBlock.background.size",
-        )),
+    // Keyword sizes travel as strings; explicit sizes (`auto 40%`,
+    // `100% 100%`) travel as `{x, y}` where each axis is `"auto"` or a
+    // `{unit, value}` length.
+    if let Some(keyword) = value.as_str() {
+        return match keyword {
+            "auto" => Ok(ReaderBackgroundSizeV1::Auto),
+            "cover" => Ok(ReaderBackgroundSizeV1::Cover),
+            "contain" => Ok(ReaderBackgroundSizeV1::Contain),
+            _ => Err(ReaderDisplayListWireError::UnsupportedLegacyValue(
+                "paintBlock.background.size",
+            )),
+        };
     }
+    let object = exact_object(value, &["x", "y"], "paintBlock.background.size")?;
+    let axis = |key| -> Result<_, ReaderDisplayListWireError> {
+        let value = field(object, key, "paintBlock.background.size")?;
+        if value.as_str() == Some("auto") {
+            return Ok(None);
+        }
+        adapt_length(value).map(Some)
+    };
+    Ok(ReaderBackgroundSizeV1::Explicit {
+        x: axis("x")?,
+        y: axis("y")?,
+    })
 }
 
 fn adapt_background_repeat(
@@ -140,7 +158,10 @@ fn optional_edge(
 }
 
 fn adapt_border_edge(value: &Value) -> Result<ReaderBorderEdgePaintV1, ReaderDisplayListWireError> {
-    let object = exact_object(value, &["color", "style"], "paintBlock.border.edge")?;
+    // The fragment engine's edges also carry their width (the canvas
+    // renderer strokes from it); V1 transports widths in borderBox, so
+    // the field is redundant here and simply accepted.
+    let object = exact_object(value, &["color", "style", "width"], "paintBlock.border.edge")?;
     Ok(ReaderBorderEdgePaintV1 {
         color: adapt_color(
             field_string(object, "color", "paintBlock.border.edge.color")?,
@@ -304,6 +325,12 @@ pub(super) fn adapt_run_paint(
             left: spacing.left,
         }),
         border: paint.border().map(adapt_run_border).transpose()?,
+        box_offsets: match paint.box_offsets() {
+            Some((top, bottom)) => Some((finite(top)?, finite(bottom)?)),
+            None => None,
+        },
+        box_start: paint.box_edges().0,
+        box_end: paint.box_edges().1,
     })
 }
 
@@ -347,7 +374,7 @@ fn adapt_typed_border_edge(
 pub(super) fn adapt_horizontal_rule_paint(
     value: &Value,
 ) -> Result<ReaderHorizontalRulePaintV1, ReaderDisplayListWireError> {
-    let object = exact_object(value, &["color", "style"], "paintHorizontalRule.paint")?;
+    let object = exact_object(value, &["color", "style", "width"], "paintHorizontalRule.paint")?;
     Ok(ReaderHorizontalRulePaintV1 {
         color: adapt_color(
             field_string(object, "color", "paintHorizontalRule.paint.color")?,

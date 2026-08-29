@@ -201,6 +201,18 @@ impl RunPaint {
         self.data.padding.as_ref()
     }
 
+    /// Engine-computed inline box extents relative to the run rect top,
+    /// when the paint carries them.
+    pub(crate) fn box_offsets(&self) -> Option<(f64, f64)> {
+        self.data.box_offsets
+    }
+
+    /// Whether this run opens/closes its inline box (a run split across
+    /// lines squares its inner ends).
+    pub(crate) fn box_edges(&self) -> (bool, bool) {
+        self.data.box_edges
+    }
+
     pub(crate) fn add_word_spacing(&mut self, delta: f64) {
         if delta != 0.0 {
             let data = Arc::make_mut(&mut self.data);

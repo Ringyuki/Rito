@@ -123,7 +123,18 @@ void _blockPaint(
   writer.option(() {
     writer.option(() => _color(writer));
     writer.option(() => writer.string(testRelativeImageHref));
-    writer.option(() => writer.uint8(backgroundSizeTag));
+    writer.option(() {
+      writer.uint8(backgroundSizeTag);
+      if (backgroundSizeTag == 4) {
+        // Explicit size: auto x, 40% y.
+        writer.option(null);
+        writer.option(() {
+          writer
+            ..uint8(2)
+            ..float64(40);
+        });
+      }
+    });
     writer.option(() => writer.uint8(backgroundRepeatTag));
     writer.option(() {
       writer
@@ -214,6 +225,15 @@ void _text(
     });
     writer.option(null);
   });
+  // Inline box offsets, then the open/close flags.
+  writer.option(() {
+    writer
+      ..float64(1)
+      ..float64(19);
+  });
+  writer
+    ..uint8(1)
+    ..uint8(1);
   writer.option(() => writer.float64(18));
   writer.option(() => writer.string('#note'));
   writer.option(() => writer.string('source $text'));

@@ -118,7 +118,20 @@ impl Decoder<'_> {
         }
         self.read_optional_color()?;
         self.read_optional_string()?;
-        self.read_optional_enum(1, 3)?;
+        if self.read_option()? {
+            // Size tag 4 (explicit) is followed by two optional lengths.
+            let tag = self.read_u8()?;
+            if !(1..=4).contains(&tag) {
+                return Err(DecodeError::UnknownEnum(tag));
+            }
+            if tag == 4 {
+                for _ in 0..2 {
+                    if self.read_option()? {
+                        self.read_length()?;
+                    }
+                }
+            }
+        }
         self.read_optional_enum(1, 6)?;
         if self.read_option()? {
             self.read_length()?;
@@ -171,6 +184,11 @@ impl Decoder<'_> {
                 }
             }
         }
+        if self.read_option()? {
+            self.read_f64s(2)?;
+        }
+        self.read_bool()?;
+        self.read_bool()?;
         Ok(())
     }
 
