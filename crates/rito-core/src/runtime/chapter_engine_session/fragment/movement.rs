@@ -517,14 +517,19 @@ fn run_at<'a>(
 }
 
 fn nearest_line_at_y(page: &ScopePage<'_>, y: f64) -> Option<usize> {
+    // Line bands are half-open [top, top + height): a caret y exactly on
+    // a boundary belongs to the line STARTING there, the way a browser
+    // maps a caret at a line edge (a page jump from a line top would
+    // otherwise tie with the line above and land one line short).
     let mut best: Option<(f64, usize)> = None;
     for (index, line) in page.lines.iter().enumerate() {
+        if y >= line.y && y < line.y + line.height {
+            return Some(index);
+        }
         let distance = if y < line.y {
             line.y - y
-        } else if y > line.y + line.height {
-            y - (line.y + line.height)
         } else {
-            0.0
+            y - (line.y + line.height)
         };
         if best.is_none_or(|(best_distance, _)| distance < best_distance) {
             best = Some((distance, index));

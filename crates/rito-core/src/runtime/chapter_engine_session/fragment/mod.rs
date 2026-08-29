@@ -500,7 +500,9 @@ impl<'a> FragmentChapterEngineSession<'a> {
     fn paragraph_trailing_separator(&self, end: &TextCaretAddress) -> Option<&'static str> {
         let artifact = self.artifact(end.page_index)?;
         let runs = artifact.interaction_runs();
-        let last_in_block = runs.iter().rfind(|run| run.block_index == end.block_index)?;
+        let last_in_block = runs
+            .iter()
+            .rfind(|run| run.block_index == end.block_index)?;
         let next = runs.iter().find(|run| run.block_index > end.block_index)?;
         let sibling = last_in_block
             .source
@@ -644,6 +646,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
         };
         let mut selected_text = String::new();
         let mut previous_block: Option<(usize, usize)> = None;
+        let mut previous_end: Option<usize> = None;
         let mut previous_source_path: Option<Vec<usize>> = None;
         let mut rects = Vec::new();
         for page_index in start.page_index..=end.page_index {
@@ -687,9 +690,21 @@ impl<'a> FragmentChapterEngineSession<'a> {
                                     && before[..before.len() - 1] == after[..after.len() - 1]
                             });
                         selected_text.push_str(if sibling { "\n" } else { "\n\n" });
+                    } else if let Some(end) = previous_end {
+                        // Same block, next line: a HARD break (<br/>)
+                        // between the runs re-adds the line break a
+                        // browser copy carries; a soft wrap adds nothing.
+                        if artifact
+                            .hard_break_offsets()
+                            .iter()
+                            .any(|offset| *offset >= end && *offset < clip_start)
+                        {
+                            selected_text.push('\n');
+                        }
                     }
                 }
                 previous_block = Some((page_index, run.block_index));
+                previous_end = Some(clip_end);
                 if let Some(source) = run.source.as_ref() {
                     previous_source_path = Some(source.path.clone());
                 }

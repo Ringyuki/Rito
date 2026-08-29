@@ -136,6 +136,13 @@ pub(in crate::runtime) struct FragmentPageArtifact {
     images: Vec<FragmentImageRecord>,
     links: Vec<FragmentLinkRecord>,
     semantics: Vec<FragmentSemanticRecord>,
+    /// Page-text offsets of interline separators that stand for a HARD
+    /// break (`<br/>`): the flow text carries a newline there that no
+    /// run covers (a fallback-font break shapes into its own run and the
+    /// trailing-whitespace trim drops it), so a selection crossing the
+    /// boundary re-adds the line break a browser copy carries. Soft
+    /// wraps share the same separator character but are absent here.
+    hard_breaks: Vec<usize>,
 }
 
 /// A block-level link's whole border box on this page: the browser makes
@@ -192,7 +199,13 @@ impl FragmentPageArtifact {
             images: Vec::new(),
             links: Vec::new(),
             semantics: Vec::new(),
+            hard_breaks: Vec::new(),
         }
+    }
+
+    /// Page-text offsets of interline separators standing for hard breaks.
+    pub(in crate::runtime) fn hard_break_offsets(&self) -> &[usize] {
+        &self.hard_breaks
     }
 
     /// The page's text runs, for interaction resolvers.
@@ -226,6 +239,8 @@ impl FragmentPageArtifact {
             images: Vec::new(),
             links: Vec::new(),
             semantics: Vec::new(),
+            hard_breaks: Vec::new(),
+            flow_last_text_end: std::collections::HashMap::new(),
         };
         let Fragment::Box(page_root) = root else {
             return Self::empty(page_index, width, height);
@@ -253,6 +268,7 @@ impl FragmentPageArtifact {
             images: builder.images,
             links: builder.links,
             semantics: builder.semantics,
+            hard_breaks: builder.hard_breaks,
         }
     }
 
@@ -268,6 +284,7 @@ impl FragmentPageArtifact {
             images: Vec::new(),
             links: Vec::new(),
             semantics: Vec::new(),
+            hard_breaks: Vec::new(),
         }
     }
 }
@@ -282,6 +299,10 @@ struct ArtifactBuilder<'a> {
     images: Vec<FragmentImageRecord>,
     links: Vec<FragmentLinkRecord>,
     semantics: Vec<FragmentSemanticRecord>,
+    hard_breaks: Vec<usize>,
+    /// Per flow: the byte end of the previous line's last text fragment
+    /// in that flow's concatenated text, for hard-break detection.
+    flow_last_text_end: std::collections::HashMap<u32, usize>,
 }
 
 impl ArtifactBuilder<'_> {
@@ -354,8 +375,30 @@ impl ArtifactBuilder<'_> {
                     .iter()
                     .any(|child| matches!(child, Fragment::Text(_)));
                 if has_line_text && self.has_text {
+                    // A hard break leaves a newline in the FLOW text
+                    // between the previous line's last fragment and this
+                    // line's first one; a soft wrap leaves none.
+                    let first_start = line.children.iter().find_map(|child| match child {
+                        Fragment::Text(run) => Some(run.text_start as usize),
+                        _ => None,
+                    });
+                    let hard = self
+                        .flow_last_text_end
+                        .get(&line.source.0)
+                        .zip(first_start)
+                        .and_then(|(previous, first)| flow_text.get(*previous..first))
+                        .is_some_and(|gap| gap.contains('\n'));
+                    if hard {
+                        self.hard_breaks.push(self.offset);
+                    }
                     self.text.push('\n');
                     self.offset += 1;
+                }
+                if let Some(last_end) = line.children.iter().rev().find_map(|child| match child {
+                    Fragment::Text(run) => Some(run.text_end as usize),
+                    _ => None,
+                }) {
+                    self.flow_last_text_end.insert(line.source.0, last_end);
                 }
                 for (run_index, child) in line.children.iter().enumerate() {
                     match child {

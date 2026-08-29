@@ -1953,7 +1953,9 @@ fn selection_geometry_spans_the_injected_font_grid_box() {
             let artifact = session
                 .request_artifact(request(164, 1, ""))
                 .expect("artifact resolves");
-            let requests = session.document_for_tests().take_host_line_metric_requests();
+            let requests = session
+                .document_for_tests()
+                .take_host_line_metric_requests();
             if !requests.is_empty() {
                 for (family, _measure, size, sample) in requests {
                     known.push((family, size, sample));

@@ -960,7 +960,10 @@ fn resolved_text(
         .expect("granular request is valid");
     let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.value.resolution
     else {
-        panic!("granular selection resolves, got {:?}", response.value.resolution);
+        panic!(
+            "granular selection resolves, got {:?}",
+            response.value.resolution
+        );
     };
     range.selected_text.clone()
 }
@@ -1105,7 +1108,10 @@ fn fragment_selection_rects_span_the_injected_font_grid_box() {
             let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } =
                 response.value.resolution
             else {
-                panic!("word selection resolves, got {:?}", response.value.resolution);
+                panic!(
+                    "word selection resolves, got {:?}",
+                    response.value.resolution
+                );
             };
             return range.rects.first().expect("a selection rect").height;
         }
@@ -1123,3 +1129,85 @@ fn fragment_selection_rects_span_the_injected_font_grid_box() {
     );
 }
 
+fn pointer_selection_document_cjk(
+    chapter: &[u8],
+) -> (RuntimeDocument, RuntimeRevisionHandle, String) {
+    let epub = fixture_epub_with_chapter_and_stylesheet(chapter, "p { margin: 0; }\n");
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![
+            face(serif_text_font(), RuntimePinnedFontGenericRole::Serif, None),
+            face(
+                std::fs::read(
+                    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"),
+                )
+                .expect("source han reads"),
+                RuntimePinnedFontGenericRole::Serif,
+                Some("zh-Hans"),
+            ),
+        ]),
+    )
+    .expect("selection fixture opens");
+    document.set_fragment_page_table_enabled(true);
+    let mut layout = font_aware_layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let handle = RuntimeRevisionHandle::from(&summary);
+    let revision_id = summary.revision_id.clone();
+    (document, handle, revision_id)
+}
+
+#[test]
+fn a_selection_crossing_a_hard_break_copies_the_line_break() {
+    // A <br/> leaves a newline in the flow text. A same-font run keeps it
+    // inside the preceding run's text; a fallback-font break (CJK under a
+    // Latin-first pin) shapes it into its own run, which the trailing
+    // trim drops — the artifact's hard-break ledger restores the "\n" a
+    // browser copy carries, while soft wraps stay seamless.
+    for (label, chapter, from, to) in [
+        (
+            "latin",
+            br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p>ALPHA FIRST LINE<br/>BRAVO SECOND LINE</p></body></html>"# as &[u8],
+            "ALPHA",
+            "SECOND",
+        ),
+        (
+            "cjk",
+            br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p>&#x72EC;&#x5C45;&#x751F;&#x6D3B;&#x5F00;&#x59CB;<br/>&#x5E2E;&#x4ED6;&#x505A;&#x996D;&#x6253;&#x626B;</p></body></html>"# as &[u8],
+            "\u{72EC}\u{5C45}",
+            "\u{6253}\u{626B}",
+        ),
+    ] {
+        let (document, handle, revision_id) = pointer_selection_document_cjk(chapter);
+        let start = word_center_point(&document, &revision_id, from);
+        let end = word_center_point(&document, &revision_id, to);
+        let response = document
+            .resolve_text_range_from_points_at(
+                &handle,
+                RuntimeTextRangeFromPointsRequest {
+                    anchor: start,
+                    focus: end,
+                    granularity: RuntimeTextSelectionGranularity::Word,
+                },
+            )
+            .expect("word request is valid");
+        let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.value.resolution
+        else {
+            panic!("selection resolves");
+        };
+        assert!(
+            range.selected_text.contains('\n'),
+            "{label}: the hard break survives the copy, got {:?}",
+            range.selected_text
+        );
+        assert!(
+            !range.selected_text.contains("\n\n"),
+            "{label}: a <br/> is one line break, not a paragraph gap, got {:?}",
+            range.selected_text
+        );
+    }
+}
