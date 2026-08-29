@@ -464,11 +464,24 @@ impl<'a> FragmentChapterEngineSession<'a> {
         let Some(focus_caret) = self.caret_at(focus) else {
             return PageArtifactTextRangeFromPointsResolution::Miss;
         };
-        let Some(range) = self.range_between(anchor, focus) else {
+        let trailing_separator = match query.granularity {
+            PageArtifactTextSelectionGranularity::Paragraph => {
+                self.paragraph_trailing_separator(if address_key(&focus) < address_key(&anchor) {
+                    &anchor
+                } else {
+                    &focus
+                })
+            }
+            PageArtifactTextSelectionGranularity::Word => None,
+        };
+        let Some(mut range) = self.range_between(anchor, focus) else {
             return PageArtifactTextRangeFromPointsResolution::Unavailable(
                 TextInteractionUnavailableReason::InvalidCaret,
             );
         };
+        if let Some(separator) = trailing_separator {
+            range.selected_text.push_str(separator);
+        }
         PageArtifactTextRangeFromPointsResolution::Resolved(Box::new(
             PageArtifactTextRangeFromPoints {
                 anchor_caret,
@@ -476,6 +489,30 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 range: Box::new(range),
             },
         ))
+    }
+
+    /// The separator a browser copy carries after a paragraph-granularity
+    /// selection: the boundary between the selection's last block and the
+    /// block that follows it on the page — one line break between sibling
+    /// text nodes of the same source element (a <br/> split), a blank
+    /// line between distinct elements. None when no block follows, the
+    /// way a native selection ends at the document's last paragraph.
+    fn paragraph_trailing_separator(&self, end: &TextCaretAddress) -> Option<&'static str> {
+        let artifact = self.artifact(end.page_index)?;
+        let runs = artifact.interaction_runs();
+        let last_in_block = runs.iter().rfind(|run| run.block_index == end.block_index)?;
+        let next = runs.iter().find(|run| run.block_index > end.block_index)?;
+        let sibling = last_in_block
+            .source
+            .as_ref()
+            .zip(next.source.as_ref())
+            .is_some_and(|(before, after)| {
+                let (before, after) = (before.path.as_slice(), after.path.as_slice());
+                !before.is_empty()
+                    && before.len() == after.len()
+                    && before[..before.len() - 1] == after[..after.len() - 1]
+            });
+        Some(if sibling { "\n" } else { "\n\n" })
     }
 
     pub(super) fn resolve_text_selection_movement(
@@ -669,12 +706,16 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 let length = (run.end - run.start).max(1) as f64;
                 let from = (clip_start - run.start) as f64 / length;
                 let to = (clip_end - run.start) as f64 / length;
+                // A native selection rect spans the run's FONT box, the
+                // way a Chromium Range rect does; the line box is the
+                // fallback for hosts that inject no grid metric.
+                let (rect_y, rect_height) = run.font_box.unwrap_or((run.y, run.height));
                 rects.push(PageArtifactExactTextRangeRect {
                     page_index,
                     x: run.x + run.width * from,
-                    y: run.y,
+                    y: rect_y,
                     width: run.width * (to - from),
-                    height: run.height,
+                    height: rect_height,
                     block_index: run.block_index,
                     line_index: run.line_index,
                     run_index: run.run_index,
@@ -748,14 +789,21 @@ impl<'a> FragmentChapterEngineSession<'a> {
             return None;
         }
         let artifact = self.artifact(anchor.page_index)?;
-        let hit_start = position_of(artifact, &anchor)?.min(position_of(artifact, &focus)?);
-        let hit_end = position_of(artifact, &anchor)?.max(position_of(artifact, &focus)?);
-        let (start, end) = plain_word_bounds(
-            artifact.page_text(),
-            hit_start as u32,
-            hit_end as u32,
-            language,
-        )?;
+        let anchor_hit = position_of(artifact, &anchor)?;
+        let focus_hit = position_of(artifact, &focus)?;
+        // Each endpoint expands to ITS OWN word: a word-granularity drag
+        // spans from the anchor word's outer edge to the focus word's
+        // outer edge (a single word interval never contains a multi-word
+        // drag). Document order flips with the drag direction so the
+        // anchor word stays fully selected either way.
+        let text = artifact.page_text();
+        let anchor_word = plain_word_bounds(text, anchor_hit as u32, anchor_hit as u32, language)?;
+        let focus_word = plain_word_bounds(text, focus_hit as u32, focus_hit as u32, language)?;
+        let (start, end) = if focus_hit >= anchor_hit {
+            (anchor_word.0, focus_word.1)
+        } else {
+            (focus_word.0, anchor_word.1)
+        };
         Some((
             address_of(artifact, anchor.page_index, start as usize)?,
             address_of(artifact, anchor.page_index, end as usize)?,
@@ -773,11 +821,14 @@ impl<'a> FragmentChapterEngineSession<'a> {
             return None;
         }
         let artifact = self.artifact(anchor.page_index)?;
-        let block = anchor.block_index;
+        // A paragraph-granularity drag spans every block from the anchor
+        // block to the focus block, each selected whole.
+        let first_block = anchor.block_index.min(focus.block_index);
+        let last_block = anchor.block_index.max(focus.block_index);
         let mut start: Option<usize> = None;
         let mut end: Option<usize> = None;
         for run in artifact.interaction_runs() {
-            if run.block_index != block {
+            if run.block_index < first_block || run.block_index > last_block {
                 continue;
             }
             start = Some(start.map_or(run.start, |value| value.min(run.start)));
@@ -862,8 +913,10 @@ fn caret_record(
         },
         geometry: TextCaretGeometry {
             x: run.x + run.width * ratio,
-            y: run.y,
-            height: run.height,
+            // The caret spans the run's font box like a selection rect;
+            // hit-testing above stays on the full line band.
+            y: run.font_box.map_or(run.y, |(top, _)| top),
+            height: run.font_box.map_or(run.height, |(_, height)| height),
         },
         source_point: run_source_point(run, char_index),
     }
