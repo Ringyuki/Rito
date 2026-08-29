@@ -22,6 +22,21 @@ Future<ui.Image> solidImage(int width, int height) async {
   return image;
 }
 
+
+RitoPinnedFontPolicy _testPinnedPolicy() {
+  final pinned = File(
+    '../../apps/reader/src/assets/fonts/Tinos-Regular.ttf',
+  ).readAsBytesSync();
+  return RitoPinnedFontPolicy(
+    faces: <RitoPinnedFontFace>[
+      RitoPinnedFontFace(
+        bytes: pinned,
+        genericRole: RitoPinnedFontGenericRole.serif,
+      ),
+    ],
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -52,6 +67,7 @@ void main() {
       try {
         return bindings.openEncoded(
           publicationBytes: publication,
+          pinnedFontPolicy: _testPinnedPolicy(),
           requestBytes: const RitoRequestEncoder().encode(
             RitoArtifactRequest(
               sessionId: sessionId,
@@ -114,8 +130,12 @@ void main() {
     );
     expect(
       firstFamily(overridden),
-      contains('Courier New'),
-      reason: 'the override replaces the book family rather than trailing it',
+      isNot(contains('Courier New')),
+      reason:
+          'a pinned-font open shapes only pinned and embedded faces: an '
+          'override naming an unavailable system family resolves through '
+          'the pinned policy instead of leaking a face the engine never '
+          'measured with',
     );
     expect(
       firstFamily(overridden),
