@@ -56,18 +56,22 @@ export async function loadPageMovementSelectionFixture(page: Page): Promise<void
 }
 
 export async function prepareEdgeSelectionFixture(page: Page): Promise<void> {
-  await prepareSinglePageLazyFixture(page, EDGE_FIRST_PAGE_TEXT);
+  await prepareSinglePageFixture(page, EDGE_FIRST_PAGE_TEXT, 2);
 }
 
 export async function prepareDocumentSelectionFixture(page: Page): Promise<void> {
-  await prepareSinglePageLazyFixture(page, DOCUMENT_FIRST_CHAPTER_TEXT);
+  await prepareSinglePageFixture(page, DOCUMENT_FIRST_CHAPTER_TEXT, 2);
 }
 
 export async function preparePageMovementSelectionFixture(page: Page): Promise<void> {
-  await prepareSinglePageLazyFixture(page, PAGE_MOVEMENT_FIRST_TOP);
+  await prepareSinglePageFixture(page, PAGE_MOVEMENT_FIRST_TOP, 3);
 }
 
-async function prepareSinglePageLazyFixture(page: Page, firstPageText: string): Promise<void> {
+async function prepareSinglePageFixture(
+  page: Page,
+  firstPageText: string,
+  totalSpreads: number,
+): Promise<void> {
   await page.getByTestId('reader-context-trigger').click({ button: 'right' });
   await page.getByRole('menuitem', { name: /Reader Settings/ }).click();
   const heading = page.getByRole('heading', { name: 'Reader Settings' });
@@ -78,9 +82,12 @@ async function prepareSinglePageLazyFixture(page: Page, firstPageText: string): 
 
   const shell = page.getByTestId('reader-shell');
   await expect(shell).toHaveAttribute('data-spread-mode', 'single');
-  await expect(shell).toHaveAttribute('data-pagination-complete', 'false');
+  // One-pass pagination lays the whole book out up front, so the settled
+  // state is complete with every spread already published; the old lazy
+  // window between mode switch and completion no longer exists to observe.
+  await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
+  await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(totalSpreads);
   await expect.poll(() => currentReaderSpread(page)).toBe(0);
-  await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(1);
   await waitForVisibleDocumentText(page, firstPageText);
   await stableReaderCanvasChecksum(page);
 }
@@ -132,7 +139,6 @@ export function chromiumSelectionOracle(
       const range = document.createRange();
       range.selectNodeContents(textNode);
       const rangeRect = range.getClientRects()[0];
-      const spanRect = span.getBoundingClientRect();
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Chromium selection oracle has no Canvas context');
@@ -141,11 +147,17 @@ export function chromiumSelectionOracle(
       const metrics = context.measureText(content);
       span.remove();
       if (!rangeRect) throw new Error('Chromium selection oracle has no rectangle');
+      // With textBaseline 'top' the canvas anchor is the EM top, which
+      // sits fontBoundingBoxAscent BELOW the font-box top a native
+      // selection rect starts at (probed: Tinos 32px anchor gap 4.59px,
+      // Range top = line top + 6 = font-box top). The ink center is
+      // therefore fontBoundingBoxAscent + inkCenter below the font-box
+      // top; the DOM range backs the height oracle.
       const canvasInkCenter =
         (-metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) / 2;
       return {
         height: rangeRect.height,
-        topFromCanvasInkCenter: rangeRect.top - spanRect.top - canvasInkCenter,
+        topFromCanvasInkCenter: -(metrics.fontBoundingBoxAscent + canvasInkCenter),
       };
     },
     { family, fontSize, lineHeight, content },
@@ -287,14 +299,24 @@ export async function readSelectionHighlightBands(
     const logicalPixelHeight = bounds.height / canvas.height / renderScale;
     const bands: { top: number; height: number }[] = [];
     for (const group of inkGroups) {
-      let top = -1;
-      let bottom = -1;
-      for (let y = Math.max(0, group.top - 2); y <= group.bottom + 2; y += 1) {
-        if (!highlightRows.has(y)) continue;
-        if (top < 0) top = y;
-        bottom = y;
+      // Seed on a highlighted row inside the ink band, then take the whole
+      // contiguous highlight run around it: the painted band spans the
+      // line's FONT box, which reaches past the glyph ink but never
+      // touches the neighbouring line's band (the line pitch exceeds the
+      // font-box height), so the contiguous run IS one line's band.
+      let seed = -1;
+      for (let y = group.top; y <= group.bottom; y += 1) {
+        if (highlightRows.has(y)) {
+          seed = y;
+          break;
+        }
       }
-      if (top >= 0 && bottom - top >= 2) {
+      if (seed < 0) continue;
+      let top = seed;
+      while (top - 1 >= 0 && highlightRows.has(top - 1)) top -= 1;
+      let bottom = seed;
+      while (bottom + 1 < canvas.height && highlightRows.has(bottom + 1)) bottom += 1;
+      if (bottom - top >= 2 && bands.at(-1)?.top !== top * logicalPixelHeight) {
         bands.push({
           top: top * logicalPixelHeight,
           height: (bottom - top + 1) * logicalPixelHeight,

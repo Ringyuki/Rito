@@ -279,7 +279,7 @@ test.describe('reader primary selection edge autoscroll acceptance', () => {
     await prepareEdgeSelectionFixture(page);
   });
 
-  test('continues a mouse drag through lazy pagination and preserves exact copy', async ({
+  test('continues a mouse drag across an edge page turn and preserves exact copy', async ({
     page,
   }) => {
     const shell = page.getByTestId('reader-shell');
@@ -305,7 +305,7 @@ test.describe('reader primary selection edge autoscroll acceptance', () => {
     expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
   });
 
-  test('continues a reverse mouse drag into the previous published spread', async ({ page }) => {
+  test('continues a reverse mouse drag into the previous spread', async ({ page }) => {
     await page.keyboard.press('ArrowRight');
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
     await expect.poll(() => currentReaderSpread(page)).toBe(1);
@@ -332,7 +332,7 @@ test.describe('reader primary selection edge autoscroll acceptance', () => {
     expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
   });
 
-  test('reveals a lazily published spread when keyboard selection extends to document end', async ({
+  test('lands on the final spread when keyboard selection extends to document end', async ({
     page,
   }) => {
     const firstLine = requireBand(await requireTextBands(page, 1), 0);

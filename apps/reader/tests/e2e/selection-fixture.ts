@@ -109,8 +109,12 @@ body {
 p { margin: 0; }
 p + p { margin-top: 64px; }
 .edge-page {
-  margin-top: 0;
-  break-before: page;
+  /* Overflow the page by margin: the engine deliberately mirrors
+     Chromium's continuous-multicol truth, where page forced breaks do
+     not break a fragmentainer, so the fixture makes its second page by
+     volume — a margin taller than any viewport pushes the paragraph to
+     the next page, and the unforced break truncates it to zero there. */
+  margin-top: 2000px;
 }
 img {
   display: block;

@@ -21,6 +21,18 @@ export async function installDelayedImageDecode(page: Page): Promise<void> {
       scope.__ritoImageDecodeComplete = true;
       return image;
     }) as typeof createImageBitmap;
+    // The reader prefers element-sourced decodes (HTMLImageElement.decode)
+    // where a DOM exists; gate that primitive through the same release.
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- re-applied via Reflect with the element as receiver
+    const originalDecode = HTMLImageElement.prototype.decode;
+    HTMLImageElement.prototype.decode = async function decode(
+      ...args: Parameters<HTMLImageElement['decode']>
+    ) {
+      scope.__ritoImageDecodePending = true;
+      await gate;
+      await Reflect.apply(originalDecode, this, args);
+      scope.__ritoImageDecodeComplete = true;
+    };
   });
 }
 
