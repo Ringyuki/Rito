@@ -181,7 +181,14 @@ async function openSession(state, deps, message) {
     }
     await deps.initRitoCoreWasm();
     const publication = new Uint8Array(message.publication);
-    state.session = new deps.RitoReaderSessionV1(publication, message.sessionId);
+    state.session = message.pinnedFontPolicy
+      ? deps.RitoReaderSessionV1.openWithPinnedFontPolicy(
+          publication,
+          message.sessionId,
+          message.pinnedFontPolicy.metadataJson,
+          message.pinnedFontPolicy.faces,
+        )
+      : new deps.RitoReaderSessionV1(publication, message.sessionId);
     state.sessionId = message.sessionId;
     state.phase = 'open';
     return exactArtifactAttemptResponse(
@@ -205,8 +212,15 @@ async function openSessionWithColdDiagnostic(state, deps, message) {
   const segments = Object.create(null);
   segments.wasmInitMs = await measureDiagnosticAsync(() => deps.initRitoCoreWasm());
   const publication = new Uint8Array(message.publication);
-  [state.session, segments.epubOpenParsePublicationMetadataMs] = measureDiagnostic(
-    () => new deps.RitoReaderSessionV1(publication, message.sessionId),
+  [state.session, segments.epubOpenParsePublicationMetadataMs] = measureDiagnostic(() =>
+    message.pinnedFontPolicy
+      ? deps.RitoReaderSessionV1.openWithPinnedFontPolicy(
+          publication,
+          message.sessionId,
+          message.pinnedFontPolicy.metadataJson,
+          message.pinnedFontPolicy.faces,
+        )
+      : new deps.RitoReaderSessionV1(publication, message.sessionId),
   );
   state.sessionId = message.sessionId;
   state.phase = 'open';

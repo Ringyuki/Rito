@@ -122,7 +122,7 @@ export function createRitoCoreWasmReaderV1WorkerClient(worker, options = {}) {
     return promise;
   };
 
-  const open = async (publication, request) => {
+  const open = async (publication, request, pinnedFontPolicy) => {
     if (phase !== 'idle') throw new RitoReaderErrorV1('invalid-session', `Reader is ${phase}`);
     if (!(publication instanceof ArrayBuffer)) {
       throw new TypeError('Reader publication must be a dedicated ArrayBuffer');
@@ -132,9 +132,11 @@ export function createRitoCoreWasmReaderV1WorkerClient(worker, options = {}) {
     let attempts = 1;
     let fullRequest = nextExactRequest(request);
     try {
-      let payload = await send('open', { publication, sessionId, request: fullRequest }, [
-        publication,
-      ]);
+      let payload = await send(
+        'open',
+        { publication, sessionId, request: fullRequest, pinnedFontPolicy },
+        [publication],
+      );
       while (isPendingExactPayload(payload, fullRequest)) {
         if (attempts >= attemptLimit) throw exactContinuationLimitError(attemptLimit);
         await yieldControl();
