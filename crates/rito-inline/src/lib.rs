@@ -118,10 +118,14 @@ pub struct ParleyInlineContext {
     fonts: RefCell<FontContext>,
     layouts: RefCell<LayoutContext<[u8; 4]>>,
     registered_families: Vec<String>,
-    /// `line-height: normal` strut heights per inline style, measured by
-    /// shaping with the style's own resolved font (what a browser's strut
-    /// does), cached because struts repeat per paragraph.
-    normal_strut_cache: RefCell<std::collections::HashMap<u32, f64>>,
+    /// `line-height: normal` strut heights, measured by shaping with the
+    /// style's own resolved font (what a browser's strut does), cached
+    /// because struts repeat per paragraph. Keyed by the font inputs the
+    /// measurement shapes with (family stack, size, weight, slant) —
+    /// NEVER by style-table id: ids restart per chapter, so on an engine
+    /// shared across a book one chapter's strut would serve another
+    /// chapter's unrelated style.
+    normal_strut_cache: RefCell<std::collections::HashMap<u64, f64>>,
     /// Host-measured `line-height: normal` metrics per (family key, size,
     /// sample): the rendering host measures them because its font scaler
     /// grid-fits ascent and descent to integers per size, which font
@@ -624,13 +628,12 @@ impl ParleyInlineContext {
                 if let Some(host) = self.host_normal_line(style, "") {
                     return Ok(Some(host.height));
                 }
-                if let Some(cached) = self.normal_strut_cache.borrow().get(&style_id.raw()) {
+                let key = normal_strut_key(style);
+                if let Some(cached) = self.normal_strut_cache.borrow().get(&key) {
                     return Ok(Some(*cached));
                 }
                 let measured = self.measure_normal_line_height(style)?;
-                self.normal_strut_cache
-                    .borrow_mut()
-                    .insert(style_id.raw(), measured);
+                self.normal_strut_cache.borrow_mut().insert(key, measured);
                 measured
             }
         }))
@@ -5778,6 +5781,25 @@ fn push_line_end_trims(
 fn shaping_font_size(size: f32) -> f32 {
     let hundredths = size * 100.0_f32;
     hundredths.trunc() / 100.0_f32
+}
+
+/// Cache key for a `line-height: normal` strut: exactly the font inputs
+/// `measure_normal_line_height` shapes with, so equal keys measure equal.
+fn normal_strut_key(style: &InlineFormattingStyleV1) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    family_stack_source(style).hash(&mut hasher);
+    shaping_font_size(style.font.size.get()).to_bits().hash(&mut hasher);
+    style.font.weight.get().to_bits().hash(&mut hasher);
+    match style.font.slant {
+        FontSlant::Normal => 0u8.hash(&mut hasher),
+        FontSlant::Italic => 1u8.hash(&mut hasher),
+        FontSlant::Oblique(angle) => {
+            2u8.hash(&mut hasher);
+            angle.degrees().to_bits().hash(&mut hasher);
+        }
+    }
+    hasher.finish()
 }
 
 fn push_item_styles(
