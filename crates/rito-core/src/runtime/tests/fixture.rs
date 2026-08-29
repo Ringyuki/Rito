@@ -315,6 +315,61 @@ pub fn multi_chapter_image_fixture_epub() -> Vec<u8> {
     writer.finish().expect("zip finalizes").into_inner()
 }
 
+/// Two structurally identical chapters whose paragraph styles differ only
+/// in font size, so each chapter's style table interns the paragraph at
+/// the SAME numeric id. A `line-height: normal` strut cached under a
+/// style-table id (instead of the font inputs) would serve chapter one's
+/// 32px strut to chapter two's 16px paragraphs on a shared engine.
+pub fn strut_collision_fixture_epub() -> Vec<u8> {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options: FileOptions<'_, ()> = FileOptions::default();
+    add_file(
+        &mut writer,
+        options,
+        "META-INF/container.xml",
+        br#"<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+<rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/package.opf",
+        br#"<?xml version="1.0"?>
+<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Strut collision</dc:title>
+<dc:language>en</dc:language>
+<dc:identifier id="id">strut-collision</dc:identifier>
+  </metadata>
+  <manifest>
+<item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/>
+<item id="chapter-2" href="chapter-2.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+<itemref idref="chapter-1"/>
+<itemref idref="chapter-2"/>
+  </spine>
+</package>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/chapter-1.xhtml",
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p style="font-size: 32px">big strut chapter</p><p style="font-size: 32px">second big paragraph</p></body></html>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/chapter-2.xhtml",
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p style="font-size: 16px">first plain paragraph</p><p style="font-size: 16px">second plain paragraph</p></body></html>"#,
+    );
+    writer.finish().expect("zip finalizes").into_inner()
+}
+
 pub fn many_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
     many_chapter_fixture_epub_with(chapter_count, |index| {
         chapter_fixture_xhtml(&format!("chapter {index}"))
@@ -459,4 +514,48 @@ pub fn image_plate_fixture_epub() -> Vec<u8> {
             chapter_fixture_xhtml(&format!("plate neighbor chapter {index}"))
         }
     })
+}
+
+/// Pinned-face policy for tests that exercise the fragment engine
+/// (chapter-local pagination requires pinned faces).
+pub fn pinned_test_font_policy() -> crate::runtime::RuntimePinnedFontPolicyInput {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/Tinos-Regular.ttf"
+    );
+    let bytes = std::fs::read(path).expect("pinned Tinos test font reads");
+    crate::runtime::RuntimePinnedFontPolicyInput {
+        faces: vec![crate::runtime::RuntimePinnedFontFaceInput {
+            expected_sha256: {
+                use sha2::{Digest, Sha256};
+                format!("{:x}", Sha256::digest(&bytes))
+            },
+            bytes,
+            generic_role: crate::runtime::RuntimePinnedFontGenericRole::Serif,
+            language: None,
+        }],
+    }
+}
+
+/// One chapter exercising the breadth of the paint-command domain
+/// (border styles per edge, radius, shadows, hr, lists, table, ruby,
+/// inline decoration, image): every page must survive the reader-v1
+/// display-list encoding, or a styled real book kills the session.
+pub fn paint_command_kitchen_sink_fixture_epub() -> Vec<u8> {
+    let chapter = r##"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body style="background-image:url('Images/cover.png');background-repeat:no-repeat;background-position:center bottom;background-size:auto 40%">
+<div style="background-image:url('Images/cover.png');background-size:100% 100%;height:40px">explicit background size box</div>
+<div style="background-image:url('Images/cover.png');background-size:cover;height:24px">cover background box</div>
+<p style="border: 2px dashed #cc0000; border-radius: 6px; background: #eef; padding: 4px">boxed paragraph with a dashed border and radius</p>
+<hr/>
+<p style="border-top: 3px double #007700; border-left: 1px dotted #333333; border-bottom: 2px solid #000066">mixed border edges</p>
+<ul><li>unordered item one</li><li>unordered item two</li></ul>
+<ol><li>ordered item one</li><li>ordered item two</li></ol>
+<table><tr><td style="border: 1px solid #000000">cell one</td><td style="border: 1px dashed #444444">cell two</td></tr></table>
+<p><ruby>漢字<rt>kanji</rt></ruby> with ruby annotation</p>
+<p><span style="text-decoration: underline">under</span> and <span style="text-decoration: line-through">struck</span> inline decoration</p>
+<blockquote style="border-left: 4px solid #cccccc; box-shadow: 1px 1px 2px #999999">a quoted block with a shadow</blockquote>
+<p><img src="Images/cover.png" alt="inline image"/> paragraph with an image</p>
+<p style="border: 1px solid currentColor">currentColor border</p>
+</body></html>"##;
+    fixture_epub_with_chapter(chapter.as_bytes())
 }

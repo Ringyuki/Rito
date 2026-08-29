@@ -185,32 +185,6 @@ impl RuntimeContinuationRecord {
         }
     }
 
-    pub(in crate::runtime) fn new_chapter_local(
-        revision_id: String,
-        layout_key: String,
-        layout_config: LayoutConfig,
-        line_breaking: LineBreaking,
-        chapter_index: usize,
-        local_page_cap: usize,
-        target_locator: RuntimeSourceLocator,
-    ) -> Self {
-        Self {
-            revision_id,
-            revision_version: 0,
-            layout_key,
-            layout_config,
-            line_breaking,
-            next_chapter_index: chapter_index,
-            chapter_count: chapter_index
-                .checked_add(1)
-                .expect("chapter-local range must remain representable"),
-            current: None,
-            published_page_count: 0,
-            local_page_cap: Some(local_page_cap),
-            chapter_local_target: Some(target_locator),
-        }
-    }
-
     pub(super) fn is_complete(&self) -> bool {
         self.current.is_none() && self.next_chapter_index == self.chapter_count
     }

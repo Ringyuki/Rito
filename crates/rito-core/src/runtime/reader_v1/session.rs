@@ -79,14 +79,6 @@ struct ReaderRevisionOwnerV1 {
     next_window_revision_id: Option<u64>,
 }
 
-#[derive(Debug)]
-struct ReaderPendingExactSeekV1 {
-    layout: LayoutConfig,
-    locator: RuntimeSourceLocator,
-    local_page_cap: u32,
-    advance: RuntimeChapterLocalRevisionAdvance,
-}
-
 #[derive(Debug, Clone, Copy)]
 struct ReaderPendingAdjacentV1 {
     from_artifact_id: u64,
@@ -102,21 +94,9 @@ impl ReaderPendingAdjacentV1 {
     }
 }
 
-impl ReaderPendingExactSeekV1 {
-    fn matches(
-        &self,
-        layout: &LayoutConfig,
-        locator: &RuntimeSourceLocator,
-        local_page_cap: u32,
-    ) -> bool {
-        self.layout == *layout && self.locator == *locator && self.local_page_cap == local_page_cap
-    }
-}
-
 #[derive(Debug)]
 enum ReaderExactSeekAdvanceV1 {
     Resolved(RuntimeChapterLocalRevisionAdvance),
-    Pending(RuntimeChapterLocalRevisionAdvance),
 }
 
 impl ReaderRevisionOwnerV1 {
@@ -178,7 +158,6 @@ pub struct ReaderSessionV1 {
     foreground_candidate: Option<ReaderForegroundCandidateV1>,
     // At most one unpublished owner survives a bounded exact seek. It never
     // receives reader revision/artifact identities until the target resolves.
-    pending_exact_seek: Option<ReaderPendingExactSeekV1>,
     // Adjacent retries have their own typed intent identity. The underlying
     // progress remains owned by the source revision or, at a chapter
     // boundary, by `pending_exact_seek`.
@@ -212,7 +191,15 @@ impl ReaderSessionV1 {
         Self::from_document(session_id, document)
     }
 
-    fn from_document(session_id: u64, document: RuntimeDocument) -> Result<Self, ReaderErrorV1> {
+    fn from_document(
+        session_id: u64,
+        mut document: RuntimeDocument,
+    ) -> Result<Self, ReaderErrorV1> {
+        // The fragment engine is the session's only pagination authority:
+        // chapter-local revisions build their own single-chapter tables,
+        // and publication (book-wide) revisions route through the
+        // fragment page table as well.
+        document.set_fragment_page_table_enabled(true);
         let publication = build_reader_publication_v1(session_id, &document)?;
         Ok(Self {
             session_id,
@@ -230,7 +217,6 @@ impl ReaderSessionV1 {
             peeked_artifacts: BTreeSet::new(),
             visible_intent: None,
             foreground_candidate: None,
-            pending_exact_seek: None,
             pending_adjacent: None,
             #[cfg(test)]
             exact_cache_hit_count: 0,
@@ -251,7 +237,9 @@ impl ReaderSessionV1 {
     /// locator continuation. Adapters use this to distinguish cooperative
     /// foreground suspension from terminal `TargetNotPublished` failures.
     pub const fn has_pending_exact_seek_v1(&self) -> bool {
-        self.pending_exact_seek.is_some()
+        // Chapter-local revisions publish complete in one pass; a
+        // foreground exact seek can no longer be left pending.
+        false
     }
 
     /// True only while a newer adjacent request with the same source,
@@ -278,7 +266,7 @@ impl ReaderSessionV1 {
         let locator = runtime_locator(request.locator)?;
         let expected_visible_artifact_id = self.begin_foreground_request(request.request_id);
         self.release_pending_adjacent()?;
-        let artifact = self.create_revision_artifact(
+        let artifact = self.create_revision_artifact_with_locator_fallback(
             request.request_id,
             layout.clone(),
             locator,
@@ -335,7 +323,6 @@ impl ReaderSessionV1 {
         let expected_visible_artifact_id = self.begin_foreground_request(request.request_id);
         if !resumes_pending {
             self.release_pending_adjacent()?;
-            self.release_pending_exact_seek()?;
         }
         let result = match source.backing {
             ReaderRevisionBackingV1::ChapterLocal => match request.direction {
@@ -381,13 +368,11 @@ impl ReaderSessionV1 {
                     });
                 } else {
                     self.pending_adjacent = None;
-                    self.release_pending_exact_seek()?;
                 }
                 Err(error)
             }
             Err(error) => {
                 self.pending_adjacent = None;
-                self.release_pending_exact_seek()?;
                 Err(error)
             }
         }
@@ -467,11 +452,6 @@ impl ReaderSessionV1 {
         // rollover and adjacent-chapter creation are shared pagination
         // progress, exactly like in-chapter continuation. The one piece
         // of foreground state those helpers touch is the pending exact
-        // seek, so the foreground's own pending is parked across the
-        // call and whatever seek the peek attempt parks in its place is
-        // discarded — a peek must neither consume nor leave behind a
-        // foreground continuation.
-        let parked_exact_seek = self.pending_exact_seek.take();
         let result = match request.direction {
             ReaderAdjacentDirectionV1::Previous if source.local_spread_index > 0 => self
                 .publish_revision_artifact(
@@ -486,13 +466,6 @@ impl ReaderSessionV1 {
                 self.request_next(source, request.request_id, request.work)
             }
         };
-        let peek_seek = std::mem::replace(&mut self.pending_exact_seek, parked_exact_seek);
-        if let Some(pending) = peek_seek {
-            let owner = owner_from_advance(&pending.advance);
-            self.document
-                .release_chapter_local_revision_immediately(&owner)
-                .map_err(engine_error)?;
-        }
         result
     }
 
@@ -546,7 +519,6 @@ impl ReaderSessionV1 {
         let locator = runtime_locator(owner.locator.clone())?;
         self.foreground_candidate = None;
         self.release_pending_adjacent()?;
-        self.release_pending_exact_seek()?;
         self.visible_intent = Some(ReaderVisibleIntentV1 {
             accepted_request_id: owner.request_id,
             visible_artifact_id: request.candidate_artifact_id,
@@ -977,7 +949,6 @@ impl ReaderSessionV1 {
 
     fn dispose_owned_state(&mut self) -> Result<u32, ReaderErrorV1> {
         self.release_pending_adjacent()?;
-        self.release_pending_exact_seek()?;
         let artifact_ids = self.artifacts.keys().copied().collect::<Vec<_>>();
         let mut released_artifacts = 0u32;
         for artifact_id in artifact_ids {
@@ -1080,10 +1051,7 @@ impl ReaderSessionV1 {
                 "background work requires a visible reader intent",
             )
         })?;
-        if self.foreground_candidate.is_some()
-            || self.pending_exact_seek.is_some()
-            || self.pending_adjacent.is_some()
-        {
+        if self.foreground_candidate.is_some() || self.pending_adjacent.is_some() {
             return Err(background_yields_to_foreground());
         }
         if intent.visible_artifact_id != request.expected_visible_artifact_id
@@ -1206,10 +1174,7 @@ impl ReaderSessionV1 {
             "expectedVisibleArtifactId",
         )?;
         validate_external_request_id(request.candidate_artifact_id, "candidateArtifactId")?;
-        if self.foreground_candidate.is_some()
-            || self.pending_exact_seek.is_some()
-            || self.pending_adjacent.is_some()
-        {
+        if self.foreground_candidate.is_some() || self.pending_adjacent.is_some() {
             return Err(background_yields_to_foreground());
         }
         let intent = self.visible_intent.as_mut().ok_or_else(|| {
@@ -1327,9 +1292,6 @@ impl ReaderSessionV1 {
         direction: ReaderAdjacentDirectionV1,
         initial_availability: ReaderAdjacentAvailabilityV1,
     ) -> Result<bool, ReaderErrorV1> {
-        if self.pending_exact_seek.is_some() {
-            return Ok(true);
-        }
         let current = self.adjacent_availability(source, direction)?;
         Ok(match current {
             ReaderAdjacentAvailabilityV1::Pending => true,
@@ -1846,10 +1808,6 @@ impl ReaderSessionV1 {
     }
 
     #[cfg(test)]
-    pub(super) fn retained_window_count(&self) -> usize {
-        self.retained_windows.len()
-    }
-
     #[cfg(test)]
     pub(super) fn clear_retained_windows(&mut self) {
         self.retained_windows.clear();
@@ -1894,51 +1852,12 @@ impl ReaderSessionV1 {
     }
 
     #[cfg(test)]
-    pub(super) fn max_known_local_page_count(&self) -> usize {
-        self.revisions
-            .values()
-            .filter_map(|revision| {
-                self.document
-                    .get_chapter_local_revision_summary(&revision.owner)
-                    .ok()
-                    .map(|summary| summary.known_extent.local_page_count)
-            })
-            .max()
-            .unwrap_or(0)
-    }
-
     #[cfg(test)]
-    pub(super) fn cleanup_backlog_is_empty(&self) -> bool {
-        self.document.cleanup_queue.is_empty()
-    }
-
     #[cfg(test)]
-    pub(super) fn live_continuation_count(&self) -> usize {
-        self.document.continuations.len()
-    }
-
     #[cfg(test)]
-    pub(super) fn live_runtime_chapter_local_revision_count(&self) -> usize {
-        self.document.chapter_local_revisions.len()
-    }
-
     #[cfg(test)]
-    pub(super) fn pending_exact_seek_owner(&self) -> Option<RuntimeChapterLocalRevisionHandle> {
-        self.pending_exact_seek
-            .as_ref()
-            .map(|pending| owner_from_advance(&pending.advance))
-    }
-
     #[cfg(test)]
-    pub(super) fn pending_exact_seek_count(&self) -> usize {
-        self.pending_exact_seek.iter().count()
-    }
-
     #[cfg(test)]
-    pub(super) fn pending_adjacent_count(&self) -> usize {
-        self.pending_adjacent.iter().count()
-    }
-
     #[cfg(test)]
     pub(super) fn has_visible_intent(&self) -> bool {
         self.visible_intent.is_some()
@@ -1959,10 +1878,6 @@ impl ReaderSessionV1 {
     }
 
     #[cfg(test)]
-    pub(super) fn dispose_in_place_for_test(&mut self) -> Result<u32, ReaderErrorV1> {
-        self.dispose_owned_state()
-    }
-
     #[cfg(test)]
     pub(super) fn publication_revision_count(&self) -> usize {
         self.publication_revisions.len()
@@ -1974,10 +1889,6 @@ impl ReaderSessionV1 {
     }
 
     #[cfg(test)]
-    pub(super) fn publication_footnote_definition_parse_count(&self) -> usize {
-        self.document.publication_footnote_definition_parse_count()
-    }
-
     #[cfg(test)]
     pub(super) fn active_publication_revision_version(&self) -> Option<u32> {
         self.active_publication_revision_id.and_then(|revision_id| {
@@ -2321,6 +2232,52 @@ impl ReaderSessionV1 {
         )
     }
 
+    /// An open request's locator is persisted host data: the book file may
+    /// have changed since the position was saved, or the position may have
+    /// been recorded against content that no longer lays out (a saved
+    /// point on a broken-image placeholder's alt run carries the image's
+    /// node path, which owns no text). A selector that fails to resolve
+    /// degrades to the locator's coarser keys — progression, then the
+    /// chapter itself — instead of refusing to open the book; the
+    /// artifact's `matched_by` reports what actually resolved. Href
+    /// failures stay hard: a missing resource is an error the host must
+    /// see, not a place to guess.
+    fn create_revision_artifact_with_locator_fallback(
+        &mut self,
+        request_id: u64,
+        layout: LayoutConfig,
+        locator: RuntimeSourceLocator,
+        work: ReaderWorkBudgetV1,
+    ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
+        let mut attempt = locator;
+        loop {
+            let error = match self.create_revision_artifact(
+                request_id,
+                layout.clone(),
+                attempt.clone(),
+                work,
+            ) {
+                Ok(artifact) => return Ok(artifact),
+                Err(error) => error,
+            };
+            if error.kind != ReaderErrorKindV1::InvalidLocator {
+                return Err(error);
+            }
+            if attempt.source_point.is_some()
+                || attempt.source_range.is_some()
+                || attempt.anchor_id.is_some()
+            {
+                attempt.source_point = None;
+                attempt.source_range = None;
+                attempt.anchor_id = None;
+            } else if attempt.progression.is_some() {
+                attempt.progression = None;
+            } else {
+                return Err(error);
+            }
+        }
+    }
+
     fn create_revision_artifact(
         &mut self,
         request_id: u64,
@@ -2338,7 +2295,6 @@ impl ReaderSessionV1 {
             &canonical_locator,
             work.local_page_cap,
         )? {
-            self.release_pending_exact_seek()?;
             let artifact =
                 self.publish_resolved_revision_artifact(revision_id, target, request_id)?;
             #[cfg(test)]
@@ -2353,55 +2309,15 @@ impl ReaderSessionV1 {
                 "top-level work budget",
             )?,
         };
-        let advance = match self.pending_exact_seek.take() {
-            Some(pending) if pending.matches(&layout, &canonical_locator, work.local_page_cap) => {
-                self.advance_until_target(pending.advance, work.max_foreground_quanta, budget)?
-            }
-            Some(pending) => {
-                self.pending_exact_seek = Some(pending);
-                self.release_pending_exact_seek()?;
-                let advance = self.start_exact_seek(
-                    chapter_index,
-                    layout.clone(),
-                    canonical_locator.clone(),
-                    work,
-                    budget,
-                )?;
-                self.advance_until_target(
-                    advance,
-                    work.max_foreground_quanta.saturating_sub(1),
-                    budget,
-                )?
-            }
-            None => {
-                let advance = self.start_exact_seek(
-                    chapter_index,
-                    layout.clone(),
-                    canonical_locator.clone(),
-                    work,
-                    budget,
-                )?;
-                self.advance_until_target(
-                    advance,
-                    work.max_foreground_quanta.saturating_sub(1),
-                    budget,
-                )?
-            }
-        };
-        let advance = match advance {
-            ReaderExactSeekAdvanceV1::Resolved(advance) => advance,
-            ReaderExactSeekAdvanceV1::Pending(advance) => {
-                self.pending_exact_seek = Some(ReaderPendingExactSeekV1 {
-                    layout,
-                    locator: canonical_locator,
-                    local_page_cap: work.local_page_cap,
-                    advance,
-                });
-                return Err(target_not_published(
-                    "exact locator remains pending after the requested bounded work; retry the same target with a newer requestId",
-                ));
-            }
-        };
+        let advance = self.start_exact_seek(
+            chapter_index,
+            layout.clone(),
+            canonical_locator.clone(),
+            work,
+            budget,
+        )?;
+        let ReaderExactSeekAdvanceV1::Resolved(advance) =
+            self.advance_until_target(advance, work.max_foreground_quanta, budget)?;
         let target = resolved_target(&advance).ok_or_else(|| {
             ReaderErrorV1::new(
                 ReaderErrorKindV1::EngineFailure,
@@ -2588,84 +2504,17 @@ impl ReaderSessionV1 {
 
     fn advance_until_target(
         &mut self,
-        mut advance: RuntimeChapterLocalRevisionAdvance,
-        max_additional_quanta: u32,
-        budget: RuntimeRevisionWorkBudget,
+        advance: RuntimeChapterLocalRevisionAdvance,
+        _max_additional_quanta: u32,
+        _budget: RuntimeRevisionWorkBudget,
     ) -> Result<ReaderExactSeekAdvanceV1, ReaderErrorV1> {
-        let mut used_quanta = 0u32;
-        loop {
-            if resolved_target(&advance).is_some() {
-                return Ok(ReaderExactSeekAdvanceV1::Resolved(advance));
-            }
-            if used_quanta >= max_additional_quanta {
-                return if advance.continuation.is_some() {
-                    Ok(ReaderExactSeekAdvanceV1::Pending(advance))
-                } else {
-                    self.release_unresolvable_advance(advance)
-                };
-            }
-            let Some(continuation) = advance.continuation.take() else {
-                return self.release_unresolvable_advance(advance);
-            };
-            let previous_owner = owner_from_advance(&advance);
-            #[cfg(test)]
-            {
-                self.exact_layout_quantum_count += 1;
-            }
-            if advance.revision.page_cap_reached {
-                advance = match self.document.rollover_chapter_local_revision(
-                    RuntimeRolloverChapterLocalRevisionRequest {
-                        continuation,
-                        budget,
-                    },
-                ) {
-                    Ok(next) => {
-                        if let Err(error) = self
-                            .document
-                            .release_chapter_local_revision_immediately(&previous_owner)
-                        {
-                            let _ = self.document.release_chapter_local_revision_immediately(
-                                &owner_from_advance(&next),
-                            );
-                            return Err(engine_error(error));
-                        }
-                        next
-                    }
-                    Err(error) => {
-                        let _ = self
-                            .document
-                            .release_chapter_local_revision_immediately(&previous_owner);
-                        return Err(engine_error(error));
-                    }
-                };
-            } else {
-                advance = match self.document.continue_chapter_local_revision(
-                    RuntimeContinueChapterLocalRevisionRequest {
-                        continuation,
-                        budget,
-                        max_quanta: None,
-                    },
-                ) {
-                    Ok(next) => next,
-                    Err(error) => {
-                        let owner = error
-                            .revision
-                            .as_deref()
-                            .map(|summary| RuntimeChapterLocalRevisionHandle {
-                                revision_id: summary.revision_id.clone(),
-                                revision_version: summary.revision_version,
-                                coordinate: summary.coordinate.clone(),
-                            })
-                            .unwrap_or(previous_owner);
-                        let _ = self
-                            .document
-                            .release_chapter_local_revision_immediately(&owner);
-                        return Err(engine_error(error));
-                    }
-                };
-            }
-            used_quanta += 1;
+        // Chapter-local revisions publish complete in one pass, so the
+        // advance either already resolved its target or never will:
+        // there is no continuation to drive.
+        if resolved_target(&advance).is_some() {
+            return Ok(ReaderExactSeekAdvanceV1::Resolved(advance));
         }
+        self.release_unresolvable_advance(advance)
     }
 
     fn release_unresolvable_advance(
@@ -2680,31 +2529,11 @@ impl ReaderSessionV1 {
         ))
     }
 
-    fn release_pending_exact_seek(&mut self) -> Result<(), ReaderErrorV1> {
-        let Some(pending) = self.pending_exact_seek.take() else {
-            return Ok(());
-        };
-        let owner = owner_from_advance(&pending.advance);
-        match self
-            .document
-            .release_chapter_local_revision_immediately(&owner)
-        {
-            Ok(_) => Ok(()),
-            Err(error) => {
-                self.pending_exact_seek = Some(pending);
-                Err(engine_error(error))
-            }
-        }
-    }
-
     fn release_pending_adjacent(&mut self) -> Result<(), ReaderErrorV1> {
         let Some(pending) = self.pending_adjacent.take() else {
             return Ok(());
         };
-        if let Err(error) = self.release_pending_exact_seek() {
-            self.pending_adjacent = Some(pending);
-            return Err(error);
-        }
+        let _ = pending;
         Ok(())
     }
 

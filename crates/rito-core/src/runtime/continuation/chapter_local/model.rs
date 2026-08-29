@@ -128,16 +128,6 @@ pub(super) fn local_extent(extent: RuntimeRevisionExtent) -> RuntimeChapterLocal
     }
 }
 
-pub(super) fn mark_local_page_cap(revision: &mut RuntimeRevision, reached: bool) {
-    let RuntimeRevisionCoordinateSpace::ChapterLocal {
-        page_cap_reached, ..
-    } = &mut revision.coordinate_space
-    else {
-        unreachable!("chapter-local store must not contain an absolute revision");
-    };
-    *page_cap_reached |= reached;
-}
-
 pub(super) fn local_locator_resolution(
     owner: RuntimeChapterLocalRevisionHandle,
     resolution: RuntimeSourceLocatorResolution,
