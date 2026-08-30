@@ -1,5 +1,17 @@
 # @ritojs/kit
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies [a000e28]
+- Updated dependencies [feb6d09]
+- Updated dependencies [feb6d09]
+- Updated dependencies [5db2dba]
+- Updated dependencies [a000e28]
+- Updated dependencies [5db2dba]
+  - @ritojs/core@1.0.1
+
 ## 1.0.0
 
 ### Major Changes

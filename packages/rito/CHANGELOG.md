@@ -1,5 +1,16 @@
 # @ritojs/core
 
+## 1.0.1
+
+### Patch Changes
+
+- a000e28: Backward cross-chapter page turns land in one call: chapter-local pagination now builds the whole target chapter through the fragment engine in a single pass (no page-cap windows or pending-seek retries), shares the whole-book footnote index and image dimensions so background candidates always match the visible pages, and an open locator that no longer resolves degrades sourcePoint → progression → chapter start instead of refusing the book.
+- feb6d09: Images letterbox inside the author box (`img { object-fit: contain }` in the UA stylesheet, author-overridable).
+- feb6d09: JPEG dimensions honor EXIF 90-degree orientations.
+- 5db2dba: Page turns no longer snap back: progression locators resolve on the chapter's page grid (text-free pages round-trip to themselves), and background layout commits never move the visible spread.
+- a000e28: Layout no longer depends on which chapters the engine laid out first (the line-height:normal strut cache keys on font inputs, not per-chapter style ids), the V1 display protocol covers explicit background sizes, border edge widths, and inline box extents, and fragment-table search hits carry durable source anchors.
+- 5db2dba: Spreads with still-decoding images paint immediately and fill in when the bitmaps land, instead of blocking the page turn.
+
 ## 1.0.0
 
 ### Major Changes
