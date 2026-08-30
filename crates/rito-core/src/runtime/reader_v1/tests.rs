@@ -1914,3 +1914,89 @@ fn every_kitchen_sink_page_survives_display_list_encoding() {
         current = next;
     }
 }
+
+#[test]
+fn selection_geometry_spans_the_injected_font_grid_box() {
+    // Chromium's native selection rect spans the font box (canvas
+    // fontBoundingBoxAscent/Descent), not the declared line box. With a
+    // 32px font on a 48px fixed line-height, the host grid below sums to
+    // 36px — geometry must serve 36, and 48 only when no grid metric was
+    // injected (the documented line-box fallback).
+    let chapter: &[u8] = br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p class="sel">HELLO GRID WORLD</p></body></html>"#;
+    let epub = || {
+        crate::runtime::tests::fixture::fixture_epub_with_chapter_and_stylesheet(
+            chapter,
+            ".sel { font-size: 32px; line-height: 48px; }",
+        )
+    };
+
+    let geometry_height = |with_grid: bool| -> f64 {
+        // Fresh session per round: metric injection converges the same
+        // measure → inject → relayout cycle the browser host drives.
+        let mut known: Vec<(String, f64, String)> = Vec::new();
+        for round in 0..6 {
+            let mut session = open_test_session(164, epub()).expect("reader session opens");
+            for (family, size, sample) in &known {
+                session.document_for_tests().set_host_line_metric(
+                    family,
+                    *size,
+                    sample,
+                    rito_inline::HostNormalLineMetric {
+                        height: (1.15 * size).round(),
+                        baseline: (0.9 * size).round(),
+                        grid: with_grid
+                            .then(|| ((0.90625 * size).round(), (0.21875 * size).round())),
+                        advance: None,
+                    },
+                );
+            }
+            let artifact = session
+                .request_artifact(request(164, 1, ""))
+                .expect("artifact resolves");
+            let requests = session
+                .document_for_tests()
+                .take_host_line_metric_requests();
+            if !requests.is_empty() {
+                for (family, _measure, size, sample) in requests {
+                    known.push((family, size, sample));
+                }
+                assert!(round < 5, "metric requests must converge");
+                continue;
+            }
+            let page = artifact.pages.first().expect("a page");
+            let run = page.text_runs.first().copied().expect("a text run");
+            let geometry = session
+                .get_text_range_geometry(ReaderTextRangeRequestV1 {
+                    session_id: 164,
+                    artifact_id: artifact.artifact_id,
+                    page_index: page.page_index,
+                    start: ReaderTextPositionV1 {
+                        block_index: run.block_index,
+                        line_index: run.line_index,
+                        run_index: run.run_index,
+                        char_index: 0,
+                    },
+                    end: ReaderTextPositionV1 {
+                        block_index: run.block_index,
+                        line_index: run.line_index,
+                        run_index: run.run_index,
+                        char_index: 5,
+                    },
+                })
+                .expect("range resolves geometry");
+            return geometry.rects.first().expect("a rect").bounds.height;
+        }
+        unreachable!("loop returns once requests drain");
+    };
+
+    let grid_height = geometry_height(true);
+    assert!(
+        (grid_height - 36.0).abs() < 1e-9,
+        "with a host grid the rect spans the font box (29 + 7), got {grid_height}"
+    );
+    let fallback_height = geometry_height(false);
+    assert!(
+        (fallback_height - 48.0).abs() < 1e-9,
+        "without a grid the rect falls back to the 48px line box, got {fallback_height}"
+    );
+}

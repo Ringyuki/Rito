@@ -39,15 +39,36 @@ export function requireProductionPinnedFontExpectations(
   }
 }
 
-export const PRODUCTION_PINNED_FONT_HASHES = PRODUCTION_PINNED_FONT_EXPECTATIONS.map(
+/**
+ * The full policy a reader session OPENS with: the usability-gate serif
+ * pair above plus the sans pair the font-family override menu serves.
+ * The engine sorts faces by (generic role, language, hash).
+ */
+export const PRODUCTION_PINNED_OPEN_EXPECTATIONS = [
+  ...PRODUCTION_PINNED_FONT_EXPECTATIONS,
+  {
+    sha256: '41b22bc8f0b51f932825d37bc55b5eb6ba67dfe599a626e4aff2b43b624f9f8c',
+    byteLength: 478_712,
+    genericRole: 'sansSerif',
+    language: 'und',
+  },
+  {
+    sha256: 'c0aa89a70f92a820ff95490fea6d472cd19621a71c9a748a4950eb2eafe6438e',
+    byteLength: 8_331_636,
+    genericRole: 'sansSerif',
+    language: 'zh-hans',
+  },
+] as const satisfies readonly ProductionPinnedFontExpectation[];
+
+export const PRODUCTION_PINNED_FONT_HASHES = PRODUCTION_PINNED_OPEN_EXPECTATIONS.map(
   (font) => font.sha256,
 );
-export const PRODUCTION_PINNED_FONT_BYTE_LENGTHS = PRODUCTION_PINNED_FONT_EXPECTATIONS.map(
+export const PRODUCTION_PINNED_FONT_BYTE_LENGTHS = PRODUCTION_PINNED_OPEN_EXPECTATIONS.map(
   (font) => font.byteLength,
 );
 export const PRODUCTION_PINNED_FONT_ALIASES = PRODUCTION_PINNED_FONT_HASHES.map(
   (hash) => `__RitoPinned_${hash}`,
 );
-export const PRODUCTION_PINNED_FONT_SELECTORS = PRODUCTION_PINNED_FONT_EXPECTATIONS.map(
+export const PRODUCTION_PINNED_FONT_SELECTORS = PRODUCTION_PINNED_OPEN_EXPECTATIONS.map(
   ({ genericRole, language }) => ({ genericRole, language }),
 );

@@ -2733,6 +2733,33 @@ impl FormattingContext for ParleyInlineContext {
                             let metric = self.host_normal_line_peek(resolved, "");
                             item_box_snap(resolved, metric)
                         });
+                        // The run's font box (grid ascent/descent) rides
+                        // every text fragment: selection rects span it,
+                        // never the line box (Chromium Range semantics).
+                        // The box belongs to the run's USED font — a
+                        // fallback-served CJK run in a Latin-pinned style
+                        // takes the CJK grid — so the one-char sample key
+                        // leads and records a request when unmeasured;
+                        // the style's strut stands in until it arrives.
+                        // Declared line-height math never consumes these
+                        // metrics, so the request is layout-neutral.
+                        let run_font_grid = style_tables.and_then(|tables| {
+                            let entry = item_line_heights.get(item_index)?.as_ref()?;
+                            let resolved = tables.inline.style(entry.style).ok()?;
+                            let sample_char = flow_text
+                                .get(run_range.clone())
+                                .unwrap_or_default()
+                                .chars()
+                                .find(|c| !c.is_whitespace() || *c == '\u{3000}');
+                            let sampled = sample_char.and_then(|character| {
+                                let sample =
+                                    self.run_sample(resolved, glyph_run.run().font(), character);
+                                self.host_normal_line(resolved, &sample)
+                            });
+                            sampled
+                                .or_else(|| self.host_normal_line_peek(resolved, ""))?
+                                .grid
+                        });
                         // A ruby spread's interior gap re-applies at paint
                         // as extra letter spacing (like justify spacing,
                         // but kept apart: the annotation extent derives
@@ -2773,6 +2800,7 @@ impl FormattingContext for ParleyInlineContext {
                                     ruby_overhang_right_px: ruby_overhang_right,
                                     opener_trim_px,
                                     box_snap: run_box_snap,
+                                    font_grid: run_font_grid,
                                     ruby_center_shift_px: ruby_center_shifts
                                         .get(&item_index)
                                         .copied()

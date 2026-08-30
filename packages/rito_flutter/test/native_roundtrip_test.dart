@@ -616,9 +616,11 @@ void main() {
           .toList();
       expect(painted, isNotEmpty);
       final rect = geometry.rects.first;
-      // Geometry rects are line-box rects while a painted run's rect is
-      // its em-box anchor; they differ by the half-leading, never by a
-      // page margin. Same-space overlap is the decisive property.
+      // Geometry rects span the run's font box when the host injects grid
+      // metrics; no FFI host injects them yet, so here they fall back to
+      // line-box rects while a painted run's rect is its em-box anchor.
+      // They differ by the half-leading, never by a page margin, so
+      // same-space overlap is the decisive property.
       expect(
         painted.any(
           (candidate) =>

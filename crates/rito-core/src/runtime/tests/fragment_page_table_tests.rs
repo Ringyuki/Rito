@@ -860,3 +860,354 @@ fn an_author_object_fit_fill_overrides_the_ua_default() {
         "author fill stretches into the authored box, got {width}x{height}"
     );
 }
+
+fn pointer_selection_document_with_css(
+    chapter: &[u8],
+    css: &str,
+) -> (RuntimeDocument, RuntimeRevisionHandle, String) {
+    let epub = fixture_epub_with_chapter_and_stylesheet(chapter, css);
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("selection fixture opens");
+    document.set_fragment_page_table_enabled(true);
+    let mut layout = font_aware_layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let handle = RuntimeRevisionHandle::from(&summary);
+    let revision_id = summary.revision_id.clone();
+    assert!(
+        document
+            .revisions
+            .get(&revision_id)
+            .expect("revision is retained")
+            .fragment_layout
+            .is_some(),
+        "the fixture routes to the fragment engine",
+    );
+    (document, handle, revision_id)
+}
+
+fn pointer_selection_document(chapter: &[u8]) -> (RuntimeDocument, RuntimeRevisionHandle, String) {
+    pointer_selection_document_with_css(chapter, "p { margin: 0; }\n")
+}
+
+fn word_center_point(
+    document: &RuntimeDocument,
+    revision_id: &str,
+    word: &str,
+) -> RuntimeTextPointRequest {
+    let revision = document
+        .revisions
+        .get(revision_id)
+        .expect("revision is retained");
+    let session = revision.chapter_engine_session();
+    let page = session.page(0).expect("page 0 resolves");
+    let positions = page.text_positions();
+    let word_start = positions.text.find(word).expect("the word is on page 0");
+    let offset = positions.text[..word_start].encode_utf16().count();
+    let run = positions
+        .offsets
+        .iter()
+        .find(|run| run.start <= offset && offset < run.end)
+        .expect("the word has a run");
+    let geometry = page.text_range_geometry(
+        crate::runtime::page_artifact::PageArtifactTextPosition {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: offset - run.start,
+        },
+        crate::runtime::page_artifact::PageArtifactTextPosition {
+            block_index: run.block_index,
+            line_index: run.line_index,
+            run_index: run.run_index,
+            char_index: offset - run.start + word.encode_utf16().count(),
+        },
+    );
+    let rect = geometry.rects.first().expect("the word has geometry");
+    RuntimeTextPointRequest {
+        page_index: 0,
+        x: rect.x + rect.width / 2.0,
+        y: rect.y + rect.height / 2.0,
+    }
+}
+
+fn resolved_text(
+    document: &RuntimeDocument,
+    handle: &RuntimeRevisionHandle,
+    anchor: RuntimeTextPointRequest,
+    focus: RuntimeTextPointRequest,
+    granularity: RuntimeTextSelectionGranularity,
+) -> String {
+    let response = document
+        .resolve_text_range_from_points_at(
+            handle,
+            RuntimeTextRangeFromPointsRequest {
+                anchor,
+                focus,
+                granularity,
+            },
+        )
+        .expect("granular request is valid");
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.value.resolution
+    else {
+        panic!(
+            "granular selection resolves, got {:?}",
+            response.value.resolution
+        );
+    };
+    range.selected_text.clone()
+}
+
+#[test]
+fn a_word_granularity_drag_spans_from_the_anchor_word_to_the_focus_word() {
+    // A word-granularity drag (double-click and drag) covers whole words
+    // from the anchor word through the word under the pointer, in either
+    // drag direction — one word interval never contains a multi-word
+    // span, so per-endpoint expansion is what keeps the drag alive.
+    let (document, handle, revision_id) = pointer_selection_document(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p>The quick brown fox jumps over the lazy dog.</p></body></html>"#,
+    );
+    let anchor = word_center_point(&document, &revision_id, "quick");
+    let focus = word_center_point(&document, &revision_id, "fox");
+    assert_eq!(
+        resolved_text(
+            &document,
+            &handle,
+            anchor,
+            focus,
+            RuntimeTextSelectionGranularity::Word
+        ),
+        "quick brown fox"
+    );
+    assert_eq!(
+        resolved_text(
+            &document,
+            &handle,
+            focus,
+            anchor,
+            RuntimeTextSelectionGranularity::Word
+        ),
+        "quick brown fox"
+    );
+}
+
+#[test]
+fn a_paragraph_selection_copies_the_trailing_paragraph_separator() {
+    // A triple-click copies the paragraph WITH its trailing separator —
+    // a blank line before the next element, one line break before a
+    // <br/>-split sibling — and nothing after the document's last block.
+    let (document, handle, revision_id) = pointer_selection_document(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p>ALPHA one<br/>BRAVO two</p><p>CHARLIE tail</p></body></html>"#,
+    );
+    let first = word_center_point(&document, &revision_id, "ALPHA");
+    assert_eq!(
+        resolved_text(
+            &document,
+            &handle,
+            first,
+            first,
+            RuntimeTextSelectionGranularity::Paragraph
+        ),
+        "ALPHA one\nBRAVO two\n\n"
+    );
+    let last = word_center_point(&document, &revision_id, "CHARLIE");
+    assert_eq!(
+        resolved_text(
+            &document,
+            &handle,
+            last,
+            last,
+            RuntimeTextSelectionGranularity::Paragraph
+        ),
+        "CHARLIE tail"
+    );
+    // A paragraph drag spans whole blocks from anchor to focus.
+    assert_eq!(
+        resolved_text(
+            &document,
+            &handle,
+            first,
+            last,
+            RuntimeTextSelectionGranularity::Paragraph
+        ),
+        "ALPHA one\nBRAVO two\n\nCHARLIE tail"
+    );
+}
+
+#[test]
+fn fragment_selection_rects_span_the_injected_font_grid_box() {
+    // A selection rect spans the run's font box (host grid ascent +
+    // descent hung from the baseline) the way a Chromium native
+    // selection does; the 48px line box only serves hosts that inject
+    // no grid metric.
+    let chapter: &[u8] = br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p style="font-size: 32px; line-height: 48px">HELLO GRID WORLD</p></body></html>"#;
+    let rect_height = |with_grid: bool| -> f64 {
+        let mut known: Vec<(String, f64, String)> = Vec::new();
+        for round in 0..6 {
+            let epub = fixture_epub_with_chapter_and_stylesheet(chapter, "p { margin: 0; }\n");
+            let mut document = RuntimeDocument::open_with_pinned_font_policy(
+                &epub,
+                policy(vec![face(
+                    serif_text_font(),
+                    RuntimePinnedFontGenericRole::Serif,
+                    Some("en"),
+                )]),
+            )
+            .expect("selection fixture opens");
+            document.set_fragment_page_table_enabled(true);
+            for (family, size, sample) in &known {
+                document.set_host_line_metric(
+                    family,
+                    *size,
+                    sample,
+                    rito_inline::HostNormalLineMetric {
+                        height: (1.15 * size).round(),
+                        baseline: (0.9 * size).round(),
+                        grid: with_grid
+                            .then(|| ((0.90625 * size).round(), (0.21875 * size).round())),
+                        advance: None,
+                    },
+                );
+            }
+            let mut layout = font_aware_layout();
+            layout.font_family_override = Some("serif".to_owned());
+            layout.font_family_force = Some(true);
+            let summary = document
+                .create_revision(&layout)
+                .expect("revision is created");
+            let requests = document.take_host_line_metric_requests();
+            if !requests.is_empty() {
+                for (family, _measure, size, sample) in requests {
+                    known.push((family, size, sample));
+                }
+                assert!(round < 5, "metric requests must converge");
+                continue;
+            }
+            let handle = RuntimeRevisionHandle::from(&summary);
+            let point = word_center_point(&document, &summary.revision_id, "HELLO");
+            let response = document
+                .resolve_text_range_from_points_at(
+                    &handle,
+                    RuntimeTextRangeFromPointsRequest {
+                        anchor: point,
+                        focus: point,
+                        granularity: RuntimeTextSelectionGranularity::Word,
+                    },
+                )
+                .expect("word request is valid");
+            let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } =
+                response.value.resolution
+            else {
+                panic!(
+                    "word selection resolves, got {:?}",
+                    response.value.resolution
+                );
+            };
+            return range.rects.first().expect("a selection rect").height;
+        }
+        unreachable!("loop returns once requests drain");
+    };
+    let grid = rect_height(true);
+    assert!(
+        (grid - 36.0).abs() < 1e-9,
+        "with a host grid the rect spans the font box (29 + 7), got {grid}"
+    );
+    let fallback = rect_height(false);
+    assert!(
+        (fallback - 48.0).abs() < 1e-9,
+        "without a grid the rect falls back to the 48px line box, got {fallback}"
+    );
+}
+
+fn pointer_selection_document_cjk(
+    chapter: &[u8],
+) -> (RuntimeDocument, RuntimeRevisionHandle, String) {
+    let epub = fixture_epub_with_chapter_and_stylesheet(chapter, "p { margin: 0; }\n");
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![
+            face(serif_text_font(), RuntimePinnedFontGenericRole::Serif, None),
+            face(
+                std::fs::read(
+                    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"),
+                )
+                .expect("source han reads"),
+                RuntimePinnedFontGenericRole::Serif,
+                Some("zh-Hans"),
+            ),
+        ]),
+    )
+    .expect("selection fixture opens");
+    document.set_fragment_page_table_enabled(true);
+    let mut layout = font_aware_layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let handle = RuntimeRevisionHandle::from(&summary);
+    let revision_id = summary.revision_id.clone();
+    (document, handle, revision_id)
+}
+
+#[test]
+fn a_selection_crossing_a_hard_break_copies_the_line_break() {
+    // A <br/> leaves a newline in the flow text. A same-font run keeps it
+    // inside the preceding run's text; a fallback-font break (CJK under a
+    // Latin-first pin) shapes it into its own run, which the trailing
+    // trim drops — the artifact's hard-break ledger restores the "\n" a
+    // browser copy carries, while soft wraps stay seamless.
+    for (label, chapter, from, to) in [
+        (
+            "latin",
+            br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p>ALPHA FIRST LINE<br/>BRAVO SECOND LINE</p></body></html>"# as &[u8],
+            "ALPHA",
+            "SECOND",
+        ),
+        (
+            "cjk",
+            br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p>&#x72EC;&#x5C45;&#x751F;&#x6D3B;&#x5F00;&#x59CB;<br/>&#x5E2E;&#x4ED6;&#x505A;&#x996D;&#x6253;&#x626B;</p></body></html>"# as &[u8],
+            "\u{72EC}\u{5C45}",
+            "\u{6253}\u{626B}",
+        ),
+    ] {
+        let (document, handle, revision_id) = pointer_selection_document_cjk(chapter);
+        let start = word_center_point(&document, &revision_id, from);
+        let end = word_center_point(&document, &revision_id, to);
+        let response = document
+            .resolve_text_range_from_points_at(
+                &handle,
+                RuntimeTextRangeFromPointsRequest {
+                    anchor: start,
+                    focus: end,
+                    granularity: RuntimeTextSelectionGranularity::Word,
+                },
+            )
+            .expect("word request is valid");
+        let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.value.resolution
+        else {
+            panic!("selection resolves");
+        };
+        assert!(
+            range.selected_text.contains('\n'),
+            "{label}: the hard break survives the copy, got {:?}",
+            range.selected_text
+        );
+        assert!(
+            !range.selected_text.contains("\n\n"),
+            "{label}: a <br/> is one line break, not a paragraph gap, got {:?}",
+            range.selected_text
+        );
+    }
+}

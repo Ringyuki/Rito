@@ -29,9 +29,12 @@ test.describe('reader app production pinned fallback', () => {
     await reloadDemo(page);
     await forceTargetCanvasPaint(page);
 
+    // One app load opens more than one engine session (the bounded
+    // pagination session opens with the same policy), so the invariant is
+    // buffer identity across EVERY open, not an exact open count.
     const probe = await waitForPolicyCycles(page, 2);
-    expectPolicyRequests(probe, 2);
-    expectPolicyResults(probe, 2);
+    expectPolicyRequests(probe);
+    expectPolicyResults(probe);
     expect(probe.paints.some(isPinnedTargetPaint)).toBe(true);
   });
 
@@ -90,7 +93,9 @@ async function loadDemo(page: Page): Promise<void> {
 async function reloadDemo(page: Page): Promise<void> {
   await page.getByTestId('reader-context-trigger').click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Load Demo' }).click();
-  await expect.poll(() => policyCycleCount(page), { timeout: LOAD_TIMEOUT_MS }).toBe(2);
+  await expect
+    .poll(() => policyCycleCount(page), { timeout: LOAD_TIMEOUT_MS })
+    .toBeGreaterThanOrEqual(2);
   await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-loaded', 'true', {
     timeout: LOAD_TIMEOUT_MS,
   });
@@ -106,7 +111,9 @@ async function waitForPolicyCycles(
   page: Page,
   count: number,
 ): Promise<PinnedFallbackProbeSnapshot> {
-  await expect.poll(() => policyCycleCount(page), { timeout: LOAD_TIMEOUT_MS }).toBe(count);
+  await expect
+    .poll(() => policyCycleCount(page), { timeout: LOAD_TIMEOUT_MS })
+    .toBeGreaterThanOrEqual(count);
   return readPinnedFallbackProbe(page);
 }
 
@@ -119,16 +126,16 @@ async function currentSpread(page: Page): Promise<number> {
   return Number(value);
 }
 
-function expectPolicyRequests(probe: PinnedFallbackProbeSnapshot, count: number): void {
-  expect(probe.openRequests).toHaveLength(count);
+function expectPolicyRequests(probe: PinnedFallbackProbeSnapshot): void {
+  expect(probe.openRequests.length).toBeGreaterThanOrEqual(2);
   for (const request of probe.openRequests) {
     expect(request.expectedSha256).toEqual(EXPECTED_HASHES);
     expect(request.faceBufferByteLengths).toEqual(EXPECTED_BYTE_LENGTHS);
   }
 }
 
-function expectPolicyResults(probe: PinnedFallbackProbeSnapshot, count: number): void {
-  expect(probe.openResults).toHaveLength(count);
+function expectPolicyResults(probe: PinnedFallbackProbeSnapshot): void {
+  expect(probe.openResults.length).toBeGreaterThanOrEqual(2);
   for (const result of probe.openResults) {
     expect(result.faces.map((face) => face.sha256)).toEqual(EXPECTED_HASHES);
     expect(result.faces.map((face) => face.familyAlias)).toEqual(EXPECTED_ALIASES);
@@ -138,7 +145,9 @@ function expectPolicyResults(probe: PinnedFallbackProbeSnapshot, count: number):
     );
     expect(result.faces.every((face) => /^[0-9a-f]{16}$/.test(face.shapeFingerprint))).toBe(true);
   }
-  expect(probe.openResults[1]?.policyId).toBe(probe.openResults[0]?.policyId);
+  for (const result of probe.openResults) {
+    expect(result.policyId).toBe(probe.openResults[0]?.policyId);
+  }
 }
 
 function isPinnedTargetPaint(paint: PinnedFallbackProbeSnapshot['paints'][number]): boolean {

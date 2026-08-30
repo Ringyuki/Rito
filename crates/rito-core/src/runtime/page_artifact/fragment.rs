@@ -47,6 +47,12 @@ pub(in crate::runtime) struct FragmentRunRecord {
     pub(in crate::runtime) y: f64,
     pub(in crate::runtime) width: f64,
     pub(in crate::runtime) height: f64,
+    /// The run's font box (top, height) in the same coordinates — the
+    /// primary font's grid ascent/descent hung from the line baseline,
+    /// which is the extent Chromium gives a native selection rect.
+    /// Absent when the host injected no grid metric; consumers fall
+    /// back to the line box above.
+    pub(in crate::runtime) font_box: Option<(f64, f64)>,
     /// Destination of the enclosing link, when the run sits inside one.
     pub(in crate::runtime) href: Option<String>,
     /// Source-locator mapping for the run, when its item has one.
@@ -130,6 +136,13 @@ pub(in crate::runtime) struct FragmentPageArtifact {
     images: Vec<FragmentImageRecord>,
     links: Vec<FragmentLinkRecord>,
     semantics: Vec<FragmentSemanticRecord>,
+    /// Page-text offsets of interline separators that stand for a HARD
+    /// break (`<br/>`): the flow text carries a newline there that no
+    /// run covers (a fallback-font break shapes into its own run and the
+    /// trailing-whitespace trim drops it), so a selection crossing the
+    /// boundary re-adds the line break a browser copy carries. Soft
+    /// wraps share the same separator character but are absent here.
+    hard_breaks: Vec<usize>,
 }
 
 /// A block-level link's whole border box on this page: the browser makes
@@ -186,7 +199,13 @@ impl FragmentPageArtifact {
             images: Vec::new(),
             links: Vec::new(),
             semantics: Vec::new(),
+            hard_breaks: Vec::new(),
         }
+    }
+
+    /// Page-text offsets of interline separators standing for hard breaks.
+    pub(in crate::runtime) fn hard_break_offsets(&self) -> &[usize] {
+        &self.hard_breaks
     }
 
     /// The page's text runs, for interaction resolvers.
@@ -220,6 +239,8 @@ impl FragmentPageArtifact {
             images: Vec::new(),
             links: Vec::new(),
             semantics: Vec::new(),
+            hard_breaks: Vec::new(),
+            flow_last_text_end: std::collections::HashMap::new(),
         };
         let Fragment::Box(page_root) = root else {
             return Self::empty(page_index, width, height);
@@ -247,6 +268,7 @@ impl FragmentPageArtifact {
             images: builder.images,
             links: builder.links,
             semantics: builder.semantics,
+            hard_breaks: builder.hard_breaks,
         }
     }
 
@@ -262,6 +284,7 @@ impl FragmentPageArtifact {
             images: Vec::new(),
             links: Vec::new(),
             semantics: Vec::new(),
+            hard_breaks: Vec::new(),
         }
     }
 }
@@ -276,6 +299,10 @@ struct ArtifactBuilder<'a> {
     images: Vec<FragmentImageRecord>,
     links: Vec<FragmentLinkRecord>,
     semantics: Vec<FragmentSemanticRecord>,
+    hard_breaks: Vec<usize>,
+    /// Per flow: the byte end of the previous line's last text fragment
+    /// in that flow's concatenated text, for hard-break detection.
+    flow_last_text_end: std::collections::HashMap<u32, usize>,
 }
 
 impl ArtifactBuilder<'_> {
@@ -348,8 +375,30 @@ impl ArtifactBuilder<'_> {
                     .iter()
                     .any(|child| matches!(child, Fragment::Text(_)));
                 if has_line_text && self.has_text {
+                    // A hard break leaves a newline in the FLOW text
+                    // between the previous line's last fragment and this
+                    // line's first one; a soft wrap leaves none.
+                    let first_start = line.children.iter().find_map(|child| match child {
+                        Fragment::Text(run) => Some(run.text_start as usize),
+                        _ => None,
+                    });
+                    let hard = self
+                        .flow_last_text_end
+                        .get(&line.source.0)
+                        .zip(first_start)
+                        .and_then(|(previous, first)| flow_text.get(*previous..first))
+                        .is_some_and(|gap| gap.contains('\n'));
+                    if hard {
+                        self.hard_breaks.push(self.offset);
+                    }
                     self.text.push('\n');
                     self.offset += 1;
+                }
+                if let Some(last_end) = line.children.iter().rev().find_map(|child| match child {
+                    Fragment::Text(run) => Some(run.text_end as usize),
+                    _ => None,
+                }) {
+                    self.flow_last_text_end.insert(line.source.0, last_end);
                 }
                 for (run_index, child) in line.children.iter().enumerate() {
                     match child {
@@ -399,6 +448,9 @@ impl ArtifactBuilder<'_> {
                                 Some(RunSourceMap { path, segments })
                             });
                             let length = run_text.encode_utf16().count();
+                            let font_box = run.font_grid.map(|(ascent, descent)| {
+                                (line_y + line.baseline - ascent, ascent + descent)
+                            });
                             self.runs.push(FragmentRunRecord {
                                 block_index,
                                 line_index: *line_index,
@@ -409,6 +461,7 @@ impl ArtifactBuilder<'_> {
                                 y: line_y,
                                 width: run.rect.width,
                                 height: line.rect.height,
+                                font_box,
                                 href,
                                 source,
                             });
@@ -619,11 +672,15 @@ impl PageArtifact for FragmentPageArtifact {
             } else {
                 0.0
             };
+            // Chromium's native selection rect spans the FONT box, not
+            // the line box; the line box is the documented fallback for
+            // hosts that inject no grid metrics.
+            let (rect_y, rect_height) = run.font_box.unwrap_or((run.y, run.height));
             rects.push(PageArtifactTextRangeRect {
                 x: run.x + per_char * from_char as f64,
-                y: run.y,
+                y: rect_y,
                 width: per_char * (to_char - from_char) as f64,
-                height: run.height,
+                height: rect_height,
                 block_index: run.block_index,
                 line_index: run.line_index,
                 run_index: run.run_index,

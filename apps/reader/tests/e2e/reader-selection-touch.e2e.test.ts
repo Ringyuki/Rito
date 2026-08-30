@@ -178,7 +178,7 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
   // attribute it reads) until this release hardening restored it, and the
   // long-press drag-extend / edge-autoscroll behaviors drifted in that
   // window. Tracked for the post-release fragment interaction pass.
-  test.fixme('autoscrolls an active long-press selection through lazy pagination', async ({
+  test.fixme('autoscrolls an active long-press selection across an edge page turn', async ({
     page,
   }) => {
     const input = requireTouchInput(touchInput);
@@ -223,8 +223,8 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
   test.fixme('autoscrolls a captured end handle into the next spread', async ({ page }) => {
     const input = requireTouchInput(touchInput);
     const shell = page.getByTestId('reader-shell');
-    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(1);
-    await expect(shell).toHaveAttribute('data-pagination-complete', 'false');
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
+    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
     const firstLine = requireBand(await requireTextBands(page, 1), 0);
     await selectTouchWord(page, input, firstLine, EDGE_FIRST_PAGE_TEXT);
 

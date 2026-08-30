@@ -1707,6 +1707,7 @@ mod tests {
             text_start: start,
             text_end: end,
             box_snap: None,
+            font_grid: None,
             ruby_center_shift_px: 0.0,
             justify_px: 0.0,
             ruby_gap_px: 0.0,
