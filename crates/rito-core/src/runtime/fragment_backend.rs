@@ -378,6 +378,7 @@ impl RuntimeDocument {
                 image_border_paints: Some(&built.image_border_paints),
                 list_markers: Some(&built.list_markers),
                 vertical_frame: None,
+                flow_item_sources: Some(&built.flow_item_sources),
             },
             &CancelFlag::new(),
         )

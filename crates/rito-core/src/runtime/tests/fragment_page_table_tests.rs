@@ -1211,3 +1211,82 @@ fn a_selection_crossing_a_hard_break_copies_the_line_break() {
         );
     }
 }
+
+#[test]
+fn painted_commands_carry_link_targets_and_image_alt() {
+    // A host resolves taps against the display list alone: every painted
+    // text run inside an <a> carries the link's target, and an image
+    // command carries its alt text plus the enclosing link. The fragment
+    // cutover shipped these as None and taps on links and note anchors
+    // fell through to the image viewer.
+    let epub = crate::runtime::tests::fixture::interaction_target_fixture_epub();
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("interaction fixture opens");
+    document.set_fragment_page_table_enabled(true);
+    let mut layout = font_aware_layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let revision = document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained");
+    assert!(
+        revision.fragment_layout.is_some(),
+        "the fixture routes to the fragment engine",
+    );
+    let session = revision.chapter_engine_session();
+    let frame = session.frame(0).expect("first spread frame");
+
+    let mut text_hrefs = Vec::new();
+    let mut images = Vec::new();
+    for command in &frame.commands {
+        match command {
+            crate::render::DisplayCommand::PaintText(input) => {
+                if let Some(href) = &input.href {
+                    text_hrefs.push((format!("{:?}", input.text), href.clone()));
+                }
+            }
+            crate::render::DisplayCommand::PaintImage { src, alt, href, .. } => {
+                images.push((src.clone(), alt.clone(), href.clone()));
+            }
+            _ => {}
+        }
+    }
+    assert!(
+        text_hrefs.iter().any(|(_, href)| href == "#intro"),
+        "an internal link's text run carries its target, got {text_hrefs:?}"
+    );
+    assert!(
+        text_hrefs
+            .iter()
+            .any(|(_, href)| href == "https://example.com/help#reader"),
+        "an external link's text run carries its target, got {text_hrefs:?}"
+    );
+    assert!(
+        text_hrefs.iter().any(|(_, href)| href == "#fn1"),
+        "a noteref's text run carries its target, got {text_hrefs:?}"
+    );
+    assert!(
+        images
+            .iter()
+            .any(|(_, alt, href)| alt.as_deref() == Some("linked cover")
+                && href.as_deref() == Some("#intro")),
+        "a linked image carries alt and the enclosing link, got {images:?}"
+    );
+    assert!(
+        images
+            .iter()
+            .any(|(_, alt, href)| alt.as_deref() == Some("standalone cover") && href.is_none()),
+        "a bare image carries alt and no link, got {images:?}"
+    );
+}
