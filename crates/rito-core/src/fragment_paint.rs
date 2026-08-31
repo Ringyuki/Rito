@@ -22,7 +22,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 use crate::epub::{EpubError, EpubResult};
-use crate::fragment_bridge::NodePaint;
+use crate::fragment_bridge::{FlowItemSource, NodePaint};
 use crate::layout::{
     FontPaint, FontPaintStyle, MeasurePaint, RunDecoration, RunDecorationKind, RunPaint,
     RunPaintData, TextShadowPaint,
@@ -110,6 +110,11 @@ pub(crate) struct FragmentPaintContext<'a> {
     /// LOGICAL (inline, block) offsets and every line paints as a column
     /// placed `block` in from `right`, `inline` down from `top`.
     pub(crate) vertical_frame: Option<(f64, f64)>,
+    /// Per-flow item provenance keyed by inline-flow node id — the map
+    /// the artifact builder reads. Painted text and image commands carry
+    /// the nearest enclosing link's target (and an image's alt text) so
+    /// a host resolves taps against the display list alone.
+    pub(crate) flow_item_sources: Option<&'a BTreeMap<u32, Vec<FlowItemSource>>>,
 }
 
 /// Walks a laid-out fragment tree and appends the display commands that
@@ -452,6 +457,7 @@ fn append_fragment_display_commands_inner(
                         frame_right,
                         frame_top,
                         context.family_policy,
+                        context.flow_item_sources,
                     )?;
                     continue;
                 }
@@ -478,6 +484,7 @@ fn append_fragment_display_commands_inner(
             origin_y,
             context.family_policy,
             context.image_border_paints,
+            context.flow_item_sources,
             snap_origin_y,
         ),
         Fragment::Text(_) | Fragment::Image(_) => Err(EpubError::new(
@@ -612,10 +619,13 @@ fn append_vertical_line_commands(
     frame_right: f64,
     frame_top: f64,
     family_policy: Option<&PaintFamilyPolicy>,
+    flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
         return Err(EpubError::new("line fragment source is not an inline flow"));
     };
+    let item_sources =
+        flow_item_sources.and_then(|sources| sources.get(&line.source.0).map(Vec::as_slice));
     let styles = tree
         .styles()
         .ok_or_else(|| EpubError::new("formatting tree carries no style tables"))?;
@@ -641,6 +651,8 @@ fn append_vertical_line_commands(
             let Some(InlineItem::Image { src, .. }) = items.get(image.item_index as usize) else {
                 continue;
             };
+            let item_source =
+                item_sources.and_then(|sources| sources.get(image.item_index as usize));
             commands.push(DisplayCommand::paint_image(
                 src.clone(),
                 rect_value(
@@ -649,8 +661,8 @@ fn append_vertical_line_commands(
                     image.rect.height,
                     image.rect.width,
                 ),
-                None,
-                None,
+                item_source.and_then(|source| source.image_alt.clone()),
+                item_source.and_then(|source| source.href.clone()),
             ));
             continue;
         }
@@ -692,7 +704,9 @@ fn append_vertical_line_commands(
             ),
             paint: base_paint.clone(),
             line_height_px: None,
-            href: None,
+            href: item_sources
+                .and_then(|sources| sources.get(*item_index))
+                .and_then(|source| source.href.clone()),
             source_text: None,
             source_text_offset: None,
             ruby_align: None,
@@ -767,11 +781,14 @@ fn append_line_commands(
     origin_y: f64,
     family_policy: Option<&PaintFamilyPolicy>,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
+    flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
     snap_origin_y: f64,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
         return Err(EpubError::new("line fragment source is not an inline flow"));
     };
+    let item_sources =
+        flow_item_sources.and_then(|sources| sources.get(&line.source.0).map(Vec::as_slice));
     let styles = tree
         .styles()
         .ok_or_else(|| EpubError::new("formatting tree carries no style tables"))?;
@@ -831,11 +848,22 @@ fn append_line_commands(
                     line_x,
                     line_y,
                     family_policy,
+                    item_sources,
                     snap_origin_y,
                 )?;
             }
             Fragment::Image(image) => {
-                append_image_command(commands, items, image, line_x, line_y, image_border_paints)?;
+                let item_source =
+                    item_sources.and_then(|sources| sources.get(image.item_index as usize));
+                append_image_command(
+                    commands,
+                    items,
+                    image,
+                    line_x,
+                    line_y,
+                    image_border_paints,
+                    item_source,
+                )?;
             }
             Fragment::Box(atom) => {
                 // An inline-block atom riding the line: its mini
@@ -853,6 +881,7 @@ fn append_line_commands(
                         line_y + atom.rect.y,
                         family_policy,
                         image_border_paints,
+                        flow_item_sources,
                         snap_origin_y,
                     )?;
                 }
@@ -879,6 +908,7 @@ fn append_text_run_command(
     line_x: f64,
     line_y: f64,
     family_policy: Option<&PaintFamilyPolicy>,
+    item_sources: Option<&[FlowItemSource]>,
     snap_origin_y: f64,
 ) -> EpubResult<()> {
     let start = run.text_start as usize;
@@ -1082,7 +1112,11 @@ fn append_text_run_command(
         ),
         paint,
         line_height_px: Some(number_value(line.rect.height)),
-        href: None,
+        // The nearest enclosing link rides the painted run so a host
+        // resolves taps against the display list alone.
+        href: item_sources
+            .and_then(|sources| sources.get(*item_index))
+            .and_then(|source| source.href.clone()),
         source_text: None,
         source_text_offset: None,
         ruby_align: None,
@@ -1099,6 +1133,7 @@ fn append_image_command(
     line_x: f64,
     line_y: f64,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
+    item_source: Option<&FlowItemSource>,
 ) -> EpubResult<()> {
     let Some(InlineItem::Image {
         src,
@@ -1279,13 +1314,13 @@ fn append_image_command(
         }
         draw = raster;
     }
-    // Alt text and link targets travel with the interaction layer, which
-    // the fragment contract does not carry yet.
+    // Alt text and the enclosing link ride the command so a host resolves
+    // taps (and a decode-failure fallback) against the display list alone.
     commands.push(DisplayCommand::paint_image(
         src.clone(),
         rect_value(line_x + draw.x, line_y + draw.y, draw.width, draw.height),
-        None,
-        None,
+        item_source.and_then(|source| source.image_alt.clone()),
+        item_source.and_then(|source| source.href.clone()),
     ));
     Ok(())
 }
@@ -1787,6 +1822,7 @@ mod tests {
                 node_paints: Some(&node_paints),
                 list_markers: None,
                 vertical_frame: None,
+                flow_item_sources: None,
             },
         )
         .expect("fragments paint");
@@ -1895,6 +1931,7 @@ mod tests {
                 node_paints: Some(&paints),
                 list_markers: None,
                 vertical_frame: None,
+                flow_item_sources: None,
             },
         )
         .expect("rule paints");
@@ -1929,6 +1966,7 @@ mod tests {
                 node_paints: None,
                 list_markers: None,
                 vertical_frame: None,
+                flow_item_sources: None,
             },
         )
         .expect("fragments paint");
