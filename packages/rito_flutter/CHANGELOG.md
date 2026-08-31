@@ -1,3 +1,10 @@
+## 0.2.1 - 2026-08-31
+
+- Painted text and image commands carry the enclosing link's target and an
+  image's alt text again. 0.2.0's fragment cutover shipped them as null, so a
+  host resolving taps against the display list saw no links — a tap on a note
+  anchor fell through to the image viewer.
+
 ## 0.2.0 - 2026-08-29
 
 - Chapter-local pagination builds the whole target chapter in one pass:
