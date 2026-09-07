@@ -148,6 +148,17 @@ fn parse_command(value: &Value) -> Option<DisplayCommand> {
                     .get("vertical")
                     .and_then(Value::as_bool)
                     .unwrap_or(false),
+                clusters: match value.get("clusters") {
+                    None => Vec::new(),
+                    Some(clusters) => clusters
+                        .as_array()?
+                        .iter()
+                        .map(|cluster| {
+                            let pair = cluster.as_array()?;
+                            Some((pair.first()?.as_u64()? as u32, pair.get(1)?.as_f64()?))
+                        })
+                        .collect::<Option<Vec<_>>>()?,
+                },
             };
             if kind == "paintText" {
                 DisplayCommand::paint_text(input)

@@ -178,5 +178,6 @@ fn text_run(text: &ReaderTextCommandV1) -> ReaderTextRunV1 {
         ruby_align: text.ruby_align.clone(),
         align_right: text.align_right,
         vertical: text.vertical,
+        clusters: text.clusters.clone(),
     }
 }

@@ -78,4 +78,16 @@ export interface RitoReaderTextRunV1 {
   /** Vertical writing: one downward column, `rect.x` its left edge and
    * `rect.y` the first glyph's top. */
   readonly vertical: boolean;
+  /** The origin of every cluster in text order; empty when the renderer
+   * still places the run itself (a right-aligned marker, a vertical
+   * column, an annotation). */
+  readonly clusters: readonly RitoReaderClusterV1[];
+}
+
+/** Where one cluster of a run paints: the origin of the cluster starting
+ * at `byte` of the run's UTF-8 text, in CSS pixels, spacing and
+ * justification already applied. */
+export interface RitoReaderClusterV1 {
+  readonly byte: number;
+  readonly x: number;
 }

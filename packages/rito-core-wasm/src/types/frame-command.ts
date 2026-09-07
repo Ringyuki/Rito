@@ -70,6 +70,10 @@ export interface RitoCoreWasmPaintTextCommand extends RitoCoreWasmTextPaintComma
    * pen stepping one font size per cluster; rect.x is the glyph column's
    * left edge and rect.y the first glyph's top. */
   readonly vertical?: boolean;
+  /** The origin of every cluster (byte offset into the UTF-8 text, CSS
+   * x) in text order; the pen draws each cluster there. Absent when the
+   * pen still places the run itself. */
+  readonly clusters?: readonly { readonly byte: number; readonly x: number }[];
 }
 
 export interface RitoCoreWasmPaintRubyCommand extends RitoCoreWasmTextPaintCommand {

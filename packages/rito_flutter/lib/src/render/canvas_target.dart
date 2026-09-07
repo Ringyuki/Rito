@@ -59,6 +59,12 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
   final RitoFontEnvelopeStore? _fontEnvelopes;
   final RitoCanvasColorOverride? _colorOverride;
   final List<double> _opacityStack = <double>[1];
+
+  /// Laid-out cluster paragraphs by (text, family, size, weight, italic,
+  /// colour), reused across paints of the same target.
+  final Map<(String, String, double, double, bool, int), ui.Paragraph>
+  _clusterParagraphs =
+      <(String, String, double, double, bool, int), ui.Paragraph>{};
   // Declared-ground tracking for the theme override (R1/R2): opaque
   // block grounds replayed so far, and the page ground when R1 kept the
   // book's own color. Reset by every page ground. The browser pen

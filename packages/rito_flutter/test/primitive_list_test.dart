@@ -45,6 +45,12 @@ void main() {
     expect(text.rubyAlign, 'center');
     expect(text.alignRight, isTrue);
     expect(text.vertical, isFalse);
+    expect(text.clusters.map((c) => (c.byte, c.x)), [
+      (0, 0.0),
+      (1, 8.5),
+      (2, 12.25),
+      (3, 16.0),
+    ]);
   });
 
   test('decodes every primitive the Rust encoder writes', () {

@@ -56,14 +56,30 @@ export function drawCanvasTextFragment(
     }
     return;
   }
-  if (paint.textShadow && paint.textShadow.length > 0) {
-    drawTextShadows(ctx, fragment, x, y, color);
-  }
   // Probed: canvas 'alphabetic' snaps the baseline to the nearest device
   // row and is then BIT-IDENTICAL to Blink's DOM text raster; 'top' never
   // matches at any sub-pixel phase. The rect's em-top encodes
   // baseline - 0.8*size (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
   const baseline = y + 0.8 * paint.font.sizePx;
+  const clusters = fragment.clusters;
+  if (clusters !== undefined && clusters.length > 0 && !fragment.alignRight) {
+    // The engine placed every cluster: spacing, justification shares and
+    // the browser's fixed-point advances are already in each origin, so
+    // the canvas draws one cluster at a time with its own spacing off.
+    ctx.wordSpacing = '0px';
+    ctx.letterSpacing = '0px';
+    const pieces = clusterPieces(fragment.text, clusters);
+    if (paint.textShadow && paint.textShadow.length > 0) {
+      drawTextShadows(ctx, fragment, x, y, color, pieces);
+    }
+    for (const piece of pieces) {
+      ctx.fillText(piece.text, piece.x, baseline);
+    }
+    return;
+  }
+  if (paint.textShadow && paint.textShadow.length > 0) {
+    drawTextShadows(ctx, fragment, x, y, color);
+  }
   // An outside list marker rides right-aligned: the wire x is the
   // text's right edge and only the canvas can measure the string.
   // Zero-width characters (U+FEFF and friends) paint no ink but the
@@ -207,6 +223,38 @@ function rubyAnnotationExpands(text: string): boolean {
     }
   }
   return false;
+}
+
+/**
+ * The run's text cut at its cluster origins. Cluster boundaries are UTF-8
+ * byte offsets into the run text; the canvas takes UTF-16 strings, so the
+ * cut walks code points and counts their UTF-8 lengths.
+ */
+function clusterPieces(
+  text: string,
+  clusters: readonly { readonly byte: number; readonly x: number }[],
+): { readonly text: string; readonly x: number }[] {
+  const starts = new Map<number, number>();
+  let byte = 0;
+  let index = 0;
+  for (const character of text) {
+    starts.set(byte, index);
+    const code = character.codePointAt(0) ?? 0;
+    byte += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
+    index += character.length;
+  }
+  starts.set(byte, index);
+  const pieces: { text: string; x: number }[] = [];
+  for (let at = 0; at < clusters.length; at += 1) {
+    const cluster = clusters[at];
+    if (cluster === undefined) continue;
+    const start = starts.get(cluster.byte);
+    const next = clusters[at + 1];
+    const end = next === undefined ? text.length : starts.get(next.byte);
+    if (start === undefined || end === undefined || end <= start) continue;
+    pieces.push({ text: text.slice(start, end), x: cluster.x });
+  }
+  return pieces;
 }
 
 /**

@@ -8,7 +8,8 @@ pub(super) use lowered::encode_primitive_list;
 use paint::write_run_paint;
 pub(super) use primitives::checked_length;
 use primitives::{
-    write_finite_f64, write_optional, write_optional_string, write_rect, write_string, write_u64,
+    write_finite_f64, write_length, write_optional, write_optional_string, write_rect,
+    write_string, write_u32, write_u64,
 };
 
 /// A text run's body, shared by the text and ruby primitives.
@@ -35,5 +36,10 @@ fn write_text(
     write_optional_string(output, input.ruby_align.as_deref())?;
     output.push(u8::from(input.align_right));
     output.push(u8::from(input.vertical));
+    write_length(output, input.clusters.len(), "cluster")?;
+    for cluster in &input.clusters {
+        write_u32(output, cluster.byte);
+        write_finite_f64(output, cluster.x)?;
+    }
     Ok(())
 }

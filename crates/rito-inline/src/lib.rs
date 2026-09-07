@@ -36,6 +36,7 @@ use rito_style_contract::{
 };
 
 mod breaking;
+mod clusters;
 mod context;
 mod image;
 mod justify;
@@ -50,6 +51,7 @@ mod strut;
 mod tests;
 
 pub(crate) use breaking::*;
+pub(crate) use clusters::*;
 pub use context::HostNormalLineMetric;
 pub(crate) use context::*;
 pub(crate) use image::*;

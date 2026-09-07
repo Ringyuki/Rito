@@ -190,6 +190,17 @@ void _text(
   writer
     ..uint8(opcode == 12 ? 1 : 0)
     ..uint8(0);
+  // Cluster origins: two for the text run, none for the annotation.
+  if (opcode == 12) {
+    writer
+      ..uint32(2)
+      ..uint32(0)
+      ..float64(0)
+      ..uint32(2)
+      ..float64(8.5);
+  } else {
+    writer.uint32(0);
+  }
 }
 
 void _color(

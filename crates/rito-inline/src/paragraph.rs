@@ -482,7 +482,7 @@ impl ParleyInlineContext {
             }
         }
         let mut layouts = self.layouts.borrow_mut();
-        let mut builder = layouts.ranged_builder(&mut fonts, &text, 1.0, true);
+        let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, &text, 1.0, true));
         // The pinned-browser baseline: Chromium's ASCII break tailoring plus
         // its CJK-context treatment of ambiguous curly quotes.
         if break_anywhere {
@@ -491,15 +491,15 @@ impl ParleyInlineContext {
             // disregarded entirely (b50's afterword packs two more
             // full-width characters per line than any kinsoku-aware rule
             // set allows, breaking mid-ellipsis and before commas).
-            builder.set_line_break_override(Some(&break_anywhere_override));
+            builder.set_line_break_override(&break_anywhere_override);
         } else if chromium_tailoring {
             if strict_kinsoku {
-                builder.set_line_break_override(Some(&cjk_aware_chromium_break_override_strict));
+                builder.set_line_break_override(&cjk_aware_chromium_break_override_strict);
             } else {
-                builder.set_line_break_override(Some(&cjk_aware_chromium_break_override));
+                builder.set_line_break_override(&cjk_aware_chromium_break_override);
             }
         } else if break_all {
-            builder.set_line_break_override(Some(&break_all_box_dash_override));
+            builder.set_line_break_override(&break_all_box_dash_override);
         }
         // `text-indent` is the block container's own inherited property and
         // indents its first line whatever sits on it — a line holding only
@@ -819,7 +819,7 @@ impl ParleyInlineContext {
             })
             .transpose()?
             .unwrap_or(parley::Alignment::Start);
-        let mut layout = builder.build(&text);
+        let (mut layout, spacing_edits) = builder.build(&text);
         // Parley's own first-line indent: a start-edge margin on the
         // indented line. Reserving the space with an inline box instead
         // would invent a break opportunity that CSS does not have, and an
@@ -832,6 +832,7 @@ impl ParleyInlineContext {
             layout,
             text,
             alignment,
+            spacing_edits,
             shifted_ranges,
             first_line_indent,
             inline_block_boxes,
@@ -851,12 +852,68 @@ impl ParleyInlineContext {
     }
 }
 
+/// The Parley builder with every letter-spacing push on record. Spacing
+/// reaches the shaper folded into cluster advances; the browser keeps it
+/// outside its fixed-point glyph advances, so the line loop needs to know
+/// how much spacing each cluster carries to step the way the browser's
+/// pen does.
+pub(crate) struct SpacingBuilder<'a> {
+    inner: RangedBuilder<'a, [u8; 4]>,
+    edits: SpacingEdits,
+}
+
+/// Letter-spacing pushes in builder order: a later push overrides an
+/// earlier one on the bytes they share.
+pub(crate) type SpacingEdits = Vec<(std::ops::Range<usize>, f32)>;
+
+impl<'a> SpacingBuilder<'a> {
+    pub(crate) fn new(inner: RangedBuilder<'a, [u8; 4]>) -> Self {
+        Self {
+            inner,
+            edits: Vec::new(),
+        }
+    }
+
+    pub(crate) fn push<'p>(
+        &mut self,
+        property: impl Into<StyleProperty<'p, [u8; 4]>>,
+        range: std::ops::Range<usize>,
+    ) {
+        let property = property.into();
+        if let StyleProperty::LetterSpacing(spacing) = &property {
+            self.edits.push((range.clone(), *spacing));
+        }
+        self.inner.push(property, range);
+    }
+
+    pub(crate) fn push_inline_box(&mut self, inline_box: InlineBox) {
+        self.inner.push_inline_box(inline_box);
+    }
+
+    pub(crate) fn set_line_break_override(&mut self, overrides: &'a parley::LineBreakOverrideFn) {
+        self.inner.set_line_break_override(Some(overrides));
+    }
+
+    /// The layout and the spacing pushes it was built with.
+    pub(crate) fn build(self, text: &str) -> (parley::Layout<[u8; 4]>, SpacingEdits) {
+        (self.inner.build(text), self.edits)
+    }
+}
+
 /// One paragraph's built Parley layout plus the metadata the fragment
 /// assembly needs.
 pub(crate) struct ParagraphLayout {
     pub(crate) layout: parley::Layout<[u8; 4]>,
     pub(crate) text: String,
     pub(crate) alignment: parley::Alignment,
+    /// Every letter-spacing push the builder received, in order (a
+    /// later push overrides an earlier one on the bytes they share):
+    /// author spacing, punctuation trims, box gaps, uncovered-character
+    /// advances, ruby spreads, line-end trims. A cluster's shaped advance
+    /// carries the spacing that applied to it; the line loop subtracts
+    /// it to recover the bare glyph advance the browser's fixed-point
+    /// pen steps by.
+    pub(crate) spacing_edits: SpacingEdits,
     /// Byte ranges of the flow text whose runs carry a baseline shift
     /// (positive raises), in content order.
     pub(crate) shifted_ranges: Vec<(std::ops::Range<usize>, f64)>,
@@ -973,7 +1030,7 @@ pub(crate) fn normal_strut_key(style: &InlineFormattingStyleV1) -> u64 {
 }
 
 pub(crate) fn push_item_styles(
-    builder: &mut RangedBuilder<'_, [u8; 4]>,
+    builder: &mut SpacingBuilder<'_>,
     style: &InlineFormattingStyleV1,
     range: std::ops::Range<usize>,
 ) {

@@ -33,6 +33,10 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       _paintVerticalRun(command, rect);
       return;
     }
+    if (!ruby && !command.alignRight && command.clusters.isNotEmpty) {
+      _paintClusteredRun(command, rect);
+      return;
+    }
     // The run's inline box and decoration line arrive as primitives of
     // their own; the pen paints shadows, then glyphs.
     final painter = TextPainter(
@@ -85,6 +89,186 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       _paintTextShadows(painter, command.paint, origin);
     }
     painter.paint(_canvas, origin);
+  }
+
+  /// A run whose clusters the engine placed: every cluster draws at its
+  /// own origin, with the alphabetic baseline on the run's snapped row.
+  /// Spacing, justification and the browser's fixed-point advances are
+  /// already in the origins, so the paragraphs carry no spacing and one
+  /// laid-out paragraph per (cluster, style) serves every paint — laying
+  /// each cluster out per paint costs twenty times what a run does.
+  void _paintClusteredRun(RitoTextPaintCommand command, ui.Rect rect) {
+    final paint = command.paint;
+    final color = _effectiveTextColor(paint, rect);
+    final baselineRow = (rect.top + _canvasTopAscentRatio * paint.font.sizePx)
+        .roundToDouble();
+    final pieces = _clusterPieces(command.text, command.clusters);
+    final placed = <(ui.Paragraph, ui.Offset)>[];
+    for (final piece in pieces) {
+      final paragraph = _clusterParagraph(piece.text, paint, color);
+      placed.add((
+        paragraph,
+        ui.Offset(piece.x, baselineRow - paragraph.alphabeticBaseline),
+      ));
+    }
+    if (paint.textShadows.isNotEmpty) {
+      _paintClusterShadows(pieces, paint, placed);
+    }
+    for (final (paragraph, origin) in placed) {
+      _canvas.drawParagraph(paragraph, origin);
+    }
+  }
+
+  /// One laid-out paragraph per (cluster text, font, colour), kept across
+  /// paints; the map lives on the target, which a page surface keeps.
+  ui.Paragraph _clusterParagraph(
+    String text,
+    RitoRunPaint paint,
+    ui.Color color,
+  ) {
+    final font = paint.font;
+    final key = (
+      text,
+      font.family,
+      font.sizePx,
+      font.weight,
+      font.style == RitoFontStyle.italic,
+      color.toARGB32(),
+    );
+    return _clusterParagraphs.putIfAbsent(key, () {
+      return _buildClusterParagraph(text, paint, color: color);
+    });
+  }
+
+  ui.Paragraph _buildClusterParagraph(
+    String text,
+    RitoRunPaint paint, {
+    ui.Color? color,
+    ui.Paint? foreground,
+  }) {
+    final font = paint.font;
+    final families = ritoSplitFontFamilyStack(font.family);
+    final builder =
+        ui.ParagraphBuilder(
+            ui.ParagraphStyle(
+              fontFamily: families.isEmpty ? null : families.first,
+              fontSize: font.sizePx,
+              fontStyle: font.style == RitoFontStyle.italic
+                  ? FontStyle.italic
+                  : FontStyle.normal,
+              fontWeight: _paintWeight(families, font.weight),
+              maxLines: 1,
+            ),
+          )
+          ..pushStyle(
+            ui.TextStyle(
+              color: color,
+              foreground: foreground,
+              fontFamily: families.isEmpty ? null : families.first,
+              fontFamilyFallback: families.length > 1
+                  ? families.sublist(1)
+                  : null,
+              fontSize: font.sizePx,
+              fontStyle: font.style == RitoFontStyle.italic
+                  ? FontStyle.italic
+                  : FontStyle.normal,
+              fontWeight: _paintWeight(families, font.weight),
+            ),
+          )
+          ..addText(text);
+    return builder.build()
+      ..layout(const ui.ParagraphConstraints(width: double.infinity));
+  }
+
+  /// Shadow layers under the whole run, back to front, each one bitmap
+  /// holding every cluster the way the browser blurs a run's mask at
+  /// once: blurring each cluster on its own composited neighbouring
+  /// glows over each other and read darker where they overlap.
+  void _paintClusterShadows(
+    List<({String text, double x})> pieces,
+    RitoRunPaint paint,
+    List<(ui.Paragraph, ui.Offset)> placed,
+  ) {
+    var bounds = ui.Rect.zero;
+    for (final (paragraph, origin) in placed) {
+      final box = ui.Rect.fromLTWH(
+        origin.dx,
+        origin.dy,
+        paragraph.longestLine,
+        paragraph.height,
+      );
+      bounds = bounds == ui.Rect.zero ? box : bounds.expandToInclude(box);
+    }
+    var pad = 0.0;
+    for (final shadow in paint.textShadows) {
+      pad = math.max(
+        pad,
+        shadow.blur * 2 + math.max(shadow.offsetX.abs(), shadow.offsetY.abs()),
+      );
+    }
+    final area = bounds.inflate(pad + 1);
+    for (final shadow in paint.textShadows.reversed) {
+      final layerPaint = ui.Paint();
+      if (shadow.blur > 0) {
+        layerPaint.imageFilter = ui.ImageFilter.blur(
+          sigmaX: shadow.blur / 2,
+          sigmaY: shadow.blur / 2,
+        );
+      }
+      _canvas.saveLayer(area, layerPaint);
+      try {
+        final ink = ui.Paint()..color = _color(shadow.color);
+        for (var index = 0; index < placed.length; index += 1) {
+          final layer = _buildClusterParagraph(
+            pieces[index].text,
+            paint,
+            foreground: ink,
+          );
+          _canvas.drawParagraph(
+            layer,
+            placed[index].$2.translate(shadow.offsetX, shadow.offsetY),
+          );
+        }
+      } finally {
+        _canvas.restore();
+      }
+    }
+  }
+
+  /// The run's text cut at its cluster origins: cluster boundaries are
+  /// UTF-8 byte offsets, so the cut walks the runes counting their UTF-8
+  /// lengths.
+  static List<({String text, double x})> _clusterPieces(
+    String text,
+    List<RitoClusterPosition> clusters,
+  ) {
+    final starts = <int, int>{};
+    var byte = 0;
+    var index = 0;
+    for (final rune in text.runes) {
+      starts[byte] = index;
+      byte += rune < 0x80
+          ? 1
+          : rune < 0x800
+          ? 2
+          : rune < 0x10000
+          ? 3
+          : 4;
+      index += rune >= 0x10000 ? 2 : 1;
+    }
+    starts[byte] = index;
+    final pieces = <({String text, double x})>[];
+    for (var at = 0; at < clusters.length; at += 1) {
+      final start = starts[clusters[at].byte];
+      final end = at + 1 < clusters.length
+          ? starts[clusters[at + 1].byte]
+          : text.length;
+      if (start == null || end == null || end <= start) {
+        continue;
+      }
+      pieces.add((text: text.substring(start, end), x: clusters[at].x));
+    }
+    return pieces;
   }
 
   /// Vertical-rl column: the rect's x is the glyph column's left edge, y

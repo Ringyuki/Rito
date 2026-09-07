@@ -373,7 +373,7 @@ pub(crate) fn line_end_trim_eligible(character: char) -> bool {
 }
 
 pub(crate) fn push_line_end_trims(
-    builder: &mut RangedBuilder<'_, [u8; 4]>,
+    builder: &mut SpacingBuilder<'_>,
     text: &str,
     runs: &[(std::ops::Range<usize>, &InlineFormattingStyleV1, usize)],
     end_trims: &[usize],

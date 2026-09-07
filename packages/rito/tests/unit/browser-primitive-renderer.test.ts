@@ -181,6 +181,7 @@ describe('browser primitive renderer', () => {
           kind: 'text',
           alignRight: false,
           vertical: false,
+          clusters: [],
           text: 'run',
           rect: { x: 10, y: 10, width: 30, height: 20 },
           paint: {
@@ -222,6 +223,7 @@ describe('browser primitive renderer', () => {
             kind: 'text',
             alignRight: false,
             vertical: false,
+            clusters: [],
             text: 'run',
             rect: { x: 10, y: 10, width: 30, height: 20 },
             paint: {
@@ -286,6 +288,7 @@ describe('browser primitive renderer', () => {
               kind: 'ruby',
               alignRight: false,
               vertical: false,
+              clusters: [],
               text: 'boom',
               rect: { x: 0, y: 0, width: 20, height: 10 },
               paint: {
@@ -382,6 +385,7 @@ describe('browser primitive renderer', () => {
               kind: 'text',
               alignRight: false,
               vertical: false,
+              clusters: [],
               text: 'boom',
               rect: { x: 0, y: 0, width: 10, height: 10 },
               paint: {

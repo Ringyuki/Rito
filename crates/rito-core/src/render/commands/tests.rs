@@ -22,6 +22,7 @@ fn counts_display_commands_by_kind() {
             ruby_align: None,
             align_right: false,
             vertical: false,
+            clusters: Vec::new(),
         }),
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!({ "hash": "b", "length": 1 }),
@@ -34,6 +35,7 @@ fn counts_display_commands_by_kind() {
             ruby_align: None,
             align_right: false,
             vertical: false,
+            clusters: Vec::new(),
         }),
         DisplayCommand::paint_image("images/cover.jpg".to_owned(), json!({}), None, None),
     ];
@@ -67,6 +69,7 @@ fn summarizes_image_refs_from_images_and_block_backgrounds() {
             ruby_align: None,
             align_right: false,
             vertical: false,
+            clusters: Vec::new(),
         }),
     ];
 
@@ -92,6 +95,7 @@ fn summarizes_font_families_from_text_commands() {
             ruby_align: None,
             align_right: false,
             vertical: false,
+            clusters: Vec::new(),
         }),
         DisplayCommand::paint_ruby(super::DisplayTextCommandInput {
             text: json!("Ruby"),
@@ -104,6 +108,7 @@ fn summarizes_font_families_from_text_commands() {
             ruby_align: None,
             align_right: false,
             vertical: false,
+            clusters: Vec::new(),
         }),
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
             text: json!("Duplicate"),
@@ -116,6 +121,7 @@ fn summarizes_font_families_from_text_commands() {
             ruby_align: None,
             align_right: false,
             vertical: false,
+            clusters: Vec::new(),
         }),
     ];
 

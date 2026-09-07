@@ -124,6 +124,12 @@ test('decodes every optional field of a text run, scaled to the device grid', ()
   assert.equal(text.sourceTextOffset, 9n);
   assert.equal(text.rubyAlign, 'center');
   assert.equal(text.alignRight, true);
+  assert.deepEqual(text.clusters, [
+    { byte: 0, x: 0 },
+    { byte: 1, x: 8.5 },
+    { byte: 2, x: 12.25 },
+    { byte: 3, x: 16 },
+  ]);
   assert.equal(text.vertical, false);
 });
 

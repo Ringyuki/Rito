@@ -219,6 +219,10 @@ pub(crate) struct DisplayTextCommandInput {
     /// markers, whose width only the canvas can measure). Off the wire
     /// when false.
     pub align_right: bool,
+    /// Where each cluster of the text paints (byte offset into `text`,
+    /// absolute CSS x), in text order; empty when the renderer places the
+    /// run itself.
+    pub clusters: Vec<(u32, f64)>,
     /// Vertical writing: the renderer draws the string as one downward
     /// column — upright glyphs, the pen stepping one font-size per
     /// cluster — with `rect.x` the column's left edge and `rect.y` the

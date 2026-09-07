@@ -65,9 +65,9 @@ impl ParleyInlineContext {
         let mut fonts = self.fonts.borrow_mut();
         let mut layouts = self.layouts.borrow_mut();
         let text = " ";
-        let mut builder = layouts.ranged_builder(&mut fonts, text, 1.0, true);
+        let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
         push_item_styles(&mut builder, style, 0..text.len());
-        let mut layout = builder.build(text);
+        let (mut layout, _) = builder.build(text);
         layout.break_all_lines(None);
         let height = layout
             .lines()
@@ -103,9 +103,9 @@ impl ParleyInlineContext {
         };
         let mut fonts = self.fonts.borrow_mut();
         let mut layouts = self.layouts.borrow_mut();
-        let mut builder = layouts.ranged_builder(&mut fonts, text, 1.0, true);
+        let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
         push_item_styles(&mut builder, style, 0..text.len());
-        let mut layout = builder.build(text);
+        let (mut layout, _) = builder.build(text);
         layout.break_all_lines(None);
         let advance = layout
             .lines()

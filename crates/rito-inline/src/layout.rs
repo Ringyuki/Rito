@@ -170,6 +170,7 @@ impl FormattingContext for ParleyInlineContext {
             inline_block_baselines,
             image_edge_insets,
             empty_box_struts,
+            spacing_edits,
         ) = {
             let mut split_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
             let mut split_spread_rounds = 0u32;
@@ -182,6 +183,7 @@ impl FormattingContext for ParleyInlineContext {
                     alignment,
                     shifted_ranges,
                     text,
+                    spacing_edits,
                     first_line_indent,
                     pair_trims,
                     opener_halt_trims,
@@ -628,6 +630,7 @@ impl FormattingContext for ParleyInlineContext {
                             inline_block_baselines,
                             image_edge_insets,
                             empty_box_struts,
+                            spacing_edits,
                         );
                     }
                 }
@@ -1235,6 +1238,30 @@ impl FormattingContext for ParleyInlineContext {
                             .copied()
                             .unwrap_or(ruby_overhang);
                         let opener_halt_trims = &opener_halt_trims;
+                        // The painter keeps word spacing as its own step
+                        // after each space, so a spaced run never takes
+                        // the grid law (measured only on unspaced runs).
+                        let run_word_spacing = style_tables
+                            .and_then(|tables| {
+                                let item_style = match &tree.node(root).content {
+                                    FormattingNodeContent::InlineFlow { items } => {
+                                        items.get(item_index).map(|item| match item {
+                                            InlineItem::Text { style, .. }
+                                            | InlineItem::Image { style, .. }
+                                            | InlineItem::InlineBlock { style, .. }
+                                            | InlineItem::EmptyBox { style, .. } => *style,
+                                        })
+                                    }
+                                    _ => None,
+                                }?;
+                                tables.inline.style(item_style).ok()
+                            })
+                            .is_some_and(|resolved| {
+                                matches!(resolved.text_flow.word_spacing, LengthPercentage::Length(px) if px.get() != 0.0)
+                            });
+                        let spacing_edits = &spacing_edits;
+                        let layout_ref = &layout;
+                        let flow_text_ref: &str = &flow_text;
                         let mut emit = |range: std::ops::Range<usize>,
                                         x: f64,
                                         width: f64,
@@ -1243,6 +1270,15 @@ impl FormattingContext for ParleyInlineContext {
                                 .iter()
                                 .find(|(halt, _)| halt.start < range.end && range.start < halt.end)
                                 .map_or(0.0, |(_, half)| *half);
+                            let (clusters, cluster_grid) = piece_clusters(
+                                layout_ref,
+                                flow_text_ref,
+                                range.clone(),
+                                spacing_edits,
+                                justify_px,
+                                opener_halt_trims,
+                                run_word_spacing,
+                            );
                             children.push((
                                 Fragment::Text(TextFragment {
                                     source: root,
@@ -1265,6 +1301,8 @@ impl FormattingContext for ParleyInlineContext {
                                         .get(&item_index)
                                         .copied()
                                         .unwrap_or(0.0),
+                                    clusters,
+                                    cluster_grid,
                                 }),
                                 shift,
                             ));

@@ -291,6 +291,7 @@ function renderText(
           paint: command.paint,
           ...(command.alignRight === undefined ? {} : { alignRight: command.alignRight }),
           ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
+          ...(command.clusters === undefined ? {} : { clusters: command.clusters }),
         },
         state.colorOverride,
         declaredGroundFor(deviceRect(command.rect, state.ratio), state),

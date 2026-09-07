@@ -64,9 +64,19 @@ lower.
   round of the sum); the run itself stays in CSS pixels and both pens
   paint it under `scale(ratio)`, because the synthetic-bold outset
   follows the CSS font size, not the device size.
-- Letter spacing: SkParagraph half-leads each cluster edge vs Chromium
-  trailing — glyph origin compensates by `−letterSpacing/2`.
-  Word spacing needs no compensation (segment-scan verified).
+- Cluster placement: a horizontal run arrives with the origin of every
+  cluster (the engine's fixed-point advances with spacing and justify
+  shares folded in), and both pens draw each cluster at its origin with
+  their own spacing off — the browser pen one `fillText` per cluster, the
+  Flutter pen one cached `ui.Paragraph` per (cluster, style). The pens
+  still place the runs that carry no origins (right-aligned markers,
+  vertical columns, annotations); there SkParagraph half-leads each
+  cluster edge vs Chromium trailing, so the glyph origin compensates by
+  `−letterSpacing/2` (word spacing needs no compensation).
+- Text shadows: every layer is one bitmap holding the whole run (all its
+  clusters), blurred once, the way the browser blurs a run's mask —
+  blurring clusters one by one composites neighbouring glows over each
+  other and reads darker where they overlap.
 - Ruby / text-shadow 'top' anchor: OS/2 `sTypoAscender` (em-box top),
   baseline still snapped to a whole row; shadow layers paint
   back-to-front UNDER the glyph in full, anchored at the glyph's own

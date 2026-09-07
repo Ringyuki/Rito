@@ -467,6 +467,7 @@ fn text_command(input: TextCommandInput<'_>) -> DisplayCommand {
         source_text_offset: input.source_text_offset,
         ruby_align: None,
         align_right: false,
+        clusters: Vec::new(),
         vertical: false,
     };
     match input.kind {

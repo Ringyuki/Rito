@@ -75,6 +75,19 @@ fn insert_text_fields(fields: &mut Map<String, Value>, input: &DisplayTextComman
     if input.vertical {
         insert_field(fields, "vertical", Value::Bool(true));
     }
+    if !input.clusters.is_empty() {
+        insert_field(
+            fields,
+            "clusters",
+            Value::Array(
+                input
+                    .clusters
+                    .iter()
+                    .map(|(byte, x)| Value::Array(vec![Value::from(*byte), number_value(*x)]))
+                    .collect(),
+            ),
+        );
+    }
     insert_field(fields, "paint", input.paint.to_wire_value());
     insert_field(fields, "rect", input.rect.clone());
     insert_field(fields, "text", input.text.clone());

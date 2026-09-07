@@ -69,6 +69,15 @@ pub(crate) enum ReaderDisplayCommandV1 {
         paint: ReaderHorizontalRulePaintV1,
     },
 }
+/// Where one cluster of a run paints: the origin of the cluster starting
+/// at `byte` of the run's text, in CSS pixels. Spacing and justification
+/// are already in it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ReaderClusterV1 {
+    pub byte: u32,
+    pub x: f64,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ReaderTextCommandV1 {
     pub text: String,
@@ -87,6 +96,10 @@ pub(crate) struct ReaderTextCommandV1 {
     /// column with `rect.x` the column's left edge and `rect.y` the first
     /// glyph's top.
     pub vertical: bool,
+    /// The origin of every cluster, in text order; empty when the
+    /// renderer still places the run itself (a right-aligned marker, a
+    /// vertical column, an annotation).
+    pub clusters: Vec<ReaderClusterV1>,
 }
 
 /// The text run the wire carries (opcodes 12 and 13): the run stripped to
@@ -104,4 +117,5 @@ pub(crate) struct ReaderTextRunV1 {
     pub ruby_align: Option<String>,
     pub align_right: bool,
     pub vertical: bool,
+    pub clusters: Vec<ReaderClusterV1>,
 }

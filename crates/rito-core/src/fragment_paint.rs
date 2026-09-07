@@ -482,6 +482,7 @@ fn append_fragment_display_commands_inner(
                         source_text_offset: None,
                         ruby_align: None,
                         align_right: true,
+                        clusters: Vec::new(),
                         vertical: false,
                     }));
                 }
@@ -760,6 +761,7 @@ fn append_vertical_line_commands(
             source_text_offset: None,
             ruby_align: None,
             align_right: false,
+            clusters: Vec::new(),
             vertical: true,
         }));
         // The annotation rides the column's LEFT-out side? No: probed on
@@ -812,6 +814,7 @@ fn append_vertical_line_commands(
                         source_text_offset: None,
                         ruby_align: None,
                         align_right: false,
+                        clusters: Vec::new(),
                         vertical: true,
                     }));
                 }
@@ -1173,6 +1176,7 @@ fn append_text_run_command(
             source_text: None,
             source_text_offset: None,
             align_right: false,
+            clusters: Vec::new(),
             vertical: false,
             ruby_align: match ruby_align {
                 rito_style_contract::RubyAlign::SpaceAround => None,
@@ -1182,6 +1186,27 @@ fn append_text_run_command(
             },
         }));
     }
+    // The origin every cluster paints at: the run's start (the centred
+    // origin of a packed ruby base) plus the offset layout stepped to,
+    // which already moves a halt-trimmed opener left by its blank half.
+    // An all-CJK run at a fractional size lands each origin on the 1/64
+    // grid; every other run keeps the float sum the browser's pen
+    // accumulates.
+    let cluster_origin_x = line_x + run.rect.x + run.ruby_center_shift_px;
+    let run_origin_x = cluster_origin_x - run.opener_trim_px;
+    let clusters = run
+        .clusters
+        .iter()
+        .map(|cluster| {
+            let x = cluster_origin_x + cluster.x;
+            let x = if run.cluster_grid {
+                (x * 64.0).floor() / 64.0
+            } else {
+                x
+            };
+            (cluster.byte - run.text_start, x)
+        })
+        .collect();
     commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
         text: Value::String(full_text[start..end].to_owned()),
         // A halt-trimmed opener was laid at half width, but the painter
@@ -1191,7 +1216,7 @@ fn append_text_run_command(
         // at 64px: full-width 「 inks at box+41, the halt variant at
         // box+9 — the outline itself moves left by the trimmed half).
         rect: rect_value(
-            line_x + run.rect.x - run.opener_trim_px + run.ruby_center_shift_px,
+            run_origin_x,
             em_top,
             run.rect.width + run.opener_trim_px,
             font_size,
@@ -1208,6 +1233,7 @@ fn append_text_run_command(
         ruby_align: None,
         align_right: false,
         vertical: false,
+        clusters,
     }));
     Ok(())
 }
@@ -1837,6 +1863,8 @@ mod tests {
             opener_trim_px: 0.0,
             ruby_overhang_px: 0.0,
             ruby_overhang_right_px: 0.0,
+            clusters: Vec::new(),
+            cluster_grid: false,
         })
     }
 

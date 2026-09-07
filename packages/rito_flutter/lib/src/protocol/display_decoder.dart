@@ -49,6 +49,16 @@ RitoTextPaintCommand _readTextRun(
   );
   final alignRight = reader.boolean('text align right');
   final vertical = reader.boolean('text vertical');
+  final clusterCount = reader.count('cluster count');
+  final clusters = <RitoClusterPosition>[];
+  for (var index = 0; index < clusterCount; index += 1) {
+    clusters.add(
+      RitoClusterPosition(
+        byte: reader.uint32('cluster byte'),
+        x: reader.float64('cluster x'),
+      ),
+    );
+  }
   if (ruby) {
     return RitoPaintRuby(
       text: text,
@@ -61,6 +71,7 @@ RitoTextPaintCommand _readTextRun(
       rubyAlign: rubyAlign,
       alignRight: alignRight,
       vertical: vertical,
+      clusters: clusters,
     );
   }
   return RitoPaintText(
@@ -74,6 +85,7 @@ RitoTextPaintCommand _readTextRun(
     rubyAlign: rubyAlign,
     alignRight: alignRight,
     vertical: vertical,
+    clusters: clusters,
   );
 }
 

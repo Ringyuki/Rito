@@ -244,6 +244,18 @@ fn text(kind: &str, command: &ReaderTextRunV1) -> Value {
     if command.vertical {
         object.insert("vertical".to_owned(), Value::Bool(true));
     }
+    if !command.clusters.is_empty() {
+        object.insert(
+            "clusters".to_owned(),
+            Value::Array(
+                command
+                    .clusters
+                    .iter()
+                    .map(|cluster| json!({ "byte": cluster.byte, "x": number(cluster.x) }))
+                    .collect(),
+            ),
+        );
+    }
     Value::Object(object)
 }
 

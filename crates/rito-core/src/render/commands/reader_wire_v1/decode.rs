@@ -142,6 +142,11 @@ impl Decoder<'_> {
         self.read_optional_string()?;
         self.read_bool()?;
         self.read_bool()?;
+        let cluster_count = self.read_u32()?;
+        for _ in 0..cluster_count {
+            self.read_u32()?;
+            self.read_finite_f64()?;
+        }
         Ok(())
     }
 

@@ -15,7 +15,15 @@ type CoreRunPaint = CoreText['paint'];
  * to the text painter's shape. */
 export type ReaderTextBodyV1 = Pick<
   RitoReaderTextRunV1,
-  'text' | 'rect' | 'paint' | 'lineHeightPx' | 'href' | 'sourceText' | 'alignRight' | 'vertical'
+  | 'text'
+  | 'rect'
+  | 'paint'
+  | 'lineHeightPx'
+  | 'href'
+  | 'sourceText'
+  | 'alignRight'
+  | 'vertical'
+  | 'clusters'
 >;
 export type ReaderRubyBodyV1 = Pick<
   RitoReaderTextRunV1,
@@ -33,6 +41,7 @@ export function convertReaderTextV1(command: ReaderTextBodyV1): CoreText {
     ...(command.sourceText === undefined ? {} : { sourceText: command.sourceText }),
     ...(command.alignRight ? { alignRight: true } : {}),
     ...(command.vertical ? { vertical: true } : {}),
+    ...(command.clusters.length > 0 ? { clusters: command.clusters } : {}),
   };
 }
 

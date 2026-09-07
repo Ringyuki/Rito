@@ -5,7 +5,7 @@
 
 use super::super::{DisplayCommand, DisplayTextCommandInput};
 use super::{
-    contract::{ReaderDisplayCommandV1, ReaderDisplayListV1, ReaderTextCommandV1},
+    contract::{ReaderClusterV1, ReaderDisplayCommandV1, ReaderDisplayListV1, ReaderTextCommandV1},
     ReaderDisplayListWireError,
 };
 
@@ -128,6 +128,16 @@ fn adapt_text(
         ruby_align: input.ruby_align.map(|align| align.as_str().to_owned()),
         align_right: input.align_right,
         vertical: input.vertical,
+        clusters: input
+            .clusters
+            .iter()
+            .map(|(byte, x)| {
+                Ok(ReaderClusterV1 {
+                    byte: *byte,
+                    x: finite(*x)?,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?,
     })
 }
 

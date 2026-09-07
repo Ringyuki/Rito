@@ -19,6 +19,7 @@ const FONT_SIZE: f32 = 16.0;
 
 mod atoms_and_grid;
 mod breaks_and_spacing;
+mod clusters;
 mod envelopes_and_ruby;
 mod punctuation_and_contract;
 

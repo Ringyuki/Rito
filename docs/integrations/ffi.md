@@ -69,7 +69,12 @@ font size (a synthetic-bold run drawn at the device size on the device
 grid rasters different ink from the browser's). A run carries only glyph
 paint — font, colour, spacing, text shadows: its inline box (background
 band, padding, border edges) and its decoration line arrive as fill and
-stroke primitives around it. Every raster decision for blocks and inline
+stroke primitives around it. A horizontal run also carries the origin of
+every cluster (UTF-8 byte offset into its text, absolute CSS x) with
+spacing, justification and the browser's fixed-point advances already
+applied: a host draws each cluster at its origin with its own spacing
+off. A run with no cluster list — a right-aligned marker, a vertical
+column, an annotation — is still placed by the host. Every raster decision for blocks and inline
 boxes — border bands and dash cadences, rounded rings, box shadows,
 background sizing and tiling, decoration lines — is resolved in the
 engine on the CSS grid and scaled last; a host blits paths and draws
