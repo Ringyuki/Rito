@@ -1,5 +1,10 @@
-## 0.2.1 - 2026-08-31
+## 0.3.0 - 2026-09-07
 
+- `RitoHitResolver` resolves taps against the artifact's hit entries — the
+  engine's own account of links, note anchors (with their footnote key and
+  pending state) and images, in display-list space. Hosts no longer read
+  semantics off paint commands; a link's text band widens by `linkSlack`
+  for coarse pointers and a link wrapping an image resolves as the link.
 - Painted text and image commands carry the enclosing link's target and an
   image's alt text again. 0.2.0's fragment cutover shipped them as null, so a
   host resolving taps against the display list saw no links — a tap on a note

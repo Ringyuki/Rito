@@ -19,6 +19,7 @@ export 'src/protocol/footnote_decoder.dart'
 export 'src/protocol/foreground_decoder.dart' show RitoForegroundDecoder;
 export 'src/protocol/foreground_encoder.dart' show RitoForegroundEncoder;
 export 'src/protocol/foreground_models.dart';
+export 'src/protocol/hit_resolver.dart';
 export 'src/protocol/publication_decoder.dart'
     show
         RitoPublicationDecoder,

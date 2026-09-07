@@ -34,8 +34,8 @@ export 'src/native/bindings.dart'
 export 'src/native/gateway.dart';
 export 'src/protocol/artifact_models.dart';
 export 'src/protocol/display_models.dart' show RitoCommand, RitoDisplayList;
-export 'src/protocol/footnote_decoder.dart'
-    show RitoFootnote, RitoFootnoteKind;
+export 'src/protocol/footnote_decoder.dart' show RitoFootnote, RitoFootnoteKind;
+export 'src/protocol/hit_resolver.dart';
 export 'src/protocol/request_models.dart';
 export 'src/protocol/search.dart'
     show RitoSearchRequest, RitoSearchResponse, RitoSearchResult;
