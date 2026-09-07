@@ -7,7 +7,6 @@ pub(super) enum DecodeError {
     UnsupportedVersion(u32),
     UnknownOpcode(u16),
     UnknownEnum(u8),
-    InvalidBool(u8),
     InvalidOption(u8),
     InvalidColorFlags(u8),
     InvalidUtf8,
@@ -139,11 +138,10 @@ impl Decoder<'_> {
         if self.read_option()? {
             self.read_exact::<8>()?;
         }
-        self.read_bool()?;
         let cluster_count = self.read_u32()?;
         for _ in 0..cluster_count {
             self.read_u32()?;
-            self.read_finite_f64()?;
+            self.read_f64s(2)?;
         }
         Ok(())
     }
@@ -198,14 +196,6 @@ impl Decoder<'_> {
             0 => Ok(false),
             1 => Ok(true),
             value => Err(DecodeError::InvalidOption(value)),
-        }
-    }
-
-    fn read_bool(&mut self) -> Result<bool, DecodeError> {
-        match self.read_u8()? {
-            0 => Ok(false),
-            1 => Ok(true),
-            value => Err(DecodeError::InvalidBool(value)),
         }
     }
 

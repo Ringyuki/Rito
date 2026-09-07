@@ -18,7 +18,7 @@ export interface CanvasRubyFragment {
   readonly paint: RunPaint;
   /** The origin of every cluster (UTF-8 byte offset, CSS x) the engine
    * distributed over the base; absent draws the string packed. */
-  readonly clusters?: readonly { readonly byte: number; readonly x: number }[];
+  readonly clusters?: readonly { readonly byte: number; readonly x: number; readonly y: number }[];
 }
 
 export function drawTextFragment(
@@ -119,7 +119,7 @@ export function drawRubyFragment(
   const pieces = rubyClusterPieces(ruby.text, ruby.clusters ?? []);
   if (pieces.length > 0) {
     for (const piece of pieces) {
-      ctx.fillText(piece.text, piece.x, ruby.rect.y);
+      ctx.fillText(piece.text, piece.x, piece.y);
     }
     ctx.restore();
     return;
@@ -154,8 +154,8 @@ export function drawRubyFragment(
  * the text, walked by code point for the canvas's UTF-16 strings. */
 function rubyClusterPieces(
   text: string,
-  clusters: readonly { readonly byte: number; readonly x: number }[],
-): { text: string; x: number }[] {
+  clusters: readonly { readonly byte: number; readonly x: number; readonly y: number }[],
+): { text: string; x: number; y: number }[] {
   const indexAtByte = new Map<number, number>();
   let byte = 0;
   let index = 0;
@@ -165,7 +165,7 @@ function rubyClusterPieces(
     index += glyph.length;
   }
   indexAtByte.set(byte, text.length);
-  const pieces: { text: string; x: number }[] = [];
+  const pieces: { text: string; x: number; y: number }[] = [];
   for (let position = 0; position < clusters.length; position += 1) {
     const cluster = clusters[position];
     const next = clusters[position + 1];
@@ -173,7 +173,7 @@ function rubyClusterPieces(
     const start = indexAtByte.get(cluster.byte);
     const end = next === undefined ? text.length : indexAtByte.get(next.byte);
     if (start === undefined || end === undefined) continue;
-    pieces.push({ text: text.slice(start, end), x: cluster.x });
+    pieces.push({ text: text.slice(start, end), x: cluster.x, y: cluster.y });
   }
   return pieces;
 }

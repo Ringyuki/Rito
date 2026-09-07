@@ -17,22 +17,9 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   /// the laid-out run by its actual alphabetic baseline.
   static const double _canvasTopAscentRatio = 0.8;
 
-  // Punctuation that takes its vertical presentation: brackets, dashes
-  // and leaders rotate a quarter turn about the em center; comma and
-  // period marks sit in the em's top-right corner. Same classes as the
-  // browser pen's VERTICAL_ROTATED / VERTICAL_SHIFTED.
-  static final RegExp _verticalRotated = RegExp(
-    r'[「」『』()（）〔〕［］\[\]{}｛｝〈〉《》【】〖〗…‥ー―—–~〜～＝=]',
-  );
-  static final RegExp _verticalShifted = RegExp(r'[、。，．,.]');
-
   void _paintStringRun(RitoTextPaintCommand command, {required bool ruby}) {
     final rect = _rect(command.rect);
     _validateRunPaint(command.paint);
-    if (command.vertical) {
-      _paintVerticalRun(command, rect);
-      return;
-    }
     if (command.clusters.isNotEmpty) {
       _paintClusteredRun(command, rect, ruby: ruby);
       return;
@@ -89,14 +76,15 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   }
 
   /// A run whose clusters the engine placed: every cluster draws at its
-  /// own origin. A regular run anchors its alphabetic baseline on the
-  /// run's snapped row; an annotation anchors its em-box top at the rect
-  /// (the browser pen's textBaseline 'top'), rounded to a whole row.
-  /// Spacing, justification, ruby distribution and the browser's
-  /// fixed-point advances are already in the origins, so the paragraphs
-  /// carry no spacing and one laid-out paragraph per (cluster, style)
-  /// serves every paint — laying each cluster out per paint costs twenty
-  /// times what a run does.
+  /// own origin. A text run's origin is its alphabetic baseline, already
+  /// on a device row; an annotation's origin is its em-box top (the
+  /// browser pen's textBaseline 'top'), which the font envelope's top
+  /// anchor turns into a whole baseline row. Spacing, justification,
+  /// ruby distribution, column stepping and the browser's fixed-point
+  /// advances are already in the origins, so the paragraphs carry no
+  /// spacing and one laid-out paragraph per (cluster, style) serves every
+  /// paint — laying each cluster out per paint costs twenty times what
+  /// a run does.
   void _paintClusteredRun(
     RitoTextPaintCommand command,
     ui.Rect rect, {
@@ -104,8 +92,6 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   }) {
     final paint = command.paint;
     final color = _effectiveTextColor(paint, rect);
-    final baselineRow = (rect.top + _canvasTopAscentRatio * paint.font.sizePx)
-        .roundToDouble();
     final topAscent = ruby
         ? _fontEnvelopes
               ?.lookupFamilyStack(paint.font.family)
@@ -116,9 +102,9 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
     for (final piece in pieces) {
       final paragraph = _clusterParagraph(piece.text, paint, color);
       final row = ruby
-          ? (rect.top + (topAscent ?? paragraph.alphabeticBaseline))
+          ? (piece.y + (topAscent ?? paragraph.alphabeticBaseline))
                 .roundToDouble()
-          : baselineRow;
+          : piece.y;
       placed.add((
         paragraph,
         ui.Offset(piece.x, row - paragraph.alphabeticBaseline),
@@ -198,7 +184,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   /// once: blurring each cluster on its own composited neighbouring
   /// glows over each other and read darker where they overlap.
   void _paintClusterShadows(
-    List<({String text, double x})> pieces,
+    List<({String text, double x, double y})> pieces,
     RitoRunPaint paint,
     List<(ui.Paragraph, ui.Offset)> placed,
   ) {
@@ -251,7 +237,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   /// The run's text cut at its cluster origins: cluster boundaries are
   /// UTF-8 byte offsets, so the cut walks the runes counting their UTF-8
   /// lengths.
-  static List<({String text, double x})> _clusterPieces(
+  static List<({String text, double x, double y})> _clusterPieces(
     String text,
     List<RitoClusterPosition> clusters,
   ) {
@@ -270,7 +256,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       index += rune >= 0x10000 ? 2 : 1;
     }
     starts[byte] = index;
-    final pieces = <({String text, double x})>[];
+    final pieces = <({String text, double x, double y})>[];
     for (var at = 0; at < clusters.length; at += 1) {
       final start = starts[clusters[at].byte];
       final end = at + 1 < clusters.length
@@ -279,58 +265,13 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       if (start == null || end == null || end <= start) {
         continue;
       }
-      pieces.add((text: text.substring(start, end), x: clusters[at].x));
+      pieces.add((
+        text: text.substring(start, end),
+        x: clusters[at].x,
+        y: clusters[at].y,
+      ));
     }
     return pieces;
-  }
-
-  /// Vertical-rl column: the rect's x is the glyph column's left edge, y
-  /// the first glyph's top, width the font size. Each cluster paints
-  /// upright and the pen steps one font size (plus letter spacing) down
-  /// the column, exactly as the browser pen draws it.
-  void _paintVerticalRun(RitoTextPaintCommand command, ui.Rect rect) {
-    final size = command.paint.font.sizePx;
-    final step = size + (command.paint.letterSpacingPx ?? 0);
-    var penY = rect.top + _canvasTopAscentRatio * size;
-    for (final rune in command.text.runes) {
-      final cluster = String.fromCharCode(rune);
-      final painter = TextPainter(
-        text: TextSpan(
-          text: cluster,
-          style: _textStyle(
-            command.paint,
-            includeSpacing: false,
-            runRect: rect,
-          ),
-        ),
-        textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
-      )..layout();
-      final baselineOffset = painter.computeDistanceToActualBaseline(
-        TextBaseline.alphabetic,
-      );
-      if (_verticalRotated.hasMatch(cluster)) {
-        _canvas.save();
-        try {
-          _canvas.translate(rect.left + size / 2, penY - 0.3 * size);
-          _canvas.rotate(math.pi / 2);
-          painter.paint(
-            _canvas,
-            ui.Offset(-size / 2, 0.3 * size - baselineOffset),
-          );
-        } finally {
-          _canvas.restore();
-        }
-      } else if (_verticalShifted.hasMatch(cluster)) {
-        painter.paint(
-          _canvas,
-          ui.Offset(rect.left + 0.5 * size, penY - 0.6 * size - baselineOffset),
-        );
-      } else {
-        painter.paint(_canvas, ui.Offset(rect.left, penY - baselineOffset));
-      }
-      penY += step;
-    }
   }
 
   /// Mirrors the browser pen's scratch-canvas shadow pass: layers render

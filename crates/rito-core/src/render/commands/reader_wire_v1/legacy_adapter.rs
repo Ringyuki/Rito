@@ -125,14 +125,14 @@ fn adapt_text(
             .map(|value| string(value, "text.sourceText").map(str::to_owned))
             .transpose()?,
         source_text_offset,
-        vertical: input.vertical,
         clusters: input
             .clusters
             .iter()
-            .map(|(byte, x)| {
+            .map(|(byte, x, y)| {
                 Ok(ReaderClusterV1 {
                     byte: *byte,
                     x: finite(*x)?,
+                    y: finite(*y)?,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?,

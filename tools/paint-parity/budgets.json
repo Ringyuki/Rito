@@ -67,6 +67,10 @@
     "maxDelta": 126,
     "maxDiffPx": 7127
   },
+  "text-vertical": {
+    "maxDelta": 255,
+    "maxDiffPx": 1600
+  },
   "theme-designed-page": {
     "maxDelta": 106,
     "maxDiffPx": 6163

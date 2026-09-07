@@ -69,20 +69,24 @@ font size (a synthetic-bold run drawn at the device size on the device
 grid rasters different ink from the browser's). A run carries only glyph
 paint — font, colour, spacing, text shadows: its inline box (background
 band, padding, border edges) and its decoration line arrive as fill and
-stroke primitives around it. A horizontal run also carries the origin of
-every cluster (UTF-8 byte offset into its text, absolute CSS x) with
+stroke primitives around it. Every run carries the origin of every
+cluster (UTF-8 byte offset into its text, absolute CSS x and y — the
+alphabetic baseline of a text run, the em-box top of an annotation) with
 spacing, justification and the browser's fixed-point advances already
 applied: a host draws each cluster at its origin with its own spacing
-off. An outside list marker is such a run: the engine shapes the marker
-string, sizes its box on the layout grid and sends the box's left edge
-and cluster origins, so no host measures it. A ruby annotation arrives
-the same way: the engine distributes it over its base by the computed
-`ruby-align` and sends each cluster's origin, drawn from the annotation
-box's top. Only a vertical column is still placed by the host. Every raster decision for blocks and inline
+off and never places a glyph itself. An outside list marker is such a
+run: the engine shapes the marker string, sizes its box on the layout
+grid and sends the box's left edge and cluster origins. A ruby
+annotation arrives the same way: the engine distributes it over its base
+by the computed `ruby-align` — along a horizontal base or down a
+vertical one. A vertical column arrives as runs of upright glyphs
+stepped down the column, its corner marks shifted, and each rotated mark
+as its own run under a quarter-turn transform primitive about its em
+center. Every raster decision for blocks and inline
 boxes — border bands and dash cadences, rounded rings, box shadows,
 background sizing and tiling, decoration lines — is resolved in the
-engine on the CSS grid and scaled last; a host blits paths and draws
-images, and lays out text runs.
+engine on the CSS grid and scaled last; a host blits paths, draws
+images, and rasters glyphs at the origins it is given.
 The Rust encoder (`reader_wire_v1/encode/lowered.rs`) and the Dart
 decoder (`protocol/primitive_decoder.dart`) are the reference;
 `packages/rito-core-wasm/tests/fixtures/reader-v1-primitive-list.hex`

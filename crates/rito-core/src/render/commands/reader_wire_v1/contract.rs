@@ -76,6 +76,9 @@ pub(crate) enum ReaderDisplayCommandV1 {
 pub(crate) struct ReaderClusterV1 {
     pub byte: u32,
     pub x: f64,
+    /// The cluster's paint anchor: the alphabetic baseline of a text run,
+    /// the em-box top of an annotation.
+    pub y: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -87,13 +90,8 @@ pub(crate) struct ReaderTextCommandV1 {
     pub href: Option<String>,
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
-    /// Vertical writing: the renderer draws the string as one downward
-    /// column with `rect.x` the column's left edge and `rect.y` the first
-    /// glyph's top.
-    pub vertical: bool,
-    /// The origin of every cluster, in text order; empty when the
-    /// renderer still places the run itself (a vertical column, an
-    /// annotation).
+    /// The origin of every cluster, in text order; empty only for a run
+    /// the renderer still places itself.
     pub clusters: Vec<ReaderClusterV1>,
 }
 
@@ -109,6 +107,5 @@ pub(crate) struct ReaderTextRunV1 {
     pub href: Option<String>,
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
-    pub vertical: bool,
     pub clusters: Vec<ReaderClusterV1>,
 }

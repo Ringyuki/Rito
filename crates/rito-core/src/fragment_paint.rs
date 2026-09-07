@@ -493,7 +493,13 @@ fn append_fragment_display_commands_inner(
                     let clusters = run
                         .clusters
                         .iter()
-                        .map(|cluster| (cluster.byte, cluster_x(left + cluster.x, run.grid)))
+                        .map(|cluster| {
+                            (
+                                cluster.byte,
+                                cluster_x(left + cluster.x, run.grid),
+                                baseline,
+                            )
+                        })
                         .collect();
                     commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
                         text: Value::String(marker.painted_text()),
@@ -509,7 +515,6 @@ fn append_fragment_display_commands_inner(
                         source_text: None,
                         source_text_offset: None,
                         clusters,
-                        vertical: false,
                     }));
                 }
             }
@@ -681,6 +686,107 @@ fn split_collapsed_horizontal_edges(
     segments
 }
 
+/// Punctuation that takes its vertical presentation in a column: brackets,
+/// dashes and leaders are the horizontal glyph rotated a quarter turn
+/// about its em center (how the `vert` feature draws them); comma and
+/// period marks sit in the em's top-right corner instead of bottom-left.
+const VERTICAL_ROTATED: &str = "「」『』()（）〔〕［］[]{}｛｝〈〉《》【】〖〗…‥ー―—–~〜～＝=";
+const VERTICAL_SHIFTED: &str = "、。，．,.";
+
+/// Paints one column run glyph by glyph: every code point sits upright
+/// one step (the font size plus letter spacing) below the last, its
+/// baseline 0.8 em below the run's top, the way the browser's column pen
+/// stepped. Consecutive upright glyphs share one run with a cluster
+/// origin each; a rotated mark paints as its own run under a quarter-turn
+/// transform about its em center.
+fn append_vertical_run_commands(
+    commands: &mut Vec<DisplayCommand>,
+    text: &str,
+    paint: &RunPaint,
+    font_size: f64,
+    glyph_x: f64,
+    top: f64,
+    href: Option<String>,
+) {
+    let step = font_size + paint.measure().letter_spacing_px.unwrap_or(0.0);
+    let run = |text: String, rect: Value, clusters: Vec<(u32, f64, f64)>| {
+        DisplayCommand::paint_text(DisplayTextCommandInput {
+            text: Value::String(text),
+            rect,
+            paint: paint.clone(),
+            line_height_px: None,
+            href: href.clone(),
+            source_text: None,
+            source_text_offset: None,
+            clusters,
+        })
+    };
+    let mut segment: Vec<(u32, f64, f64)> = Vec::new();
+    let mut segment_start = 0usize;
+    let mut segment_end = 0usize;
+    let mut segment_top = top;
+    let flush = |commands: &mut Vec<DisplayCommand>,
+                 segment: &mut Vec<(u32, f64, f64)>,
+                 start: usize,
+                 end: usize,
+                 segment_top: f64| {
+        if segment.is_empty() {
+            return;
+        }
+        let length = segment.len() as f64 * step;
+        commands.push(run(
+            text[start..end].to_owned(),
+            rect_value(glyph_x, segment_top, font_size, length),
+            std::mem::take(segment),
+        ));
+    };
+    for (index, (byte, glyph)) in text.char_indices().enumerate() {
+        let glyph_top = top + index as f64 * step;
+        let pen_y = glyph_top + CANVAS_TOP_ASCENT_RATIO * font_size;
+        if VERTICAL_ROTATED.contains(glyph) {
+            flush(commands, &mut segment, segment_start, byte, segment_top);
+            let center_x = glyph_x + font_size / 2.0;
+            let center_y = pen_y - 0.3 * font_size;
+            commands.push(DisplayCommand::push_state());
+            commands.push(DisplayCommand::transform(
+                serde_json::json!({ "x": number_value(center_x), "y": number_value(center_y) }),
+                serde_json::json!({
+                    "width": number_value(font_size),
+                    "height": number_value(font_size),
+                }),
+                serde_json::json!([{ "kind": "rotate", "rad": std::f64::consts::FRAC_PI_2 }]),
+            ));
+            commands.push(run(
+                glyph.to_string(),
+                rect_value(glyph_x, glyph_top, font_size, font_size),
+                vec![(0, glyph_x, pen_y)],
+            ));
+            commands.push(DisplayCommand::pop_state());
+            segment_start = byte + glyph.len_utf8();
+            segment_end = segment_start;
+            continue;
+        }
+        if segment.is_empty() {
+            segment_start = byte;
+            segment_top = glyph_top;
+        }
+        let origin = if VERTICAL_SHIFTED.contains(glyph) {
+            (glyph_x + 0.5 * font_size, pen_y - 0.6 * font_size)
+        } else {
+            (glyph_x, pen_y)
+        };
+        segment.push(((byte - segment_start) as u32, origin.0, origin.1));
+        segment_end = byte + glyph.len_utf8();
+    }
+    flush(
+        commands,
+        &mut segment,
+        segment_start,
+        segment_end,
+        segment_top,
+    );
+}
+
 /// Paints one vertical-rl line box as a downward text column. The line
 /// laid out with the horizontal engine in the swapped page (inline axis
 /// = column length), so `box_inline`/`box_block` are LOGICAL offsets:
@@ -764,31 +870,28 @@ fn append_vertical_line_commands(
             .inline
             .style(*style)
             .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
-        let base_paint = run_paint(style, family_policy, run.justify_px, false, false)?;
+        // A column run paints glyphs only: its inline box and decoration
+        // have no column expression yet.
+        let base_paint =
+            run_paint(style, family_policy, run.justify_px, false, false)?.glyphs_only();
         let font_size = f64::from(style.font.size.get());
         // The glyph column centers on the line's STRUT: an annotation's
         // growth lands entirely on the line's right (matrix-measured:
         // the base keeps its plain-line distance from the left edge and
         // the annotation column pushes the right edge out), so the
         // centering basis excludes the growth.
-        commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
-            text: Value::String(full_text[start..end].to_owned()),
-            rect: rect_value(
-                column_x + (line.rect.height - line.ruby_growth - font_size) / 2.0,
-                column_top + run.rect.x,
-                font_size,
-                run.rect.width,
-            ),
-            paint: base_paint.clone(),
-            line_height_px: None,
-            href: item_sources
+        let glyph_x = column_x + (line.rect.height - line.ruby_growth - font_size) / 2.0;
+        append_vertical_run_commands(
+            commands,
+            &full_text[start..end],
+            &base_paint,
+            font_size,
+            glyph_x,
+            column_top + run.rect.x,
+            item_sources
                 .and_then(|sources| sources.get(*item_index))
                 .and_then(|source| source.href.clone()),
-            source_text: None,
-            source_text_offset: None,
-            clusters: Vec::new(),
-            vertical: true,
-        }));
+        );
         // The annotation rides the column's LEFT-out side? No: probed on
         // a vertical-rl ruby line, the annotation column sits between
         // the base and the NEXT line — its right edge on the line box's
@@ -824,21 +927,36 @@ fn append_vertical_line_commands(
                 if !allocated.is_empty() {
                     let annotation_size = font_size * f64::from(annotation.size_ratio);
                     let ruby_paint = base_paint.for_ruby(annotation_size);
+                    let annotation_x = column_x + line.rect.height - annotation_size;
+                    let span_top = column_top + run.rect.x - run.ruby_overhang_px;
+                    let span = run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px;
+                    // The column annotation spreads down its base span
+                    // the way the initial `ruby-align` spreads: the free
+                    // length splits into one share per glyph, half a
+                    // share at each edge, every glyph's top one
+                    // annotation size plus a share below the last.
+                    let glyphs = allocated.chars().count().max(1) as f64;
+                    let share = (span - glyphs * annotation_size) / glyphs;
+                    let clusters = allocated
+                        .char_indices()
+                        .enumerate()
+                        .map(|(index, (byte, _))| {
+                            (
+                                byte as u32,
+                                annotation_x,
+                                span_top + share / 2.0 + index as f64 * (annotation_size + share),
+                            )
+                        })
+                        .collect();
                     commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
                         text: Value::String(allocated),
-                        rect: rect_value(
-                            column_x + line.rect.height - annotation_size,
-                            column_top + run.rect.x - run.ruby_overhang_px,
-                            annotation_size,
-                            run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px,
-                        ),
+                        rect: rect_value(annotation_x, span_top, annotation_size, span),
                         paint: ruby_paint,
                         line_height_px: None,
                         href: None,
                         source_text: None,
                         source_text_offset: None,
-                        clusters: Vec::new(),
-                        vertical: true,
+                        clusters,
                     }));
                 }
             }
@@ -1225,26 +1343,21 @@ fn append_text_run_command(
             rect_width,
             annotation.align,
         );
+        let annotation_top = em_top - annotation_size - 1.0;
         let clusters = natural
             .iter()
             .zip(origins)
-            .map(|(cluster, x)| (cluster.byte, x))
+            .map(|(cluster, x)| (cluster.byte, x, annotation_top))
             .collect();
         commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
             text: Value::String(text.to_owned()),
-            rect: rect_value(
-                rect_x,
-                em_top - annotation_size - 1.0,
-                rect_width,
-                annotation_size,
-            ),
+            rect: rect_value(rect_x, annotation_top, rect_width, annotation_size),
             paint: paint.for_ruby(annotation_size),
             line_height_px: None,
             href: None,
             source_text: None,
             source_text_offset: None,
             clusters,
-            vertical: false,
         }));
     }
     // The origin every cluster paints at: the run's start (the centred
@@ -1262,6 +1375,7 @@ fn append_text_run_command(
             (
                 cluster.byte - run.text_start,
                 cluster_x(cluster_origin_x + cluster.x, run.cluster_grid),
+                baseline,
             )
         })
         .collect();
@@ -1288,7 +1402,6 @@ fn append_text_run_command(
             .and_then(|source| source.href.clone()),
         source_text: None,
         source_text_offset: None,
-        vertical: false,
         clusters,
     }));
     Ok(())
@@ -2099,7 +2212,11 @@ mod tests {
         // The item box starts at x = 10: the 16px marker box ends there.
         assert_eq!(marker.rect["x"].as_f64(), Some(-6.0));
         assert_eq!(marker.rect["width"].as_f64(), Some(16.0));
-        assert_eq!(marker.clusters, vec![(0, -6.0), (1, 2.0), (2, 6.0)]);
+        // The item's painted baseline: line top 26 plus baseline 13.
+        assert_eq!(
+            marker.clusters,
+            vec![(0, -6.0, 39.0), (1, 2.0, 39.0), (2, 6.0, 39.0)]
+        );
         assert!(
             !marker.paint.has_box_paint() && marker.paint.decoration().is_none(),
             "the item's background band stays off the marker"
@@ -2108,6 +2225,216 @@ mod tests {
             texts[1].paint.has_box_paint(),
             "the item's own text keeps its inline box"
         );
+    }
+
+    /// A vertical-rl page fragment for the paint-parity instrument: one
+    /// column of ideographs with rotated brackets and corner-shifted
+    /// marks, a rubied base, and a second column of leaders, a dash and
+    /// Latin at a letter-spaced style.
+    fn vertical_column_commands() -> Vec<DisplayCommand> {
+        let mut inline = InlineStyleTableV1::new(3);
+        let black = inline
+            .intern_for_node(0, body_style(srgb(0.0, 0.0, 0.0, 1.0)))
+            .expect("black style interns");
+        let red = inline
+            .intern_for_node(1, body_style(srgb(0.8, 0.0, 0.0, 1.0)))
+            .expect("red style interns");
+        let mut spaced = body_style(srgb(0.0, 0.0, 0.5, 1.0));
+        spaced.text_flow.letter_spacing = rito_style_contract::LengthPercentage::Length(
+            rito_style_contract::CssPx::new(2.0).expect("finite spacing"),
+        );
+        let spaced = inline
+            .intern_for_node(2, spaced)
+            .expect("spaced style interns");
+        let items = vec![
+            text_item("「春日」、剧场。", black, 0.0),
+            InlineItem::Text {
+                text: "漢字".to_owned(),
+                style: red,
+                baseline_shift_px: 0.0,
+                ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                    text: "かんじ".to_owned(),
+                    size_ratio: 0.5,
+                    align: rito_style_contract::RubyAlign::SpaceAround,
+                }),
+            },
+            text_item("…—ab", spaced, 0.0),
+        ];
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow { items },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("tree builds");
+        let line = |block: f64, thickness: f64, growth: f64, length: f64, runs: Vec<Fragment>| {
+            Fragment::Line(LineFragment {
+                source: FormattingNodeId(0),
+                marker: None,
+                rect: FragmentRect {
+                    x: 0.0,
+                    y: block,
+                    width: length,
+                    height: thickness,
+                },
+                baseline: 13.0,
+                trailing_whitespace: 0.0,
+                ruby_growth: growth,
+                children: runs,
+            })
+        };
+        let root = Fragment::Box(BoxFragment {
+            source: FormattingNodeId(0),
+            rect: FragmentRect {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height: 60.0,
+            },
+            children: vec![
+                line(
+                    0.0,
+                    24.0,
+                    8.0,
+                    160.0,
+                    vec![text_run(0.0, 128.0, 0, 24), text_run(128.0, 32.0, 24, 30)],
+                ),
+                line(32.0, 20.0, 0.0, 72.0, vec![text_run(0.0, 72.0, 30, 38)]),
+            ],
+        });
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                vertical_frame: Some((220.0, 20.0)),
+                ..FragmentPaintContext::default()
+            },
+        )
+        .expect("the column paints");
+        commands
+    }
+
+    /// Writes the paint-parity fixture for a vertical column from this
+    /// painter's own output, so the instrument's browser lane holds the
+    /// reference every change to the column laws is verified against.
+    /// Run by hand when the column laws change:
+    /// `cargo test -p rito-core --lib write_vertical_paint_parity_fixture -- --ignored`.
+    #[test]
+    #[ignore = "regenerates tools/paint-parity/fixtures/text-vertical.json"]
+    fn write_vertical_paint_parity_fixture() {
+        let commands = vertical_column_commands();
+        let fixture = serde_json::json!({
+            "name": "text-vertical",
+            "width": 240,
+            "height": 320,
+            "background": "#ffffff",
+            "commands": crate::render::display_command_values(&commands),
+        });
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tools/paint-parity/fixtures/text-vertical.json"
+        );
+        std::fs::write(
+            path,
+            serde_json::to_string_pretty(&fixture).expect("fixture is JSON") + "\n",
+        )
+        .expect("fixture writes");
+    }
+
+    /// The vertical column paints glyph by glyph: upright glyphs share a
+    /// run with an origin each one step down the column, corner marks
+    /// shift into the em's top-right, rotated marks paint as their own
+    /// run under a quarter-turn transform, and the annotation spreads
+    /// its glyphs down the base span.
+    #[test]
+    fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
+        let commands = vertical_column_commands();
+        let texts: Vec<&DisplayTextCommandInput> = commands
+            .iter()
+            .filter_map(|command| match command {
+                DisplayCommand::PaintText(input) => Some(input),
+                _ => None,
+            })
+            .collect();
+        let origins = |actual: &[(u32, f64, f64)], expected: &[(u32, f64, f64)]| {
+            assert_eq!(actual.len(), expected.len(), "{actual:?} vs {expected:?}");
+            for (a, e) in actual.iter().zip(expected) {
+                assert!(
+                    a.0 == e.0 && (a.1 - e.1).abs() < 1e-9 && (a.2 - e.2).abs() < 1e-9,
+                    "{actual:?} vs {expected:?}"
+                );
+            }
+        };
+        // 「 | 春日 | 」 | 、剧场。 | 漢字 | … | — | ab
+        assert_eq!(texts.len(), 8, "{texts:#?}");
+        let transforms = commands
+            .iter()
+            .filter(|command| matches!(command, DisplayCommand::Transform { .. }))
+            .count();
+        assert_eq!(transforms, 4, "one quarter turn per rotated mark");
+        assert!(texts.iter().all(|text| !text.clusters.is_empty()));
+        // The first column's glyphs sit at x 196 (frame right 220 minus
+        // the 24px line thickness), stepping 16px from the column top 20
+        // with baselines 0.8 em below each glyph top.
+        assert_eq!(texts[0].text, Value::String("「".to_owned()));
+        origins(&texts[0].clusters, &[(0, 196.0, 32.8)]);
+        let DisplayCommand::Transform {
+            origin, transforms, ..
+        } = &commands[1]
+        else {
+            panic!(
+                "the rotated mark paints under a transform, got {:?}",
+                commands[1]
+            );
+        };
+        assert_eq!(
+            (origin["x"].as_f64(), origin["y"].as_f64()),
+            (Some(204.0), Some(28.0))
+        );
+        assert_eq!(
+            transforms,
+            &serde_json::json!([{ "kind": "rotate", "rad": std::f64::consts::FRAC_PI_2 }])
+        );
+        assert_eq!(texts[1].text, Value::String("春日".to_owned()));
+        origins(&texts[1].clusters, &[(0, 196.0, 48.8), (3, 196.0, 64.8)]);
+        assert_eq!(texts[3].text, Value::String("、剧场。".to_owned()));
+        // 、 and 。 ride the em's top-right corner; 剧场 stay upright.
+        origins(
+            &texts[3].clusters,
+            &[
+                (0, 204.0, 87.2),
+                (3, 196.0, 112.8),
+                (6, 196.0, 128.8),
+                (9, 204.0, 135.2),
+            ],
+        );
+        // The letter-spaced second column steps 18px.
+        assert_eq!(texts[7].text, Value::String("ab".to_owned()));
+        origins(&texts[7].clusters, &[(0, 170.0, 68.8), (1, 170.0, 86.8)]);
+        let annotation = commands
+            .iter()
+            .find_map(|command| match command {
+                DisplayCommand::PaintRuby(input) => Some(input),
+                _ => None,
+            })
+            .expect("the rubied base paints its annotation");
+        // Three 8px kana down the 32px base span: 8px free, one share
+        // (8/3) per glyph, half a share at each edge.
+        let ys: Vec<f64> = annotation.clusters.iter().map(|(_, _, y)| *y).collect();
+        for (y, expected) in ys.iter().zip([148.0 + 4.0 / 3.0, 160.0, 172.0 - 4.0 / 3.0]) {
+            assert!((y - expected).abs() < 1e-9, "{ys:?}");
+        }
+        assert!(annotation.clusters.iter().all(|(_, x, _)| *x == 212.0));
     }
 
     #[test]
@@ -2362,12 +2689,16 @@ mod tests {
         assert_eq!(annotation.text, Value::String("かんじ".to_owned()));
         // space-around over the 32px base: 8px free splits into one
         // share per glyph (8/3), half a share at each edge.
-        let origins: Vec<f64> = annotation.clusters.iter().map(|(_, x)| *x).collect();
+        let origins: Vec<f64> = annotation.clusters.iter().map(|(_, x, _)| *x).collect();
+        assert!(
+            annotation.clusters.iter().all(|(_, _, y)| *y == 17.2),
+            "every origin anchors at the annotation's top"
+        );
         assert_eq!(
             annotation
                 .clusters
                 .iter()
-                .map(|(byte, _)| *byte)
+                .map(|(byte, _, _)| *byte)
                 .collect::<Vec<_>>(),
             vec![0, 3, 6]
         );

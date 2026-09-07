@@ -1323,24 +1323,6 @@ fn one_inline_box_draws_one_decoration_line_across_its_runs() {
 }
 
 #[test]
-fn a_vertical_run_paints_no_box_or_decoration() {
-    let primitives = lowered(
-        vec![ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
-            vertical: true,
-            ..text()
-        })],
-        1.0,
-    );
-    assert_eq!(
-        primitives,
-        vec![Primitive::Text(ReaderTextRunV1 {
-            vertical: true,
-            ..text_run()
-        })]
-    );
-}
-
-#[test]
 fn images_draw_at_the_scaled_destination_with_the_source_rect_untouched() {
     let primitives = lowered(
         vec![ReaderDisplayCommandV1::PaintImage {
@@ -1601,7 +1583,6 @@ fn text_run() -> ReaderTextRunV1 {
         href: text.href,
         source_text: text.source_text,
         source_text_offset: text.source_text_offset,
-        vertical: text.vertical,
         clusters: text.clusters,
     }
 }
@@ -1661,6 +1642,5 @@ fn text() -> ReaderTextCommandV1 {
         source_text: Some("source".to_owned()),
         source_text_offset: Some(9),
         clusters: vec![],
-        vertical: false,
     }
 }

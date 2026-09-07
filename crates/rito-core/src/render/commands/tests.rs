@@ -19,7 +19,6 @@ fn counts_display_commands_by_kind() {
             href: None,
             source_text: None,
             source_text_offset: None,
-            vertical: false,
             clusters: Vec::new(),
         }),
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
@@ -30,7 +29,6 @@ fn counts_display_commands_by_kind() {
             href: None,
             source_text: None,
             source_text_offset: None,
-            vertical: false,
             clusters: Vec::new(),
         }),
         DisplayCommand::paint_image("images/cover.jpg".to_owned(), json!({}), None, None),
@@ -62,7 +60,6 @@ fn summarizes_image_refs_from_images_and_block_backgrounds() {
             href: None,
             source_text: None,
             source_text_offset: None,
-            vertical: false,
             clusters: Vec::new(),
         }),
     ];
@@ -86,7 +83,6 @@ fn summarizes_font_families_from_text_commands() {
             href: None,
             source_text: None,
             source_text_offset: None,
-            vertical: false,
             clusters: Vec::new(),
         }),
         DisplayCommand::paint_ruby(super::DisplayTextCommandInput {
@@ -97,7 +93,6 @@ fn summarizes_font_families_from_text_commands() {
             href: None,
             source_text: None,
             source_text_offset: None,
-            vertical: false,
             clusters: Vec::new(),
         }),
         DisplayCommand::paint_text(super::DisplayTextCommandInput {
@@ -108,7 +103,6 @@ fn summarizes_font_families_from_text_commands() {
             href: None,
             source_text: None,
             source_text_offset: None,
-            vertical: false,
             clusters: Vec::new(),
         }),
     ];

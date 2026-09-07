@@ -43,7 +43,6 @@ RitoTextPaintCommand _readTextRun(
     'source text offset',
     () => reader.uint64('source text offset'),
   );
-  final vertical = reader.boolean('text vertical');
   final clusterCount = reader.count('cluster count');
   final clusters = <RitoClusterPosition>[];
   for (var index = 0; index < clusterCount; index += 1) {
@@ -51,6 +50,7 @@ RitoTextPaintCommand _readTextRun(
       RitoClusterPosition(
         byte: reader.uint32('cluster byte'),
         x: reader.float64('cluster x'),
+        y: reader.float64('cluster y'),
       ),
     );
   }
@@ -63,7 +63,6 @@ RitoTextPaintCommand _readTextRun(
       href: href,
       sourceText: sourceText,
       sourceTextOffset: sourceOffset,
-      vertical: vertical,
       clusters: clusters,
     );
   }
@@ -75,7 +74,6 @@ RitoTextPaintCommand _readTextRun(
     href: href,
     sourceText: sourceText,
     sourceTextOffset: sourceOffset,
-    vertical: vertical,
     clusters: clusters,
   );
 }

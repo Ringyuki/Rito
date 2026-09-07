@@ -131,10 +131,6 @@ fn parse_command(value: &Value) -> Option<DisplayCommand> {
                     .get("sourceTextOffset")
                     .and_then(Value::as_u64)
                     .map(|offset| offset as usize),
-                vertical: value
-                    .get("vertical")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false),
                 clusters: match value.get("clusters") {
                     None => Vec::new(),
                     Some(clusters) => clusters
@@ -142,7 +138,11 @@ fn parse_command(value: &Value) -> Option<DisplayCommand> {
                         .iter()
                         .map(|cluster| {
                             let pair = cluster.as_array()?;
-                            Some((pair.first()?.as_u64()? as u32, pair.get(1)?.as_f64()?))
+                            Some((
+                                pair.first()?.as_u64()? as u32,
+                                pair.get(1)?.as_f64()?,
+                                pair.get(2)?.as_f64()?,
+                            ))
                         })
                         .collect::<Option<Vec<_>>>()?,
                 },

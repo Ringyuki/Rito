@@ -179,7 +179,6 @@ describe('browser primitive renderer', () => {
         },
         {
           kind: 'text',
-          vertical: false,
           clusters: [],
           text: 'run',
           rect: { x: 10, y: 10, width: 30, height: 20 },
@@ -220,7 +219,6 @@ describe('browser primitive renderer', () => {
           },
           {
             kind: 'text',
-            vertical: false,
             clusters: [],
             text: 'run',
             rect: { x: 10, y: 10, width: 30, height: 20 },
@@ -284,7 +282,6 @@ describe('browser primitive renderer', () => {
             { kind: 'push-state' },
             {
               kind: 'ruby',
-              vertical: false,
               clusters: [],
               text: 'boom',
               rect: { x: 0, y: 0, width: 20, height: 10 },
@@ -380,7 +377,6 @@ describe('browser primitive renderer', () => {
             { kind: 'push-state' },
             {
               kind: 'text',
-              vertical: false,
               clusters: [],
               text: 'boom',
               rect: { x: 0, y: 0, width: 10, height: 10 },

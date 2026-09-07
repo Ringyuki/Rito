@@ -123,12 +123,11 @@ test('decodes every optional field of a text run, scaled to the device grid', ()
   assert.equal(text.sourceText, 'source');
   assert.equal(text.sourceTextOffset, 9n);
   assert.deepEqual(text.clusters, [
-    { byte: 0, x: 0 },
-    { byte: 1, x: 8.5 },
-    { byte: 2, x: 12.25 },
-    { byte: 3, x: 16 },
+    { byte: 0, x: 0, y: 12.5 },
+    { byte: 1, x: 8.5, y: 12.5 },
+    { byte: 2, x: 12.25, y: 12.5 },
+    { byte: 3, x: 16, y: 12.5 },
   ]);
-  assert.equal(text.vertical, false);
 });
 
 test('the primitive decoder rejects format 1, truncation and trailing bytes', () => {

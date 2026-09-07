@@ -15,12 +15,9 @@ type CoreRunPaint = CoreText['paint'];
  * to the text painter's shape. */
 export type ReaderTextBodyV1 = Pick<
   RitoReaderTextRunV1,
-  'text' | 'rect' | 'paint' | 'lineHeightPx' | 'href' | 'sourceText' | 'vertical' | 'clusters'
+  'text' | 'rect' | 'paint' | 'lineHeightPx' | 'href' | 'sourceText' | 'clusters'
 >;
-export type ReaderRubyBodyV1 = Pick<
-  RitoReaderTextRunV1,
-  'text' | 'rect' | 'paint' | 'vertical' | 'clusters'
->;
+export type ReaderRubyBodyV1 = Pick<RitoReaderTextRunV1, 'text' | 'rect' | 'paint' | 'clusters'>;
 
 export function convertReaderTextV1(command: ReaderTextBodyV1): CoreText {
   return {
@@ -31,7 +28,6 @@ export function convertReaderTextV1(command: ReaderTextBodyV1): CoreText {
     ...(command.lineHeightPx === undefined ? {} : { lineHeightPx: command.lineHeightPx }),
     ...(command.href === undefined ? {} : { href: command.href }),
     ...(command.sourceText === undefined ? {} : { sourceText: command.sourceText }),
-    ...(command.vertical ? { vertical: true } : {}),
     ...(command.clusters.length > 0 ? { clusters: command.clusters } : {}),
   };
 }
@@ -43,7 +39,6 @@ export function convertReaderRubyV1(command: ReaderRubyBodyV1): CoreRuby {
     rect: command.rect,
     paint: convertRunPaint(command.paint),
     ...(command.clusters.length > 0 ? { clusters: command.clusters } : {}),
-    ...(command.vertical ? { vertical: true } : {}),
   };
 }
 

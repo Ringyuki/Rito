@@ -184,16 +184,16 @@ void _text(
   writer.option(() => writer.string('#note'));
   writer.option(() => writer.string('source $text'));
   writer.option(() => writer.uint64(9));
-  // The vertical flag.
-  writer.uint8(0);
   // Cluster origins: two for the text run, none for the annotation.
   if (opcode == 12) {
     writer
       ..uint32(2)
       ..uint32(0)
       ..float64(0)
+      ..float64(12.5)
       ..uint32(2)
-      ..float64(8.5);
+      ..float64(8.5)
+      ..float64(12.5);
   } else {
     writer.uint32(0);
   }

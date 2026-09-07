@@ -211,15 +211,11 @@ pub(crate) struct DisplayTextCommandInput {
     pub href: Option<String>,
     pub source_text: Option<Value>,
     pub source_text_offset: Option<usize>,
-    /// Where each cluster of the text paints (byte offset into `text`,
-    /// absolute CSS x), in text order; empty when the renderer places the
-    /// run itself (a vertical column).
-    pub clusters: Vec<(u32, f64)>,
-    /// Vertical writing: the renderer draws the string as one downward
-    /// column — upright glyphs, the pen stepping one font-size per
-    /// cluster — with `rect.x` the column's left edge and `rect.y` the
-    /// first glyph's top. Off the wire when false.
-    pub vertical: bool,
+    /// Where each cluster of the text paints, in text order: byte offset
+    /// into `text` and the absolute CSS origin the pen draws it at — the
+    /// alphabetic baseline for a text run, the em-box top for an
+    /// annotation. Empty only for a run the renderer still places itself.
+    pub clusters: Vec<(u32, f64, f64)>,
 }
 
 pub(crate) fn display_command_values(commands: &[DisplayCommand]) -> Vec<Value> {

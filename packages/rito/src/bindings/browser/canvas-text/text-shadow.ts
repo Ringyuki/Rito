@@ -1,10 +1,12 @@
 import { canvasSpacingValue } from './spacing';
 import type { CanvasTextFragment, CanvasTextShadow } from './types';
 
-/** One drawn stretch of a run: its text and the x its pen starts at. */
+/** One drawn stretch of a run: its text and the origin its pen draws it
+ * at (x, alphabetic baseline y). */
 export interface ShadowPiece {
   readonly text: string;
   readonly x: number;
+  readonly y: number;
 }
 
 /**
@@ -21,7 +23,9 @@ export function drawTextShadows(
   x: number,
   y: number,
   color: string,
-  pieces: readonly ShadowPiece[] = [{ text: fragment.text, x }],
+  pieces: readonly ShadowPiece[] = [
+    { text: fragment.text, x, y: y + 0.8 * fragment.paint.font.sizePx },
+  ],
 ): void {
   const shadows = fragment.paint.textShadow ?? [];
   if (shadows.length === 0) return;
@@ -64,8 +68,11 @@ export function drawTextShadows(
   renderShadowLayers(
     scratch.ctx,
     shadows,
-    pieces.map((piece) => ({ text: piece.text, x: padLeft + (piece.x - x) })),
-    padTop + 0.8 * fragment.paint.font.sizePx,
+    pieces.map((piece) => ({
+      text: piece.text,
+      x: padLeft + (piece.x - x),
+      y: padTop + (piece.y - y),
+    })),
     pixelRatio,
   );
   ctx.drawImage(
@@ -141,8 +148,11 @@ function drawSnappedShadows(
   renderShadowLayers(
     scratch.ctx,
     shadows,
-    pieces.map((piece) => ({ text: piece.text, x: padLeft + fractionX + (piece.x - x) })),
-    padTop + fractionY + 0.8 * fragment.paint.font.sizePx,
+    pieces.map((piece) => ({
+      text: piece.text,
+      x: padLeft + fractionX + (piece.x - x),
+      y: padTop + fractionY + (piece.y - y),
+    })),
     pixelRatio,
   );
   ctx.save();
@@ -157,7 +167,6 @@ function renderShadowLayers(
   ctx: ScratchCanvasContext,
   shadows: readonly CanvasTextShadow[],
   pieces: readonly ShadowPiece[],
-  baselineY: number,
   pixelRatio: number,
 ): void {
   for (let index = shadows.length - 1; index >= 0; index -= 1) {
@@ -168,7 +177,7 @@ function renderShadowLayers(
     ctx.shadowOffsetX = shadow.offsetX * pixelRatio;
     ctx.shadowOffsetY = (shadow.offsetY + SHADOW_CAST_OFFSET) * pixelRatio;
     for (const piece of pieces) {
-      ctx.fillText(piece.text, piece.x, baselineY - SHADOW_CAST_OFFSET);
+      ctx.fillText(piece.text, piece.x, piece.y - SHADOW_CAST_OFFSET);
     }
   }
 }

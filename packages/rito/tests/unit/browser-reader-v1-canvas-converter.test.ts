@@ -24,18 +24,16 @@ describe('reader v1 canvas converter', () => {
     };
     const rect = { x: 0, y: 0, width: 10, height: 8 };
     const clusters = [
-      { byte: 0, x: 1.5 },
-      { byte: 1, x: 5.25 },
+      { byte: 0, x: 1.5, y: 6 },
+      { byte: 1, x: 5.25, y: 6 },
     ];
-    expect(
-      convertReaderRubyV1({ text: 'rb', rect, paint, vertical: false, clusters }),
-    ).toMatchObject({
+    expect(convertReaderRubyV1({ text: 'rb', rect, paint, clusters })).toMatchObject({
       kind: 'paintRuby',
       clusters,
     });
-    expect(
-      'clusters' in convertReaderRubyV1({ text: 'rb', rect, paint, vertical: false, clusters: [] }),
-    ).toBe(false);
+    expect('clusters' in convertReaderRubyV1({ text: 'rb', rect, paint, clusters: [] })).toBe(
+      false,
+    );
   });
 
   it('spells every predefined color space the canvas parses', () => {

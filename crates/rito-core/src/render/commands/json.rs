@@ -69,9 +69,6 @@ fn command_fields(command: &DisplayCommand) -> Map<String, Value> {
 }
 
 fn insert_text_fields(fields: &mut Map<String, Value>, input: &DisplayTextCommandInput) {
-    if input.vertical {
-        insert_field(fields, "vertical", Value::Bool(true));
-    }
     if !input.clusters.is_empty() {
         insert_field(
             fields,
@@ -80,7 +77,9 @@ fn insert_text_fields(fields: &mut Map<String, Value>, input: &DisplayTextComman
                 input
                     .clusters
                     .iter()
-                    .map(|(byte, x)| Value::Array(vec![Value::from(*byte), number_value(*x)]))
+                    .map(|(byte, x, y)| {
+                        Value::Array(vec![Value::from(*byte), number_value(*x), number_value(*y)])
+                    })
                     .collect(),
             ),
         );

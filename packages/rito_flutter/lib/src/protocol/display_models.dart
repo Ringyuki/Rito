@@ -6,11 +6,19 @@ import 'display_paint.dart';
 /// Where one cluster of a run paints: the origin of the cluster starting
 /// at [byte] of the run's text, in CSS pixels, spacing and justification
 /// already applied.
+/// Where one cluster of a run paints: the origin of the cluster starting
+/// at [byte] of the run's UTF-8 text — [y] is the alphabetic baseline of
+/// a text run, the em-box top of an annotation.
 final class RitoClusterPosition {
-  const RitoClusterPosition({required this.byte, required this.x});
+  const RitoClusterPosition({
+    required this.byte,
+    required this.x,
+    required this.y,
+  });
 
   final int byte;
   final double x;
+  final double y;
 }
 
 sealed class RitoTextPaintCommand {
@@ -22,7 +30,6 @@ sealed class RitoTextPaintCommand {
     this.href,
     this.sourceText,
     this.sourceTextOffset,
-    this.vertical = false,
     this.clusters = const <RitoClusterPosition>[],
   });
 
@@ -34,12 +41,8 @@ sealed class RitoTextPaintCommand {
   final String? sourceText;
   final int? sourceTextOffset;
 
-  /// Vertical writing: one downward column, `rect.x` its left edge and
-  /// `rect.y` the first glyph's top.
-  final bool vertical;
-
-  /// The origin of every cluster in text order; empty when the pen still
-  /// places the run itself (a vertical column).
+  /// The origin of every cluster in text order; empty only for a run the
+  /// pen still places itself.
   final List<RitoClusterPosition> clusters;
 }
 
@@ -52,7 +55,6 @@ final class RitoPaintText extends RitoTextPaintCommand {
     super.href,
     super.sourceText,
     super.sourceTextOffset,
-    super.vertical,
     super.clusters,
   });
 }
@@ -66,7 +68,6 @@ final class RitoPaintRuby extends RitoTextPaintCommand {
     super.href,
     super.sourceText,
     super.sourceTextOffset,
-    super.vertical,
     super.clusters,
   });
 }

@@ -135,8 +135,8 @@ describe('production Canvas text renderer', () => {
         'かな',
       ),
       clusters: [
-        { byte: 0, x: 19.5 },
-        { byte: 3, x: 38.5 },
+        { byte: 0, x: 19.5, y: 20 },
+        { byte: 3, x: 38.5, y: 20 },
       ],
     };
     const result = expectRubyParity(ruby, COLOR_OVERRIDE);

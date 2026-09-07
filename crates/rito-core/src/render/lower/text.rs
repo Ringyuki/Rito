@@ -26,32 +26,26 @@ use super::super::commands::contract::{
 use super::{block, DeviceRect, Ground, Primitive};
 
 pub(super) fn lower_text(text: &ReaderTextCommandV1, out: &mut Vec<Primitive>) {
-    // A vertical column paints glyph by glyph in the renderer; its box
-    // and decoration have no column expression yet, so neither paints.
-    if !text.vertical {
-        if let Some(rect) = inline_box(text) {
-            let paint = &text.paint;
-            block::lower_inline_box(
-                rect,
-                paint.background_color,
-                paint.background_radius,
-                (paint.box_start, paint.box_end),
-                paint.border.as_ref(),
-                union(rect, (&text.rect).into()),
-                out,
-            );
-        }
+    if let Some(rect) = inline_box(text) {
+        let paint = &text.paint;
+        block::lower_inline_box(
+            rect,
+            paint.background_color,
+            paint.background_radius,
+            (paint.box_start, paint.box_end),
+            paint.border.as_ref(),
+            union(rect, (&text.rect).into()),
+            out,
+        );
     }
-    let has_box = !text.vertical && inline_box(text).is_some();
+    let has_box = inline_box(text).is_some();
     out.push(Primitive::Text(text_run(text)));
-    if !text.vertical {
-        if let Some(decoration) = text.paint.decoration {
-            let line = decoration_line(&text.rect, decoration);
-            if !(has_box || text.paint.box_start) && extend_previous_line(out, &line) {
-                return;
-            }
-            out.push(line);
+    if let Some(decoration) = text.paint.decoration {
+        let line = decoration_line(&text.rect, decoration);
+        if !(has_box || text.paint.box_start) && extend_previous_line(out, &line) {
+            return;
         }
+        out.push(line);
     }
 }
 
@@ -175,7 +169,6 @@ fn text_run(text: &ReaderTextCommandV1) -> ReaderTextRunV1 {
         href: text.href.clone(),
         source_text: text.source_text.clone(),
         source_text_offset: text.source_text_offset,
-        vertical: text.vertical,
         clusters: text.clusters.clone(),
     }
 }

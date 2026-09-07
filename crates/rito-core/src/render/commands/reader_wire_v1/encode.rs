@@ -33,11 +33,11 @@ fn write_text(
             Ok(())
         },
     )?;
-    output.push(u8::from(input.vertical));
     write_length(output, input.clusters.len(), "cluster")?;
     for cluster in &input.clusters {
         write_u32(output, cluster.byte);
         write_finite_f64(output, cluster.x)?;
+        write_finite_f64(output, cluster.y)?;
     }
     Ok(())
 }

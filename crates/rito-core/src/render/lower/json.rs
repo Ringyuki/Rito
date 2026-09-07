@@ -237,9 +237,6 @@ fn text(kind: &str, command: &ReaderTextRunV1) -> Value {
     if let Some(offset) = command.source_text_offset {
         object.insert("sourceTextOffset".to_owned(), json!(offset));
     }
-    if command.vertical {
-        object.insert("vertical".to_owned(), Value::Bool(true));
-    }
     if !command.clusters.is_empty() {
         object.insert(
             "clusters".to_owned(),
@@ -247,7 +244,9 @@ fn text(kind: &str, command: &ReaderTextRunV1) -> Value {
                 command
                     .clusters
                     .iter()
-                    .map(|cluster| json!({ "byte": cluster.byte, "x": number(cluster.x) }))
+                    .map(|cluster| {
+                        json!({ "byte": cluster.byte, "x": number(cluster.x), "y": number(cluster.y) })
+                    })
                     .collect(),
             ),
         );

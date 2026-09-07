@@ -70,7 +70,6 @@ void main() {
     expect(text.command.paint.color.space, RitoColorSpace.srgb);
     expect(text.command.sourceText, 'source body');
     expect(text.command.sourceTextOffset, 9);
-    expect(text.command.vertical, isFalse);
     final ruby = list.commands[12] as RitoPrimitiveRuby;
   });
 

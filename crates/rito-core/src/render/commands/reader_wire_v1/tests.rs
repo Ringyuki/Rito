@@ -255,7 +255,6 @@ fn legacy_adapter_fails_closed_for_unknown_or_untyped_payloads() {
         source_text: None,
         source_text_offset: None,
         clusters: Vec::new(),
-        vertical: false,
     });
     assert_eq!(
         adapt_reader_display_list_v1(&[summary_text]).expect_err("summary text fails"),
@@ -370,8 +369,12 @@ fn representative_commands() -> Vec<DisplayCommand> {
             href: Some("#note".to_owned()),
             source_text: Some(json!("source")),
             source_text_offset: Some(9),
-            clusters: vec![(0, 0.0), (1, 8.5), (2, 12.25), (3, 16.0)],
-            vertical: false,
+            clusters: vec![
+                (0, 0.0, 12.5),
+                (1, 8.5, 12.5),
+                (2, 12.25, 12.5),
+                (3, 16.0, 12.5),
+            ],
         }),
         DisplayCommand::paint_image(
             "images/cover.jpg".to_owned(),
@@ -392,7 +395,6 @@ fn all_command_shapes() -> Vec<DisplayCommand> {
         source_text: None,
         source_text_offset: None,
         clusters: Vec::new(),
-        vertical: false,
     };
     vec![
         DisplayCommand::push_state(),

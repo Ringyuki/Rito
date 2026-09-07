@@ -7,9 +7,6 @@ import { resolveTextColor } from '../theme/text-color';
 // Vertical presentation classes: characters the vert feature ROTATES a
 // quarter turn (brackets, dashes, leaders, the long-vowel mark) and the
 // corner marks it SHIFTS into the em's top-right (comma, period).
-const VERTICAL_ROTATED = /[「」『』()()〔〕［］[\]{}｛｝〈〉《》【】〖〗…‥ー―—–~〜～＝=]/u;
-const VERTICAL_SHIFTED = /[、。，．,.]/u;
-
 export function drawCanvasTextFragment(
   ctx: CanvasRenderingContext2D,
   fragment: CanvasTextFragment,
@@ -25,37 +22,6 @@ export function drawCanvasTextFragment(
   ctx.letterSpacing = canvasSpacingValue(paint.letterSpacingPx);
 
   const { x, y } = fragment.rect;
-  if (fragment.vertical) {
-    // Vertical-rl column: the rect's x is the glyph column's left edge,
-    // y the first glyph's top, width the font size. Each cluster paints
-    // upright and the pen steps one font size (plus justification
-    // spacing) down the column. Punctuation takes its vertical
-    // presentation: brackets, dashes and leaders are the horizontal
-    // glyph rotated a quarter turn about its em center (how the vert
-    // feature draws them), and comma/period marks sit in the em's
-    // top-right corner instead of bottom-left.
-    const size = paint.font.sizePx;
-    const step = size + (paint.letterSpacingPx ?? 0);
-    ctx.letterSpacing = '0px';
-    let penY = y + 0.8 * size;
-    for (const cluster of fragment.text) {
-      if (VERTICAL_ROTATED.test(cluster)) {
-        const cx = x + size / 2;
-        const cy = penY - 0.3 * size;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(Math.PI / 2);
-        ctx.fillText(cluster, -size / 2, 0.3 * size);
-        ctx.restore();
-      } else if (VERTICAL_SHIFTED.test(cluster)) {
-        ctx.fillText(cluster, x + 0.5 * size, penY - 0.6 * size);
-      } else {
-        ctx.fillText(cluster, x, penY);
-      }
-      penY += step;
-    }
-    return;
-  }
   // Probed: canvas 'alphabetic' snaps the baseline to the nearest device
   // row and is then BIT-IDENTICAL to Blink's DOM text raster; 'top' never
   // matches at any sub-pixel phase. The rect's em-top encodes
@@ -63,9 +29,10 @@ export function drawCanvasTextFragment(
   const baseline = y + 0.8 * paint.font.sizePx;
   const clusters = fragment.clusters;
   if (clusters !== undefined && clusters.length > 0) {
-    // The engine placed every cluster: spacing, justification shares and
-    // the browser's fixed-point advances are already in each origin, so
-    // the canvas draws one cluster at a time with its own spacing off.
+    // The engine placed every cluster — along a line or down a column,
+    // spacing, justification shares and the browser's fixed-point
+    // advances already in each origin — so the canvas draws one cluster
+    // at a time at its own origin with its own spacing off.
     ctx.wordSpacing = '0px';
     ctx.letterSpacing = '0px';
     const pieces = clusterPieces(fragment.text, clusters);
@@ -73,7 +40,7 @@ export function drawCanvasTextFragment(
       drawTextShadows(ctx, fragment, x, y, color, pieces);
     }
     for (const piece of pieces) {
-      ctx.fillText(piece.text, piece.x, baseline);
+      ctx.fillText(piece.text, piece.x, piece.y);
     }
     return;
   }
@@ -108,25 +75,11 @@ export function drawCanvasRubyFragment(
     ctx.textBaseline = 'top';
     ctx.wordSpacing = '0px';
     ctx.letterSpacing = '0px';
-    if (ruby.vertical) {
-      // Vertical column annotation: rect.height is the base span; the
-      // free length splits one share per glyph, half a share at each
-      // edge (the space-around initial), each glyph stepping one
-      // annotation size down the column.
-      const size = paint.font.sizePx;
-      const glyphs = Array.from(ruby.text);
-      const share = (ruby.rect.height - glyphs.length * size) / glyphs.length;
-      let penY = ruby.rect.y + share / 2;
-      for (const glyph of glyphs) {
-        ctx.fillText(glyph, ruby.rect.x, penY);
-        penY += size + share;
-      }
-      return;
-    }
     // The engine distributed the annotation over its base by the
-    // computed `ruby-align` and sent every cluster's origin: the canvas
-    // draws each at its origin from the box top, spacing off. A run
-    // that arrives without origins draws packed and centered, its start
+    // computed `ruby-align` — across a horizontal base or down a
+    // vertical one — and sent every cluster's origin: the canvas draws
+    // each at its origin from the em-box top, spacing off. A run that
+    // arrives without origins draws packed and centered, its start
     // floored onto the 1/64 grid like every centered line.
     const pieces = clusterPieces(ruby.text, ruby.clusters ?? []);
     if (pieces.length === 0) {
@@ -136,7 +89,7 @@ export function drawCanvasRubyFragment(
       return;
     }
     for (const piece of pieces) {
-      ctx.fillText(piece.text, piece.x, ruby.rect.y);
+      ctx.fillText(piece.text, piece.x, piece.y);
     }
   } finally {
     ctx.restore();
@@ -150,8 +103,8 @@ export function drawCanvasRubyFragment(
  */
 function clusterPieces(
   text: string,
-  clusters: readonly { readonly byte: number; readonly x: number }[],
-): { readonly text: string; readonly x: number }[] {
+  clusters: readonly { readonly byte: number; readonly x: number; readonly y: number }[],
+): { readonly text: string; readonly x: number; readonly y: number }[] {
   const starts = new Map<number, number>();
   let byte = 0;
   let index = 0;
@@ -162,7 +115,7 @@ function clusterPieces(
     index += character.length;
   }
   starts.set(byte, index);
-  const pieces: { text: string; x: number }[] = [];
+  const pieces: { text: string; x: number; y: number }[] = [];
   for (let at = 0; at < clusters.length; at += 1) {
     const cluster = clusters[at];
     if (cluster === undefined) continue;
@@ -170,7 +123,7 @@ function clusterPieces(
     const next = clusters[at + 1];
     const end = next === undefined ? text.length : starts.get(next.byte);
     if (start === undefined || end === undefined || end <= start) continue;
-    pieces.push({ text: text.slice(start, end), x: cluster.x });
+    pieces.push({ text: text.slice(start, end), x: cluster.x, y: cluster.y });
   }
   return pieces;
 }
