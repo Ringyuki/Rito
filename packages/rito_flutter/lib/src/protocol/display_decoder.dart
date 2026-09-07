@@ -47,7 +47,6 @@ RitoTextPaintCommand _readTextRun(
     'ruby align',
     () => reader.string('ruby align'),
   );
-  final alignRight = reader.boolean('text align right');
   final vertical = reader.boolean('text vertical');
   final clusterCount = reader.count('cluster count');
   final clusters = <RitoClusterPosition>[];
@@ -69,7 +68,6 @@ RitoTextPaintCommand _readTextRun(
       sourceText: sourceText,
       sourceTextOffset: sourceOffset,
       rubyAlign: rubyAlign,
-      alignRight: alignRight,
       vertical: vertical,
       clusters: clusters,
     );
@@ -83,7 +81,6 @@ RitoTextPaintCommand _readTextRun(
     sourceText: sourceText,
     sourceTextOffset: sourceOffset,
     rubyAlign: rubyAlign,
-    alignRight: alignRight,
     vertical: vertical,
     clusters: clusters,
   );

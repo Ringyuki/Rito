@@ -255,7 +255,6 @@ fn legacy_adapter_fails_closed_for_unknown_or_untyped_payloads() {
         source_text: None,
         source_text_offset: None,
         ruby_align: None,
-        align_right: false,
         clusters: Vec::new(),
         vertical: false,
     });
@@ -373,7 +372,6 @@ fn representative_commands() -> Vec<DisplayCommand> {
             source_text: Some(json!("source")),
             source_text_offset: Some(9),
             ruby_align: Some(RubyAlignPaint::CENTER),
-            align_right: true,
             clusters: vec![(0, 0.0), (1, 8.5), (2, 12.25), (3, 16.0)],
             vertical: false,
         }),
@@ -396,7 +394,6 @@ fn all_command_shapes() -> Vec<DisplayCommand> {
         source_text: None,
         source_text_offset: None,
         ruby_align: None,
-        align_right: false,
         clusters: Vec::new(),
         vertical: false,
     };

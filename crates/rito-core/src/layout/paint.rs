@@ -247,6 +247,26 @@ impl RunPaint {
         data.box_offsets = Some((top, bottom));
     }
 
+    /// The glyph paint alone — font, colour, spacing, text shadows — with
+    /// the inline box and the decoration line dropped. An outside list
+    /// marker borrows its item's style for the glyphs, but its box sits
+    /// outside the item's border box: the item's background, padding,
+    /// border and decoration never reach it.
+    pub(crate) fn glyphs_only(&self) -> Self {
+        if !self.has_box_paint() && self.data.decoration.is_none() {
+            return self.clone();
+        }
+        let mut data = (*self.data).clone();
+        data.background_color = None;
+        data.background_radius = None;
+        data.decoration = None;
+        data.padding = None;
+        data.border = None;
+        data.box_offsets = None;
+        data.box_edges = (false, false);
+        Self::new(data)
+    }
+
     /// Moves the decoration line by `delta` along the run rect's y.
     pub(crate) fn shift_decoration(&mut self, delta: f64) {
         if delta == 0.0 || self.data.decoration.is_none() {

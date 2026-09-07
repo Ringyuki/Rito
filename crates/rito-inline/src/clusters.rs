@@ -13,16 +13,28 @@
 //! sub-pixel phases match its raster.
 
 use rito_fragment::ClusterPosition;
+use rito_style_contract::{InlineFormattingStyleV1, LengthPercentage};
 
 use crate::*;
 
-/// The cluster origins of the piece `range` of a laid-out paragraph,
-/// relative to the piece's start, and whether the painter floors their
-/// absolute positions onto the 1/64 grid. `halt_trims` are the openers
-/// shaped with the `halt` half-width variant: the painter draws the
-/// untrimmed glyph, whose outline sits one blank half further right, so
-/// such a cluster's origin moves left by its half while the clusters
-/// after it keep the trimmed advance layout stepped by.
+/// The cluster origins of one piece of a laid-out paragraph, relative to
+/// the piece's start, and where the pen rests after the last of them.
+pub(crate) struct PieceClusters {
+    pub positions: Vec<ClusterPosition>,
+    /// Whether the painter floors the absolute positions onto the 1/64
+    /// grid.
+    pub grid: bool,
+    /// The pen's position after the last cluster, from the piece's start,
+    /// accumulated under the same law as the positions.
+    pub advance: f64,
+}
+
+/// The cluster origins of the piece `range` of a laid-out paragraph.
+/// `halt_trims` are the openers shaped with the `halt` half-width
+/// variant: the painter draws the untrimmed glyph, whose outline sits one
+/// blank half further right, so such a cluster's origin moves left by its
+/// half while the clusters after it keep the trimmed advance layout
+/// stepped by.
 pub(crate) fn piece_clusters(
     layout: &parley::Layout<[u8; 4]>,
     flow_text: &str,
@@ -31,7 +43,7 @@ pub(crate) fn piece_clusters(
     justify_px: f64,
     halt_trims: &[(std::ops::Range<usize>, f64)],
     word_spacing: bool,
-) -> (Vec<ClusterPosition>, bool) {
+) -> PieceClusters {
     let mut steps: Vec<(u32, f64, f64)> = Vec::new();
     let mut font_size = 0.0_f64;
     let mut cluster = parley::layout::Cluster::from_byte_index(layout, range.start);
@@ -61,27 +73,89 @@ pub(crate) fn piece_clusters(
         && (font_size * 64.0).fract() != 0.0
         && !text.is_empty()
         && text.chars().all(is_cjk_cluster_char);
-    let mut clusters = Vec::with_capacity(steps.len());
-    if grid {
+    let mut positions = Vec::with_capacity(steps.len());
+    let advance = if grid {
         let mut cumulative = 0.0_f64;
         for (byte, step, trim) in steps {
-            clusters.push(ClusterPosition {
+            positions.push(ClusterPosition {
                 byte,
                 x: cumulative - trim,
             });
             cumulative += step;
         }
+        cumulative
     } else {
         let mut pen = 0.0_f32;
         for (byte, step, trim) in steps {
-            clusters.push(ClusterPosition {
+            positions.push(ClusterPosition {
                 byte,
                 x: f64::from(pen) - trim,
             });
             pen += step as f32;
         }
+        f64::from(pen)
+    };
+    PieceClusters {
+        positions,
+        grid,
+        advance,
     }
-    (clusters, grid)
+}
+
+/// A string shaped on its own in one style — an outside list marker — as
+/// the engine places it: the inline size its box takes and where every
+/// cluster sits from the box's start.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MeasuredRun {
+    /// The box's inline size: the shaped advance quantized the way the
+    /// browser's layout stores an inline box's width (1/64 CSS px,
+    /// ceiling).
+    pub advance: f64,
+    /// Every cluster's origin from the box's start, in text order (byte
+    /// offset into the string, CSS x).
+    pub clusters: Vec<ClusterPosition>,
+    /// Whether the painter floors the absolute origins onto the 1/64 grid.
+    pub grid: bool,
+}
+
+impl ParleyInlineContext {
+    /// Shapes `text` in `style` as one line and measures it the way a
+    /// painted run is placed: the box's inline size and each cluster's
+    /// origin under the cluster laws above, with the style's own letter
+    /// spacing folded in and no justification.
+    pub fn measure_run(&self, style: &InlineFormattingStyleV1, text: &str) -> MeasuredRun {
+        if text.is_empty() {
+            return MeasuredRun {
+                advance: 0.0,
+                clusters: Vec::new(),
+                grid: false,
+            };
+        }
+        let mut fonts = self.fonts.borrow_mut();
+        let mut layouts = self.layouts.borrow_mut();
+        let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
+        push_item_styles(&mut builder, style, 0..text.len());
+        let (mut layout, spacing_edits) = builder.build(text);
+        layout.break_all_lines(None);
+        let word_spacing = matches!(
+            style.text_flow.word_spacing,
+            LengthPercentage::Length(px) if px.get() != 0.0
+        );
+        let piece = piece_clusters(
+            &layout,
+            text,
+            0..text.len(),
+            &spacing_edits,
+            0.0,
+            &[],
+            word_spacing,
+        );
+        MeasuredRun {
+            advance: layout_unit_ceil(piece.advance),
+            clusters: piece.positions,
+            grid: piece.grid,
+        }
+    }
 }
 
 /// The CJK blocks whose clusters shape one to one with no kerning, plus

@@ -1270,7 +1270,7 @@ impl FormattingContext for ParleyInlineContext {
                                 .iter()
                                 .find(|(halt, _)| halt.start < range.end && range.start < halt.end)
                                 .map_or(0.0, |(_, half)| *half);
-                            let (clusters, cluster_grid) = piece_clusters(
+                            let piece = piece_clusters(
                                 layout_ref,
                                 flow_text_ref,
                                 range.clone(),
@@ -1301,8 +1301,8 @@ impl FormattingContext for ParleyInlineContext {
                                         .get(&item_index)
                                         .copied()
                                         .unwrap_or(0.0),
-                                    clusters,
-                                    cluster_grid,
+                                    clusters: piece.positions,
+                                    cluster_grid: piece.grid,
                                 }),
                                 shift,
                             ));

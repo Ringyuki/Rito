@@ -88,17 +88,13 @@ pub(crate) struct ReaderTextCommandV1 {
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
     pub ruby_align: Option<String>,
-    /// Right-aligned draw: `rect.x` is the text's RIGHT edge and the
-    /// renderer measures the string to place the pen (outside list
-    /// markers, whose width only the host's text stack can measure).
-    pub align_right: bool,
     /// Vertical writing: the renderer draws the string as one downward
     /// column with `rect.x` the column's left edge and `rect.y` the first
     /// glyph's top.
     pub vertical: bool,
     /// The origin of every cluster, in text order; empty when the
-    /// renderer still places the run itself (a right-aligned marker, a
-    /// vertical column, an annotation).
+    /// renderer still places the run itself (a vertical column, an
+    /// annotation).
     pub clusters: Vec<ReaderClusterV1>,
 }
 
@@ -115,7 +111,6 @@ pub(crate) struct ReaderTextRunV1 {
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
     pub ruby_align: Option<String>,
-    pub align_right: bool,
     pub vertical: bool,
     pub clusters: Vec<ReaderClusterV1>,
 }

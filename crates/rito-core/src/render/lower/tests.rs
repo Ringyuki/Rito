@@ -1603,7 +1603,6 @@ fn text_run() -> ReaderTextRunV1 {
         source_text: text.source_text,
         source_text_offset: text.source_text_offset,
         ruby_align: text.ruby_align,
-        align_right: text.align_right,
         vertical: text.vertical,
         clusters: text.clusters,
     }
@@ -1664,7 +1663,6 @@ fn text() -> ReaderTextCommandV1 {
         source_text: Some("source".to_owned()),
         source_text_offset: Some(9),
         ruby_align: Some("center".to_owned()),
-        align_right: false,
         clusters: vec![],
         vertical: false,
     }

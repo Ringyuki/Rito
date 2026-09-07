@@ -72,15 +72,11 @@ export interface RitoReaderTextRunV1 {
   readonly sourceTextOffset?: bigint | undefined;
   /** Non-initial ruby-align keyword; absent means space-around. */
   readonly rubyAlign?: 'start' | 'center' | 'space-between' | undefined;
-  /** Right-aligned draw: `rect.x` is the text's right edge and the host
-   * measures the string to place the pen (outside list markers). */
-  readonly alignRight: boolean;
   /** Vertical writing: one downward column, `rect.x` its left edge and
    * `rect.y` the first glyph's top. */
   readonly vertical: boolean;
   /** The origin of every cluster in text order; empty when the renderer
-   * still places the run itself (a right-aligned marker, a vertical
-   * column, an annotation). */
+   * still places the run itself (a vertical column, an annotation). */
   readonly clusters: readonly RitoReaderClusterV1[];
 }
 

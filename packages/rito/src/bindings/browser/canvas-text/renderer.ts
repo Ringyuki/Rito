@@ -62,7 +62,7 @@ export function drawCanvasTextFragment(
   // baseline - 0.8*size (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
   const baseline = y + 0.8 * paint.font.sizePx;
   const clusters = fragment.clusters;
-  if (clusters !== undefined && clusters.length > 0 && !fragment.alignRight) {
+  if (clusters !== undefined && clusters.length > 0) {
     // The engine placed every cluster: spacing, justification shares and
     // the browser's fixed-point advances are already in each origin, so
     // the canvas draws one cluster at a time with its own spacing off.
@@ -80,19 +80,16 @@ export function drawCanvasTextFragment(
   if (paint.textShadow && paint.textShadow.length > 0) {
     drawTextShadows(ctx, fragment, x, y, color);
   }
-  // An outside list marker rides right-aligned: the wire x is the
-  // text's right edge and only the canvas can measure the string.
   // Zero-width characters (U+FEFF and friends) paint no ink but the
   // canvas letterSpacing pen would still spend one spacing share on
   // them, pushing everything after one share right of the browser's
   // cells (which step 0 across a zero-width cluster). Stripping them
   // changes no pixels of their own.
   const drawnText = fragment.text.replace(/\u200B|\u200C|\u200D|\u2060|\uFEFF/g, '');
-  const penX = fragment.alignRight ? x - ctx.measureText(drawnText).width : x;
   if (textRidesTheLayoutGrid(paint.font.sizePx, paint.wordSpacingPx, drawnText)) {
-    drawTextOnLayoutGrid(ctx, drawnText, penX, baseline, paint.letterSpacingPx ?? 0);
+    drawTextOnLayoutGrid(ctx, drawnText, x, baseline, paint.letterSpacingPx ?? 0);
   } else {
-    ctx.fillText(drawnText, penX, baseline);
+    ctx.fillText(drawnText, x, baseline);
   }
 }
 

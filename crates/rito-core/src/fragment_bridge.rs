@@ -79,10 +79,11 @@ pub struct ChapterFormattingTree {
     /// Source tag per block-level formatting node, for semantic roles.
     pub node_tags: BTreeMap<u32, String>,
     /// Outside list markers, keyed by the list item's formatting node id.
-    /// The painter draws the text right-aligned against the item box's
-    /// content-left edge minus the marker gap, on the first line's
-    /// baseline; layout never sees the marker (CSS
-    /// `list-style-position: outside`, the browser's default).
+    /// The painter places each marker's box with its right edge at the
+    /// item box's content-left edge, on the first line's baseline, from
+    /// the advance [`ChapterFormattingTree::measure_list_markers`] shaped;
+    /// layout never sees the marker (CSS `list-style-position: outside`,
+    /// the browser's default).
     pub list_markers: BTreeMap<u32, ListMarkerPaint>,
     /// Constructs the tree could not represent exactly and rendered with
     /// an approximation instead (ignored decoration, flattened display,
@@ -98,6 +99,42 @@ pub struct ListMarkerPaint {
     /// The list item's interned inline style: the marker inherits the
     /// item's font, size and color (CSS `::marker` default).
     pub style: StyleId,
+    /// The painted string ([`Self::painted_text`]) shaped in `style`: the
+    /// marker box's inline size and where its clusters sit. `None` until
+    /// [`ChapterFormattingTree::measure_list_markers`] runs — the bridge
+    /// has no shaper, so the backend measures right after bridging.
+    pub run: Option<rito_inline::MeasuredRun>,
+}
+
+impl ListMarkerPaint {
+    /// The string the painter draws: the marker text and its trailing
+    /// space, the way the browser's marker box carries it (`9. `).
+    pub fn painted_text(&self) -> String {
+        format!("{} ", self.text)
+    }
+}
+
+impl ChapterFormattingTree {
+    /// Shapes every outside marker's painted string in the item's style,
+    /// so the painter places each marker box from the engine's own
+    /// advance and cluster origins with no host measurement.
+    pub fn measure_list_markers(
+        &mut self,
+        context: &rito_inline::ParleyInlineContext,
+    ) -> EpubResult<()> {
+        let styles = self
+            .tree
+            .styles()
+            .ok_or_else(|| EpubError::new("marker measurement needs style tables"))?;
+        for marker in self.list_markers.values_mut() {
+            let style = styles
+                .inline
+                .style(marker.style)
+                .map_err(|error| EpubError::new(format!("marker style: {error}")))?;
+            marker.run = Some(context.measure_run(style, &marker.painted_text()));
+        }
+        Ok(())
+    }
 }
 
 /// One inline item's interaction provenance.
@@ -688,6 +725,7 @@ impl TreeBuilder<'_> {
                 ListMarkerPaint {
                     text,
                     style: marker_style,
+                    run: None,
                 },
             );
         }
@@ -4057,7 +4095,7 @@ p { margin: 8px 0; }\n\
   <ul><li>bullet</li></ul>
 </body></html>"#,
         );
-        let built = build_chapter_formatting_tree(
+        let mut built = build_chapter_formatting_tree(
             &chapter.nodes,
             chapter.body_index,
             &chapter.layout,
@@ -4083,6 +4121,28 @@ p { margin: 8px 0; }\n\
         // nested <ol>, and one disc bullet in the <ul>. The nested list
         // restarts at 1, so "1." appears twice.
         assert_eq!(texts, vec!["1.", "1.", "2.", "3.", "\u{2022}"]);
+        // Measured after bridging: every marker's painted string shapes
+        // to a box with one origin per cluster, the trailing space
+        // included, from the box's start.
+        let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register");
+        built
+            .measure_list_markers(&context)
+            .expect("markers measure");
+        for marker in built.list_markers.values() {
+            let painted = marker.painted_text();
+            let run = marker.run.as_ref().expect("marker measured");
+            assert!(run.advance > 0.0, "{painted:?} takes a box");
+            assert_eq!(
+                run.clusters.len(),
+                painted.chars().count(),
+                "one origin per cluster of {painted:?}"
+            );
+            assert_eq!(run.clusters[0].x, 0.0);
+            assert!(
+                run.clusters.last().expect("a cluster").x < run.advance,
+                "the last origin lies inside the box"
+            );
+        }
     }
 
     #[test]

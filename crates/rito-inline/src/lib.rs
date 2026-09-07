@@ -51,6 +51,7 @@ mod strut;
 mod tests;
 
 pub(crate) use breaking::*;
+pub use clusters::MeasuredRun;
 pub(crate) use clusters::*;
 pub use context::HostNormalLineMetric;
 pub(crate) use context::*;

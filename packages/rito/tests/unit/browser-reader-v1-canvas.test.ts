@@ -548,7 +548,6 @@ function readerArtifact(): BrowserReaderArtifactV1 {
     },
     {
       kind: 'text',
-      alignRight: false,
       vertical: false,
       clusters: [],
       text: 'target',

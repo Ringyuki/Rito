@@ -140,10 +140,6 @@ fn parse_command(value: &Value) -> Option<DisplayCommand> {
                     .and_then(Value::as_u64)
                     .map(|offset| offset as usize),
                 ruby_align,
-                align_right: value
-                    .get("alignRight")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false),
                 vertical: value
                     .get("vertical")
                     .and_then(Value::as_bool)

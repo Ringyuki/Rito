@@ -23,7 +23,6 @@ sealed class RitoTextPaintCommand {
     this.sourceText,
     this.sourceTextOffset,
     this.rubyAlign,
-    this.alignRight = false,
     this.vertical = false,
     this.clusters = const <RitoClusterPosition>[],
   });
@@ -40,17 +39,12 @@ sealed class RitoTextPaintCommand {
   /// sends one (wire tail field added with the ruby-align law).
   final String? rubyAlign;
 
-  /// Right-aligned draw: `rect.x` is the text's right edge and the pen
-  /// measures the string to place itself (outside list markers).
-  final bool alignRight;
-
   /// Vertical writing: one downward column, `rect.x` its left edge and
   /// `rect.y` the first glyph's top.
   final bool vertical;
 
   /// The origin of every cluster in text order; empty when the pen still
-  /// places the run itself (a right-aligned marker, a vertical column, an
-  /// annotation).
+  /// places the run itself (a vertical column, an annotation).
   final List<RitoClusterPosition> clusters;
 }
 
@@ -64,7 +58,6 @@ final class RitoPaintText extends RitoTextPaintCommand {
     super.sourceText,
     super.sourceTextOffset,
     super.rubyAlign,
-    super.alignRight,
     super.vertical,
     super.clusters,
   });
@@ -80,7 +73,6 @@ final class RitoPaintRuby extends RitoTextPaintCommand {
     super.sourceText,
     super.sourceTextOffset,
     super.rubyAlign,
-    super.alignRight,
     super.vertical,
     super.clusters,
   });

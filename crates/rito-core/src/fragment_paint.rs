@@ -146,6 +146,17 @@ pub(crate) fn snap_css(value: f64) -> f64 {
     value.round()
 }
 
+/// A cluster's absolute origin as the pen draws it: floored onto the
+/// 1/64 CSS-px grid when the run takes the grid law (an all-CJK run at a
+/// fractional font size), the float accumulation itself otherwise.
+fn cluster_x(x: f64, grid: bool) -> f64 {
+    if grid {
+        (x * 64.0).floor() / 64.0
+    } else {
+        x
+    }
+}
+
 /// Nearest device-pixel position of a CSS-px value at `ratio` device
 /// pixels per CSS pixel, in CSS px. Ratio 1 is a plain round. Glyph
 /// baselines are the one thing painted on this grid.
@@ -433,10 +444,13 @@ fn append_fragment_display_commands_inner(
             } else {
                 snap_origin_y
             };
-            // An outside list marker: right-aligned text whose right
-            // edge sits the marker gap left of the item's content edge,
-            // on the first line's painted baseline (the browser's
-            // `list-style-position: outside` box).
+            // An outside list marker: a text box whose right edge sits AT
+            // the item's content edge, on the first line's painted
+            // baseline (the browser's `list-style-position: outside` box
+            // takes `margin-inline-start: -inline_size` for a text
+            // marker, no fixed gap; measured on a decimal-list nav page,
+            // the digit ink ends one 16px space plus the period's right
+            // bearing before the text).
             if let Some(marker) = context
                 .list_markers
                 .and_then(|markers| markers.get(&fragment.source.0))
@@ -453,7 +467,11 @@ fn append_fragment_display_commands_inner(
                         .inline
                         .style(marker.style)
                         .map_err(|error| EpubError::new(format!("marker style: {error}")))?;
-                    let paint = run_paint(style, context.family_policy, 0.0, false, false)?;
+                    let run = marker.run.as_ref().ok_or_else(|| {
+                        EpubError::new("outside marker painted before its string was measured")
+                    })?;
+                    let paint =
+                        run_paint(style, context.family_policy, 0.0, false, false)?.glyphs_only();
                     let font_size = f64::from(style.font.size.get());
                     let line_y = origin_y + fragment.rect.y + first_line.rect.y;
                     let baseline = painted_baseline(
@@ -462,17 +480,22 @@ fn append_fragment_display_commands_inner(
                         first_line.baseline - first_line.ruby_growth,
                         context.ratio,
                     );
-                    // The marker string carries its trailing space and
-                    // the right edge sits AT the content edge (measured
-                    // on the b17 nav: the digit ink ends 6px before the
-                    // text, exactly one 16px space plus the period's
-                    // right bearing — no extra fixed gap).
+                    // The box's inline size is the shaped string's
+                    // advance (trailing space included) on the 1/64
+                    // layout grid, and every cluster paints where the
+                    // engine measured it from the box's start.
+                    let left = origin_x + fragment.rect.x - run.advance;
+                    let clusters = run
+                        .clusters
+                        .iter()
+                        .map(|cluster| (cluster.byte, cluster_x(left + cluster.x, run.grid)))
+                        .collect();
                     commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
-                        text: Value::String(format!("{} ", marker.text)),
+                        text: Value::String(marker.painted_text()),
                         rect: rect_value(
-                            origin_x + fragment.rect.x,
+                            left,
                             baseline - CANVAS_TOP_ASCENT_RATIO * font_size,
-                            0.0,
+                            run.advance,
                             font_size,
                         ),
                         paint,
@@ -481,8 +504,7 @@ fn append_fragment_display_commands_inner(
                         source_text: None,
                         source_text_offset: None,
                         ruby_align: None,
-                        align_right: true,
-                        clusters: Vec::new(),
+                        clusters,
                         vertical: false,
                     }));
                 }
@@ -760,7 +782,6 @@ fn append_vertical_line_commands(
             source_text: None,
             source_text_offset: None,
             ruby_align: None,
-            align_right: false,
             clusters: Vec::new(),
             vertical: true,
         }));
@@ -813,7 +834,6 @@ fn append_vertical_line_commands(
                         source_text: None,
                         source_text_offset: None,
                         ruby_align: None,
-                        align_right: false,
                         clusters: Vec::new(),
                         vertical: true,
                     }));
@@ -1175,7 +1195,6 @@ fn append_text_run_command(
             href: None,
             source_text: None,
             source_text_offset: None,
-            align_right: false,
             clusters: Vec::new(),
             vertical: false,
             ruby_align: match ruby_align {
@@ -1198,13 +1217,10 @@ fn append_text_run_command(
         .clusters
         .iter()
         .map(|cluster| {
-            let x = cluster_origin_x + cluster.x;
-            let x = if run.cluster_grid {
-                (x * 64.0).floor() / 64.0
-            } else {
-                x
-            };
-            (cluster.byte - run.text_start, x)
+            (
+                cluster.byte - run.text_start,
+                cluster_x(cluster_origin_x + cluster.x, run.cluster_grid),
+            )
         })
         .collect();
     commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
@@ -1231,7 +1247,6 @@ fn append_text_run_command(
         source_text: None,
         source_text_offset: None,
         ruby_align: None,
-        align_right: false,
         vertical: false,
         clusters,
     }));
@@ -1964,6 +1979,92 @@ mod tests {
         assert!(commands
             .iter()
             .any(|command| matches!(command, DisplayCommand::PaintText(_))));
+    }
+
+    /// An outside marker paints from the engine's measurement alone: its
+    /// box ends at the item's content edge, its clusters sit at the
+    /// measured origins, and the item's inline box paint never reaches
+    /// it.
+    #[test]
+    fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
+        let mut inline = InlineStyleTableV1::new(1);
+        let mut item_style = body_style(srgb(0.0, 0.0, 0.0, 1.0));
+        item_style.paint.background = srgb(1.0, 1.0, 0.0, 1.0).into();
+        let style = inline
+            .intern_for_node(0, item_style)
+            .expect("item style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![text_item("item", style, 0.0)],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            FormattingTreeStyles {
+                layout: LayoutStyleTableV1::new(0),
+                inline,
+            },
+        )
+        .expect("tree builds");
+        let root = boxed_line(vec![text_run(0.0, 30.0, 0, 4)]);
+        let mut markers = BTreeMap::new();
+        markers.insert(
+            0,
+            crate::fragment_bridge::ListMarkerPaint {
+                text: "3.".to_owned(),
+                style,
+                run: Some(rito_inline::MeasuredRun {
+                    advance: 16.0,
+                    clusters: vec![
+                        rito_fragment::ClusterPosition { byte: 0, x: 0.0 },
+                        rito_fragment::ClusterPosition { byte: 1, x: 8.0 },
+                        rito_fragment::ClusterPosition { byte: 2, x: 12.0 },
+                    ],
+                    grid: false,
+                }),
+            },
+        );
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                list_markers: Some(&markers),
+                ..FragmentPaintContext::default()
+            },
+        )
+        .expect("fragments paint");
+        let texts: Vec<&DisplayTextCommandInput> = commands
+            .iter()
+            .filter_map(|command| match command {
+                DisplayCommand::PaintText(input) => Some(input),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts.len(), 2, "the marker and the item's text");
+        let marker = texts[0];
+        assert_eq!(
+            marker.text,
+            Value::String("3. ".to_owned()),
+            "the marker paints before the item, with its trailing space"
+        );
+        // The item box starts at x = 10: the 16px marker box ends there.
+        assert_eq!(marker.rect["x"].as_f64(), Some(-6.0));
+        assert_eq!(marker.rect["width"].as_f64(), Some(16.0));
+        assert_eq!(marker.clusters, vec![(0, -6.0), (1, 2.0), (2, 6.0)]);
+        assert!(
+            !marker.paint.has_box_paint() && marker.paint.decoration().is_none(),
+            "the item's background band stays off the marker"
+        );
+        assert!(
+            texts[1].paint.has_box_paint(),
+            "the item's own text keeps its inline box"
+        );
     }
 
     #[test]

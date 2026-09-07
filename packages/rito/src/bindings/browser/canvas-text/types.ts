@@ -4,7 +4,7 @@ export type CanvasTextCommand = Extract<CoreFrameCommand, { readonly kind: 'pain
 export type CanvasRubyCommand = Extract<CoreFrameCommand, { readonly kind: 'paintRuby' }>;
 export type CanvasTextFragment = Pick<
   CanvasTextCommand,
-  'text' | 'rect' | 'paint' | 'alignRight' | 'vertical' | 'clusters'
+  'text' | 'rect' | 'paint' | 'vertical' | 'clusters'
 >;
 export type CanvasRubyFragment = Pick<
   CanvasRubyCommand,

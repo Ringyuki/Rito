@@ -136,3 +136,40 @@ fn text_runs(outcome: &LayoutOutcome) -> Vec<&TextFragment> {
     }
     runs
 }
+
+/// A string shaped on its own — an outside list marker — measures as the
+/// box the browser gives it: the advance sum ceiled onto the 1/64 grid,
+/// and one origin per cluster stepping by the fixed-point advances.
+#[test]
+fn a_marker_string_measures_its_box_and_cluster_origins() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    let run = context.measure_run(&style, "12. ");
+    assert_eq!(
+        run.clusters
+            .iter()
+            .map(|cluster| cluster.byte)
+            .collect::<Vec<_>>(),
+        vec![0, 1, 2, 3],
+        "one origin per cluster, the trailing space included"
+    );
+    // Tinos at 16px: digits advance 8, the period and the space 4.
+    assert_eq!(
+        run.clusters
+            .iter()
+            .map(|cluster| cluster.x)
+            .collect::<Vec<_>>(),
+        vec![0.0, 8.0, 16.0, 20.0]
+    );
+    assert_eq!(
+        run.advance, 24.0,
+        "the box takes the whole string's advance"
+    );
+    assert!(!run.grid, "a Latin string accumulates in float");
+    assert_eq!(context.measure_run(&style, "").advance, 0.0);
+}

@@ -33,7 +33,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       _paintVerticalRun(command, rect);
       return;
     }
-    if (!ruby && !command.alignRight && command.clusters.isNotEmpty) {
+    if (!ruby && command.clusters.isNotEmpty) {
       _paintClusteredRun(command, rect);
       return;
     }
@@ -57,12 +57,9 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
     // the whole run sits half a spacing to the right (measured via the
     // parity corpus ink scan). Compensate at the glyph origin only; the
     // rect geometry is spacing-free.
-    // An outside list marker rides right-aligned: the wire x is the
-    // text's right edge and only the text stack can measure the string.
-    final left = command.alignRight ? rect.left - painter.width : rect.left;
     final x = ruby
         ? rect.left + (rect.width - painter.width) / 2
-        : left - (command.paint.letterSpacingPx ?? 0) / 2;
+        : rect.left - (command.paint.letterSpacingPx ?? 0) / 2;
     // Ruby anchors its em-box top at the rect (browser textBaseline
     // 'top' = OS/2 sTypoAscender, probed against pinned Chromium);
     // regular runs anchor their alphabetic baseline at the snapped row.

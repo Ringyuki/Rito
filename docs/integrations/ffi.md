@@ -73,8 +73,10 @@ stroke primitives around it. A horizontal run also carries the origin of
 every cluster (UTF-8 byte offset into its text, absolute CSS x) with
 spacing, justification and the browser's fixed-point advances already
 applied: a host draws each cluster at its origin with its own spacing
-off. A run with no cluster list — a right-aligned marker, a vertical
-column, an annotation — is still placed by the host. Every raster decision for blocks and inline
+off. An outside list marker is such a run: the engine shapes the marker
+string, sizes its box on the layout grid and sends the box's left edge
+and cluster origins, so no host measures it. A run with no cluster
+list — a vertical column, an annotation — is still placed by the host. Every raster decision for blocks and inline
 boxes — border bands and dash cadences, rounded rings, box shadows,
 background sizing and tiling, decoration lines — is resolved in the
 engine on the CSS grid and scaled last; a host blits paths and draws

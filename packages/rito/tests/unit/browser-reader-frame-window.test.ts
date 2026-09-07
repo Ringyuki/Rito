@@ -937,7 +937,7 @@ function frameCommand(
     textShadows: [],
   };
   if (kind === 'ruby') {
-    return { kind, text: 'ruby', rect, paint, alignRight: false, vertical: false, clusters: [] };
+    return { kind, text: 'ruby', rect, paint, vertical: false, clusters: [] };
   }
-  return { kind, text: 'text', rect, paint, alignRight: false, vertical: false, clusters: [] };
+  return { kind, text: 'text', rect, paint, vertical: false, clusters: [] };
 }

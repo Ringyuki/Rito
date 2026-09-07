@@ -412,7 +412,7 @@ impl RuntimeDocument {
     /// tree out into backend pages under the given layout config.
     pub(super) fn paginate_built_chapter(
         &self,
-        built: crate::fragment_bridge::ChapterFormattingTree,
+        mut built: crate::fragment_bridge::ChapterFormattingTree,
         config: &crate::layout::LayoutConfig,
         idref: &str,
         page_index_base: usize,
@@ -424,6 +424,12 @@ impl RuntimeDocument {
         let engine = self
             .fragment_engine()
             .ok_or_else(|| "no fragment engine (no pinned faces)".to_owned())?;
+        // Outside markers are painted, never laid out: shape them once
+        // here with the same context the chapter lays out with, so their
+        // boxes and clusters come from the engine's own advances.
+        built
+            .measure_list_markers(engine.engine.inline())
+            .map_err(|error| format!("chapter {idref} markers: {}", error.message()))?;
         let content_width = config.page_width - config.margin_left - config.margin_right;
         let content_height = config.page_height - config.margin_top - config.margin_bottom;
         if content_width <= 0.0 || content_height <= 0.0 {

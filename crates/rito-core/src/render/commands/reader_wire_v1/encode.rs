@@ -34,7 +34,6 @@ fn write_text(
         },
     )?;
     write_optional_string(output, input.ruby_align.as_deref())?;
-    output.push(u8::from(input.align_right));
     output.push(u8::from(input.vertical));
     write_length(output, input.clusters.len(), "cluster")?;
     for cluster in &input.clusters {

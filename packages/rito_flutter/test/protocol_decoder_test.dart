@@ -71,11 +71,9 @@ void main() {
     expect(text.command.sourceText, 'source body');
     expect(text.command.sourceTextOffset, 9);
     expect(text.command.rubyAlign, isNull);
-    expect(text.command.alignRight, isTrue);
     expect(text.command.vertical, isFalse);
     final ruby = list.commands[12] as RitoPrimitiveRuby;
     expect(ruby.command.rubyAlign, 'space-around');
-    expect(ruby.command.alignRight, isFalse);
   });
 
   test('rejects every truncated artifact prefix and trailing bytes', () {

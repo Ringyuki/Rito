@@ -69,9 +69,6 @@ fn command_fields(command: &DisplayCommand) -> Map<String, Value> {
 }
 
 fn insert_text_fields(fields: &mut Map<String, Value>, input: &DisplayTextCommandInput) {
-    if input.align_right {
-        insert_field(fields, "alignRight", Value::Bool(true));
-    }
     if input.vertical {
         insert_field(fields, "vertical", Value::Bool(true));
     }

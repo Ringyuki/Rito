@@ -124,6 +124,16 @@ pub(crate) fn layout_unit(value: f64) -> f64 {
     (value * 64.0).round() / 64.0
 }
 
+/// Quantizes a shaped width the way Blink stores an inline box's inline
+/// size: the float advance sum ceiled onto the 1/64 px grid. The 1/1024
+/// margin absorbs float summation dust just above a grid point (a width
+/// that is exactly on the grid in fixed point must not climb a whole
+/// 1/64); real off-grid widths sit at least 1/128 away and keep their
+/// ceiling.
+pub(crate) fn layout_unit_ceil(value: f64) -> f64 {
+    (((value - 1.0 / 1024.0) * 64.0).ceil() / 64.0).max(0.0)
+}
+
 /// The used line-box height of a declared line-height, on Blink's grid.
 /// The quantization is TYPE-sensitive (measured, pinned Latin and CJK
 /// faces agree on every case — font metrics never enter): a NUMBER

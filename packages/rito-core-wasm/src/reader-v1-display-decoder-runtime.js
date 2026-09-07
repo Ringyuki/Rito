@@ -11,7 +11,6 @@ export function readRitoDisplayTextCommandV1(reader) {
     sourceText: reader.option('source text', () => reader.string('source text')),
     sourceTextOffset: reader.option('source text offset', () => reader.u64('source text offset')),
     rubyAlign: reader.option('ruby align', () => reader.string('ruby align')),
-    alignRight: reader.bool('text align right'),
     vertical: reader.bool('text vertical'),
     clusters: readClusters(reader),
   };

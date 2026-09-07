@@ -43,7 +43,6 @@ void main() {
     expect(text.sourceText, 'source');
     expect(text.sourceTextOffset, 9);
     expect(text.rubyAlign, 'center');
-    expect(text.alignRight, isTrue);
     expect(text.vertical, isFalse);
     expect(text.clusters.map((c) => (c.byte, c.x)), [
       (0, 0.0),
