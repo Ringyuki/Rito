@@ -15,10 +15,11 @@ type InlineBoxRect = CanvasTextFragment['rect'];
  * offsets supersedes the metric envelope: the layout side already
  * rounded the decorated box to device rows.
  *
- * The browser rasters a decorated box on whole device pixels — every
- * edge rounds independently (measured: a 4px border at x 80.65625
- * paints columns 81-84, not an anti-aliased fringe), so the final rect
- * snaps each edge here.
+ * The browser rasters a decorated box on whole CSS pixels — every edge
+ * rounds independently (measured: a 4px border at x 80.65625 paints
+ * columns 81-84, not an anti-aliased fringe), so the final rect snaps
+ * each edge here; the run paints under the list's ratio, which maps
+ * those whole CSS pixels onto the device grid.
  */
 export function computeInlineBoxRect(
   { rect, paint }: InlineFragment,

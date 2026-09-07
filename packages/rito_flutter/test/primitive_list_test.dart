@@ -27,30 +27,31 @@ Uint8List _fixture(String name) {
 
 void main() {
   test('the decoder reads every optional tail the encoder writes', () {
-    // The fixture's run is lowered at ratio 2: every CSS length doubled.
+    // The fixture is lowered at ratio 2, but a text run keeps its CSS
+    // lengths: the pen paints it under the ratio.
     final list = const RitoPrimitiveListDecoder().decode(
       _fixture('reader-v1-primitive-list.hex'),
     );
     final text = (list.commands[11] as RitoPrimitiveText).command;
-    expect(text.paint.font.sizePx, 32);
+    expect(text.paint.font.sizePx, 16);
     expect(text.paint.font.style, RitoFontStyle.italic);
-    expect(text.paint.wordSpacingPx, 2);
-    expect(text.paint.letterSpacingPx, 1);
+    expect(text.paint.wordSpacingPx, 1);
+    expect(text.paint.letterSpacingPx, 0.5);
     expect(text.paint.backgroundColor?.space, RitoColorSpace.displayP3);
-    expect(text.paint.backgroundRadius, 4);
-    expect(text.paint.textShadows.single.blur, 6);
+    expect(text.paint.backgroundRadius, 2);
+    expect(text.paint.textShadows.single.blur, 3);
     expect(text.paint.decoration?.kind, RitoRunDecorationKind.lineThrough);
-    expect(text.paint.decoration?.y, 36);
-    expect(text.paint.padding?.left, 8);
-    expect(text.paint.border?.top?.widthPx, 2);
-    expect(text.paint.border?.start?.widthPx, 4);
+    expect(text.paint.decoration?.y, 18);
+    expect(text.paint.padding?.left, 4);
+    expect(text.paint.border?.top?.widthPx, 1);
+    expect(text.paint.border?.start?.widthPx, 2);
     expect(text.paint.border?.start?.paint.style, RitoBorderStyle.dotted);
     expect(text.paint.border?.bottom, isNull);
-    expect(text.paint.boxTopPx, -4);
-    expect(text.paint.boxBottomPx, 44);
+    expect(text.paint.boxTopPx, -2);
+    expect(text.paint.boxBottomPx, 22);
     expect(text.paint.boxStart, isFalse);
     expect(text.paint.boxEnd, isTrue);
-    expect(text.lineHeightPx, 37);
+    expect(text.lineHeightPx, 18.5);
     expect(text.href, '#note');
     expect(text.sourceText, 'source');
     expect(text.sourceTextOffset, 9);
@@ -110,7 +111,7 @@ void main() {
     expect(image.tiles?.rows, 3);
     final text = list.commands[11] as RitoPrimitiveText;
     expect(text.command.text, 'text');
-    expect(text.command.lineHeightPx, 37);
+    expect(text.command.lineHeightPx, 18.5);
     expect(list.commands[12], isA<RitoPrimitiveRuby>());
   });
 

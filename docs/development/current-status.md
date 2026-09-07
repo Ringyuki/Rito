@@ -283,8 +283,9 @@ Those names now belong to the old TS reference tree only.
   for local calibration; the measurements recorded further down predate the
   fragment cutover and are retained as history, not as release gates.
 - The frame command buffer is `RITODL1` format 2: the frame lowered to the
-  device grid at the document's render ratio (`RITOFCB2`, the packed semantic
-  record buffer, is gone).
+  device grid at the document's render ratio, snapped on the CSS grid and
+  scaled last, with text runs left in CSS pixels for the host to draw under
+  the ratio (`RITOFCB2`, the packed semantic record buffer, is gone).
 - Native revision-cache entries serving normal reader frame windows retain
   only those bytes and the frame's semantic summary (command count, kind
   counts, hash, resources, fonts). The browser still keeps its decoded

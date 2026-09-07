@@ -172,19 +172,19 @@ export async function openBaselineDocument(epubPath: string): Promise<BaselineDo
         const buffer = document.readFrameCommandBuffer(revision.revisionId, pageIndex);
         const decoded = decodeRitoFrameCommandBuffer(metadata, buffer);
         // The buffer is lowered to the device grid at the document's
-        // render ratio; the baseline reads CSS pixels back out of it.
-        const ratio = decoded.ratio;
+        // render ratio, but text runs stay in CSS pixels (a renderer draws
+        // them under the ratio), so the baseline reads them as they are.
         const pageLines: NativeLine[] = [];
         for (const command of decoded.commands) {
           if (command.kind === 'ruby') rubyCommandCount += 1;
           if (command.kind !== 'text') continue;
           pageLines.push({
             pageIndex,
-            x: command.rect.x / ratio - BASELINE_LAYOUT.marginLeft,
-            yInPage: command.rect.y / ratio - BASELINE_LAYOUT.marginTop,
-            width: command.rect.width / ratio,
-            lineHeightPx: (command.lineHeightPx ?? 0) / ratio,
-            fontSizePx: command.paint.font.sizePx / ratio,
+            x: command.rect.x - BASELINE_LAYOUT.marginLeft,
+            yInPage: command.rect.y - BASELINE_LAYOUT.marginTop,
+            width: command.rect.width,
+            lineHeightPx: command.lineHeightPx ?? 0,
+            fontSizePx: command.paint.font.sizePx,
             text: command.text,
           });
         }

@@ -4,8 +4,10 @@ import type { RitoReaderColorV1, RitoReaderRectV1, RitoReaderTextRunV1 } from '.
  * `RITODL1` format version 2: the device-resolved primitive list. Every
  * coordinate is a device pixel on the grid the host rasterizes, and every
  * rule about where ink lands has been applied by the engine. Text runs
- * pass through with their lengths in device pixels; their glyph placement
- * is still the renderer's.
+ * stay in CSS pixels and are drawn under `scale(ratio)`: glyph
+ * rasterization follows the CSS font size (synthetic bold widens with
+ * it), so the device size on the device grid rasters different ink. Their
+ * glyph placement is still the renderer's.
  */
 export interface RitoReaderPrimitiveListV1 {
   readonly formatVersion: 2;

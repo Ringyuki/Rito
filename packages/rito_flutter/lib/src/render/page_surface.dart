@@ -46,7 +46,8 @@ final class RitoPageSurface extends StatelessWidget {
 /// device grid at the request's render ratio; the painter maps that grid
 /// onto the logical canvas by the inverse ratio, so under the framework's
 /// own device-pixel transform every coordinate lands where the engine
-/// resolved it.
+/// resolved it. Text runs, which the list keeps in CSS pixels, paint
+/// under the ratio again — back in logical pixels, at their CSS size.
 final class RitoArtifactPainter extends CustomPainter {
   const RitoArtifactPainter({
     required this.artifact,
@@ -70,6 +71,7 @@ final class RitoArtifactPainter extends CustomPainter {
       resolveImage: resolveImage,
       fontEnvelopes: RitoFontEnvelopeStore.shared,
       colorOverride: colorOverride,
+      ratio: list.ratio,
     );
     canvas.save();
     try {

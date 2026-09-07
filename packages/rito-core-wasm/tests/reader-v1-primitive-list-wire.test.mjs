@@ -93,23 +93,24 @@ test('decodes every primitive the Rust encoder writes', () => {
 });
 
 test('decodes every optional field of a text run, scaled to the device grid', () => {
-  // The fixture's run is lowered at ratio 2: every CSS length doubled.
+  // The fixture is lowered at ratio 2, but a text run keeps its CSS
+  // lengths: the renderer draws it under the ratio.
   const list = decodeRitoReaderPrimitiveListV1(primitiveListFixture());
   const text = list.commands[11];
   assert.equal(text.text, 'text');
-  assert.deepEqual(text.rect, { x: 0, y: 0, width: 40, height: 60 });
+  assert.deepEqual(text.rect, { x: 0, y: 0, width: 20, height: 30 });
   assert.deepEqual(text.paint.font, {
     family: 'Rito Serif',
-    sizePx: 32,
+    sizePx: 16,
     weight: 700,
     style: 'italic',
   });
   assert.equal(text.paint.color.space, 'srgb');
-  assert.equal(text.paint.wordSpacingPx, 2);
-  assert.equal(text.paint.letterSpacingPx, 1);
+  assert.equal(text.paint.wordSpacingPx, 1);
+  assert.equal(text.paint.letterSpacingPx, 0.5);
   assert.equal(text.paint.backgroundColor.space, 'display-p3');
   assert.equal(text.paint.backgroundColor.alpha, 0.5);
-  assert.equal(text.paint.backgroundRadius, 4);
+  assert.equal(text.paint.backgroundRadius, 2);
   assert.equal(text.paint.textShadows.length, 1);
   assert.deepEqual(
     [
@@ -117,22 +118,22 @@ test('decodes every optional field of a text run, scaled to the device grid', ()
       text.paint.textShadows[0].offsetY,
       text.paint.textShadows[0].blur,
     ],
-    [2, 4, 6],
+    [1, 2, 3],
   );
   assert.equal(text.paint.decoration.kind, 'line-through');
-  assert.equal(text.paint.decoration.y, 36);
-  assert.equal(text.paint.decoration.thickness, 2);
-  assert.deepEqual(text.paint.padding, { top: 2, right: 4, bottom: 6, left: 8 });
-  assert.equal(text.paint.border.top.widthPx, 2);
+  assert.equal(text.paint.decoration.y, 18);
+  assert.equal(text.paint.decoration.thickness, 1);
+  assert.deepEqual(text.paint.padding, { top: 1, right: 2, bottom: 3, left: 4 });
+  assert.equal(text.paint.border.top.widthPx, 1);
   assert.equal(text.paint.border.top.paint.style, 'solid');
-  assert.equal(text.paint.border.start.widthPx, 4);
+  assert.equal(text.paint.border.start.widthPx, 2);
   assert.equal(text.paint.border.start.paint.style, 'dotted');
   assert.equal(text.paint.border.bottom, undefined);
   assert.equal(text.paint.border.end, undefined);
-  assert.deepEqual(text.paint.boxOffsets, { top: -4, bottom: 44 });
+  assert.deepEqual(text.paint.boxOffsets, { top: -2, bottom: 22 });
   assert.equal(text.paint.boxStart, false);
   assert.equal(text.paint.boxEnd, true);
-  assert.equal(text.lineHeightPx, 37);
+  assert.equal(text.lineHeightPx, 18.5);
   assert.equal(text.href, '#note');
   assert.equal(text.sourceText, 'source');
   assert.equal(text.sourceTextOffset, 9n);

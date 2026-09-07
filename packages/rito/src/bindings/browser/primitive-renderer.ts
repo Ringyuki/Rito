@@ -40,6 +40,8 @@ interface DeclaredGrounds {
 interface RenderState extends DeclaredGrounds {
   readonly resolveImage: CanvasImageResolver;
   readonly colorOverride?: CanvasTextColorOverride;
+  /** Device pixels per CSS pixel the list was resolved at. */
+  readonly ratio: number;
   saveDepth: number;
 }
 
@@ -47,8 +49,10 @@ interface RenderState extends DeclaredGrounds {
  * Blits a device-resolved primitive list. The canvas is assumed to be
  * device-sized with an identity transform: every coordinate lands on the
  * device grid as the engine resolved it, nothing here measures or snaps.
- * Text runs go to the text painter with their lengths already in device
- * pixels.
+ * Text runs arrive in CSS pixels and are drawn under `scale(ratio)`:
+ * glyph rasterization follows the CSS font size (synthetic bold widens
+ * with it), so the device size on the device grid rasters different ink
+ * from the browser's own text.
  */
 export function renderReaderPrimitivesToCanvas(
   list: CoreReaderPrimitiveList,
@@ -56,7 +60,7 @@ export function renderReaderPrimitivesToCanvas(
   options: PrimitiveRenderOptions = {},
 ): void {
   const ctx = target as CanvasRenderingContext2D;
-  const state = createRenderState(options);
+  const state = createRenderState(options, list.ratio);
   // Session-scoped tap for paint-parity instruments (pixel-walk probes):
   // observes the exact primitive stream without altering rendering. The
   // second argument tells probes whether this canvas is the on-screen one
@@ -143,7 +147,7 @@ export function recordRenderFailure(
   ];
 }
 
-function createRenderState(options: PrimitiveRenderOptions): RenderState {
+function createRenderState(options: PrimitiveRenderOptions, ratio: number): RenderState {
   const colorOverride =
     options.foregroundColor !== undefined && options.backgroundColor !== undefined
       ? {
@@ -153,6 +157,7 @@ function createRenderState(options: PrimitiveRenderOptions): RenderState {
       : undefined;
   return {
     resolveImage: options.resolveImage ?? (() => undefined),
+    ratio,
     saveDepth: 0,
     blockGrounds: [],
     bookOwnedPageGround: undefined,
@@ -270,42 +275,60 @@ function declaredGroundFor(
   return state.bookOwnedPageGround;
 }
 
-/** Text runs go to the text painter with their lengths already in device
- * pixels. */
+/** Text runs are in CSS pixels and paint under the list's ratio; the
+ * declared grounds they are looked up against are device rects, so the
+ * run's rect scales for that test only. */
 function renderText(
   ctx: CanvasRenderingContext2D,
   primitive: TextPrimitive,
   state: RenderState,
 ): void {
-  if (primitive.kind === 'text') {
-    const command = convertReaderTextV1(primitive);
-    drawCanvasTextFragment(
+  ctx.save();
+  try {
+    if (state.ratio !== 1) ctx.scale(state.ratio, state.ratio);
+    if (primitive.kind === 'text') {
+      const command = convertReaderTextV1(primitive);
+      drawCanvasTextFragment(
+        ctx,
+        {
+          text: command.text,
+          rect: command.rect,
+          paint: command.paint,
+          ...(command.alignRight === undefined ? {} : { alignRight: command.alignRight }),
+          ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
+        },
+        state.colorOverride,
+        declaredGroundFor(deviceRect(command.rect, state.ratio), command.paint, state),
+      );
+      return;
+    }
+    const command = convertReaderRubyV1(primitive);
+    drawCanvasRubyFragment(
       ctx,
       {
         text: command.text,
         rect: command.rect,
         paint: command.paint,
-        ...(command.alignRight === undefined ? {} : { alignRight: command.alignRight }),
+        ...(command.rubyAlign === undefined ? {} : { rubyAlign: command.rubyAlign }),
         ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
       },
       state.colorOverride,
-      declaredGroundFor(command.rect, command.paint, state),
+      declaredGroundFor(deviceRect(command.rect, state.ratio), command.paint, state),
     );
-    return;
+  } finally {
+    ctx.restore();
   }
-  const command = convertReaderRubyV1(primitive);
-  drawCanvasRubyFragment(
-    ctx,
-    {
-      text: command.text,
-      rect: command.rect,
-      paint: command.paint,
-      ...(command.rubyAlign === undefined ? {} : { rubyAlign: command.rubyAlign }),
-      ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
-    },
-    state.colorOverride,
-    declaredGroundFor(command.rect, command.paint, state),
-  );
+}
+
+function deviceRect(rect: DeviceRect, ratio: number): DeviceRect {
+  return ratio === 1
+    ? rect
+    : {
+        x: rect.x * ratio,
+        y: rect.y * ratio,
+        width: rect.width * ratio,
+        height: rect.height * ratio,
+      };
 }
 
 function assertNever(value: never): never {

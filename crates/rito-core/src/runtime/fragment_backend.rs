@@ -59,7 +59,7 @@ pub(super) struct FragmentBackendPage {
 impl FragmentBackendPage {
     /// The page's paint commands at `ratio` device pixels per CSS pixel,
     /// painted on first use and cached: pagination geometry is identical
-    /// at every ratio, only the raster snaps move.
+    /// at every ratio, only the glyph baselines' device rounding moves.
     pub(super) fn commands_for(
         &self,
         ratio: f64,

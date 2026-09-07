@@ -1,8 +1,12 @@
 //! The device-resolved paint vocabulary.
 //!
-//! Every coordinate is in device pixels, the grid the host rasterizes on,
-//! and every rule about where ink lands has already been applied. Text
-//! runs are the one semantic shape left: their glyph placement is still
+//! In a finished list every coordinate is in device pixels, the grid the
+//! host rasterizes on, and every rule about where ink lands has already
+//! been applied. The lowering builds the same shapes in CSS pixels first —
+//! the browser snaps box edges and border widths on that grid whatever the
+//! density — and scales the finished list by the render ratio last. Text
+//! runs are the one semantic shape left, and they stay in CSS pixels for
+//! the renderer to draw under the ratio; their glyph placement is still
 //! the renderer's until the text laws move here.
 
 use super::super::commands::contract::{
@@ -18,13 +22,6 @@ pub(crate) struct DevicePoint {
 impl DevicePoint {
     pub(crate) const fn new(x: f64, y: f64) -> Self {
         Self { x, y }
-    }
-
-    pub(crate) fn scaled(point: &ReaderPointV1, ratio: f64) -> Self {
-        Self {
-            x: point.x * ratio,
-            y: point.y * ratio,
-        }
     }
 
     pub(crate) fn offset(self, dx: f64, dy: f64) -> Self {
@@ -53,15 +50,6 @@ impl DeviceRect {
         }
     }
 
-    pub(crate) fn scaled(rect: &ReaderRectV1, ratio: f64) -> Self {
-        Self {
-            x: rect.x * ratio,
-            y: rect.y * ratio,
-            width: rect.width * ratio,
-            height: rect.height * ratio,
-        }
-    }
-
     pub(crate) fn right(&self) -> f64 {
         self.x + self.width
     }
@@ -70,10 +58,12 @@ impl DeviceRect {
         self.y + self.height
     }
 
-    /// The box on whole device pixels, each edge rounding independently:
-    /// how the browser rasters a border box. A 6px border at a fractional x
-    /// paints columns [665, 671) crisp, where stroking the fractional box
-    /// bleeds one antialiased column each side.
+    /// The box on whole pixels, each edge rounding independently: how the
+    /// browser rasters a border box. A 6px border at a fractional x paints
+    /// columns [665, 671) crisp, where stroking the fractional box bleeds
+    /// one antialiased column each side. The grid is CSS pixels at any
+    /// density (a 2× phase sweep put every box edge on an even device row,
+    /// never on the odd row a device round of the same edge picks).
     pub(crate) fn snapped(&self) -> Self {
         let left = self.x.round();
         let top = self.y.round();
@@ -99,6 +89,18 @@ impl DeviceRect {
             width: self.width - 2.0 * inset,
             height: self.height - 2.0 * inset,
         }
+    }
+}
+
+impl From<&ReaderPointV1> for DevicePoint {
+    fn from(point: &ReaderPointV1) -> Self {
+        Self::new(point.x, point.y)
+    }
+}
+
+impl From<&ReaderRectV1> for DeviceRect {
+    fn from(rect: &ReaderRectV1) -> Self {
+        Self::new(rect.x, rect.y, rect.width, rect.height)
     }
 }
 
@@ -231,8 +233,9 @@ pub(crate) enum Primitive {
         source_rect: Option<ReaderRectV1>,
         tiles: Option<TilePlan>,
     },
-    /// A text run with every length in device pixels; glyph placement is
-    /// still the renderer's.
+    /// A text run in CSS pixels, drawn under `scale(ratio)`: the
+    /// rasterizer needs the CSS size (synthetic bold widens with it) and
+    /// the scale separately. Glyph placement is still the renderer's.
     Text(ReaderTextCommandV1),
     Ruby(ReaderTextCommandV1),
 }

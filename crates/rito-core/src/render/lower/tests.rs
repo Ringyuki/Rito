@@ -205,10 +205,12 @@ fn block_background_snaps_each_edge_independently() {
             ground: Ground::None,
         }]
     );
-    // On a 2× grid the same box rounds to different device edges.
+    // On a 2× grid the box still rounds on CSS pixels: every edge is the
+    // 1× edge doubled, never re-rounded on the finer grid (x 57.65625 is
+    // column 116, not the 115 a device round would pick).
     assert_eq!(
         fill_rects(&lowered(vec![at(INK)], 2.0)),
-        vec![DeviceRect::new(115.0, 21.0, 201.0, 40.0)]
+        vec![DeviceRect::new(116.0, 20.0, 200.0, 42.0)]
     );
 }
 
@@ -500,7 +502,9 @@ fn horizontal_rules_raster_as_border_edges() {
         fill_rects(&vertical),
         vec![DeviceRect::new(10.0, 5.0, 2.0, 10.0)]
     );
-    // The same edge model at 2×: the CSS 0.5px rule is one device row.
+    // The same edge model at 2×: the CSS 0.5px rule is one CSS row at
+    // round(100.3), so two device rows from 200 (a device round of the
+    // band put it on row 201, one row below the browser's).
     let scaled = lowered(
         vec![rule(
             rect(20.0, 100.3, 200.0, 0.5),
@@ -510,7 +514,7 @@ fn horizontal_rules_raster_as_border_edges() {
     );
     assert_eq!(
         fill_rects(&scaled),
-        vec![DeviceRect::new(40.0, 201.0, 400.0, 1.0)]
+        vec![DeviceRect::new(40.0, 200.0, 400.0, 2.0)]
     );
 }
 
@@ -1027,75 +1031,24 @@ fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
 }
 
 #[test]
-fn text_runs_pass_through_with_every_length_in_device_pixels() {
-    let primitives = lowered(
-        vec![
-            ReaderDisplayCommandV1::PaintText(text()),
-            ReaderDisplayCommandV1::PaintRuby(text()),
-        ],
-        2.0,
-    );
-    let expected = ReaderTextCommandV1 {
-        text: "run".to_owned(),
-        rect: rect(3.0, 4.0, 20.0, 40.0),
-        paint: ReaderRunPaintV1 {
-            font: ReaderFontPaintV1 {
-                family: "Rito Serif".to_owned(),
-                size_px: 32.0,
-                weight: 400.0,
-                style: ReaderFontStyleV1::Italic,
-            },
-            color: INK,
-            word_spacing_px: Some(2.0),
-            letter_spacing_px: Some(1.0),
-            background_color: Some(TRANSLUCENT),
-            background_radius: Some(4.0),
-            text_shadows: vec![ReaderTextShadowV1 {
-                offset_x: 2.0,
-                offset_y: 4.0,
-                blur: 6.0,
-                color: INK,
-            }],
-            decoration: Some(ReaderRunDecorationV1 {
-                kind: ReaderRunDecorationKindV1::Underline,
-                y: 36.0,
-                thickness: 2.0,
-                color: INK,
-            }),
-            padding: Some(ReaderSpacingV1 {
-                top: 2.0,
-                right: 4.0,
-                bottom: 6.0,
-                left: 8.0,
-            }),
-            border: Some(ReaderRunBorderV1 {
-                top: Some(ReaderRunBorderEdgeV1 {
-                    width_px: 2.0,
-                    paint: ReaderBorderEdgePaintV1 {
-                        color: INK,
-                        style: ReaderBorderStyleV1::Solid,
-                    },
-                }),
-                bottom: None,
-                start: None,
-                end: None,
-            }),
-            box_offsets: Some((-4.0, 44.0)),
-            box_start: true,
-            box_end: false,
-        },
-        line_height_px: Some(48.0),
-        href: Some("#note".to_owned()),
-        source_text: Some("source".to_owned()),
-        source_text_offset: Some(9),
-        ruby_align: Some("center".to_owned()),
-        align_right: false,
-        vertical: false,
-    };
-    assert_eq!(
-        primitives,
-        vec![Primitive::Text(expected.clone()), Primitive::Ruby(expected)]
-    );
+fn text_runs_pass_through_in_css_pixels_at_any_ratio() {
+    // The renderer draws a run under scale(ratio): synthetic bold widens
+    // with the CSS size it is asked for, so the device size on the device
+    // grid rasters different ink than the browser's.
+    for ratio in [1.0, 2.0] {
+        let primitives = lowered(
+            vec![
+                ReaderDisplayCommandV1::PaintText(text()),
+                ReaderDisplayCommandV1::PaintRuby(text()),
+            ],
+            ratio,
+        );
+        assert_eq!(
+            primitives,
+            vec![Primitive::Text(text()), Primitive::Ruby(text())],
+            "{ratio}"
+        );
+    }
 }
 
 #[test]

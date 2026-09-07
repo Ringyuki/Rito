@@ -2,9 +2,12 @@
 //! a block border or horizontal rule takes on an axis-aligned edge.
 //!
 //! An edge arrives as the centerline of its band on an already snapped
-//! border box, plus its device width. Solid, dashed and thin dotted edges
-//! are binary device bands anchored at the rounded outer edge; thick dotted
-//! edges are round dots; a double edge is two solid thirds.
+//! border box, plus its width, all in CSS pixels. Solid, dashed and thin
+//! dotted edges are binary whole-pixel bands anchored at the rounded outer
+//! edge; thick dotted edges are round dots; a double edge is two solid
+//! thirds. The browser resolves every band on the CSS grid and maps it
+//! through the device scale afterwards (a 0.4px, 0.75px or 1.5px border is
+//! one CSS row, two device rows at 2×), so no rule here reads the ratio.
 
 use super::super::commands::contract::{
     ReaderBorderStyleV1, ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1,
@@ -143,7 +146,7 @@ pub(super) fn stroke_edge(
         }
         // Solid, and the bevel styles the bridge has already shaded to one
         // tone per edge: the measured solid raster is a binary band that
-        // starts at round(outer edge) and spans max(1, floor(width)) device
+        // starts at round(outer edge) and spans max(1, floor(width)) CSS
         // rows, with no antialiasing at any sub-pixel phase (a 1.5px border
         // is exactly one full-tone row). Stroking the centerline smeared two
         // antialiased rows and sat one row off at fractional tops.
@@ -238,9 +241,9 @@ fn solid(edge: Edge, span: Span, out: &mut Vec<Primitive>) {
 /// the browser's stretched cadence: base dash 3w and base gap 2w pick the
 /// dash count n = floor((L + 2w) / 5w), then the gap stretches to
 /// (L − 3wn) / (n − 1) so a full dash lands flush at both ends (56 dashes
-/// across a 280px rule, gap 2.036: mostly two device columns with a third
-/// where the fraction accumulates). Dash extents stay fractional along the
-/// run; their antialiased ends match the browser's.
+/// across a 280px rule, gap 2.036: mostly two columns with a third where
+/// the fraction accumulates). Dash extents stay fractional along the run;
+/// their antialiased ends match the browser's.
 fn dashed(edge: Edge, span: Span, out: &mut Vec<Primitive>) {
     let row = span.outer_row(edge.width);
     let thickness = band_thickness(edge.width);
@@ -338,7 +341,7 @@ fn binary_dotted(edge: Edge, span: Span, out: &mut Vec<Primitive>) {
 /// n = floor((L + w) / 2w) or n + 1, whichever count's implied gap
 /// (L − n·w) / (n − 1) lies closer to w, and the pitch is w + gap less a
 /// 0.01 epsilon that keeps the final dot from float accumulation (a 6px
-/// rule across 628 device pixels: 53 dots at pitch 11.9515, a half-pixel
+/// rule across 628 pixels: 53 dots at pitch 11.9515, a half-pixel
 /// staircase every ~10 dots against any exact-pitch grid). Dots start at
 /// the span start + w/2 and center on the band centerline.
 fn dot_circles(edge: Edge, span: Span, out: &mut Vec<Primitive>) {

@@ -204,6 +204,56 @@ describe('browser primitive renderer', () => {
     ]);
   });
 
+  it('draws text runs at their CSS size under the list ratio and finds grounds on the device rect', () => {
+    // Glyph rasterization follows the CSS font size (a synthetic-bold run
+    // widens with the size it is asked for), so the run is drawn as the
+    // engine wrote it, under scale(ratio); the block ground it sits on is
+    // a device rect, so the containment test scales the run's rect.
+    const mock = createMockCanvasContext();
+    renderReaderPrimitivesToCanvas(
+      list(
+        [
+          {
+            kind: 'fill-rect',
+            rect: { x: 0, y: 0, width: 100, height: 100 },
+            color: PAPER,
+            ground: 'block',
+            groundRect: { x: 0, y: 0, width: 100, height: 100 },
+          },
+          {
+            kind: 'text',
+            alignRight: false,
+            vertical: false,
+            text: 'run',
+            rect: { x: 10, y: 10, width: 30, height: 20 },
+            paint: {
+              font: { family: 'serif', sizePx: 26, weight: 700, style: 'normal' },
+              color: INK,
+              textShadows: [],
+              boxStart: true,
+              boxEnd: true,
+            },
+          },
+        ],
+        2,
+      ),
+      mock.ctx,
+      { foregroundColor: '#e5e5e5', backgroundColor: '#1a1a1a' },
+    );
+    expect(mock.getCalls('scale').map((call) => call.args)).toEqual([[2, 2]]);
+    expect(mock.getPropertySets('font').map((set) => set.value)).toEqual(['700 26px serif']);
+    expect(mock.getCalls('fillText').map((call) => call.args)).toEqual([
+      ['run', 10, 10 + 0.8 * 26],
+    ]);
+    // The run at CSS (10, 10, 30, 20) is device (20, 20, 60, 40), inside
+    // the 100-square block ground: its ink keeps the typesetter's colour.
+    expect(mock.getPropertySets('fillStyle').map((set) => set.value)).toEqual([
+      'rgba(255, 255, 255, 1)',
+      'rgba(0, 0, 0, 1)',
+    ]);
+    expect(mock.getCalls('save')).toHaveLength(mock.getCalls('restore').length);
+  });
+
   it('blurs a shadow at twice its sigma inside its exclusion clip', () => {
     const mock = createMockCanvasContext();
     renderReaderPrimitivesToCanvas(

@@ -1,11 +1,12 @@
-//! Block decoration resolved to device primitives exactly as the browser
-//! paints it: box shadows, then the background colour and image, then the
-//! borders, straight or rounded.
+//! Block decoration resolved to primitives exactly as the browser paints
+//! it: box shadows, then the background colour and image, then the
+//! borders, straight or rounded. Everything here is in CSS pixels; the
+//! lowering's final pass scales the result to the device.
 
 use super::super::commands::contract::{
     ReaderBackgroundPaintV1, ReaderBackgroundRepeatV1, ReaderBackgroundSizeV1, ReaderBlockBorderV1,
     ReaderBlockPaintV1, ReaderBlockRadiusV1, ReaderBorderBoxV1, ReaderBorderEdgePaintV1,
-    ReaderBorderStyleV1, ReaderBoxShadowV1, ReaderColorV1, ReaderLengthV1, ReaderRectV1,
+    ReaderBorderStyleV1, ReaderBoxShadowV1, ReaderColorV1, ReaderLengthV1,
 };
 use super::{
     border::{stroke_edge, stroke_outline, Edge, BLACK},
@@ -19,39 +20,37 @@ use super::{
 const MAX_BACKGROUND_TILES: f64 = 4096.0;
 
 pub(super) fn lower_block(
-    rect: &ReaderRectV1,
+    rect: DeviceRect,
     paint: &ReaderBlockPaintV1,
     border_box: Option<&ReaderBorderBoxV1>,
-    ratio: f64,
     images: &dyn Fn(&str) -> Option<ImageSize>,
     out: &mut Vec<Primitive>,
 ) {
-    let device = DeviceRect::scaled(rect, ratio);
-    let radius = Radius::resolve(paint.radius, device, ratio);
+    let radius = Radius::resolve(paint.radius, rect);
     for shadow in paint.box_shadows.iter().rev() {
-        lower_shadow(device, radius, shadow, ratio, out);
+        lower_shadow(rect, radius, shadow, out);
     }
     if let Some(background) = &paint.background {
         if let Some(color) = background.color {
-            background_fill(device, radius, color, out);
+            background_fill(rect, radius, color, out);
         }
         if let Some(href) = &background.image {
-            background_image(device, radius, background, href, ratio, images, out);
+            background_image(rect, radius, background, href, images, out);
         }
     }
     if let (Some(border), Some(widths)) = (paint.border.as_ref(), border_box) {
-        let edges = Edges::resolve(border, widths, ratio);
+        let edges = Edges::resolve(border, widths);
         if radius.rx > 0.0 || radius.ry > 0.0 {
-            rounded_borders(device, radius, &edges, out);
+            rounded_borders(rect, radius, &edges, out);
         } else {
-            straight_borders(device.snapped(), &edges, out);
+            straight_borders(rect.snapped(), &edges, out);
         }
     }
 }
 
-/// A block's corner radii on the device grid. Per-corner radii shape only
-/// the background fill and the image clip; shadows and borders see a
-/// uniform zero, exactly as the browser resolves them.
+/// A block's corner radii. Per-corner radii shape only the background
+/// fill and the image clip; shadows and borders see a uniform zero,
+/// exactly as the browser resolves them.
 #[derive(Debug, Clone, Copy)]
 struct Radius {
     rx: f64,
@@ -60,7 +59,7 @@ struct Radius {
 }
 
 impl Radius {
-    fn resolve(radius: Option<ReaderBlockRadiusV1>, device: DeviceRect, ratio: f64) -> Self {
+    fn resolve(radius: Option<ReaderBlockRadiusV1>, rect: DeviceRect) -> Self {
         match radius {
             Some(ReaderBlockRadiusV1::Corners(corners))
                 if corners.iter().any(|corner| *corner > 0.0) =>
@@ -68,17 +67,17 @@ impl Radius {
                 Self {
                     rx: 0.0,
                     ry: 0.0,
-                    corners: Some(corners.map(|corner| corner * ratio)),
+                    corners: Some(corners),
                 }
             }
             Some(ReaderBlockRadiusV1::Percent(percent)) => Self {
-                rx: percent / 100.0 * device.width,
-                ry: percent / 100.0 * device.height,
+                rx: percent / 100.0 * rect.width,
+                ry: percent / 100.0 * rect.height,
                 corners: None,
             },
             Some(ReaderBlockRadiusV1::Px(value)) => Self {
-                rx: value * ratio,
-                ry: value * ratio,
+                rx: value,
+                ry: value,
                 corners: None,
             },
             _ => Self {
@@ -102,21 +101,20 @@ impl Radius {
 /// box interior excluded. Painted back to front; inset shadows are not
 /// painted.
 fn lower_shadow(
-    device: DeviceRect,
+    rect: DeviceRect,
     radius: Radius,
     shadow: &ReaderBoxShadowV1,
-    ratio: f64,
     out: &mut Vec<Primitive>,
 ) {
     if shadow.inset {
         return;
     }
-    let spread = shadow.spread * ratio;
+    let spread = shadow.spread;
     let expanded = DeviceRect::new(
-        device.x - spread,
-        device.y - spread,
-        device.width + 2.0 * spread,
-        device.height + 2.0 * spread,
+        rect.x - spread,
+        rect.y - spread,
+        rect.width + 2.0 * spread,
+        rect.height + 2.0 * spread,
     );
     if expanded.is_empty() {
         return;
@@ -127,31 +125,31 @@ fn lower_shadow(
             (radius.rx + spread).max(0.0),
             (radius.ry + spread).max(0.0),
         ),
-        sigma: shadow.blur * ratio / 2.0,
-        offset: DevicePoint::new(shadow.offset_x * ratio, shadow.offset_y * ratio),
+        sigma: shadow.blur / 2.0,
+        offset: DevicePoint::new(shadow.offset_x, shadow.offset_y),
         color: shadow.color,
-        clip_out: Some(rounded_rect(device, radius.rx, radius.ry)),
+        clip_out: Some(rounded_rect(rect, radius.rx, radius.ry)),
     });
 }
 
-/// A background rasters on whole device pixels, each edge rounding
-/// independently, rounded or not: a float fill at x 57.65625 bled 34% white
-/// over a frame's binary 1px border column and greyed it to 88/255, and
-/// raw fractional rounded fills smeared every box edge one antialiased row.
+/// A background rasters on whole pixels, each edge rounding independently,
+/// rounded or not: a float fill at x 57.65625 bled 34% white over a
+/// frame's binary 1px border column and greyed it to 88/255, and raw
+/// fractional rounded fills smeared every box edge one antialiased row.
 /// An opaque fill declares the block ground over the unsnapped box, which
 /// is what the ink typeset inside it is contained by.
 fn background_fill(
-    device: DeviceRect,
+    rect: DeviceRect,
     radius: Radius,
     color: ReaderColorV1,
     out: &mut Vec<Primitive>,
 ) {
-    let snapped = device.snapped();
+    let snapped = rect.snapped();
     if snapped.is_empty() {
         return;
     }
     let ground = if color.alpha >= 1.0 {
-        Ground::Block(device)
+        Ground::Block(rect)
     } else {
         Ground::None
     };
@@ -175,21 +173,17 @@ fn background_fill(
 /// the unsnapped box and clipped to its outline; every repeat mode other
 /// than `no-repeat` tiles both axes from the image's origin.
 fn background_image(
-    device: DeviceRect,
+    rect: DeviceRect,
     radius: Radius,
     background: &ReaderBackgroundPaintV1,
     href: &str,
-    ratio: f64,
     images: &dyn Fn(&str) -> Option<ImageSize>,
     out: &mut Vec<Primitive>,
 ) {
     let Some(size) = images(href) else {
         return;
     };
-    let (image_width, image_height) = (
-        f64::from(size.width) * ratio,
-        f64::from(size.height) * ratio,
-    );
+    let (image_width, image_height) = (f64::from(size.width), f64::from(size.height));
     if image_width <= 0.0 || image_height <= 0.0 {
         return;
     }
@@ -197,9 +191,8 @@ fn background_image(
         background.size,
         image_width,
         image_height,
-        device.width,
-        device.height,
-        ratio,
+        rect.width,
+        rect.height,
     );
     // The image's origin: the box origin for auto sizing, its centre once
     // the image is scaled to the box.
@@ -210,21 +203,21 @@ fn background_image(
         .map_or((default_axis, default_axis), |position| {
             (position.x, position.y)
         });
-    let draw_x = device.x + position_offset(position_x, device.width - draw_width, ratio);
-    let draw_y = device.y + position_offset(position_y, device.height - draw_height, ratio);
+    let draw_x = rect.x + position_offset(position_x, rect.width - draw_width);
+    let draw_y = rect.y + position_offset(position_y, rect.height - draw_height);
 
     out.push(Primitive::PushState);
     out.push(Primitive::ClipPath {
-        path: radius.outline(device),
+        path: radius.outline(rect),
     });
     let repeats = !matches!(background.repeat, Some(ReaderBackgroundRepeatV1::NoRepeat))
         && draw_width > 0.0
         && draw_height > 0.0;
     if repeats {
-        let start_x = draw_x - ((draw_x - device.x) / draw_width).ceil() * draw_width;
-        let start_y = draw_y - ((draw_y - device.y) / draw_height).ceil() * draw_height;
-        let mut columns = tile_count(start_x, draw_width, device.right());
-        let mut rows = tile_count(start_y, draw_height, device.bottom());
+        let start_x = draw_x - ((draw_x - rect.x) / draw_width).ceil() * draw_width;
+        let start_y = draw_y - ((draw_y - rect.y) / draw_height).ceil() * draw_height;
+        let mut columns = tile_count(start_x, draw_width, rect.right());
+        let mut rows = tile_count(start_y, draw_height, rect.bottom());
         if columns * rows > MAX_BACKGROUND_TILES {
             let scale = (MAX_BACKGROUND_TILES / (columns * rows)).sqrt();
             columns = (columns * scale).floor().max(1.0);
@@ -274,7 +267,6 @@ fn image_size(
     image_height: f64,
     box_width: f64,
     box_height: f64,
-    ratio: f64,
 ) -> (f64, f64) {
     match size {
         Some(ReaderBackgroundSizeV1::Cover) => {
@@ -288,7 +280,7 @@ fn image_size(
         Some(ReaderBackgroundSizeV1::Explicit { x, y }) => {
             let axis = |axis: Option<ReaderLengthV1>, extent: f64| {
                 axis.map(|length| match length {
-                    ReaderLengthV1::Px(value) => value * ratio,
+                    ReaderLengthV1::Px(value) => value,
                     ReaderLengthV1::Percent(percent) => extent * percent / 100.0,
                 })
             };
@@ -308,9 +300,9 @@ fn image_size(
     }
 }
 
-fn position_offset(length: ReaderLengthV1, free_space: f64, ratio: f64) -> f64 {
+fn position_offset(length: ReaderLengthV1, free_space: f64) -> f64 {
     match length {
-        ReaderLengthV1::Px(value) => value * ratio,
+        ReaderLengthV1::Px(value) => value,
         ReaderLengthV1::Percent(percent) => free_space * percent / 100.0,
     }
 }
@@ -326,7 +318,7 @@ struct Edges {
 }
 
 impl Edges {
-    fn resolve(border: &ReaderBlockBorderV1, widths: &ReaderBorderBoxV1, ratio: f64) -> Self {
+    fn resolve(border: &ReaderBlockBorderV1, widths: &ReaderBorderBoxV1) -> Self {
         let edge = |paint: Option<ReaderBorderEdgePaintV1>, width: f64| match paint {
             Some(paint)
                 if width > 0.0
@@ -336,7 +328,7 @@ impl Edges {
                     ) =>
             {
                 Edge {
-                    width: width * ratio,
+                    width,
                     color: paint.color,
                     style: paint.style,
                 }
@@ -408,17 +400,17 @@ fn straight_borders(snapped: DeviceRect, edges: &Edges, out: &mut Vec<Primitive>
     );
 }
 
-/// A rounded border box rasters on whole device pixels like a straight one
-/// (a 1px top border at y 71.6 paints row 72 crisp; the raw fractional
-/// stroke split 40/60 across two rows). Four equal edges stroke one ring;
-/// four solid edges of one colour but unequal widths fill the crescent
-/// between the outer and the padding outline; anything else paints each
-/// edge inside the wedge it owns.
-fn rounded_borders(device: DeviceRect, radius: Radius, edges: &Edges, out: &mut Vec<Primitive>) {
+/// A rounded border box rasters on whole pixels like a straight one (a 1px
+/// top border at y 71.6 paints row 72 crisp; the raw fractional stroke
+/// split 40/60 across two rows). Four equal edges stroke one ring; four
+/// solid edges of one colour but unequal widths fill the crescent between
+/// the outer and the padding outline; anything else paints each edge
+/// inside the wedge it owns.
+fn rounded_borders(rect: DeviceRect, radius: Radius, edges: &Edges, out: &mut Vec<Primitive>) {
     if !edges.any_visible() {
         return;
     }
-    let snapped = device.snapped();
+    let snapped = rect.snapped();
     if edges.uniform() {
         uniform_ring(snapped, radius, edges.top, out);
         return;

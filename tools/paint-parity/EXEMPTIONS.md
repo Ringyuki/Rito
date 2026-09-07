@@ -57,9 +57,12 @@ text laws lower.
 
 ## Rules the pens still hold (text only, until the text laws lower)
 
-- Two-stage text snap: alphabetic baseline at `round(rect.y + 0.8×sizePx)`,
-  anchored via `computeDistanceToActualBaseline`. The rect is in device
-  pixels since the lowering, so the row is a device row.
+- Text baseline: alphabetic baseline at `round(rect.y + 0.8×sizePx)`,
+  anchored via `computeDistanceToActualBaseline`. The engine already put
+  the baseline on a device row (CSS-pixel line top, one device-grid
+  round of the sum); the run itself stays in CSS pixels and both pens
+  paint it under `scale(ratio)`, because the synthetic-bold outset
+  follows the CSS font size, not the device size.
 - Letter spacing: SkParagraph half-leads each cluster edge vs Chromium
   trailing — glyph origin compensates by `−letterSpacing/2`.
   Word spacing needs no compensation (segment-scan verified).

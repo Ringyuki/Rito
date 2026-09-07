@@ -113,7 +113,7 @@ export interface RitoReaderRunBorderEdgeV1 {
 }
 
 /** The text run body the text and ruby primitives carry; every length
- * is already in device pixels. */
+ * is in CSS pixels, drawn under the list's ratio. */
 export interface RitoReaderTextRunV1 {
   readonly text: string;
   readonly rect: RitoReaderRectV1;

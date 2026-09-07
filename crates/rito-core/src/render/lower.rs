@@ -3,14 +3,27 @@
 //!
 //! The display list describes boxes and runs in CSS pixels with their paint
 //! still symbolic: a border edge is a style and a colour, a block background
-//! a colour over a box. Lowering resolves that description onto the device
-//! grid the host rasterizes on — every coordinate scaled by the render ratio
-//! (device pixels per CSS pixel), every raster rule the browser applies to a
-//! box edge applied here — and hands the renderer fills, paths, clips, images
-//! and text runs it blits without measuring or snapping anything itself.
+//! a colour over a box. Lowering resolves that description — every raster
+//! rule the browser applies to a box edge applied here — and hands the
+//! renderer fills, paths, clips, images and text runs it blits without
+//! measuring or snapping anything itself.
 //!
-//! Text runs pass through with their numbers scaled to device pixels; the
-//! renderer still places glyphs until the text laws move here.
+//! The rules run in CSS pixels, whatever the render ratio (device pixels
+//! per CSS pixel): the browser rounds box edges and border widths to whole
+//! CSS pixels and only then maps them through the device scale, so a 2×
+//! screen shows every 1× edge doubled, never re-rounded on the finer grid
+//! (a phase sweep of fractional box tops at 1.5×, 2× and 3× lands each
+//! edge on ratio × round(top), and a 0.4px, 0.75px or 1.5px border on one
+//! CSS row × ratio). The finished list is scaled by the ratio in one pass.
+//! Only a glyph baseline rounds on the device grid, and that happens in
+//! the engine's paint walk before the commands arrive here.
+//!
+//! Text runs pass through in CSS pixels: a renderer draws them under
+//! `scale(ratio)`, because glyph rasterization follows the CSS font size
+//! (synthetic bold widens with the requested size, glyphs sit on a 1/64
+//! CSS-pixel grid) and drawing the device size on the device grid rasters
+//! different ink. The renderer still places glyphs until the text laws
+//! move here.
 
 use std::{error::Error, fmt};
 
@@ -94,24 +107,26 @@ pub(crate) fn lower(
     }
     let mut commands = Vec::with_capacity(display_list.commands.len());
     for command in &display_list.commands {
-        lower_command(command, ratio, images, &mut commands);
+        lower_command(command, images, &mut commands);
+    }
+    for primitive in &mut commands {
+        scale::primitive(primitive, ratio);
     }
     Ok(PrimitiveList { ratio, commands })
 }
 
+/// Resolves one command in CSS pixels.
 fn lower_command(
     command: &ReaderDisplayCommandV1,
-    ratio: f64,
     images: &dyn Fn(&str) -> Option<ImageSize>,
     out: &mut Vec<Primitive>,
 ) {
     match command {
         ReaderDisplayCommandV1::PushState => out.push(Primitive::PushState),
         ReaderDisplayCommandV1::PopState => out.push(Primitive::PopState),
-        ReaderDisplayCommandV1::Translate { dx, dy } => out.push(Primitive::Translate {
-            dx: dx * ratio,
-            dy: dy * ratio,
-        }),
+        ReaderDisplayCommandV1::Translate { dx, dy } => {
+            out.push(Primitive::Translate { dx: *dx, dy: *dy });
+        }
         ReaderDisplayCommandV1::Opacity { value } => {
             out.push(Primitive::Opacity { value: *value });
         }
@@ -120,23 +135,22 @@ fn lower_command(
             box_size,
             transforms,
         } => out.push(Primitive::Transform {
-            origin: DevicePoint::scaled(origin, ratio),
+            origin: origin.into(),
             transforms: transforms
                 .iter()
-                .map(|transform| lower_transform(transform, box_size, ratio))
+                .map(|transform| lower_transform(transform, box_size))
                 .collect(),
         }),
         ReaderDisplayCommandV1::ClipRect { rect, radius } => {
-            let (rx, ry) =
-                radius.map_or((0.0, 0.0), |radius| (radius.rx * ratio, radius.ry * ratio));
+            let (rx, ry) = radius.map_or((0.0, 0.0), |radius| (radius.rx, radius.ry));
             out.push(Primitive::ClipPath {
-                path: path::rounded_rect(DeviceRect::scaled(rect, ratio), rx, ry),
+                path: path::rounded_rect(rect.into(), rx, ry),
             });
         }
         ReaderDisplayCommandV1::PaintPage { rect, paint } => {
             if let Some(color) = paint.background_color {
                 out.push(Primitive::FillRect {
-                    rect: DeviceRect::scaled(rect, ratio),
+                    rect: rect.into(),
                     color,
                     ground: Ground::Page,
                 });
@@ -146,13 +160,9 @@ fn lower_command(
             rect,
             paint,
             border_box,
-        } => block::lower_block(rect, paint, border_box.as_ref(), ratio, images, out),
-        ReaderDisplayCommandV1::PaintText(text) => {
-            out.push(Primitive::Text(scale::text_command(text, ratio)));
-        }
-        ReaderDisplayCommandV1::PaintRuby(text) => {
-            out.push(Primitive::Ruby(scale::text_command(text, ratio)));
-        }
+        } => block::lower_block(rect.into(), paint, border_box.as_ref(), images, out),
+        ReaderDisplayCommandV1::PaintText(text) => out.push(Primitive::Text(text.clone())),
+        ReaderDisplayCommandV1::PaintRuby(text) => out.push(Primitive::Ruby(text.clone())),
         ReaderDisplayCommandV1::PaintImage {
             src,
             rect,
@@ -160,37 +170,32 @@ fn lower_command(
             ..
         } => out.push(Primitive::DrawImage {
             src: src.clone(),
-            dest: DeviceRect::scaled(rect, ratio),
+            dest: rect.into(),
             source_rect: *source_rect,
             tiles: None,
         }),
         ReaderDisplayCommandV1::PaintHorizontalRule { rect, paint } => {
-            border::lower_horizontal_rule(DeviceRect::scaled(rect, ratio), paint, out);
+            border::lower_horizontal_rule(rect.into(), paint, out);
         }
     }
 }
 
-/// A transform's translate lengths resolve here: pixels scale to the
-/// device, percentages resolve against the device box, so the renderer
-/// never sees a percentage.
-fn lower_transform(
-    transform: &ReaderTransformV1,
-    box_size: &ReaderSizeV1,
-    ratio: f64,
-) -> DeviceTransform {
+/// A transform's translate lengths resolve here: percentages resolve
+/// against the box, so the renderer never sees a percentage.
+fn lower_transform(transform: &ReaderTransformV1, box_size: &ReaderSizeV1) -> DeviceTransform {
     match *transform {
         ReaderTransformV1::Rotate { radians } => DeviceTransform::Rotate { radians },
         ReaderTransformV1::Scale { sx, sy } => DeviceTransform::Scale { sx, sy },
         ReaderTransformV1::Translate { x, y } => DeviceTransform::Translate {
-            dx: resolve_length(x, box_size.width * ratio, ratio),
-            dy: resolve_length(y, box_size.height * ratio, ratio),
+            dx: resolve_length(x, box_size.width),
+            dy: resolve_length(y, box_size.height),
         },
     }
 }
 
-fn resolve_length(length: ReaderLengthV1, basis: f64, ratio: f64) -> f64 {
+fn resolve_length(length: ReaderLengthV1, basis: f64) -> f64 {
     match length {
-        ReaderLengthV1::Px(value) => value * ratio,
+        ReaderLengthV1::Px(value) => value,
         ReaderLengthV1::Percent(value) => value / 100.0 * basis,
     }
 }

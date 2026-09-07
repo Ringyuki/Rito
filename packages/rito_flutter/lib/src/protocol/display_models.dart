@@ -2,7 +2,7 @@ import 'display_geometry.dart';
 import 'display_paint.dart';
 
 /// The text run body the `RITODL1` text and ruby primitives carry: every
-/// length is already in device pixels.
+/// length is in CSS pixels, painted under the list's ratio.
 sealed class RitoTextPaintCommand {
   const RitoTextPaintCommand({
     required this.text,

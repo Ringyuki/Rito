@@ -300,8 +300,10 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   /// expressed one: the run's own inline background, else the nearest
   /// opaque block background containing the run's rect, else the page
   /// ground R1 kept for the book. Null means the theme supplies the
-  /// ground. Mirrors the browser pen's declaredGroundFor.
-  ui.Color? _declaredGroundFor(RitoRunPaint paint, ui.Rect rect) {
+  /// ground. Mirrors the browser pen's declaredGroundFor. The run's rect
+  /// is in CSS pixels and the declared grounds are device rects, so the
+  /// containment test scales the run.
+  ui.Color? _declaredGroundFor(RitoRunPaint paint, ui.Rect runRect) {
     final runBackground = paint.backgroundColor;
     if (runBackground != null) {
       final ground = ritoUiColor(runBackground);
@@ -309,6 +311,14 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
         return ground;
       }
     }
+    final rect = _ratio == 1
+        ? runRect
+        : ui.Rect.fromLTWH(
+            runRect.left * _ratio,
+            runRect.top * _ratio,
+            runRect.width * _ratio,
+            runRect.height * _ratio,
+          );
     for (var index = _blockGrounds.length - 1; index >= 0; index -= 1) {
       final ground = _blockGrounds[index];
       if (rect.left >= ground.rect.left &&
@@ -362,9 +372,10 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       contentTop = rect.top + _canvasTopAscentRatio * size - ascent;
       contentHeight = ascent + descent;
     }
-    // The inline box rasters on whole device pixels — all four edges
-    // round independently (browser pen computeInlineBoxRect), so band
-    // tops and bottoms are binary rows instead of AA smears.
+    // The inline box rasters on whole CSS pixels — all four edges round
+    // independently (browser pen computeInlineBoxRect), so band tops and
+    // bottoms are binary rows instead of AA smears; the run paints under
+    // the list's ratio, which maps those rows onto the device grid.
     return ui.Rect.fromLTRB(
       (rect.left - paddingLeft - borderLeft).roundToDouble(),
       (contentTop - paddingTop - borderTop).roundToDouble(),

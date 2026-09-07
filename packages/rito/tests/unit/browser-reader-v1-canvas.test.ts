@@ -69,13 +69,15 @@ describe('Browser Reader v1 Canvas presenter', () => {
     expect(fontSet.add).toHaveBeenCalledOnce();
     expect(adoptForegroundCandidate).toHaveBeenCalledWith(undefined, artifact.artifactId);
     // The paint is resolved on the request's device grid; the host sizes
-    // its canvas on that grid and the presenter blits without scaling.
+    // its canvas on that grid and the presenter blits without scaling —
+    // except the text run, which stays in CSS pixels and draws under the
+    // ratio.
     expect(prepared.ratio).toBe(2);
 
     presenter.paint(prepared, mock.ctx);
 
     expect(mock.getCalls('clearRect')[0]?.args).toEqual([0, 0, 800, 600]);
-    expect(mock.getCalls('scale')).toHaveLength(0);
+    expect(mock.getCalls('scale').map((call) => call.args)).toEqual([[2, 2]]);
     expect(mock.getCalls('fillText')[0]?.args[0]).toBe('target');
     expect(mock.getCalls('fillText')[0]?.args[1]).toBe(40);
     expect(mock.getCalls('drawImage')[0]?.args.slice(1)).toEqual([0, 0, 80, 120]);

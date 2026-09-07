@@ -75,7 +75,11 @@ and `document.fonts` stay in this binding layer. The shell must not duplicate
 pagination, navigation, cache, or revision policy that belongs in Rust.
 
 The frame command buffer is `RITODL1` format 2: the frame's display commands
-lowered to the device grid at the document's render ratio. Rust revision-cache
+lowered to the device grid at the document's render ratio. The lowering snaps
+box edges and border widths to whole CSS pixels and scales the finished
+primitives by the ratio last, the way the browser maps its paint offsets
+through the device scale; only a glyph baseline rounds on the device grid,
+and that happens in the engine's paint walk. Rust revision-cache
 entries serving production frame windows retain those bytes beside the semantic
 frame summary without eagerly retaining the legacy JSON command tree; the
 browser separately keeps decoded primitive frames.

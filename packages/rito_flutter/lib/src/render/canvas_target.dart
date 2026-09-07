@@ -28,21 +28,34 @@ const double _clipReach = 1048576;
 /// The canvas is expected in device pixels with an identity transform:
 /// every coordinate lands on the device grid as the engine resolved it,
 /// nothing here measures or snaps. Text runs are the one exception the
-/// engine still leaves to the host — their glyphs are laid out here from
-/// lengths already in device pixels — and the theme override's ground
-/// tracking is shared between fills and that text painter.
+/// engine still leaves to the host: they arrive in CSS pixels and paint
+/// under `scale(ratio)`, because glyph rasterization follows the CSS
+/// font size (a synthetic-bold run widens with the size it is asked for,
+/// and the device size on the device grid rasters different ink from the
+/// browser's). The theme override's ground tracking is shared between
+/// fills and that text painter.
 final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
   RitoPrimitiveCanvasTarget(
     this._canvas, {
     required RitoImageResolver resolveImage,
     RitoFontEnvelopeStore? fontEnvelopes,
     RitoCanvasColorOverride? colorOverride,
+    double ratio = 1,
   }) : _resolveImage = resolveImage,
        _fontEnvelopes = fontEnvelopes,
-       _colorOverride = colorOverride;
+       _colorOverride = colorOverride,
+       _ratio = ratio {
+    if (!ratio.isFinite || ratio <= 0) {
+      throw ArgumentError.value(ratio, 'ratio', 'must be finite and positive');
+    }
+  }
 
   final ui.Canvas _canvas;
   final RitoImageResolver _resolveImage;
+
+  /// Device pixels per CSS pixel the list was resolved at; text runs
+  /// paint under it.
+  final double _ratio;
   final RitoFontEnvelopeStore? _fontEnvelopes;
   final RitoCanvasColorOverride? _colorOverride;
   final List<double> _opacityStack = <double>[1];
@@ -289,11 +302,28 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
   void ruby(RitoPrimitiveRuby primitive) => paintRuby(primitive.command);
 
   /// Paints one text run; the primitive replayer routes text primitives
-  /// here and hosts may paint a run directly.
-  void paintText(RitoPaintText command) => _paintText(command);
+  /// here and hosts may paint a run directly. The run is in CSS pixels
+  /// and paints under the list's ratio.
+  void paintText(RitoPaintText command) =>
+      _underRatio(() => _paintText(command));
 
   /// Paints one ruby run.
-  void paintRuby(RitoPaintRuby command) => _paintRuby(command);
+  void paintRuby(RitoPaintRuby command) =>
+      _underRatio(() => _paintRuby(command));
+
+  void _underRatio(void Function() paint) {
+    if (_ratio == 1) {
+      paint();
+      return;
+    }
+    _canvas.save();
+    try {
+      _canvas.scale(_ratio, _ratio);
+      paint();
+    } finally {
+      _canvas.restore();
+    }
+  }
 
   ui.Path _devicePath(RitoDevicePath path) {
     final built = ui.Path();

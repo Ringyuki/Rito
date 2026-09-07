@@ -62,10 +62,15 @@ primitive list the engine lowers every frame to. The header carries the
 render ratio (u32 format version, f64 ratio, u32 primitive count), every
 coordinate is a device pixel on the grid the host rasterizes, and the
 opcodes are state, transforms, clips, fills, strokes, shadows and images
-plus text and ruby runs whose lengths are already device pixels. Every
-raster decision for blocks — border bands and dash cadences, rounded
-rings, box shadows, background sizing and tiling — is resolved in the
-engine; a host blits paths and draws images, and lays out text runs.
+plus text and ruby runs. Text and ruby runs are the exception to the
+device grid: their lengths stay in CSS pixels and a host draws them under
+a `scale(ratio)` transform, because glyph rasterization follows the CSS
+font size (a synthetic-bold run drawn at the device size on the device
+grid rasters different ink from the browser's). Every raster decision for
+blocks — border bands and dash cadences, rounded rings, box shadows,
+background sizing and tiling — is resolved in the engine on the CSS grid
+and scaled last; a host blits paths and draws images, and lays out text
+runs.
 The Rust encoder (`reader_wire_v1/encode/lowered.rs`) and the Dart
 decoder (`protocol/primitive_decoder.dart`) are the reference;
 `packages/rito-core-wasm/tests/fixtures/reader-v1-primitive-list.hex`

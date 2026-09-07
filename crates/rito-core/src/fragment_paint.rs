@@ -116,10 +116,13 @@ pub(crate) struct FragmentPaintContext<'a> {
     /// a host resolves taps against the display list alone.
     pub(crate) flow_item_sources: Option<&'a BTreeMap<u32, Vec<FlowItemSource>>>,
     /// Device pixels per CSS pixel the commands will be rasterized at.
-    /// Every raster snap in the walk lands on THIS grid — a 1.5 CSS px
-    /// edge rounds to a whole device row at ratio 2 where a CSS-pixel
-    /// round would land it half a device pixel off. Layout never reads
-    /// it: pagination is identical at every ratio.
+    /// Only a glyph baseline rounds on the device grid: box edges, layer
+    /// origins and image rects snap to whole CSS pixels whatever the
+    /// ratio, the way the browser's paint offsets do (a phase sweep of
+    /// fractional line tops at 1.5×, 2× and 3× put every glyph on
+    /// round(ratio × (round(top) + baseline)) and every box edge on
+    /// ratio × round(edge)). Layout never reads it: pagination is
+    /// identical at every ratio.
     pub(crate) ratio: f64,
 }
 
@@ -137,18 +140,26 @@ impl Default for FragmentPaintContext<'_> {
     }
 }
 
-impl FragmentPaintContext<'_> {
-    /// Rounds a CSS-px coordinate to the nearest device pixel, expressed
-    /// back in CSS px.
-    pub(crate) fn snap(&self, value: f64) -> f64 {
-        snap_to_grid(value, self.ratio)
-    }
+/// The browser's paint-offset snap: a CSS-px coordinate rounded to the
+/// nearest whole CSS pixel, at any device ratio.
+pub(crate) fn snap_css(value: f64) -> f64 {
+    value.round()
 }
 
 /// Nearest device-pixel position of a CSS-px value at `ratio` device
-/// pixels per CSS pixel, in CSS px. Ratio 1 is a plain round.
+/// pixels per CSS pixel, in CSS px. Ratio 1 is a plain round. Glyph
+/// baselines are the one thing painted on this grid.
 pub(crate) fn snap_to_grid(value: f64, ratio: f64) -> f64 {
     (value * ratio).round() / ratio
+}
+
+/// The painted baseline of a line whose top sits at `line_top`: the line
+/// box top rounds to a whole CSS pixel in the snap origin's space, the
+/// within-line baseline adds to it, and the sum rounds once on the device
+/// grid. Rounding both stages on the device grid instead put half the
+/// lines of a 2× phase sweep one device row off the browser's.
+fn painted_baseline(snap_origin_y: f64, line_top: f64, within_line: f64, ratio: f64) -> f64 {
+    snap_origin_y + snap_to_grid(snap_css(line_top - snap_origin_y) + within_line, ratio)
 }
 
 /// Walks a laid-out fragment tree and appends the display commands that
@@ -199,16 +210,16 @@ fn append_fragment_display_commands_inner(
             }) = node_paint
             {
                 commands.push(DisplayCommand::push_state());
-                // The browser snaps a transformed subtree's LAYER to the
-                // device grid: a rotated card at a fractional block
-                // offset renders bit-identically to the same card at the
-                // rounded offset (probed — DOM output at y .0 and y .48
-                // matched column for column). The rigid device-space
-                // shift to that rounded position is a translate composed
-                // BEFORE the author transforms, in the un-rotated frame.
+                // The browser snaps a transformed subtree's LAYER to whole
+                // CSS pixels: a rotated card at a fractional block offset
+                // renders bit-identically to the same card at the rounded
+                // offset (probed — DOM output at y .0 and y .48 matched
+                // column for column). The rigid shift to that rounded
+                // position is a translate composed BEFORE the author
+                // transforms, in the un-rotated frame.
                 let box_x = origin_x + fragment.rect.x;
                 let box_y = origin_y + fragment.rect.y;
-                let (snap_dx, snap_dy) = (context.snap(box_x) - box_x, context.snap(box_y) - box_y);
+                let (snap_dx, snap_dy) = (snap_css(box_x) - box_x, snap_css(box_y) - box_y);
                 let ops = if snap_dx == 0.0 && snap_dy == 0.0 {
                     transforms.clone()
                 } else {
@@ -367,14 +378,14 @@ fn append_fragment_display_commands_inner(
                                     side("bottomWidth"),
                                     side("leftWidth"),
                                 );
-                                // The strips ride the same device-pixel
+                                // The strips ride the same whole-pixel
                                 // edges the border strokes snap to.
-                                let left_edge = context.snap(origin_x + fragment.rect.x);
-                                let top_edge = context.snap(origin_y + fragment.rect.y);
+                                let left_edge = snap_css(origin_x + fragment.rect.x);
+                                let top_edge = snap_css(origin_y + fragment.rect.y);
                                 let right_edge =
-                                    context.snap(origin_x + fragment.rect.x + fragment.rect.width);
+                                    snap_css(origin_x + fragment.rect.x + fragment.rect.width);
                                 let bottom_edge =
-                                    context.snap(origin_y + fragment.rect.y + fragment.rect.height);
+                                    snap_css(origin_y + fragment.rect.y + fragment.rect.height);
                                 let (x, y) = (left_edge, top_edge);
                                 let (width, height) =
                                     (right_edge - left_edge, bottom_edge - top_edge);
@@ -445,9 +456,12 @@ fn append_fragment_display_commands_inner(
                     let paint = run_paint(style, context.family_policy, 0.0, false, false)?;
                     let font_size = f64::from(style.font.size.get());
                     let line_y = origin_y + fragment.rect.y + first_line.rect.y;
-                    let baseline = child_snap_origin_y
-                        + context.snap(line_y + first_line.ruby_growth - child_snap_origin_y)
-                        + context.snap(first_line.baseline - first_line.ruby_growth);
+                    let baseline = painted_baseline(
+                        child_snap_origin_y,
+                        line_y + first_line.ruby_growth,
+                        first_line.baseline - first_line.ruby_growth,
+                        context.ratio,
+                    );
                     // The marker string carries its trailing space and
                     // the right edge sits AT the content edge (measured
                     // on the b17 nav: the digit ink ends 6px before the
@@ -900,7 +914,6 @@ fn append_line_commands(
                     line_y,
                     image_border_paints,
                     item_source,
-                    ratio,
                 )?;
             }
             Fragment::Box(atom) => {
@@ -1003,8 +1016,12 @@ fn append_text_run_command(
     // reconstruct line geometry.
     //
     // Blink's raster snap is TWO-STAGE (probed, 16/16 discriminating
-    // matrix): the line box top rounds to a device row, and the run's
-    // within-line baseline rounds on top of it. Canvas 'alphabetic'
+    // matrix at 1×): the line box top rounds to a whole CSS pixel, and
+    // the run's within-line baseline rounds on top of it — on the DEVICE
+    // grid, the one place the ratio enters (a 64-phase sweep at 1.5×, 2×
+    // and 3× lands every glyph on round(ratio × (round(top) + baseline));
+    // rounding the within-line baseline to a device row on its own
+    // matched only half the phases at 2× and 3×). Canvas 'alphabetic'
     // fillText rounds the value it is handed once, so the two stages are
     // pre-composed here. For the common integer within-line baseline the
     // integer commutes with the round and this equals rounding the sum —
@@ -1022,21 +1039,27 @@ fn append_text_run_command(
     // A run inside a decorated inline box re-anchors at the BOX instead
     // (measured on 22px/24px bordered spans sharing one 309.5625 layout
     // baseline that raster one row apart): the box's absolute top rounds
-    // to a device row, the top border+padding edge rounds within it, and
-    // the baseline hangs the primary font's integer ascent below. The
-    // box's snapped extent rides the paint so the painter strokes the
-    // decoration on those exact rows. For an undecorated run the formula
-    // would collapse to the line-box snap (integer ascent and integer
-    // within-line baseline commute with the round), so bare text keeps
-    // the two-stage path verbatim.
+    // to a whole CSS pixel, the top border+padding edge rounds within
+    // it, and the baseline hangs the primary font's integer ascent
+    // below, the whole sum rounded once on the device grid like any
+    // other baseline. The box's snapped extent rides the paint so the
+    // painter strokes the decoration on those exact rows. For an
+    // undecorated run the formula would collapse to the line-box snap
+    // (integer ascent and integer within-line baseline commute with the
+    // round), so bare text keeps the two-stage path verbatim.
     let baseline = match &run.box_snap {
         Some(snap) => {
             let layout_baseline = line_y + line.baseline - baseline_shift_px;
             let box_top = layout_baseline - snap.int_ascent - snap.edge_top;
             let box_bottom = layout_baseline + snap.int_descent + snap.edge_bottom;
-            let painted_top = snap_origin_y + snap_to_grid(box_top - snap_origin_y, ratio);
-            let painted_bottom = snap_origin_y + snap_to_grid(box_bottom - snap_origin_y, ratio);
-            let baseline = painted_top + snap_to_grid(snap.edge_top, ratio) + snap.int_ascent;
+            let painted_top = snap_origin_y + snap_css(box_top - snap_origin_y);
+            let painted_bottom = snap_origin_y + snap_css(box_bottom - snap_origin_y);
+            let baseline = painted_baseline(
+                snap_origin_y,
+                box_top,
+                snap_css(snap.edge_top) + snap.int_ascent,
+                ratio,
+            );
             let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
             paint.set_box_offsets(painted_top - em_top, painted_bottom - em_top);
             baseline
@@ -1056,9 +1079,12 @@ fn append_text_run_command(
             // satisfies this law too: round(559.671875) + 15 = 575 —
             // the earlier per-stage-ceil reading fit that one point but
             // not the phase sweep.
-            snap_origin_y
-                + snap_to_grid(line_y + line.ruby_growth - snap_origin_y, ratio)
-                + snap_to_grid(line.baseline - baseline_shift_px - line.ruby_growth, ratio)
+            painted_baseline(
+                snap_origin_y,
+                line_y + line.ruby_growth,
+                line.baseline - baseline_shift_px - line.ruby_growth,
+                ratio,
+            )
         }
     };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
@@ -1175,7 +1201,6 @@ fn append_image_command(
     line_y: f64,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     item_source: Option<&FlowItemSource>,
-    ratio: f64,
 ) -> EpubResult<()> {
     let Some(InlineItem::Image {
         src,
@@ -1223,15 +1248,16 @@ fn append_image_command(
     // is untouched — this is a paint-rect adjustment.
     let mut draw = image.rect;
     if !*fit_contain {
-        // Blink pixel-snaps a plain replaced image's paint rect (probed:
-        // an <img> at x=22.25 rasters at 22, at 22.5 at 23, bit-identical
-        // to a canvas draw at the same integers). SVG-folded content is
-        // NOT snapped: it paints through the svg's own transform, and the
-        // reference renders it at the fractional position.
-        let left = snap_to_grid(line_x + draw.x, ratio);
-        let top = snap_to_grid(line_y + draw.y, ratio);
-        let right = snap_to_grid(line_x + draw.x + draw.width, ratio);
-        let bottom = snap_to_grid(line_y + draw.y + draw.height, ratio);
+        // Blink pixel-snaps a plain replaced image's paint rect to whole
+        // CSS pixels (probed: an <img> at x=22.25 rasters at 22, at 22.5
+        // at 23, bit-identical to a canvas draw at the same integers).
+        // SVG-folded content is NOT snapped: it paints through the svg's
+        // own transform, and the reference renders it at the fractional
+        // position.
+        let left = snap_css(line_x + draw.x);
+        let top = snap_css(line_y + draw.y);
+        let right = snap_css(line_x + draw.x + draw.width);
+        let bottom = snap_css(line_y + draw.y + draw.height);
         draw = rito_fragment::FragmentRect {
             x: left - line_x,
             y: top - line_y,
@@ -1927,6 +1953,72 @@ mod tests {
             panic!("expected a text command, got {:?}", commands[0]);
         };
         assert_eq!(command.rect, rect_value(14.0, 22.2, 8.0, 16.0));
+    }
+
+    #[test]
+    fn a_baseline_rounds_the_line_top_on_css_pixels_and_the_sum_on_the_device_grid() {
+        // A 64-phase sweep of the line top with a fractional within-line
+        // baseline (a raised marker's line), painted at 2×: the line top
+        // rounds to a whole CSS pixel, the baseline adds, and the sum
+        // rounds once on the device grid. Rounding the line top on the
+        // device grid instead lands half the phases one device row off.
+        let fixture = two_color_flow(|red, _| vec![text_item("x", red, 0.0)]);
+        let within_line = 13.71875;
+        let mut device_two_stage_disagreements = 0;
+        for phase in 0..64 {
+            let line_top = 26.0 + f64::from(phase) / 64.0;
+            let root = Fragment::Box(BoxFragment {
+                source: FormattingNodeId(0),
+                rect: FragmentRect {
+                    x: 10.0,
+                    y: 20.0,
+                    width: 100.0,
+                    height: 40.0,
+                },
+                children: vec![Fragment::Line(LineFragment {
+                    source: FormattingNodeId(0),
+                    marker: None,
+                    rect: FragmentRect {
+                        x: 4.0,
+                        y: line_top - 20.0,
+                        width: 70.0,
+                        height: 20.0,
+                    },
+                    baseline: within_line,
+                    trailing_whitespace: 0.0,
+                    ruby_growth: 0.0,
+                    children: vec![text_run(0.0, 8.0, 0, 1)],
+                })],
+            });
+            let mut commands = Vec::new();
+            append_fragment_display_commands(
+                &mut commands,
+                &fixture.tree,
+                &root,
+                0.0,
+                0.0,
+                FragmentPaintContext {
+                    ratio: 2.0,
+                    ..FragmentPaintContext::default()
+                },
+            )
+            .expect("fragments paint");
+            let DisplayCommand::PaintText(command) = &commands[0] else {
+                panic!("expected a text command, got {:?}", commands[0]);
+            };
+            let painted = command.rect["y"].as_f64().expect("rect y") + 0.8 * 16.0;
+            let expected = ((line_top.round() + within_line) * 2.0).round() / 2.0;
+            assert!(
+                (painted - expected).abs() < 1e-9,
+                "phase {phase}/64: painted {painted}, expected {expected}"
+            );
+            let device_two_stage =
+                (line_top * 2.0).round() / 2.0 + (within_line * 2.0).round() / 2.0;
+            if (device_two_stage - expected).abs() > 1e-9 {
+                device_two_stage_disagreements += 1;
+            }
+        }
+        assert_eq!(device_two_stage_disagreements, 32);
     }
 
     #[test]
