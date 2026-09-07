@@ -6,8 +6,8 @@ use crate::{
     render::{
         lower::{
             lower_display_commands, DashPattern, DevicePath, DevicePoint, DeviceRect,
-            DeviceTransform, FillRule, Ground, PathOp, Primitive, PrimitiveList, StrokeCap,
-            TilePlan,
+            DeviceTransform, FillRule, Ground, ImageSize, PathOp, Primitive, PrimitiveList,
+            StrokeCap, TilePlan,
         },
         DisplayTextCommandInput,
     },
@@ -193,15 +193,12 @@ fn every_primitive_shape_roundtrips_through_the_strict_validator() {
     let encoded = encode_reader_primitive_list_v1(&all_primitive_shapes()).expect("encode");
 
     assert_eq!(encoded.format_version, READER_PRIMITIVE_LIST_FORMAT_VERSION);
-    assert_eq!(encoded.command_count, 14);
+    assert_eq!(encoded.command_count, 13);
     assert_eq!(&encoded.bytes[..7], b"RITODL1");
-    assert_eq!(validate(&encoded.bytes), Ok(14));
+    assert_eq!(validate(&encoded.bytes), Ok(13));
     let expected_digest: [u8; 32] = Sha256::digest(&encoded.bytes).into();
     assert_eq!(encoded.semantic_digest, expected_digest);
-    assert_eq!(
-        encoded.image_hrefs,
-        vec!["images/background.png", "images/cover.jpg"]
-    );
+    assert_eq!(encoded.image_hrefs, vec!["images/cover.jpg"]);
     assert_eq!(encoded.font_families, vec!["Rito Serif"]);
 }
 
@@ -257,7 +254,8 @@ fn primitive_validator_rejects_truncation_unknown_opcodes_and_unknown_tags() {
 
 #[test]
 fn lowered_display_commands_encode_as_format_2() {
-    let lowered = lower_display_commands(&representative_commands(), 2.0).expect("lower");
+    let lowered = lower_display_commands(&representative_commands(), 2.0, &fixture_image_size)
+        .expect("lower");
     let encoded = encode_reader_primitive_list_v1(&lowered).expect("encode");
     assert_eq!(encoded.format_version, 2);
     assert_eq!(validate(&encoded.bytes), Ok(encoded.command_count));
@@ -597,24 +595,32 @@ fn wire_fixture_display_list() -> ReaderDisplayListV1 {
     typed
 }
 
-/// One of every primitive: the lowered representative commands supply the
-/// pass-through text, block and image; the resolved shapes are built here.
+/// One of every primitive. The lowered representative commands supply the
+/// text, ruby and cover image; the resolved shapes are built here.
 fn all_primitive_shapes() -> PrimitiveList {
-    let lowered = lower_display_commands(&representative_commands(), 2.0).expect("lower");
-    let [Primitive::PushState, block @ Primitive::Block { .. }, text @ Primitive::Text(run), image @ Primitive::DrawImage { .. }] =
-        lowered.commands.as_slice()
-    else {
-        panic!("representative commands lower to push, block, text, image: {lowered:?}");
-    };
-    let Primitive::DrawImage {
-        src,
-        dest,
-        source_rect,
-        ..
-    } = image
-    else {
-        unreachable!()
-    };
+    let lowered = lower_display_commands(&representative_commands(), 2.0, &fixture_image_size)
+        .expect("lower");
+    let text = lowered
+        .commands
+        .iter()
+        .find_map(|primitive| match primitive {
+            Primitive::Text(run) => Some(run.clone()),
+            _ => None,
+        })
+        .expect("representative text lowers to a text run");
+    let (src, dest, source_rect) = lowered
+        .commands
+        .iter()
+        .find_map(|primitive| match primitive {
+            Primitive::DrawImage {
+                src,
+                dest,
+                source_rect,
+                ..
+            } if src == "images/cover.jpg" => Some((src.clone(), *dest, *source_rect)),
+            _ => None,
+        })
+        .expect("representative image lowers to a draw");
     let color = ReaderColorV1 {
         space: ReaderColorSpaceV1::Srgb,
         components: [0.25, 0.5, 0.75],
@@ -667,6 +673,7 @@ fn all_primitive_shapes() -> PrimitiveList {
                 path: path.clone(),
                 rule: FillRule::EvenOdd,
                 color,
+                ground: Ground::Block(DeviceRect::new(0.5, 0.5, 39.0, 59.0)),
             },
             Primitive::StrokePath {
                 path: path.clone(),
@@ -683,9 +690,9 @@ fn all_primitive_shapes() -> PrimitiveList {
                 clip_out: Some(path),
             },
             Primitive::DrawImage {
-                src: src.clone(),
-                dest: *dest,
-                source_rect: *source_rect,
+                src,
+                dest,
+                source_rect,
                 tiles: Some(TilePlan {
                     origin: DevicePoint::new(0.0, 0.0),
                     step_x: 16.0,
@@ -694,11 +701,18 @@ fn all_primitive_shapes() -> PrimitiveList {
                     rows: 3,
                 }),
             },
-            text.clone(),
-            Primitive::Ruby(run.clone()),
-            block.clone(),
+            Primitive::Text(text.clone()),
+            Primitive::Ruby(text),
         ],
     }
+}
+
+/// The representative block's background image, sized so it tiles.
+fn fixture_image_size(href: &str) -> Option<ImageSize> {
+    (href == "images/background.png").then_some(ImageSize {
+        width: 20,
+        height: 10,
+    })
 }
 
 fn typed_page(space: ReaderColorSpaceV1) -> ReaderDisplayListV1 {

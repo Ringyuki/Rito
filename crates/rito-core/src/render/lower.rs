@@ -9,9 +9,8 @@
 //! box edge applied here — and hands the renderer fills, paths, clips, images
 //! and text runs it blits without measuring or snapping anything itself.
 //!
-//! Text runs, and blocks whose paint is not lowered yet (rounded corners, box
-//! shadows, background images), pass through with their numbers scaled to
-//! device pixels; the renderer still owns those rules until they move here.
+//! Text runs pass through with their numbers scaled to device pixels; the
+//! renderer still places glyphs until the text laws move here.
 
 use std::{error::Error, fmt};
 
@@ -40,6 +39,14 @@ pub(crate) use primitive::{
     Primitive, PrimitiveList, StrokeCap, TilePlan,
 };
 
+/// An image's intrinsic size in CSS pixels, as the publication's resource
+/// table records it; background images size and tile against it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ImageSize {
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum LowerError {
     /// The render ratio must be a finite, positive count of device pixels
@@ -66,27 +73,37 @@ impl Error for LowerError {}
 pub(crate) fn lower_display_commands(
     commands: &[DisplayCommand],
     ratio: f64,
+    images: &dyn Fn(&str) -> Option<ImageSize>,
 ) -> Result<PrimitiveList, LowerError> {
     let typed = adapt_reader_display_list_v1(commands).map_err(LowerError::Adapt)?;
-    lower(&typed, ratio)
+    lower(&typed, ratio, images)
 }
 
-/// Resolves a typed display list at `ratio` device pixels per CSS pixel.
+/// Resolves a typed display list at `ratio` device pixels per CSS pixel;
+/// `images` answers a background image's intrinsic size by href (an image
+/// it cannot size is not painted, exactly as a renderer skips a bitmap it
+/// never decoded).
 pub(crate) fn lower(
     display_list: &ReaderDisplayListV1,
     ratio: f64,
+    images: &dyn Fn(&str) -> Option<ImageSize>,
 ) -> Result<PrimitiveList, LowerError> {
     if !ratio.is_finite() || ratio <= 0.0 {
         return Err(LowerError::InvalidRatio);
     }
     let mut commands = Vec::with_capacity(display_list.commands.len());
     for command in &display_list.commands {
-        lower_command(command, ratio, &mut commands);
+        lower_command(command, ratio, images, &mut commands);
     }
     Ok(PrimitiveList { ratio, commands })
 }
 
-fn lower_command(command: &ReaderDisplayCommandV1, ratio: f64, out: &mut Vec<Primitive>) {
+fn lower_command(
+    command: &ReaderDisplayCommandV1,
+    ratio: f64,
+    images: &dyn Fn(&str) -> Option<ImageSize>,
+    out: &mut Vec<Primitive>,
+) {
     match command {
         ReaderDisplayCommandV1::PushState => out.push(Primitive::PushState),
         ReaderDisplayCommandV1::PopState => out.push(Primitive::PopState),
@@ -128,7 +145,7 @@ fn lower_command(command: &ReaderDisplayCommandV1, ratio: f64, out: &mut Vec<Pri
             rect,
             paint,
             border_box,
-        } => block::lower_block(rect, paint, border_box.as_ref(), ratio, out),
+        } => block::lower_block(rect, paint, border_box.as_ref(), ratio, images, out),
         ReaderDisplayCommandV1::PaintText(text) => {
             out.push(Primitive::Text(scale::text_command(text, ratio)));
         }

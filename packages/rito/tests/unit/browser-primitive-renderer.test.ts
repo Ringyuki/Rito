@@ -62,6 +62,7 @@ describe('browser primitive renderer', () => {
           ],
           rule: 'evenodd',
           color: INK,
+          ground: 'none',
         },
         {
           kind: 'stroke-path',
@@ -164,18 +165,17 @@ describe('browser primitive renderer', () => {
     expect(draws[6]).toEqual([116, 232, 16, 16]);
   });
 
-  it('hands text and pass-through blocks to the semantic painters', () => {
+  it('hands text runs to the semantic text painter over their declared grounds', () => {
     const mock = createMockCanvasContext();
     renderReaderPrimitivesToCanvas(
       list([
         {
-          kind: 'block',
-          rect: { x: 0, y: 0, width: 50, height: 50 },
-          paint: {
-            background: { color: PAPER },
-            radius: { unit: 'px', value: 4 },
-            boxShadows: [],
-          },
+          kind: 'fill-path',
+          path: [{ op: 'rect', x: 0, y: 0, width: 50, height: 50 }],
+          rule: 'nonzero',
+          color: PAPER,
+          ground: 'block',
+          groundRect: { x: 0.4, y: 0.4, width: 49.5, height: 49.5 },
         },
         {
           kind: 'text',
@@ -191,9 +191,15 @@ describe('browser primitive renderer', () => {
         },
       ]),
       mock.ctx,
+      { foregroundColor: '#e5e5e5', backgroundColor: '#1a1a1a' },
     );
     expect(mock.getCalls('fill')).toHaveLength(1);
     expect(mock.getCalls('fillText').map((call) => call.args[0])).toEqual(['run']);
+    // Ink over a declared block ground keeps the typesetter's colour pair.
+    expect(mock.getPropertySets('fillStyle').map((set) => set.value)).toEqual([
+      'rgba(255, 255, 255, 1)',
+      'rgba(0, 0, 0, 1)',
+    ]);
   });
 
   it('blurs a shadow at twice its sigma inside its exclusion clip', () => {

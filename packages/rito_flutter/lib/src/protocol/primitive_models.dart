@@ -6,8 +6,8 @@ import 'display_models.dart';
 ///
 /// Every coordinate is a device pixel on the grid the host rasterizes and
 /// every rule about where ink lands has been applied by the engine; a
-/// renderer blits. Text runs and blocks the engine does not resolve yet
-/// pass through with their lengths in device pixels.
+/// renderer blits. Text runs pass through with their lengths in device
+/// pixels; their glyph placement is still the renderer's.
 final class RitoPrimitiveList {
   RitoPrimitiveList({
     required this.formatVersion,
@@ -90,11 +90,15 @@ final class RitoPrimitiveFillRect extends RitoPrimitive {
     required this.rect,
     required this.color,
     required this.ground,
+    this.groundRect,
   });
 
   final RitoDisplayRect rect;
   final RitoColor color;
   final RitoFillGround ground;
+
+  /// The unsnapped box a block ground covers; null for other grounds.
+  final RitoDisplayRect? groundRect;
 
   @override
   int get opcode => 7;
@@ -105,11 +109,17 @@ final class RitoPrimitiveFillPath extends RitoPrimitive {
     required this.path,
     required this.rule,
     required this.color,
+    required this.ground,
+    this.groundRect,
   });
 
   final RitoDevicePath path;
   final RitoFillRule rule;
   final RitoColor color;
+  final RitoFillGround ground;
+
+  /// The unsnapped box a block ground covers; null for other grounds.
+  final RitoDisplayRect? groundRect;
 
   @override
   int get opcode => 8;
@@ -193,17 +203,6 @@ final class RitoPrimitiveRuby extends RitoPrimitive {
 
   @override
   int get opcode => 13;
-}
-
-/// A block whose paint the engine does not resolve yet (rounded corners,
-/// box shadows, background images), lengths in device pixels.
-final class RitoPrimitiveBlock extends RitoPrimitive {
-  const RitoPrimitiveBlock(this.command);
-
-  final RitoPaintBlock command;
-
-  @override
-  int get opcode => 14;
 }
 
 /// A device-space outline. Arc angles are radians from the +x axis; a
@@ -295,7 +294,8 @@ final class RitoStrokeCap {
 }
 
 /// What a fill declares to the theme override: the page ground, an opaque
-/// block ground the ink over it was typeset against, or nothing.
+/// block ground the ink over it was typeset against (with the unsnapped
+/// box it covers), or nothing.
 final class RitoFillGround {
   const RitoFillGround._(this.name);
 

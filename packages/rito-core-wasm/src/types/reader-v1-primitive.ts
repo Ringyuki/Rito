@@ -1,6 +1,5 @@
 import type {
   RitoReaderColorV1,
-  RitoReaderPaintBlockCommandV1,
   RitoReaderPaintTextCommandV1,
   RitoReaderRectV1,
 } from './reader-v1-display';
@@ -9,8 +8,8 @@ import type {
  * `RITODL1` format version 2: the device-resolved primitive list. Every
  * coordinate is a device pixel on the grid the host rasterizes, and every
  * rule about where ink lands has been applied by the engine. Text runs
- * and blocks the engine does not resolve yet pass through with their
- * lengths in device pixels.
+ * pass through with their lengths in device pixels; their glyph placement
+ * is still the renderer's.
  */
 export interface RitoReaderPrimitiveListV1 {
   readonly formatVersion: 2;
@@ -62,7 +61,8 @@ export type RitoReaderDeviceTransformV1 =
   | { readonly kind: 'translate'; readonly dx: number; readonly dy: number };
 
 /** What a fill declares to the theme override: the page ground, an
- * opaque block ground the ink over it was typeset against, or nothing. */
+ * opaque block ground the ink over it was typeset against (with
+ * `groundRect`, the unsnapped box it covers), or nothing. */
 export type RitoReaderFillGroundV1 = 'none' | 'page' | 'block';
 
 export interface RitoReaderTilePlanV1 {
@@ -103,12 +103,15 @@ export type RitoReaderPrimitiveV1 =
       readonly rect: RitoReaderRectV1;
       readonly color: RitoReaderColorV1;
       readonly ground: RitoReaderFillGroundV1;
+      readonly groundRect?: RitoReaderRectV1 | undefined;
     }
   | {
       readonly kind: 'fill-path';
       readonly path: readonly RitoReaderPathOpV1[];
       readonly rule: 'nonzero' | 'evenodd';
       readonly color: RitoReaderColorV1;
+      readonly ground: RitoReaderFillGroundV1;
+      readonly groundRect?: RitoReaderRectV1 | undefined;
     }
   | {
       readonly kind: 'stroke-path';
@@ -135,5 +138,4 @@ export type RitoReaderPrimitiveV1 =
       readonly sourceRect?: RitoReaderRectV1 | undefined;
       readonly tiles?: RitoReaderTilePlanV1 | undefined;
     }
-  | RitoReaderTextPrimitiveV1
-  | RitoReaderBlockPrimitiveV1;
+  | RitoReaderTextPrimitiveV1;

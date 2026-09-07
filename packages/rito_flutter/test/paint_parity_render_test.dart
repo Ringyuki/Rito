@@ -106,8 +106,12 @@ Future<void> _renderLoweredFixture(File meta, Directory outDir) async {
     colorOverride: theme == null
         ? null
         : RitoCanvasColorOverride(
-            foreground: ritoUiColor(parseCssColor(theme['foreground']! as String)),
-            background: ritoUiColor(parseCssColor(theme['background']! as String)),
+            foreground: ritoUiColor(
+              parseCssColor(theme['foreground']! as String),
+            ),
+            background: ritoUiColor(
+              parseCssColor(theme['background']! as String),
+            ),
           ),
   );
   const RitoPrimitiveListReplayer().replay(list, target);
@@ -125,7 +129,6 @@ Future<Map<String, ui.Image>> _prepareLoweredImages(
   for (final primitive in list.commands) {
     final src = switch (primitive) {
       RitoPrimitiveDrawImage(:final src) => src,
-      RitoPrimitiveBlock(:final command) => command.paint.background?.image,
       _ => null,
     };
     if (src == null || images.containsKey(src)) continue;

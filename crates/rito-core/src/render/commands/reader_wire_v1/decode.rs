@@ -104,12 +104,13 @@ impl Decoder<'_> {
             7 => {
                 self.read_rect()?;
                 self.read_color()?;
-                self.read_enum(1, 3)
+                self.read_ground()
             }
             8 => {
                 self.read_path()?;
                 self.read_enum(1, 2)?;
-                self.read_color()
+                self.read_color()?;
+                self.read_ground()
             }
             9 => {
                 self.read_path()?;
@@ -144,8 +145,15 @@ impl Decoder<'_> {
                 Ok(())
             }
             12 | 13 => self.read_text(),
-            14 => self.read_block(),
             opcode => Err(DecodeError::UnknownOpcode(opcode)),
+        }
+    }
+
+    fn read_ground(&mut self) -> Result<(), DecodeError> {
+        match self.read_u8()? {
+            1 | 2 => Ok(()),
+            3 => self.read_rect(),
+            value => Err(DecodeError::UnknownEnum(value)),
         }
     }
 

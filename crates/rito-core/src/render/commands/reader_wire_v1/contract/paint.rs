@@ -205,17 +205,6 @@ impl ReaderBackgroundRepeatV1 {
             Self::Round => 6,
         }
     }
-
-    pub(crate) const fn tag_name(self) -> &'static str {
-        match self {
-            Self::Repeat => "repeat",
-            Self::NoRepeat => "no-repeat",
-            Self::RepeatX => "repeat-x",
-            Self::RepeatY => "repeat-y",
-            Self::Space => "space",
-            Self::Round => "round",
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

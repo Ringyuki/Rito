@@ -7,11 +7,7 @@ import {
   readRitoDisplayRectV1,
   readRitoDisplayTextCommandV1,
 } from './reader-v1-display-decoder-runtime.js';
-import {
-  readRitoDisplayBlockPaintV1,
-  readRitoDisplayBorderBoxV1,
-  readRitoDisplayColorV1,
-} from './reader-v1-display-paint-runtime.js';
+import { readRitoDisplayColorV1 } from './reader-v1-display-paint-runtime.js';
 
 /**
  * `RITODL1` format version 2, mirroring `READER_PRIMITIVE_LIST_FORMAT_VERSION`
@@ -56,7 +52,7 @@ function readPrimitive(reader) {
         kind: 'fill-rect',
         rect: readRitoDisplayRectV1(reader, 'fill rect'),
         color: readRitoDisplayColorV1(reader),
-        ground: readerWireEnumV1(reader, 'fill ground', ['none', 'page', 'block']),
+        ...readGround(reader),
       };
     case 8:
       return {
@@ -64,6 +60,7 @@ function readPrimitive(reader) {
         path: readPath(reader),
         rule: readerWireEnumV1(reader, 'fill rule', ['nonzero', 'evenodd']),
         color: readRitoDisplayColorV1(reader),
+        ...readGround(reader),
       };
     case 9:
       return {
@@ -100,16 +97,19 @@ function readPrimitive(reader) {
       return { kind: 'text', ...readRitoDisplayTextCommandV1(reader) };
     case 13:
       return { kind: 'ruby', ...readRitoDisplayTextCommandV1(reader) };
-    case 14:
-      return {
-        kind: 'block',
-        rect: readRitoDisplayRectV1(reader, 'block rect'),
-        paint: readRitoDisplayBlockPaintV1(reader),
-        borderBox: reader.option('block border box', () => readRitoDisplayBorderBoxV1(reader)),
-      };
     default:
       reader.fail(`unknown primitive opcode: ${String(opcode)}`);
   }
+}
+
+/** A fill's declared ground; a block ground carries the unsnapped box it
+ * covers. */
+function readGround(reader) {
+  const ground = readerWireEnumV1(reader, 'fill ground', ['none', 'page', 'block']);
+  if (ground === 'block') {
+    return { ground, groundRect: readRitoDisplayRectV1(reader, 'ground rect') };
+  }
+  return { ground };
 }
 
 function readTransform(reader) {

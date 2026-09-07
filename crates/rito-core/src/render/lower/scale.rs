@@ -1,10 +1,8 @@
-//! Scaling of the paint the lowering hands through unresolved: every CSS
-//! pixel length becomes device pixels; percentages, colours and styles stay.
+//! Scaling of the text run the lowering hands through unresolved: every CSS
+//! pixel length becomes device pixels; colours and styles stay.
 
 use super::super::commands::contract::{
-    ReaderBackgroundPaintV1, ReaderBackgroundPositionV1, ReaderBackgroundSizeV1,
-    ReaderBlockPaintV1, ReaderBlockRadiusV1, ReaderBorderBoxV1, ReaderBoxShadowV1,
-    ReaderFontPaintV1, ReaderLengthV1, ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunBorderV1,
+    ReaderFontPaintV1, ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunBorderV1,
     ReaderRunDecorationV1, ReaderRunPaintV1, ReaderSpacingV1, ReaderTextCommandV1,
     ReaderTextShadowV1,
 };
@@ -22,78 +20,12 @@ pub(super) fn text_command(text: &ReaderTextCommandV1, ratio: f64) -> ReaderText
     }
 }
 
-pub(super) fn block_paint(paint: &ReaderBlockPaintV1, ratio: f64) -> ReaderBlockPaintV1 {
-    ReaderBlockPaintV1 {
-        background: paint
-            .background
-            .as_ref()
-            .map(|background| background_paint(background, ratio)),
-        border: paint.border,
-        radius: paint.radius.map(|radius| match radius {
-            ReaderBlockRadiusV1::Px(value) => ReaderBlockRadiusV1::Px(value * ratio),
-            ReaderBlockRadiusV1::Percent(value) => ReaderBlockRadiusV1::Percent(value),
-            ReaderBlockRadiusV1::Corners(corners) => {
-                ReaderBlockRadiusV1::Corners(corners.map(|value| value * ratio))
-            }
-        }),
-        box_shadows: paint
-            .box_shadows
-            .iter()
-            .map(|shadow| ReaderBoxShadowV1 {
-                offset_x: shadow.offset_x * ratio,
-                offset_y: shadow.offset_y * ratio,
-                blur: shadow.blur * ratio,
-                spread: shadow.spread * ratio,
-                color: shadow.color,
-                inset: shadow.inset,
-            })
-            .collect(),
-    }
-}
-
-pub(super) fn border_box(widths: &ReaderBorderBoxV1, ratio: f64) -> ReaderBorderBoxV1 {
-    ReaderBorderBoxV1 {
-        top_width: widths.top_width * ratio,
-        right_width: widths.right_width * ratio,
-        bottom_width: widths.bottom_width * ratio,
-        left_width: widths.left_width * ratio,
-    }
-}
-
 fn rect(rect: &ReaderRectV1, ratio: f64) -> ReaderRectV1 {
     ReaderRectV1 {
         x: rect.x * ratio,
         y: rect.y * ratio,
         width: rect.width * ratio,
         height: rect.height * ratio,
-    }
-}
-
-fn length(length: ReaderLengthV1, ratio: f64) -> ReaderLengthV1 {
-    match length {
-        ReaderLengthV1::Px(value) => ReaderLengthV1::Px(value * ratio),
-        ReaderLengthV1::Percent(value) => ReaderLengthV1::Percent(value),
-    }
-}
-
-fn background_paint(background: &ReaderBackgroundPaintV1, ratio: f64) -> ReaderBackgroundPaintV1 {
-    ReaderBackgroundPaintV1 {
-        color: background.color,
-        image: background.image.clone(),
-        size: background.size.map(|size| match size {
-            ReaderBackgroundSizeV1::Explicit { x, y } => ReaderBackgroundSizeV1::Explicit {
-                x: x.map(|axis| length(axis, ratio)),
-                y: y.map(|axis| length(axis, ratio)),
-            },
-            other => other,
-        }),
-        repeat: background.repeat,
-        position: background
-            .position
-            .map(|position| ReaderBackgroundPositionV1 {
-                x: length(position.x, ratio),
-                y: length(position.y, ratio),
-            }),
     }
 }
 

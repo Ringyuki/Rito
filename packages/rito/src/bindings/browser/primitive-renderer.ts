@@ -1,6 +1,5 @@
 import type { RitoReaderPrimitiveListV1, RitoReaderPrimitiveV1 } from '@ritojs/core-wasm/decoder';
 
-import { renderCanvasBlockDecoration } from './canvas-block/renderer';
 import { drawCanvasRubyFragment, drawCanvasTextFragment } from './canvas-text/renderer';
 import type { CanvasTextColorOverride } from './canvas-text/types';
 import {
@@ -11,16 +10,15 @@ import {
 } from './frame-command-renderer';
 import { applyTransform, drawImage, drawShadow, strokePath, tracePath } from './primitive-blits';
 import {
-  convertReaderBlockV1,
   convertReaderRubyV1,
   convertReaderTextV1,
   toCanvasColorV1,
 } from './reader-v1-canvas-converter';
-import { isBookOwnedPageGround, isOpaqueColor } from './theme/text-color';
+import { isBookOwnedPageGround } from './theme/text-color';
 
 type Primitive = RitoReaderPrimitiveV1;
-type FillRectPrimitive = Extract<Primitive, { readonly kind: 'fill-rect' }>;
-type PassthroughPrimitive = Extract<Primitive, { readonly kind: 'text' | 'ruby' | 'block' }>;
+type FillPrimitive = Extract<Primitive, { readonly kind: 'fill-rect' | 'fill-path' }>;
+type TextPrimitive = Extract<Primitive, { readonly kind: 'text' | 'ruby' }>;
 
 export interface PrimitiveRenderOptions {
   readonly resolveImage?: FrameCommandImageResolver;
@@ -38,8 +36,8 @@ interface RenderState extends DeclaredGrounds {
  * Blits a device-resolved primitive list. The canvas is assumed to be
  * device-sized with an identity transform: every coordinate lands on the
  * device grid as the engine resolved it, nothing here measures or snaps.
- * Text runs and pass-through blocks go to the semantic painters with
- * their lengths already in device pixels.
+ * Text runs go to the semantic text painter with their lengths already in
+ * device pixels.
  */
 export function renderReaderPrimitivesToCanvas(
   list: RitoReaderPrimitiveListV1,
@@ -133,11 +131,14 @@ function renderPrimitive(
       tracePath(ctx, primitive.path);
       ctx.clip();
       return;
-    case 'fill-rect':
-      fillRect(ctx, primitive, state);
+    case 'fill-rect': {
+      const { rect } = primitive;
+      ctx.fillStyle = declareGround(primitive, state);
+      ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
       return;
+    }
     case 'fill-path':
-      ctx.fillStyle = toCanvasColorV1(primitive.color);
+      ctx.fillStyle = declareGround(primitive, state);
       ctx.beginPath();
       tracePath(ctx, primitive.path);
       ctx.fill(primitive.rule);
@@ -153,58 +154,43 @@ function renderPrimitive(
       return;
     case 'text':
     case 'ruby':
-    case 'block':
-      renderPassthrough(ctx, primitive, state);
+      renderText(ctx, primitive, state);
       return;
     default:
       return assertNever(primitive);
   }
 }
 
-/** A fill that declares the page ground resets the declared grounds and
- * takes the theme's R1 decision: a designed ground (opaque, darker than
- * the white-paper limit) stays the book's and marks the page book-owned;
- * a near-white ground is the typesetter's paper default and the theme
- * paints its own. A fill that declares a block ground is recorded for
- * the ink typeset over it (the engine only declares opaque ones). */
-function fillRect(
-  ctx: CanvasRenderingContext2D,
-  primitive: FillRectPrimitive,
-  state: RenderState,
-): void {
+/** The colour a fill paints, after its declared ground is taken in. A
+ * fill declaring the page ground resets the declared grounds and takes
+ * the theme's R1 decision: a designed ground (opaque, darker than the
+ * white-paper limit) stays the book's and marks the page book-owned; a
+ * near-white ground is the typesetter's paper default and the theme
+ * paints its own. A fill declaring a block ground records the unsnapped
+ * box it covers for the ink typeset over it (the engine only declares
+ * opaque ones). */
+function declareGround(primitive: FillPrimitive, state: RenderState): string {
   const color = toCanvasColorV1(primitive.color);
-  let fill = color;
   if (primitive.ground === 'page') {
     state.blockGrounds.length = 0;
     state.bookOwnedPageGround = undefined;
     if (state.colorOverride) {
       if (isBookOwnedPageGround(color)) state.bookOwnedPageGround = color;
-      else fill = state.colorOverride.backgroundColor;
+      else return state.colorOverride.backgroundColor;
     }
-  } else if (primitive.ground === 'block') {
-    state.blockGrounds.push({ rect: primitive.rect, color });
+  } else if (primitive.ground === 'block' && primitive.groundRect !== undefined) {
+    state.blockGrounds.push({ rect: primitive.groundRect, color });
   }
-  const { rect } = primitive;
-  ctx.fillStyle = fill;
-  ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+  return color;
 }
 
-/** Text runs and unlowered blocks go to the semantic painters with their
- * lengths already in device pixels. */
-function renderPassthrough(
+/** Text runs go to the semantic text painter with their lengths already in
+ * device pixels. */
+function renderText(
   ctx: CanvasRenderingContext2D,
-  primitive: PassthroughPrimitive,
+  primitive: TextPrimitive,
   state: RenderState,
 ): void {
-  if (primitive.kind === 'block') {
-    const command = convertReaderBlockV1(primitive);
-    const color = command.paint.background?.color;
-    if (color !== undefined && isOpaqueColor(color)) {
-      state.blockGrounds.push({ rect: command.rect, color });
-    }
-    renderCanvasBlockDecoration(ctx, command, state.resolveImage);
-    return;
-  }
   if (primitive.kind === 'text') {
     const command = convertReaderTextV1(primitive);
     drawCanvasTextFragment(

@@ -7,15 +7,63 @@
 //! edges are round dots; a double edge is two solid thirds.
 
 use super::super::commands::contract::{
-    ReaderBorderStyleV1, ReaderColorV1, ReaderHorizontalRulePaintV1,
+    ReaderBorderStyleV1, ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1,
+    ReaderHorizontalRulePaintV1,
 };
-use super::{DevicePath, DevicePoint, DeviceRect, FillRule, Ground, PathOp, Primitive};
+use super::{
+    DashPattern, DevicePath, DevicePoint, DeviceRect, FillRule, Ground, PathOp, Primitive,
+    StrokeCap,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Edge {
     pub width: f64,
     pub color: ReaderColorV1,
     pub style: ReaderBorderStyleV1,
+}
+
+pub(super) const BLACK: ReaderColorV1 = ReaderColorV1 {
+    space: ReaderColorSpaceV1::Srgb,
+    components: [0.0; 3],
+    alpha: 1.0,
+    none: ReaderColorNoneFlagsV1 {
+        component_0: false,
+        component_1: false,
+        component_2: false,
+        alpha: false,
+    },
+};
+
+/// Strokes a rounded outline with the browser's dash vocabulary: dotted
+/// shrinks the pen to 0.75w with round-cap dots every 1.5w, dashed runs 3w
+/// on and 2w off, anything else strokes solid at full width.
+pub(super) fn stroke_outline(edge: Edge, path: DevicePath, out: &mut Vec<Primitive>) {
+    let (width, cap, dash) = match edge.style {
+        ReaderBorderStyleV1::Dotted => (
+            edge.width * 0.75,
+            StrokeCap::Round,
+            Some(DashPattern {
+                on: 0.001,
+                off: edge.width * 1.5,
+            }),
+        ),
+        ReaderBorderStyleV1::Dashed => (
+            edge.width,
+            StrokeCap::Butt,
+            Some(DashPattern {
+                on: edge.width * 3.0,
+                off: edge.width * 2.0,
+            }),
+        ),
+        _ => (edge.width, StrokeCap::Butt, None),
+    };
+    out.push(Primitive::StrokePath {
+        path,
+        width,
+        color: edge.color,
+        cap,
+        dash,
+    });
 }
 
 /// A horizontal rule is a border edge (the `<hr>`'s border-top), so every
@@ -324,5 +372,6 @@ fn dot_circles(edge: Edge, span: Span, out: &mut Vec<Primitive>) {
         path: DevicePath { ops },
         rule: FillRule::NonZero,
         color: edge.color,
+        ground: Ground::None,
     });
 }

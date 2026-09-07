@@ -16,7 +16,6 @@ abstract interface class RitoPrimitiveTarget {
   void drawImage(RitoPrimitiveDrawImage primitive);
   void text(RitoPrimitiveText primitive);
   void ruby(RitoPrimitiveRuby primitive);
-  void block(RitoPrimitiveBlock primitive);
 }
 
 final class RitoPrimitiveListReplayer {
@@ -60,8 +59,6 @@ final class RitoPrimitiveListReplayer {
             target.text(primitive);
           case RitoPrimitiveRuby():
             target.ruby(primitive);
-          case RitoPrimitiveBlock():
-            target.block(primitive);
         }
       }
       if (saveDepth != 0) {

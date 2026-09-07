@@ -4,20 +4,22 @@ use serde_json::json;
 
 use super::super::commands::{
     contract::{
-        ReaderBackgroundPaintV1, ReaderBackgroundPositionV1, ReaderBackgroundSizeV1,
-        ReaderBlockBorderV1, ReaderBlockPaintV1, ReaderBlockRadiusV1, ReaderBorderBoxV1,
-        ReaderBorderEdgePaintV1, ReaderBorderStyleV1, ReaderBoxShadowV1, ReaderColorNoneFlagsV1,
-        ReaderColorSpaceV1, ReaderColorV1, ReaderCornerRadiusV1, ReaderDisplayCommandV1,
-        ReaderDisplayListV1, ReaderFontPaintV1, ReaderFontStyleV1, ReaderHorizontalRulePaintV1,
-        ReaderLengthV1, ReaderPagePaintV1, ReaderPointV1, ReaderRectV1, ReaderRunBorderEdgeV1,
-        ReaderRunBorderV1, ReaderRunDecorationKindV1, ReaderRunDecorationV1, ReaderRunPaintV1,
-        ReaderSizeV1, ReaderSpacingV1, ReaderTextCommandV1, ReaderTextShadowV1, ReaderTransformV1,
+        ReaderBackgroundPaintV1, ReaderBackgroundPositionV1, ReaderBackgroundRepeatV1,
+        ReaderBackgroundSizeV1, ReaderBlockBorderV1, ReaderBlockPaintV1, ReaderBlockRadiusV1,
+        ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderBorderStyleV1, ReaderBoxShadowV1,
+        ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1, ReaderCornerRadiusV1,
+        ReaderDisplayCommandV1, ReaderDisplayListV1, ReaderFontPaintV1, ReaderFontStyleV1,
+        ReaderHorizontalRulePaintV1, ReaderLengthV1, ReaderPagePaintV1, ReaderPointV1,
+        ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunBorderV1, ReaderRunDecorationKindV1,
+        ReaderRunDecorationV1, ReaderRunPaintV1, ReaderSizeV1, ReaderSpacingV1,
+        ReaderTextCommandV1, ReaderTextShadowV1, ReaderTransformV1,
     },
     DisplayCommand, ReaderDisplayListWireError,
 };
 use super::{
-    json::primitive_list_value, lower, lower_display_commands, DevicePath, DevicePoint, DeviceRect,
-    DeviceTransform, FillRule, Ground, LowerError, PathOp, Primitive,
+    json::primitive_list_value, lower, lower_display_commands, DashPattern, DevicePath,
+    DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, ImageSize, LowerError, PathOp,
+    Primitive, StrokeCap, TilePlan,
 };
 
 const INK: ReaderColorV1 = ReaderColorV1 {
@@ -39,12 +41,12 @@ fn rejects_a_ratio_that_is_not_finite_and_positive() {
     let empty = ReaderDisplayListV1 { commands: vec![] };
     for ratio in [0.0, -1.0, f64::NAN, f64::INFINITY] {
         assert_eq!(
-            lower(&empty, ratio),
+            lower(&empty, ratio, &no_images),
             Err(LowerError::InvalidRatio),
             "{ratio}"
         );
     }
-    assert_eq!(lower(&empty, 1.5).expect("lower").ratio, 1.5);
+    assert_eq!(lower(&empty, 1.5, &no_images).expect("lower").ratio, 1.5);
 }
 
 #[test]
@@ -191,7 +193,7 @@ fn block_background_snaps_each_edge_independently() {
         vec![Primitive::FillRect {
             rect: DeviceRect::new(58.0, 10.0, 100.0, 21.0),
             color: INK,
-            ground: Ground::Block,
+            ground: Ground::Block(DeviceRect::new(57.65625, 10.4, 100.2, 20.2)),
         }]
     );
     // A translucent background is no ground for the ink over it.
@@ -442,7 +444,10 @@ fn thick_dotted_edges_are_round_dots_at_the_measured_pitch() {
         )],
         1.0,
     );
-    let [Primitive::FillPath { path, rule, color }] = primitives.as_slice() else {
+    let [Primitive::FillPath {
+        path, rule, color, ..
+    }] = primitives.as_slice()
+    else {
         panic!("one dot path, got {primitives:?}");
     };
     assert_eq!(*rule, FillRule::NonZero);
@@ -510,117 +515,514 @@ fn horizontal_rules_raster_as_border_edges() {
 }
 
 #[test]
-fn blocks_with_rounded_corners_shadows_or_background_images_pass_through_scaled() {
-    let rounded = block(
-        rect(1.0, 2.0, 10.0, 20.0),
-        ReaderBlockPaintV1 {
-            radius: Some(ReaderBlockRadiusV1::Px(3.0)),
-            ..block_paint(Some(INK), Some(solid_border()))
-        },
-        Some(widths(1.0, 2.0, 3.0, 4.0)),
-    );
-    assert_eq!(
-        lowered(vec![rounded], 2.0),
-        vec![Primitive::Block {
-            rect: DeviceRect::new(2.0, 4.0, 20.0, 40.0),
-            paint: ReaderBlockPaintV1 {
-                radius: Some(ReaderBlockRadiusV1::Px(6.0)),
-                ..block_paint(Some(INK), Some(solid_border()))
+fn rounded_backgrounds_fill_the_snapped_box_and_declare_the_unsnapped_ground() {
+    let primitives = lowered(
+        vec![block(
+            rect(10.4, 20.6, 100.2, 50.3),
+            ReaderBlockPaintV1 {
+                radius: Some(ReaderBlockRadiusV1::Px(8.0)),
+                ..block_paint(Some(INK), None)
             },
-            border_box: Some(widths(2.0, 4.0, 6.0, 8.0)),
-        }]
+            None,
+        )],
+        1.0,
     );
+    let [Primitive::FillPath {
+        path,
+        rule,
+        color,
+        ground,
+    }] = primitives.as_slice()
+    else {
+        panic!("one rounded fill, got {primitives:?}");
+    };
+    assert_eq!(*rule, FillRule::NonZero);
+    assert_eq!(*color, INK);
+    assert_eq!(
+        *ground,
+        Ground::Block(DeviceRect::new(10.4, 20.6, 100.2, 50.3))
+    );
+    // The box snaps to [10, 111) by [21, 71); the outline starts after the
+    // top-left corner and turns first about the top-right corner centre.
+    assert_eq!(path.ops.len(), 10);
+    assert_eq!(path.ops[0], PathOp::MoveTo(DevicePoint::new(18.0, 21.0)));
+    assert_eq!(
+        path.ops[2],
+        PathOp::Arc {
+            center: DevicePoint::new(103.0, 29.0),
+            rx: 8.0,
+            ry: 8.0,
+            start: -FRAC_PI_2,
+            sweep: FRAC_PI_2,
+        }
+    );
+}
 
-    let shadowed = block(
-        rect(0.0, 0.0, 10.0, 20.0),
-        ReaderBlockPaintV1 {
-            box_shadows: vec![ReaderBoxShadowV1 {
-                offset_x: 1.0,
-                offset_y: 2.0,
-                blur: 3.0,
-                spread: 0.5,
-                color: TRANSLUCENT,
-                inset: false,
-            }],
-            ..block_paint(None, None)
-        },
-        None,
+#[test]
+fn percent_and_corner_radii_resolve_against_the_box() {
+    let percent = lowered(
+        vec![block(
+            rect(0.0, 0.0, 20.0, 30.0),
+            ReaderBlockPaintV1 {
+                radius: Some(ReaderBlockRadiusV1::Percent(50.0)),
+                ..block_paint(Some(INK), None)
+            },
+            None,
+        )],
+        1.0,
     );
-    let primitives = lowered(vec![shadowed], 2.0);
-    let [Primitive::Block { paint, .. }] = primitives.as_slice() else {
-        panic!("shadowed block passes through");
+    let [Primitive::FillPath { path, .. }] = percent.as_slice() else {
+        panic!("{percent:?}");
     };
     assert_eq!(
-        paint.box_shadows,
-        vec![ReaderBoxShadowV1 {
-            offset_x: 2.0,
-            offset_y: 4.0,
-            blur: 6.0,
-            spread: 1.0,
-            color: TRANSLUCENT,
-            inset: false,
-        }]
+        path.ops[2],
+        PathOp::Arc {
+            center: DevicePoint::new(10.0, 15.0),
+            rx: 10.0,
+            ry: 15.0,
+            start: -FRAC_PI_2,
+            sweep: FRAC_PI_2,
+        }
     );
 
-    let imaged = block(
-        rect(0.0, 0.0, 10.0, 20.0),
-        ReaderBlockPaintV1 {
-            background: Some(ReaderBackgroundPaintV1 {
-                color: None,
-                image: Some("images/paper.png".to_owned()),
-                size: Some(ReaderBackgroundSizeV1::Explicit {
-                    x: Some(ReaderLengthV1::Px(10.0)),
-                    y: None,
-                }),
-                repeat: None,
-                position: Some(ReaderBackgroundPositionV1 {
-                    x: ReaderLengthV1::Percent(50.0),
-                    y: ReaderLengthV1::Px(4.0),
-                }),
-            }),
-            ..block_paint(None, None)
-        },
-        None,
+    // Corners 10/20/30/40 on a 40px box: the bottom edge (30 + 40) is the
+    // tightest, so every corner shrinks by 40/70.
+    let corners = lowered(
+        vec![block(
+            rect(0.0, 0.0, 40.0, 40.0),
+            ReaderBlockPaintV1 {
+                radius: Some(ReaderBlockRadiusV1::Corners([10.0, 20.0, 30.0, 40.0])),
+                ..block_paint(Some(INK), None)
+            },
+            None,
+        )],
+        1.0,
     );
-    let list = lower(
-        &ReaderDisplayListV1 {
-            commands: vec![imaged],
-        },
-        2.0,
-    )
-    .expect("lower");
-    assert_eq!(list.passthrough_block_count(), 1);
-    let [Primitive::Block { paint, .. }] = list.commands.as_slice() else {
-        panic!("imaged block passes through");
+    let [Primitive::FillPath { path, .. }] = corners.as_slice() else {
+        panic!("{corners:?}");
     };
-    let background = paint.background.as_ref().expect("background");
-    assert_eq!(
-        background.size,
-        Some(ReaderBackgroundSizeV1::Explicit {
-            x: Some(ReaderLengthV1::Px(20.0)),
-            y: None,
-        })
-    );
-    assert_eq!(
-        background.position,
-        Some(ReaderBackgroundPositionV1 {
-            x: ReaderLengthV1::Percent(50.0),
-            y: ReaderLengthV1::Px(8.0),
-        })
-    );
+    let PathOp::Arc { rx, ry, .. } = path.ops[2] else {
+        panic!("{:?}", path.ops[2]);
+    };
+    assert!((rx - 20.0 * 40.0 / 70.0).abs() < 1e-9, "{rx}");
+    assert_eq!(rx, ry);
 
-    // Corners that are all zero round nothing: the block lowers.
-    let square = block(
-        rect(0.0, 0.0, 10.0, 20.0),
-        ReaderBlockPaintV1 {
-            radius: Some(ReaderBlockRadiusV1::Corners([0.0; 4])),
-            ..block_paint(Some(INK), None)
-        },
-        None,
+    // Corners that are all zero round nothing: a plain snapped fill.
+    let square = lowered(
+        vec![block(
+            rect(0.0, 0.0, 10.0, 20.0),
+            ReaderBlockPaintV1 {
+                radius: Some(ReaderBlockRadiusV1::Corners([0.0; 4])),
+                ..block_paint(Some(INK), None)
+            },
+            None,
+        )],
+        1.0,
     );
     assert_eq!(
-        fill_rects(&lowered(vec![square], 1.0)),
+        fill_rects(&square),
         vec![DeviceRect::new(0.0, 0.0, 10.0, 20.0)]
+    );
+}
+
+#[test]
+fn a_uniform_rounded_border_strokes_one_ring_inset_by_half_its_width() {
+    let ring = |style, width: f64| {
+        let border = ReaderBlockBorderV1 {
+            top: edge(style),
+            right: edge(style),
+            bottom: edge(style),
+            left: edge(style),
+        };
+        lowered(
+            vec![block(
+                rect(0.0, 0.0, 100.0, 60.0),
+                ReaderBlockPaintV1 {
+                    radius: Some(ReaderBlockRadiusV1::Px(10.0)),
+                    ..block_paint(None, Some(border))
+                },
+                Some(widths(width, width, width, width)),
+            )],
+            1.0,
+        )
+    };
+    let solid = ring(ReaderBorderStyleV1::Solid, 4.0);
+    let [Primitive::StrokePath {
+        path,
+        width,
+        cap,
+        dash,
+        ..
+    }] = solid.as_slice()
+    else {
+        panic!("{solid:?}");
+    };
+    assert_eq!((*width, *cap, *dash), (4.0, StrokeCap::Butt, None));
+    // Inset 2 with the radius shrunk to 8: the outline starts at (10, 2).
+    assert_eq!(path.ops[0], PathOp::MoveTo(DevicePoint::new(10.0, 2.0)));
+    assert!(matches!(
+        path.ops[2],
+        PathOp::Arc {
+            rx: 8.0,
+            ry: 8.0,
+            ..
+        }
+    ));
+
+    // A double border is two rings of a third each, at insets 1 and 5.
+    let double = ring(ReaderBorderStyleV1::Double, 6.0);
+    assert_eq!(double.len(), 2);
+    let starts: Vec<_> = double
+        .iter()
+        .map(|primitive| match primitive {
+            Primitive::StrokePath { path, width, .. } => (path.ops[0], *width),
+            other => panic!("{other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        starts,
+        vec![
+            (PathOp::MoveTo(DevicePoint::new(10.0, 1.0)), 2.0),
+            (PathOp::MoveTo(DevicePoint::new(10.0, 5.0)), 2.0),
+        ]
+    );
+
+    let dotted = ring(ReaderBorderStyleV1::Dotted, 4.0);
+    let [Primitive::StrokePath {
+        width, cap, dash, ..
+    }] = dotted.as_slice()
+    else {
+        panic!("{dotted:?}");
+    };
+    assert_eq!(
+        (*width, *cap, *dash),
+        (
+            3.0,
+            StrokeCap::Round,
+            Some(DashPattern {
+                on: 0.001,
+                off: 6.0
+            })
+        )
+    );
+    let dashed = ring(ReaderBorderStyleV1::Dashed, 4.0);
+    let [Primitive::StrokePath { dash, .. }] = dashed.as_slice() else {
+        panic!("{dashed:?}");
+    };
+    assert_eq!(*dash, Some(DashPattern { on: 12.0, off: 8.0 }));
+}
+
+#[test]
+fn unequal_solid_rounded_edges_of_one_colour_fill_a_crescent() {
+    let primitives = lowered(
+        vec![block(
+            rect(0.0, 0.0, 100.0, 60.0),
+            ReaderBlockPaintV1 {
+                radius: Some(ReaderBlockRadiusV1::Px(20.0)),
+                ..block_paint(None, Some(solid_border()))
+            },
+            Some(widths(1.0, 4.0, 1.0, 4.0)),
+        )],
+        1.0,
+    );
+    let [Primitive::FillPath {
+        path, rule, color, ..
+    }] = primitives.as_slice()
+    else {
+        panic!("{primitives:?}");
+    };
+    assert_eq!((*rule, *color), (FillRule::EvenOdd, INK));
+    // Outer outline (10 ops) then the padding outline (10 ops), whose
+    // corners inset by the adjacent edges: 20 - 4 across, 20 - 1 down.
+    assert_eq!(path.ops.len(), 20);
+    assert_eq!(path.ops[10], PathOp::MoveTo(DevicePoint::new(20.0, 1.0)));
+    assert!(matches!(
+        path.ops[12],
+        PathOp::Arc {
+            rx: 16.0,
+            ry: 19.0,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn disagreeing_rounded_edges_each_paint_inside_their_wedge() {
+    let side = |color| {
+        Some(ReaderBorderEdgePaintV1 {
+            color,
+            style: ReaderBorderStyleV1::Solid,
+        })
+    };
+    let primitives = lowered(
+        vec![block(
+            rect(0.0, 0.0, 100.0, 60.0),
+            ReaderBlockPaintV1 {
+                radius: Some(ReaderBlockRadiusV1::Px(10.0)),
+                ..block_paint(
+                    None,
+                    Some(ReaderBlockBorderV1 {
+                        top: side(INK),
+                        right: side(TRANSLUCENT),
+                        bottom: side(TRANSLUCENT),
+                        left: side(TRANSLUCENT),
+                    }),
+                )
+            },
+            Some(widths(3.0, 1.0, 1.0, 1.0)),
+        )],
+        1.0,
+    );
+    assert_eq!(primitives.len(), 16);
+    assert_eq!(primitives[0], Primitive::PushState);
+    assert_eq!(
+        primitives[1],
+        Primitive::ClipPath {
+            path: DevicePath {
+                ops: vec![
+                    PathOp::MoveTo(DevicePoint::new(50.0, 30.0)),
+                    PathOp::LineTo(DevicePoint::new(0.0, 0.0)),
+                    PathOp::LineTo(DevicePoint::new(100.0, 0.0)),
+                    PathOp::Close,
+                ],
+            },
+        }
+    );
+    let Primitive::FillPath {
+        path, rule, color, ..
+    } = &primitives[2]
+    else {
+        panic!("{:?}", primitives[2]);
+    };
+    assert_eq!((*rule, *color), (FillRule::EvenOdd, INK));
+    // The padding outline sits inside the widest edge with the radius
+    // shrunk by it: (1, 3) with radius 7.
+    assert_eq!(path.ops.len(), 20);
+    assert_eq!(path.ops[10], PathOp::MoveTo(DevicePoint::new(8.0, 3.0)));
+    assert!(matches!(
+        path.ops[12],
+        PathOp::Arc {
+            rx: 7.0,
+            ry: 7.0,
+            ..
+        }
+    ));
+    assert_eq!(primitives[3], Primitive::PopState);
+}
+
+#[test]
+fn box_shadows_blur_the_spread_box_outside_the_box_back_to_front() {
+    let shadow = |offset_x, spread, inset| ReaderBoxShadowV1 {
+        offset_x,
+        offset_y: 3.0,
+        blur: 4.0,
+        spread,
+        color: TRANSLUCENT,
+        inset,
+    };
+    let primitives = lowered(
+        vec![block(
+            rect(10.0, 10.0, 50.0, 40.0),
+            ReaderBlockPaintV1 {
+                box_shadows: vec![
+                    shadow(2.0, 1.0, false),
+                    shadow(9.0, 0.0, true),
+                    shadow(5.0, 0.0, false),
+                ],
+                ..block_paint(None, None)
+            },
+            None,
+        )],
+        1.0,
+    );
+    // Back to front, the inset shadow not painted.
+    assert_eq!(primitives.len(), 2);
+    let Primitive::Shadow {
+        shape,
+        sigma,
+        offset,
+        clip_out,
+        ..
+    } = &primitives[1]
+    else {
+        panic!("{:?}", primitives[1]);
+    };
+    assert_eq!((*sigma, *offset), (2.0, DevicePoint::new(2.0, 3.0)));
+    // A spread of 1 rounds the expanded box by 1; the box interior is cut out.
+    assert_eq!(shape.ops[0], PathOp::MoveTo(DevicePoint::new(10.0, 9.0)));
+    assert_eq!(
+        clip_out.as_ref().map(|path| path.ops.clone()),
+        Some(vec![PathOp::Rect(DeviceRect::new(10.0, 10.0, 50.0, 40.0))])
+    );
+    let Primitive::Shadow { offset, shape, .. } = &primitives[0] else {
+        panic!("{:?}", primitives[0]);
+    };
+    assert_eq!(*offset, DevicePoint::new(5.0, 3.0));
+    assert_eq!(
+        shape.ops,
+        vec![PathOp::Rect(DeviceRect::new(10.0, 10.0, 50.0, 40.0))]
+    );
+
+    // On a 2x grid sigma, offset and spread all scale.
+    let scaled = lowered(
+        vec![block(
+            rect(10.0, 10.0, 50.0, 40.0),
+            ReaderBlockPaintV1 {
+                box_shadows: vec![shadow(2.0, 1.0, false)],
+                ..block_paint(None, None)
+            },
+            None,
+        )],
+        2.0,
+    );
+    let [Primitive::Shadow {
+        sigma,
+        offset,
+        shape,
+        ..
+    }] = scaled.as_slice()
+    else {
+        panic!("{scaled:?}");
+    };
+    assert_eq!((*sigma, *offset), (4.0, DevicePoint::new(4.0, 6.0)));
+    assert_eq!(shape.ops[0], PathOp::MoveTo(DevicePoint::new(20.0, 18.0)));
+}
+
+#[test]
+fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
+    let paper = |size, repeat, position| ReaderBackgroundPaintV1 {
+        color: None,
+        image: Some("paper.png".to_owned()),
+        size,
+        repeat,
+        position,
+    };
+    let imaged = |rect, background, ratio| {
+        lowered_with(
+            vec![block(
+                rect,
+                ReaderBlockPaintV1 {
+                    background: Some(background),
+                    ..block_paint(None, None)
+                },
+                None,
+            )],
+            ratio,
+            &sixteen_square,
+        )
+    };
+
+    // cover scales to the larger ratio and centres; no-repeat draws once.
+    let cover = imaged(
+        rect(100.0, 50.0, 40.0, 20.0),
+        paper(
+            Some(ReaderBackgroundSizeV1::Cover),
+            Some(ReaderBackgroundRepeatV1::NoRepeat),
+            None,
+        ),
+        1.0,
+    );
+    assert_eq!(
+        cover,
+        vec![
+            Primitive::PushState,
+            Primitive::ClipPath {
+                path: DevicePath {
+                    ops: vec![PathOp::Rect(DeviceRect::new(100.0, 50.0, 40.0, 20.0))],
+                },
+            },
+            Primitive::DrawImage {
+                src: "paper.png".to_owned(),
+                dest: DeviceRect::new(100.0, 40.0, 40.0, 40.0),
+                source_rect: None,
+                tiles: None,
+            },
+            Primitive::PopState,
+        ]
+    );
+
+    // The default (auto size, repeat, origin) tiles from the box origin.
+    let tiled = imaged(rect(100.0, 50.0, 40.0, 20.0), paper(None, None, None), 1.0);
+    assert_eq!(
+        tiled[2],
+        Primitive::DrawImage {
+            src: "paper.png".to_owned(),
+            dest: DeviceRect::new(100.0, 50.0, 16.0, 16.0),
+            source_rect: None,
+            tiles: Some(TilePlan {
+                origin: DevicePoint::new(100.0, 50.0),
+                step_x: 16.0,
+                step_y: 16.0,
+                columns: 3,
+                rows: 2,
+            }),
+        }
+    );
+
+    // An explicit width derives the height from the intrinsic ratio; a
+    // pixel position scales, a percentage resolves against the free space.
+    let explicit = imaged(
+        rect(0.0, 0.0, 40.0, 20.0),
+        paper(
+            Some(ReaderBackgroundSizeV1::Explicit {
+                x: Some(ReaderLengthV1::Px(10.0)),
+                y: None,
+            }),
+            Some(ReaderBackgroundRepeatV1::NoRepeat),
+            Some(ReaderBackgroundPositionV1 {
+                x: ReaderLengthV1::Percent(50.0),
+                y: ReaderLengthV1::Px(4.0),
+            }),
+        ),
+        2.0,
+    );
+    assert_eq!(
+        explicit[2],
+        Primitive::DrawImage {
+            src: "paper.png".to_owned(),
+            dest: DeviceRect::new(30.0, 8.0, 20.0, 20.0),
+            source_rect: None,
+            tiles: None,
+        }
+    );
+
+    // The clip follows the box outline, unsnapped.
+    let rounded = imaged(
+        rect(0.5, 0.0, 40.0, 20.0),
+        ReaderBackgroundPaintV1 {
+            color: Some(INK),
+            ..paper(None, Some(ReaderBackgroundRepeatV1::NoRepeat), None)
+        },
+        1.0,
+    );
+    assert!(matches!(rounded[0], Primitive::FillRect { .. }));
+    assert_eq!(
+        rounded[2],
+        Primitive::ClipPath {
+            path: DevicePath {
+                ops: vec![PathOp::Rect(DeviceRect::new(0.5, 0.0, 40.0, 20.0))],
+            },
+        }
+    );
+
+    // An image the engine cannot size is not painted; the colour still is.
+    let unknown = lowered(
+        vec![block(
+            rect(0.0, 0.0, 40.0, 20.0),
+            ReaderBlockPaintV1 {
+                background: Some(ReaderBackgroundPaintV1 {
+                    color: Some(INK),
+                    ..paper(None, None, None)
+                }),
+                ..block_paint(None, None)
+            },
+            None,
+        )],
+        1.0,
+    );
+    assert_eq!(
+        fill_rects(&unknown),
+        vec![DeviceRect::new(0.0, 0.0, 40.0, 20.0)]
     );
 }
 
@@ -723,7 +1125,7 @@ fn lowering_display_commands_adapts_them_first() {
         json!({ "x": 0, "y": 0, "width": 20, "height": 30 }),
         json!({ "backgroundColor": "#123456" }),
     )];
-    let list = lower_display_commands(&commands, 2.0).expect("lower");
+    let list = lower_display_commands(&commands, 2.0, &no_images).expect("lower");
     assert_eq!(list.ratio, 2.0);
     let [Primitive::FillRect { rect, ground, .. }] = list.commands.as_slice() else {
         panic!("page fill, got {:?}", list.commands);
@@ -732,7 +1134,7 @@ fn lowering_display_commands_adapts_them_first() {
     assert_eq!(*ground, Ground::Page);
 
     assert_eq!(
-        lower_display_commands(&[DisplayCommand::opacity(f64::NAN)], 1.0),
+        lower_display_commands(&[DisplayCommand::opacity(f64::NAN)], 1.0, &no_images),
         Err(LowerError::Adapt(
             ReaderDisplayListWireError::NonFiniteNumber
         ))
@@ -757,6 +1159,7 @@ fn json_form_mirrors_the_decoded_wire_shape() {
             ],
         },
         1.0,
+        &no_images,
     )
     .expect("lower");
     let ink = json!({
@@ -785,6 +1188,7 @@ fn json_form_mirrors_the_decoded_wire_shape() {
                     "rect": { "x": 0.0, "y": 0.0, "width": 10.0, "height": 20.0 },
                     "color": ink,
                     "ground": "block",
+                    "groundRect": { "x": 0.0, "y": 0.0, "width": 10.0, "height": 20.0 },
                 },
                 {
                     "kind": "text",
@@ -831,9 +1235,28 @@ fn lowering_sources_are_typed_only() {
 }
 
 fn lowered(commands: Vec<ReaderDisplayCommandV1>, ratio: f64) -> Vec<Primitive> {
-    lower(&ReaderDisplayListV1 { commands }, ratio)
+    lowered_with(commands, ratio, &no_images)
+}
+
+fn lowered_with(
+    commands: Vec<ReaderDisplayCommandV1>,
+    ratio: f64,
+    images: &dyn Fn(&str) -> Option<ImageSize>,
+) -> Vec<Primitive> {
+    lower(&ReaderDisplayListV1 { commands }, ratio, images)
         .expect("lower")
         .commands
+}
+
+fn no_images(_: &str) -> Option<ImageSize> {
+    None
+}
+
+fn sixteen_square(href: &str) -> Option<ImageSize> {
+    (href == "paper.png").then_some(ImageSize {
+        width: 16,
+        height: 16,
+    })
 }
 
 fn fill_rects(primitives: &[Primitive]) -> Vec<DeviceRect> {

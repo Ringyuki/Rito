@@ -1,14 +1,12 @@
 //! The device-resolved paint vocabulary.
 //!
 //! Every coordinate is in device pixels, the grid the host rasterizes on,
-//! and every rule about where ink lands has already been applied. The
-//! vocabulary is fixed in one piece so the wire and both renderers grow
-//! against a stable shape while the block and text laws move into the
-//! lowering step by step; the shapes no law produces yet are marked.
+//! and every rule about where ink lands has already been applied. Text
+//! runs are the one semantic shape left: their glyph placement is still
+//! the renderer's until the text laws move here.
 
 use super::super::commands::contract::{
-    ReaderBlockPaintV1, ReaderBorderBoxV1, ReaderColorV1, ReaderPointV1, ReaderRectV1,
-    ReaderTextCommandV1,
+    ReaderColorV1, ReaderPointV1, ReaderRectV1, ReaderTextCommandV1,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -92,6 +90,16 @@ impl DeviceRect {
     pub(crate) fn is_empty(&self) -> bool {
         self.width <= 0.0 || self.height <= 0.0
     }
+
+    /// The rect shrunk by `inset` on every side.
+    pub(crate) fn deflate(&self, inset: f64) -> Self {
+        Self {
+            x: self.x + inset,
+            y: self.y + inset,
+            width: self.width - 2.0 * inset,
+            height: self.height - 2.0 * inset,
+        }
+    }
 }
 
 /// One segment of a device-space outline. Arc angles are radians from the
@@ -125,27 +133,15 @@ pub(crate) struct DevicePath {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum FillRule {
     NonZero,
-    #[allow(
-        dead_code,
-        reason = "fixed with the vocabulary; the rounded-border and box-shadow laws fill even-odd once they lower"
-    )]
     EvenOdd,
 }
 
-#[allow(
-    dead_code,
-    reason = "fixed with the vocabulary; the rounded-border laws stroke once they lower"
-)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StrokeCap {
     Butt,
     Round,
 }
 
-#[allow(
-    dead_code,
-    reason = "fixed with the vocabulary; the rounded-border laws stroke once they lower"
-)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct DashPattern {
     pub on: f64,
@@ -154,21 +150,17 @@ pub(crate) struct DashPattern {
 
 /// What a fill declares to the renderer's theme override: the page ground
 /// (the book's paper, kept or replaced by the theme) or an opaque block
-/// ground the ink inside it was typeset against. Other fills declare
-/// nothing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// ground over the unsnapped box the ink inside it was typeset against.
+/// Other fills declare nothing.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum Ground {
     None,
     Page,
-    Block,
+    Block(DeviceRect),
 }
 
 /// A grid of image tiles: `columns` by `rows` copies of the destination,
 /// stepping `step_x`/`step_y` from `origin`.
-#[allow(
-    dead_code,
-    reason = "fixed with the vocabulary; the background-image law tiles once it lowers"
-)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct TilePlan {
     pub origin: DevicePoint,
@@ -212,11 +204,8 @@ pub(crate) enum Primitive {
         path: DevicePath,
         rule: FillRule,
         color: ReaderColorV1,
+        ground: Ground,
     },
-    #[allow(
-        dead_code,
-        reason = "fixed with the vocabulary; the rounded-border laws stroke once they lower"
-    )]
     StrokePath {
         path: DevicePath,
         width: f64,
@@ -227,10 +216,6 @@ pub(crate) enum Primitive {
     /// A canvas-style shadow: the `shape` blurred by Gaussian `sigma`
     /// (device pixels) and drawn at `offset`, then the shape itself on
     /// top, both with `clip_out` excluded from the result.
-    #[allow(
-        dead_code,
-        reason = "fixed with the vocabulary; the box-shadow law produces it once it lowers"
-    )]
     Shadow {
         shape: DevicePath,
         sigma: f64,
@@ -250,13 +235,6 @@ pub(crate) enum Primitive {
     /// still the renderer's.
     Text(ReaderTextCommandV1),
     Ruby(ReaderTextCommandV1),
-    /// A block whose paint the lowering does not resolve yet (rounded
-    /// corners, box shadows, background images), lengths in device pixels.
-    Block {
-        rect: DeviceRect,
-        paint: ReaderBlockPaintV1,
-        border_box: Option<ReaderBorderBoxV1>,
-    },
 }
 
 impl Primitive {
@@ -276,7 +254,6 @@ impl Primitive {
             Self::DrawImage { .. } => 11,
             Self::Text(_) => 12,
             Self::Ruby(_) => 13,
-            Self::Block { .. } => 14,
         }
     }
 }
@@ -317,7 +294,7 @@ impl Ground {
         match self {
             Self::None => 1,
             Self::Page => 2,
-            Self::Block => 3,
+            Self::Block(_) => 3,
         }
     }
 }
@@ -337,15 +314,4 @@ pub(crate) struct PrimitiveList {
     /// Device pixels per CSS pixel the list was resolved at.
     pub ratio: f64,
     pub commands: Vec<Primitive>,
-}
-
-impl PrimitiveList {
-    /// Blocks handed through unlowered: the renderer's remaining share of
-    /// the block laws.
-    pub(crate) fn passthrough_block_count(&self) -> usize {
-        self.commands
-            .iter()
-            .filter(|command| matches!(command, Primitive::Block { .. }))
-            .count()
-    }
 }

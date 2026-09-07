@@ -8,9 +8,9 @@ const double _clipReach = 1048576;
 ///
 /// The canvas is expected in device pixels with an identity transform:
 /// every coordinate lands on the device grid as the engine resolved it,
-/// nothing here measures or snaps. Text runs and pass-through blocks go
-/// to the semantic painter with their lengths already in device pixels,
-/// and the theme override's ground tracking is shared with it.
+/// nothing here measures or snaps. Text runs go to the semantic text
+/// painter with their lengths already in device pixels, and the theme
+/// override's ground tracking is shared with it.
 final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
   RitoPrimitiveCanvasTarget(
     ui.Canvas canvas, {
@@ -69,37 +69,17 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
     _canvas.clipPath(_devicePath(primitive.path));
   }
 
-  /// A fill declaring the page ground resets the declared grounds and
-  /// takes the theme's R1 decision: a designed ground (opaque, darker than
-  /// the white-paper limit) stays the book's and marks the page
-  /// book-owned; a near-white ground is the typesetter's paper default and
-  /// the theme paints its own. A fill declaring a block ground is recorded
-  /// for the ink typeset over it (the engine only declares opaque ones).
   @override
   void fillRect(RitoPrimitiveFillRect primitive) {
-    final rect = _semantic._rect(primitive.rect);
-    var fill = _semantic._color(primitive.color);
-    if (identical(primitive.ground, RitoFillGround.page)) {
-      _semantic._blockGrounds.clear();
-      _semantic._bookOwnedPageGround = null;
-      final override = _semantic._colorOverride;
-      if (override != null) {
-        final book = ritoUiColor(primitive.color);
-        if (RitoCanvasColorOverride.isBookOwnedPageGround(book)) {
-          _semantic._bookOwnedPageGround = book;
-        } else {
-          fill = override.background.withValues(
-            alpha: override.background.a * _semantic._opacity,
-          );
-        }
-      }
-    } else if (identical(primitive.ground, RitoFillGround.block)) {
-      _semantic._blockGrounds.add((
-        rect: rect,
-        color: ritoUiColor(primitive.color),
-      ));
-    }
-    _canvas.drawRect(rect, ui.Paint()..color = fill);
+    _canvas.drawRect(
+      _semantic._rect(primitive.rect),
+      ui.Paint()
+        ..color = _declareGround(
+          primitive.ground,
+          primitive.groundRect,
+          primitive.color,
+        ),
+    );
   }
 
   @override
@@ -110,8 +90,50 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
           : ui.PathFillType.nonZero;
     _canvas.drawPath(
       path,
-      ui.Paint()..color = _semantic._color(primitive.color),
+      ui.Paint()
+        ..color = _declareGround(
+          primitive.ground,
+          primitive.groundRect,
+          primitive.color,
+        ),
     );
+  }
+
+  /// The colour a fill paints, after its declared ground is taken in. A
+  /// fill declaring the page ground resets the declared grounds and takes
+  /// the theme's R1 decision: a designed ground (opaque, darker than the
+  /// white-paper limit) stays the book's and marks the page book-owned; a
+  /// near-white ground is the typesetter's paper default and the theme
+  /// paints its own. A fill declaring a block ground records the unsnapped
+  /// box it covers for the ink typeset over it (the engine only declares
+  /// opaque ones).
+  ui.Color _declareGround(
+    RitoFillGround ground,
+    RitoDisplayRect? groundRect,
+    RitoColor color,
+  ) {
+    final fill = _semantic._color(color);
+    if (identical(ground, RitoFillGround.page)) {
+      _semantic._blockGrounds.clear();
+      _semantic._bookOwnedPageGround = null;
+      final override = _semantic._colorOverride;
+      if (override != null) {
+        final book = ritoUiColor(color);
+        if (RitoCanvasColorOverride.isBookOwnedPageGround(book)) {
+          _semantic._bookOwnedPageGround = book;
+        } else {
+          return override.background.withValues(
+            alpha: override.background.a * _semantic._opacity,
+          );
+        }
+      }
+    } else if (identical(ground, RitoFillGround.block) && groundRect != null) {
+      _semantic._blockGrounds.add((
+        rect: _semantic._rect(groundRect),
+        color: ritoUiColor(color),
+      ));
+    }
+    return fill;
   }
 
   @override
@@ -229,10 +251,6 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
   @override
   void ruby(RitoPrimitiveRuby primitive) =>
       _semantic.paintRuby(primitive.command);
-
-  @override
-  void block(RitoPrimitiveBlock primitive) =>
-      _semantic.paintBlock(primitive.command);
 
   ui.Path _devicePath(RitoDevicePath path) {
     final built = ui.Path();

@@ -20,8 +20,8 @@
     "maxDiffPx": 4795
   },
   "block-radius": {
-    "maxDelta": 144,
-    "maxDiffPx": 707
+    "maxDelta": 7,
+    "maxDiffPx": 671
   },
   "hr-styles": {
     "maxDelta": 3,

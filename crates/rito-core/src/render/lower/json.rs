@@ -5,9 +5,8 @@
 use serde_json::{json, Map, Number, Value};
 
 use super::super::commands::contract::{
-    ReaderBackgroundPaintV1, ReaderBackgroundSizeV1, ReaderBlockBorderV1, ReaderBlockPaintV1,
-    ReaderBlockRadiusV1, ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderColorV1, ReaderLengthV1,
-    ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunPaintV1, ReaderTextCommandV1,
+    ReaderBorderEdgePaintV1, ReaderColorV1, ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunPaintV1,
+    ReaderTextCommandV1,
 };
 use super::{
     DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, PathOp,
@@ -43,25 +42,36 @@ fn primitive(primitive: &Primitive) -> Value {
             rect,
             color: fill,
             ground,
-        } => json!({
-            "kind": "fill-rect",
-            "rect": device_rect(*rect),
-            "color": color(fill),
-            "ground": ground_name(*ground),
-        }),
+        } => {
+            let mut object = object([
+                ("kind", json!("fill-rect")),
+                ("rect", device_rect(*rect)),
+                ("color", color(fill)),
+            ]);
+            insert_ground(&mut object, *ground);
+            Value::Object(object)
+        }
         Primitive::FillPath {
             path: outline,
             rule,
             color: fill,
-        } => json!({
-            "kind": "fill-path",
-            "path": path(outline),
-            "rule": match rule {
-                FillRule::NonZero => "nonzero",
-                FillRule::EvenOdd => "evenodd",
-            },
-            "color": color(fill),
-        }),
+            ground,
+        } => {
+            let mut object = object([
+                ("kind", json!("fill-path")),
+                ("path", path(outline)),
+                (
+                    "rule",
+                    json!(match rule {
+                        FillRule::NonZero => "nonzero",
+                        FillRule::EvenOdd => "evenodd",
+                    }),
+                ),
+                ("color", color(fill)),
+            ]);
+            insert_ground(&mut object, *ground);
+            Value::Object(object)
+        }
         Primitive::StrokePath {
             path: outline,
             width,
@@ -130,21 +140,6 @@ fn primitive(primitive: &Primitive) -> Value {
         }
         Primitive::Text(command) => text("text", command),
         Primitive::Ruby(command) => text("ruby", command),
-        Primitive::Block {
-            rect,
-            paint,
-            border_box: widths,
-        } => {
-            let mut object = object([
-                ("kind", json!("block")),
-                ("rect", device_rect(*rect)),
-                ("paint", block_paint(paint)),
-            ]);
-            if let Some(widths) = widths {
-                object.insert("borderBox".to_owned(), border_box(widths));
-            }
-            Value::Object(object)
-        }
     }
 }
 
@@ -216,11 +211,17 @@ fn tile_plan(plan: &TilePlan) -> Value {
     })
 }
 
-fn ground_name(ground: Ground) -> &'static str {
-    match ground {
+/// A fill's declared ground: its name, and for a block ground the
+/// unsnapped box it covers.
+fn insert_ground(object: &mut Map<String, Value>, ground: Ground) {
+    let name = match ground {
         Ground::None => "none",
         Ground::Page => "page",
-        Ground::Block => "block",
+        Ground::Block(_) => "block",
+    };
+    object.insert("ground".to_owned(), json!(name));
+    if let Ground::Block(rect) = ground {
+        object.insert("groundRect".to_owned(), device_rect(rect));
     }
 }
 
@@ -330,120 +331,6 @@ fn run_border_edge(edge: &ReaderRunBorderEdgeV1) -> Value {
 
 fn border_edge(edge: &ReaderBorderEdgePaintV1) -> Value {
     json!({ "color": color(&edge.color), "style": edge.style.tag_name() })
-}
-
-fn block_paint(paint: &ReaderBlockPaintV1) -> Value {
-    let mut object = Map::new();
-    if let Some(background) = &paint.background {
-        object.insert("background".to_owned(), background_paint(background));
-    }
-    if let Some(border) = &paint.border {
-        object.insert("border".to_owned(), block_border(border));
-    }
-    if let Some(radius) = paint.radius {
-        object.insert(
-            "radius".to_owned(),
-            match radius {
-                ReaderBlockRadiusV1::Px(value) => json!({ "unit": "px", "value": number(value) }),
-                ReaderBlockRadiusV1::Percent(value) => {
-                    json!({ "unit": "percent", "value": number(value) })
-                }
-                ReaderBlockRadiusV1::Corners(corners) => json!({
-                    "unit": "corners",
-                    "corners": corners.iter().map(|value| number(*value)).collect::<Vec<_>>(),
-                }),
-            },
-        );
-    }
-    object.insert(
-        "boxShadows".to_owned(),
-        Value::Array(
-            paint
-                .box_shadows
-                .iter()
-                .map(|shadow| {
-                    json!({
-                        "offsetX": number(shadow.offset_x),
-                        "offsetY": number(shadow.offset_y),
-                        "blur": number(shadow.blur),
-                        "spread": number(shadow.spread),
-                        "color": color(&shadow.color),
-                        "inset": shadow.inset,
-                    })
-                })
-                .collect(),
-        ),
-    );
-    Value::Object(object)
-}
-
-fn background_paint(background: &ReaderBackgroundPaintV1) -> Value {
-    let mut object = Map::new();
-    if let Some(fill) = &background.color {
-        object.insert("color".to_owned(), color(fill));
-    }
-    insert_string(&mut object, "image", background.image.as_deref());
-    if let Some(size) = background.size {
-        object.insert(
-            "size".to_owned(),
-            match size {
-                ReaderBackgroundSizeV1::Auto => json!("auto"),
-                ReaderBackgroundSizeV1::Cover => json!("cover"),
-                ReaderBackgroundSizeV1::Contain => json!("contain"),
-                ReaderBackgroundSizeV1::Explicit { x, y } => {
-                    let mut axes = Map::new();
-                    if let Some(x) = x {
-                        axes.insert("x".to_owned(), length(x));
-                    }
-                    if let Some(y) = y {
-                        axes.insert("y".to_owned(), length(y));
-                    }
-                    Value::Object(axes)
-                }
-            },
-        );
-    }
-    if let Some(repeat) = background.repeat {
-        object.insert("repeat".to_owned(), json!(repeat.tag_name()));
-    }
-    if let Some(position) = background.position {
-        object.insert(
-            "position".to_owned(),
-            json!({ "x": length(position.x), "y": length(position.y) }),
-        );
-    }
-    Value::Object(object)
-}
-
-fn block_border(border: &ReaderBlockBorderV1) -> Value {
-    let mut edges = Map::new();
-    for (name, edge) in [
-        ("top", border.top),
-        ("right", border.right),
-        ("bottom", border.bottom),
-        ("left", border.left),
-    ] {
-        if let Some(edge) = edge {
-            edges.insert(name.to_owned(), border_edge(&edge));
-        }
-    }
-    Value::Object(edges)
-}
-
-fn border_box(widths: &ReaderBorderBoxV1) -> Value {
-    json!({
-        "topWidth": number(widths.top_width),
-        "rightWidth": number(widths.right_width),
-        "bottomWidth": number(widths.bottom_width),
-        "leftWidth": number(widths.left_width),
-    })
-}
-
-fn length(length: ReaderLengthV1) -> Value {
-    match length {
-        ReaderLengthV1::Px(value) => json!({ "unit": "px", "value": number(value) }),
-        ReaderLengthV1::Percent(value) => json!({ "unit": "percent", "value": number(value) }),
-    }
 }
 
 fn color(color: &ReaderColorV1) -> Value {

@@ -2,14 +2,14 @@
 //!
 //! Header: magic, u32 format version, f64 render ratio, u32 primitive
 //! count. Every primitive is a u16 opcode followed by its fields; paths are
-//! a u32 op count of tagged ops. Colours, run paints and block paints share
-//! the format-1 encodings.
+//! a u32 op count of tagged ops. Colours and run paints share the format-1
+//! encodings.
 
 use super::super::{
     ReaderDisplayListWireError, READER_DISPLAY_LIST_MAGIC, READER_PRIMITIVE_LIST_FORMAT_VERSION,
 };
 use super::{
-    paint::{write_block_paint, write_border_box, write_color},
+    paint::write_color,
     primitives::{
         checked_length, write_finite_f64, write_length, write_optional, write_rect, write_string,
         write_u16, write_u32,
@@ -17,7 +17,7 @@ use super::{
     write_text,
 };
 use crate::render::lower::{
-    DevicePath, DevicePoint, DeviceRect, DeviceTransform, PathOp, Primitive, PrimitiveList,
+    DevicePath, DevicePoint, DeviceRect, DeviceTransform, Ground, PathOp, Primitive, PrimitiveList,
     TilePlan,
 };
 
@@ -75,13 +75,18 @@ fn write_primitive(
         } => {
             write_device_rect(output, *rect)?;
             write_color(output, color)?;
-            output.push(ground.tag());
-            Ok(())
+            write_ground(output, *ground)
         }
-        Primitive::FillPath { path, rule, color } => {
+        Primitive::FillPath {
+            path,
+            rule,
+            color,
+            ground,
+        } => {
             write_path(output, path)?;
             output.push(rule.tag());
-            write_color(output, color)
+            write_color(output, color)?;
+            write_ground(output, *ground)
         }
         Primitive::StrokePath {
             path,
@@ -124,15 +129,15 @@ fn write_primitive(
             write_optional(output, tiles.as_ref(), write_tile_plan)
         }
         Primitive::Text(text) | Primitive::Ruby(text) => write_text(output, text),
-        Primitive::Block {
-            rect,
-            paint,
-            border_box,
-        } => {
-            write_device_rect(output, *rect)?;
-            write_block_paint(output, paint)?;
-            write_optional(output, border_box.as_ref(), write_border_box)
-        }
+    }
+}
+
+/// The ground tag, followed by the declared box for a block ground.
+fn write_ground(output: &mut Vec<u8>, ground: Ground) -> Result<(), ReaderDisplayListWireError> {
+    output.push(ground.tag());
+    match ground {
+        Ground::Block(rect) => write_device_rect(output, rect),
+        Ground::None | Ground::Page => Ok(()),
     }
 }
 

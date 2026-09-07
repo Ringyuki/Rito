@@ -13,8 +13,24 @@ use super::super::{
     commands::encode_reader_primitive_list_v1, DisplayCommand, DisplayTextCommandInput,
     RubyAlignPaint,
 };
-use super::lower_display_commands;
+use super::{lower_display_commands, ImageSize};
 use crate::layout::RunPaint;
+
+/// The synthetic image sources both renderers generate for the corpus
+/// (harness/entry.ts and parity_fixture_loader.dart keep them
+/// byte-identical); the lowering only needs their sizes.
+fn synthetic_image_size(href: &str) -> Option<ImageSize> {
+    let side = match href {
+        "synthetic:checker16" => 16,
+        "synthetic:gradient32" => 32,
+        "synthetic:dot8" => 8,
+        _ => return None,
+    };
+    Some(ImageSize {
+        width: side,
+        height: side,
+    })
+}
 
 #[test]
 fn lower_paint_parity_fixtures() {
@@ -57,7 +73,7 @@ fn lower_paint_parity_fixtures() {
                     .unwrap_or_else(|| panic!("{name}: command not expressible: {command}"))
             })
             .collect();
-        let lowered = lower_display_commands(&commands, ratio)
+        let lowered = lower_display_commands(&commands, ratio, &synthetic_image_size)
             .unwrap_or_else(|error| panic!("{name}: {error}"));
         let encoded = encode_reader_primitive_list_v1(&lowered)
             .unwrap_or_else(|error| panic!("{name}: {error}"));
@@ -69,7 +85,6 @@ fn lower_paint_parity_fixtures() {
             "height": fixture["height"],
             "ratio": ratio,
             "primitiveCount": lowered.commands.len(),
-            "passthroughBlocks": lowered.passthrough_block_count(),
         });
         for key in ["background", "theme"] {
             if let Some(value) = fixture.get(key) {
@@ -81,11 +96,7 @@ fn lower_paint_parity_fixtures() {
             serde_json::to_string_pretty(&meta).expect("metadata is JSON"),
         )
         .expect("write the lowered metadata");
-        eprintln!(
-            "lowered {name}: {} primitives, {} blocks passed through",
-            lowered.commands.len(),
-            lowered.passthrough_block_count()
-        );
+        eprintln!("lowered {name}: {} primitives", lowered.commands.len());
     }
 }
 

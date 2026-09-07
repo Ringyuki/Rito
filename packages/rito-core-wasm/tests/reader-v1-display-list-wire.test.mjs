@@ -64,7 +64,7 @@ test('decodes every primitive the Rust encoder writes', () => {
   const list = decodeRitoReaderPrimitiveListV1(fixture('reader-v1-primitive-list.hex'));
   assert.equal(list.formatVersion, READER_V1_PRIMITIVE_LIST_FORMAT_VERSION);
   assert.equal(list.ratio, 2);
-  assert.equal(list.commandCount, 14);
+  assert.equal(list.commandCount, 13);
   assert.deepEqual(
     list.commands.map((command) => command.kind),
     [
@@ -81,7 +81,6 @@ test('decodes every primitive the Rust encoder writes', () => {
       'draw-image',
       'text',
       'ruby',
-      'block',
     ],
   );
   assert.deepEqual(list.commands[2], { kind: 'translate', dx: 1, dy: 2 });
@@ -106,8 +105,12 @@ test('decodes every primitive the Rust encoder writes', () => {
   const fill = list.commands[6];
   assert.deepEqual(fill.rect, { x: 0, y: 0, width: 40, height: 60 });
   assert.equal(fill.ground, 'page');
+  assert.equal(fill.groundRect, undefined);
   assert.equal(fill.color.component2, 0.75);
-  assert.equal(list.commands[7].rule, 'evenodd');
+  const fillPath = list.commands[7];
+  assert.equal(fillPath.rule, 'evenodd');
+  assert.equal(fillPath.ground, 'block');
+  assert.deepEqual(fillPath.groundRect, { x: 0.5, y: 0.5, width: 39, height: 59 });
   const stroke = list.commands[8];
   assert.equal(stroke.width, 1.5);
   assert.equal(stroke.cap, 'round');
@@ -133,11 +136,6 @@ test('decodes every primitive the Rust encoder writes', () => {
   assert.equal(text.lineHeightPx, 37);
   assert.equal(text.sourceTextOffset, 9n);
   assert.equal(list.commands[12].kind, 'ruby');
-  const block = list.commands[13];
-  assert.equal(block.paint.background.image, 'images/background.png');
-  assert.deepEqual(block.paint.radius, { unit: 'px', value: 6 });
-  assert.equal(block.paint.boxShadows[0].blur, 6);
-  assert.deepEqual(block.borderBox, { topWidth: 2, rightWidth: 0, bottomWidth: 0, leftWidth: 0 });
 });
 
 test('the primitive decoder rejects format 1, truncation and trailing bytes', () => {

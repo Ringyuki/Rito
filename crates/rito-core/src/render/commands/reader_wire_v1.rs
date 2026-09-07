@@ -136,15 +136,6 @@ fn collect_primitive_refs(list: &PrimitiveList) -> (Vec<String>, Vec<String>) {
             Primitive::DrawImage { src, .. } => {
                 images.insert(src.clone());
             }
-            Primitive::Block { paint, .. } => {
-                if let Some(image) = paint
-                    .background
-                    .as_ref()
-                    .and_then(|background| background.image.as_ref())
-                {
-                    images.insert(image.clone());
-                }
-            }
             Primitive::Text(text) | Primitive::Ruby(text) if !text.paint.font.family.is_empty() => {
                 families.insert(text.paint.font.family.clone());
             }

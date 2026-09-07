@@ -49,23 +49,8 @@ final class RitoPrimitiveListDecoder {
       4 => RitoPrimitiveOpacity(reader.float64('opacity')),
       5 => _transform(reader),
       6 => RitoPrimitiveClipPath(_path(reader)),
-      7 => RitoPrimitiveFillRect(
-        rect: reader.readDisplayRect('fill rect'),
-        color: reader.readColor(),
-        ground: _wireEnum(reader, 'fill ground', const <RitoFillGround>[
-          RitoFillGround.none,
-          RitoFillGround.page,
-          RitoFillGround.block,
-        ]),
-      ),
-      8 => RitoPrimitiveFillPath(
-        path: _path(reader),
-        rule: _wireEnum(reader, 'fill rule', const <RitoFillRule>[
-          RitoFillRule.nonZero,
-          RitoFillRule.evenOdd,
-        ]),
-        color: reader.readColor(),
-      ),
+      7 => _fillRect(reader),
+      8 => _fillPath(reader),
       9 => RitoPrimitiveStrokePath(
         path: _path(reader),
         width: reader.float64('stroke width'),
@@ -106,15 +91,51 @@ final class RitoPrimitiveListDecoder {
         const RitoDisplayListDecoder()._text(reader, ruby: true)
             as RitoPaintRuby,
       ),
-      14 => RitoPrimitiveBlock(
-        RitoPaintBlock(
-          rect: reader.readDisplayRect('block rect'),
-          paint: reader.readBlockPaint(),
-          borderBox: reader.option('block border box', reader.readBorderBox),
-        ),
-      ),
       _ => reader.fail('unknown primitive opcode: $opcode'),
     };
+  }
+
+  RitoPrimitiveFillRect _fillRect(RitoBinaryReader reader) {
+    final rect = reader.readDisplayRect('fill rect');
+    final color = reader.readColor();
+    final (ground, groundRect) = _ground(reader);
+    return RitoPrimitiveFillRect(
+      rect: rect,
+      color: color,
+      ground: ground,
+      groundRect: groundRect,
+    );
+  }
+
+  RitoPrimitiveFillPath _fillPath(RitoBinaryReader reader) {
+    final path = _path(reader);
+    final rule = _wireEnum(reader, 'fill rule', const <RitoFillRule>[
+      RitoFillRule.nonZero,
+      RitoFillRule.evenOdd,
+    ]);
+    final color = reader.readColor();
+    final (ground, groundRect) = _ground(reader);
+    return RitoPrimitiveFillPath(
+      path: path,
+      rule: rule,
+      color: color,
+      ground: ground,
+      groundRect: groundRect,
+    );
+  }
+
+  /// A fill's declared ground; a block ground carries the unsnapped box
+  /// it covers.
+  (RitoFillGround, RitoDisplayRect?) _ground(RitoBinaryReader reader) {
+    final ground = _wireEnum(reader, 'fill ground', const <RitoFillGround>[
+      RitoFillGround.none,
+      RitoFillGround.page,
+      RitoFillGround.block,
+    ]);
+    if (identical(ground, RitoFillGround.block)) {
+      return (ground, reader.readDisplayRect('ground rect'));
+    }
+    return (ground, null);
   }
 
   RitoPrimitiveTransform _transform(RitoBinaryReader reader) {

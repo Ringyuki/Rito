@@ -49,11 +49,15 @@ blitters. The oracle stays the browser pen's semantic render.
   the browser pen, never an attribution.
 - `flutter-lowered` (budgets.flutter-lowered.json): the Skia residual
   classes above, unchanged, except where a lowered law replaced a
-  Flutter-side port. First measurement (2026-09-07): block-borders-solid
+  Flutter-side port. Straight edges (2026-09-07): block-borders-solid
   199 → 48 px (max Δ 5 → 1) and hr-styles 565 → 361 px (max Δ 11 → 1),
-  the straight-edge family now rastering from one set of device rects;
-  every other fixture byte-identical to the semantic lane because the
-  engine passes its text, rounded, shadowed and imaged blocks through.
+  the family now rastering from one set of device rects. Every block
+  law lowered (same day): block-radius 614 → 583 px with max Δ 128 → 5,
+  the per-corner and §5.5 outlines now identical paths on both sides
+  and only arc coverage left; shadow, background-image and badge
+  fixtures unchanged (blur kernel and bilinear classes). Text runs still
+  pass through, so the text fixtures match the semantic lane byte for
+  byte.
 
 ## Rules ported (geometry, must stay exact)
 

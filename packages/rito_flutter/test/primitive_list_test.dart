@@ -63,7 +63,7 @@ void main() {
     expect(list.ratio, 2);
     expect(
       list.commands.map((primitive) => primitive.opcode),
-      List<int>.generate(14, (index) => index + 1),
+      List<int>.generate(13, (index) => index + 1),
     );
     final transform = list.commands[4] as RitoPrimitiveTransform;
     expect(transform.origin.x, 1);
@@ -87,10 +87,11 @@ void main() {
     expect(fill.rect.width, 40);
     expect(fill.ground, RitoFillGround.page);
     expect(fill.color.component2, closeTo(0.75, 1e-9));
-    expect(
-      (list.commands[7] as RitoPrimitiveFillPath).rule,
-      RitoFillRule.evenOdd,
-    );
+    final fillPath = list.commands[7] as RitoPrimitiveFillPath;
+    expect(fillPath.rule, RitoFillRule.evenOdd);
+    expect(fillPath.ground, RitoFillGround.block);
+    expect(fillPath.groundRect?.width, 39);
+    expect(fill.groundRect, isNull);
     final stroke = list.commands[8] as RitoPrimitiveStrokePath;
     expect(stroke.width, 1.5);
     expect(stroke.cap, RitoStrokeCap.round);
@@ -107,9 +108,6 @@ void main() {
     expect(text.command.text, 'text');
     expect(text.command.lineHeightPx, 37);
     expect(list.commands[12], isA<RitoPrimitiveRuby>());
-    final block = list.commands[13] as RitoPrimitiveBlock;
-    expect(block.command.paint.background?.image, 'images/background.png');
-    expect((block.command.paint.radius! as RitoBlockPxRadius).value, 6);
   });
 
   test('rejects format 1, every truncated prefix and trailing bytes', () {
@@ -150,7 +148,6 @@ void main() {
       'drawImage',
       'text',
       'ruby',
-      'block',
     ]);
 
     final recorder = ui.PictureRecorder();
@@ -202,7 +199,4 @@ final class _RecordingTarget implements RitoPrimitiveTarget {
 
   @override
   void ruby(RitoPrimitiveRuby primitive) => calls.add('ruby');
-
-  @override
-  void block(RitoPrimitiveBlock primitive) => calls.add('block');
 }
