@@ -175,7 +175,6 @@ fn text_run(text: &ReaderTextCommandV1) -> ReaderTextRunV1 {
         href: text.href.clone(),
         source_text: text.source_text.clone(),
         source_text_offset: text.source_text_offset,
-        ruby_align: text.ruby_align.clone(),
         vertical: text.vertical,
         clusters: text.clusters.clone(),
     }

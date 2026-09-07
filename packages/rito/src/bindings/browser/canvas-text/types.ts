@@ -8,7 +8,7 @@ export type CanvasTextFragment = Pick<
 >;
 export type CanvasRubyFragment = Pick<
   CanvasRubyCommand,
-  'text' | 'rect' | 'paint' | 'rubyAlign' | 'vertical'
+  'text' | 'rect' | 'paint' | 'vertical' | 'clusters'
 >;
 export type CanvasRunPaint = CanvasTextCommand['paint'];
 export type CanvasFontShorthand = CanvasRunPaint['font'];

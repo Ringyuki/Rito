@@ -139,7 +139,6 @@ impl Decoder<'_> {
         if self.read_option()? {
             self.read_exact::<8>()?;
         }
-        self.read_optional_string()?;
         self.read_bool()?;
         let cluster_count = self.read_u32()?;
         for _ in 0..cluster_count {

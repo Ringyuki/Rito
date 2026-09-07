@@ -123,103 +123,24 @@ export function drawCanvasRubyFragment(
       }
       return;
     }
-    const measured = ctx.measureText(ruby.text);
-    const glyphs = Array.from(ruby.text).length;
-    const free = ruby.rect.width - measured.width;
-    // Distribution follows the annotation's computed `ruby-align`.
-    // `space-around` (the initial, absent on the wire; measured on the
-    // b96 long-base ruby: free 66.77px over 9 glyphs → 3.709px at each
-    // edge, 7.418px between neighbours): the free width splits into one
-    // share per glyph, half a share at each edge. A wide annotation's
-    // rect already equals its own advance (free ≈ 0), so this reduces
-    // to packed centering. A LATIN word annotation is ONE justification
-    // unit — no intra-word expansion — so it centers whole (measured on
-    // b20's ショウコ/Shouko rubies: natural-width word, free/2 = 13.7px
-    // at each edge, interior steps natural 5.33px; the per-glyph spread
-    // scattered the letters across the base). `center` packs the glyphs
-    // at their natural advance, centered (measured on b9's
-    // `ruby{ruby-align:center}`: 破坏神 at 8.8px packs to a 26.4px block
-    // centered over the 64px base the space-around law had scattered it
-    // across). `start` packs at the left edge; `space-between` spreads
-    // interior-only shares, and a single item centers like the initial.
-    const align = ruby.rubyAlign ?? 'space-around';
-    const expands = glyphs > 1 && free > 0.01 && rubyAnnotationExpands(ruby.text);
-    const words: string[] = [];
-    {
-      let start = -1;
-      for (let index = 0; index <= ruby.text.length; index += 1) {
-        const blank = index === ruby.text.length || ruby.text[index] === ' ';
-        if (!blank && start < 0) start = index;
-        if (blank && start >= 0) {
-          words.push(ruby.text.slice(start, index));
-          start = -1;
-        }
-      }
-    }
-    if (
-      (align === 'space-around' || align === 'space-between') &&
-      words.length > 1 &&
-      free > 0.01 &&
-      !rubyAnnotationExpands(ruby.text)
-    ) {
-      // A spaced word annotation distributes like standard word-unit
-      // space-around: each WORD is one justification unit taking one
-      // share of the free width, half on each side — so the edges carry
-      // share/2 and each inter-word gap carries a full share on top of
-      // the natural space (pixel-measured on BOTH the b42 Locus/Solus
-      // and the b43 Dagr/weapon rubies: base 64.8, words 21+19, edges
-      // ~5.6, gap ~13.2 = share 11.2 + the 2px natural space; the
-      // earlier hug-both-edges placement measured a Range box whose
-      // widths already carried the expansion shares, not the ink).
-      const wordWidths = words.map((word) => ctx.measureText(word).width);
-      const naturalWords = wordWidths.reduce((sum, value) => sum + value, 0);
-      const spaceWidth = ctx.measureText(' ').width;
-      const naturalSpaces = spaceWidth * (words.length - 1);
-      const share = (ruby.rect.width - naturalWords - naturalSpaces) / words.length;
-      let x = ruby.rect.x + share / 2;
-      for (let index = 0; index < words.length; index += 1) {
-        ctx.fillText(words[index] ?? '', Math.floor(x * 64) / 64, ruby.rect.y);
-        x += (wordWidths[index] ?? 0) + spaceWidth + share;
-      }
-    } else if (align === 'start') {
-      ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
-    } else if (align === 'space-between' && expands) {
-      ctx.letterSpacing = `${String(free / (glyphs - 1))}px`;
-      ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
-    } else if (align === 'space-around' && expands) {
-      ctx.letterSpacing = `${String(free / glyphs)}px`;
-      ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
-    } else {
-      // A centered annotation lands on the LayoutUnit grid by flooring,
-      // like every centered line (the un-floored center drifted b20's
-      // 8.8px Shouko one AA phase against the browser's cells).
+    // The engine distributed the annotation over its base by the
+    // computed `ruby-align` and sent every cluster's origin: the canvas
+    // draws each at its origin from the box top, spacing off. A run
+    // that arrives without origins draws packed and centered, its start
+    // floored onto the 1/64 grid like every centered line.
+    const pieces = clusterPieces(ruby.text, ruby.clusters ?? []);
+    if (pieces.length === 0) {
+      const measured = ctx.measureText(ruby.text);
       const x = Math.floor((ruby.rect.x + (ruby.rect.width - measured.width) / 2) * 64) / 64;
       ctx.fillText(ruby.text, x, ruby.rect.y);
+      return;
+    }
+    for (const piece of pieces) {
+      ctx.fillText(piece.text, piece.x, ruby.rect.y);
     }
   } finally {
     ctx.restore();
   }
-}
-
-/**
- * Whether the annotation text carries per-glyph justification
- * opportunities: CJK glyphs expand glyph-by-glyph; a pure non-CJK word
- * has none and centers as a unit (Blink's justify opportunity classes
- * applied inside the annotation box).
- */
-function rubyAnnotationExpands(text: string): boolean {
-  for (const glyph of text) {
-    const code = glyph.codePointAt(0) ?? 0;
-    if (
-      (code >= 0x2e80 && code <= 0x9fff) ||
-      (code >= 0xf900 && code <= 0xfaff) ||
-      (code >= 0xff00 && code <= 0xffef) ||
-      (code >= 0x20000 && code <= 0x3ffff)
-    ) {
-      return true;
-    }
-  }
-  return false;
 }
 
 /**

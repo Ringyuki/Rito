@@ -122,7 +122,6 @@ test('decodes every optional field of a text run, scaled to the device grid', ()
   assert.equal(text.href, '#note');
   assert.equal(text.sourceText, 'source');
   assert.equal(text.sourceTextOffset, 9n);
-  assert.equal(text.rubyAlign, 'center');
   assert.deepEqual(text.clusters, [
     { byte: 0, x: 0 },
     { byte: 1, x: 8.5 },

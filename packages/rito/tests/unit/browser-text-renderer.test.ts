@@ -123,90 +123,47 @@ describe('production Canvas text renderer', () => {
     expect(result.getCalls('fillText')).toHaveLength(1);
   });
 
-  it('matches centered ruby with zero spacing and a color override', () => {
-    const ruby = rubyFragment(
-      {
-        color: 'yellow',
-        font: { style: 'italic', weight: 700, sizePx: 10, family: 'sans-serif' },
-        wordSpacingPx: 12,
-        letterSpacingPx: 4,
-      },
-      'rt',
-    );
+  it('draws an annotation at its engine-placed cluster origins with a color override', () => {
+    const ruby = {
+      ...rubyFragment(
+        {
+          color: 'yellow',
+          font: { style: 'italic', weight: 700, sizePx: 10, family: 'sans-serif' },
+          wordSpacingPx: 12,
+          letterSpacingPx: 4,
+        },
+        'かな',
+      ),
+      clusters: [
+        { byte: 0, x: 19.5 },
+        { byte: 3, x: 38.5 },
+      ],
+    };
     const result = expectRubyParity(ruby, COLOR_OVERRIDE);
-
-    expect(result.getCalls('measureText')[0]?.args).toEqual(['rt']);
-    // A LATIN annotation is one justification unit — no intra-word
-    // space-around — so the word centers whole: 38px free →
-    // x = 10 + 19, letter spacing stays zero (measured in Chromium on
-    // latin rubies: natural word width, free/2 at each edge).
-    expect(result.getCalls('fillText')[0]?.args).toEqual(['rt', 29, 20]);
+    // The engine distributed the annotation (here the space-around
+    // shares over a 50px base); the pen draws each cluster at its origin
+    // from the box top with its own spacing off.
+    expect(result.getCalls('fillText').map((call) => call.args)).toEqual([
+      ['か', 19.5, 20],
+      ['な', 38.5, 20],
+    ]);
+    expect(result.getCalls('measureText')).toHaveLength(0);
     expect(lastProperty(result, 'wordSpacing')).toBe('0px');
     expect(lastProperty(result, 'letterSpacing')).toBe('0px');
+    expect(lastProperty(result, 'textBaseline')).toBe('top');
     expect(lastProperty(result, 'fillStyle')).toBe('rgb(32, 32, 0)');
   });
 
-  it('spreads a CJK annotation space-around per glyph', () => {
+  it('draws an annotation that arrives without origins packed and centered', () => {
     const ruby = rubyFragment(
       {
         font: { style: 'normal', weight: 400, sizePx: 10, family: 'serif' },
       },
-      'かな',
+      'rt',
     );
     const result = expectRubyParity(ruby);
-    // CJK annotations keep the space-around per-glyph distribution:
-    // 38px free over 2 glyphs — 9.5px at each edge, 19px between.
-    expect(result.getCalls('fillText')[0]?.args).toEqual(['かな', 19.5, 20]);
-    expect(lastProperty(result, 'letterSpacing')).toBe('19px');
-  });
-
-  it('packs a CJK annotation centered under ruby-align: center', () => {
-    const ruby = {
-      ...rubyFragment(
-        {
-          font: { style: 'normal', weight: 400, sizePx: 10, family: 'serif' },
-        },
-        'かな',
-      ),
-      rubyAlign: 'center' as const,
-    };
-    const result = expectRubyParity(ruby);
-    // 38px free splits half each side; glyphs stay at natural advance
-    // (measured on b9's `ruby{ruby-align:center}`: the annotation packs
-    // to its own width centered over the base).
-    expect(result.getCalls('fillText')[0]?.args).toEqual(['かな', 29, 20]);
-    expect(lastProperty(result, 'letterSpacing')).toBe('0px');
-  });
-
-  it('packs at the line-start edge under ruby-align: start', () => {
-    const ruby = {
-      ...rubyFragment(
-        {
-          font: { style: 'normal', weight: 400, sizePx: 10, family: 'serif' },
-        },
-        'かな',
-      ),
-      rubyAlign: 'start' as const,
-    };
-    const result = expectRubyParity(ruby);
-    expect(result.getCalls('fillText')[0]?.args).toEqual(['かな', 10, 20]);
-    expect(lastProperty(result, 'letterSpacing')).toBe('0px');
-  });
-
-  it('spreads interior-only shares under ruby-align: space-between', () => {
-    const ruby = {
-      ...rubyFragment(
-        {
-          font: { style: 'normal', weight: 400, sizePx: 10, family: 'serif' },
-        },
-        'かな',
-      ),
-      rubyAlign: 'space-between' as const,
-    };
-    const result = expectRubyParity(ruby);
-    // 38px free opens entirely between the two glyphs, none at the edges.
-    expect(result.getCalls('fillText')[0]?.args).toEqual(['かな', 10, 20]);
-    expect(lastProperty(result, 'letterSpacing')).toBe('38px');
+    // 12px of 'rt' over the 50px box: 19px at each side.
+    expect(result.getCalls('fillText')[0]?.args).toEqual(['rt', 29, 20]);
   });
 
   it.each(localFailureCases())(

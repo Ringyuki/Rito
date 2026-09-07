@@ -19,7 +19,7 @@ export type ReaderTextBodyV1 = Pick<
 >;
 export type ReaderRubyBodyV1 = Pick<
   RitoReaderTextRunV1,
-  'text' | 'rect' | 'paint' | 'rubyAlign' | 'vertical'
+  'text' | 'rect' | 'paint' | 'vertical' | 'clusters'
 >;
 
 export function convertReaderTextV1(command: ReaderTextBodyV1): CoreText {
@@ -42,11 +42,7 @@ export function convertReaderRubyV1(command: ReaderRubyBodyV1): CoreRuby {
     text: command.text,
     rect: command.rect,
     paint: convertRunPaint(command.paint),
-    ...(command.rubyAlign === 'start' ||
-    command.rubyAlign === 'center' ||
-    command.rubyAlign === 'space-between'
-      ? { rubyAlign: command.rubyAlign }
-      : {}),
+    ...(command.clusters.length > 0 ? { clusters: command.clusters } : {}),
     ...(command.vertical ? { vertical: true } : {}),
   };
 }

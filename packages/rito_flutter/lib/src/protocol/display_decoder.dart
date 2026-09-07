@@ -43,10 +43,6 @@ RitoTextPaintCommand _readTextRun(
     'source text offset',
     () => reader.uint64('source text offset'),
   );
-  final rubyAlign = reader.option(
-    'ruby align',
-    () => reader.string('ruby align'),
-  );
   final vertical = reader.boolean('text vertical');
   final clusterCount = reader.count('cluster count');
   final clusters = <RitoClusterPosition>[];
@@ -67,7 +63,6 @@ RitoTextPaintCommand _readTextRun(
       href: href,
       sourceText: sourceText,
       sourceTextOffset: sourceOffset,
-      rubyAlign: rubyAlign,
       vertical: vertical,
       clusters: clusters,
     );
@@ -80,7 +75,6 @@ RitoTextPaintCommand _readTextRun(
     href: href,
     sourceText: sourceText,
     sourceTextOffset: sourceOffset,
-    rubyAlign: rubyAlign,
     vertical: vertical,
     clusters: clusters,
   );

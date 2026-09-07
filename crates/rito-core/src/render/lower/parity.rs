@@ -11,7 +11,6 @@ use serde_json::{json, Value};
 
 use super::super::{
     commands::encode_reader_primitive_list_v1, DisplayCommand, DisplayTextCommandInput,
-    RubyAlignPaint,
 };
 use super::{lower_display_commands, ImageSize};
 use crate::layout::RunPaint;
@@ -121,13 +120,6 @@ fn parse_command(value: &Value) -> Option<DisplayCommand> {
             DisplayCommand::paint_block(field("rect")?, field("paint")?, field("borderBox"))
         }
         "paintText" | "paintRuby" => {
-            let ruby_align = match value.get("rubyAlign").and_then(Value::as_str) {
-                None => None,
-                Some("start") => Some(RubyAlignPaint::START),
-                Some("center") => Some(RubyAlignPaint::CENTER),
-                Some("space-between") => Some(RubyAlignPaint::SPACE_BETWEEN),
-                Some(_) => return None,
-            };
             let input = DisplayTextCommandInput {
                 text: field("text")?,
                 rect: field("rect")?,
@@ -139,7 +131,6 @@ fn parse_command(value: &Value) -> Option<DisplayCommand> {
                     .get("sourceTextOffset")
                     .and_then(Value::as_u64)
                     .map(|offset| offset as usize),
-                ruby_align,
                 vertical: value
                     .get("vertical")
                     .and_then(Value::as_bool)

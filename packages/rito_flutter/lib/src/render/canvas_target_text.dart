@@ -33,8 +33,8 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       _paintVerticalRun(command, rect);
       return;
     }
-    if (!ruby && command.clusters.isNotEmpty) {
-      _paintClusteredRun(command, rect);
+    if (command.clusters.isNotEmpty) {
+      _paintClusteredRun(command, rect, ruby: ruby);
       return;
     }
     // The run's inline box and decoration line arrive as primitives of
@@ -89,23 +89,39 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   }
 
   /// A run whose clusters the engine placed: every cluster draws at its
-  /// own origin, with the alphabetic baseline on the run's snapped row.
-  /// Spacing, justification and the browser's fixed-point advances are
-  /// already in the origins, so the paragraphs carry no spacing and one
-  /// laid-out paragraph per (cluster, style) serves every paint — laying
-  /// each cluster out per paint costs twenty times what a run does.
-  void _paintClusteredRun(RitoTextPaintCommand command, ui.Rect rect) {
+  /// own origin. A regular run anchors its alphabetic baseline on the
+  /// run's snapped row; an annotation anchors its em-box top at the rect
+  /// (the browser pen's textBaseline 'top'), rounded to a whole row.
+  /// Spacing, justification, ruby distribution and the browser's
+  /// fixed-point advances are already in the origins, so the paragraphs
+  /// carry no spacing and one laid-out paragraph per (cluster, style)
+  /// serves every paint — laying each cluster out per paint costs twenty
+  /// times what a run does.
+  void _paintClusteredRun(
+    RitoTextPaintCommand command,
+    ui.Rect rect, {
+    bool ruby = false,
+  }) {
     final paint = command.paint;
     final color = _effectiveTextColor(paint, rect);
     final baselineRow = (rect.top + _canvasTopAscentRatio * paint.font.sizePx)
         .roundToDouble();
+    final topAscent = ruby
+        ? _fontEnvelopes
+              ?.lookupFamilyStack(paint.font.family)
+              ?.topAnchorAscentPx(paint.font.sizePx)
+        : null;
     final pieces = _clusterPieces(command.text, command.clusters);
     final placed = <(ui.Paragraph, ui.Offset)>[];
     for (final piece in pieces) {
       final paragraph = _clusterParagraph(piece.text, paint, color);
+      final row = ruby
+          ? (rect.top + (topAscent ?? paragraph.alphabeticBaseline))
+                .roundToDouble()
+          : baselineRow;
       placed.add((
         paragraph,
-        ui.Offset(piece.x, baselineRow - paragraph.alphabeticBaseline),
+        ui.Offset(piece.x, row - paragraph.alphabeticBaseline),
       ));
     }
     if (paint.textShadows.isNotEmpty) {

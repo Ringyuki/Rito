@@ -166,10 +166,45 @@ fn a_marker_string_measures_its_box_and_cluster_origins() {
             .collect::<Vec<_>>(),
         vec![0.0, 8.0, 16.0, 20.0]
     );
+    assert_eq!(run.advance, 24.0, "the pen ends after the trailing space");
     assert_eq!(
-        run.advance, 24.0,
+        run.box_inline_size(),
+        24.0,
         "the box takes the whole string's advance"
     );
     assert!(!run.grid, "a Latin string accumulates in float");
     assert_eq!(context.measure_run(&style, "").advance, 0.0);
+}
+
+/// A ruby annotation shapes at its own size with the base's spacing off:
+/// the origins step by the annotation-size advances alone, where the
+/// base's own run would fold its letter spacing into every step.
+#[test]
+fn a_ruby_annotation_measures_at_its_size_with_the_base_spacing_off() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let mut style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    style.text_flow.letter_spacing =
+        LengthPercentage::Length(CssPx::new(2.0).expect("finite spacing"));
+    // "12" carries no kern pair, so the digits step by their bare 8px.
+    let base = context.measure_run(&style, "12");
+    assert_eq!(
+        base.clusters[1].x, 10.0,
+        "the base run folds 2px spacing after each 8px digit"
+    );
+    let annotation = context.measure_ruby_annotation(&style, 8.0, "12");
+    assert_eq!(
+        annotation
+            .clusters
+            .iter()
+            .map(|cluster| cluster.x)
+            .collect::<Vec<_>>(),
+        vec![0.0, 4.0],
+        "4px digits at 8px, no spacing"
+    );
+    assert_eq!(annotation.advance, 8.0);
 }

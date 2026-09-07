@@ -184,8 +184,7 @@ void _text(
   writer.option(() => writer.string('#note'));
   writer.option(() => writer.string('source $text'));
   writer.option(() => writer.uint64(9));
-  // ruby-align tail field (wire schema addition), then the vertical flag.
-  writer.option(opcode == 13 ? () => writer.string('space-around') : null);
+  // The vertical flag.
   writer.uint8(0);
   // Cluster origins: two for the text run, none for the annotation.
   if (opcode == 12) {

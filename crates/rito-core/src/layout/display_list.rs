@@ -465,7 +465,6 @@ fn text_command(input: TextCommandInput<'_>) -> DisplayCommand {
             .source_text
             .map(|source_text| source_text_command_value(source_text, input.text_mode)),
         source_text_offset: input.source_text_offset,
-        ruby_align: None,
         clusters: Vec::new(),
         vertical: false,
     };

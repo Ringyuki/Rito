@@ -27,8 +27,9 @@ pub use context::{
     CancelFlag, EscapedFloat, FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
 };
 pub use formatting_tree::{
-    allocate_ruby_annotation, FormattingNode, FormattingNodeContent, FormattingNodeId,
-    FormattingTree, FormattingTreeStyles, InlineItem, RubyAnnotation,
+    allocate_ruby_annotation, allocate_ruby_annotation_range, distribute_ruby_annotation,
+    FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree, FormattingTreeStyles,
+    InlineItem, RubyAnnotation,
 };
 pub use fragment::{
     BoxFragment, BoxSnap, ClusterPosition, Fragment, FragmentRect, FragmentTree, ImageFragment,

@@ -27,12 +27,26 @@ pub struct FormattingNodeId(pub u32);
 /// Pure over its inputs so layout, line growth, and paint replay the
 /// same allocation without threading extra state.
 pub fn allocate_ruby_annotation(annotation: &str, start_ratio: f64, end_ratio: f64) -> String {
+    allocate_ruby_annotation_range(annotation, start_ratio, end_ratio)
+        .and_then(|range| annotation.get(range))
+        .map_or_else(String::new, str::to_owned)
+}
+
+/// The byte range of [`allocate_ruby_annotation`]'s words inside the
+/// annotation — the selected words are consecutive, so the allocation is
+/// one contiguous slice — or `None` when no word rides the segment.
+pub fn allocate_ruby_annotation_range(
+    annotation: &str,
+    start_ratio: f64,
+    end_ratio: f64,
+) -> Option<core::ops::Range<usize>> {
     let total = annotation.chars().count();
     if total == 0 {
-        return String::new();
+        return None;
     }
-    let mut allocated: Vec<&str> = Vec::new();
+    let mut allocated: Option<core::ops::Range<usize>> = None;
     let mut char_position = 0usize;
+    let mut byte = 0usize;
     for word in annotation.split(' ') {
         let len = word.chars().count();
         if len > 0 {
@@ -42,12 +56,129 @@ pub fn allocate_ruby_annotation(annotation: &str, start_ratio: f64, end_ratio: f
             // 异|禀 under Talent — midpoint 0.5 at a half-way split —
             // rewinds because Talent presses on 异's segment).
             if midpoint > start_ratio && midpoint <= end_ratio {
-                allocated.push(word);
+                let end = byte + word.len();
+                allocated = Some(allocated.map_or(byte..end, |range| range.start..end));
             }
         }
         char_position += len + 1;
+        byte += word.len() + 1;
     }
-    allocated.join(" ")
+    allocated
+}
+
+/// Where each cluster of an annotation paints over its base: the
+/// browser's `ruby-align` distribution replayed from the annotation's
+/// natural cluster origins (`natural`, from the slice's start, totalling
+/// `natural_advance`) across the base extent `width` wide starting at
+/// `start`. Returns one absolute x per cluster, in `natural` order. The
+/// laws, each measured against pinned Chromium on the corpus:
+/// - `space-around` (the initial): the free width splits into one share
+///   per glyph, half a share at each edge (a long base: 66.77px free
+///   over 9 glyphs put 3.709px at each edge and 7.418px between
+///   neighbours). Only glyphs with per-glyph justification
+///   opportunities — CJK — expand; a Latin word is ONE justification
+///   unit, so a single word centers whole (free/2 at each edge, natural
+///   interior steps), and a spaced word annotation distributes per WORD:
+///   share/2 at the edges, a full share on top of the natural space
+///   between words, every word's start floored onto the 1/64 grid.
+/// - `space-between`: interior shares only — per glyph when the text
+///   expands, per word when spaced; a single item centers like the
+///   initial.
+/// - `center`: packed at natural advance and centered, the start floored
+///   onto the 1/64 grid like every centered line.
+/// - `start`: packed at the box's start.
+pub fn distribute_ruby_annotation(
+    text: &str,
+    natural: &[crate::ClusterPosition],
+    natural_advance: f64,
+    start: f64,
+    width: f64,
+    align: rito_style_contract::RubyAlign,
+) -> Vec<f64> {
+    use rito_style_contract::RubyAlign;
+    let floor_64 = |value: f64| (value * 64.0).floor() / 64.0;
+    let glyphs = text.chars().count();
+    let free = width - natural_advance;
+    let has_cjk = text.chars().any(ruby_glyph_expands);
+    let expands = glyphs > 1 && free > 0.01 && has_cjk;
+    let words: Vec<core::ops::Range<usize>> =
+        text.match_indices(|character: char| character != ' ').fold(
+            Vec::new(),
+            |mut words: Vec<core::ops::Range<usize>>, (index, _)| {
+                match words.last_mut() {
+                    Some(last) if last.end == index => {
+                        last.end = index + text[index..].chars().next().map_or(1, char::len_utf8)
+                    }
+                    _ => words.push(
+                        index..index + text[index..].chars().next().map_or(1, char::len_utf8),
+                    ),
+                }
+                words
+            },
+        );
+    let word_units = matches!(align, RubyAlign::SpaceAround | RubyAlign::SpaceBetween)
+        && words.len() > 1
+        && free > 0.01
+        && !has_cjk;
+    let cluster_x = |byte: usize| -> f64 {
+        natural
+            .iter()
+            .find(|cluster| cluster.byte as usize >= byte)
+            .map_or(natural_advance, |cluster| cluster.x)
+    };
+    if word_units {
+        // Each word's natural width from its first cluster to the
+        // cluster after its last; the inter-word space is one space
+        // cluster's step.
+        let word_widths: Vec<f64> = words
+            .iter()
+            .map(|word| cluster_x(word.end) - cluster_x(word.start))
+            .collect();
+        let natural_words: f64 = word_widths.iter().sum();
+        let space_width = words.windows(2).next().map_or(0.0, |pair| {
+            cluster_x(pair[1].start) - cluster_x(pair[0].end)
+        });
+        let natural_spaces = space_width * (words.len() - 1) as f64;
+        let share = (width - natural_words - natural_spaces) / words.len() as f64;
+        let mut origins = vec![start; natural.len()];
+        let mut x = start + share / 2.0;
+        let mut next_word = 0usize;
+        let mut word_x = floor_64(x);
+        let mut word_first = 0.0;
+        for (index, cluster) in natural.iter().enumerate() {
+            while next_word < words.len() && cluster.byte as usize >= words[next_word].start {
+                word_x = floor_64(x);
+                word_first = cluster_x(words[next_word].start);
+                x += word_widths[next_word] + space_width + share;
+                next_word += 1;
+            }
+            origins[index] = word_x + (cluster.x - word_first);
+        }
+        return origins;
+    }
+    let (origin, per_glyph) = match align {
+        RubyAlign::Start => (start, 0.0),
+        RubyAlign::SpaceBetween if expands => (start, free / (glyphs - 1) as f64),
+        RubyAlign::SpaceAround if expands => {
+            (start + free / (2.0 * glyphs as f64), free / glyphs as f64)
+        }
+        _ => (floor_64(start + (width - natural_advance) / 2.0), 0.0),
+    };
+    natural
+        .iter()
+        .enumerate()
+        .map(|(index, cluster)| origin + cluster.x + per_glyph * index as f64)
+        .collect()
+}
+
+/// Whether a glyph carries a per-glyph justification opportunity inside
+/// an annotation: the CJK blocks (the browser's justify opportunity
+/// classes applied inside the annotation box).
+fn ruby_glyph_expands(character: char) -> bool {
+    matches!(
+        u32::from(character),
+        0x2E80..=0x9FFF | 0xF900..=0xFAFF | 0xFF00..=0xFFEF | 0x20000..=0x3FFFF
+    )
 }
 
 /// override it — 0.55em in the measured corpus).
@@ -628,6 +759,80 @@ mod tests {
         // Six words split three-quarters in: e and f go down.
         assert_eq!(alloc("a b c d e f", 0.0, 0.75), "a b c d");
         assert_eq!(alloc("a b c d e f", 0.75, f64::INFINITY), "e f");
+        // The same allocation as a byte range into the annotation.
+        assert_eq!(
+            allocate_ruby_annotation_range("Legal Brave", 0.0, 0.5),
+            Some(0..5)
+        );
+        assert_eq!(
+            allocate_ruby_annotation_range("Legal Brave", 0.5, f64::INFINITY),
+            Some(6..11)
+        );
+        assert_eq!(
+            allocate_ruby_annotation_range("Talent", 0.5, f64::INFINITY),
+            None
+        );
+        assert_eq!(
+            allocate_ruby_annotation_range("a b c d e f", 0.0, 0.75),
+            Some(0..7)
+        );
+    }
+
+    /// Every `ruby-align` law places the annotation's clusters over the
+    /// base extent from their natural origins: per-glyph shares for CJK,
+    /// whole-word units for Latin, packed starts and floored centers.
+    #[test]
+    fn ruby_annotation_distribution_follows_the_computed_alignment() {
+        let cluster = |byte: u32, x: f64| crate::ClusterPosition { byte, x };
+        let close = |actual: &[f64], expected: &[f64]| {
+            assert_eq!(actual.len(), expected.len(), "{actual:?} vs {expected:?}");
+            for (a, e) in actual.iter().zip(expected) {
+                assert!((a - e).abs() < 1e-9, "{actual:?} vs {expected:?}");
+            }
+        };
+        // Three 8px kana over a 32px base starting at 100: 8px free.
+        let kana = [cluster(0, 0.0), cluster(3, 8.0), cluster(6, 16.0)];
+        let place = |align| distribute_ruby_annotation("かんじ", &kana, 24.0, 100.0, 32.0, align);
+        // One share per glyph (8/3), half a share at each edge.
+        close(
+            &place(RubyAlign::SpaceAround),
+            &[
+                100.0 + 4.0 / 3.0,
+                100.0 + 4.0 / 3.0 + 8.0 + 8.0 / 3.0,
+                100.0 + 4.0 / 3.0 + 16.0 + 16.0 / 3.0,
+            ],
+        );
+        // Interior shares only.
+        close(&place(RubyAlign::SpaceBetween), &[100.0, 112.0, 124.0]);
+        // Packed and centered on the 1/64 grid.
+        close(&place(RubyAlign::Center), &[104.0, 112.0, 120.0]);
+        // Packed at the start.
+        close(&place(RubyAlign::Start), &[100.0, 108.0, 116.0]);
+        // A Latin word is one justification unit: it centers whole, its
+        // start floored onto the 1/64 grid, interior steps natural.
+        let word = [cluster(0, 0.0), cluster(1, 5.0), cluster(2, 9.33)];
+        close(
+            &distribute_ruby_annotation("abc", &word, 14.0, 100.0, 40.0, RubyAlign::SpaceAround),
+            &[113.0, 118.0, 122.33],
+        );
+        // Spaced words take one share each: share/2 at the edges, a full
+        // share on top of the natural space between them.
+        let words = [
+            cluster(0, 0.0),
+            cluster(1, 5.0),
+            cluster(2, 10.0),
+            cluster(3, 12.0),
+            cluster(4, 17.0),
+        ];
+        close(
+            &distribute_ruby_annotation("ab cd", &words, 22.0, 100.0, 44.0, RubyAlign::SpaceAround),
+            &[105.5, 110.5, 115.5, 128.5, 133.5],
+        );
+        // No free width: every law packs at the natural origins.
+        close(
+            &distribute_ruby_annotation("かんじ", &kana, 24.0, 100.0, 24.0, RubyAlign::SpaceAround),
+            &[100.0, 108.0, 116.0],
+        );
     }
 
     use super::*;
@@ -635,7 +840,7 @@ mod tests {
         AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
         LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LengthPercentageOrAuto,
         ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, OverflowV1,
-        PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1, RubyAlign,
     };
 
     fn zero_padding() -> rito_style_contract::NonNegativeLengthPercentage {

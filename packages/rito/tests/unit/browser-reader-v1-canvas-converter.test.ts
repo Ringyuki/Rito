@@ -16,22 +16,26 @@ const INK: RitoReaderColorV1 = {
 };
 
 describe('reader v1 canvas converter', () => {
-  it('keeps a non-initial ruby alignment and drops the initial one', () => {
+  it("passes an annotation's cluster origins through and omits an empty list", () => {
     const paint = {
       font: { family: 'serif', sizePx: 8, weight: 400, style: 'normal' as const },
       color: INK,
       textShadows: [],
     };
     const rect = { x: 0, y: 0, width: 10, height: 8 };
+    const clusters = [
+      { byte: 0, x: 1.5 },
+      { byte: 1, x: 5.25 },
+    ];
     expect(
-      convertReaderRubyV1({ text: 'rb', rect, paint, rubyAlign: 'center', vertical: false }),
+      convertReaderRubyV1({ text: 'rb', rect, paint, vertical: false, clusters }),
     ).toMatchObject({
       kind: 'paintRuby',
-      rubyAlign: 'center',
+      clusters,
     });
-    expect('rubyAlign' in convertReaderRubyV1({ text: 'rb', rect, paint, vertical: false })).toBe(
-      false,
-    );
+    expect(
+      'clusters' in convertReaderRubyV1({ text: 'rb', rect, paint, vertical: false, clusters: [] }),
+    ).toBe(false);
   });
 
   it('spells every predefined color space the canvas parses', () => {

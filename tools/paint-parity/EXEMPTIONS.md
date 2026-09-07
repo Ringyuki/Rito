@@ -69,9 +69,10 @@ lower.
   shares folded in), and both pens draw each cluster at its origin with
   their own spacing off — the browser pen one `fillText` per cluster, the
   Flutter pen one cached `ui.Paragraph` per (cluster, style). The pens
-  still place the runs that carry no origins (vertical columns,
-  annotations); an outside list marker carries origins like any other
-  horizontal run, its box sized by the engine. There SkParagraph half-leads each
+  still place the runs that carry no origins (vertical columns); an
+  outside list marker and a ruby annotation carry origins like any other
+  horizontal run, the marker box sized and the annotation distributed by
+  the engine. There SkParagraph half-leads each
   cluster edge vs Chromium trailing, so the glyph origin compensates by
   `−letterSpacing/2` (word spacing needs no compensation).
 - Text shadows: every layer is one bitmap holding the whole run (all its

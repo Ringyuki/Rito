@@ -75,12 +75,14 @@ export interface RitoCoreWasmPaintTextCommand extends RitoCoreWasmTextPaintComma
 
 export interface RitoCoreWasmPaintRubyCommand extends RitoCoreWasmTextPaintCommand {
   readonly kind: 'paintRuby';
-  /** Non-initial ruby-align keyword; absent means space-around. */
-  readonly rubyAlign?: 'start' | 'center' | 'space-between';
   /** Vertical writing: the annotation draws as a downward column beside
    * its base; rect.x is the annotation column's left edge, rect.y the
    * base span's top, height the span to distribute over. */
   readonly vertical?: boolean;
+  /** The origin of every cluster (byte offset into the UTF-8 text, CSS
+   * x) the engine distributed over the base by the computed ruby-align;
+   * the pen draws each cluster there from the box top. */
+  readonly clusters?: readonly { readonly byte: number; readonly x: number }[];
 }
 
 export interface RitoCoreWasmTextPaintCommand {

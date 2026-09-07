@@ -16,8 +16,9 @@ export interface CanvasRubyFragment {
   readonly text: string;
   readonly rect: Rect;
   readonly paint: RunPaint;
-  /** Non-initial ruby-align keyword; absent means space-around. */
-  readonly rubyAlign?: 'start' | 'center' | 'space-between';
+  /** The origin of every cluster (UTF-8 byte offset, CSS x) the engine
+   * distributed over the base; absent draws the string packed. */
+  readonly clusters?: readonly { readonly byte: number; readonly x: number }[];
 }
 
 export function drawTextFragment(
@@ -111,15 +112,25 @@ export function drawRubyFragment(
   ctx.textBaseline = 'top';
   ctx.wordSpacing = '0px';
   ctx.letterSpacing = '0px';
+  // Mirrors the production pen (both pens change together): the engine
+  // distributed the annotation over its base by the computed
+  // `ruby-align` and sent every cluster's origin; each draws at its
+  // origin from the box top, spacing off.
+  const pieces = rubyClusterPieces(ruby.text, ruby.clusters ?? []);
+  if (pieces.length > 0) {
+    for (const piece of pieces) {
+      ctx.fillText(piece.text, piece.x, ruby.rect.y);
+    }
+    ctx.restore();
+    return;
+  }
+  // This reference engine's own annotations carry no origins: the
+  // initial `ruby-align: space-around` distributes the free width one
+  // share per glyph, half a share at each edge, and a Latin word
+  // centers whole; a wide annotation (free ≈ 0) packs centered.
   const measured = ctx.measureText(ruby.text);
   const glyphs = Array.from(ruby.text).length;
   const free = ruby.rect.width - measured.width;
-  // `ruby-align: space-around` on the annotation, mirroring the browser
-  // frame-command renderer: the free width splits into one share per
-  // glyph, half a share at each edge; a wide annotation (free ≈ 0)
-  // reduces to the packed centering it always had. A LATIN word
-  // annotation is one justification unit and centers whole (mirrors the
-  // production pen — both pens change together).
   const expands = Array.from(ruby.text).some((glyph) => {
     const code = glyph.codePointAt(0) ?? 0;
     return (
@@ -129,21 +140,42 @@ export function drawRubyFragment(
       (code >= 0x20000 && code <= 0x3ffff)
     );
   });
-  const align = ruby.rubyAlign ?? 'space-around';
-  const spreads = glyphs > 1 && free > 0.01 && expands;
-  if (align === 'start') {
-    ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
-  } else if (align === 'space-between' && spreads) {
-    ctx.letterSpacing = `${String(free / (glyphs - 1))}px`;
-    ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
-  } else if (align === 'space-around' && spreads) {
+  if (glyphs > 1 && free > 0.01 && expands) {
     ctx.letterSpacing = `${String(free / glyphs)}px`;
     ctx.fillText(ruby.text, ruby.rect.x + free / (2 * glyphs), ruby.rect.y);
   } else {
-    const rubyX = ruby.rect.x + (ruby.rect.width - measured.width) / 2;
+    const rubyX = Math.floor((ruby.rect.x + (ruby.rect.width - measured.width) / 2) * 64) / 64;
     ctx.fillText(ruby.text, rubyX, ruby.rect.y);
   }
   ctx.restore();
+}
+
+/** The annotation cut at its cluster origins: UTF-8 byte offsets into
+ * the text, walked by code point for the canvas's UTF-16 strings. */
+function rubyClusterPieces(
+  text: string,
+  clusters: readonly { readonly byte: number; readonly x: number }[],
+): { text: string; x: number }[] {
+  const indexAtByte = new Map<number, number>();
+  let byte = 0;
+  let index = 0;
+  for (const glyph of text) {
+    indexAtByte.set(byte, index);
+    byte += new TextEncoder().encode(glyph).length;
+    index += glyph.length;
+  }
+  indexAtByte.set(byte, text.length);
+  const pieces: { text: string; x: number }[] = [];
+  for (let position = 0; position < clusters.length; position += 1) {
+    const cluster = clusters[position];
+    const next = clusters[position + 1];
+    if (cluster === undefined) continue;
+    const start = indexAtByte.get(cluster.byte);
+    const end = next === undefined ? text.length : indexAtByte.get(next.byte);
+    if (start === undefined || end === undefined) continue;
+    pieces.push({ text: text.slice(start, end), x: cluster.x });
+  }
+  return pieces;
 }
 
 function drawLine(

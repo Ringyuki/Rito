@@ -70,8 +70,6 @@ export interface RitoReaderTextRunV1 {
   readonly href?: string | undefined;
   readonly sourceText?: string | undefined;
   readonly sourceTextOffset?: bigint | undefined;
-  /** Non-initial ruby-align keyword; absent means space-around. */
-  readonly rubyAlign?: 'start' | 'center' | 'space-between' | undefined;
   /** Vertical writing: one downward column, `rect.x` its left edge and
    * `rect.y` the first glyph's top. */
   readonly vertical: boolean;

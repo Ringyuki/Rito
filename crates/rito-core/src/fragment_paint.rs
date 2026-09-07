@@ -27,7 +27,7 @@ use crate::layout::{
     FontPaint, FontPaintStyle, MeasurePaint, RunDecoration, RunDecorationKind, RunPaint,
     RunPaintData, TextShadowPaint,
 };
-use crate::render::{DisplayCommand, DisplayTextCommandInput, RubyAlignPaint};
+use crate::render::{DisplayCommand, DisplayTextCommandInput};
 use crate::style::{absolute_color, serialize_font_families};
 
 /// How painted family stacks reach the canvas when the reader pins fonts.
@@ -105,6 +105,10 @@ pub(crate) struct FragmentPaintContext<'a> {
     /// right-aligned against the item's content-left edge on its first
     /// line's baseline.
     pub(crate) list_markers: Option<&'a BTreeMap<u32, crate::fragment_bridge::ListMarkerPaint>>,
+    /// Ruby annotations shaped at their own size, keyed by (inline-flow
+    /// node id, item index): the natural cluster origins the painter
+    /// distributes over each base segment by `ruby-align`.
+    pub(crate) ruby_annotation_runs: Option<&'a BTreeMap<(u32, usize), rito_inline::MeasuredRun>>,
     /// `Some((right, top))` when the tree laid out as a vertical-rl
     /// chapter in the swapped page: recursion origins then accumulate
     /// LOGICAL (inline, block) offsets and every line paints as a column
@@ -133,6 +137,7 @@ impl Default for FragmentPaintContext<'_> {
             node_paints: None,
             image_border_paints: None,
             list_markers: None,
+            ruby_annotation_runs: None,
             vertical_frame: None,
             flow_item_sources: None,
             ratio: 1.0,
@@ -503,7 +508,6 @@ fn append_fragment_display_commands_inner(
                         href: None,
                         source_text: None,
                         source_text_offset: None,
-                        ruby_align: None,
                         clusters,
                         vertical: false,
                     }));
@@ -556,6 +560,7 @@ fn append_fragment_display_commands_inner(
             context.family_policy,
             context.image_border_paints,
             context.flow_item_sources,
+            context.ruby_annotation_runs,
             snap_origin_y,
             context.ratio,
         ),
@@ -781,7 +786,6 @@ fn append_vertical_line_commands(
                 .and_then(|source| source.href.clone()),
             source_text: None,
             source_text_offset: None,
-            ruby_align: None,
             clusters: Vec::new(),
             vertical: true,
         }));
@@ -833,7 +837,6 @@ fn append_vertical_line_commands(
                         href: None,
                         source_text: None,
                         source_text_offset: None,
-                        ruby_align: None,
                         clusters: Vec::new(),
                         vertical: true,
                     }));
@@ -854,6 +857,7 @@ fn append_line_commands(
     family_policy: Option<&PaintFamilyPolicy>,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
+    ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRun>>,
     snap_origin_y: f64,
     ratio: f64,
 ) -> EpubResult<()> {
@@ -922,6 +926,7 @@ fn append_line_commands(
                     line_y,
                     family_policy,
                     item_sources,
+                    ruby_annotation_runs,
                     snap_origin_y,
                     ratio,
                 )?;
@@ -956,6 +961,7 @@ fn append_line_commands(
                         family_policy,
                         image_border_paints,
                         flow_item_sources,
+                        ruby_annotation_runs,
                         snap_origin_y,
                         ratio,
                     )?;
@@ -984,6 +990,7 @@ fn append_text_run_command(
     line_y: f64,
     family_policy: Option<&PaintFamilyPolicy>,
     item_sources: Option<&[FlowItemSource]>,
+    ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRun>>,
     snap_origin_y: f64,
     ratio: f64,
 ) -> EpubResult<()> {
@@ -1154,7 +1161,7 @@ fn append_text_run_command(
         if total_chars <= 0.0 {
             return None;
         }
-        let allocated = rito_fragment::allocate_ruby_annotation(
+        let range = rito_fragment::allocate_ruby_annotation_range(
             &annotation.text,
             seg_start / total_chars,
             if end >= item_range.end {
@@ -1164,30 +1171,71 @@ fn append_text_run_command(
             } else {
                 seg_end / total_chars
             },
-        );
-        (!allocated.is_empty()).then_some((allocated, annotation.size_ratio, annotation.align))
+        )?;
+        Some((range, annotation))
     });
-    if let Some((annotation_text, size_ratio, ruby_align)) = segment_annotation {
-        let annotation_ratio = f64::from(size_ratio);
-        let annotation = &annotation_text;
+    if let Some((range, annotation)) = segment_annotation {
         // The reader's ruby convention (shared with the retained engine):
-        // the annotation paints at half the base font size, centered over
-        // the base run's laid-out extent, its bottom edge one pixel above
-        // the base's paint anchor.
-        let annotation_size = font_size * annotation_ratio;
+        // the annotation paints at half the base font size over the base
+        // run's laid-out extent, its bottom edge one pixel above the
+        // base's paint anchor.
+        let annotation_size = font_size * f64::from(annotation.size_ratio);
+        let text = annotation.text.get(range.clone()).unwrap_or_default();
         // A space-around spread base advance holds (n−1) interior gaps,
         // and the annotation spans one more share — half a gap of
-        // overhang past each base edge — so widening the centered rect
-        // by one gap reconstructs the annotation's exact extent. Justify
-        // spacing (justify_px) deliberately does NOT widen the rect: a
-        // justified narrow-annotation base grows through its own extent
-        // and the annotation only re-centers over it.
+        // overhang past each base edge — so widening the rect by one gap
+        // reconstructs the annotation's exact extent. Justify spacing
+        // (justify_px) deliberately does NOT widen the rect: a justified
+        // narrow-annotation base grows through its own extent and the
+        // annotation only re-centers over it.
+        let rect_x = line_x + run.rect.x - run.ruby_overhang_px;
+        let rect_width = run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px;
+        // The annotation was shaped whole when the chapter was built;
+        // this segment's words are one contiguous slice of it, re-based
+        // to their first cluster, and the computed `ruby-align` places
+        // every cluster over the segment's extent.
+        let measured = ruby_annotation_runs
+            .and_then(|runs| runs.get(&(line.source.0, *item_index)))
+            .ok_or_else(|| {
+                EpubError::new("ruby annotation painted before its string was measured")
+            })?;
+        let slice: Vec<&rito_fragment::ClusterPosition> = measured
+            .clusters
+            .iter()
+            .filter(|cluster| range.contains(&(cluster.byte as usize)))
+            .collect();
+        let first_x = slice.first().map_or(0.0, |cluster| cluster.x);
+        let natural: Vec<rito_fragment::ClusterPosition> = slice
+            .iter()
+            .map(|cluster| rito_fragment::ClusterPosition {
+                byte: cluster.byte - range.start as u32,
+                x: cluster.x - first_x,
+            })
+            .collect();
+        let slice_end = measured
+            .clusters
+            .iter()
+            .find(|cluster| cluster.byte as usize >= range.end)
+            .map_or(measured.advance, |cluster| cluster.x);
+        let origins = rito_fragment::distribute_ruby_annotation(
+            text,
+            &natural,
+            slice_end - first_x,
+            rect_x,
+            rect_width,
+            annotation.align,
+        );
+        let clusters = natural
+            .iter()
+            .zip(origins)
+            .map(|(cluster, x)| (cluster.byte, x))
+            .collect();
         commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
-            text: Value::String(annotation.clone()),
+            text: Value::String(text.to_owned()),
             rect: rect_value(
-                line_x + run.rect.x - run.ruby_overhang_px,
+                rect_x,
                 em_top - annotation_size - 1.0,
-                run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px,
+                rect_width,
                 annotation_size,
             ),
             paint: paint.for_ruby(annotation_size),
@@ -1195,14 +1243,8 @@ fn append_text_run_command(
             href: None,
             source_text: None,
             source_text_offset: None,
-            clusters: Vec::new(),
+            clusters,
             vertical: false,
-            ruby_align: match ruby_align {
-                rito_style_contract::RubyAlign::SpaceAround => None,
-                rito_style_contract::RubyAlign::Start => Some(RubyAlignPaint::START),
-                rito_style_contract::RubyAlign::Center => Some(RubyAlignPaint::CENTER),
-                rito_style_contract::RubyAlign::SpaceBetween => Some(RubyAlignPaint::SPACE_BETWEEN),
-            },
         }));
     }
     // The origin every cluster paints at: the run's start (the centred
@@ -1246,7 +1288,6 @@ fn append_text_run_command(
             .and_then(|source| source.href.clone()),
         source_text: None,
         source_text_offset: None,
-        ruby_align: None,
         vertical: false,
         clusters,
     }));
@@ -1952,6 +1993,7 @@ mod tests {
                 family_policy: None,
                 node_paints: Some(&node_paints),
                 list_markers: None,
+                ruby_annotation_runs: None,
                 vertical_frame: None,
                 flow_item_sources: None,
                 ratio: 1.0,
@@ -2035,6 +2077,7 @@ mod tests {
             0.0,
             FragmentPaintContext {
                 list_markers: Some(&markers),
+                ruby_annotation_runs: None,
                 ..FragmentPaintContext::default()
             },
         )
@@ -2214,6 +2257,7 @@ mod tests {
                 family_policy: None,
                 node_paints: Some(&paints),
                 list_markers: None,
+                ruby_annotation_runs: None,
                 vertical_frame: None,
                 flow_item_sources: None,
                 ratio: 1.0,
@@ -2250,6 +2294,7 @@ mod tests {
                 family_policy: Some(&policy),
                 node_paints: None,
                 list_markers: None,
+                ruby_annotation_runs: None,
                 vertical_frame: None,
                 flow_item_sources: None,
                 ratio: 1.0,
@@ -2283,12 +2328,55 @@ mod tests {
             }]
         });
         let root = boxed_line(vec![text_run(0.0, 32.0, 0, 6)]);
-        let commands = paint(&fixture.tree, &root);
+        // Shaped when the chapter was built: three 8px kana, packed.
+        let mut ruby_runs = BTreeMap::new();
+        ruby_runs.insert(
+            (0, 0),
+            rito_inline::MeasuredRun {
+                advance: 24.0,
+                clusters: vec![
+                    rito_fragment::ClusterPosition { byte: 0, x: 0.0 },
+                    rito_fragment::ClusterPosition { byte: 3, x: 8.0 },
+                    rito_fragment::ClusterPosition { byte: 6, x: 16.0 },
+                ],
+                grid: false,
+            },
+        );
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &fixture.tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                ruby_annotation_runs: Some(&ruby_runs),
+                ..FragmentPaintContext::default()
+            },
+        )
+        .expect("fragments paint");
         assert_eq!(commands.len(), 2);
         let DisplayCommand::PaintRuby(annotation) = &commands[0] else {
             panic!("annotation paints before its base, got {:?}", commands[0]);
         };
         assert_eq!(annotation.text, Value::String("かんじ".to_owned()));
+        // space-around over the 32px base: 8px free splits into one
+        // share per glyph (8/3), half a share at each edge.
+        let origins: Vec<f64> = annotation.clusters.iter().map(|(_, x)| *x).collect();
+        assert_eq!(
+            annotation
+                .clusters
+                .iter()
+                .map(|(byte, _)| *byte)
+                .collect::<Vec<_>>(),
+            vec![0, 3, 6]
+        );
+        for (origin, expected) in origins
+            .iter()
+            .zip([14.0 + 4.0 / 3.0, 26.0, 36.0 + 2.0 / 3.0])
+        {
+            assert!((origin - expected).abs() < 1e-9, "{origins:?}");
+        }
         // The base anchors at 26.2 (line top 26 + baseline 13 − 0.8 × 16);
         // the 8px annotation sits one pixel above that anchor, spanning
         // the base run's extent for centered rendering.

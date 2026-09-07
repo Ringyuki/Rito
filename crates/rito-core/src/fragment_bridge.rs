@@ -85,6 +85,11 @@ pub struct ChapterFormattingTree {
     /// layout never sees the marker (CSS `list-style-position: outside`,
     /// the browser's default).
     pub list_markers: BTreeMap<u32, ListMarkerPaint>,
+    /// Ruby annotations shaped at their own size with the base's spacing
+    /// off, keyed by (inline-flow node id, item index): the natural
+    /// cluster origins the painter distributes over each base segment by
+    /// `ruby-align`. Filled by [`ChapterFormattingTree::measure_painted_runs`].
+    pub ruby_annotation_runs: BTreeMap<(u32, usize), rito_inline::MeasuredRun>,
     /// Constructs the tree could not represent exactly and rendered with
     /// an approximation instead (ignored decoration, flattened display,
     /// collapsed preserved white space, …). Empty means exact.
@@ -101,7 +106,7 @@ pub struct ListMarkerPaint {
     pub style: StyleId,
     /// The painted string ([`Self::painted_text`]) shaped in `style`: the
     /// marker box's inline size and where its clusters sit. `None` until
-    /// [`ChapterFormattingTree::measure_list_markers`] runs — the bridge
+    /// [`ChapterFormattingTree::measure_painted_runs`] runs — the bridge
     /// has no shaper, so the backend measures right after bridging.
     pub run: Option<rito_inline::MeasuredRun>,
 }
@@ -115,23 +120,51 @@ impl ListMarkerPaint {
 }
 
 impl ChapterFormattingTree {
-    /// Shapes every outside marker's painted string in the item's style,
-    /// so the painter places each marker box from the engine's own
-    /// advance and cluster origins with no host measurement.
-    pub fn measure_list_markers(
+    /// Shapes the strings the painter places without layout — every
+    /// outside marker in its item's style, every ruby annotation at its
+    /// own size — so the painter works from the engine's own advances
+    /// and cluster origins with no host measurement.
+    pub fn measure_painted_runs(
         &mut self,
         context: &rito_inline::ParleyInlineContext,
     ) -> EpubResult<()> {
         let styles = self
             .tree
             .styles()
-            .ok_or_else(|| EpubError::new("marker measurement needs style tables"))?;
+            .ok_or_else(|| EpubError::new("painted-run measurement needs style tables"))?;
         for marker in self.list_markers.values_mut() {
             let style = styles
                 .inline
                 .style(marker.style)
                 .map_err(|error| EpubError::new(format!("marker style: {error}")))?;
             marker.run = Some(context.measure_run(style, &marker.painted_text()));
+        }
+        self.ruby_annotation_runs.clear();
+        for index in 0..self.tree.len() {
+            let node_id = FormattingNodeId(index as u32);
+            let FormattingNodeContent::InlineFlow { items } = &self.tree.node(node_id).content
+            else {
+                continue;
+            };
+            for (item_index, item) in items.iter().enumerate() {
+                let InlineItem::Text {
+                    style,
+                    ruby_annotation: Some(annotation),
+                    ..
+                } = item
+                else {
+                    continue;
+                };
+                let style = styles
+                    .inline
+                    .style(*style)
+                    .map_err(|error| EpubError::new(format!("ruby base style: {error}")))?;
+                let annotation_size = style.font.size.get() * annotation.size_ratio;
+                self.ruby_annotation_runs.insert(
+                    (node_id.0, item_index),
+                    context.measure_ruby_annotation(style, annotation_size, &annotation.text),
+                );
+            }
         }
         Ok(())
     }
@@ -325,6 +358,7 @@ pub fn build_chapter_formatting_tree(
         source_anchors,
         node_tags,
         list_markers,
+        ruby_annotation_runs: BTreeMap::new(),
         degradations,
     })
 }
@@ -3126,6 +3160,7 @@ pub(crate) fn tests_chapter_tree(text: &str) -> ChapterFormattingTree {
         source_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
         list_markers: BTreeMap::new(),
+        ruby_annotation_runs: BTreeMap::new(),
         degradations: Vec::new(),
     }
 }
@@ -3579,6 +3614,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         source_anchors: BTreeMap::new(),
         node_tags: BTreeMap::new(),
         list_markers: BTreeMap::new(),
+        ruby_annotation_runs: BTreeMap::new(),
         degradations: vec!["chapter has no body source node; rendered empty".to_owned()],
     })
 }
@@ -4126,8 +4162,8 @@ p { margin: 8px 0; }\n\
         // included, from the box's start.
         let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register");
         built
-            .measure_list_markers(&context)
-            .expect("markers measure");
+            .measure_painted_runs(&context)
+            .expect("painted runs measure");
         for marker in built.list_markers.values() {
             let painted = marker.painted_text();
             let run = marker.run.as_ref().expect("marker measured");

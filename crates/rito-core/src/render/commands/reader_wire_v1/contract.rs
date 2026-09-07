@@ -87,7 +87,6 @@ pub(crate) struct ReaderTextCommandV1 {
     pub href: Option<String>,
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
-    pub ruby_align: Option<String>,
     /// Vertical writing: the renderer draws the string as one downward
     /// column with `rect.x` the column's left edge and `rect.y` the first
     /// glyph's top.
@@ -110,7 +109,6 @@ pub(crate) struct ReaderTextRunV1 {
     pub href: Option<String>,
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
-    pub ruby_align: Option<String>,
     pub vertical: bool,
     pub clusters: Vec<ReaderClusterV1>,
 }

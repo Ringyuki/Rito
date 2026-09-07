@@ -211,32 +211,15 @@ pub(crate) struct DisplayTextCommandInput {
     pub href: Option<String>,
     pub source_text: Option<Value>,
     pub source_text_offset: Option<usize>,
-    /// A ruby command's non-initial `ruby-align`; `None` (the initial
-    /// `space-around`) stays off the wire. Always `None` for plain text.
-    pub ruby_align: Option<RubyAlignPaint>,
     /// Where each cluster of the text paints (byte offset into `text`,
     /// absolute CSS x), in text order; empty when the renderer places the
-    /// run itself (a vertical column, an annotation).
+    /// run itself (a vertical column).
     pub clusters: Vec<(u32, f64)>,
     /// Vertical writing: the renderer draws the string as one downward
     /// column — upright glyphs, the pen stepping one font-size per
     /// cluster — with `rect.x` the column's left edge and `rect.y` the
     /// first glyph's top. Off the wire when false.
     pub vertical: bool,
-}
-
-/// A non-initial `ruby-align` keyword carried by a ruby paint command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct RubyAlignPaint(&'static str);
-
-impl RubyAlignPaint {
-    pub(crate) const START: Self = Self("start");
-    pub(crate) const CENTER: Self = Self("center");
-    pub(crate) const SPACE_BETWEEN: Self = Self("space-between");
-
-    pub(crate) const fn as_str(self) -> &'static str {
-        self.0
-    }
 }
 
 pub(crate) fn display_command_values(commands: &[DisplayCommand]) -> Vec<Value> {

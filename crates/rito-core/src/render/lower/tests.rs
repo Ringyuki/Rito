@@ -1460,7 +1460,6 @@ fn json_form_mirrors_the_decoded_wire_shape() {
                     "href": "#note",
                     "sourceText": "source",
                     "sourceTextOffset": 9,
-                    "rubyAlign": "center",
                 },
             ],
         })
@@ -1602,7 +1601,6 @@ fn text_run() -> ReaderTextRunV1 {
         href: text.href,
         source_text: text.source_text,
         source_text_offset: text.source_text_offset,
-        ruby_align: text.ruby_align,
         vertical: text.vertical,
         clusters: text.clusters,
     }
@@ -1662,7 +1660,6 @@ fn text() -> ReaderTextCommandV1 {
         href: Some("#note".to_owned()),
         source_text: Some("source".to_owned()),
         source_text_offset: Some(9),
-        ruby_align: Some("center".to_owned()),
         clusters: vec![],
         vertical: false,
     }

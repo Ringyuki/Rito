@@ -102,28 +102,60 @@ pub(crate) fn piece_clusters(
     }
 }
 
-/// A string shaped on its own in one style — an outside list marker — as
-/// the engine places it: the inline size its box takes and where every
-/// cluster sits from the box's start.
+/// A string shaped on its own in one style — an outside list marker, a
+/// ruby annotation — as the engine places it: its advance and where
+/// every cluster sits from its start.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeasuredRun {
-    /// The box's inline size: the shaped advance quantized the way the
-    /// browser's layout stores an inline box's width (1/64 CSS px,
-    /// ceiling).
+    /// The pen's advance over the whole string: the cluster steps
+    /// accumulated under the same law as the origins (what the browser's
+    /// text pen measures the string at).
     pub advance: f64,
-    /// Every cluster's origin from the box's start, in text order (byte
-    /// offset into the string, CSS x).
+    /// Every cluster's origin from the string's start, in text order
+    /// (byte offset into the string, CSS x).
     pub clusters: Vec<ClusterPosition>,
     /// Whether the painter floors the absolute origins onto the 1/64 grid.
     pub grid: bool,
 }
 
+impl MeasuredRun {
+    /// The inline size the browser's layout gives a box holding the
+    /// string: the advance quantized onto the 1/64 CSS-px grid, ceiling.
+    pub fn box_inline_size(&self) -> f64 {
+        layout_unit_ceil(self.advance)
+    }
+}
+
 impl ParleyInlineContext {
     /// Shapes `text` in `style` as one line and measures it the way a
-    /// painted run is placed: the box's inline size and each cluster's
-    /// origin under the cluster laws above, with the style's own letter
-    /// spacing folded in and no justification.
+    /// painted run is placed: each cluster's origin under the cluster
+    /// laws above, with the style's own letter and word spacing folded in
+    /// and no justification.
     pub fn measure_run(&self, style: &InlineFormattingStyleV1, text: &str) -> MeasuredRun {
+        self.shaped_run(style, None, true, text)
+    }
+
+    /// Shapes a ruby annotation: `text` in the base's `style` at the
+    /// annotation's own size, with the base's letter and word spacing
+    /// off (an annotation ignores its base's spacing; the browser's
+    /// annotation pen draws it packed and distributes the free width by
+    /// `ruby-align` afterwards).
+    pub fn measure_ruby_annotation(
+        &self,
+        style: &InlineFormattingStyleV1,
+        annotation_size: f32,
+        text: &str,
+    ) -> MeasuredRun {
+        self.shaped_run(style, Some(annotation_size), false, text)
+    }
+
+    fn shaped_run(
+        &self,
+        style: &InlineFormattingStyleV1,
+        size_override: Option<f32>,
+        spacing: bool,
+        text: &str,
+    ) -> MeasuredRun {
         if text.is_empty() {
             return MeasuredRun {
                 advance: 0.0,
@@ -131,16 +163,34 @@ impl ParleyInlineContext {
                 grid: false,
             };
         }
+        let mut sized;
+        let style = match size_override
+            .and_then(|size| rito_style_contract::NonNegativeCssPx::new(size).ok())
+        {
+            Some(size) => {
+                sized = style.clone();
+                sized.font.size = size;
+                &sized
+            }
+            None => style,
+        };
         let mut fonts = self.fonts.borrow_mut();
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
         push_item_styles(&mut builder, style, 0..text.len());
+        if !spacing {
+            // Later pushes win: the style's spacing, pushed above, is
+            // overridden to zero over the whole string.
+            builder.push(parley::StyleProperty::LetterSpacing(0.0), 0..text.len());
+            builder.push(parley::StyleProperty::WordSpacing(0.0), 0..text.len());
+        }
         let (mut layout, spacing_edits) = builder.build(text);
         layout.break_all_lines(None);
-        let word_spacing = matches!(
-            style.text_flow.word_spacing,
-            LengthPercentage::Length(px) if px.get() != 0.0
-        );
+        let word_spacing = spacing
+            && matches!(
+                style.text_flow.word_spacing,
+                LengthPercentage::Length(px) if px.get() != 0.0
+            );
         let piece = piece_clusters(
             &layout,
             text,
@@ -151,7 +201,7 @@ impl ParleyInlineContext {
             word_spacing,
         );
         MeasuredRun {
-            advance: layout_unit_ceil(piece.advance),
+            advance: piece.advance,
             clusters: piece.positions,
             grid: piece.grid,
         }

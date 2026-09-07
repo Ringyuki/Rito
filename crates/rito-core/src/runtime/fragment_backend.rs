@@ -85,6 +85,7 @@ impl FragmentBackendPage {
                 node_paints: Some(&paint.built.node_paints),
                 image_border_paints: Some(&paint.built.image_border_paints),
                 list_markers: Some(&paint.built.list_markers),
+                ruby_annotation_runs: Some(&paint.built.ruby_annotation_runs),
                 vertical_frame: None,
                 flow_item_sources: Some(&paint.built.flow_item_sources),
                 ratio,
@@ -424,11 +425,12 @@ impl RuntimeDocument {
         let engine = self
             .fragment_engine()
             .ok_or_else(|| "no fragment engine (no pinned faces)".to_owned())?;
-        // Outside markers are painted, never laid out: shape them once
-        // here with the same context the chapter lays out with, so their
-        // boxes and clusters come from the engine's own advances.
+        // Outside markers and ruby annotations are painted, never laid
+        // out: shape them once here with the same context the chapter
+        // lays out with, so their boxes and clusters come from the
+        // engine's own advances.
         built
-            .measure_list_markers(engine.engine.inline())
+            .measure_painted_runs(engine.engine.inline())
             .map_err(|error| format!("chapter {idref} markers: {}", error.message()))?;
         let content_width = config.page_width - config.margin_left - config.margin_right;
         let content_height = config.page_height - config.margin_top - config.margin_bottom;

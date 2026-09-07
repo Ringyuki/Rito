@@ -42,7 +42,6 @@ void main() {
     expect(text.href, '#note');
     expect(text.sourceText, 'source');
     expect(text.sourceTextOffset, 9);
-    expect(text.rubyAlign, 'center');
     expect(text.vertical, isFalse);
     expect(text.clusters.map((c) => (c.byte, c.x)), [
       (0, 0.0),

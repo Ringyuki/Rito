@@ -9,7 +9,7 @@ use crate::{
             DeviceTransform, FillRule, Ground, ImageSize, LowerError, PathOp, Primitive,
             PrimitiveList, StrokeCap, TilePlan,
         },
-        DisplayTextCommandInput, RubyAlignPaint,
+        DisplayTextCommandInput,
     },
 };
 
@@ -254,7 +254,6 @@ fn legacy_adapter_fails_closed_for_unknown_or_untyped_payloads() {
         href: None,
         source_text: None,
         source_text_offset: None,
-        ruby_align: None,
         clusters: Vec::new(),
         vertical: false,
     });
@@ -295,9 +294,9 @@ fn rejects_non_finite_command_numbers() {
 }
 
 /// A block with every background, border, radius and shadow law engaged,
-/// a text run with every optional field present (spacings, inline
-/// background, shadow, decoration, padding, borders, the inline-box tail,
-/// the ruby alignment), and an image.
+/// a text run with every optional field present (spacings, shadow, line
+/// height, link target, source text and offset, cluster origins), and an
+/// image.
 fn representative_commands() -> Vec<DisplayCommand> {
     vec![
         DisplayCommand::push_state(),
@@ -371,7 +370,6 @@ fn representative_commands() -> Vec<DisplayCommand> {
             href: Some("#note".to_owned()),
             source_text: Some(json!("source")),
             source_text_offset: Some(9),
-            ruby_align: Some(RubyAlignPaint::CENTER),
             clusters: vec![(0, 0.0), (1, 8.5), (2, 12.25), (3, 16.0)],
             vertical: false,
         }),
@@ -393,7 +391,6 @@ fn all_command_shapes() -> Vec<DisplayCommand> {
         href: None,
         source_text: None,
         source_text_offset: None,
-        ruby_align: None,
         clusters: Vec::new(),
         vertical: false,
     };

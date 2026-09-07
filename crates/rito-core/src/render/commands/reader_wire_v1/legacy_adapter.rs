@@ -125,7 +125,6 @@ fn adapt_text(
             .map(|value| string(value, "text.sourceText").map(str::to_owned))
             .transpose()?,
         source_text_offset,
-        ruby_align: input.ruby_align.map(|align| align.as_str().to_owned()),
         vertical: input.vertical,
         clusters: input
             .clusters
