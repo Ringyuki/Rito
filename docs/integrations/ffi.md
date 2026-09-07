@@ -40,6 +40,14 @@ paint domain grows, and a stale decoder misreads the byte stream.
   is a candidate; commit it through
   `rito_adopt_foreground_candidate_v1` with the compare-and-swap
   expectation, exactly as the header describes.
+- **Taps resolve against the artifact's hits, not its paint commands.**
+  Each page's hit entries are the engine's account of links, note
+  anchors (with the canonical footnote key and whether its definition
+  is indexed yet) and images, already in display-list space. Resolve in
+  hit order — text runs, then block-level link boxes, then images — so a
+  link wrapping an image resolves as the link; `RitoHitResolver` in
+  `rito_flutter` is the reference. Paint commands still carry `href`
+  and `alt` for older bridges, but they are not the hit surface.
 
 ## Keeping a hand-written decoder honest
 
