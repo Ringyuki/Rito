@@ -605,6 +605,7 @@ fn request_fixture() -> ReaderArtifactRequestV1 {
         session_id: (1u64 << 54) + 1,
         request_id: (1u64 << 55) + 2,
         layout: ReaderLayoutV1 {
+            render_ratio: 1.0,
             viewport_width: 834.5,
             viewport_height: 1_194.25,
             margin_top: 24.0,

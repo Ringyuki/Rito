@@ -21,7 +21,7 @@ Uint8List artifactFixture({
   final display = displayFixture();
   final writer = TestWireWriter.message('RITOART1');
   writer
-    ..uint32(2)
+    ..uint32(3)
     ..uint32(1)
     ..uint64(sessionId)
     ..uint64(requestId)

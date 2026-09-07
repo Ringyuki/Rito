@@ -95,6 +95,10 @@ final class RitoReaderSession {
         pinnedFontPolicy,
       );
     }
+    // A layout that names no render ratio paints on this session's pixel
+    // grid: every raster snap in the display list lands on the device
+    // pixels the host draws at.
+    request = _withSessionRenderRatio(request, imagePixelRatio);
     final artifact = await gateway.open(
       publicationBytes: publicationBytes,
       request: request,
@@ -365,6 +369,7 @@ final class RitoReaderSession {
     if (request.sessionId != sessionId) {
       throw ArgumentError('Request belongs to another Rito session.');
     }
+    request = _withSessionRenderRatio(request, _imagePixelRatio);
     final navigation = _beginNavigation(request.requestId);
     try {
       final artifact = await gateway.requestArtifact(request: request);
@@ -646,8 +651,7 @@ final class RitoReaderSession {
       );
     }
     _requireOpen();
-    if (response.artifactId != artifact.artifactId ||
-        response.query != query) {
+    if (response.artifactId != artifact.artifactId || response.query != query) {
       throw StateError('Search ownership does not match its artifact.');
     }
     return response;
@@ -1419,3 +1423,10 @@ final class RitoArtifactNotLiveException implements Exception {
       'RitoArtifactNotLiveException: artifact $artifactId is no longer live '
       'in Rito session $sessionId; reissue against the current artifact.';
 }
+
+RitoArtifactRequest _withSessionRenderRatio(
+  RitoArtifactRequest request,
+  double pixelRatio,
+) => request.layout.renderRatio == null
+    ? request.withLayout(request.layout.withRenderRatio(pixelRatio))
+    : request;

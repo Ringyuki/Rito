@@ -58,10 +58,24 @@ impl<'a> ChapterEngineSession<'a> {
         }
     }
 
-    pub(super) fn frame(&self, spread_index: usize) -> Option<PageArtifactFrame> {
+    /// The spread's paint commands at `ratio` device pixels per CSS
+    /// pixel; `None` when the spread is not published.
+    pub(super) fn frame(
+        &self,
+        spread_index: usize,
+        ratio: f64,
+    ) -> crate::epub::EpubResult<Option<PageArtifactFrame>> {
         match &self.backend {
-            Backend::Legacy(backend) => backend.frame(spread_index),
-            Backend::Fragment(backend) => backend.frame(spread_index),
+            Backend::Legacy(backend) => Ok(backend.frame(spread_index)),
+            Backend::Fragment(backend) => backend.frame(spread_index, ratio),
+        }
+    }
+
+    /// The page indexes a spread shows, without painting it.
+    pub(super) fn spread_pages(&self, spread_index: usize) -> Option<Vec<usize>> {
+        match &self.backend {
+            Backend::Legacy(backend) => backend.frame(spread_index).map(|frame| frame.page_indexes),
+            Backend::Fragment(backend) => backend.spread_pages(spread_index),
         }
     }
 

@@ -15,16 +15,52 @@ use crate::fragment_paint::{append_fragment_display_commands, FragmentPaintConte
 use crate::render::DisplayCommand;
 
 /// One paginated page: the sealed fragment tree that fit the page's
-/// content box, and the commands that paint it.
+/// content box. Paint is not part of pagination — a page paints on
+/// demand through [`paint_chapter_page`] for whatever device ratio the
+/// reader draws at, so a ratio change never re-paginates.
 pub(crate) struct FragmentChapterPage {
     /// Root fragment of this page's content, in content-box coordinates.
-    /// The frame bridge paints from `commands` alone; the fragment page
-    /// artifact (interaction geometry) will consume this tree.
-    #[allow(dead_code)]
     pub(crate) root: Fragment,
-    /// Paint commands for the page content, translated to the origin the
-    /// paginator was given (the page's content origin within its frame).
-    pub(crate) commands: Vec<DisplayCommand>,
+}
+
+/// Whether the chapter lays out vertical-rl: its first inline flow's
+/// strut declares the writing mode (chapters mix modes only via nested
+/// flows, which the capability gate still rejects).
+pub(crate) fn chapter_is_vertical(tree: &FormattingTree) -> bool {
+    tree.styles()
+        .and_then(|tables| {
+            let strut = first_inline_strut(tree, tree.root())?;
+            tables.inline.style(strut).ok()
+        })
+        .is_some_and(|style| {
+            style.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
+        })
+}
+
+/// Paints one paginated page into display commands at the page's content
+/// origin. A vertical-rl page laid out in the swapped frame maps back
+/// onto the device page through the vertical frame.
+pub(crate) fn paint_chapter_page(
+    tree: &FormattingTree,
+    root: &Fragment,
+    content_width: f64,
+    origin_x: f64,
+    origin_y: f64,
+    paint_context: FragmentPaintContext<'_>,
+    vertical: bool,
+) -> EpubResult<Vec<DisplayCommand>> {
+    let paint_context = FragmentPaintContext {
+        vertical_frame: vertical.then_some((origin_x + content_width, origin_y)),
+        ..paint_context
+    };
+    let (origin_x, origin_y) = if vertical {
+        (0.0, 0.0)
+    } else {
+        (origin_x, origin_y)
+    };
+    let mut commands = Vec::new();
+    append_fragment_display_commands(&mut commands, tree, root, origin_x, origin_y, paint_context)?;
+    Ok(commands)
 }
 
 /// Pages a chapter can paginate into before the paginator treats the run
@@ -58,9 +94,6 @@ pub(crate) fn paginate_chapter(
     tree: &FormattingTree,
     content_width: f64,
     content_height: f64,
-    origin_x: f64,
-    origin_y: f64,
-    paint_context: FragmentPaintContext<'_>,
     cancel: &CancelFlag,
 ) -> EpubResult<Vec<FragmentChapterPage>> {
     // A vertical-rl chapter lays out in the swapped page: the column
@@ -68,28 +101,11 @@ pub(crate) fn paginate_chapter(
     // fragmentainer, so a page fills with as many columns as fit across
     // it. The paint walk maps the swapped geometry back onto the device
     // page through the vertical frame.
-    let vertical = tree
-        .styles()
-        .and_then(|tables| {
-            let strut = first_inline_strut(tree, tree.root())?;
-            tables.inline.style(strut).ok()
-        })
-        .is_some_and(|style| {
-            style.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
-        });
+    let vertical = chapter_is_vertical(tree);
     let space = if vertical {
         ConstraintSpace::fragmented(content_height, content_width)
     } else {
         ConstraintSpace::fragmented(content_width, content_height)
-    };
-    let paint_context = FragmentPaintContext {
-        vertical_frame: vertical.then_some((origin_x + content_width, origin_y)),
-        ..paint_context
-    };
-    let (origin_x, origin_y) = if vertical {
-        (0.0, 0.0)
-    } else {
-        (origin_x, origin_y)
     };
     let mut token = None;
     let mut pages = Vec::new();
@@ -102,18 +118,8 @@ pub(crate) fn paginate_chapter(
                     pages.len()
                 ))
             })?;
-        let mut commands = Vec::new();
-        append_fragment_display_commands(
-            &mut commands,
-            tree,
-            &outcome.fragments.root,
-            origin_x,
-            origin_y,
-            paint_context,
-        )?;
         pages.push(FragmentChapterPage {
             root: outcome.fragments.root,
-            commands,
         });
         match outcome.continuation {
             Some(continuation) => {
@@ -247,10 +253,28 @@ mod tests {
         .expect("tree builds")
     }
 
-    fn painted_text(pages: &[FragmentChapterPage]) -> String {
+    fn paint(tree: &FormattingTree, pages: &[FragmentChapterPage]) -> Vec<Vec<DisplayCommand>> {
+        pages
+            .iter()
+            .map(|page| {
+                paint_chapter_page(
+                    tree,
+                    &page.root,
+                    200.0,
+                    24.0,
+                    32.0,
+                    FragmentPaintContext::default(),
+                    chapter_is_vertical(tree),
+                )
+                .expect("page paints")
+            })
+            .collect()
+    }
+
+    fn painted_text(painted: &[Vec<DisplayCommand>]) -> String {
         let mut text = String::new();
-        for page in pages {
-            for command in &page.commands {
+        for commands in painted {
+            for command in commands {
                 if let DisplayCommand::PaintText(input) = command {
                     if let Value::String(run) = &input.text {
                         text.push_str(run);
@@ -268,25 +292,17 @@ mod tests {
         let sample = "The quick brown fox jumps over the lazy dog. ".repeat(40);
         let tree = paragraph_tree(sample.trim_end());
         let cancel = CancelFlag::new();
-        let pages = paginate_chapter(
-            &engine,
-            &tree,
-            200.0,
-            100.0,
-            24.0,
-            32.0,
-            FragmentPaintContext::default(),
-            &cancel,
-        )
-        .expect("chapter paginates");
+        let pages =
+            paginate_chapter(&engine, &tree, 200.0, 100.0, &cancel).expect("chapter paginates");
         assert!(
             pages.len() > 1,
             "40 sentences at 200×100 must span pages, got {}",
             pages.len()
         );
+        let painted = paint(&tree, &pages);
         for (index, page) in pages.iter().enumerate() {
             assert!(
-                !page.commands.is_empty(),
+                !painted[index].is_empty(),
                 "page {index} painted no commands"
             );
             let Fragment::Box(root) = &page.root else {
@@ -296,7 +312,7 @@ mod tests {
         }
         // Whitespace collapsing happens before the tree is built, so the
         // pages' painted runs must reassemble the exact source text.
-        let reassembled = painted_text(&pages)
+        let reassembled = painted_text(&painted)
             .split_whitespace()
             .collect::<Vec<_>>()
             .join(" ");
@@ -309,20 +325,12 @@ mod tests {
         let engine = BlockFormattingContext::new(context);
         let tree = paragraph_tree("One line.");
         let cancel = CancelFlag::new();
-        let pages = paginate_chapter(
-            &engine,
-            &tree,
-            200.0,
-            100.0,
-            24.0,
-            32.0,
-            FragmentPaintContext::default(),
-            &cancel,
-        )
-        .expect("chapter paginates");
+        let pages =
+            paginate_chapter(&engine, &tree, 200.0, 100.0, &cancel).expect("chapter paginates");
         assert_eq!(pages.len(), 1);
-        let DisplayCommand::PaintText(input) = &pages[0].commands[0] else {
-            panic!("expected a text command, got {:?}", pages[0].commands[0]);
+        let painted = paint(&tree, &pages);
+        let DisplayCommand::PaintText(input) = &painted[0][0] else {
+            panic!("expected a text command, got {:?}", painted[0][0]);
         };
         let Value::Object(rect) = &input.rect else {
             panic!("rect is an object");

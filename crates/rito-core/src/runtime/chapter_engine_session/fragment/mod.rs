@@ -68,7 +68,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
             .map(|page| &page.artifact as &dyn PageArtifact)
     }
 
-    pub(super) fn frame(&self, spread_index: usize) -> Option<PageArtifactFrame> {
+    pub(super) fn spread_pages(&self, spread_index: usize) -> Option<Vec<usize>> {
         let config = &self.revision.layout_config;
         let spreads = build_spread_slots(
             self.layout.page_count(),
@@ -76,6 +76,29 @@ impl<'a> FragmentChapterEngineSession<'a> {
             config,
         );
         let spread = spreads.get(spread_index)?;
+        let mut page_indexes = vec![spread.left_page_index];
+        if config.spread_mode == SpreadMode::Double {
+            if let Some(right) = spread.right_page_index {
+                page_indexes.push(right);
+            }
+        }
+        Some(page_indexes)
+    }
+
+    pub(super) fn frame(
+        &self,
+        spread_index: usize,
+        ratio: f64,
+    ) -> crate::epub::EpubResult<Option<PageArtifactFrame>> {
+        let config = &self.revision.layout_config;
+        let spreads = build_spread_slots(
+            self.layout.page_count(),
+            self.layout.chapter_start_pages(),
+            config,
+        );
+        let Some(spread) = spreads.get(spread_index) else {
+            return Ok(None);
+        };
         let mut page_indexes = vec![spread.left_page_index];
         if config.spread_mode == SpreadMode::Double {
             if let Some(right) = spread.right_page_index {
@@ -97,7 +120,9 @@ impl<'a> FragmentChapterEngineSession<'a> {
         ));
         let dual = page_indexes.len() == 2;
         for (slot, page_index) in page_indexes.iter().enumerate() {
-            let (page, chapter) = self.layout.page_with_chapter(*page_index)?;
+            let Some((page, chapter)) = self.layout.page_with_chapter(*page_index) else {
+                return Ok(None);
+            };
             let metadata = page.artifact.metadata();
             let offset_x = slot as f64 * (config.page_width + config.spread_gap);
             commands.push(DisplayCommand::push_state());
@@ -165,15 +190,15 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 ),
                 None,
             ));
-            commands.extend(page.commands.iter().cloned());
+            commands.extend(page.commands_for(ratio, &chapter.paint)?.iter().cloned());
             commands.push(DisplayCommand::pop_state());
             commands.push(DisplayCommand::pop_state());
         }
-        Some(PageArtifactFrame {
+        Ok(Some(PageArtifactFrame {
             spread_index: spread.index,
             page_indexes,
             commands,
-        })
+        }))
     }
 
     pub(super) fn spreads(&self) -> Vec<PageArtifactSpread> {

@@ -218,6 +218,7 @@ fn request(request_id: u64) -> ReaderArtifactRequestV1 {
 
 fn layout() -> ReaderLayoutV1 {
     ReaderLayoutV1 {
+        render_ratio: 1.0,
         viewport_width: 600.0,
         viewport_height: 800.0,
         margin_top: 40.0,

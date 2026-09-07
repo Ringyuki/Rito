@@ -46,15 +46,23 @@ export function prepareBrowserReaderPinnedFonts(
   };
 }
 
+/**
+ * Opens a document on a worker. `renderRatio` is the device pixels per
+ * CSS pixel the worker's frames are painted at (the canvas backing
+ * ratio): every raster snap lands on that grid, and a worker opened
+ * without it would paint on the 1:1 grid regardless of the screen.
+ */
 export async function openBrowserReaderWorker(
   worker: BrowserReaderWorkerClient,
   data: ArrayBuffer,
   policy: BrowserReaderOwnedPinnedFontPolicy | undefined,
+  renderRatio: number,
   expectedSummary?: CorePinnedFontPolicySummary,
   fragmentPageTable?: boolean,
 ): Promise<BrowserReaderOpenResult> {
   const options = workerOpenOptions(policy, fragmentPageTable);
   const result = options === undefined ? await worker.open(data) : await worker.open(data, options);
+  await worker.setRenderRatio(renderRatio);
   if (expectedSummary !== undefined)
     requireMatchingPinnedFontSummary(expectedSummary, result.pinnedFontPolicy);
   // Metrics measured for earlier documents in this session apply to any

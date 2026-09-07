@@ -255,6 +255,7 @@ export function completeBrowserReaderBoundedSession(
       state,
       async (owner) => {
         if (refresh) {
+          await owner.worker.setRenderRatio(state.dpr);
           const cached = cachedHostLineMetricEntries();
           if (cached.length > 0) await owner.worker.setHostLineMetrics(cached);
           const denied = cachedUnavailableFontFamilies();

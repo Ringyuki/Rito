@@ -78,6 +78,8 @@ export interface RitoReaderLayoutV1 {
   readonly firstPageAlone: boolean;
   readonly spreadGap: number;
   readonly rootFontSize: number;
+  /** Device pixels per CSS pixel the artifact is rasterized at; paint snaps land on that grid. Default 1. */
+  readonly renderRatio?: number | undefined;
   readonly lineHeightOverride?: number | undefined;
   readonly fontFamilyOverride?: string | undefined;
 }

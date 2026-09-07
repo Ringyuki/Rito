@@ -90,7 +90,7 @@ pub(crate) fn rect_value(x: f64, y: f64, width: f64, height: f64) -> Value {
 }
 
 /// Everything the paint walk needs besides the fragments themselves.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub(crate) struct FragmentPaintContext<'a> {
     /// Family-stack rewrite for pinned-font readers; `None` paints
     /// computed stacks as-is.
@@ -115,6 +115,40 @@ pub(crate) struct FragmentPaintContext<'a> {
     /// the nearest enclosing link's target (and an image's alt text) so
     /// a host resolves taps against the display list alone.
     pub(crate) flow_item_sources: Option<&'a BTreeMap<u32, Vec<FlowItemSource>>>,
+    /// Device pixels per CSS pixel the commands will be rasterized at.
+    /// Every raster snap in the walk lands on THIS grid — a 1.5 CSS px
+    /// edge rounds to a whole device row at ratio 2 where a CSS-pixel
+    /// round would land it half a device pixel off. Layout never reads
+    /// it: pagination is identical at every ratio.
+    pub(crate) ratio: f64,
+}
+
+impl Default for FragmentPaintContext<'_> {
+    fn default() -> Self {
+        Self {
+            family_policy: None,
+            node_paints: None,
+            image_border_paints: None,
+            list_markers: None,
+            vertical_frame: None,
+            flow_item_sources: None,
+            ratio: 1.0,
+        }
+    }
+}
+
+impl FragmentPaintContext<'_> {
+    /// Rounds a CSS-px coordinate to the nearest device pixel, expressed
+    /// back in CSS px.
+    pub(crate) fn snap(&self, value: f64) -> f64 {
+        snap_to_grid(value, self.ratio)
+    }
+}
+
+/// Nearest device-pixel position of a CSS-px value at `ratio` device
+/// pixels per CSS pixel, in CSS px. Ratio 1 is a plain round.
+pub(crate) fn snap_to_grid(value: f64, ratio: f64) -> f64 {
+    (value * ratio).round() / ratio
 }
 
 /// Walks a laid-out fragment tree and appends the display commands that
@@ -174,7 +208,7 @@ fn append_fragment_display_commands_inner(
                 // BEFORE the author transforms, in the un-rotated frame.
                 let box_x = origin_x + fragment.rect.x;
                 let box_y = origin_y + fragment.rect.y;
-                let (snap_dx, snap_dy) = (box_x.round() - box_x, box_y.round() - box_y);
+                let (snap_dx, snap_dy) = (context.snap(box_x) - box_x, context.snap(box_y) - box_y);
                 let ops = if snap_dx == 0.0 && snap_dy == 0.0 {
                     transforms.clone()
                 } else {
@@ -335,12 +369,12 @@ fn append_fragment_display_commands_inner(
                                 );
                                 // The strips ride the same device-pixel
                                 // edges the border strokes snap to.
-                                let left_edge = (origin_x + fragment.rect.x).round();
-                                let top_edge = (origin_y + fragment.rect.y).round();
+                                let left_edge = context.snap(origin_x + fragment.rect.x);
+                                let top_edge = context.snap(origin_y + fragment.rect.y);
                                 let right_edge =
-                                    (origin_x + fragment.rect.x + fragment.rect.width).round();
+                                    context.snap(origin_x + fragment.rect.x + fragment.rect.width);
                                 let bottom_edge =
-                                    (origin_y + fragment.rect.y + fragment.rect.height).round();
+                                    context.snap(origin_y + fragment.rect.y + fragment.rect.height);
                                 let (x, y) = (left_edge, top_edge);
                                 let (width, height) =
                                     (right_edge - left_edge, bottom_edge - top_edge);
@@ -412,8 +446,8 @@ fn append_fragment_display_commands_inner(
                     let font_size = f64::from(style.font.size.get());
                     let line_y = origin_y + fragment.rect.y + first_line.rect.y;
                     let baseline = child_snap_origin_y
-                        + (line_y + first_line.ruby_growth - child_snap_origin_y).round()
-                        + (first_line.baseline - first_line.ruby_growth).round();
+                        + context.snap(line_y + first_line.ruby_growth - child_snap_origin_y)
+                        + context.snap(first_line.baseline - first_line.ruby_growth);
                     // The marker string carries its trailing space and
                     // the right edge sits AT the content edge (measured
                     // on the b17 nav: the digit ink ends 6px before the
@@ -486,6 +520,7 @@ fn append_fragment_display_commands_inner(
             context.image_border_paints,
             context.flow_item_sources,
             snap_origin_y,
+            context.ratio,
         ),
         Fragment::Text(_) | Fragment::Image(_) => Err(EpubError::new(
             "text and image fragments paint through their line box, not standalone",
@@ -783,6 +818,7 @@ fn append_line_commands(
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
     snap_origin_y: f64,
+    ratio: f64,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
         return Err(EpubError::new("line fragment source is not an inline flow"));
@@ -850,6 +886,7 @@ fn append_line_commands(
                     family_policy,
                     item_sources,
                     snap_origin_y,
+                    ratio,
                 )?;
             }
             Fragment::Image(image) => {
@@ -863,6 +900,7 @@ fn append_line_commands(
                     line_y,
                     image_border_paints,
                     item_source,
+                    ratio,
                 )?;
             }
             Fragment::Box(atom) => {
@@ -883,6 +921,7 @@ fn append_line_commands(
                         image_border_paints,
                         flow_item_sources,
                         snap_origin_y,
+                        ratio,
                     )?;
                 }
             }
@@ -910,6 +949,7 @@ fn append_text_run_command(
     family_policy: Option<&PaintFamilyPolicy>,
     item_sources: Option<&[FlowItemSource]>,
     snap_origin_y: f64,
+    ratio: f64,
 ) -> EpubResult<()> {
     let start = run.text_start as usize;
     let end = run.text_end as usize;
@@ -994,9 +1034,9 @@ fn append_text_run_command(
             let layout_baseline = line_y + line.baseline - baseline_shift_px;
             let box_top = layout_baseline - snap.int_ascent - snap.edge_top;
             let box_bottom = layout_baseline + snap.int_descent + snap.edge_bottom;
-            let painted_top = snap_origin_y + (box_top - snap_origin_y).round();
-            let painted_bottom = snap_origin_y + (box_bottom - snap_origin_y).round();
-            let baseline = painted_top + snap.edge_top.round() + snap.int_ascent;
+            let painted_top = snap_origin_y + snap_to_grid(box_top - snap_origin_y, ratio);
+            let painted_bottom = snap_origin_y + snap_to_grid(box_bottom - snap_origin_y, ratio);
+            let baseline = painted_top + snap_to_grid(snap.edge_top, ratio) + snap.int_ascent;
             let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
             paint.set_box_offsets(painted_top - em_top, painted_bottom - em_top);
             baseline
@@ -1017,8 +1057,8 @@ fn append_text_run_command(
             // the earlier per-stage-ceil reading fit that one point but
             // not the phase sweep.
             snap_origin_y
-                + (line_y + line.ruby_growth - snap_origin_y).round()
-                + (line.baseline - baseline_shift_px - line.ruby_growth).round()
+                + snap_to_grid(line_y + line.ruby_growth - snap_origin_y, ratio)
+                + snap_to_grid(line.baseline - baseline_shift_px - line.ruby_growth, ratio)
         }
     };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
@@ -1126,6 +1166,7 @@ fn append_text_run_command(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn append_image_command(
     commands: &mut Vec<DisplayCommand>,
     items: &[InlineItem],
@@ -1134,6 +1175,7 @@ fn append_image_command(
     line_y: f64,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     item_source: Option<&FlowItemSource>,
+    ratio: f64,
 ) -> EpubResult<()> {
     let Some(InlineItem::Image {
         src,
@@ -1186,10 +1228,10 @@ fn append_image_command(
         // to a canvas draw at the same integers). SVG-folded content is
         // NOT snapped: it paints through the svg's own transform, and the
         // reference renders it at the fractional position.
-        let left = (line_x + draw.x).round();
-        let top = (line_y + draw.y).round();
-        let right = (line_x + draw.x + draw.width).round();
-        let bottom = (line_y + draw.y + draw.height).round();
+        let left = snap_to_grid(line_x + draw.x, ratio);
+        let top = snap_to_grid(line_y + draw.y, ratio);
+        let right = snap_to_grid(line_x + draw.x + draw.width, ratio);
+        let bottom = snap_to_grid(line_y + draw.y + draw.height, ratio);
         draw = rito_fragment::FragmentRect {
             x: left - line_x,
             y: top - line_y,
@@ -1823,6 +1865,7 @@ mod tests {
                 list_markers: None,
                 vertical_frame: None,
                 flow_item_sources: None,
+                ratio: 1.0,
             },
         )
         .expect("fragments paint");
@@ -1932,6 +1975,7 @@ mod tests {
                 list_markers: None,
                 vertical_frame: None,
                 flow_item_sources: None,
+                ratio: 1.0,
             },
         )
         .expect("rule paints");
@@ -1967,6 +2011,7 @@ mod tests {
                 list_markers: None,
                 vertical_frame: None,
                 flow_item_sources: None,
+                ratio: 1.0,
             },
         )
         .expect("fragments paint");

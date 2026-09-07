@@ -57,6 +57,19 @@ commit as any engine-side encoding change. When you bump your pinned
 commit, diff that directory (and `render/commands/reader_wire_v1/` on
 the Rust side) against your bridge.
 
+Wire changes landed with the paint-geometry lowering (reader protocol
+version 3, rito_flutter 0.3.0 era):
+
+- The artifact request's layout record gained a trailing f64 `render
+ratio` — device pixels per CSS pixel the host rasterizes at (its
+  devicePixelRatio; 1 for a 1:1 canvas). Every raster snap in the
+  display list lands on that grid. It is a paint parameter: pagination,
+  page counts and revision identity are identical at every ratio, and
+  an adjacent request inherits the session's current ratio. A ratio that
+  is not finite and positive fails the request with `InvalidLayout`.
+- Artifacts and publications stamp protocol version 3; a decoder pinned
+  to 2 must move with it.
+
 Wire changes landed with the chapter-local one-pass cutover
 (rito_flutter 0.2.0 era) that a hand-written decoder must mirror:
 

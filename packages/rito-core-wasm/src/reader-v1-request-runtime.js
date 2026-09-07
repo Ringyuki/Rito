@@ -41,6 +41,7 @@ function writeLayout(writer, value) {
   writer.option(value.fontFamilyOverride, (family) =>
     writer.string(family, 'font family override'),
   );
+  writer.f64(value.renderRatio ?? 1, 'render ratio');
 }
 
 function writeLocator(writer, value) {

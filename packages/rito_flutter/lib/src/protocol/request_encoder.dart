@@ -59,6 +59,7 @@ final class RitoRequestEncoder {
     writer.option(value.fontFamilyOverride, (value) {
       writer.string(value, 'font family override');
     });
+    writer.float64(value.renderRatio ?? 1, 'render ratio');
   }
 
   void _locator(_Writer writer, RitoLocator value) {

@@ -162,6 +162,9 @@ pub struct ReaderSessionV1 {
     // progress remains owned by the source revision or, at a chapter
     // boundary, by `pending_exact_seek`.
     pending_adjacent: Option<ReaderPendingAdjacentV1>,
+    /// Device pixels per CSS pixel the host rasterizes artifacts at; paint
+    /// snaps land on that grid. Pagination never reads it.
+    render_ratio: f64,
     #[cfg(test)]
     exact_cache_hit_count: u64,
     #[cfg(test)]
@@ -218,6 +221,7 @@ impl ReaderSessionV1 {
             visible_intent: None,
             foreground_candidate: None,
             pending_adjacent: None,
+            render_ratio: 1.0,
             #[cfg(test)]
             exact_cache_hit_count: 0,
             #[cfg(test)]
@@ -262,7 +266,9 @@ impl ReaderSessionV1 {
         }
         self.require_artifact_capacity()?;
 
+        let render_ratio = request.layout.render_ratio;
         let layout = layout_config(request.layout)?;
+        self.render_ratio = render_ratio;
         let locator = runtime_locator(request.locator)?;
         let expected_visible_artifact_id = self.begin_foreground_request(request.request_id);
         self.release_pending_adjacent()?;
@@ -1767,6 +1773,7 @@ impl ReaderSessionV1 {
             },
             &target,
             navigation,
+            self.render_ratio,
         )?;
         let artifact_owner = artifact_owner(
             revision_id,
@@ -2354,6 +2361,7 @@ impl ReaderSessionV1 {
             },
             &target,
             navigation,
+            self.render_ratio,
         ) {
             Ok(artifact) => artifact,
             Err(error) => {
@@ -2440,6 +2448,7 @@ impl ReaderSessionV1 {
             },
             &target,
             navigation,
+            self.render_ratio,
         )?;
         let artifact_owner = artifact_owner(
             revision_id,
@@ -3031,12 +3040,11 @@ fn page_display_origin(
     spread_index: usize,
     page_index: usize,
 ) -> Result<(f64, f64), ReaderErrorV1> {
-    let frame = revision
+    let page_indexes = revision
         .chapter_engine_session()
-        .frame(spread_index)
+        .spread_pages(spread_index)
         .ok_or_else(|| target_not_published("artifact spread is not published"))?;
-    let slot = frame
-        .page_indexes
+    let slot = page_indexes
         .iter()
         .position(|index| *index == page_index)
         .ok_or_else(|| {
@@ -3102,6 +3110,29 @@ fn revision_search_scope(revision: &RuntimeRevision) -> Result<(u32, bool), Read
         u32_from_usize(revision.known_extent.page_count, "searched page count")?,
         revision.final_extent.is_some(),
     ))
+}
+
+impl ReaderSessionV1 {
+    /// Sets the device pixels per CSS pixel the host rasterizes at. Every
+    /// raster snap in the display list lands on that grid; pagination is
+    /// identical at every ratio. Artifacts requested after the change
+    /// carry the new ratio, earlier ones keep theirs — a host re-requests
+    /// what it shows.
+    pub fn set_render_ratio(&mut self, ratio: f64) -> Result<(), ReaderErrorV1> {
+        if !ratio.is_finite() || ratio <= 0.0 {
+            return Err(ReaderErrorV1::new(
+                ReaderErrorKindV1::InvalidRequest,
+                format!("render ratio must be finite and positive, got {ratio}"),
+            ));
+        }
+        self.render_ratio = ratio;
+        Ok(())
+    }
+
+    /// The ratio artifacts are currently painted at.
+    pub fn render_ratio(&self) -> f64 {
+        self.render_ratio
+    }
 }
 
 #[cfg(test)]

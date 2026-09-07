@@ -13,7 +13,7 @@ final class RitoArtifactDecoder {
     this.displayListDecoder = const RitoDisplayListDecoder(),
   });
 
-  static const int protocolVersion = 2;
+  static const int protocolVersion = 3;
   static const int wireVersion = 1;
   static const int _maxSemanticDepth = 64;
   static final List<int> _magic = ascii.encode('RITOART1');

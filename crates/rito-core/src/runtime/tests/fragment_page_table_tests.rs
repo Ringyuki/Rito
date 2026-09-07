@@ -80,7 +80,10 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
     );
 
     // Frames paint fragment commands.
-    let frame = session.frame(0).expect("spread 0 has a frame");
+    let frame = session
+        .frame(0, 1.0)
+        .expect("frame paints")
+        .expect("spread 0 has a frame");
     assert!(!frame.commands.is_empty());
     // Words paint as separate commands (runs split at spaces so the
     // canvas never shapes across one); the chapter text arrives as its
@@ -678,7 +681,8 @@ fn a_forced_sans_serif_override_changes_the_painted_frame() {
         );
         let frame = revision
             .chapter_engine_session()
-            .frame(0)
+            .frame(0, 1.0)
+            .expect("frame paints")
             .expect("spread 0 has a frame");
         format!("{:?}", frame.commands)
     };
@@ -751,7 +755,8 @@ fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
             .expect("revision is retained");
         let frame = revision
             .chapter_engine_session()
-            .frame(0)
+            .frame(0, 1.0)
+            .expect("frame paints")
             .expect("spread 0 has a frame");
         format!("{:?}", frame.commands)
     };
@@ -820,7 +825,10 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
         .expect("revision is retained");
     assert!(revision.fragment_layout.is_some());
     let session = revision.chapter_engine_session();
-    let frame = session.frame(0).expect("spread 0 has a frame");
+    let frame = session
+        .frame(0, 1.0)
+        .expect("frame paints")
+        .expect("spread 0 has a frame");
     frame
         .commands
         .iter()
@@ -1245,7 +1253,10 @@ fn painted_commands_carry_link_targets_and_image_alt() {
         "the fixture routes to the fragment engine",
     );
     let session = revision.chapter_engine_session();
-    let frame = session.frame(0).expect("first spread frame");
+    let frame = session
+        .frame(0, 1.0)
+        .expect("frame paints")
+        .expect("first spread frame");
 
     let mut text_hrefs = Vec::new();
     let mut images = Vec::new();
@@ -1288,5 +1299,76 @@ fn painted_commands_carry_link_targets_and_image_alt() {
             .iter()
             .any(|(_, alt, href)| alt.as_deref() == Some("standalone cover") && href.is_none()),
         "a bare image carries alt and no link, got {images:?}"
+    );
+}
+
+#[test]
+fn render_ratio_moves_raster_snaps_without_re_paginating() {
+    // A quarter-pixel line top: at ratio 1 the baseline snap rounds it
+    // down to the row; at ratio 2 the device row sits at the half pixel.
+    // Pagination is identical either way — only the raster snaps move.
+    let (document, _handle, revision_id) = pointer_selection_document_with_css(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body><p class="a">Snap grid</p></body></html>"#,
+        "p { margin: 0; }\n.a { margin-top: 0.25px; font-size: 16px; line-height: 20px; }\n",
+    );
+    let revision = document
+        .revisions
+        .get(&revision_id)
+        .expect("revision is retained");
+    let session = revision.chapter_engine_session();
+    let first_text_y = |ratio: f64| -> f64 {
+        let frame = session
+            .frame(0, ratio)
+            .expect("frame paints")
+            .expect("spread 0 exists");
+        frame
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                crate::render::DisplayCommand::PaintText(input) => {
+                    input.rect.get("y").and_then(serde_json::Value::as_f64)
+                }
+                _ => None,
+            })
+            .expect("a text command")
+    };
+    let at_one = first_text_y(1.0);
+    let at_two = first_text_y(2.0);
+    assert!(
+        ((at_one + 0.8 * 16.0) * 1.0).fract().abs() < 1e-9,
+        "ratio 1 baseline lands on a whole CSS pixel, got {at_one}"
+    );
+    assert!(
+        ((at_two + 0.8 * 16.0) * 2.0).fract().abs() < 1e-9,
+        "ratio 2 baseline lands on a half CSS pixel, got {at_two}"
+    );
+    // Both snap stages (line top, then the within-line baseline) move
+    // to the finer grid, so the painted baseline differs from the
+    // ratio-1 one by up to a whole CSS pixel — never by nothing.
+    assert!(
+        (at_two - at_one).abs() > 1e-9 && (at_two - at_one).abs() <= 1.0 + 1e-9,
+        "the quarter-pixel top snaps differently on the finer grid: {at_one} vs {at_two}"
+    );
+    assert_eq!(
+        session
+            .frame(0, 1.0)
+            .expect("frame paints")
+            .expect("spread")
+            .commands,
+        session
+            .frame(0, 1.0)
+            .expect("frame paints")
+            .expect("spread")
+            .commands,
+        "a repainted ratio is served from the page's paint cache"
+    );
+    assert_eq!(
+        revision
+            .fragment_layout
+            .as_ref()
+            .expect("fragment")
+            .page_count(),
+        1,
+        "the ratio never re-paginates"
     );
 }

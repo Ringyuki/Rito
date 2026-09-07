@@ -134,6 +134,8 @@ export interface RitoCoreWasmReaderWorkerClient
    * layout, and the caller forces a reflow so committed pages follow.
    */
   setUnavailableFontFaces(families: readonly string[]): Promise<void>;
+  /** Device pixels per CSS pixel frames are painted at (zoom × dpr); paint snaps land on that grid. */
+  setRenderRatio(ratio: number): Promise<void>;
   /**
    * Diagnostic: one chapter's page-by-page ink-less lines through the
    * revision's own fragment engine and content box, for diffing the wasm

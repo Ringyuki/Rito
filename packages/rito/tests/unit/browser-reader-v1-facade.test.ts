@@ -69,7 +69,9 @@ describe('Browser Reader v1 facade', () => {
 
     expect(mocks.open).toHaveBeenCalledOnce();
     expect(mocks.open.mock.calls[0]?.[1]).toEqual({
-      layout: options.layout,
+      // A layout that names no render ratio paints on the window's grid
+      // (1 under the test DOM).
+      layout: { ...options.layout, renderRatio: 1 },
       locator: options.initialLocator,
       work: options.work,
       textProfile: 'platform-string-runs',

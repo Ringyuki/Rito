@@ -120,7 +120,12 @@ export async function openBrowserReaderV1WithWorker(
 ): Promise<BrowserReaderV1Session> {
   const client = createRitoCoreWasmReaderV1WorkerClient(worker);
   const initialRequest: RitoReaderArtifactRequestInputV1 = {
-    layout: options.layout,
+    // Paint snaps land on the backing grid the host rasterizes at; a
+    // layout that does not say defaults to the window's ratio.
+    layout: {
+      ...options.layout,
+      renderRatio: options.layout.renderRatio ?? defaultRenderRatio(),
+    },
     locator: options.initialLocator,
     work: options.work,
     textProfile: options.textProfile ?? 'platform-string-runs',
@@ -151,7 +156,14 @@ function browserReaderV1Session(
     initialArtifact,
     readPublication: () => publicationClient.readPublication(),
     requestAdjacent: (...args) => client.requestAdjacent(...args),
-    requestArtifact: (...args) => client.requestArtifact(...args),
+    requestArtifact: (request) =>
+      client.requestArtifact({
+        ...request,
+        layout: {
+          ...request.layout,
+          renderRatio: request.layout.renderRatio ?? defaultRenderRatio(),
+        },
+      }),
     seek: (...args) => client.seek(...args),
     adoptForegroundCandidate: (...args) => client.adoptForegroundCandidate(...args),
     advanceBackgroundOnce: (...args) => backgroundClient.advanceBackgroundOnce(...args),
@@ -167,4 +179,8 @@ function createBrowserReaderV1Worker(): Worker {
     type: 'module',
     name: 'rito-browser-reader-v1',
   });
+}
+
+function defaultRenderRatio(): number {
+  return typeof window !== 'undefined' ? window.devicePixelRatio : 1;
 }

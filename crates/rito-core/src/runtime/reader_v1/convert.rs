@@ -47,6 +47,12 @@ pub(super) fn layout_config(value: ReaderLayoutV1) -> Result<LayoutConfig, Reade
 }
 
 fn validate_layout(value: &ReaderLayoutV1) -> Result<(), ReaderErrorV1> {
+    if !value.render_ratio.is_finite() || value.render_ratio <= 0.0 {
+        return Err(invalid_layout(format!(
+            "render ratio must be finite and positive, got {}",
+            value.render_ratio
+        )));
+    }
     let positive = [
         ("viewportWidth", value.viewport_width),
         ("viewportHeight", value.viewport_height),

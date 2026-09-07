@@ -16,6 +16,7 @@ final class RitoLayoutRequest {
     required this.rootFontSize,
     this.lineHeightOverride,
     this.fontFamilyOverride,
+    this.renderRatio,
   });
 
   final double viewportWidth;
@@ -35,6 +36,30 @@ final class RitoLayoutRequest {
   /// is the "line height scale" a reader setting exposes. Null leaves
   /// the book's own line heights alone.
   final double? lineHeightOverride;
+
+  /// Device pixels per CSS pixel the artifact is rasterized at. Every
+  /// raster snap in the display list lands on that grid; pagination is
+  /// identical at every ratio. Null means the session's pixel ratio
+  /// (`RitoReaderSession.open`'s `imagePixelRatio`), which is what a
+  /// host painting 1:1 on its device wants.
+  final double? renderRatio;
+
+  /// This layout at [renderRatio].
+  RitoLayoutRequest withRenderRatio(double renderRatio) => RitoLayoutRequest(
+    viewportWidth: viewportWidth,
+    viewportHeight: viewportHeight,
+    marginTop: marginTop,
+    marginRight: marginRight,
+    marginBottom: marginBottom,
+    marginLeft: marginLeft,
+    spreadMode: spreadMode,
+    firstPageAlone: firstPageAlone,
+    spreadGap: spreadGap,
+    rootFontSize: rootFontSize,
+    lineHeightOverride: lineHeightOverride,
+    fontFamilyOverride: fontFamilyOverride,
+    renderRatio: renderRatio,
+  );
 
   /// Reader font family, applied as a UA `font-family: <list>
   /// !important` over the whole publication, so it replaces the book's
@@ -109,5 +134,16 @@ final class RitoArtifactRequest {
   final RitoLayoutRequest layout;
   final RitoLocator locator;
   final RitoWorkBudget work;
+
+  /// This request with [layout] in place of its own.
+  RitoArtifactRequest withLayout(RitoLayoutRequest layout) =>
+      RitoArtifactRequest(
+        sessionId: sessionId,
+        requestId: requestId,
+        layout: layout,
+        locator: locator,
+        work: work,
+        textProfile: textProfile,
+      );
   final RitoTextProfile textProfile;
 }

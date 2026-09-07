@@ -247,6 +247,7 @@ export function createWorker(
     setUnavailableFontFaces: vi.fn<BrowserReaderWorkerClient['setUnavailableFontFaces']>(() =>
       Promise.resolve(),
     ),
+    setRenderRatio: vi.fn<BrowserReaderWorkerClient['setRenderRatio']>(() => Promise.resolve()),
     createBoundedChapterLocalRevision:
       vi.fn<BrowserReaderWorkerClient['createBoundedChapterLocalRevision']>(),
     continueChapterLocalRevision:

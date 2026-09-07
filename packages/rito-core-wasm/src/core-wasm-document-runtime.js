@@ -96,6 +96,15 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       });
     }
 
+    // Device pixels per CSS pixel frames are painted at (zoom × dpr): every
+    // raster snap lands on that grid, pagination never changes with it, and
+    // frames cached on the old grid are dropped engine-side.
+    setRenderRatio(ratio) {
+      return callRitoCoreWasm('setRenderRatio', () => {
+        this._inner.setRenderRatio(ratio);
+      });
+    }
+
     chapterFragmentProbe(revisionId, idref) {
       return callRitoCoreWasm('chapterFragmentProbe', () =>
         JSON.parse(this._inner.chapterFragmentProbeJson(revisionId, idref)),
@@ -319,6 +328,9 @@ function readerWorkerPayload(document, request) {
     case 'setUnavailableFontFaces':
       document.setUnavailableFontFaces(request.families);
       return { kind: 'setUnavailableFontFaces' };
+    case 'setRenderRatio':
+      document.setRenderRatio(request.ratio);
+      return { kind: 'setRenderRatio' };
     case 'chapterFragmentProbe':
       return {
         kind: 'chapterFragmentProbe',

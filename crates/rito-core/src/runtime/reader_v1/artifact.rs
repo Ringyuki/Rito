@@ -56,6 +56,7 @@ pub(super) fn build_reader_artifact_v1(
     identity: ArtifactIdentityV1,
     target: &ResolvedArtifactTarget,
     navigation: ReaderNavigationV1,
+    render_ratio: f64,
 ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
     let revision = match &target.owner {
         ResolvedArtifactOwnerV1::ChapterLocal(owner) => document
@@ -73,7 +74,14 @@ pub(super) fn build_reader_artifact_v1(
             })?
         }
     };
-    build_reader_artifact_from_revision(document, revision, identity, target, navigation)
+    build_reader_artifact_from_revision(
+        document,
+        revision,
+        identity,
+        target,
+        navigation,
+        render_ratio,
+    )
 }
 
 fn build_reader_artifact_from_revision(
@@ -82,14 +90,18 @@ fn build_reader_artifact_from_revision(
     identity: ArtifactIdentityV1,
     target: &ResolvedArtifactTarget,
     navigation: ReaderNavigationV1,
+    render_ratio: f64,
 ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
     let engine = revision.chapter_engine_session();
-    let frame = engine.frame(target.local_spread_index).ok_or_else(|| {
-        ReaderErrorV1::new(
-            ReaderErrorKindV1::TargetNotPublished,
-            "resolved target frame is not published",
-        )
-    })?;
+    let frame = engine
+        .frame(target.local_spread_index, render_ratio)
+        .map_err(engine_error)?
+        .ok_or_else(|| {
+            ReaderErrorV1::new(
+                ReaderErrorKindV1::TargetNotPublished,
+                "resolved target frame is not published",
+            )
+        })?;
     let encoded: crate::render::ReaderEncodedDisplayListV1 =
         encode_reader_display_list_v1(&frame.commands).map_err(engine_error)?;
     // Page geometry from the engine is content-box relative and
@@ -200,13 +212,13 @@ pub(super) fn published_spread_target(
         .require_chapter_local_owner(owner)
         .map_err(engine_error)?;
     let engine = revision.chapter_engine_session();
-    let frame = engine.frame(local_spread_index).ok_or_else(|| {
+    let page_indexes = engine.spread_pages(local_spread_index).ok_or_else(|| {
         ReaderErrorV1::new(
             ReaderErrorKindV1::TargetNotPublished,
             format!("adjacent spread {local_spread_index} is not published"),
         )
     })?;
-    let local_page_index = frame.page_indexes.first().copied().ok_or_else(|| {
+    let local_page_index = page_indexes.first().copied().ok_or_else(|| {
         ReaderErrorV1::new(
             ReaderErrorKindV1::TargetNotPublished,
             "published adjacent spread contains no pages",

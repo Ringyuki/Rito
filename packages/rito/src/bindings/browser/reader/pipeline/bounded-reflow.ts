@@ -127,6 +127,7 @@ async function runInitialCandidateLoop(
         worker,
         state.documentData.slice(0),
         state.pinnedFonts.policy,
+        state.dpr,
         state.pinnedFonts.summary,
         state.fragmentPagination,
       );
@@ -213,6 +214,7 @@ async function createBoundedCandidate(
       worker,
       state.documentData.slice(0),
       state.pinnedFonts.policy,
+      state.dpr,
       state.pinnedFonts.summary,
       state.fragmentPagination,
     );

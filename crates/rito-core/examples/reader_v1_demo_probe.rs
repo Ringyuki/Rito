@@ -20,6 +20,7 @@ fn main() {
             session_id: 1,
             request_id: 1,
             layout: ReaderLayoutV1 {
+                render_ratio: 1.0,
                 viewport_width: 833.0,
                 viewport_height: 429.0,
                 margin_top: 32.0,

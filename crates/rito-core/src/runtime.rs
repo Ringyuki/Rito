@@ -130,6 +130,10 @@ pub struct RuntimeDocument {
     pending_host_line_metrics:
         std::cell::RefCell<Vec<(String, f64, String, rito_inline::HostNormalLineMetric)>>,
     applied_host_line_metrics: std::cell::Cell<usize>,
+    /// Device pixels per CSS pixel frames are painted at through the
+    /// document-level frame API (the reader session carries its own).
+    /// Paint snaps land on that grid; pagination never reads it.
+    render_ratio: std::cell::Cell<f64>,
     text_measurement_cache: TextMeasurementCache,
     pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
     next_revision_index: usize,
@@ -191,6 +195,7 @@ impl RuntimeDocument {
             fragment_engine: OnceCell::new(),
             pending_host_line_metrics: std::cell::RefCell::new(Vec::new()),
             applied_host_line_metrics: std::cell::Cell::new(0),
+            render_ratio: std::cell::Cell::new(1.0),
             text_measurement_cache: TextMeasurementCache::default(),
             pinned_font_policy,
             next_revision_index: 1,

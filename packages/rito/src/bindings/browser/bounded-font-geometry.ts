@@ -99,6 +99,7 @@ export async function replaceBrowserReaderFontGeometryMutation(
         worker,
         state.documentData.slice(0),
         state.pinnedFonts.policy,
+        state.dpr,
         state.pinnedFonts.summary,
       );
       if (!fontGeometryReplacementIsLive(state, uncalibratedOwner)) return undefined;

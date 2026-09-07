@@ -151,6 +151,7 @@ describe('Browser bounded reflow coordinator', () => {
       calibrated.worker,
       expect.any(ArrayBuffer),
       state.pinnedFonts.policy,
+      state.dpr,
       state.pinnedFonts.summary,
       state.fragmentPagination,
     );
@@ -245,6 +246,7 @@ describe('Browser bounded reflow coordinator', () => {
       candidate.worker,
       expect.any(ArrayBuffer),
       current.state.pinnedFonts.policy,
+      current.state.dpr,
       current.state.pinnedFonts.summary,
       current.state.fragmentPagination,
     );

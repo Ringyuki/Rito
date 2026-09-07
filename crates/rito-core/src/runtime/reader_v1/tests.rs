@@ -1083,6 +1083,7 @@ fn request(session_id: u64, request_id: u64, href: &str) -> ReaderArtifactReques
         session_id,
         request_id,
         layout: ReaderLayoutV1 {
+            render_ratio: 1.0,
             viewport_width: 420.0,
             viewport_height: 640.0,
             margin_top: 24.0,
@@ -1721,6 +1722,7 @@ fn double_spread_hits_carry_their_page_offset() {
 
 fn reader_layout(config: &crate::layout::LayoutConfig) -> ReaderLayoutV1 {
     ReaderLayoutV1 {
+        render_ratio: 1.0,
         viewport_width: config.viewport_width,
         viewport_height: config.viewport_height,
         margin_top: config.margin_top,
@@ -1998,5 +2000,46 @@ fn selection_geometry_spans_the_injected_font_grid_box() {
     assert!(
         (fallback_height - 48.0).abs() < 1e-9,
         "without a grid the rect falls back to the 48px line box, got {fallback_height}"
+    );
+}
+
+#[test]
+fn a_render_ratio_change_repaints_without_a_new_revision() {
+    let mut session = open_test_session(166, crate::runtime::tests::fixture::fixture_epub())
+        .expect("reader session opens");
+    let at_one = session
+        .request_artifact(request(166, 1, ""))
+        .expect("artifact at ratio 1");
+    // The ratio rides the request's layout record: the host says what
+    // grid it rasterizes at with every artifact it asks for.
+    let mut on_finer_grid = request(166, 2, "");
+    on_finer_grid.layout.render_ratio = 2.0;
+    let at_two = session
+        .request_artifact(on_finer_grid)
+        .expect("artifact at ratio 2");
+    assert_eq!(
+        session.render_ratio(),
+        2.0,
+        "the layout's ratio becomes the session's"
+    );
+    assert_eq!(
+        at_one.revision_id, at_two.revision_id,
+        "a ratio change never re-paginates"
+    );
+    assert_ne!(at_one.artifact_id, at_two.artifact_id);
+    assert_ne!(
+        at_one.display_list.semantic_digest, at_two.display_list.semantic_digest,
+        "the ratio-2 display list snaps on the finer grid"
+    );
+    for ratio in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        let error = session
+            .set_render_ratio(ratio)
+            .expect_err("a non-positive or non-finite ratio fails closed");
+        assert_eq!(error.kind, ReaderErrorKindV1::InvalidRequest);
+    }
+    assert_eq!(
+        session.render_ratio(),
+        2.0,
+        "a rejected ratio leaves the current one"
     );
 }

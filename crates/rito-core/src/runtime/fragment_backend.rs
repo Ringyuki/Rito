@@ -6,12 +6,16 @@
 //! same revision is inert scaffolding. There is no mixed page table — a
 //! book routes here only when every chapter is representable.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use rito_fragment::CancelFlag;
 
-use crate::fragment_pagination::paginate_chapter;
-use crate::fragment_paint::FragmentPaintContext;
+use crate::fragment_pagination::{paginate_chapter, paint_chapter_page};
+use crate::fragment_paint::{FragmentPaintContext, PaintFamilyPolicy};
 use crate::layout::build_spread_slots;
 use crate::render::DisplayCommand;
 
@@ -24,6 +28,9 @@ use super::RuntimeDocument;
 #[derive(Debug)]
 pub(super) struct FragmentBackendChapter {
     pub(super) idref: String,
+    /// Everything a page needs to paint on demand: the bridged tree the
+    /// pages were laid out from and the paint policy of the build.
+    pub(super) paint: ChapterPaintSource,
     /// Top-level formatting blocks the chapter paginated from; chapter
     /// ranges report this where the retained backend reports its block
     /// count.
@@ -41,7 +48,68 @@ pub(super) struct FragmentBackendChapter {
 #[derive(Debug)]
 pub(super) struct FragmentBackendPage {
     pub(super) artifact: FragmentPageArtifact,
-    pub(super) commands: Vec<DisplayCommand>,
+    /// The page's sealed fragment tree, in content-box coordinates.
+    root: rito_fragment::Fragment,
+    /// Paint commands per device ratio (as f64 bits). A reader draws at
+    /// one ratio at a time and a zoom or density change is rare, so the
+    /// cache keeps the two most recent.
+    paint_cache: RefCell<Vec<(u64, Arc<Vec<DisplayCommand>>)>>,
+}
+
+impl FragmentBackendPage {
+    /// The page's paint commands at `ratio` device pixels per CSS pixel,
+    /// painted on first use and cached: pagination geometry is identical
+    /// at every ratio, only the raster snaps move.
+    pub(super) fn commands_for(
+        &self,
+        ratio: f64,
+        paint: &ChapterPaintSource,
+    ) -> crate::epub::EpubResult<Arc<Vec<DisplayCommand>>> {
+        let key = ratio.to_bits();
+        if let Some((_, commands)) = self
+            .paint_cache
+            .borrow()
+            .iter()
+            .find(|(cached, _)| *cached == key)
+        {
+            return Ok(Arc::clone(commands));
+        }
+        let commands = Arc::new(paint_chapter_page(
+            &paint.built.tree,
+            &self.root,
+            paint.content_width,
+            paint.origin.0,
+            paint.origin.1,
+            FragmentPaintContext {
+                family_policy: Some(&paint.family_policy),
+                node_paints: Some(&paint.built.node_paints),
+                image_border_paints: Some(&paint.built.image_border_paints),
+                list_markers: Some(&paint.built.list_markers),
+                vertical_frame: None,
+                flow_item_sources: Some(&paint.built.flow_item_sources),
+                ratio,
+            },
+            paint.vertical,
+        )?);
+        let mut cache = self.paint_cache.borrow_mut();
+        if cache.len() >= 2 {
+            cache.remove(0);
+        }
+        cache.push((key, Arc::clone(&commands)));
+        Ok(commands)
+    }
+}
+
+/// The paint inputs a chapter's pages share: the bridged formatting tree
+/// (styles, node paints, item provenance) and the build's family policy,
+/// content width, page origin and writing mode.
+#[derive(Debug)]
+pub(super) struct ChapterPaintSource {
+    built: crate::fragment_bridge::ChapterFormattingTree,
+    family_policy: PaintFamilyPolicy,
+    vertical: bool,
+    content_width: f64,
+    origin: (f64, f64),
 }
 
 /// A whole-book page table owned by the fragment engine.
@@ -311,7 +379,7 @@ impl RuntimeDocument {
         revision.interactions.publication_footnotes = publication_footnotes;
         let mut anchors = BTreeMap::new();
         let backend_chapter =
-            self.paginate_built_chapter(&built, &config, &idref, 0, &mut anchors)?;
+            self.paginate_built_chapter(built, &config, &idref, 0, &mut anchors)?;
         let mut layout = FragmentBuiltLayout::new(vec![backend_chapter]);
         layout.anchors = anchors;
         Ok(layout)
@@ -337,14 +405,14 @@ impl RuntimeDocument {
         let built = self
             .chapter_formatting_tree(revision_id, idref)
             .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-        self.paginate_built_chapter(&built, &config, idref, page_index_base, anchors)
+        self.paginate_built_chapter(built, &config, idref, page_index_base, anchors)
     }
 
     /// The pagination half of a chapter build: lays a bridged formatting
     /// tree out into backend pages under the given layout config.
     pub(super) fn paginate_built_chapter(
         &self,
-        built: &crate::fragment_bridge::ChapterFormattingTree,
+        built: crate::fragment_bridge::ChapterFormattingTree,
         config: &crate::layout::LayoutConfig,
         idref: &str,
         page_index_base: usize,
@@ -370,16 +438,6 @@ impl RuntimeDocument {
             &built.tree,
             content_width,
             content_height,
-            margin_left,
-            margin_top,
-            FragmentPaintContext {
-                family_policy: Some(&family_policy),
-                node_paints: Some(&built.node_paints),
-                image_border_paints: Some(&built.image_border_paints),
-                list_markers: Some(&built.list_markers),
-                vertical_frame: None,
-                flow_item_sources: Some(&built.flow_item_sources),
-            },
             &CancelFlag::new(),
         )
         .map_err(|error| format!("chapter {idref} pagination: {}", error.message()))?;
@@ -399,19 +457,28 @@ impl RuntimeDocument {
                     page_width,
                     page_height,
                     &page.root,
-                    built,
+                    &built,
                     0.0,
                     0.0,
                 ),
-                commands: page.commands,
+                root: page.root,
+                paint_cache: RefCell::new(Vec::new()),
             });
         }
+        let vertical = crate::fragment_pagination::chapter_is_vertical(&built.tree);
         Ok(FragmentBackendChapter {
             idref: idref.to_owned(),
             block_count,
             page_background: built.page_background.clone(),
             page_background_image: built.page_background_image.clone(),
             pages: backend_pages,
+            paint: ChapterPaintSource {
+                built,
+                family_policy,
+                vertical,
+                content_width,
+                origin: (margin_left, margin_top),
+            },
         })
     }
 }
@@ -448,9 +515,26 @@ mod tests {
             pages: (0..page_count)
                 .map(|_| FragmentBackendPage {
                     artifact: FragmentPageArtifact::empty_for_tests(0, 100.0, 200.0),
-                    commands: Vec::new(),
+                    root: rito_fragment::Fragment::Box(rito_fragment::BoxFragment {
+                        source: rito_fragment::FormattingNodeId(0),
+                        rect: rito_fragment::FragmentRect {
+                            x: 0.0,
+                            y: 0.0,
+                            width: 100.0,
+                            height: 200.0,
+                        },
+                        children: Vec::new(),
+                    }),
+                    paint_cache: RefCell::new(Vec::new()),
                 })
                 .collect(),
+            paint: ChapterPaintSource {
+                built: crate::fragment_bridge::tests_chapter_tree("stub"),
+                family_policy: PaintFamilyPolicy::default(),
+                vertical: false,
+                content_width: 100.0,
+                origin: (0.0, 0.0),
+            },
         }
     }
 

@@ -363,6 +363,7 @@ fn layout(reader: &mut Reader<'_>) -> Result<ReaderLayoutV1, ReaderErrorV1> {
             font_family_override: reader.option("font family override", |reader| {
                 reader.string("font family override")
             })?,
+            render_ratio: reader.f64("render ratio")?,
         })
     })
 }

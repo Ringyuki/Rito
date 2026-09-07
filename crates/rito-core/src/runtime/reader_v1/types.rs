@@ -138,6 +138,11 @@ pub struct ReaderLayoutV1 {
     pub root_font_size: f64,
     pub line_height_override: Option<f64>,
     pub font_family_override: Option<String>,
+    /// Device pixels per CSS pixel the host rasterizes this artifact at.
+    /// Every raster snap in the display list lands on that grid. It is a
+    /// paint parameter, not a layout one: pagination, page counts and
+    /// revision identity are identical at every ratio.
+    pub render_ratio: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

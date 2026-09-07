@@ -90,6 +90,18 @@ impl RitoWasmDocument {
     /// JSON array of family-name strings. The browser cannot paint these
     /// faces, so the engine stops shaping with them; an engine that
     /// already shaped with one is rebuilt on the next layout.
+    /// Sets the device pixels per CSS pixel frames are painted at (the
+    /// canvas backing ratio: zoom × devicePixelRatio). Every raster snap
+    /// lands on that grid; pagination is identical at every ratio, and
+    /// frames cached on the old grid are dropped.
+    #[wasm_bindgen(js_name = setRenderRatio)]
+    pub fn set_render_ratio(&mut self, ratio: f64) -> Result<(), JsValue> {
+        self.inner
+            .document
+            .set_render_ratio(ratio)
+            .map_err(|error| JsValue::from_str(error.message()))
+    }
+
     #[wasm_bindgen(js_name = setUnavailableFontFacesJson)]
     pub fn set_unavailable_font_faces_json(&mut self, families_json: &str) -> Result<(), JsValue> {
         let families: Vec<String> = serde_json::from_str(families_json)

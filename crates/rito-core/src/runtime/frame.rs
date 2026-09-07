@@ -300,6 +300,41 @@ pub(super) fn into_chapter_window_layout_config(mut config: LayoutConfig) -> Lay
 }
 
 impl RuntimeDocument {
+    /// Sets the device pixels per CSS pixel frames are painted at. Every
+    /// raster snap lands on that grid; pagination is identical at every
+    /// ratio. Frames cached on the old grid are dropped — the same
+    /// page numbers, repainted.
+    pub fn set_render_ratio(&mut self, ratio: f64) -> EpubResult<()> {
+        if !ratio.is_finite() || ratio <= 0.0 {
+            return Err(EpubError::new(format!(
+                "render ratio must be finite and positive, got {ratio}"
+            )));
+        }
+        if self.render_ratio.get() == ratio {
+            return Ok(());
+        }
+        self.render_ratio.set(ratio);
+        let mut dropped = Vec::new();
+        for revision in self
+            .revisions
+            .values_mut()
+            .chain(self.chapter_local_revisions.values_mut())
+        {
+            dropped.extend(std::mem::take(&mut revision.frame_cache).into_values());
+            revision.frame_cache_order.clear();
+        }
+        for frame in dropped {
+            self.cleanup_queue.enqueue_cached_frame(frame);
+        }
+        self.service_cleanup_queue();
+        Ok(())
+    }
+
+    /// The ratio document-level frames are currently painted at.
+    pub fn render_ratio(&self) -> f64 {
+        self.render_ratio.get()
+    }
+
     pub fn get_frame(
         &mut self,
         revision_id: &str,
@@ -525,11 +560,14 @@ impl RuntimeDocument {
         spread_index: usize,
         payload: RuntimeFrameCachePayload,
     ) -> EpubResult<&RuntimeCachedFrame> {
+        let ratio = self.render_ratio.get();
         let result = self
             .revisions
             .get_mut(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))
-            .and_then(|revision| cache_runtime_frame(revision, revision_id, spread_index, payload));
+            .and_then(|revision| {
+                cache_runtime_frame(revision, revision_id, spread_index, payload, ratio)
+            });
         match result {
             Ok((replaced, evicted)) => {
                 if let Some(replaced) = replaced {
@@ -554,12 +592,13 @@ impl RuntimeDocument {
         local_spread_index: usize,
         payload: RuntimeFrameCachePayload,
     ) -> EpubResult<&RuntimeCachedFrame> {
+        let ratio = self.render_ratio.get();
         let result = self
             .chapter_local_revisions
             .get_mut(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown chapter-local revision: {revision_id}")))
             .and_then(|revision| {
-                cache_runtime_frame(revision, revision_id, local_spread_index, payload)
+                cache_runtime_frame(revision, revision_id, local_spread_index, payload, ratio)
             });
         match result {
             Ok((replaced, evicted)) => {
@@ -601,6 +640,7 @@ fn cache_runtime_frame(
     revision_id: &str,
     spread_index: usize,
     payload: RuntimeFrameCachePayload,
+    ratio: f64,
 ) -> EpubResult<(Option<RuntimeCachedFrame>, Option<RuntimeCachedFrame>)> {
     if spread_index >= revision.known_extent.spread_count {
         return Err(EpubError::new(format!(
@@ -608,13 +648,13 @@ fn cache_runtime_frame(
         )));
     }
     if revision.frame_cache.contains_key(&spread_index) {
-        materialize_cached_runtime_frame(revision, spread_index, payload)?;
+        materialize_cached_runtime_frame(revision, spread_index, payload, ratio)?;
         touch_cached_frame(revision, spread_index);
         return Ok((None, None));
     }
     let frame_commands = revision
         .chapter_engine_session()
-        .frame(spread_index)
+        .frame(spread_index, ratio)?
         .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))?;
     let cached_frame = runtime_cached_frame(
         revision_id,
@@ -632,6 +672,7 @@ fn materialize_cached_runtime_frame(
     revision: &mut RuntimeRevision,
     spread_index: usize,
     payload: RuntimeFrameCachePayload,
+    ratio: f64,
 ) -> EpubResult<()> {
     let needs_json = payload == RuntimeFrameCachePayload::IncludeJson
         && revision
@@ -643,7 +684,7 @@ fn materialize_cached_runtime_frame(
     }
     let frame_commands = revision
         .chapter_engine_session()
-        .frame(spread_index)
+        .frame(spread_index, ratio)?
         .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))?;
     let runtime_frame = {
         let cached = revision

@@ -36,10 +36,13 @@ describe('Browser reader pinned fonts', () => {
         pinnedFontPolicy: summary([summaryFace(HASH_A, 'serif', 3)]),
       });
     });
-    const worker = { open } as unknown as BrowserReaderWorkerClient;
+    const setRenderRatio = vi.fn(() => Promise.resolve());
+    const worker = { open, setRenderRatio } as unknown as BrowserReaderWorkerClient;
 
-    const first = await openBrowserReaderWorker(worker, epubBytes(), prepared.policy);
-    await openBrowserReaderWorker(worker, epubBytes(), prepared.policy, first.pinnedFontPolicy);
+    const first = await openBrowserReaderWorker(worker, epubBytes(), prepared.policy, 2);
+    await openBrowserReaderWorker(worker, epubBytes(), prepared.policy, 2, first.pinnedFontPolicy);
+    // Every open hands the worker the ratio its frames are painted at.
+    expect(setRenderRatio.mock.calls).toEqual([[2], [2]]);
     const pinned = await registerBrowserReaderPinnedFonts(prepared, first.pinnedFontPolicy);
 
     expect(retained).not.toBe(callerBytes);

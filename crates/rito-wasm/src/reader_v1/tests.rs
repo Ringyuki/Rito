@@ -977,6 +977,7 @@ fn request_wire(session_id: u64, request_id: u64, href: &str) -> Vec<u8> {
         session_id,
         request_id,
         layout: ReaderLayoutV1 {
+            render_ratio: 1.0,
             viewport_width: 420.0,
             viewport_height: 640.0,
             margin_top: 24.0,

@@ -128,6 +128,7 @@ describe('Browser reader creation', () => {
       return fontRegistration.promise;
     });
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(),
     };
@@ -185,6 +186,7 @@ describe('Browser reader creation', () => {
     mocks.startBrowserReaderInitialReflow.mockRejectedValue(primaryError);
     const cleanup = deferredVoid();
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(() => {
         throw new Error('cleanup failed');
@@ -228,6 +230,7 @@ describe('Browser reader creation', () => {
       throw primaryError;
     });
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(),
     };
@@ -273,6 +276,7 @@ describe('Browser reader creation', () => {
     mocks.browserFontFaceRegistry.mockReturnValue({ add, delete: remove });
     const summary = pinnedFontPolicySummary();
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn((_data: ArrayBuffer, _options?: BrowserReaderWorkerOpenOptions) =>
         Promise.resolve({ publication: publicationWithFont(), pinnedFontPolicy: summary }),
       ),
@@ -338,6 +342,7 @@ describe('Browser reader creation', () => {
     mocks.startBrowserReaderInitialReflow.mockRejectedValue(primaryError);
     const summary = pinnedFontPolicySummary();
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn((_data: ArrayBuffer, _options?: BrowserReaderWorkerOpenOptions) =>
         Promise.resolve({ publication: publicationWithFont(), pinnedFontPolicy: summary }),
       ),
@@ -380,6 +385,7 @@ describe('Browser reader creation', () => {
     mocks.browserFontFaceRegistry.mockReturnValue({ add, delete: vi.fn(() => true) });
     const openError = new Error('pinned worker open failed');
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn((_data: ArrayBuffer, _options?: BrowserReaderWorkerOpenOptions) =>
         Promise.reject(openError),
       ),

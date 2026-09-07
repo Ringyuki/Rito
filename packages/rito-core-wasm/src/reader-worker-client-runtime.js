@@ -278,6 +278,12 @@ function createRitoCoreWasmReaderClient(
         throw new Error(`Rito reader worker returned ${payload.kind} for setUnavailableFontFaces`);
       }
     },
+    setRenderRatio: async (ratio) => {
+      const payload = await request({ kind: 'setRenderRatio', ratio });
+      if (payload.kind !== 'setRenderRatio') {
+        throw new Error(`Rito reader worker returned ${payload.kind} for setRenderRatio`);
+      }
+    },
     releaseRevisionTransfers: async (revisionId) => {
       const payload = await request({ kind: 'releaseRevisionTransfers', revisionId });
       if (payload.kind !== 'releaseRevisionTransfers') {
