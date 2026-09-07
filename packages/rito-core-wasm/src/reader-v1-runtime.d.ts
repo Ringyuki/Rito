@@ -9,6 +9,7 @@ import type {
   RitoReaderBackgroundRequestV1,
   RitoReaderDisplayListV1,
   RitoReaderErrorCodeV1,
+  RitoReaderPrimitiveListV1,
   RitoReaderForegroundHandoffAckV1,
   RitoReaderForegroundHandoffV1,
   RitoReaderPublicationV1,
@@ -61,6 +62,10 @@ export declare function decodeRitoReaderPublicationV1(
 export declare function decodeRitoReaderDisplayListV1(
   bytes: ArrayBuffer | Uint8Array,
 ): RitoReaderDisplayListV1;
+export declare const READER_V1_PRIMITIVE_LIST_FORMAT_VERSION: 2;
+export declare function decodeRitoReaderPrimitiveListV1(
+  bytes: ArrayBuffer | Uint8Array,
+): RitoReaderPrimitiveListV1;
 export declare function decodeRitoReaderResourceV1(
   bytes: ArrayBuffer | Uint8Array,
 ): RitoReaderResourceV1;

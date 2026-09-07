@@ -4,6 +4,7 @@ import type {
   RitoReaderBorderEdgePaintV1,
   RitoReaderColorV1,
   RitoReaderDisplayCommandV1,
+  RitoReaderPaintBlockCommandV1,
   RitoReaderPaintTextCommandV1,
   RitoReaderRunBorderEdgeV1,
   RitoReaderRunPaintV1,
@@ -13,9 +14,24 @@ import type { CoreFrameCommand } from './core-contracts';
 import { BrowserReaderCanvasUnsupportedErrorV1 } from './reader-v1-canvas-error';
 
 type CoreBlock = Extract<CoreFrameCommand, { readonly kind: 'paintBlock' }>;
+type CoreText = Extract<CoreFrameCommand, { readonly kind: 'paintText' }>;
+type CoreRuby = Extract<CoreFrameCommand, { readonly kind: 'paintRuby' }>;
 type CoreBorderEdge = NonNullable<NonNullable<CoreBlock['paint']['border']>['top']>;
-type CoreRunPaint = Extract<CoreFrameCommand, { readonly kind: 'paintText' }>['paint'];
+type CoreBackgroundSize = NonNullable<NonNullable<CoreBlock['paint']['background']>['size']>;
+type CoreRunPaint = CoreText['paint'];
 type CoreRunBorderEdge = NonNullable<NonNullable<CoreRunPaint['border']>['top']>;
+
+/** The text, ruby and block bodies shared by the format-1 commands and the
+ * format-2 pass-through primitives; either converts to the pen's shape. */
+export type ReaderTextBodyV1 = Pick<
+  RitoReaderPaintTextCommandV1,
+  'text' | 'rect' | 'paint' | 'lineHeightPx' | 'href' | 'sourceText'
+>;
+export type ReaderRubyBodyV1 = Pick<
+  RitoReaderPaintTextCommandV1,
+  'text' | 'rect' | 'paint' | 'rubyAlign'
+>;
+export type ReaderBlockBodyV1 = Pick<RitoReaderPaintBlockCommandV1, 'rect' | 'paint' | 'borderBox'>;
 
 export function convertReaderDisplayCommandsV1(
   commands: readonly RitoReaderDisplayCommandV1[],
@@ -53,21 +69,11 @@ function convertCommand(command: RitoReaderDisplayCommandV1): CoreFrameCommand |
     case 'paint-page':
       return convertPage(command);
     case 'paint-block':
-      return convertBlock(command);
+      return convertReaderBlockV1(command);
     case 'paint-text':
-      return convertText(command);
+      return convertReaderTextV1(command);
     case 'paint-ruby':
-      return {
-        kind: 'paintRuby',
-        text: command.text,
-        rect: command.rect,
-        paint: convertRunPaint(command.paint),
-        ...(command.rubyAlign === 'start' ||
-        command.rubyAlign === 'center' ||
-        command.rubyAlign === 'space-between'
-          ? { rubyAlign: command.rubyAlign }
-          : {}),
-      };
+      return convertReaderRubyV1(command);
     case 'paint-image':
       return {
         kind: 'paintImage',
@@ -119,9 +125,7 @@ function convertTransform(
   };
 }
 
-function convertBlock(
-  command: Extract<RitoReaderDisplayCommandV1, { readonly kind: 'paint-block' }>,
-): CoreFrameCommand {
+export function convertReaderBlockV1(command: ReaderBlockBodyV1): CoreBlock {
   return {
     kind: 'paintBlock',
     rect: command.rect,
@@ -130,7 +134,7 @@ function convertBlock(
   };
 }
 
-function convertText(command: RitoReaderPaintTextCommandV1): CoreFrameCommand {
+export function convertReaderTextV1(command: ReaderTextBodyV1): CoreText {
   return {
     kind: 'paintText',
     text: command.text,
@@ -139,6 +143,20 @@ function convertText(command: RitoReaderPaintTextCommandV1): CoreFrameCommand {
     ...(command.lineHeightPx === undefined ? {} : { lineHeightPx: command.lineHeightPx }),
     ...(command.href === undefined ? {} : { href: command.href }),
     ...(command.sourceText === undefined ? {} : { sourceText: command.sourceText }),
+  };
+}
+
+export function convertReaderRubyV1(command: ReaderRubyBodyV1): CoreRuby {
+  return {
+    kind: 'paintRuby',
+    text: command.text,
+    rect: command.rect,
+    paint: convertRunPaint(command.paint),
+    ...(command.rubyAlign === 'start' ||
+    command.rubyAlign === 'center' ||
+    command.rubyAlign === 'space-between'
+      ? { rubyAlign: command.rubyAlign }
+      : {}),
   };
 }
 
@@ -177,10 +195,17 @@ function convertBackground(
   return {
     ...(background.color === undefined ? {} : { color: toCanvasColorV1(background.color) }),
     ...(background.image === undefined ? {} : { image: background.image }),
-    ...(background.size === undefined ? {} : { size: background.size }),
+    ...(background.size === undefined ? {} : { size: convertBackgroundSize(background.size) }),
     ...(background.repeat === undefined ? {} : { repeat: background.repeat }),
     ...(background.position === undefined ? {} : { position: background.position }),
   };
+}
+
+function convertBackgroundSize(
+  size: NonNullable<RitoReaderBackgroundPaintV1['size']>,
+): CoreBackgroundSize {
+  if (typeof size === 'string') return size;
+  return { x: size.x ?? 'auto', y: size.y ?? 'auto' };
 }
 
 function convertRunPaint(paint: RitoReaderRunPaintV1): CoreRunPaint {
@@ -207,6 +232,11 @@ function convertRunPaint(paint: RitoReaderRunPaintV1): CoreRunPaint {
         }),
     ...(paint.padding === undefined ? {} : { padding: paint.padding }),
     ...(paint.border === undefined ? {} : { border: convertRunBorder(paint.border) }),
+    ...(paint.boxOffsets === undefined
+      ? {}
+      : { box: { topPx: paint.boxOffsets.top, bottomPx: paint.boxOffsets.bottom } }),
+    ...(paint.boxStart ? {} : { boxStart: false }),
+    ...(paint.boxEnd ? {} : { boxEnd: false }),
   };
 }
 
@@ -278,17 +308,37 @@ function convertRunBorder(
   };
 }
 
+/** The CSS `color()` space names the canvas parses; the typed wire also
+ * tags spaces with no CSS spelling, which fail closed here. */
+const PREDEFINED_COLOR_SPACES: Partial<Record<RitoReaderColorV1['space'], string>> = {
+  srgb: 'srgb',
+  'srgb-linear': 'srgb-linear',
+  'display-p3': 'display-p3',
+  'a98-rgb': 'a98-rgb',
+  'prophoto-rgb': 'prophoto-rgb',
+  rec2020: 'rec2020',
+  'xyz-d50': 'xyz-d50',
+  'xyz-d65': 'xyz-d65',
+};
+
 export function toCanvasColorV1(color: RitoReaderColorV1): string {
-  if (color.space !== 'srgb') return unsupported(`color-space:${color.space}`);
-  if (color.none.component0 || color.none.component1 || color.none.component2 || color.none.alpha) {
-    return unsupported('color-component:none');
-  }
   const components = [color.component0, color.component1, color.component2, color.alpha];
   if (!components.every(Number.isFinite)) return unsupported('color-component:non-finite');
-  const red = color.component0 * 255;
-  const green = color.component1 * 255;
-  const blue = color.component2 * 255;
-  return `rgba(${String(red)}, ${String(green)}, ${String(blue)}, ${String(color.alpha)})`;
+  const { none } = color;
+  const hasNone = none.component0 || none.component1 || none.component2 || none.alpha;
+  if (color.space === 'srgb' && !hasNone) {
+    const red = color.component0 * 255;
+    const green = color.component1 * 255;
+    const blue = color.component2 * 255;
+    return `rgba(${String(red)}, ${String(green)}, ${String(blue)}, ${String(color.alpha)})`;
+  }
+  const space = PREDEFINED_COLOR_SPACES[color.space];
+  if (space === undefined) return unsupported(`color-space:${color.space}`);
+  const channel = (value: number, missing: boolean): string => (missing ? 'none' : String(value));
+  return `color(${space} ${channel(color.component0, none.component0)} ${channel(
+    color.component1,
+    none.component1,
+  )} ${channel(color.component2, none.component2)} / ${channel(color.alpha, none.alpha)})`;
 }
 
 function unsupported(feature: string): never {

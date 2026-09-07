@@ -186,7 +186,7 @@ pub(super) fn write_horizontal_rule_paint(
     Ok(())
 }
 
-fn write_color(
+pub(super) fn write_color(
     output: &mut Vec<u8>,
     color: &ReaderColorV1,
 ) -> Result<(), ReaderDisplayListWireError> {

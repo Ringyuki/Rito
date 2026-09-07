@@ -224,8 +224,9 @@ pub(crate) enum Primitive {
         cap: StrokeCap,
         dash: Option<DashPattern>,
     },
-    /// A blurred `shape` (Gaussian `sigma`, in device pixels) drawn at
-    /// `offset`, with `clip_out` excluded from the result.
+    /// A canvas-style shadow: the `shape` blurred by Gaussian `sigma`
+    /// (device pixels) and drawn at `offset`, then the shape itself on
+    /// top, both with `clip_out` excluded from the result.
     #[allow(
         dead_code,
         reason = "fixed with the vocabulary; the box-shadow law produces it once it lowers"
@@ -256,6 +257,79 @@ pub(crate) enum Primitive {
         paint: ReaderBlockPaintV1,
         border_box: Option<ReaderBorderBoxV1>,
     },
+}
+
+impl Primitive {
+    /// The `RITODL1` format-2 opcode; state opcodes match format 1.
+    pub(crate) const fn opcode(&self) -> u16 {
+        match self {
+            Self::PushState => 1,
+            Self::PopState => 2,
+            Self::Translate { .. } => 3,
+            Self::Opacity { .. } => 4,
+            Self::Transform { .. } => 5,
+            Self::ClipPath { .. } => 6,
+            Self::FillRect { .. } => 7,
+            Self::FillPath { .. } => 8,
+            Self::StrokePath { .. } => 9,
+            Self::Shadow { .. } => 10,
+            Self::DrawImage { .. } => 11,
+            Self::Text(_) => 12,
+            Self::Ruby(_) => 13,
+            Self::Block { .. } => 14,
+        }
+    }
+}
+
+impl PathOp {
+    pub(crate) const fn tag(&self) -> u8 {
+        match self {
+            Self::MoveTo(_) => 1,
+            Self::LineTo(_) => 2,
+            Self::Arc { .. } => 3,
+            Self::Ellipse { .. } => 4,
+            Self::Rect(_) => 5,
+            Self::Close => 6,
+        }
+    }
+}
+
+impl FillRule {
+    pub(crate) const fn tag(self) -> u8 {
+        match self {
+            Self::NonZero => 1,
+            Self::EvenOdd => 2,
+        }
+    }
+}
+
+impl StrokeCap {
+    pub(crate) const fn tag(self) -> u8 {
+        match self {
+            Self::Butt => 1,
+            Self::Round => 2,
+        }
+    }
+}
+
+impl Ground {
+    pub(crate) const fn tag(self) -> u8 {
+        match self {
+            Self::None => 1,
+            Self::Page => 2,
+            Self::Block => 3,
+        }
+    }
+}
+
+impl DeviceTransform {
+    pub(crate) const fn tag(&self) -> u8 {
+        match self {
+            Self::Rotate { .. } => 1,
+            Self::Scale { .. } => 2,
+            Self::Translate { .. } => 3,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

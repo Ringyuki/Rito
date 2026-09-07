@@ -14,6 +14,8 @@ pub(crate) use packed::pack_display_commands;
 pub use packed::{
     PackedDisplayCommandBuffer, PackedDisplayCommandBufferMetadata, PackedDisplayCommandRecordStats,
 };
+#[cfg(test)]
+pub(crate) use reader_wire_v1::encode_reader_primitive_list_v1;
 pub(crate) use reader_wire_v1::{
     adapt_reader_display_list_v1, contract, encode_reader_display_list_v1,
     ReaderDisplayListWireError, ReaderEncodedDisplayListV1,

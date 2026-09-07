@@ -122,9 +122,12 @@ function readTransformOperation(reader) {
 }
 
 function readText(reader, opcode, kind) {
+  return { kind, opcode, ...readRitoDisplayTextCommandV1(reader) };
+}
+
+/** The text command body every text-bearing opcode shares. */
+export function readRitoDisplayTextCommandV1(reader) {
   return {
-    kind,
-    opcode,
     text: reader.string('text'),
     rect: readRect(reader, 'text rect'),
     paint: readRitoDisplayRunPaintV1(reader),
@@ -134,6 +137,10 @@ function readText(reader, opcode, kind) {
     sourceTextOffset: reader.option('source text offset', () => reader.u64('source text offset')),
     rubyAlign: reader.option('ruby align', () => reader.string('ruby align')),
   };
+}
+
+export function readRitoDisplayRectV1(reader, field) {
+  return readRect(reader, field);
 }
 
 function readRect(reader, field) {

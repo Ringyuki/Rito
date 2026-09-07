@@ -18,5 +18,6 @@ export type * from './types/status';
 export type * from './types/shape-provenance';
 export type * from './types/pinned-font';
 export type * from './types/reader-v1-display';
+export type * from './types/reader-v1-primitive';
 export type * from './types/reader-v1';
 export type * from './types/reader-v1-worker';

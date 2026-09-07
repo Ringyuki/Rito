@@ -5,9 +5,11 @@ use super::{
     ReaderDisplayListWireError, READER_DISPLAY_LIST_FORMAT_VERSION, READER_DISPLAY_LIST_MAGIC,
 };
 
+mod lowered;
 mod paint;
 mod primitives;
 
+pub(super) use lowered::encode_primitive_list;
 use paint::{
     write_block_paint, write_border_box, write_horizontal_rule_paint, write_page_paint,
     write_run_paint,

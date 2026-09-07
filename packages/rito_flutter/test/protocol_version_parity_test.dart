@@ -87,6 +87,27 @@ void main() {
     }
   });
 
+  test('every primitive-list decoder gates on the Rust format version', () {
+    final source = File(
+      '$repoRoot/crates/rito-core/src/render/commands/reader_wire_v1.rs',
+    ).readAsStringSync();
+    final match = RegExp(
+      r'READER_PRIMITIVE_LIST_FORMAT_VERSION:\s*u32\s*=\s*(\d+)',
+    ).firstMatch(source);
+    expect(match, isNotNull, reason: 'the Rust constant must be findable');
+    final expected = int.parse(match!.group(1)!);
+    expect(RitoPrimitiveListDecoder.formatVersion, expected);
+
+    final js = File(
+      '$repoRoot/packages/rito-core-wasm/src/reader-v1-primitive-decoder-runtime.js',
+    ).readAsStringSync();
+    final jsMatch = RegExp(
+      r'READER_V1_PRIMITIVE_LIST_FORMAT_VERSION\s*=\s*(\d+)',
+    ).firstMatch(js);
+    expect(jsMatch, isNotNull, reason: 'the JS mirror constant must exist');
+    expect(int.parse(jsMatch!.group(1)!), expected);
+  });
+
   test('a real publication decodes end to end after a version bump', () async {
     // The decisive check: bytes produced by the live Rust encoder, not a
     // hand-built fixture that can agree with a stale gate.

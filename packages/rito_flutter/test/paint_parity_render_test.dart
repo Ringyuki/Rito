@@ -51,7 +51,88 @@ void main() {
         stderr.writeln('parity fixture failed: ${file.path}: $error');
       }
     }
+
+    // The lowered lane: the engine's format-2 bytes for each fixture
+    // (written by rito-core's lower_paint_parity_fixtures) through the
+    // production decoder and the primitive blitter.
+    final loweredRoot = Directory('$outRoot/lowered');
+    if (!loweredRoot.existsSync()) {
+      return;
+    }
+    final loweredOut = Directory('$outRoot/flutter-lowered')
+      ..createSync(recursive: true);
+    final lowered =
+        loweredRoot
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.json'))
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
+    for (final file in lowered) {
+      try {
+        await _renderLoweredFixture(file, loweredOut);
+      } on Object catch (error) {
+        stderr.writeln('lowered fixture failed: ${file.path}: $error');
+      }
+    }
   });
+}
+
+Future<void> _renderLoweredFixture(File meta, Directory outDir) async {
+  final json = jsonDecode(meta.readAsStringSync()) as Map<String, Object?>;
+  final name = json['name']! as String;
+  final ratio = (json['ratio']! as num).toDouble();
+  final width = ((json['width']! as num) * ratio).round();
+  final height = ((json['height']! as num) * ratio).round();
+  final bytes = File(
+    meta.path.replaceAll(RegExp(r'\.json$'), '.ritodl'),
+  ).readAsBytesSync();
+  final list = const RitoPrimitiveListDecoder().decode(bytes);
+  final images = await _prepareLoweredImages(list);
+  final recorder = ui.PictureRecorder();
+  final canvas = ui.Canvas(recorder);
+  final background = json['background'] as String?;
+  if (background != null) {
+    canvas.drawRect(
+      ui.Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+      ui.Paint()..color = ritoUiColor(parseCssColor(background)),
+    );
+  }
+  final theme = json['theme'] as Map<String, Object?>?;
+  final target = RitoPrimitiveCanvasTarget(
+    canvas,
+    resolveImage: (href) => images[href],
+    fontEnvelopes: _fontEnvelopes,
+    colorOverride: theme == null
+        ? null
+        : RitoCanvasColorOverride(
+            foreground: ritoUiColor(parseCssColor(theme['foreground']! as String)),
+            background: ritoUiColor(parseCssColor(theme['background']! as String)),
+          ),
+  );
+  const RitoPrimitiveListReplayer().replay(list, target);
+  final image = await recorder.endRecording().toImage(width, height);
+  final pngBytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  File(
+    '${outDir.path}/$name.png',
+  ).writeAsBytesSync(pngBytes!.buffer.asUint8List());
+}
+
+Future<Map<String, ui.Image>> _prepareLoweredImages(
+  RitoPrimitiveList list,
+) async {
+  final images = <String, ui.Image>{};
+  for (final primitive in list.commands) {
+    final src = switch (primitive) {
+      RitoPrimitiveDrawImage(:final src) => src,
+      RitoPrimitiveBlock(:final command) => command.paint.background?.image,
+      _ => null,
+    };
+    if (src == null || images.containsKey(src)) continue;
+    final image = await makeSyntheticImage(src);
+    if (image != null) images[src] = image;
+  }
+  return images;
 }
 
 Future<void> _renderFixture(File file, Directory outDir) async {

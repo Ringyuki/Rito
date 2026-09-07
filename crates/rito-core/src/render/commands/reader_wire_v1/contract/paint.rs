@@ -43,6 +43,27 @@ impl ReaderColorSpaceV1 {
             Self::XyzD65 => 15,
         }
     }
+
+    /// The space's CSS name, as a JSON decoder spells it.
+    pub(crate) const fn tag_name(self) -> &'static str {
+        match self {
+            Self::Srgb => "srgb",
+            Self::Hsl => "hsl",
+            Self::Hwb => "hwb",
+            Self::Lab => "lab",
+            Self::Lch => "lch",
+            Self::Oklab => "oklab",
+            Self::Oklch => "oklch",
+            Self::SrgbLinear => "srgb-linear",
+            Self::DisplayP3 => "display-p3",
+            Self::DisplayP3Linear => "display-p3-linear",
+            Self::A98Rgb => "a98-rgb",
+            Self::ProphotoRgb => "prophoto-rgb",
+            Self::Rec2020 => "rec2020",
+            Self::XyzD50 => "xyz-d50",
+            Self::XyzD65 => "xyz-d65",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -83,6 +104,13 @@ impl ReaderFontStyleV1 {
             Self::Italic => 2,
         }
     }
+
+    pub(crate) const fn tag_name(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::Italic => "italic",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,6 +140,21 @@ impl ReaderBorderStyleV1 {
             Self::Ridge => 8,
             Self::Inset => 9,
             Self::Outset => 10,
+        }
+    }
+
+    pub(crate) const fn tag_name(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Hidden => "hidden",
+            Self::Dotted => "dotted",
+            Self::Dashed => "dashed",
+            Self::Solid => "solid",
+            Self::Double => "double",
+            Self::Groove => "groove",
+            Self::Ridge => "ridge",
+            Self::Inset => "inset",
+            Self::Outset => "outset",
         }
     }
 }
@@ -162,6 +205,17 @@ impl ReaderBackgroundRepeatV1 {
             Self::Round => 6,
         }
     }
+
+    pub(crate) const fn tag_name(self) -> &'static str {
+        match self {
+            Self::Repeat => "repeat",
+            Self::NoRepeat => "no-repeat",
+            Self::RepeatX => "repeat-x",
+            Self::RepeatY => "repeat-y",
+            Self::Space => "space",
+            Self::Round => "round",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -175,6 +229,13 @@ impl ReaderRunDecorationKindV1 {
         match self {
             Self::Underline => 1,
             Self::LineThrough => 2,
+        }
+    }
+
+    pub(crate) const fn tag_name(self) -> &'static str {
+        match self {
+            Self::Underline => "underline",
+            Self::LineThrough => "line-through",
         }
     }
 }

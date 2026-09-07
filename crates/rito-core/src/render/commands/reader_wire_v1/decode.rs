@@ -1,4 +1,7 @@
-use super::{READER_DISPLAY_LIST_FORMAT_VERSION, READER_DISPLAY_LIST_MAGIC};
+use super::{
+    READER_DISPLAY_LIST_FORMAT_VERSION, READER_DISPLAY_LIST_MAGIC,
+    READER_PRIMITIVE_LIST_FORMAT_VERSION,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum DecodeError {
@@ -21,13 +24,24 @@ pub(super) fn validate(bytes: &[u8]) -> Result<u32, DecodeError> {
         return Err(DecodeError::InvalidMagic);
     }
     let version = decoder.read_u32()?;
-    if version != READER_DISPLAY_LIST_FORMAT_VERSION {
-        return Err(DecodeError::UnsupportedVersion(version));
-    }
-    let command_count = decoder.read_u32()?;
-    for _ in 0..command_count {
-        decoder.read_command()?;
-    }
+    let command_count = match version {
+        READER_DISPLAY_LIST_FORMAT_VERSION => {
+            let command_count = decoder.read_u32()?;
+            for _ in 0..command_count {
+                decoder.read_command()?;
+            }
+            command_count
+        }
+        READER_PRIMITIVE_LIST_FORMAT_VERSION => {
+            decoder.read_finite_f64()?;
+            let command_count = decoder.read_u32()?;
+            for _ in 0..command_count {
+                decoder.read_primitive()?;
+            }
+            command_count
+        }
+        other => return Err(DecodeError::UnsupportedVersion(other)),
+    };
     if decoder.offset != bytes.len() {
         return Err(DecodeError::TrailingBytes);
     }
@@ -67,6 +81,86 @@ impl Decoder<'_> {
             }
             opcode => Err(DecodeError::UnknownOpcode(opcode)),
         }
+    }
+
+    fn read_primitive(&mut self) -> Result<(), DecodeError> {
+        match self.read_u16()? {
+            1 | 2 => Ok(()),
+            3 => self.read_f64s(2),
+            4 => self.read_finite_f64(),
+            5 => {
+                self.read_f64s(2)?;
+                let count = self.read_u32()?;
+                for _ in 0..count {
+                    match self.read_u8()? {
+                        1 => self.read_finite_f64()?,
+                        2 | 3 => self.read_f64s(2)?,
+                        value => return Err(DecodeError::UnknownEnum(value)),
+                    }
+                }
+                Ok(())
+            }
+            6 => self.read_path(),
+            7 => {
+                self.read_rect()?;
+                self.read_color()?;
+                self.read_enum(1, 3)
+            }
+            8 => {
+                self.read_path()?;
+                self.read_enum(1, 2)?;
+                self.read_color()
+            }
+            9 => {
+                self.read_path()?;
+                self.read_finite_f64()?;
+                self.read_color()?;
+                self.read_enum(1, 2)?;
+                if self.read_option()? {
+                    self.read_f64s(2)?;
+                }
+                Ok(())
+            }
+            10 => {
+                self.read_path()?;
+                self.read_f64s(3)?;
+                self.read_color()?;
+                if self.read_option()? {
+                    self.read_path()?;
+                }
+                Ok(())
+            }
+            11 => {
+                self.read_string()?;
+                self.read_rect()?;
+                if self.read_option()? {
+                    self.read_rect()?;
+                }
+                if self.read_option()? {
+                    self.read_f64s(4)?;
+                    self.read_u32()?;
+                    self.read_u32()?;
+                }
+                Ok(())
+            }
+            12 | 13 => self.read_text(),
+            14 => self.read_block(),
+            opcode => Err(DecodeError::UnknownOpcode(opcode)),
+        }
+    }
+
+    fn read_path(&mut self) -> Result<(), DecodeError> {
+        let count = self.read_u32()?;
+        for _ in 0..count {
+            match self.read_u8()? {
+                1 | 2 => self.read_f64s(2)?,
+                3 => self.read_f64s(6)?,
+                4 | 5 => self.read_f64s(4)?,
+                6 => {}
+                value => return Err(DecodeError::UnknownEnum(value)),
+            }
+        }
+        Ok(())
     }
 
     fn read_transform(&mut self) -> Result<(), DecodeError> {

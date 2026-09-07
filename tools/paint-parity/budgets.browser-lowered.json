@@ -1,0 +1,22 @@
+{
+  "block-background-image": { "maxDelta": 0, "maxDiffPx": 0 },
+  "block-badge-overlap-shadow": { "maxDelta": 0, "maxDiffPx": 0 },
+  "block-border-dotted-1px": { "maxDelta": 0, "maxDiffPx": 0 },
+  "block-borders-solid": { "maxDelta": 0, "maxDiffPx": 0 },
+  "block-box-shadow": { "maxDelta": 0, "maxDiffPx": 0 },
+  "block-radius": { "maxDelta": 0, "maxDiffPx": 0 },
+  "hr-styles": { "maxDelta": 0, "maxDiffPx": 0 },
+  "image-source-rect": { "maxDelta": 0, "maxDiffPx": 0 },
+  "state-transform-clip": { "maxDelta": 0, "maxDiffPx": 0 },
+  "text-baseline-phases": { "maxDelta": 0, "maxDiffPx": 0 },
+  "text-colors-fonts": { "maxDelta": 0, "maxDiffPx": 0 },
+  "text-decoration": { "maxDelta": 0, "maxDiffPx": 0 },
+  "text-family-fallback": { "maxDelta": 0, "maxDiffPx": 0 },
+  "text-inline-box": { "maxDelta": 0, "maxDiffPx": 0 },
+  "text-letter-spacing": { "maxDelta": 0, "maxDiffPx": 0 },
+  "text-shadow-ruby": { "maxDelta": 0, "maxDiffPx": 0 },
+  "text-synthetic-bold": { "maxDelta": 0, "maxDiffPx": 0 },
+  "theme-designed-page": { "maxDelta": 0, "maxDiffPx": 0 },
+  "theme-override-dark": { "maxDelta": 0, "maxDiffPx": 0 },
+  "theme-white-page-inline-band": { "maxDelta": 0, "maxDiffPx": 0 }
+}

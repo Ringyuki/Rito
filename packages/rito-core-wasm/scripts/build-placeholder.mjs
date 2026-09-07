@@ -56,6 +56,7 @@ const runtimeSources = [
   'reader-v1-wire-base-runtime.js',
   'reader-v1-display-paint-runtime.js',
   'reader-v1-display-decoder-runtime.js',
+  'reader-v1-primitive-decoder-runtime.js',
   'reader-v1-artifact-decoder-runtime.js',
   'reader-v1-publication-runtime.js',
   'reader-v1-request-runtime.js',
@@ -97,6 +98,7 @@ const typeDeclarationSources = [
   'shape-provenance',
   'pinned-font',
   'reader-v1-display',
+  'reader-v1-primitive',
   'reader-v1',
   'reader-v1-worker',
 ].map((name) => new URL(`../src/types/${name}.ts`, import.meta.url));
@@ -213,6 +215,7 @@ function readerV1RuntimeExports() {
     "export { decodeRitoReaderArtifactV1, decodeRitoReaderResourceV1 } from './reader-v1-artifact-decoder-runtime.js';",
     "export { decodeRitoReaderPublicationV1 } from './reader-v1-publication-runtime.js';",
     "export { decodeRitoReaderDisplayListV1 } from './reader-v1-display-decoder-runtime.js';",
+    "export { decodeRitoReaderPrimitiveListV1, READER_V1_PRIMITIVE_LIST_FORMAT_VERSION } from './reader-v1-primitive-decoder-runtime.js';",
     "export { encodeRitoReaderAdjacentRequestV1, encodeRitoReaderArtifactRequestV1 } from './reader-v1-request-runtime.js';",
     "export { decodeRitoReaderForegroundHandoffAckV1, encodeRitoReaderForegroundHandoffV1 } from './reader-v1-foreground-runtime.js';",
     "export { decodeRitoReaderBackgroundAdvanceV1, decodeRitoReaderBackgroundHandoffAckV1, encodeRitoReaderBackgroundHandoffV1, encodeRitoReaderBackgroundRequestV1 } from './reader-v1-background-runtime.js';",

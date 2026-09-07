@@ -10,7 +10,7 @@
 // invalidates every text fixture.
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
@@ -85,6 +85,29 @@ try {
     const png = Buffer.from(dataUrl.slice('data:image/png;base64,'.length), 'base64');
     writeFileSync(path.join(browserDir, `${fixture.name}.png`), png);
     console.log(`browser ${fixture.name} ${png.length}B`);
+  }
+
+  // The lowered lane: the engine's format-2 bytes for each fixture (written
+  // by rito-core's lower_paint_parity_fixtures) through the primitive
+  // blitter.
+  const loweredDir = path.join(outRoot, 'lowered');
+  if (existsSync(loweredDir)) {
+    const loweredOut = path.join(outRoot, 'browser-lowered');
+    mkdirSync(loweredOut, { recursive: true });
+    const lowered = readdirSync(loweredDir)
+      .filter((f) => f.endsWith('.json'))
+      .sort();
+    for (const file of lowered) {
+      const meta = JSON.parse(readFileSync(path.join(loweredDir, file), 'utf8'));
+      const bytes = readFileSync(path.join(loweredDir, `${meta.name}.ritodl`)).toString('base64');
+      const dataUrl = await page.evaluate(
+        ([m, b]) => window.__renderLoweredFixture(m, b),
+        [meta, bytes],
+      );
+      const png = Buffer.from(dataUrl.slice('data:image/png;base64,'.length), 'base64');
+      writeFileSync(path.join(loweredOut, `${meta.name}.png`), png);
+      console.log(`browser-lowered ${meta.name} ${png.length}B`);
+    }
   }
 } finally {
   await browser.close();

@@ -635,6 +635,8 @@ function readerArtifact(): BrowserReaderArtifactV1 {
         font: { family: 'Book Font', sizePx: 16, weight: 400, style: 'normal' },
         color: srgb(0, 0, 0),
         textShadows: [],
+        boxStart: true,
+        boxEnd: true,
       },
     },
     {

@@ -19,7 +19,7 @@ type TranslateTransform = Extract<
   { readonly kind: 'translate' }
 >;
 type ClipCommand = Extract<CoreFrameCommand, { readonly kind: 'clipRect' }>;
-type FrameCommandImageResolver = (src: string) => ImageBitmap | HTMLImageElement | undefined;
+export type FrameCommandImageResolver = (src: string) => ImageBitmap | HTMLImageElement | undefined;
 
 export interface FrameCommandRenderOptions {
   readonly pixelRatio?: number;
@@ -104,9 +104,9 @@ export function renderFrameCommandsToCanvas(
 }
 
 /** Publish a paint fault for support diagnostics, keeping the last few. */
-function recordRenderFailure(
+export function recordRenderFailure(
   error: unknown,
-  command: CoreFrameCommand,
+  command: { readonly kind: string },
   commandIndex: number,
   totalCommands: number,
 ): void {
@@ -148,14 +148,22 @@ function createRenderState(options: FrameCommandRenderOptions): RenderState {
   };
 }
 
+/** The declared grounds a replay accumulates for the theme override:
+ * opaque block backgrounds so far, and the page ground R1 kept for the
+ * book. Reset by every page ground. */
+export interface DeclaredGrounds {
+  readonly blockGrounds: { readonly rect: TextCommand['rect']; readonly color: string }[];
+  bookOwnedPageGround: string | undefined;
+}
+
 /** The ground a run's ink was typeset against, when the book expressed
  * one (R2): the run's own inline background, else the nearest opaque
  * block background containing the run's rect, else the page ground R1
  * kept for the book. Undefined means the theme supplies the ground. */
-function declaredGroundFor(
+export function declaredGroundFor(
   rect: TextCommand['rect'],
   paint: { readonly backgroundColor?: string },
-  state: RenderState,
+  state: DeclaredGrounds,
 ): string | undefined {
   const runBackground = paint.backgroundColor;
   if (runBackground !== undefined && isOpaqueColor(runBackground)) return runBackground;

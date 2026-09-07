@@ -3,6 +3,7 @@ use std::{collections::BTreeSet, error::Error, fmt};
 use sha2::{Digest, Sha256};
 
 use super::DisplayCommand;
+use crate::render::lower::{Primitive, PrimitiveList};
 use contract::{ReaderDisplayCommandV1, ReaderDisplayListV1};
 
 pub(crate) mod contract;
@@ -15,6 +16,9 @@ mod tests;
 
 const READER_DISPLAY_LIST_MAGIC: &[u8; 7] = b"RITODL1";
 pub(crate) const READER_DISPLAY_LIST_FORMAT_VERSION: u32 = 1;
+/// Format 2 carries the device-resolved primitive list instead of semantic
+/// commands; a decoder pinned to format 1 rejects it.
+pub(crate) const READER_PRIMITIVE_LIST_FORMAT_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ReaderEncodedDisplayListV1 {
@@ -100,6 +104,54 @@ fn encode_typed_reader_display_list_v1(
         image_hrefs,
         font_families,
     })
+}
+
+/// Encodes a lowered primitive list as `RITODL1` format version 2.
+#[allow(
+    dead_code,
+    reason = "production paint switches to the primitive wire at its flag day; the paint-parity lane and the wire tests encode it now"
+)]
+pub(crate) fn encode_reader_primitive_list_v1(
+    list: &PrimitiveList,
+) -> Result<ReaderEncodedDisplayListV1, ReaderDisplayListWireError> {
+    let command_count = encode::checked_length(list.commands.len(), "primitive")?;
+    let bytes = encode::encode_primitive_list(list)?;
+    let semantic_digest = Sha256::digest(&bytes).into();
+    let (image_hrefs, font_families) = collect_primitive_refs(list);
+    Ok(ReaderEncodedDisplayListV1 {
+        format_version: READER_PRIMITIVE_LIST_FORMAT_VERSION,
+        command_count,
+        semantic_digest,
+        bytes,
+        image_hrefs,
+        font_families,
+    })
+}
+
+fn collect_primitive_refs(list: &PrimitiveList) -> (Vec<String>, Vec<String>) {
+    let mut images = BTreeSet::new();
+    let mut families = BTreeSet::new();
+    for primitive in &list.commands {
+        match primitive {
+            Primitive::DrawImage { src, .. } => {
+                images.insert(src.clone());
+            }
+            Primitive::Block { paint, .. } => {
+                if let Some(image) = paint
+                    .background
+                    .as_ref()
+                    .and_then(|background| background.image.as_ref())
+                {
+                    images.insert(image.clone());
+                }
+            }
+            Primitive::Text(text) | Primitive::Ruby(text) if !text.paint.font.family.is_empty() => {
+                families.insert(text.paint.font.family.clone());
+            }
+            _ => {}
+        }
+    }
+    (images.into_iter().collect(), families.into_iter().collect())
 }
 
 fn collect_refs(display_list: &ReaderDisplayListV1) -> (Vec<String>, Vec<String>) {

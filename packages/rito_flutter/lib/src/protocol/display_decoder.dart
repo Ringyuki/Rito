@@ -6,8 +6,10 @@ import 'display_color.dart';
 import 'display_geometry.dart';
 import 'display_models.dart';
 import 'display_paint.dart';
+import 'primitive_models.dart';
 
 part 'display_decoder_paint.dart';
+part 'primitive_decoder.dart';
 
 /// Strict little-endian decoder for Core's typed `RITODL1` V1 contract.
 final class RitoDisplayListDecoder {

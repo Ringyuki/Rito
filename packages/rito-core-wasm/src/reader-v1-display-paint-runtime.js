@@ -68,6 +68,18 @@ export function readRitoDisplayRunPaintV1(reader) {
   );
   const count = reader.count('text shadow count');
   const textShadows = Array.from({ length: count }, () => readTextShadow(reader));
+  const decoration = reader.option('text decoration', () => readDecoration(reader));
+  const padding = reader.option('text padding', () => readSpacing(reader));
+  const border = reader.option('text border', () => readRunBorder(reader));
+  // The run's inline-box tail: engine-computed box top/bottom offsets
+  // (absent when the run carries no box paint), then whether the run
+  // opens and closes its inline box.
+  const boxOffsets = reader.option('inline box offsets', () => ({
+    top: reader.f64('inline box top'),
+    bottom: reader.f64('inline box bottom'),
+  }));
+  const boxStart = reader.bool('inline box start');
+  const boxEnd = reader.bool('inline box end');
   return {
     font,
     color,
@@ -76,10 +88,17 @@ export function readRitoDisplayRunPaintV1(reader) {
     backgroundColor,
     backgroundRadius,
     textShadows,
-    decoration: reader.option('text decoration', () => readDecoration(reader)),
-    padding: reader.option('text padding', () => readSpacing(reader)),
-    border: reader.option('text border', () => readRunBorder(reader)),
+    decoration,
+    padding,
+    border,
+    boxOffsets,
+    boxStart,
+    boxEnd,
   };
+}
+
+export function readRitoDisplayColorV1(reader) {
+  return readColor(reader);
 }
 
 export function readRitoDisplayHorizontalRulePaintV1(reader) {
@@ -100,9 +119,7 @@ function readBackground(reader) {
   return {
     color: reader.option('background color', () => readColor(reader)),
     image: reader.option('background image', () => reader.string('background image')),
-    size: reader.option('background size', () =>
-      readerWireEnumV1(reader, 'background size', ['auto', 'cover', 'contain']),
-    ),
+    size: reader.option('background size', () => readBackgroundSize(reader)),
     repeat: reader.option('background repeat', () =>
       readerWireEnumV1(reader, 'background repeat', [
         'repeat',
@@ -118,6 +135,25 @@ function readBackground(reader) {
       y: readRitoDisplayLengthV1(reader, 'background position y'),
     })),
   };
+}
+
+function readBackgroundSize(reader) {
+  const tag = reader.u8('background size tag');
+  if (tag === 1) return 'auto';
+  if (tag === 2) return 'cover';
+  if (tag === 3) return 'contain';
+  if (tag === 4) {
+    // Explicit axes: two optional lengths; a missing axis is auto.
+    return {
+      x: reader.option('background size x', () =>
+        readRitoDisplayLengthV1(reader, 'background size x'),
+      ),
+      y: reader.option('background size y', () =>
+        readRitoDisplayLengthV1(reader, 'background size y'),
+      ),
+    };
+  }
+  reader.fail(`unknown background size tag: ${String(tag)}`);
 }
 
 function readBlockBorder(reader) {

@@ -21,8 +21,25 @@ impl RunPaint {
             decoration: object.get("decoration").and_then(test_decoration),
             padding: object.get("padding").and_then(test_spacing),
             border: object.get("border").and_then(test_border),
-            box_offsets: None,
-            box_edges: (true, true),
+            box_offsets: object
+                .get("box")
+                .and_then(Value::as_object)
+                .and_then(|offsets| {
+                    Some((
+                        number_field(offsets, "topPx")?,
+                        number_field(offsets, "bottomPx")?,
+                    ))
+                }),
+            box_edges: (
+                object
+                    .get("boxStart")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true),
+                object
+                    .get("boxEnd")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true),
+            ),
         })
     }
 }

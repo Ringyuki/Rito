@@ -36,6 +36,25 @@ attribution, not a rule gap.
 | text-letter-spacing          | 11 (0.01%)    | 1     | glyph AA                              | half-spacing origin compensation verified by ink-segment scan                                                                                                                                                                                                                                                                              |
 | block-badge-overlap-shadow   | 7151 (5.67%)  | 24    | blur kernel + arc AA                  | the wide-badge composite (radius past the short edge, double ring, pure-blur glow under white glyphs): stadium shape, ring insets and shadow anchor verified; residual is Skia-vs-Chromium blur kernel and corner-arc AA                                                                                                                   |
 
+## Lowered lanes
+
+Since the paint-geometry lowering, `run.mjs` also lowers every fixture
+in the engine (`RITODL1` format 2, device pixels, ratio 1) and blits the
+bytes through both renderers' production decoders and primitive
+blitters. The oracle stays the browser pen's semantic render.
+
+- `browser-lowered` (budgets.browser-lowered.json): the same rasterizer
+  on both sides, so the contract is **zero** diff pixels on every
+  fixture. Any residual here is a law the engine lowers differently from
+  the browser pen, never an attribution.
+- `flutter-lowered` (budgets.flutter-lowered.json): the Skia residual
+  classes above, unchanged, except where a lowered law replaced a
+  Flutter-side port. First measurement (2026-09-07): block-borders-solid
+  199 → 48 px (max Δ 5 → 1) and hr-styles 565 → 361 px (max Δ 11 → 1),
+  the straight-edge family now rastering from one set of device rects;
+  every other fixture byte-identical to the semantic lane because the
+  engine passes its text, rounded, shadowed and imaged blocks through.
+
 ## Rules ported (geometry, must stay exact)
 
 - Two-stage text snap: alphabetic baseline at `round(rect.y + 0.8×sizePx)`,

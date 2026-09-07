@@ -7,17 +7,20 @@ import '../protocol/display_color.dart';
 import '../protocol/display_geometry.dart';
 import '../protocol/display_models.dart';
 import '../protocol/display_paint.dart';
+import '../protocol/primitive_models.dart';
 import '../protocol/wire_exception.dart';
 import 'background_tile_plan.dart';
 import 'color_override.dart';
 import 'font_envelope.dart';
 import 'font_family_stack.dart';
+import 'primitive_replayer.dart';
 import 'replayer.dart';
 import 'resources.dart';
 import 'typed_color.dart';
 
 part 'canvas_target_blocks.dart';
 part 'canvas_target_capabilities.dart';
+part 'canvas_target_primitives.dart';
 part 'canvas_target_text.dart';
 
 /// Paints the frozen RITODL1 profile onto Flutter Canvas.

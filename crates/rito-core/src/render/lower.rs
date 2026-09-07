@@ -26,6 +26,9 @@ use super::commands::{
 
 mod block;
 mod border;
+mod json;
+#[cfg(test)]
+mod parity;
 mod path;
 mod primitive;
 mod scale;
@@ -33,8 +36,8 @@ mod scale;
 mod tests;
 
 pub(crate) use primitive::{
-    DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, PathOp, Primitive,
-    PrimitiveList,
+    DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, PathOp,
+    Primitive, PrimitiveList, StrokeCap, TilePlan,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

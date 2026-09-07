@@ -65,10 +65,17 @@ export interface RitoReaderCornerRadiiV1 {
   readonly corners: readonly [number, number, number, number];
 }
 
+/** CSS `background-size` with explicit axes; a missing axis is `auto`
+ * and derives from the image's intrinsic ratio once the other resolves. */
+export interface RitoReaderExplicitBackgroundSizeV1 {
+  readonly x?: RitoReaderLengthV1 | undefined;
+  readonly y?: RitoReaderLengthV1 | undefined;
+}
+
 export interface RitoReaderBackgroundPaintV1 {
   readonly color?: RitoReaderColorV1 | undefined;
   readonly image?: string | undefined;
-  readonly size?: 'auto' | 'cover' | 'contain' | undefined;
+  readonly size?: 'auto' | 'cover' | 'contain' | RitoReaderExplicitBackgroundSizeV1 | undefined;
   readonly repeat?:
     | 'repeat'
     | 'no-repeat'
@@ -138,6 +145,13 @@ export interface RitoReaderRunPaintV1 {
       }
     | undefined;
   readonly border?: RitoReaderRunBorderV1 | undefined;
+  /** Engine-computed inline box top/bottom relative to the run rect top;
+   * absent when the run carries no box paint. */
+  readonly boxOffsets?: { readonly top: number; readonly bottom: number } | undefined;
+  /** Whether this run opens/closes its inline box; a run split across
+   * lines squares the split ends. */
+  readonly boxStart: boolean;
+  readonly boxEnd: boolean;
 }
 
 export interface RitoReaderRunBorderV1 {

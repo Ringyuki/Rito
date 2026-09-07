@@ -16,8 +16,8 @@ use super::super::commands::{
     DisplayCommand, ReaderDisplayListWireError,
 };
 use super::{
-    lower, lower_display_commands, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule,
-    Ground, LowerError, PathOp, Primitive,
+    json::primitive_list_value, lower, lower_display_commands, DevicePath, DevicePoint, DeviceRect,
+    DeviceTransform, FillRule, Ground, LowerError, PathOp, Primitive,
 };
 
 const INK: ReaderColorV1 = ReaderColorV1 {
@@ -736,6 +736,83 @@ fn lowering_display_commands_adapts_them_first() {
         Err(LowerError::Adapt(
             ReaderDisplayListWireError::NonFiniteNumber
         ))
+    );
+}
+
+#[test]
+fn json_form_mirrors_the_decoded_wire_shape() {
+    let list = lower(
+        &ReaderDisplayListV1 {
+            commands: vec![
+                ReaderDisplayCommandV1::ClipRect {
+                    rect: rect(0.0, 0.0, 20.0, 30.0),
+                    radius: None,
+                },
+                block(
+                    rect(0.0, 0.0, 10.0, 20.0),
+                    block_paint(Some(INK), None),
+                    None,
+                ),
+                ReaderDisplayCommandV1::PaintText(text()),
+            ],
+        },
+        1.0,
+    )
+    .expect("lower");
+    let ink = json!({
+        "space": "srgb",
+        "component0": f64::from(0.1_f32),
+        "component1": f64::from(0.2_f32),
+        "component2": f64::from(0.3_f32),
+        "alpha": 1.0,
+        "none": { "component0": false, "component1": false, "component2": false, "alpha": false },
+    });
+    let mut translucent = ink.clone();
+    translucent["alpha"] = json!(0.5);
+    assert_eq!(
+        primitive_list_value(&list),
+        json!({
+            "formatVersion": 2,
+            "ratio": 1.0,
+            "commandCount": 3,
+            "commands": [
+                {
+                    "kind": "clip-path",
+                    "path": [{ "op": "rect", "x": 0.0, "y": 0.0, "width": 20.0, "height": 30.0 }],
+                },
+                {
+                    "kind": "fill-rect",
+                    "rect": { "x": 0.0, "y": 0.0, "width": 10.0, "height": 20.0 },
+                    "color": ink,
+                    "ground": "block",
+                },
+                {
+                    "kind": "text",
+                    "text": "run",
+                    "rect": { "x": 1.5, "y": 2.0, "width": 10.0, "height": 20.0 },
+                    "paint": {
+                        "font": { "family": "Rito Serif", "sizePx": 16.0, "weight": 400.0, "style": "italic" },
+                        "color": ink,
+                        "wordSpacingPx": 1.0,
+                        "letterSpacingPx": 0.5,
+                        "backgroundColor": translucent,
+                        "backgroundRadius": 2.0,
+                        "textShadows": [{ "offsetX": 1.0, "offsetY": 2.0, "blur": 3.0, "color": ink }],
+                        "decoration": { "kind": "underline", "y": 18.0, "thickness": 1.0, "color": ink },
+                        "padding": { "top": 1.0, "right": 2.0, "bottom": 3.0, "left": 4.0 },
+                        "border": { "top": { "widthPx": 1.0, "paint": { "color": ink, "style": "solid" } } },
+                        "boxOffsets": { "top": -2.0, "bottom": 22.0 },
+                        "boxStart": true,
+                        "boxEnd": false,
+                    },
+                    "lineHeightPx": 24.0,
+                    "href": "#note",
+                    "sourceText": "source",
+                    "sourceTextOffset": 9,
+                    "rubyAlign": "center",
+                },
+            ],
+        })
     );
 }
 

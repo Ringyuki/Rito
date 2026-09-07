@@ -26,6 +26,10 @@ export {
 export { decodeRitoReaderPublicationV1 } from './reader-v1-publication-runtime.js';
 export { decodeRitoReaderDisplayListV1 } from './reader-v1-display-decoder-runtime.js';
 export {
+  decodeRitoReaderPrimitiveListV1,
+  READER_V1_PRIMITIVE_LIST_FORMAT_VERSION,
+} from './reader-v1-primitive-decoder-runtime.js';
+export {
   encodeRitoReaderAdjacentRequestV1,
   encodeRitoReaderArtifactRequestV1,
 } from './reader-v1-request-runtime.js';

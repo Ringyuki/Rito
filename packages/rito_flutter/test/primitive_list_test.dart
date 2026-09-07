@@ -1,0 +1,208 @@
+// Decodes and replays bytes the live Rust encoders wrote
+// (packages/rito-core-wasm/tests/fixtures/*.hex, kept in step by
+// crates/rito-core's cross_language_wire_fixtures_match_the_encoders
+// test). A hand-built fixture can agree with a stale reading of the wire;
+// these cannot.
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:rito_flutter/rito_flutter_protocol.dart';
+import 'package:rito_flutter/src/render/canvas_target.dart';
+
+Uint8List _fixture(String name) {
+  final hex = File(
+    '../../packages/rito-core-wasm/tests/fixtures/$name',
+  ).readAsStringSync().trim();
+  final bytes = Uint8List(hex.length ~/ 2);
+  for (var index = 0; index < bytes.length; index += 1) {
+    bytes[index] = int.parse(
+      hex.substring(2 * index, 2 * index + 2),
+      radix: 16,
+    );
+  }
+  return bytes;
+}
+
+void main() {
+  test('the display decoder reads every optional tail the encoder writes', () {
+    final display = const RitoDisplayListDecoder().decode(
+      _fixture('reader-v1-display-list.hex'),
+    );
+    expect(display.commandCount, 14);
+    final text = display.commands[12] as RitoPaintText;
+    expect(text.paint.boxTopPx, -2);
+    expect(text.paint.boxBottomPx, 22);
+    expect(text.paint.boxStart, isFalse);
+    expect(text.paint.boxEnd, isTrue);
+    expect(text.paint.border?.start?.widthPx, 2);
+    expect(text.sourceTextOffset, 9);
+    expect(text.rubyAlign, 'center');
+    final block = display.commands[13] as RitoPaintBlock;
+    final size = block.paint.background?.size;
+    expect(size?.isExplicit, isTrue);
+    expect(size?.x?.value, 10);
+    expect(size?.y, isNull);
+    expect(block.paint.background?.repeat, RitoBackgroundRepeat.repeatX);
+    expect((block.paint.radius! as RitoBlockCornersRadius).corners, <double>[
+      1,
+      2,
+      3,
+      4,
+    ]);
+    expect(block.paint.boxShadows.first.inset, isTrue);
+    expect(block.borderBox?.leftWidth, 4);
+  });
+
+  test('decodes every primitive the Rust encoder writes', () {
+    final list = const RitoPrimitiveListDecoder().decode(
+      _fixture('reader-v1-primitive-list.hex'),
+    );
+    expect(list.formatVersion, RitoPrimitiveListDecoder.formatVersion);
+    expect(list.ratio, 2);
+    expect(
+      list.commands.map((primitive) => primitive.opcode),
+      List<int>.generate(14, (index) => index + 1),
+    );
+    final transform = list.commands[4] as RitoPrimitiveTransform;
+    expect(transform.origin.x, 1);
+    expect(transform.transforms, <Matcher>[
+      isA<RitoDeviceRotate>(),
+      isA<RitoDeviceScale>(),
+      isA<RitoDeviceTranslate>(),
+    ]);
+    expect((transform.transforms[2] as RitoDeviceTranslate).dy, 5);
+    final clip = list.commands[5] as RitoPrimitiveClipPath;
+    expect(clip.path.ops, <Matcher>[
+      isA<RitoPathMoveTo>(),
+      isA<RitoPathLineTo>(),
+      isA<RitoPathArc>(),
+      isA<RitoPathEllipse>(),
+      isA<RitoPathRect>(),
+      isA<RitoPathClose>(),
+    ]);
+    expect((clip.path.ops[2] as RitoPathArc).sweep, 1.5);
+    final fill = list.commands[6] as RitoPrimitiveFillRect;
+    expect(fill.rect.width, 40);
+    expect(fill.ground, RitoFillGround.page);
+    expect(fill.color.component2, closeTo(0.75, 1e-9));
+    expect(
+      (list.commands[7] as RitoPrimitiveFillPath).rule,
+      RitoFillRule.evenOdd,
+    );
+    final stroke = list.commands[8] as RitoPrimitiveStrokePath;
+    expect(stroke.width, 1.5);
+    expect(stroke.cap, RitoStrokeCap.round);
+    expect(stroke.dash?.off, 2);
+    final shadow = list.commands[9] as RitoPrimitiveShadow;
+    expect(shadow.sigma, 1.5);
+    expect(shadow.clipOut?.ops.length, 6);
+    final image = list.commands[10] as RitoPrimitiveDrawImage;
+    expect(image.src, 'images/cover.jpg');
+    expect(image.sourceRect, isNull);
+    expect(image.tiles?.columns, 2);
+    expect(image.tiles?.rows, 3);
+    final text = list.commands[11] as RitoPrimitiveText;
+    expect(text.command.text, 'text');
+    expect(text.command.lineHeightPx, 37);
+    expect(list.commands[12], isA<RitoPrimitiveRuby>());
+    final block = list.commands[13] as RitoPrimitiveBlock;
+    expect(block.command.paint.background?.image, 'images/background.png');
+    expect((block.command.paint.radius! as RitoBlockPxRadius).value, 6);
+  });
+
+  test('rejects format 1, every truncated prefix and trailing bytes', () {
+    const decoder = RitoPrimitiveListDecoder();
+    expect(
+      () => decoder.decode(_fixture('reader-v1-display-list.hex')),
+      throwsA(isA<RitoWireException>()),
+    );
+    final fixture = _fixture('reader-v1-primitive-list.hex');
+    for (var end = 0; end < fixture.length; end += 1) {
+      expect(
+        () => decoder.decode(Uint8List.sublistView(fixture, 0, end)),
+        throwsA(isA<RitoWireException>()),
+        reason: 'primitive prefix $end must fail',
+      );
+    }
+    final trailing = Uint8List(fixture.length + 1)..setAll(0, fixture);
+    expect(() => decoder.decode(trailing), throwsA(isA<RitoWireException>()));
+  });
+
+  test('replays every primitive in order and blits it onto a canvas', () {
+    final list = const RitoPrimitiveListDecoder().decode(
+      _fixture('reader-v1-primitive-list.hex'),
+    );
+    final recording = _RecordingTarget();
+    const RitoPrimitiveListReplayer().replay(list, recording);
+    expect(recording.calls, <String>[
+      'save',
+      'restore',
+      'translate',
+      'opacity',
+      'transform',
+      'clipPath',
+      'fillRect',
+      'fillPath',
+      'strokePath',
+      'shadow',
+      'drawImage',
+      'text',
+      'ruby',
+      'block',
+    ]);
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    final target = RitoPrimitiveCanvasTarget(canvas, resolveImage: (_) => null);
+    const RitoPrimitiveListReplayer().replay(list, target);
+    expect(recorder.endRecording(), isNotNull);
+  });
+}
+
+final class _RecordingTarget implements RitoPrimitiveTarget {
+  final List<String> calls = <String>[];
+
+  @override
+  void save() => calls.add('save');
+
+  @override
+  void restore() => calls.add('restore');
+
+  @override
+  void translate(RitoPrimitiveTranslate primitive) => calls.add('translate');
+
+  @override
+  void opacity(RitoPrimitiveOpacity primitive) => calls.add('opacity');
+
+  @override
+  void transform(RitoPrimitiveTransform primitive) => calls.add('transform');
+
+  @override
+  void clipPath(RitoPrimitiveClipPath primitive) => calls.add('clipPath');
+
+  @override
+  void fillRect(RitoPrimitiveFillRect primitive) => calls.add('fillRect');
+
+  @override
+  void fillPath(RitoPrimitiveFillPath primitive) => calls.add('fillPath');
+
+  @override
+  void strokePath(RitoPrimitiveStrokePath primitive) => calls.add('strokePath');
+
+  @override
+  void shadow(RitoPrimitiveShadow primitive) => calls.add('shadow');
+
+  @override
+  void drawImage(RitoPrimitiveDrawImage primitive) => calls.add('drawImage');
+
+  @override
+  void text(RitoPrimitiveText primitive) => calls.add('text');
+
+  @override
+  void ruby(RitoPrimitiveRuby primitive) => calls.add('ruby');
+
+  @override
+  void block(RitoPrimitiveBlock primitive) => calls.add('block');
+}

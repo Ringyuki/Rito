@@ -5,7 +5,9 @@
 // file must add nothing to the raster beyond the optional background
 // fill both pens share.
 import { renderFrameCommandsToCanvas } from '../../../packages/rito/src/bindings/browser/frame-command-renderer';
+import { renderReaderPrimitivesToCanvas } from '../../../packages/rito/src/bindings/browser/primitive-renderer';
 import type { CoreFrameCommand } from '../../../packages/rito/src/bindings/browser/core-contracts';
+import { decodeRitoReaderPrimitiveListV1 } from '../../../packages/rito-core-wasm/src/reader-v1-primitive-decoder-runtime.js';
 
 interface ParityFixture {
   readonly name: string;
@@ -111,10 +113,50 @@ function renderParityFixture(fixture: ParityFixture): string {
   return canvas.toDataURL('image/png');
 }
 
+interface LoweredFixture {
+  readonly name: string;
+  readonly width: number;
+  readonly height: number;
+  /** Device pixels per CSS pixel the list was lowered at. */
+  readonly ratio: number;
+  readonly background?: string;
+  readonly theme?: { readonly foreground: string; readonly background: string };
+}
+
+/** The lowered lane: the engine's `RITODL1` format-2 bytes decoded by the
+ * production decoder and blitted onto a device-sized canvas. */
+function renderLoweredFixture(fixture: LoweredFixture, base64: string): string {
+  const raw = atob(base64);
+  const bytes = new Uint8Array(raw.length);
+  for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+  const list = decodeRitoReaderPrimitiveListV1(bytes);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(fixture.width * fixture.ratio);
+  canvas.height = Math.round(fixture.height * fixture.ratio);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2d context unavailable');
+  if (fixture.background) {
+    ctx.fillStyle = fixture.background;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  renderReaderPrimitivesToCanvas(list, ctx, {
+    resolveImage: makeSyntheticImage,
+    ...(fixture.theme
+      ? {
+          foregroundColor: fixture.theme.foreground,
+          backgroundColor: fixture.theme.background,
+        }
+      : {}),
+  });
+  return canvas.toDataURL('image/png');
+}
+
 declare global {
   interface Window {
     __renderParityFixture: typeof renderParityFixture;
+    __renderLoweredFixture: typeof renderLoweredFixture;
   }
 }
 
 window.__renderParityFixture = renderParityFixture;
+window.__renderLoweredFixture = renderLoweredFixture;
