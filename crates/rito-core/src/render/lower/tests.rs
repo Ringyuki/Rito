@@ -1254,6 +1254,75 @@ fn the_decoration_line_rounds_its_top_and_floors_its_thickness() {
 }
 
 #[test]
+fn one_inline_box_draws_one_decoration_line_across_its_runs() {
+    // A link's text shaped into three runs (Latin, an ideographic space,
+    // CJK) underlines as one rect: the browser draws no seam where the
+    // fonts change, and two fills abutting at a fractional x would.
+    let run = |x: f64, width: f64, start: bool, end: bool| {
+        ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+            rect: rect(x, 20.3, width, 16.0),
+            paint: ReaderRunPaintV1 {
+                background_color: None,
+                background_radius: None,
+                decoration: Some(ReaderRunDecorationV1 {
+                    kind: ReaderRunDecorationKindV1::Underline,
+                    y: 14.3,
+                    thickness: 1.0,
+                    color: INK,
+                }),
+                padding: None,
+                border: None,
+                box_offsets: None,
+                box_start: start,
+                box_end: end,
+                ..text().paint
+            },
+            ..text()
+        })
+    };
+    let primitives = lowered(
+        vec![
+            run(10.25, 30.5, true, false),
+            run(40.75, 16.0, false, false),
+            run(56.75, 48.0, false, true),
+        ],
+        1.0,
+    );
+    let lines = |primitives: &[Primitive]| -> Vec<DeviceRect> {
+        primitives
+            .iter()
+            .filter_map(|primitive| match primitive {
+                Primitive::FillRect { rect, .. } => Some(*rect),
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(
+        lines(&primitives),
+        vec![DeviceRect::new(10.25, 34.0, 94.5, 1.0)]
+    );
+    assert_eq!(
+        primitives
+            .iter()
+            .filter(|primitive| matches!(primitive, Primitive::Text(_)))
+            .count(),
+        3
+    );
+    // A run opening a new box, or one whose line does not abut, draws
+    // its own line.
+    let separate = lowered(
+        vec![run(10.25, 30.5, true, true), run(40.75, 16.0, true, true)],
+        1.0,
+    );
+    assert_eq!(lines(&separate).len(), 2);
+    let gapped = lowered(
+        vec![run(10.25, 30.5, true, false), run(41.0, 16.0, false, true)],
+        1.0,
+    );
+    assert_eq!(lines(&gapped).len(), 2);
+}
+
+#[test]
 fn a_vertical_run_paints_no_box_or_decoration() {
     let primitives = lowered(
         vec![ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {

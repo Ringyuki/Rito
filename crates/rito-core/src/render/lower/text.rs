@@ -12,7 +12,12 @@
 //!
 //! The decoration line is the browser's: a rect from the run's start
 //! across its advance, its top rounded to a whole pixel and its thickness
-//! floored to at least one, the fractional ends left to antialias.
+//! floored to at least one, the fractional ends left to antialias. One
+//! inline box draws one line however many runs its text shapes into —
+//! Chromium's underline under `act.1　奇幻篇①` (Latin, an ideographic
+//! space, CJK) has no seam where the fonts change, while two fills that
+//! abut at a fractional x composite to 79% on the shared pixel — so a
+//! run continuing its box extends the line of the run before it.
 
 use super::super::commands::contract::{
     ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunDecorationV1, ReaderSpacingV1,
@@ -37,12 +42,55 @@ pub(super) fn lower_text(text: &ReaderTextCommandV1, out: &mut Vec<Primitive>) {
             );
         }
     }
+    let has_box = !text.vertical && inline_box(text).is_some();
     out.push(Primitive::Text(text_run(text)));
     if !text.vertical {
         if let Some(decoration) = text.paint.decoration {
-            out.push(decoration_line(&text.rect, decoration));
+            let line = decoration_line(&text.rect, decoration);
+            if !(has_box || text.paint.box_start) && extend_previous_line(out, &line) {
+                return;
+            }
+            out.push(line);
         }
     }
+}
+
+/// A run that continues its inline box (no start edge, no box of its own
+/// painted in between) joins its decoration line to the one the run
+/// before it drew, when that line sits on the same rows in the same
+/// colour and ends where this one begins.
+fn extend_previous_line(out: &mut [Primitive], line: &Primitive) -> bool {
+    let Primitive::FillRect {
+        rect: next,
+        color: next_color,
+        ..
+    } = line
+    else {
+        return false;
+    };
+    // The run's own text primitive was pushed just before, and runs that
+    // already joined the line pushed only theirs: the line is the first
+    // primitive behind that string of text runs.
+    let Some(index) = out
+        .iter()
+        .rposition(|primitive| !matches!(primitive, Primitive::Text(_)))
+    else {
+        return false;
+    };
+    let Some(Primitive::FillRect {
+        rect,
+        color,
+        ground: Ground::None,
+    }) = out.get_mut(index)
+    else {
+        return false;
+    };
+    let abuts = (rect.right() - next.x).abs() < 1.0 / 32.0;
+    if !abuts || rect.y != next.y || rect.height != next.height || color != next_color {
+        return false;
+    }
+    rect.width = next.right() - rect.x;
+    true
 }
 
 /// An annotation paints only its glyphs.
