@@ -39,23 +39,9 @@ export interface RitoReaderColorV1 {
   };
 }
 
-export type RitoReaderBorderStyleV1 =
-  | 'none'
-  | 'hidden'
-  | 'dotted'
-  | 'dashed'
-  | 'solid'
-  | 'double'
-  | 'groove'
-  | 'ridge'
-  | 'inset'
-  | 'outset';
-
-export interface RitoReaderBorderEdgePaintV1 {
-  readonly color: RitoReaderColorV1;
-  readonly style: RitoReaderBorderStyleV1;
-}
-
+/** The paint a text run carries: what the renderer needs to raster its
+ * glyphs. The run's inline box (background band, padding, borders) and its
+ * decoration line lower to primitives around the run in the engine. */
 export interface RitoReaderRunPaintV1 {
   readonly font: {
     readonly family: string;
@@ -66,50 +52,12 @@ export interface RitoReaderRunPaintV1 {
   readonly color: RitoReaderColorV1;
   readonly wordSpacingPx?: number | undefined;
   readonly letterSpacingPx?: number | undefined;
-  readonly backgroundColor?: RitoReaderColorV1 | undefined;
-  readonly backgroundRadius?: number | undefined;
   readonly textShadows: readonly {
     readonly offsetX: number;
     readonly offsetY: number;
     readonly blur: number;
     readonly color: RitoReaderColorV1;
   }[];
-  readonly decoration?:
-    | {
-        readonly kind: 'underline' | 'line-through';
-        readonly y: number;
-        readonly thickness: number;
-        readonly color: RitoReaderColorV1;
-      }
-    | undefined;
-  readonly padding?:
-    | {
-        readonly top: number;
-        readonly right: number;
-        readonly bottom: number;
-        readonly left: number;
-      }
-    | undefined;
-  readonly border?: RitoReaderRunBorderV1 | undefined;
-  /** Engine-computed inline box top/bottom relative to the run rect top;
-   * absent when the run carries no box paint. */
-  readonly boxOffsets?: { readonly top: number; readonly bottom: number } | undefined;
-  /** Whether this run opens/closes its inline box; a run split across
-   * lines squares the split ends. */
-  readonly boxStart: boolean;
-  readonly boxEnd: boolean;
-}
-
-export interface RitoReaderRunBorderV1 {
-  readonly top?: RitoReaderRunBorderEdgeV1 | undefined;
-  readonly bottom?: RitoReaderRunBorderEdgeV1 | undefined;
-  readonly start?: RitoReaderRunBorderEdgeV1 | undefined;
-  readonly end?: RitoReaderRunBorderEdgeV1 | undefined;
-}
-
-export interface RitoReaderRunBorderEdgeV1 {
-  readonly widthPx: number;
-  readonly paint: RitoReaderBorderEdgePaintV1;
 }
 
 /** The text run body the text and ruby primitives carry; every length

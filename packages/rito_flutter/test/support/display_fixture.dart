@@ -20,8 +20,6 @@ Uint8List primitiveFixture({
   int fillColorFlags = 0,
   double fillColorRed = .2,
   int fontStyleTag = 1,
-  int decorationKindTag = 1,
-  int borderStyleTag = 5,
   double translateDx = 1,
 }) {
   final writer = TestWireWriter.raw();
@@ -86,14 +84,7 @@ Uint8List primitiveFixture({
       ..uint32(2)
       ..uint32(3);
   });
-  _text(
-    writer,
-    12,
-    'body',
-    fontStyleTag: fontStyleTag,
-    decorationKindTag: decorationKindTag,
-    borderStyleTag: borderStyleTag,
-  );
+  _text(writer, 12, 'body', fontStyleTag: fontStyleTag);
   _text(writer, 13, 'ruby');
   return Uint8List.fromList(writer.bytes);
 }
@@ -170,8 +161,6 @@ void _text(
   int opcode,
   String text, {
   int fontStyleTag = 1,
-  int decorationKindTag = 1,
-  int borderStyleTag = 5,
 }) {
   writer
     ..uint16(opcode)
@@ -185,49 +174,12 @@ void _text(
   _color(writer, red: .1, green: .2, blue: .3);
   writer.option(() => writer.float64(1));
   writer.option(() => writer.float64(.5));
-  writer.option(() => _color(writer, red: .9, green: .9, blue: .9));
-  writer.option(() => writer.float64(2));
   writer
     ..uint32(1)
     ..float64(1)
     ..float64(1)
     ..float64(2);
   _color(writer, alpha: .4);
-  writer.option(() {
-    writer
-      ..uint8(decorationKindTag)
-      ..float64(14)
-      ..float64(1);
-    _color(writer, red: .2, green: .3, blue: .4);
-  });
-  writer.option(() {
-    writer
-      ..float64(1)
-      ..float64(2)
-      ..float64(1)
-      ..float64(2);
-  });
-  writer.option(() {
-    writer.option(() {
-      writer.float64(1);
-      _borderEdge(writer, styleTag: borderStyleTag);
-    });
-    writer.option(null);
-    writer.option(() {
-      writer.float64(1);
-      _borderEdge(writer);
-    });
-    writer.option(null);
-  });
-  // Inline box offsets, then the open/close flags.
-  writer.option(() {
-    writer
-      ..float64(1)
-      ..float64(19);
-  });
-  writer
-    ..uint8(1)
-    ..uint8(1);
   writer.option(() => writer.float64(18));
   writer.option(() => writer.string('#note'));
   writer.option(() => writer.string('source $text'));
@@ -238,11 +190,6 @@ void _text(
   writer
     ..uint8(opcode == 12 ? 1 : 0)
     ..uint8(0);
-}
-
-void _borderEdge(TestWireWriter writer, {int styleTag = 5}) {
-  _color(writer, red: .25, green: .3, blue: .35);
-  writer.uint8(styleTag);
 }
 
 void _color(

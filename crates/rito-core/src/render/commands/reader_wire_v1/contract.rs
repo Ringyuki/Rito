@@ -18,7 +18,7 @@ pub(crate) use paint::{
     ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1, ReaderFontPaintV1,
     ReaderFontStyleV1, ReaderHorizontalRulePaintV1, ReaderPagePaintV1, ReaderRunBorderEdgeV1,
     ReaderRunBorderV1, ReaderRunDecorationKindV1, ReaderRunDecorationV1, ReaderRunPaintV1,
-    ReaderSpacingV1, ReaderTextShadowV1,
+    ReaderSpacingV1, ReaderTextRunPaintV1, ReaderTextShadowV1,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -86,5 +86,22 @@ pub(crate) struct ReaderTextCommandV1 {
     /// Vertical writing: the renderer draws the string as one downward
     /// column with `rect.x` the column's left edge and `rect.y` the first
     /// glyph's top.
+    pub vertical: bool,
+}
+
+/// The text run the wire carries (opcodes 12 and 13): the run stripped to
+/// what the renderer rasters, in CSS pixels. Its inline box and decoration
+/// line have lowered to primitives around it.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ReaderTextRunV1 {
+    pub text: String,
+    pub rect: ReaderRectV1,
+    pub paint: ReaderTextRunPaintV1,
+    pub line_height_px: Option<f64>,
+    pub href: Option<String>,
+    pub source_text: Option<String>,
+    pub source_text_offset: Option<u64>,
+    pub ruby_align: Option<String>,
+    pub align_right: bool,
     pub vertical: bool,
 }

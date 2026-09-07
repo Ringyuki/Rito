@@ -1,6 +1,6 @@
 # Paint-parity residual ledger — Skia rasterizer exemptions
 
-Status as of 2026-09-07, corpus at `tools/paint-parity/fixtures/`,
+Status as of 2026-09-08, corpus at `tools/paint-parity/fixtures/`,
 verdict produced by `node tools/paint-parity/run.mjs` (report.md).
 `budgets.json` pins each fixture's allowed diff-pixel count and channel
 delta; diff.mjs exits non-zero when a fixture exceeds its budget or has
@@ -21,16 +21,17 @@ list at ratio 1 — and both production pens blit those same bytes:
 
 Neither pen holds a geometry law any more: border bands and dash
 cadences, rounded rings and crescents, box shadows, background sizing
-and tiling, clip snapping — all resolve in `crates/rito-core/src/render/lower/`.
-A lowering law is proven against Chromium by the pixel walk
-(`tools/corpus-oracle/pixel-walk.mjs`), not here. What this instrument
-measures is the only thing left between the two pens: the rasterizer.
-Every residual below is a Skia-vs-Chromium raster difference on
-identical device geometry, never a rule gap; each entry states the
-evidence for why it is attribution. Text runs are the one primitive the
-pens still lay out themselves (glyph placement, inline boxes), so the
-text fixtures also carry glyph-AA and font-metric residuals until the
-text laws lower.
+and tiling, clip snapping, inline boxes (background bands, padding,
+border edges) and decoration lines — all resolve in
+`crates/rito-core/src/render/lower/`. A lowering law is proven against
+Chromium by the pixel walk (`tools/corpus-oracle/pixel-walk.mjs`), not
+here. What this instrument measures is the only thing left between the
+two pens: the rasterizer. Every residual below is a Skia-vs-Chromium
+raster difference on identical device geometry, never a rule gap; each
+entry states the evidence for why it is attribution. Text runs are the
+one primitive the pens still lay out themselves (glyph placement), so
+the text fixtures also carry glyph-AA residuals until the text laws
+lower.
 
 | fixture                      | diff px       | max Δ | class                                 | evidence                                                                                                                                                                                                                                                                                                                                   |
 | ---------------------------- | ------------- | ----- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -47,7 +48,7 @@ text laws lower.
 | text-colors-fonts            | 1561 (1.85%)  | 3     | glyph AA + alpha compositing rounding | Δ≤3; synthetic-italic and translucent-fill coverage rounding                                                                                                                                                                                                                                                                               |
 | text-inline-box              | 1538 (1.52%)  | 2     | fill edge AA                          | envelope geometry exact; Δ≤2 on fractional box edges                                                                                                                                                                                                                                                                                       |
 | block-radius                 | 583 (0.46%)   | 5     | arc AA                                | per-corner and overlap-scaled outlines are identical device paths on both sides (614 px / Δ128 while the Flutter pen still resolved its own radii); only arc coverage is left                                                                                                                                                              |
-| text-decoration              | 431 (0.64%)   | 2     | half-pixel line AA                    | unsnapped decoration lines blend across two rows with ±1 rounding                                                                                                                                                                                                                                                                          |
+| text-decoration              | 171 (0.25%)   | 2     | fill edge AA                          | the engine lowers each line to a rect on whole rows (top rounded, thickness floored to ≥1, the browser's own snap); both pens fill the same rect, and Δ≤2 is the antialiasing of its fractional x extents (431 px / two-row blends while the pens stroked the unsnapped centreline)                                                        |
 | hr-styles                    | 361 (0.50%)   | 1     | stroke/dash AA                        | one set of device rects on both sides (565 px / Δ11 while the Flutter pen strokes its own rule model); dot/dash caps differ in coverage                                                                                                                                                                                                    |
 | text-family-fallback         | 319 (0.58%)   | 1     | glyph AA                              | family stack split verified: quoted/bare/multi-level stacks resolve to the same face both pens paint (a split regression rasters Ahem boxes and blows past 20%)                                                                                                                                                                            |
 | text-baseline-phases         | 123 (0.13%)   | 38    | glyph AA phase                        | baseline rows identical; Chromium spreads glyph AA one extra row at fractional phases (hinting), Skia does not                                                                                                                                                                                                                             |
@@ -70,15 +71,13 @@ text laws lower.
   baseline still snapped to a whole row; shadow layers paint
   back-to-front UNDER the glyph in full, anchored at the glyph's own
   origin (Blink composites shadow underneath, body on top; σ = blur/2).
-- Inline envelope: grid-fit `usWinAscent/usWinDescent` (canvas
-  fontBoundingBox) around the baseline, padding/border expansion,
-  browser paint order (background, borders, shadows, glyphs, decoration).
 - Color: every typed space (incl. display-p3) converts to sRGB with
   per-channel clip, matching the browser pen's sRGB canvas.
 - Theme override (R1–R3): page grounds with α==1 and relative luminance
   < 0.75 stay the book's and mark the page book-owned; ink re-resolves
-  only on theme-supplied grounds (run band → containing opaque block
-  fill → book-owned page ground all return the original pair); the
+  only on theme-supplied grounds (the run's own band, lowered to an
+  opaque fill just before it → containing opaque block fill → book-owned
+  page ground all return the original pair); the
   replacement keeps hue/saturation and moves lightness to the theme
   foreground's, with achromatic ink landing exactly on the foreground.
   The engine declares grounds on its fills (page, or an opaque block
@@ -90,7 +89,9 @@ text laws lower.
 ## Font metrics contract
 
 The Flutter pen needs `RitoFontEnvelopeStore` fed with the raw font
-bytes (`register(family, bytes)`); it derives the OS/2 typo/win pairs
-Chromium anchors with. Without registration it falls back to
-SkParagraph metrics, which are hhea-based and drift by 1–3px on 'top'
-anchors and inline envelopes.
+bytes (`register(family, bytes)`); it derives the OS/2 typo pair
+Chromium anchors ruby and text shadows with. Without registration it
+falls back to SkParagraph metrics, which are hhea-based and drift by
+1–3px on 'top' anchors. Inline box envelopes no longer need it: the
+engine snaps them from the host's grid metric and the fixtures carry
+the extent explicitly (`paint.box`).

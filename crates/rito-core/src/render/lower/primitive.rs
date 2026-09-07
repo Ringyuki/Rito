@@ -7,10 +7,11 @@
 //! density — and scales the finished list by the render ratio last. Text
 //! runs are the one semantic shape left, and they stay in CSS pixels for
 //! the renderer to draw under the ratio; their glyph placement is still
-//! the renderer's until the text laws move here.
+//! the renderer's until the text laws move here, while their inline box
+//! and decoration line already lower to fills and strokes.
 
 use super::super::commands::contract::{
-    ReaderColorV1, ReaderPointV1, ReaderRectV1, ReaderTextCommandV1,
+    ReaderColorV1, ReaderPointV1, ReaderRectV1, ReaderTextRunV1,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -235,9 +236,11 @@ pub(crate) enum Primitive {
     },
     /// A text run in CSS pixels, drawn under `scale(ratio)`: the
     /// rasterizer needs the CSS size (synthetic bold widens with it) and
-    /// the scale separately. Glyph placement is still the renderer's.
-    Text(ReaderTextCommandV1),
-    Ruby(ReaderTextCommandV1),
+    /// the scale separately. Its inline box and decoration line have
+    /// lowered to primitives around it; glyph placement is still the
+    /// renderer's.
+    Text(ReaderTextRunV1),
+    Ruby(ReaderTextRunV1),
 }
 
 impl Primitive {

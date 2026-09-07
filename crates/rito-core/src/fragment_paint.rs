@@ -1047,22 +1047,24 @@ fn append_text_run_command(
     // undecorated run the formula would collapse to the line-box snap
     // (integer ascent and integer within-line baseline commute with the
     // round), so bare text keeps the two-stage path verbatim.
-    let baseline = match &run.box_snap {
+    // Beside the painted (device-grid) baseline, the CSS-grid baseline:
+    // the same line-top round without the device round of the sum. The
+    // inline band and the decoration line snap on the CSS grid from it —
+    // the browser rounds them from the layout baseline to whole CSS
+    // pixels — where the glyph baseline at 2× can sit on an odd device
+    // row, half a CSS pixel from the line the browser draws.
+    let (baseline, css_baseline) = match &run.box_snap {
         Some(snap) => {
             let layout_baseline = line_y + line.baseline - baseline_shift_px;
             let box_top = layout_baseline - snap.int_ascent - snap.edge_top;
             let box_bottom = layout_baseline + snap.int_descent + snap.edge_bottom;
             let painted_top = snap_origin_y + snap_css(box_top - snap_origin_y);
             let painted_bottom = snap_origin_y + snap_css(box_bottom - snap_origin_y);
-            let baseline = painted_baseline(
-                snap_origin_y,
-                box_top,
-                snap_css(snap.edge_top) + snap.int_ascent,
-                ratio,
-            );
+            let within_box = snap_css(snap.edge_top) + snap.int_ascent;
+            let baseline = painted_baseline(snap_origin_y, box_top, within_box, ratio);
             let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
             paint.set_box_offsets(painted_top - em_top, painted_bottom - em_top);
-            baseline
+            (baseline, painted_top + within_box)
         }
         None => {
             // The ruby-annotation growth belongs to the LINE BOX TOP:
@@ -1079,15 +1081,33 @@ fn append_text_run_command(
             // satisfies this law too: round(559.671875) + 15 = 575 —
             // the earlier per-stage-ceil reading fit that one point but
             // not the phase sweep.
-            painted_baseline(
-                snap_origin_y,
-                line_y + line.ruby_growth,
-                line.baseline - baseline_shift_px - line.ruby_growth,
-                ratio,
+            let line_top = line_y + line.ruby_growth;
+            let within_line = line.baseline - baseline_shift_px - line.ruby_growth;
+            (
+                painted_baseline(snap_origin_y, line_top, within_line, ratio),
+                snap_origin_y + snap_css(line_top - snap_origin_y) + within_line,
             )
         }
     };
     let em_top = baseline - CANVAS_TOP_ASCENT_RATIO * font_size;
+    // The decoration line rides the CSS-grid baseline: its offset was
+    // resolved against the run rect, which hangs off the painted one.
+    paint.shift_decoration(css_baseline - baseline);
+    // A run with a background but no padding or border is no decorated
+    // box for layout (it anchors off the line box like bare text), yet
+    // the browser still paints its band from the primary font's grid-fit
+    // ascent to its descent around the baseline (canvas fontBoundingBox:
+    // a highlighted 20px title paints a 24px band, not its em box). The
+    // extent rides the paint so the lowering fills the rows the browser
+    // does; without a grid metric the lowering falls back to the em box.
+    if run.box_snap.is_none() && paint.has_box_paint() {
+        if let Some((ascent, descent)) = run.font_grid {
+            paint.set_box_offsets(
+                css_baseline - ascent - em_top,
+                css_baseline + descent - em_top,
+            );
+        }
+    }
     // A base split across lines carries the annotation words whose
     // character midpoints fall over each segment (measured: 正|规勇者
     // under "Legal Brave" paints Legal on 正's line and Brave on the

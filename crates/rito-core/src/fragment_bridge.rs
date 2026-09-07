@@ -778,9 +778,13 @@ impl TreeBuilder<'_> {
     /// text sitting directly in an anonymous flow), which is exactly the
     /// computed style a text node takes in CSS.
     /// The style bare text borrows from its block container, with the
-    /// container's own box (padding and borders) stripped: those belong
-    /// to the block layout, not to the text runs inside it. A span's own
-    /// style keeps its box — that is what makes it an inline box.
+    /// container's own box (padding, borders and background) stripped:
+    /// those belong to the block, which paints them once, not to the
+    /// text runs inside it (a paragraph's background carried onto its
+    /// runs painted each line's band over the previous line's descenders
+    /// where the line height is tighter than the font's ascent plus
+    /// descent). A span's own style keeps its box — that is what makes
+    /// it an inline box.
     fn container_text_style(&mut self, style: StyleId) -> EpubResult<StyleId> {
         use rito_style_contract as c;
         let resolved = self
@@ -800,6 +804,10 @@ impl TreeBuilder<'_> {
             c::LengthPercentageOrAuto::Value(value) => length_percentage_is_zero(value),
         };
         let fragment = &resolved.fragment;
+        let paint = &resolved.paint;
+        let transparent_background = paint.background.resolve(paint.foreground).alpha().get()
+            == 0.0
+            && paint.background_image.is_none();
         if zero_side(&fragment.padding.top)
             && zero_side(&fragment.padding.right)
             && zero_side(&fragment.padding.bottom)
@@ -812,10 +820,20 @@ impl TreeBuilder<'_> {
             && inert_margin(&fragment.margin.right)
             && inert_margin(&fragment.margin.bottom)
             && inert_margin(&fragment.margin.left)
+            && transparent_background
         {
             return Ok(style);
         }
         let mut derived = resolved.clone();
+        derived.paint.background = c::AbsoluteColor::new(
+            c::AbsoluteColorSpace::Srgb,
+            [0.0, 0.0, 0.0],
+            0.0,
+            c::ColorNoneFlags::new(false, false, false, false),
+        )
+        .map_err(|error| EpubError::new(format!("container text style background: {error:?}")))?
+        .into();
+        derived.paint.background_image = None;
         let zero = c::NonNegativeLengthPercentage::new(c::LengthPercentage::Length(
             c::CssPx::new(0.0)
                 .map_err(|error| EpubError::new(format!("container text style zero: {error:?}")))?,
@@ -3898,6 +3916,57 @@ p { margin: 8px 0; }\n\
             ruby_annotation.as_ref().map(|a| a.text.as_str()),
             Some("とうきょう")
         );
+    }
+
+    #[test]
+    fn bare_text_borrows_its_block_style_without_the_block_background() {
+        // The paragraph paints its own background once; the runs inside
+        // it carry no band. A span keeps its background: that is what
+        // makes it an inline box.
+        let chapter = resolved_chapter_with(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+  <p class="band">bare <span class="box">boxed</span></p>
+</body></html>"#,
+            "p.band { background: #eeeeee; } span.box { background: #dddddd; }",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let root = built.tree.node(built.tree.root());
+        let FormattingNodeContent::InlineFlow { items } =
+            &built.tree.node(root.children[0]).content
+        else {
+            panic!("the paragraph is an inline flow");
+        };
+        let styles = built.tree.styles().expect("style tables");
+        let band_alpha = |text: &str| {
+            items
+                .iter()
+                .find_map(|item| match item {
+                    InlineItem::Text {
+                        text: run, style, ..
+                    } if run.trim() == text => {
+                        let style = styles.inline.style(*style).expect("style resolves");
+                        Some(
+                            style
+                                .paint
+                                .background
+                                .resolve(style.paint.foreground)
+                                .alpha()
+                                .get(),
+                        )
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("run {text:?} present"))
+        };
+        assert_eq!(band_alpha("bare"), 0.0);
+        assert_eq!(band_alpha("boxed"), 1.0);
     }
 
     #[test]

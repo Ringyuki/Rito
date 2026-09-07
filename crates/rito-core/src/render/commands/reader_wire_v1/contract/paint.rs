@@ -129,39 +129,6 @@ pub(crate) enum ReaderBorderStyleV1 {
     Outset,
 }
 
-impl ReaderBorderStyleV1 {
-    pub(crate) const fn tag(self) -> u8 {
-        match self {
-            Self::None => 1,
-            Self::Hidden => 2,
-            Self::Dotted => 3,
-            Self::Dashed => 4,
-            Self::Solid => 5,
-            Self::Double => 6,
-            Self::Groove => 7,
-            Self::Ridge => 8,
-            Self::Inset => 9,
-            Self::Outset => 10,
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) const fn tag_name(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Hidden => "hidden",
-            Self::Dotted => "dotted",
-            Self::Dashed => "dashed",
-            Self::Solid => "solid",
-            Self::Double => "double",
-            Self::Groove => "groove",
-            Self::Ridge => "ridge",
-            Self::Inset => "inset",
-            Self::Outset => "outset",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum ReaderBackgroundSizeV1 {
     Auto,
@@ -188,23 +155,6 @@ pub(crate) enum ReaderBackgroundRepeatV1 {
 pub(crate) enum ReaderRunDecorationKindV1 {
     Underline,
     LineThrough,
-}
-
-impl ReaderRunDecorationKindV1 {
-    pub(crate) const fn tag(self) -> u8 {
-        match self {
-            Self::Underline => 1,
-            Self::LineThrough => 2,
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) const fn tag_name(self) -> &'static str {
-        match self {
-            Self::Underline => "underline",
-            Self::LineThrough => "line-through",
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -342,6 +292,19 @@ pub(crate) struct ReaderRunPaintV1 {
     /// apply only where the box actually opens or closes.
     pub box_start: bool,
     pub box_end: bool,
+}
+
+/// The paint a text run carries onto the wire: what a renderer needs to
+/// raster its glyphs. The run's inline box (background band, padding,
+/// border edges) and its decoration line lower to primitives around the
+/// run and never reach the renderer as run paint.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ReaderTextRunPaintV1 {
+    pub font: ReaderFontPaintV1,
+    pub color: ReaderColorV1,
+    pub word_spacing_px: Option<f64>,
+    pub letter_spacing_px: Option<f64>,
+    pub text_shadows: Vec<ReaderTextShadowV1>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

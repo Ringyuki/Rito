@@ -7,7 +7,12 @@
     {
       "kind": "paintText",
       "text": "quoted first family resolves",
-      "rect": { "x": 10, "y": 10, "width": 380, "height": 20 },
+      "rect": {
+        "x": 10,
+        "y": 10,
+        "width": 380,
+        "height": 20
+      },
       "paint": {
         "color": "#000000",
         "font": {
@@ -21,7 +26,12 @@
     {
       "kind": "paintText",
       "text": "首选中文族命中后停止回落",
-      "rect": { "x": 10, "y": 44, "width": 380, "height": 24 },
+      "rect": {
+        "x": 10,
+        "y": 44,
+        "width": 380,
+        "height": 24
+      },
       "paint": {
         "color": "#000000",
         "font": {
@@ -35,7 +45,12 @@
     {
       "kind": "paintText",
       "text": "bare identifier stack resolves",
-      "rect": { "x": 10, "y": 80, "width": 380, "height": 20 },
+      "rect": {
+        "x": 10,
+        "y": 80,
+        "width": 380,
+        "height": 20
+      },
       "paint": {
         "color": "#000000",
         "backgroundColor": "#eef4ff",
@@ -44,6 +59,10 @@
           "sizePx": 16,
           "style": "normal",
           "weight": 400
+        },
+        "box": {
+          "topPx": -1,
+          "bottomPx": 16
         }
       }
     }

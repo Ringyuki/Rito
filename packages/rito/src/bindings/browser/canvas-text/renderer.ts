@@ -1,6 +1,4 @@
 import { buildFontString } from './font-string';
-import { drawInlineBackground } from './inline-background';
-import { drawInlineBorders } from './inline-borders';
 import { canvasSpacingValue } from './spacing';
 import { drawTextShadows } from './text-shadow';
 import type { CanvasRubyFragment, CanvasTextColorOverride, CanvasTextFragment } from './types';
@@ -58,8 +56,6 @@ export function drawCanvasTextFragment(
     }
     return;
   }
-  drawInlineBackground(ctx, fragment);
-  drawInlineBorders(ctx, fragment);
   if (paint.textShadow && paint.textShadow.length > 0) {
     drawTextShadows(ctx, fragment, x, y, color);
   }
@@ -81,11 +77,6 @@ export function drawCanvasTextFragment(
     drawTextOnLayoutGrid(ctx, drawnText, penX, baseline, paint.letterSpacingPx ?? 0);
   } else {
     ctx.fillText(drawnText, penX, baseline);
-  }
-
-  const { decoration } = paint;
-  if (decoration) {
-    drawLine(ctx, x, y + decoration.y, fragment.rect.width, decoration.color, decoration.thickness);
   }
 }
 
@@ -319,20 +310,4 @@ function effectiveTextColor(
     colorOverride.backgroundColor,
     colorOverride.foregroundColor,
   );
-}
-
-function drawLine(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  color: string,
-  thickness: number,
-): void {
-  ctx.strokeStyle = color;
-  ctx.lineWidth = thickness;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + width, y);
-  ctx.stroke();
 }

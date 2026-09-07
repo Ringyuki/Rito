@@ -1,4 +1,4 @@
-use super::{contract::ReaderTextCommandV1, ReaderDisplayListWireError};
+use super::{contract::ReaderTextRunV1, ReaderDisplayListWireError};
 
 mod lowered;
 mod paint;
@@ -14,7 +14,7 @@ use primitives::{
 /// A text run's body, shared by the text and ruby primitives.
 fn write_text(
     output: &mut Vec<u8>,
-    input: &ReaderTextCommandV1,
+    input: &ReaderTextRunV1,
 ) -> Result<(), ReaderDisplayListWireError> {
     write_string(output, &input.text)?;
     write_rect(output, &input.rect)?;

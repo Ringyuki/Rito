@@ -152,34 +152,11 @@ impl Decoder<'_> {
         self.read_color()?;
         self.read_optional_f64()?;
         self.read_optional_f64()?;
-        self.read_optional_color()?;
-        self.read_optional_f64()?;
         let shadow_count = self.read_u32()?;
         for _ in 0..shadow_count {
             self.read_f64s(3)?;
             self.read_color()?;
         }
-        if self.read_option()? {
-            self.read_enum(1, 2)?;
-            self.read_f64s(2)?;
-            self.read_color()?;
-        }
-        if self.read_option()? {
-            self.read_f64s(4)?;
-        }
-        if self.read_option()? {
-            for _ in 0..4 {
-                if self.read_option()? {
-                    self.read_finite_f64()?;
-                    self.read_border_edge()?;
-                }
-            }
-        }
-        if self.read_option()? {
-            self.read_f64s(2)?;
-        }
-        self.read_bool()?;
-        self.read_bool()?;
         Ok(())
     }
 
@@ -195,20 +172,8 @@ impl Decoder<'_> {
         Ok(())
     }
 
-    fn read_border_edge(&mut self) -> Result<(), DecodeError> {
-        self.read_color()?;
-        self.read_enum(1, 10)
-    }
-
     fn read_rect(&mut self) -> Result<(), DecodeError> {
         self.read_f64s(4)
-    }
-
-    fn read_optional_color(&mut self) -> Result<(), DecodeError> {
-        if self.read_option()? {
-            self.read_color()?;
-        }
-        Ok(())
     }
 
     fn read_optional_string(&mut self) -> Result<(), DecodeError> {

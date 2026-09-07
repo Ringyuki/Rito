@@ -203,6 +203,14 @@ impl RunPaint {
 
     /// Engine-computed inline box extents relative to the run rect top,
     /// when the paint carries them.
+    /// Whether the run paints an inline box at all: a background band,
+    /// padding or a border edge.
+    pub(crate) fn has_box_paint(&self) -> bool {
+        self.data.background_color.is_some()
+            || self.data.padding.is_some()
+            || self.data.border.is_some()
+    }
+
     pub(crate) fn box_offsets(&self) -> Option<(f64, f64)> {
         self.data.box_offsets
     }
@@ -237,6 +245,17 @@ impl RunPaint {
     pub(crate) fn set_box_offsets(&mut self, top: f64, bottom: f64) {
         let data = Arc::make_mut(&mut self.data);
         data.box_offsets = Some((top, bottom));
+    }
+
+    /// Moves the decoration line by `delta` along the run rect's y.
+    pub(crate) fn shift_decoration(&mut self, delta: f64) {
+        if delta == 0.0 || self.data.decoration.is_none() {
+            return;
+        }
+        let data = Arc::make_mut(&mut self.data);
+        if let Some(decoration) = &mut data.decoration {
+            decoration.y += delta;
+        }
     }
 
     pub(crate) fn for_ruby(&self, font_size: f64) -> Self {

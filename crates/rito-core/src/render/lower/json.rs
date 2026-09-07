@@ -5,8 +5,7 @@
 use serde_json::{json, Map, Number, Value};
 
 use super::super::commands::contract::{
-    ReaderBorderEdgePaintV1, ReaderColorV1, ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunPaintV1,
-    ReaderTextCommandV1,
+    ReaderColorV1, ReaderRectV1, ReaderTextRunPaintV1, ReaderTextRunV1,
 };
 use super::{
     DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, PathOp,
@@ -225,7 +224,7 @@ fn insert_ground(object: &mut Map<String, Value>, ground: Ground) {
     }
 }
 
-fn text(kind: &str, command: &ReaderTextCommandV1) -> Value {
+fn text(kind: &str, command: &ReaderTextRunV1) -> Value {
     let mut object = object([
         ("kind", json!(kind)),
         ("text", json!(command.text)),
@@ -248,7 +247,7 @@ fn text(kind: &str, command: &ReaderTextCommandV1) -> Value {
     Value::Object(object)
 }
 
-fn run_paint(paint: &ReaderRunPaintV1) -> Value {
+fn run_paint(paint: &ReaderTextRunPaintV1) -> Value {
     let mut object = object([
         (
             "font",
@@ -263,10 +262,6 @@ fn run_paint(paint: &ReaderRunPaintV1) -> Value {
     ]);
     insert_number(&mut object, "wordSpacingPx", paint.word_spacing_px);
     insert_number(&mut object, "letterSpacingPx", paint.letter_spacing_px);
-    if let Some(background) = &paint.background_color {
-        object.insert("backgroundColor".to_owned(), color(background));
-    }
-    insert_number(&mut object, "backgroundRadius", paint.background_radius);
     object.insert(
         "textShadows".to_owned(),
         Value::Array(
@@ -284,59 +279,7 @@ fn run_paint(paint: &ReaderRunPaintV1) -> Value {
                 .collect(),
         ),
     );
-    if let Some(decoration) = &paint.decoration {
-        object.insert(
-            "decoration".to_owned(),
-            json!({
-                "kind": decoration.kind.tag_name(),
-                "y": number(decoration.y),
-                "thickness": number(decoration.thickness),
-                "color": color(&decoration.color),
-            }),
-        );
-    }
-    if let Some(padding) = &paint.padding {
-        object.insert(
-            "padding".to_owned(),
-            json!({
-                "top": number(padding.top),
-                "right": number(padding.right),
-                "bottom": number(padding.bottom),
-                "left": number(padding.left),
-            }),
-        );
-    }
-    if let Some(border) = &paint.border {
-        let mut edges = Map::new();
-        for (name, edge) in [
-            ("top", border.top),
-            ("bottom", border.bottom),
-            ("start", border.start),
-            ("end", border.end),
-        ] {
-            if let Some(edge) = edge {
-                edges.insert(name.to_owned(), run_border_edge(&edge));
-            }
-        }
-        object.insert("border".to_owned(), Value::Object(edges));
-    }
-    if let Some((top, bottom)) = paint.box_offsets {
-        object.insert(
-            "boxOffsets".to_owned(),
-            json!({ "top": number(top), "bottom": number(bottom) }),
-        );
-    }
-    object.insert("boxStart".to_owned(), Value::Bool(paint.box_start));
-    object.insert("boxEnd".to_owned(), Value::Bool(paint.box_end));
     Value::Object(object)
-}
-
-fn run_border_edge(edge: &ReaderRunBorderEdgeV1) -> Value {
-    json!({ "widthPx": number(edge.width_px), "paint": border_edge(&edge.paint) })
-}
-
-fn border_edge(edge: &ReaderBorderEdgePaintV1) -> Value {
-    json!({ "color": color(&edge.color), "style": edge.style.tag_name() })
 }
 
 fn color(color: &ReaderColorV1) -> Value {

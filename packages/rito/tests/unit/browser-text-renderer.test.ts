@@ -16,8 +16,7 @@ import {
 import { createMockCanvasContext, type MockCanvasContext } from '../helpers/mock-canvas-context';
 
 type TextPaint = CanvasTextFragment['paint'];
-type BorderStyle = 'solid' | 'dotted' | 'dashed';
-type ThrowingMethod = 'fill' | 'fillRect' | 'stroke' | 'clip' | 'measureText' | 'fillText';
+type ThrowingMethod = 'measureText' | 'fillText';
 
 const COLOR_OVERRIDE = { foregroundColor: '#101010', backgroundColor: '#ffffff' } as const;
 const BASE_PAINT = {
@@ -105,60 +104,6 @@ describe('production Canvas text renderer', () => {
       textFragment({ font: { ...BASE_PAINT.font, sizePx: 12.16 } }, 'Trial'),
     );
     expect(result.getCalls('fillText')).toHaveLength(1);
-  });
-
-  it('matches a rounded inline background with padding', () => {
-    const result = expectTextParity(
-      textFragment({
-        backgroundColor: '#ffeecc',
-        backgroundRadius: 6,
-        padding: { top: 2, right: 8, bottom: 6, left: 4 },
-      }),
-    );
-
-    expect(result.getCalls('moveTo')[0]?.args).toEqual([12, 18]);
-    expect(result.getCalls('arcTo')).toHaveLength(4);
-    expect(result.getCalls('fill')).toHaveLength(1);
-  });
-
-  it('matches partial straight solid, dotted, and dashed borders', () => {
-    const result = expectTextParity(
-      textFragment({
-        backgroundRadius: 9,
-        border: {
-          top: borderEdge(2, 'solid', '#111111'),
-          bottom: borderEdge(4, 'dotted', '#222222'),
-          start: borderEdge(3, 'dashed', '#333333'),
-        },
-      }),
-    );
-
-    expect(result.getCalls('setLineDash').map((call) => call.args[0])).toEqual([
-      [],
-      [0.001, 6],
-      [9, 6],
-    ]);
-    expect(result.getCalls('stroke')).toHaveLength(3);
-    expect(result.getCalls('clip')).toHaveLength(0);
-  });
-
-  it('matches all-edge rounded borders', () => {
-    const result = expectTextParity(textFragment(roundedBorderPaint()));
-
-    expect(result.getCalls('clip')).toHaveLength(4);
-    expect(result.getCalls('stroke')).toHaveLength(4);
-    expect(result.getCalls('save')).toHaveLength(5);
-    expect(result.getCalls('restore')).toHaveLength(5);
-  });
-
-  it.each([
-    { kind: 'underline' as const, y: 17, thickness: 1.25, color: '#456789' },
-    { kind: 'line-through' as const, y: 8, thickness: 2, color: '#987654' },
-  ])('matches reference $kind decoration records', (decoration) => {
-    const result = expectTextParity(textFragment({ decoration }));
-    expect(result.getCalls('moveTo').at(-1)?.args).toEqual([10, 20 + decoration.y]);
-    expect(result.getCalls('lineTo').at(-1)?.args).toEqual([60, 20 + decoration.y]);
-    expect(lastProperty(result, 'lineWidth')).toBe(decoration.thickness);
   });
 
   it('matches the reference text-shadow path when Node has no scratch canvas', () => {
@@ -291,22 +236,6 @@ function rubyFragment(paint: Partial<TextPaint>, text: string): CanvasRubyFragme
   return textFragment(paint, text);
 }
 
-function borderEdge(widthPx: number, style: BorderStyle, color: string) {
-  return { widthPx, paint: { color, style } };
-}
-
-function roundedBorderPaint(): Partial<TextPaint> {
-  return {
-    backgroundRadius: 7,
-    border: {
-      top: borderEdge(1, 'solid', '#111111'),
-      end: borderEdge(2, 'dashed', '#222222'),
-      bottom: borderEdge(3, 'dotted', '#333333'),
-      start: borderEdge(4, 'solid', '#444444'),
-    },
-  };
-}
-
 function expectTextParity(
   fragment: CanvasTextFragment,
   override?: CanvasTextColorOverride,
@@ -340,37 +269,13 @@ function localFailureCases(): readonly {
   readonly method: ThrowingMethod;
   readonly render: (ctx: CanvasRenderingContext2D) => void;
 }[] {
+  // Inline backgrounds and borders are the engine's primitives now; the
+  // ruby painter is the one path left that saves canvas state around its
+  // measurement and glyph calls.
   return [
-    failureCase(
-      'rounded background',
-      'fill',
-      textFragment({
-        backgroundColor: '#ffffff',
-        backgroundRadius: 4,
-      }),
-    ),
-    failureCase('flat background', 'fillRect', textFragment({ backgroundColor: '#ffffff' })),
-    failureCase(
-      'straight border',
-      'stroke',
-      textFragment({
-        border: { top: borderEdge(2, 'solid', '#000000') },
-      }),
-    ),
-    failureCase('rounded border', 'clip', textFragment(roundedBorderPaint())),
     rubyFailureCase('ruby measurement', 'measureText'),
     rubyFailureCase('ruby glyph', 'fillText'),
   ];
-}
-
-function failureCase(name: string, method: ThrowingMethod, fragment: CanvasTextFragment) {
-  return {
-    name,
-    method,
-    render: (ctx: CanvasRenderingContext2D) => {
-      drawCanvasTextFragment(ctx, fragment);
-    },
-  };
 }
 
 function rubyFailureCase(name: string, method: 'measureText' | 'fillText') {

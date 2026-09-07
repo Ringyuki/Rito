@@ -45,7 +45,7 @@
   },
   "text-decoration": {
     "maxDelta": 4,
-    "maxDiffPx": 496
+    "maxDiffPx": 197
   },
   "text-family-fallback": {
     "maxDelta": 3,

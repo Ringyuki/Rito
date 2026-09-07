@@ -935,8 +935,6 @@ function frameCommand(
     },
     font: { style: 'normal' as const, weight: 400, sizePx: 16, family: 'serif' },
     textShadows: [],
-    boxStart: true,
-    boxEnd: true,
   };
   if (kind === 'ruby') {
     return { kind, text: 'ruby', rect, paint, alignRight: false, vertical: false };

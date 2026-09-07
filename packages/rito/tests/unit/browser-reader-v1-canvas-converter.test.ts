@@ -3,7 +3,6 @@ import type { RitoReaderColorV1 } from '@ritojs/core-wasm';
 
 import {
   convertReaderRubyV1,
-  convertReaderTextV1,
   toCanvasColorV1,
 } from '../../src/bindings/browser/reader-v1-canvas-converter';
 
@@ -17,35 +16,11 @@ const INK: RitoReaderColorV1 = {
 };
 
 describe('reader v1 canvas converter', () => {
-  it('carries the inline-box tail through to the pen', () => {
-    const text = convertReaderTextV1({
-      text: 'run',
-      alignRight: false,
-      vertical: false,
-      rect: { x: 0, y: 0, width: 10, height: 20 },
-      paint: {
-        font: { family: 'serif', sizePx: 16, weight: 400, style: 'normal' },
-        color: INK,
-        textShadows: [],
-        boxOffsets: { top: -2, bottom: 22 },
-        boxStart: false,
-        boxEnd: true,
-      },
-    });
-    expect(text).toMatchObject({
-      kind: 'paintText',
-      paint: { box: { topPx: -2, bottomPx: 22 }, boxStart: false },
-    });
-    expect('boxEnd' in text.paint).toBe(false);
-  });
-
   it('keeps a non-initial ruby alignment and drops the initial one', () => {
     const paint = {
       font: { family: 'serif', sizePx: 8, weight: 400, style: 'normal' as const },
       color: INK,
       textShadows: [],
-      boxStart: true,
-      boxEnd: true,
     };
     const rect = { x: 0, y: 0, width: 10, height: 8 };
     expect(
@@ -57,25 +32,6 @@ describe('reader v1 canvas converter', () => {
     expect('rubyAlign' in convertReaderRubyV1({ text: 'rb', rect, paint, vertical: false })).toBe(
       false,
     );
-  });
-
-  it('fails closed on a border style the canvas cannot stroke', () => {
-    expect(() =>
-      convertReaderTextV1({
-        text: 'run',
-        alignRight: false,
-        vertical: false,
-        rect: { x: 0, y: 0, width: 10, height: 20 },
-        paint: {
-          font: { family: 'serif', sizePx: 16, weight: 400, style: 'normal' },
-          color: INK,
-          textShadows: [],
-          border: { top: { widthPx: 1, paint: { color: INK, style: 'groove' } } },
-          boxStart: true,
-          boxEnd: true,
-        },
-      }),
-    ).toThrow(/border-style:groove/);
   });
 
   it('spells every predefined color space the canvas parses', () => {

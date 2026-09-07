@@ -66,11 +66,14 @@ plus text and ruby runs. Text and ruby runs are the exception to the
 device grid: their lengths stay in CSS pixels and a host draws them under
 a `scale(ratio)` transform, because glyph rasterization follows the CSS
 font size (a synthetic-bold run drawn at the device size on the device
-grid rasters different ink from the browser's). Every raster decision for
-blocks — border bands and dash cadences, rounded rings, box shadows,
-background sizing and tiling — is resolved in the engine on the CSS grid
-and scaled last; a host blits paths and draws images, and lays out text
-runs.
+grid rasters different ink from the browser's). A run carries only glyph
+paint — font, colour, spacing, text shadows: its inline box (background
+band, padding, border edges) and its decoration line arrive as fill and
+stroke primitives around it. Every raster decision for blocks and inline
+boxes — border bands and dash cadences, rounded rings, box shadows,
+background sizing and tiling, decoration lines — is resolved in the
+engine on the CSS grid and scaled last; a host blits paths and draws
+images, and lays out text runs.
 The Rust encoder (`reader_wire_v1/encode/lowered.rs`) and the Dart
 decoder (`protocol/primitive_decoder.dart`) are the reference;
 `packages/rito-core-wasm/tests/fixtures/reader-v1-primitive-list.hex`

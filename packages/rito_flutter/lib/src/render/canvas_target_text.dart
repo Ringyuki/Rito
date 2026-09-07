@@ -33,10 +33,8 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       _paintVerticalRun(command, rect);
       return;
     }
-    // Browser pen order: background, borders, shadows, glyphs,
-    // decoration.
-    _paintInlineBackground(rect, command.paint);
-    _paintRunBorders(rect, command.paint);
+    // The run's inline box and decoration line arrive as primitives of
+    // their own; the pen paints shadows, then glyphs.
     final painter = TextPainter(
       text: TextSpan(
         text: command.text,
@@ -87,7 +85,6 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       _paintTextShadows(painter, command.paint, origin);
     }
     painter.paint(_canvas, origin);
-    _paintDecoration(rect, command.paint.decoration);
   }
 
   /// Vertical-rl column: the rect's x is the glyph column's left edge, y
@@ -271,8 +268,9 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   }
 
   /// Run ink is only re-resolved when its ground is theme-supplied
-  /// (R2): a declared ground — the run's own inline band, an opaque
-  /// block fill containing the run, or a book-owned page ground — means
+  /// (R2): a declared ground — the run's own inline band (an opaque fill
+  /// lowered just before the run), an opaque block fill containing the
+  /// run, or a book-owned page ground — means
   /// the color pair was the typesetter's choice and stays untouched.
   /// On the theme ground it follows the override's contrast policy
   /// (browser pen's resolveTextColor). Decoration and shadow layer
@@ -285,9 +283,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
     }
     final effective = override.effectiveTextColor(
       color,
-      declaredGround: runRect == null
-          ? null
-          : _declaredGroundFor(paint, runRect),
+      declaredGround: runRect == null ? null : _declaredGroundFor(runRect),
     );
     // _color already carries the opacity stack; a theme substitution
     // must re-apply it (the browser pen's globalAlpha does this).
@@ -297,20 +293,13 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   }
 
   /// The ground a run's ink was typeset against, when the book
-  /// expressed one: the run's own inline background, else the nearest
-  /// opaque block background containing the run's rect, else the page
-  /// ground R1 kept for the book. Null means the theme supplies the
-  /// ground. Mirrors the browser pen's declaredGroundFor. The run's rect
-  /// is in CSS pixels and the declared grounds are device rects, so the
-  /// containment test scales the run.
-  ui.Color? _declaredGroundFor(RitoRunPaint paint, ui.Rect runRect) {
-    final runBackground = paint.backgroundColor;
-    if (runBackground != null) {
-      final ground = ritoUiColor(runBackground);
-      if (ground.a >= 1) {
-        return ground;
-      }
-    }
+  /// expressed one: the nearest opaque fill containing the run's rect —
+  /// the run's own inline band lowers to such a fill just before the
+  /// run — else the page ground R1 kept for the book. Null means the
+  /// theme supplies the ground. Mirrors the browser pen's
+  /// declaredGroundFor. The run's rect is in CSS pixels and the declared
+  /// grounds are device rects, so the containment test scales the run.
+  ui.Color? _declaredGroundFor(ui.Rect runRect) {
     final rect = _ratio == 1
         ? runRect
         : ui.Rect.fromLTWH(
@@ -331,225 +320,6 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
     return _bookOwnedPageGround;
   }
 
-  /// Content-height box for inline backgrounds and borders, mirroring
-  /// the browser pen's computeInlineBoxRect: the band spans the run
-  /// font's grid-fit ascent to descent around the baseline (canvas
-  /// fontBoundingBox = rounded OS/2 win metrics), not the em box, then
-  /// grows by padding and border widths. Without envelope metrics the
-  /// em box stands in, exactly like the browser fallback.
-  ui.Rect _inlineBoxRect(ui.Rect rect, RitoRunPaint paint) {
-    final padding = paint.padding;
-    final border = paint.border;
-    final paddingLeft = padding?.left ?? 0;
-    final paddingRight = padding?.right ?? 0;
-    final paddingTop = padding?.top ?? 0;
-    final paddingBottom = padding?.bottom ?? 0;
-    final borderLeft = border?.start?.widthPx ?? 0;
-    final borderRight = border?.end?.widthPx ?? 0;
-    final borderTop = border?.top?.widthPx ?? 0;
-    final borderBottom = border?.bottom?.widthPx ?? 0;
-
-    // The engine's own inline box extents are authoritative when the
-    // paint carries them (browser pen computeInlineBoxRect prefers
-    // paint.box); font metrics only cover paints without them.
-    final boxTop = paint.boxTopPx;
-    final boxBottom = paint.boxBottomPx;
-    if (boxTop != null && boxBottom != null) {
-      return ui.Rect.fromLTRB(
-        (rect.left - paddingLeft - borderLeft).roundToDouble(),
-        (rect.top + boxTop).roundToDouble(),
-        (rect.left + rect.width + paddingRight + borderRight).roundToDouble(),
-        (rect.top + boxBottom).roundToDouble(),
-      );
-    }
-    final size = paint.font.sizePx;
-    var contentTop = rect.top;
-    var contentHeight = size;
-    final envelope = _fontEnvelopes?.lookupFamilyStack(paint.font.family);
-    if (envelope != null) {
-      final ascent = envelope.boundingAscentPx(size);
-      final descent = envelope.boundingDescentPx(size);
-      contentTop = rect.top + _canvasTopAscentRatio * size - ascent;
-      contentHeight = ascent + descent;
-    }
-    // The inline box rasters on whole CSS pixels — all four edges round
-    // independently (browser pen computeInlineBoxRect), so band tops and
-    // bottoms are binary rows instead of AA smears; the run paints under
-    // the list's ratio, which maps those rows onto the device grid.
-    return ui.Rect.fromLTRB(
-      (rect.left - paddingLeft - borderLeft).roundToDouble(),
-      (contentTop - paddingTop - borderTop).roundToDouble(),
-      (rect.left + rect.width + paddingRight + borderRight).roundToDouble(),
-      (contentTop + contentHeight + paddingBottom + borderBottom)
-          .roundToDouble(),
-    );
-  }
-
-  ui.RRect _inlineRoundedRect(
-    ui.Rect box,
-    double radius, {
-    bool roundStart = true,
-    bool roundEnd = true,
-  }) {
-    // An inline box split across shaping runs paints one continuous
-    // background: only the opening segment rounds its left corners and
-    // only the closing one its right corners (browser pen
-    // traceInlineRoundedRect).
-    final resolved = math.min(radius, math.min(box.width / 2, box.height / 2));
-    final start = roundStart ? ui.Radius.circular(resolved) : ui.Radius.zero;
-    final end = roundEnd ? ui.Radius.circular(resolved) : ui.Radius.zero;
-    return ui.RRect.fromRectAndCorners(
-      box,
-      topLeft: start,
-      bottomLeft: start,
-      topRight: end,
-      bottomRight: end,
-    );
-  }
-
-  void _paintInlineBackground(ui.Rect rect, RitoRunPaint paint) {
-    final color = paint.backgroundColor;
-    if (color == null) {
-      return;
-    }
-    final box = _inlineBoxRect(rect, paint);
-    final radius = paint.backgroundRadius ?? 0;
-    final fill = ui.Paint()..color = _color(color);
-    if (radius > 0) {
-      _canvas.drawRRect(
-        _inlineRoundedRect(
-          box,
-          radius,
-          roundStart: paint.boxStart,
-          roundEnd: paint.boxEnd,
-        ),
-        fill,
-      );
-    } else {
-      _canvas.drawRect(box, fill);
-    }
-  }
-
-  void _paintDecoration(ui.Rect rect, RitoRunDecoration? decoration) {
-    if (decoration == null || decoration.thickness <= 0) {
-      return;
-    }
-    final y = rect.top + decoration.y;
-    _canvas.drawLine(
-      ui.Offset(rect.left, y),
-      ui.Offset(rect.right, y),
-      ui.Paint()
-        ..color = _color(decoration.color)
-        ..strokeWidth = decoration.thickness,
-    );
-  }
-
-  void _paintRunBorders(ui.Rect rect, RitoRunPaint paint) {
-    final border = paint.border;
-    if (border == null) {
-      return;
-    }
-    final top = border.top;
-    final bottom = border.bottom;
-    final start = border.start;
-    final end = border.end;
-    if (top == null && bottom == null && start == null && end == null) {
-      return;
-    }
-    final box = _inlineBoxRect(rect, paint);
-    final radius = paint.backgroundRadius ?? 0;
-    if (top != null &&
-        bottom != null &&
-        start != null &&
-        end != null &&
-        radius > 0) {
-      _paintRoundedInlineBorders(box, radius, top, end, bottom, start);
-      return;
-    }
-    // Straight edges stroke centred half a width inside the box edge,
-    // unsnapped, matching the browser pen's drawStraightInlineBorders.
-    if (top != null) {
-      _inlineEdge(
-        ui.Offset(box.left, box.top + top.widthPx / 2),
-        ui.Offset(box.right, box.top + top.widthPx / 2),
-        top,
-      );
-    }
-    if (bottom != null) {
-      _inlineEdge(
-        ui.Offset(box.left, box.bottom - bottom.widthPx / 2),
-        ui.Offset(box.right, box.bottom - bottom.widthPx / 2),
-        bottom,
-      );
-    }
-    if (start != null) {
-      _inlineEdge(
-        ui.Offset(box.left + start.widthPx / 2, box.top),
-        ui.Offset(box.left + start.widthPx / 2, box.bottom),
-        start,
-      );
-    }
-    if (end != null) {
-      _inlineEdge(
-        ui.Offset(box.right - end.widthPx / 2, box.top),
-        ui.Offset(box.right - end.widthPx / 2, box.bottom),
-        end,
-      );
-    }
-  }
-
-  /// Full four-edge rounded case: each side clips a triangle from the
-  /// box centre and strokes the rounded outline at its own width,
-  /// mirroring drawRoundedInlineBorders.
-  void _paintRoundedInlineBorders(
-    ui.Rect box,
-    double radius,
-    RitoRunBorderEdge top,
-    RitoRunBorderEdge end,
-    RitoRunBorderEdge bottom,
-    RitoRunBorderEdge start,
-  ) {
-    final center = box.center;
-    final sides = <(RitoRunBorderEdge, ui.Offset, ui.Offset)>[
-      (top, box.topLeft, box.topRight),
-      (end, box.topRight, box.bottomRight),
-      (bottom, box.bottomRight, box.bottomLeft),
-      (start, box.bottomLeft, box.topLeft),
-    ];
-    final outline = _inlineRoundedRect(box, radius);
-    for (final (edge, corner1, corner2) in sides) {
-      _canvas.save();
-      try {
-        _canvas.clipPath(
-          ui.Path()
-            ..moveTo(center.dx, center.dy)
-            ..lineTo(corner1.dx, corner1.dy)
-            ..lineTo(corner2.dx, corner2.dy)
-            ..close(),
-        );
-        _canvas.drawRRect(
-          outline,
-          ui.Paint()
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = edge.widthPx
-            ..color = _color(edge.paint.color),
-        );
-      } finally {
-        _canvas.restore();
-      }
-    }
-  }
-
-  void _inlineEdge(ui.Offset from, ui.Offset to, RitoRunBorderEdge edge) {
-    _strokeStyledLine(
-      from,
-      to,
-      edge.widthPx,
-      edge.paint.color,
-      edge.paint.style,
-    );
-  }
-
   void _validateRunPaint(RitoRunPaint paint) {
     for (final shadow in paint.textShadows) {
       if (shadow.blur < 0) {
@@ -557,86 +327,6 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
           'RITODL1 text-shadow blur radius must not be negative.',
         );
       }
-    }
-    final border = paint.border;
-    if (border == null) {
-      return;
-    }
-    _validateRunBorderEdge(border.top, 'top text border');
-    _validateRunBorderEdge(border.bottom, 'bottom text border');
-    _validateRunBorderEdge(border.start, 'start text border');
-    _validateRunBorderEdge(border.end, 'end text border');
-  }
-
-  void _validateRunBorderEdge(RitoRunBorderEdge? edge, String context) {
-    if (edge == null) {
-      return;
-    }
-    _validateBorderStyle(
-      edge.paint.style,
-      width: edge.widthPx,
-      context: context,
-    );
-  }
-
-  void _validateBorderStyle(
-    RitoBorderStyle style, {
-    required double width,
-    required String context,
-  }) {
-    if (width <= 0) {
-      return;
-    }
-    if (style == RitoBorderStyle.groove ||
-        style == RitoBorderStyle.ridge ||
-        style == RitoBorderStyle.inset ||
-        style == RitoBorderStyle.outset) {
-      throw UnsupportedError(
-        'RITODL1 ${style.name} $context is not supported by the Flutter '
-        'Canvas adapter.',
-      );
-    }
-  }
-
-  /// Strokes an inline border edge with the browser pen's dash
-  /// vocabulary: dotted shrinks the pen to 0.75w with round-cap dots
-  /// every 1.5w, dashed runs 3w on / 2w off, anything else strokes solid
-  /// at full width. Unsnapped: inline boxes still resolve on the host.
-  void _strokeStyledLine(
-    ui.Offset start,
-    ui.Offset end,
-    double width,
-    RitoColor color,
-    RitoBorderStyle style,
-  ) {
-    if (width <= 0) {
-      return;
-    }
-    _validateBorderStyle(style, width: width, context: 'border');
-    if (style == RitoBorderStyle.none || style == RitoBorderStyle.hidden) {
-      return;
-    }
-    final vector = end - start;
-    final length = vector.distance;
-    if (length == 0) {
-      return;
-    }
-    final paint = ui.Paint()
-      ..color = _color(color)
-      ..strokeWidth = style == RitoBorderStyle.dotted ? width * .75 : width
-      ..strokeCap = style == RitoBorderStyle.dotted
-          ? ui.StrokeCap.round
-          : ui.StrokeCap.butt;
-    if (style != RitoBorderStyle.dotted && style != RitoBorderStyle.dashed) {
-      _canvas.drawLine(start, end, paint);
-      return;
-    }
-    final unit = vector / length;
-    final dash = style == RitoBorderStyle.dotted ? .001 : width * 3;
-    final gap = style == RitoBorderStyle.dotted ? width * 1.5 : width * 2;
-    for (var cursor = 0.0; cursor < length; cursor += dash + gap) {
-      final finish = math.min(length, cursor + dash);
-      _canvas.drawLine(start + unit * cursor, start + unit * finish, paint);
     }
   }
 }

@@ -375,44 +375,6 @@ describe('Browser Reader v1 Canvas presenter', () => {
     presenter.dispose();
   });
 
-  it('rejects unsupported paint before loading resources or committing a wrong frame', async () => {
-    const artifact = readerArtifact();
-    const unsupported: BrowserReaderArtifactV1 = {
-      ...artifact,
-      resources: [],
-      fonts: [],
-      displayList: displayList(
-        [
-          {
-            kind: 'text',
-            alignRight: false,
-            vertical: false,
-            text: 'ruled',
-            rect: { x: 0, y: 0, width: 40, height: 40 },
-            paint: {
-              font: { family: 'Book Font', sizePx: 16, weight: 400, style: 'normal' },
-              color: srgb(0, 0, 0),
-              textShadows: [],
-              border: { top: { widthPx: 3, paint: { color: srgb(0, 0, 0), style: 'groove' } } },
-              boxStart: true,
-              boxEnd: true,
-            },
-          },
-        ],
-        1,
-      ),
-    };
-    const presenter = createBrowserReaderV1CanvasPresenter(readerSession(unsupported));
-
-    await expect(presenter.prepare(unsupported)).rejects.toEqual(
-      expect.objectContaining<Partial<BrowserReaderCanvasUnsupportedErrorV1>>({
-        feature: 'border-style:groove',
-      }),
-    );
-    expect(readResource).not.toHaveBeenCalled();
-    presenter.dispose();
-  });
-
   it('rolls back an acquired font when later image preparation fails', async () => {
     vi.stubGlobal(
       'createImageBitmap',
@@ -594,8 +556,6 @@ function readerArtifact(): BrowserReaderArtifactV1 {
         font: { family: 'Book Font', sizePx: 32, weight: 400, style: 'normal' },
         color: srgb(0, 0, 0),
         textShadows: [],
-        boxStart: true,
-        boxEnd: true,
       },
     },
     drawImage('Images/cover.png', 80, 120),

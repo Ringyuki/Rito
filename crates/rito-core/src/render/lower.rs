@@ -22,8 +22,9 @@
 //! `scale(ratio)`, because glyph rasterization follows the CSS font size
 //! (synthetic bold widens with the requested size, glyphs sit on a 1/64
 //! CSS-pixel grid) and drawing the device size on the device grid rasters
-//! different ink. The renderer still places glyphs until the text laws
-//! move here.
+//! different ink. A run's inline box — background band, border edges —
+//! and its decoration line lower to primitives around the run; the
+//! renderer still places glyphs until the text laws move here.
 
 use std::{error::Error, fmt};
 
@@ -47,6 +48,7 @@ mod primitive;
 mod scale;
 #[cfg(test)]
 mod tests;
+mod text;
 
 pub(crate) use primitive::{
     DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, PathOp,
@@ -161,8 +163,8 @@ fn lower_command(
             paint,
             border_box,
         } => block::lower_block(rect.into(), paint, border_box.as_ref(), images, out),
-        ReaderDisplayCommandV1::PaintText(text) => out.push(Primitive::Text(text.clone())),
-        ReaderDisplayCommandV1::PaintRuby(text) => out.push(Primitive::Ruby(text.clone())),
+        ReaderDisplayCommandV1::PaintText(text) => text::lower_text(text, out),
+        ReaderDisplayCommandV1::PaintRuby(text) => text::lower_ruby(text, out),
         ReaderDisplayCommandV1::PaintImage {
             src,
             rect,

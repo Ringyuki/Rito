@@ -1,8 +1,5 @@
 use super::super::{
-    contract::{
-        ReaderBorderEdgePaintV1, ReaderColorV1, ReaderRunBorderEdgeV1, ReaderRunPaintV1,
-        ReaderTextShadowV1,
-    },
+    contract::{ReaderColorV1, ReaderTextRunPaintV1, ReaderTextShadowV1},
     ReaderDisplayListWireError,
 };
 use super::primitives::{
@@ -11,7 +8,7 @@ use super::primitives::{
 
 pub(super) fn write_run_paint(
     output: &mut Vec<u8>,
-    paint: &ReaderRunPaintV1,
+    paint: &ReaderTextRunPaintV1,
 ) -> Result<(), ReaderDisplayListWireError> {
     write_string(output, &paint.font.family)?;
     write_finite_f64(output, paint.font.size_px)?;
@@ -20,36 +17,10 @@ pub(super) fn write_run_paint(
     write_color(output, &paint.color)?;
     write_optional_f64(output, paint.word_spacing_px)?;
     write_optional_f64(output, paint.letter_spacing_px)?;
-    write_optional(output, paint.background_color.as_ref(), write_color)?;
-    write_optional_f64(output, paint.background_radius)?;
     write_length(output, paint.text_shadows.len(), "text shadow")?;
     for shadow in &paint.text_shadows {
         write_text_shadow(output, shadow)?;
     }
-    write_optional(output, paint.decoration.as_ref(), |output, decoration| {
-        output.push(decoration.kind.tag());
-        write_finite_f64(output, decoration.y)?;
-        write_finite_f64(output, decoration.thickness)?;
-        write_color(output, &decoration.color)
-    })?;
-    write_optional(output, paint.padding.as_ref(), |output, padding| {
-        write_finite_f64(output, padding.top)?;
-        write_finite_f64(output, padding.right)?;
-        write_finite_f64(output, padding.bottom)?;
-        write_finite_f64(output, padding.left)
-    })?;
-    write_optional(output, paint.border.as_ref(), |output, border| {
-        write_optional(output, border.top.as_ref(), write_run_border_edge)?;
-        write_optional(output, border.bottom.as_ref(), write_run_border_edge)?;
-        write_optional(output, border.start.as_ref(), write_run_border_edge)?;
-        write_optional(output, border.end.as_ref(), write_run_border_edge)
-    })?;
-    write_optional(output, paint.box_offsets.as_ref(), |output, offsets| {
-        write_finite_f64(output, offsets.0)?;
-        write_finite_f64(output, offsets.1)
-    })?;
-    output.push(u8::from(paint.box_start));
-    output.push(u8::from(paint.box_end));
     Ok(())
 }
 
@@ -70,23 +41,6 @@ fn write_text_shadow(
     write_finite_f64(output, shadow.offset_y)?;
     write_finite_f64(output, shadow.blur)?;
     write_color(output, &shadow.color)
-}
-
-fn write_run_border_edge(
-    output: &mut Vec<u8>,
-    edge: &ReaderRunBorderEdgeV1,
-) -> Result<(), ReaderDisplayListWireError> {
-    write_finite_f64(output, edge.width_px)?;
-    write_border_edge(output, &edge.paint)
-}
-
-fn write_border_edge(
-    output: &mut Vec<u8>,
-    edge: &ReaderBorderEdgePaintV1,
-) -> Result<(), ReaderDisplayListWireError> {
-    write_color(output, &edge.color)?;
-    output.push(edge.style.tag());
-    Ok(())
 }
 
 pub(super) fn write_color(

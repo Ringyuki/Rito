@@ -1,7 +1,5 @@
 import type {
-  RitoReaderBorderEdgePaintV1,
   RitoReaderColorV1,
-  RitoReaderRunBorderEdgeV1,
   RitoReaderRunPaintV1,
   RitoReaderTextRunV1,
 } from '@ritojs/core-wasm/decoder';
@@ -12,8 +10,6 @@ import { BrowserReaderCanvasUnsupportedErrorV1 } from './reader-v1-canvas-error'
 type CoreText = Extract<CoreFrameCommand, { readonly kind: 'paintText' }>;
 type CoreRuby = Extract<CoreFrameCommand, { readonly kind: 'paintRuby' }>;
 type CoreRunPaint = CoreText['paint'];
-type CoreRunBorderEdge = NonNullable<NonNullable<CoreRunPaint['border']>['top']>;
-type CoreBorderEdge = CoreRunBorderEdge['paint'];
 
 /** The text and ruby bodies the format-2 primitives carry; either converts
  * to the text painter's shape. */
@@ -55,76 +51,18 @@ export function convertReaderRubyV1(command: ReaderRubyBodyV1): CoreRuby {
   };
 }
 
+/** The run's glyph paint. Its inline box and decoration line arrive as
+ * their own primitives, so none of the box fields is ever set here. */
 function convertRunPaint(paint: RitoReaderRunPaintV1): CoreRunPaint {
   return {
     font: paint.font,
     color: toCanvasColorV1(paint.color),
     ...(paint.wordSpacingPx === undefined ? {} : { wordSpacingPx: paint.wordSpacingPx }),
     ...(paint.letterSpacingPx === undefined ? {} : { letterSpacingPx: paint.letterSpacingPx }),
-    ...(paint.backgroundColor === undefined
-      ? {}
-      : { backgroundColor: toCanvasColorV1(paint.backgroundColor) }),
-    ...(paint.backgroundRadius === undefined ? {} : { backgroundRadius: paint.backgroundRadius }),
     textShadow: paint.textShadows.map((shadow) => ({
       ...shadow,
       color: toCanvasColorV1(shadow.color),
     })),
-    ...(paint.decoration === undefined
-      ? {}
-      : {
-          decoration: {
-            ...paint.decoration,
-            color: toCanvasColorV1(paint.decoration.color),
-          },
-        }),
-    ...(paint.padding === undefined ? {} : { padding: paint.padding }),
-    ...(paint.border === undefined ? {} : { border: convertRunBorder(paint.border) }),
-    ...(paint.boxOffsets === undefined
-      ? {}
-      : { box: { topPx: paint.boxOffsets.top, bottomPx: paint.boxOffsets.bottom } }),
-    ...(paint.boxStart ? {} : { boxStart: false }),
-    ...(paint.boxEnd ? {} : { boxEnd: false }),
-  };
-}
-
-function convertBorderEdge(
-  edge: RitoReaderBorderEdgePaintV1 | undefined,
-): CoreBorderEdge | undefined {
-  if (edge === undefined) return undefined;
-  const style = supportedBorderStyle(edge.style);
-  return style === undefined ? undefined : { color: toCanvasColorV1(edge.color), style };
-}
-
-function convertRunBorderEdge(
-  edge: RitoReaderRunBorderEdgeV1 | undefined,
-): CoreRunBorderEdge | undefined {
-  if (edge === undefined) return undefined;
-  const paint = convertBorderEdge(edge.paint);
-  return paint === undefined ? undefined : { widthPx: edge.widthPx, paint };
-}
-
-function supportedBorderStyle(
-  style: RitoReaderBorderEdgePaintV1['style'],
-): CoreBorderEdge['style'] | undefined {
-  if (style === 'none' || style === 'hidden') return undefined;
-  if (style === 'solid' || style === 'dotted' || style === 'dashed' || style === 'double') {
-    return style;
-  }
-  return unsupported(`border-style:${style}`);
-}
-
-function convertRunBorder(
-  border: NonNullable<RitoReaderRunPaintV1['border']>,
-): NonNullable<CoreRunPaint['border']> {
-  const top = convertRunBorderEdge(border.top);
-  const bottom = convertRunBorderEdge(border.bottom);
-  const start = convertRunBorderEdge(border.start);
-  const end = convertRunBorderEdge(border.end);
-  return {
-    ...(top === undefined ? {} : { top }),
-    ...(bottom === undefined ? {} : { bottom }),
-    ...(start === undefined ? {} : { start }),
-    ...(end === undefined ? {} : { end }),
   };
 }
 

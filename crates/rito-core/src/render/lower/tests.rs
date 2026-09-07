@@ -12,14 +12,15 @@ use super::super::commands::{
         ReaderHorizontalRulePaintV1, ReaderLengthV1, ReaderPagePaintV1, ReaderPointV1,
         ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunBorderV1, ReaderRunDecorationKindV1,
         ReaderRunDecorationV1, ReaderRunPaintV1, ReaderSizeV1, ReaderSpacingV1,
-        ReaderTextCommandV1, ReaderTextShadowV1, ReaderTransformV1,
+        ReaderTextCommandV1, ReaderTextRunPaintV1, ReaderTextRunV1, ReaderTextShadowV1,
+        ReaderTransformV1,
     },
     DisplayCommand, ReaderDisplayListWireError,
 };
 use super::{
-    json::primitive_list_value, lower, lower_display_commands, DashPattern, DevicePath,
-    DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, ImageSize, LowerError, PathOp,
-    Primitive, StrokeCap, TilePlan,
+    json::primitive_list_value, lower, lower_display_commands, path::corner_rounded_rect,
+    DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, ImageSize,
+    LowerError, PathOp, Primitive, StrokeCap, TilePlan,
 };
 
 const INK: ReaderColorV1 = ReaderColorV1 {
@@ -1031,24 +1032,243 @@ fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
 }
 
 #[test]
-fn text_runs_pass_through_in_css_pixels_at_any_ratio() {
+fn a_text_run_lowers_to_its_inline_box_the_run_and_its_decoration_line() {
+    // The band and the border edges paint before the run, the decoration
+    // line after it; the run itself carries only glyph paint.
+    let primitives = lowered(vec![ReaderDisplayCommandV1::PaintText(text())], 1.0);
+    let kinds: Vec<&str> = primitives
+        .iter()
+        .map(|primitive| match primitive {
+            Primitive::PushState => "push",
+            Primitive::PopState => "pop",
+            Primitive::ClipPath { .. } => "clip",
+            Primitive::FillRect { .. } => "fill-rect",
+            Primitive::FillPath { .. } => "fill-path",
+            Primitive::Text(_) => "text",
+            other => panic!("{other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            "fill-path",
+            "push",
+            "clip",
+            "fill-path",
+            "pop",
+            "text",
+            "fill-rect"
+        ]
+    );
+    // The translucent band declares no ground and rounds only its
+    // closed start corners: box (5.5 − 4, 2 − 2) to (5.5 + 10 + 2, 2 + 22)
+    // snaps to (2, 0, 16, 24).
+    let Primitive::FillPath {
+        path,
+        color,
+        ground,
+        ..
+    } = &primitives[0]
+    else {
+        unreachable!()
+    };
+    assert_eq!((*color, *ground), (TRANSLUCENT, Ground::None));
+    assert_eq!(
+        *path,
+        corner_rounded_rect(DeviceRect::new(2.0, 0.0, 16.0, 24.0), [2.0, 0.0, 0.0, 2.0])
+    );
+    assert_eq!(primitives[5], Primitive::Text(text_run()));
+    // The underline: centre 18 below the run top with thickness 1 is the
+    // row from 19.5, rounded to 20.
+    assert_eq!(
+        primitives[6],
+        Primitive::FillRect {
+            rect: DeviceRect::new(5.5, 20.0, 10.0, 1.0),
+            color: INK,
+            ground: Ground::None,
+        }
+    );
+}
+
+#[test]
+fn a_bare_text_run_passes_through_in_css_pixels_at_any_ratio() {
     // The renderer draws a run under scale(ratio): synthetic bold widens
     // with the CSS size it is asked for, so the device size on the device
     // grid rasters different ink than the browser's.
+    let bare = ReaderTextCommandV1 {
+        paint: ReaderRunPaintV1 {
+            background_color: None,
+            background_radius: None,
+            decoration: None,
+            padding: None,
+            border: None,
+            box_offsets: None,
+            ..text().paint
+        },
+        ..text()
+    };
     for ratio in [1.0, 2.0] {
         let primitives = lowered(
             vec![
-                ReaderDisplayCommandV1::PaintText(text()),
+                ReaderDisplayCommandV1::PaintText(bare.clone()),
                 ReaderDisplayCommandV1::PaintRuby(text()),
             ],
             ratio,
         );
         assert_eq!(
             primitives,
-            vec![Primitive::Text(text()), Primitive::Ruby(text())],
+            vec![Primitive::Text(text_run()), Primitive::Ruby(text_run())],
             "{ratio}"
         );
     }
+}
+
+#[test]
+fn a_background_band_snaps_each_edge_and_declares_the_ground() {
+    let band = |box_offsets, padding| {
+        ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+            rect: rect(10.4, 20.0, 50.2, 16.0),
+            paint: ReaderRunPaintV1 {
+                background_color: Some(INK),
+                background_radius: None,
+                decoration: None,
+                padding,
+                border: None,
+                box_offsets,
+                ..text().paint
+            },
+            ..text()
+        })
+    };
+    // The engine's extent rides the paint: the band spans it, unsnapped
+    // as the ground and snapped edge by edge as the fill.
+    let primitives = lowered(vec![band(Some((-3.25, 16.5)), None)], 1.0);
+    assert_eq!(
+        primitives[0],
+        Primitive::FillRect {
+            rect: DeviceRect::new(10.0, 17.0, 51.0, 20.0),
+            color: INK,
+            ground: Ground::Block(DeviceRect::new(10.4, 16.75, 50.2, 19.75)),
+        }
+    );
+    assert!(matches!(primitives[1], Primitive::Text(_)));
+    // A band shallower than the run's em box still declares a ground the
+    // run sits inside: the ground grows to the run rect.
+    let primitives = lowered(vec![band(Some((-1.0, 15.5)), None)], 1.0);
+    assert_eq!(
+        primitives[0],
+        Primitive::FillRect {
+            rect: DeviceRect::new(10.0, 19.0, 51.0, 17.0),
+            color: INK,
+            ground: Ground::Block(DeviceRect::new(10.4, 19.0, 50.2, 17.0)),
+        }
+    );
+    // Without an extent the em box stands in, grown by the padding.
+    let primitives = lowered(
+        vec![band(
+            None,
+            Some(ReaderSpacingV1 {
+                top: 2.0,
+                right: 0.0,
+                bottom: 3.0,
+                left: 0.0,
+            }),
+        )],
+        1.0,
+    );
+    assert_eq!(
+        primitives[0],
+        Primitive::FillRect {
+            rect: DeviceRect::new(10.0, 18.0, 51.0, 21.0),
+            color: INK,
+            ground: Ground::Block(DeviceRect::new(10.4, 18.0, 50.2, 21.0)),
+        }
+    );
+}
+
+#[test]
+fn a_split_inline_box_squares_its_open_end() {
+    let primitives = lowered(
+        vec![ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+            rect: rect(10.0, 20.0, 40.0, 16.0),
+            paint: ReaderRunPaintV1 {
+                background_color: Some(INK),
+                background_radius: Some(3.0),
+                decoration: None,
+                padding: None,
+                border: None,
+                box_offsets: Some((0.0, 16.0)),
+                box_start: false,
+                box_end: true,
+                ..text().paint
+            },
+            ..text()
+        })],
+        1.0,
+    );
+    assert_eq!(
+        primitives[0],
+        Primitive::FillPath {
+            path: corner_rounded_rect(
+                DeviceRect::new(10.0, 20.0, 40.0, 16.0),
+                [0.0, 3.0, 3.0, 0.0]
+            ),
+            rule: FillRule::NonZero,
+            color: INK,
+            ground: Ground::Block(DeviceRect::new(10.0, 20.0, 40.0, 16.0)),
+        }
+    );
+}
+
+#[test]
+fn the_decoration_line_rounds_its_top_and_floors_its_thickness() {
+    let primitives = lowered(
+        vec![ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+            rect: rect(10.0, 20.3, 40.0, 16.0),
+            paint: ReaderRunPaintV1 {
+                background_color: None,
+                background_radius: None,
+                decoration: Some(ReaderRunDecorationV1 {
+                    kind: ReaderRunDecorationKindV1::Underline,
+                    y: 17.125,
+                    thickness: 1.4,
+                    color: INK,
+                }),
+                padding: None,
+                border: None,
+                box_offsets: None,
+                ..text().paint
+            },
+            ..text()
+        })],
+        1.0,
+    );
+    assert_eq!(
+        primitives[1],
+        Primitive::FillRect {
+            rect: DeviceRect::new(10.0, 37.0, 40.0, 1.0),
+            color: INK,
+            ground: Ground::None,
+        }
+    );
+}
+
+#[test]
+fn a_vertical_run_paints_no_box_or_decoration() {
+    let primitives = lowered(
+        vec![ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+            vertical: true,
+            ..text()
+        })],
+        1.0,
+    );
+    assert_eq!(
+        primitives,
+        vec![Primitive::Text(ReaderTextRunV1 {
+            vertical: true,
+            ..text_run()
+        })]
+    );
 }
 
 #[test]
@@ -1110,7 +1330,20 @@ fn json_form_mirrors_the_decoded_wire_shape() {
                     block_paint(Some(INK), None),
                     None,
                 ),
-                ReaderDisplayCommandV1::PaintText(text()),
+                // A bare run: the inline box and decoration lower to
+                // their own primitives, covered by their own tests.
+                ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+                    paint: ReaderRunPaintV1 {
+                        background_color: None,
+                        background_radius: None,
+                        decoration: None,
+                        padding: None,
+                        border: None,
+                        box_offsets: None,
+                        ..text().paint
+                    },
+                    ..text()
+                }),
             ],
         },
         1.0,
@@ -1125,8 +1358,6 @@ fn json_form_mirrors_the_decoded_wire_shape() {
         "alpha": 1.0,
         "none": { "component0": false, "component1": false, "component2": false, "alpha": false },
     });
-    let mut translucent = ink.clone();
-    translucent["alpha"] = json!(0.5);
     assert_eq!(
         primitive_list_value(&list),
         json!({
@@ -1148,21 +1379,13 @@ fn json_form_mirrors_the_decoded_wire_shape() {
                 {
                     "kind": "text",
                     "text": "run",
-                    "rect": { "x": 1.5, "y": 2.0, "width": 10.0, "height": 20.0 },
+                    "rect": { "x": 5.5, "y": 2.0, "width": 10.0, "height": 20.0 },
                     "paint": {
                         "font": { "family": "Rito Serif", "sizePx": 16.0, "weight": 400.0, "style": "italic" },
                         "color": ink,
                         "wordSpacingPx": 1.0,
                         "letterSpacingPx": 0.5,
-                        "backgroundColor": translucent,
-                        "backgroundRadius": 2.0,
                         "textShadows": [{ "offsetX": 1.0, "offsetY": 2.0, "blur": 3.0, "color": ink }],
-                        "decoration": { "kind": "underline", "y": 18.0, "thickness": 1.0, "color": ink },
-                        "padding": { "top": 1.0, "right": 2.0, "bottom": 3.0, "left": 4.0 },
-                        "border": { "top": { "widthPx": 1.0, "paint": { "color": ink, "style": "solid" } } },
-                        "boxOffsets": { "top": -2.0, "bottom": 22.0 },
-                        "boxStart": true,
-                        "boxEnd": false,
                     },
                     "lineHeightPx": 24.0,
                     "href": "#note",
@@ -1184,6 +1407,7 @@ fn lowering_sources_are_typed_only() {
         include_str!("border.rs"),
         include_str!("block.rs"),
         include_str!("scale.rs"),
+        include_str!("text.rs"),
     );
     assert!(!sources.contains("serde_json"));
     assert!(!sources.contains("Value::"));
@@ -1292,10 +1516,33 @@ fn block(
     }
 }
 
+/// `text()` as the wire carries it: glyph paint only.
+fn text_run() -> ReaderTextRunV1 {
+    let text = text();
+    ReaderTextRunV1 {
+        text: text.text,
+        rect: text.rect,
+        paint: ReaderTextRunPaintV1 {
+            font: text.paint.font,
+            color: text.paint.color,
+            word_spacing_px: text.paint.word_spacing_px,
+            letter_spacing_px: text.paint.letter_spacing_px,
+            text_shadows: text.paint.text_shadows,
+        },
+        line_height_px: text.line_height_px,
+        href: text.href,
+        source_text: text.source_text,
+        source_text_offset: text.source_text_offset,
+        ruby_align: text.ruby_align,
+        align_right: text.align_right,
+        vertical: text.vertical,
+    }
+}
+
 fn text() -> ReaderTextCommandV1 {
     ReaderTextCommandV1 {
         text: "run".to_owned(),
-        rect: rect(1.5, 2.0, 10.0, 20.0),
+        rect: rect(5.5, 2.0, 10.0, 20.0),
         paint: ReaderRunPaintV1 {
             font: ReaderFontPaintV1 {
                 family: "Rito Serif".to_owned(),

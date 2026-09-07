@@ -6,7 +6,8 @@
 use super::super::commands::contract::{
     ReaderBackgroundPaintV1, ReaderBackgroundRepeatV1, ReaderBackgroundSizeV1, ReaderBlockBorderV1,
     ReaderBlockPaintV1, ReaderBlockRadiusV1, ReaderBorderBoxV1, ReaderBorderEdgePaintV1,
-    ReaderBorderStyleV1, ReaderBoxShadowV1, ReaderColorV1, ReaderLengthV1,
+    ReaderBorderStyleV1, ReaderBoxShadowV1, ReaderColorV1, ReaderLengthV1, ReaderRunBorderEdgeV1,
+    ReaderRunBorderV1,
 };
 use super::{
     border::{stroke_edge, stroke_outline, Edge, BLACK},
@@ -32,7 +33,7 @@ pub(super) fn lower_block(
     }
     if let Some(background) = &paint.background {
         if let Some(color) = background.color {
-            background_fill(rect, radius, color, out);
+            background_fill(rect, radius, color, rect, out);
         }
         if let Some(href) = &background.image {
             background_image(rect, radius, background, href, images, out);
@@ -40,6 +41,37 @@ pub(super) fn lower_block(
     }
     if let (Some(border), Some(widths)) = (paint.border.as_ref(), border_box) {
         let edges = Edges::resolve(border, widths);
+        if radius.rx > 0.0 || radius.ry > 0.0 {
+            rounded_borders(rect, radius, &edges, out);
+        } else {
+            straight_borders(rect.snapped(), &edges, out);
+        }
+    }
+}
+
+/// A run's inline box: the background band and the border edges of the
+/// border box `rect` (CSS pixels), resolved by the block laws. A radius
+/// rounds the border ring on all four corners, while the fill rounds only
+/// the corners at a closed end: a box split across lines paints one
+/// continuous band whose open ends are square (per-segment rounding drew
+/// pill badges as overlapping circles with white seams). An opaque band
+/// declares `ground` — the band grown to the run it belongs to — so the
+/// run's ink always finds its own band whatever the font's descent.
+pub(super) fn lower_inline_box(
+    rect: DeviceRect,
+    background: Option<ReaderColorV1>,
+    radius: Option<f64>,
+    closed: (bool, bool),
+    border: Option<&ReaderRunBorderV1>,
+    ground: DeviceRect,
+    out: &mut Vec<Primitive>,
+) {
+    let radius = Radius::inline(radius, closed);
+    if let Some(color) = background {
+        background_fill(rect, radius, color, ground, out);
+    }
+    if let Some(border) = border {
+        let edges = Edges::from_run(border);
         if radius.rx > 0.0 || radius.ry > 0.0 {
             rounded_borders(rect, radius, &edges, out);
         } else {
@@ -85,6 +117,30 @@ impl Radius {
                 ry: 0.0,
                 corners: None,
             },
+        }
+    }
+
+    /// An inline box's radius: uniform for the border ring, and per
+    /// corner for the fill when an end is open (`closed` names the start
+    /// and end), so only the closed ends round.
+    fn inline(radius: Option<f64>, (start, end): (bool, bool)) -> Self {
+        let radius = radius.unwrap_or(0.0).max(0.0);
+        if radius <= 0.0 {
+            return Self {
+                rx: 0.0,
+                ry: 0.0,
+                corners: None,
+            };
+        }
+        let corners = (!start || !end).then(|| {
+            let start = if start { radius } else { 0.0 };
+            let end = if end { radius } else { 0.0 };
+            [start, end, end, start]
+        });
+        Self {
+            rx: radius,
+            ry: radius,
+            corners,
         }
     }
 
@@ -136,12 +192,13 @@ fn lower_shadow(
 /// rounded or not: a float fill at x 57.65625 bled 34% white over a
 /// frame's binary 1px border column and greyed it to 88/255, and raw
 /// fractional rounded fills smeared every box edge one antialiased row.
-/// An opaque fill declares the block ground over the unsnapped box, which
-/// is what the ink typeset inside it is contained by.
+/// An opaque fill declares the block ground over `ground`, the unsnapped
+/// box the ink typeset inside it is contained by.
 fn background_fill(
     rect: DeviceRect,
     radius: Radius,
     color: ReaderColorV1,
+    ground: DeviceRect,
     out: &mut Vec<Primitive>,
 ) {
     let snapped = rect.snapped();
@@ -149,7 +206,7 @@ fn background_fill(
         return;
     }
     let ground = if color.alpha >= 1.0 {
-        Ground::Block(rect)
+        Ground::Block(ground)
     } else {
         Ground::None
     };
@@ -340,6 +397,33 @@ impl Edges {
             right: edge(border.right, widths.right_width),
             bottom: edge(border.bottom, widths.bottom_width),
             left: edge(border.left, widths.left_width),
+        }
+    }
+
+    /// A run's inline box edges: its start edge is the left one, its end
+    /// edge the right one; an open end carries no edge at all.
+    fn from_run(border: &ReaderRunBorderV1) -> Self {
+        let edge = |edge: Option<ReaderRunBorderEdgeV1>| match edge {
+            Some(edge)
+                if edge.width_px > 0.0
+                    && !matches!(
+                        edge.paint.style,
+                        ReaderBorderStyleV1::None | ReaderBorderStyleV1::Hidden
+                    ) =>
+            {
+                Edge {
+                    width: edge.width_px,
+                    color: edge.paint.color,
+                    style: edge.paint.style,
+                }
+            }
+            _ => ZERO_EDGE,
+        };
+        Self {
+            top: edge(border.top),
+            right: edge(border.end),
+            bottom: edge(border.bottom),
+            left: edge(border.start),
         }
     }
 

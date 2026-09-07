@@ -7,7 +7,7 @@ import {
   convertReaderTextV1,
   toCanvasColorV1,
 } from './reader-v1-canvas-converter';
-import { isBookOwnedPageGround, isOpaqueColor } from './theme/text-color';
+import { isBookOwnedPageGround } from './theme/text-color';
 
 type Primitive = CoreReaderPrimitive;
 type FillPrimitive = Extract<Primitive, { readonly kind: 'fill-rect' | 'fill-path' }>;
@@ -250,16 +250,11 @@ function declareGround(primitive: FillPrimitive, state: RenderState): string {
 }
 
 /** The ground a run's ink was typeset against, when the book expressed
- * one (R2): the run's own inline background, else the nearest opaque
- * block background containing the run's rect, else the page ground R1
- * kept for the book. Undefined means the theme supplies the ground. */
-function declaredGroundFor(
-  rect: DeviceRect,
-  paint: { readonly backgroundColor?: string },
-  state: DeclaredGrounds,
-): string | undefined {
-  const runBackground = paint.backgroundColor;
-  if (runBackground !== undefined && isOpaqueColor(runBackground)) return runBackground;
+ * one (R2): the nearest opaque fill containing the run's rect — the run's
+ * own inline band lowers to such a fill just before the run — else the
+ * page ground R1 kept for the book. Undefined means the theme supplies
+ * the ground. */
+function declaredGroundFor(rect: DeviceRect, state: DeclaredGrounds): string | undefined {
   for (let index = state.blockGrounds.length - 1; index >= 0; index -= 1) {
     const ground = state.blockGrounds[index];
     if (
@@ -298,7 +293,7 @@ function renderText(
           ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
         },
         state.colorOverride,
-        declaredGroundFor(deviceRect(command.rect, state.ratio), command.paint, state),
+        declaredGroundFor(deviceRect(command.rect, state.ratio), state),
       );
       return;
     }
@@ -313,7 +308,7 @@ function renderText(
         ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
       },
       state.colorOverride,
-      declaredGroundFor(deviceRect(command.rect, state.ratio), command.paint, state),
+      declaredGroundFor(deviceRect(command.rect, state.ratio), state),
     );
   } finally {
     ctx.restore();

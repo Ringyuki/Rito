@@ -13,8 +13,6 @@ export type CanvasRubyFragment = Pick<
 export type CanvasRunPaint = CanvasTextCommand['paint'];
 export type CanvasFontShorthand = CanvasRunPaint['font'];
 export type CanvasTextShadow = NonNullable<CanvasRunPaint['textShadow']>[number];
-export type CanvasInlineBorder = NonNullable<CanvasRunPaint['border']>;
-export type CanvasInlineBorderEdge = NonNullable<CanvasInlineBorder['top']>;
 
 export interface CanvasTextColorOverride {
   readonly foregroundColor: string;

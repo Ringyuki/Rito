@@ -127,9 +127,6 @@ void main() {
       (p3.commands[6] as RitoPrimitiveFillRect).color.space,
       RitoColorSpace.displayP3,
     );
-    for (var tag = 1; tag <= 10; tag += 1) {
-      decoder.decode(primitiveFixture(borderStyleTag: tag));
-    }
     for (var tag = 1; tag <= 6; tag += 1) {
       decoder.decode(primitiveFixture(pathOpTag: tag));
     }
@@ -139,7 +136,6 @@ void main() {
     }
     for (var tag = 1; tag <= 2; tag += 1) {
       decoder.decode(primitiveFixture(fontStyleTag: tag));
-      decoder.decode(primitiveFixture(decorationKindTag: tag));
       decoder.decode(primitiveFixture(fillRuleTag: tag));
       decoder.decode(primitiveFixture(strokeCapTag: tag));
     }
@@ -180,8 +176,6 @@ void main() {
       primitiveFixture(fillColorFlags: 0x10),
       primitiveFixture(fillColorRed: double.infinity),
       primitiveFixture(fontStyleTag: 3),
-      primitiveFixture(decorationKindTag: 3),
-      primitiveFixture(borderStyleTag: 11),
       primitiveFixture(translateDx: double.nan),
     ];
     for (final bytes in malformed) {

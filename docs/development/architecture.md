@@ -79,7 +79,10 @@ lowered to the device grid at the document's render ratio. The lowering snaps
 box edges and border widths to whole CSS pixels and scales the finished
 primitives by the ratio last, the way the browser maps its paint offsets
 through the device scale; only a glyph baseline rounds on the device grid,
-and that happens in the engine's paint walk. Rust revision-cache
+and that happens in the engine's paint walk. A text run reaches the host
+in CSS pixels with glyph paint only (font, colour, spacing, shadows) and
+is drawn under `scale(ratio)`; its inline box and decoration line are
+lowered to fills and strokes around it. Rust revision-cache
 entries serving production frame windows retain those bytes beside the semantic
 frame summary without eagerly retaining the legacy JSON command tree; the
 browser separately keeps decoded primitive frames.
