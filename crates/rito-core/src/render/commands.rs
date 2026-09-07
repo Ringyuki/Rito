@@ -14,7 +14,10 @@ pub(crate) use packed::pack_display_commands;
 pub use packed::{
     PackedDisplayCommandBuffer, PackedDisplayCommandBufferMetadata, PackedDisplayCommandRecordStats,
 };
-pub(crate) use reader_wire_v1::{encode_reader_display_list_v1, ReaderEncodedDisplayListV1};
+pub(crate) use reader_wire_v1::{
+    adapt_reader_display_list_v1, contract, encode_reader_display_list_v1,
+    ReaderDisplayListWireError, ReaderEncodedDisplayListV1,
+};
 pub use refs::DisplayListResourceRefs;
 pub(crate) use refs::{summarize_display_list_font_families, summarize_display_list_resource_refs};
 use stable_json::hash_json;

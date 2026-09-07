@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use super::DisplayCommand;
 use contract::{ReaderDisplayCommandV1, ReaderDisplayListV1};
 
-mod contract;
+pub(crate) mod contract;
 #[cfg(test)]
 mod decode;
 mod encode;
@@ -74,6 +74,14 @@ pub(crate) fn encode_reader_display_list_v1(
 ) -> Result<ReaderEncodedDisplayListV1, ReaderDisplayListWireError> {
     let typed = legacy_adapter::adapt(commands)?;
     encode_typed_reader_display_list_v1(&typed)
+}
+
+/// Adapts the JSON-shaped provider's commands to the owned V1 contract
+/// without encoding them: the lowering's entry from the same provider.
+pub(crate) fn adapt_reader_display_list_v1(
+    commands: &[DisplayCommand],
+) -> Result<ReaderDisplayListV1, ReaderDisplayListWireError> {
+    legacy_adapter::adapt(commands)
 }
 
 fn encode_typed_reader_display_list_v1(

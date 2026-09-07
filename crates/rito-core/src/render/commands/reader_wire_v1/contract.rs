@@ -7,11 +7,11 @@
 mod geometry;
 mod paint;
 
-pub(super) use geometry::{
+pub(crate) use geometry::{
     ReaderCornerRadiusV1, ReaderLengthV1, ReaderPointV1, ReaderRectV1, ReaderSizeV1,
     ReaderTransformV1,
 };
-pub(super) use paint::{
+pub(crate) use paint::{
     ReaderBackgroundPaintV1, ReaderBackgroundPositionV1, ReaderBackgroundRepeatV1,
     ReaderBackgroundSizeV1, ReaderBlockBorderV1, ReaderBlockPaintV1, ReaderBlockRadiusV1,
     ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderBorderStyleV1, ReaderBoxShadowV1,
@@ -22,12 +22,12 @@ pub(super) use paint::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub(super) struct ReaderDisplayListV1 {
+pub(crate) struct ReaderDisplayListV1 {
     pub commands: Vec<ReaderDisplayCommandV1>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(super) enum ReaderDisplayCommandV1 {
+pub(crate) enum ReaderDisplayCommandV1 {
     PushState,
     PopState,
     Translate {
@@ -71,7 +71,7 @@ pub(super) enum ReaderDisplayCommandV1 {
 }
 
 impl ReaderDisplayCommandV1 {
-    pub(super) const fn opcode(&self) -> u16 {
+    pub(crate) const fn opcode(&self) -> u16 {
         match self {
             Self::PushState => 1,
             Self::PopState => 2,
@@ -90,7 +90,7 @@ impl ReaderDisplayCommandV1 {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(super) struct ReaderTextCommandV1 {
+pub(crate) struct ReaderTextCommandV1 {
     pub text: String,
     pub rect: ReaderRectV1,
     pub paint: ReaderRunPaintV1,

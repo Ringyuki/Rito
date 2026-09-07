@@ -2,6 +2,11 @@ pub const NAME: &str = "render";
 pub const OWNS: &str = "Platform-neutral display-list and paint command generation";
 
 mod commands;
+#[allow(
+    dead_code,
+    reason = "the lowering feeds the paint-parity lane and the format-2 wire next; production paint switches to it per phase"
+)]
+mod lower;
 
 pub use commands::{
     DisplayListResourceRefs, PackedDisplayCommandBuffer, PackedDisplayCommandBufferMetadata,
