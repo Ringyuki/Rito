@@ -5,7 +5,7 @@ import '../protocol/artifact_models.dart' show RitoTextProfile;
 import 'canvas_target.dart';
 import 'color_override.dart';
 import 'font_envelope.dart';
-import 'replayer.dart';
+import 'primitive_replayer.dart';
 import 'resources.dart';
 
 export 'color_override.dart' show RitoCanvasColorOverride;
@@ -42,6 +42,11 @@ final class RitoPageSurface extends StatelessWidget {
   }
 }
 
+/// Paints an artifact's primitive list. The list is resolved on the
+/// device grid at the request's render ratio; the painter maps that grid
+/// onto the logical canvas by the inverse ratio, so under the framework's
+/// own device-pixel transform every coordinate lands where the engine
+/// resolved it.
 final class RitoArtifactPainter extends CustomPainter {
   const RitoArtifactPainter({
     required this.artifact,
@@ -59,18 +64,17 @@ final class RitoArtifactPainter extends CustomPainter {
     if (value.textProfile != RitoTextProfile.platformStringRuns) {
       throw UnsupportedError('Positioned glyph runs are not available in v1.');
     }
-    final target = RitoCanvasPaintTarget(
+    final list = value.displayList.displayList;
+    final target = RitoPrimitiveCanvasTarget(
       canvas,
       resolveImage: resolveImage,
       fontEnvelopes: RitoFontEnvelopeStore.shared,
       colorOverride: colorOverride,
-    )..preflightPaintCapabilities(value.displayList.displayList);
+    );
     canvas.save();
     try {
-      const RitoDisplayListReplayer().replay(
-        value.displayList.displayList,
-        target,
-      );
+      canvas.scale(1 / list.ratio, 1 / list.ratio);
+      const RitoPrimitiveListReplayer().replay(list, target);
     } finally {
       canvas.restore();
     }

@@ -11,7 +11,7 @@ import {
 } from '../../src/bindings/browser/rendering';
 import { loadFrame } from '../../src/bindings/browser/reader/frame-cache';
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
-import type { CanvasRenderingTarget } from '../../src/bindings/browser/frame-command-renderer';
+import type { CanvasRenderingTarget } from '../../src/bindings/browser/primitive-renderer';
 import type {
   BrowserReaderFrame,
   BrowserReaderState,
@@ -674,10 +674,11 @@ function frameWithImages(...images: string[]): BrowserReaderFrame {
     spreadIndex: 0,
     width: 320,
     height: 480,
+    ratio: 1,
     commands: images.map((src) => ({
-      kind: 'paintImage',
+      kind: 'draw-image',
       src,
-      rect: { x: 0, y: 0, width: 10, height: 10 },
+      dest: { x: 0, y: 0, width: 10, height: 10 },
     })),
     commandHash: 'hash',
     resourceRefs: { images },

@@ -257,8 +257,10 @@ const enginePages = new Map();
 const TAP_PAGE = process.env.RITO_WALK_TAP ? Number(process.env.RITO_WALK_TAP) : undefined;
 if (TAP_PAGE !== undefined) {
   // Record the organic paint pass of each spread as the walk reaches it:
-  // a full-canvas paintPage opens a pass and resets the log, so after a
-  // spread settles the log holds exactly its last complete paint.
+  // the page-ground fill opens a pass and resets the side translate, so
+  // after a spread settles the log holds exactly its last complete paint.
+  // The stream is the engine's device-resolved primitive list: every
+  // coordinate is a device pixel.
   await reader.evaluate(() => {
     const scope = globalThis;
     scope.__ritoTapLog = [];
@@ -268,20 +270,23 @@ if (TAP_PAGE !== undefined) {
       // screen shows their blit — an on-screen-only tap records nothing
       // at all (measured: a full walk's organic log came back empty).
       // Record every pass with its flag, keep the whole session (a
-      // paintPage reset raced the NEXT spread's pre-render and wiped
+      // page-ground reset raced the NEXT spread's pre-render and wiped
       // the page under observation), and let the analyst slice.
-      if (c.kind === 'paintPage') dx = 0;
-      if (c.kind === 'transform') {
-        for (const t of c.transforms ?? []) if (t.kind === 'translate') dx = t.dx;
-      } else if (c.rect) {
+      if (c.kind === 'fill-rect' && c.ground === 'page') dx = 0;
+      if (c.kind === 'translate') {
+        dx = c.dx;
+        return;
+      }
+      const rect = c.rect ?? c.dest;
+      if (rect) {
         scope.__ritoTapLog.push({
           dx,
           onScreen,
           kind: c.kind,
-          x: c.rect.x,
-          y: c.rect.y,
-          w: c.rect.width,
-          h: c.rect.height,
+          x: rect.x,
+          y: rect.y,
+          w: rect.width,
+          h: rect.height,
           text: (c.text ?? '').slice(0, 12),
         });
       }

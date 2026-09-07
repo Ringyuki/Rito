@@ -39,12 +39,9 @@ void main() {
 
   test('publication decoder enforces truncation, identity, and semantics', () {
     const decoder = RitoPublicationDecoder();
-    _expectEveryPrefixRejected(
-      publicationFixture(),
-      (bytes) {
-        decoder.decode(bytes);
-      },
-    );
+    _expectEveryPrefixRejected(publicationFixture(), (bytes) {
+      decoder.decode(bytes);
+    });
     for (final malformed in <Uint8List>[
       publicationFixture(sessionId: 0),
       publicationFixture(sessionId: 0x8000000000000000),
@@ -163,53 +160,56 @@ void main() {
     expect(ack.visibleArtifactId, 7002);
   });
 
-  test('background decoder rejects truncation, tags, IDs, and nested bytes', () {
-    const decoder = RitoBackgroundDecoder();
-    _expectEveryPrefixRejected(
-      backgroundAdvanceFixture(artifact: artifactFixture()),
-      (bytes) {
-        decoder.decodeAdvance(bytes);
-      },
-    );
-    _expectEveryPrefixRejected(backgroundHandoffAckFixture(), (bytes) {
-      decoder.decodeHandoffAck(bytes);
-    });
-    expect(
-      () => decoder.decodeAdvance(backgroundAdvanceFixture(stateTag: 6)),
-      throwsA(isA<FormatException>()),
-    );
-    expect(
-      () => decoder.decodeHandoffAck(
-        backgroundHandoffAckFixture(intentRequestId: 0),
-      ),
-      throwsA(isA<FormatException>()),
-    );
-    final malformedArtifact = artifactFixture()..[0] = 0;
-    final fullArtifact = artifactFixture();
-    final truncatedArtifact = Uint8List.sublistView(
-      fullArtifact,
-      0,
-      fullArtifact.length - 1,
-    );
-    expect(
-      () => decoder.decodeAdvance(
-        backgroundAdvanceFixture(artifact: malformedArtifact),
-      ),
-      throwsA(isA<FormatException>()),
-    );
-    expect(
-      () => decoder.decodeAdvance(
-        backgroundAdvanceFixture(artifact: truncatedArtifact),
-      ),
-      throwsA(isA<FormatException>()),
-    );
-    expect(
-      () => decoder.decodeAdvance(
-        backgroundAdvanceFixture(intentRequestId: 0x8000000000000000),
-      ),
-      throwsA(isA<FormatException>()),
-    );
-  });
+  test(
+    'background decoder rejects truncation, tags, IDs, and nested bytes',
+    () {
+      const decoder = RitoBackgroundDecoder();
+      _expectEveryPrefixRejected(
+        backgroundAdvanceFixture(artifact: artifactFixture()),
+        (bytes) {
+          decoder.decodeAdvance(bytes);
+        },
+      );
+      _expectEveryPrefixRejected(backgroundHandoffAckFixture(), (bytes) {
+        decoder.decodeHandoffAck(bytes);
+      });
+      expect(
+        () => decoder.decodeAdvance(backgroundAdvanceFixture(stateTag: 6)),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => decoder.decodeHandoffAck(
+          backgroundHandoffAckFixture(intentRequestId: 0),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      final malformedArtifact = artifactFixture()..[0] = 0;
+      final fullArtifact = artifactFixture();
+      final truncatedArtifact = Uint8List.sublistView(
+        fullArtifact,
+        0,
+        fullArtifact.length - 1,
+      );
+      expect(
+        () => decoder.decodeAdvance(
+          backgroundAdvanceFixture(artifact: malformedArtifact),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => decoder.decodeAdvance(
+          backgroundAdvanceFixture(artifact: truncatedArtifact),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => decoder.decodeAdvance(
+          backgroundAdvanceFixture(intentRequestId: 0x8000000000000000),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    },
+  );
 
   test('foreground handoff encodes canonical None and Some fixed wire', () {
     const encoder = RitoForegroundEncoder();
@@ -227,44 +227,45 @@ void main() {
     );
     expect(
       replacement,
-      orderedEquals(
-        foregroundHandoffFixture(expectedVisibleArtifactId: 7001),
-      ),
+      orderedEquals(foregroundHandoffFixture(expectedVisibleArtifactId: 7001)),
     );
   });
 
-  test('foreground ack decodes None and Some and rejects malformed options', () {
-    const decoder = RitoForegroundDecoder();
-    final initial = decoder.decodeHandoffAck(foregroundHandoffAckFixture());
-    expect(initial.replacedArtifactId, isNull);
-    final replacement = decoder.decodeHandoffAck(
-      foregroundHandoffAckFixture(replacedArtifactId: 7001),
-    );
-    expect(replacement.replacedArtifactId, 7001);
-    expect(replacement.visibleArtifactId, 7002);
-
-    _expectEveryPrefixRejected(foregroundHandoffAckFixture(), (bytes) {
-      decoder.decodeHandoffAck(bytes);
-    });
-    final unknownTag = foregroundHandoffAckFixture();
-    unknownTag.buffer.asByteData().setUint32(28, 2, Endian.little);
-    final noncanonicalNone = foregroundHandoffAckFixture();
-    noncanonicalNone.buffer.asByteData().setUint64(32, 1, Endian.little);
-    final zeroSome = foregroundHandoffAckFixture(replacedArtifactId: 7001);
-    zeroSome.buffer.asByteData().setUint64(32, 0, Endian.little);
-    for (final malformed in <Uint8List>[
-      unknownTag,
-      noncanonicalNone,
-      zeroSome,
-      foregroundHandoffAckFixture(intentRequestId: 0),
-      foregroundHandoffAckFixture(visibleArtifactId: 0x8000000000000000),
-    ]) {
-      expect(
-        () => decoder.decodeHandoffAck(malformed),
-        throwsA(isA<FormatException>()),
+  test(
+    'foreground ack decodes None and Some and rejects malformed options',
+    () {
+      const decoder = RitoForegroundDecoder();
+      final initial = decoder.decodeHandoffAck(foregroundHandoffAckFixture());
+      expect(initial.replacedArtifactId, isNull);
+      final replacement = decoder.decodeHandoffAck(
+        foregroundHandoffAckFixture(replacedArtifactId: 7001),
       );
-    }
-  });
+      expect(replacement.replacedArtifactId, 7001);
+      expect(replacement.visibleArtifactId, 7002);
+
+      _expectEveryPrefixRejected(foregroundHandoffAckFixture(), (bytes) {
+        decoder.decodeHandoffAck(bytes);
+      });
+      final unknownTag = foregroundHandoffAckFixture();
+      unknownTag.buffer.asByteData().setUint32(28, 2, Endian.little);
+      final noncanonicalNone = foregroundHandoffAckFixture();
+      noncanonicalNone.buffer.asByteData().setUint64(32, 1, Endian.little);
+      final zeroSome = foregroundHandoffAckFixture(replacedArtifactId: 7001);
+      zeroSome.buffer.asByteData().setUint64(32, 0, Endian.little);
+      for (final malformed in <Uint8List>[
+        unknownTag,
+        noncanonicalNone,
+        zeroSome,
+        foregroundHandoffAckFixture(intentRequestId: 0),
+        foregroundHandoffAckFixture(visibleArtifactId: 0x8000000000000000),
+      ]) {
+        expect(
+          () => decoder.decodeHandoffAck(malformed),
+          throwsA(isA<FormatException>()),
+        );
+      }
+    },
+  );
 
   test('fixed encoders reject invalid identities and uint32 work', () {
     const background = RitoBackgroundEncoder();

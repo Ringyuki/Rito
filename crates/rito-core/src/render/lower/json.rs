@@ -239,6 +239,12 @@ fn text(kind: &str, command: &ReaderTextCommandV1) -> Value {
         object.insert("sourceTextOffset".to_owned(), json!(offset));
     }
     insert_string(&mut object, "rubyAlign", command.ruby_align.as_deref());
+    if command.align_right {
+        object.insert("alignRight".to_owned(), Value::Bool(true));
+    }
+    if command.vertical {
+        object.insert("vertical".to_owned(), Value::Bool(true));
+    }
     Value::Object(object)
 }
 

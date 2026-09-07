@@ -176,6 +176,7 @@ function seedStaleFrames(state: BrowserReaderState, targetSpreadIndex: number): 
       spreadIndex,
       width: state.config.viewportWidth,
       height: state.config.viewportHeight,
+      ratio: 1,
       commands: [],
       commandHash: 'stale',
       resourceRefs: { images: [] },

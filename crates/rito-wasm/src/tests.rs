@@ -205,10 +205,12 @@ fn returns_packed_frame_command_buffer_metadata_and_bytes() {
     assert_eq!(metadata["commandHash"], frame["commandHash"]);
     assert_eq!(metadata["fontFamilies"], frame["fontFamilies"]);
     assert_eq!(metadata["byteLength"], bytes.len());
-    assert_eq!(&bytes[0..8], b"RITOFCB2");
-    assert!(metadata["payloadTable"]
-        .as_array()
-        .is_some_and(|payloads| !payloads.is_empty()));
+    assert_eq!(&bytes[0..7], b"RITODL1");
+    assert_eq!(metadata["protocolVersion"], 2);
+    assert_eq!(metadata["ratio"], 1.0);
+    assert!(metadata["primitiveCount"]
+        .as_u64()
+        .is_some_and(|count| count > 0));
 }
 
 #[test]

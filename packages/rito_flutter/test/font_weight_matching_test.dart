@@ -23,9 +23,9 @@ void main() {
   });
 
   Future<void> loadFace(String family, Uint8List bytes) async {
-    await (FontLoader(family)
-          ..addFont(Future<ByteData>.value(ByteData.sublistView(bytes))))
-        .load();
+    await (FontLoader(
+      family,
+    )..addFont(Future<ByteData>.value(ByteData.sublistView(bytes)))).load();
   }
 
   Future<int> inkOf(ui.TextStyle style, String text) async {
@@ -53,71 +53,77 @@ void main() {
     return ink;
   }
 
-  test('a weight mismatch synthesizes instead of falling through', () async {
-    // The premise behind "single-file embedded fonts get pierced":
-    // Flutter is claimed to skip a family whose weight does not match.
-    // It does not — it stays and emboldens, exactly like the browser.
-    await loadFace('WeightProbeSolo', regularBytes);
-    await loadFace(
-      'WeightProbeBold',
-      File(
-        '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
-      ).readAsBytesSync(),
-    );
+  test(
+    'a weight mismatch synthesizes instead of falling through',
+    () async {
+      // The premise behind "single-file embedded fonts get pierced":
+      // Flutter is claimed to skip a family whose weight does not match.
+      // It does not — it stays and emboldens, exactly like the browser.
+      await loadFace('WeightProbeSolo', regularBytes);
+      await loadFace(
+        'WeightProbeBold',
+        File(
+          '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+        ).readAsBytesSync(),
+      );
 
-    const text = 'Hamburgefonstiv';
-    const black = ui.Color(0xff000000);
-    final soloAlone = await inkOf(
-      ui.TextStyle(
-        fontFamily: 'WeightProbeSolo',
-        fontWeight: ui.FontWeight.w700,
-        color: black,
-      ),
-      text,
-    );
-    final stacked = await inkOf(
-      ui.TextStyle(
-        fontFamily: 'WeightProbeSolo',
-        fontFamilyFallback: <String>['WeightProbeBold'],
-        fontWeight: ui.FontWeight.w700,
-        color: black,
-      ),
-      text,
-    );
-    final boldAlone = await inkOf(
-      ui.TextStyle(
-        fontFamily: 'WeightProbeBold',
-        fontWeight: ui.FontWeight.w700,
-        color: black,
-      ),
-      text,
-    );
+      const text = 'Hamburgefonstiv';
+      const black = ui.Color(0xff000000);
+      final soloAlone = await inkOf(
+        ui.TextStyle(
+          fontFamily: 'WeightProbeSolo',
+          fontWeight: ui.FontWeight.w700,
+          color: black,
+        ),
+        text,
+      );
+      final stacked = await inkOf(
+        ui.TextStyle(
+          fontFamily: 'WeightProbeSolo',
+          fontFamilyFallback: <String>['WeightProbeBold'],
+          fontWeight: ui.FontWeight.w700,
+          color: black,
+        ),
+        text,
+      );
+      final boldAlone = await inkOf(
+        ui.TextStyle(
+          fontFamily: 'WeightProbeBold',
+          fontWeight: ui.FontWeight.w700,
+          color: black,
+        ),
+        text,
+      );
 
-    expect(
-      stacked,
-      soloAlone,
-      reason: 'a bold run must stay on the family that has the glyphs',
-    );
-    expect(
-      stacked,
-      isNot(boldAlone),
-      reason: 'the real-bold fallback must not capture a weight mismatch',
-    );
+      expect(
+        stacked,
+        soloAlone,
+        reason: 'a bold run must stay on the family that has the glyphs',
+      );
+      expect(
+        stacked,
+        isNot(boldAlone),
+        reason: 'the real-bold fallback must not capture a weight mismatch',
+      );
 
-    final soloRegular = await inkOf(
-      ui.TextStyle(
-        fontFamily: 'WeightProbeSolo',
-        fontWeight: ui.FontWeight.w400,
-        color: black,
-      ),
-      text,
-    );
-    expect(
-      soloAlone,
-      greaterThan(soloRegular),
-      reason: 'the missing bold is synthesized, not silently dropped',
-    );
-  }, skip: !File('/System/Library/Fonts/Supplemental/Arial Bold.ttf').existsSync());
+      final soloRegular = await inkOf(
+        ui.TextStyle(
+          fontFamily: 'WeightProbeSolo',
+          fontWeight: ui.FontWeight.w400,
+          color: black,
+        ),
+        text,
+      );
+      expect(
+        soloAlone,
+        greaterThan(soloRegular),
+        reason: 'the missing bold is synthesized, not silently dropped',
+      );
+    },
+    skip: !File(
+      '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+    ).existsSync(),
+  );
 
   test('a face the book declares as bold is not emboldened again', () async {
     // A single file declared `font-weight: 700`. CSS paints it as-is;

@@ -28,7 +28,7 @@ use crate::{
     },
 };
 
-const EMPTY_MATERIALIZED_FRAME_UNITS: usize = 13;
+const EMPTY_MATERIALIZED_FRAME_UNITS: usize = 11;
 const LARGE_FRAME_PAYLOAD_COUNT: usize = 16_384;
 const REAL_JOB_FIXTURE_UNITS: usize = 12 + 42 + 32 + 4 + (EMPTY_MATERIALIZED_FRAME_UNITS + 1) + 7;
 
@@ -156,7 +156,9 @@ fn large_cached_frame_remains_one_resumable_frame_job() {
     assert_eq!(queue.job_count(), 1);
 
     let remaining = queue.advance(NonZeroUsize::MAX);
-    let queue_units = 3 * LARGE_FRAME_PAYLOAD_COUNT + EMPTY_MATERIALIZED_FRAME_UNITS + 1;
+    // Only the materialized JSON commands scale with the payload count;
+    // the primitive bytes release as one unit.
+    let queue_units = LARGE_FRAME_PAYLOAD_COUNT + EMPTY_MATERIALIZED_FRAME_UNITS + 1;
     assert_eq!(
         remaining.consumed_units,
         queue_units - RUNTIME_CLEANUP_QUANTUM

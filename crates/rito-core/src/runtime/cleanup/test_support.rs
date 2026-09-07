@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde_json::{json, Value};
 
 use crate::{
-    render::{DisplayListResourceRefs, PackedDisplayCommandRecordStats},
+    render::DisplayListResourceRefs,
     runtime::{
         frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner},
         RuntimeFrame, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
@@ -58,21 +58,16 @@ fn synthetic_cached_frame(
                 width: Value::from(320),
                 height: Value::from(120),
                 protocol_version: 2,
+                ratio: 1.0,
                 command_count,
                 command_counts: BTreeMap::from([("paintText".to_owned(), command_count)]),
-                record_stats: PackedDisplayCommandRecordStats::default(),
+                primitive_count: command_count,
                 byte_length: command_count,
                 command_hash: "hash".to_owned(),
                 resource_ref_count: 0,
                 resource_table: Vec::new(),
                 font_families: vec!["serif".to_owned()],
                 image_dominated: false,
-                string_table: (0..command_count)
-                    .map(|index| format!("string-{index}"))
-                    .collect(),
-                payload_table: (0..command_count)
-                    .map(|index| format!(r#"{{"payload":{index}}}"#))
-                    .collect(),
             },
             bytes: vec![0; command_count],
         },

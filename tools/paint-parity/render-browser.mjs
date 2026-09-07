@@ -1,5 +1,8 @@
-// Renders every paint-parity fixture through the calibrated browser
-// painter (the oracle) into out/browser/<name>.png.
+// Renders every paint-parity fixture through the browser blitter (the
+// oracle) into out/browser/<name>.png: the engine's lowered `RITODL1`
+// bytes for the fixture (written by rito-core's
+// lower_paint_parity_fixtures into out/lowered/) decoded by the
+// production decoder and blitted by the production primitive renderer.
 //
 //   node tools/paint-parity/render-browser.mjs [outRoot]
 //
@@ -22,6 +25,10 @@ const vite = await import(pathToFileURL(requireRepo.resolve('vite')));
 const outRoot = process.argv[2] ?? path.join(HERE, 'out');
 const browserDir = path.join(outRoot, 'browser');
 const bundleDir = path.join(outRoot, 'harness-bundle');
+const loweredDir = path.join(outRoot, 'lowered');
+if (!existsSync(loweredDir)) {
+  throw new Error(`no lowered fixtures at ${loweredDir}; run the engine lowering first`);
+}
 mkdirSync(browserDir, { recursive: true });
 
 await vite.build({
@@ -47,12 +54,6 @@ const FONTS = [
     file: 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf',
   },
 ];
-
-const fixtureDir = path.join(HERE, 'fixtures');
-const fixtures = readdirSync(fixtureDir)
-  .filter((f) => f.endsWith('.json'))
-  .sort()
-  .map((f) => JSON.parse(readFileSync(path.join(fixtureDir, f), 'utf8')));
 
 const browser = await chromium.launch();
 try {
@@ -80,34 +81,19 @@ try {
     if (!loaded) throw new Error(`font failed to load: ${font.family}`);
   }
 
-  for (const fixture of fixtures) {
-    const dataUrl = await page.evaluate((f) => window.__renderParityFixture(f), fixture);
+  const lowered = readdirSync(loweredDir)
+    .filter((f) => f.endsWith('.json'))
+    .sort();
+  for (const file of lowered) {
+    const meta = JSON.parse(readFileSync(path.join(loweredDir, file), 'utf8'));
+    const bytes = readFileSync(path.join(loweredDir, `${meta.name}.ritodl`)).toString('base64');
+    const dataUrl = await page.evaluate(
+      ([m, b]) => window.__renderLoweredFixture(m, b),
+      [meta, bytes],
+    );
     const png = Buffer.from(dataUrl.slice('data:image/png;base64,'.length), 'base64');
-    writeFileSync(path.join(browserDir, `${fixture.name}.png`), png);
-    console.log(`browser ${fixture.name} ${png.length}B`);
-  }
-
-  // The lowered lane: the engine's format-2 bytes for each fixture (written
-  // by rito-core's lower_paint_parity_fixtures) through the primitive
-  // blitter.
-  const loweredDir = path.join(outRoot, 'lowered');
-  if (existsSync(loweredDir)) {
-    const loweredOut = path.join(outRoot, 'browser-lowered');
-    mkdirSync(loweredOut, { recursive: true });
-    const lowered = readdirSync(loweredDir)
-      .filter((f) => f.endsWith('.json'))
-      .sort();
-    for (const file of lowered) {
-      const meta = JSON.parse(readFileSync(path.join(loweredDir, file), 'utf8'));
-      const bytes = readFileSync(path.join(loweredDir, `${meta.name}.ritodl`)).toString('base64');
-      const dataUrl = await page.evaluate(
-        ([m, b]) => window.__renderLoweredFixture(m, b),
-        [meta, bytes],
-      );
-      const png = Buffer.from(dataUrl.slice('data:image/png;base64,'.length), 'base64');
-      writeFileSync(path.join(loweredOut, `${meta.name}.png`), png);
-      console.log(`browser-lowered ${meta.name} ${png.length}B`);
-    }
+    writeFileSync(path.join(browserDir, `${meta.name}.png`), png);
+    console.log(`browser ${meta.name} ${png.length}B`);
   }
 } finally {
   await browser.close();

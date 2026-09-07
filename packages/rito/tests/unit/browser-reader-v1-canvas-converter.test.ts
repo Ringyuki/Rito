@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { RitoReaderColorV1, RitoReaderDisplayCommandV1 } from '@ritojs/core-wasm';
+import type { RitoReaderColorV1 } from '@ritojs/core-wasm';
 
 import {
-  convertReaderDisplayCommandsV1,
+  convertReaderRubyV1,
+  convertReaderTextV1,
   toCanvasColorV1,
 } from '../../src/bindings/browser/reader-v1-canvas-converter';
 
@@ -17,27 +18,64 @@ const INK: RitoReaderColorV1 = {
 
 describe('reader v1 canvas converter', () => {
   it('carries the inline-box tail through to the pen', () => {
-    const [text] = convertReaderDisplayCommandsV1([
-      {
-        kind: 'paint-text',
-        opcode: 9,
+    const text = convertReaderTextV1({
+      text: 'run',
+      alignRight: false,
+      vertical: false,
+      rect: { x: 0, y: 0, width: 10, height: 20 },
+      paint: {
+        font: { family: 'serif', sizePx: 16, weight: 400, style: 'normal' },
+        color: INK,
+        textShadows: [],
+        boxOffsets: { top: -2, bottom: 22 },
+        boxStart: false,
+        boxEnd: true,
+      },
+    });
+    expect(text).toMatchObject({
+      kind: 'paintText',
+      paint: { box: { topPx: -2, bottomPx: 22 }, boxStart: false },
+    });
+    expect('boxEnd' in text.paint).toBe(false);
+  });
+
+  it('keeps a non-initial ruby alignment and drops the initial one', () => {
+    const paint = {
+      font: { family: 'serif', sizePx: 8, weight: 400, style: 'normal' as const },
+      color: INK,
+      textShadows: [],
+      boxStart: true,
+      boxEnd: true,
+    };
+    const rect = { x: 0, y: 0, width: 10, height: 8 };
+    expect(
+      convertReaderRubyV1({ text: 'rb', rect, paint, rubyAlign: 'center', vertical: false }),
+    ).toMatchObject({
+      kind: 'paintRuby',
+      rubyAlign: 'center',
+    });
+    expect('rubyAlign' in convertReaderRubyV1({ text: 'rb', rect, paint, vertical: false })).toBe(
+      false,
+    );
+  });
+
+  it('fails closed on a border style the canvas cannot stroke', () => {
+    expect(() =>
+      convertReaderTextV1({
         text: 'run',
+        alignRight: false,
+        vertical: false,
         rect: { x: 0, y: 0, width: 10, height: 20 },
         paint: {
           font: { family: 'serif', sizePx: 16, weight: 400, style: 'normal' },
           color: INK,
           textShadows: [],
-          boxOffsets: { top: -2, bottom: 22 },
-          boxStart: false,
+          border: { top: { widthPx: 1, paint: { color: INK, style: 'groove' } } },
+          boxStart: true,
           boxEnd: true,
         },
-      },
-    ]);
-    expect(text).toMatchObject({
-      kind: 'paintText',
-      paint: { box: { topPx: -2, bottomPx: 22 }, boxStart: false },
-    });
-    expect(text && 'paint' in text && 'boxEnd' in text.paint).toBe(false);
+      }),
+    ).toThrow(/border-style:groove/);
   });
 
   it('spells every predefined color space the canvas parses', () => {
@@ -55,25 +93,5 @@ describe('reader v1 canvas converter', () => {
       /color-space:display-p3-linear/,
     );
     expect(() => toCanvasColorV1({ ...INK, space: 'oklch' })).toThrow(/color-space:oklch/);
-  });
-
-  it('resolves an explicit background size axis by axis', () => {
-    const command: RitoReaderDisplayCommandV1 = {
-      kind: 'paint-block',
-      opcode: 8,
-      rect: { x: 0, y: 0, width: 10, height: 20 },
-      paint: {
-        background: {
-          image: 'paper.png',
-          size: { x: { unit: 'px', value: 10 } },
-        },
-        boxShadows: [],
-      },
-    };
-    const [block] = convertReaderDisplayCommandsV1([command]);
-    expect(block).toMatchObject({
-      kind: 'paintBlock',
-      paint: { background: { size: { x: { unit: 'px', value: 10 }, y: 'auto' } } },
-    });
   });
 });

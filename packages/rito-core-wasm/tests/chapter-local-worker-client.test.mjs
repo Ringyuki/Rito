@@ -326,11 +326,13 @@ function resolvedFrame(exactOwner, localSpreadIndex) {
 }
 
 function packedFrameBytes() {
-  const bytes = new Uint8Array(16);
-  bytes.set(new TextEncoder().encode('RITOFCB2'));
+  // An empty RITODL1 format-2 list: magic, version 2, ratio 1, no primitives.
+  const bytes = new Uint8Array(23);
+  bytes.set(new TextEncoder().encode('RITODL1'));
   const view = new DataView(bytes.buffer);
-  view.setUint32(8, 2, true);
-  view.setUint32(12, 0, true);
+  view.setUint32(7, 2, true);
+  view.setFloat64(11, 1, true);
+  view.setUint32(19, 0, true);
   return bytes;
 }
 
@@ -341,23 +343,16 @@ function frameMetadata(exactOwner, localSpreadIndex, byteLength) {
     width: 320,
     height: 480,
     protocolVersion: 2,
+    ratio: 1,
     commandCount: 0,
     commandCounts: {},
-    recordStats: {
-      geometryRecords: 0,
-      paintRecords: 0,
-      payloadRecords: 0,
-      primaryStringRecords: 0,
-      secondaryStringRecords: 0,
-    },
+    primitiveCount: 0,
     byteLength,
     commandHash: 'empty-frame',
     resourceRefCount: 0,
     resourceTable: [],
     fontFamilies: [],
     imageDominated: false,
-    stringTable: [],
-    payloadTable: [],
   };
 }
 

@@ -1,101 +1,13 @@
 use super::super::{
     contract::{
-        ReaderBackgroundPaintV1, ReaderBackgroundSizeV1, ReaderBlockPaintV1, ReaderBorderBoxV1,
-        ReaderBorderEdgePaintV1, ReaderColorV1, ReaderHorizontalRulePaintV1, ReaderPagePaintV1,
-        ReaderRunBorderEdgeV1, ReaderRunPaintV1, ReaderTextShadowV1,
+        ReaderBorderEdgePaintV1, ReaderColorV1, ReaderRunBorderEdgeV1, ReaderRunPaintV1,
+        ReaderTextShadowV1,
     },
     ReaderDisplayListWireError,
 };
 use super::primitives::{
     write_finite_f32, write_finite_f64, write_length, write_optional, write_string,
 };
-
-pub(super) fn write_page_paint(
-    output: &mut Vec<u8>,
-    paint: &ReaderPagePaintV1,
-) -> Result<(), ReaderDisplayListWireError> {
-    write_optional(output, paint.background_color.as_ref(), write_color)
-}
-
-pub(super) fn write_block_paint(
-    output: &mut Vec<u8>,
-    paint: &ReaderBlockPaintV1,
-) -> Result<(), ReaderDisplayListWireError> {
-    write_optional(output, paint.background.as_ref(), write_background)?;
-    write_optional(output, paint.border.as_ref(), |output, border| {
-        write_optional(output, border.top.as_ref(), write_border_edge)?;
-        write_optional(output, border.right.as_ref(), write_border_edge)?;
-        write_optional(output, border.bottom.as_ref(), write_border_edge)?;
-        write_optional(output, border.left.as_ref(), write_border_edge)
-    })?;
-    write_optional(output, paint.radius.as_ref(), |output, radius| {
-        output.push(radius.tag());
-        match radius {
-            super::super::contract::ReaderBlockRadiusV1::Px(value)
-            | super::super::contract::ReaderBlockRadiusV1::Percent(value) => {
-                write_finite_f64(output, *value)
-            }
-            super::super::contract::ReaderBlockRadiusV1::Corners(corners) => {
-                for corner in corners {
-                    write_finite_f64(output, *corner)?;
-                }
-                Ok(())
-            }
-        }
-    })?;
-    write_length(output, paint.box_shadows.len(), "box shadow")?;
-    for shadow in &paint.box_shadows {
-        write_finite_f64(output, shadow.offset_x)?;
-        write_finite_f64(output, shadow.offset_y)?;
-        write_finite_f64(output, shadow.blur)?;
-        write_finite_f64(output, shadow.spread)?;
-        write_color(output, &shadow.color)?;
-        output.push(u8::from(shadow.inset));
-    }
-    Ok(())
-}
-
-fn write_background(
-    output: &mut Vec<u8>,
-    background: &ReaderBackgroundPaintV1,
-) -> Result<(), ReaderDisplayListWireError> {
-    write_optional(output, background.color.as_ref(), write_color)?;
-    write_optional(output, background.image.as_deref(), |output, image| {
-        write_string(output, image)
-    })?;
-    write_optional(output, background.size.as_ref(), |output, size| {
-        output.push(size.tag());
-        if let ReaderBackgroundSizeV1::Explicit { x, y } = size {
-            for axis in [x, y] {
-                write_optional(output, axis.as_ref(), |output, length| {
-                    output.push(length.tag());
-                    write_finite_f64(output, length.value())
-                })?;
-            }
-        }
-        Ok(())
-    })?;
-    write_optional(output, background.repeat.as_ref(), |output, repeat| {
-        output.push(repeat.tag());
-        Ok(())
-    })?;
-    write_optional(output, background.position.as_ref(), |output, position| {
-        output.push(position.x.tag());
-        write_finite_f64(output, position.x.value())?;
-        output.push(position.y.tag());
-        write_finite_f64(output, position.y.value())
-    })
-}
-
-pub(super) fn write_border_box(
-    output: &mut Vec<u8>,
-    border_box: &ReaderBorderBoxV1,
-) -> Result<(), ReaderDisplayListWireError> {
-    write_finite_f64(output, border_box.top_width)?;
-    write_finite_f64(output, border_box.right_width)?;
-    write_finite_f64(output, border_box.bottom_width)?;
-    write_finite_f64(output, border_box.left_width)
-}
 
 pub(super) fn write_run_paint(
     output: &mut Vec<u8>,
@@ -174,15 +86,6 @@ fn write_border_edge(
 ) -> Result<(), ReaderDisplayListWireError> {
     write_color(output, &edge.color)?;
     output.push(edge.style.tag());
-    Ok(())
-}
-
-pub(super) fn write_horizontal_rule_paint(
-    output: &mut Vec<u8>,
-    paint: &ReaderHorizontalRulePaintV1,
-) -> Result<(), ReaderDisplayListWireError> {
-    write_color(output, &paint.color)?;
-    output.push(paint.style.tag());
     Ok(())
 }
 

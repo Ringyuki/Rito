@@ -126,6 +126,8 @@ fn adapt_text(
             .transpose()?,
         source_text_offset,
         ruby_align: input.ruby_align.map(|align| align.as_str().to_owned()),
+        align_right: input.align_right,
+        vertical: input.vertical,
     })
 }
 

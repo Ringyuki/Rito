@@ -1154,14 +1154,6 @@ fn assert_runtime_frame_command_buffer_matches_frame(
         buffer.metadata.command_hash, frame.command_hash,
         "packed frame command hash mismatch for {case_id}"
     );
-    assert!(
-        buffer.metadata.record_stats.geometry_records <= frame.command_count,
-        "packed frame geometry record stats exceed command count for {case_id}"
-    );
-    assert!(
-        buffer.metadata.record_stats.payload_records <= frame.command_count,
-        "packed frame payload record stats exceed command count for {case_id}"
-    );
     assert_eq!(
         buffer.metadata.resource_ref_count, frame.resource_refs.image_refs,
         "packed frame resource ref count mismatch for {case_id}"
@@ -1176,66 +1168,18 @@ fn assert_runtime_frame_command_buffer_matches_frame(
         "packed frame byte length mismatch for {case_id}"
     );
     assert_eq!(
-        &buffer.bytes[0..8],
-        b"RITOFCB2",
-        "packed frame magic mismatch for {case_id}"
+        &buffer.bytes[0..7],
+        b"RITODL1",
+        "primitive frame magic mismatch for {case_id}"
     );
-    for payload in &buffer.metadata.payload_table {
-        let value: Value = serde_json::from_str(payload)
-            .unwrap_or_else(|error| panic!("{case_id}: packed payload is invalid JSON: {error}"));
-        assert!(
-            frame
-                .commands
-                .iter()
-                .any(|command| { json_values_match_after_number_round_trip(command, &value) }),
-            "packed payload should mirror runtime frame command for {case_id}: {payload}"
-        );
-    }
-}
-
-fn json_values_match_after_number_round_trip(left: &Value, right: &Value) -> bool {
-    match (left, right) {
-        (Value::Number(left), Value::Number(right)) => {
-            // Stable JSON serialization can move a non-integer f64 by one ULP.
-            // Keep the full tree exact apart from that wire-format artifact.
-            if !left.is_f64() || !right.is_f64() {
-                return left == right;
-            }
-            let Some(left) = left.as_f64() else {
-                return left == right;
-            };
-            let Some(right) = right.as_f64() else {
-                return false;
-            };
-            ordered_f64_bits(left).abs_diff(ordered_f64_bits(right)) <= 1
-        }
-        (Value::Array(left), Value::Array(right)) => {
-            left.len() == right.len()
-                && left
-                    .iter()
-                    .zip(right)
-                    .all(|(left, right)| json_values_match_after_number_round_trip(left, right))
-        }
-        (Value::Object(left), Value::Object(right)) => {
-            left.len() == right.len()
-                && left.iter().all(|(key, left)| {
-                    right
-                        .get(key)
-                        .is_some_and(|right| json_values_match_after_number_round_trip(left, right))
-                })
-        }
-        _ => left == right,
-    }
-}
-
-fn ordered_f64_bits(value: f64) -> u64 {
-    const SIGN_MASK: u64 = 1 << 63;
-    let bits = value.to_bits();
-    if bits & SIGN_MASK == 0 {
-        bits | SIGN_MASK
-    } else {
-        !bits
-    }
+    assert_eq!(
+        buffer.metadata.protocol_version, 2,
+        "primitive frame format version mismatch for {case_id}"
+    );
+    assert!(
+        buffer.metadata.primitive_count > 0,
+        "primitive frame is empty for {case_id}"
+    );
 }
 
 fn assert_runtime_navigation_matches_fixture(

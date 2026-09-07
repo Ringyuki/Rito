@@ -23,21 +23,24 @@ Future<Uint8List> rasterPng(int width, int height) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('full-size decode is pixel-exact where the scaling entry floors', () async {
-    // 402x183 makes the engine's scaled-codec path floor the derived
-    // axis to 182 even at scale 1.0; the full-size decode must not take
-    // that path.
-    const decoder = RitoUiImageDecoder();
-    final source = await decoder.open(
-      encodedBytes: await rasterPng(402, 183),
-      mediaType: 'image/png',
-    );
-    expect((source.width, source.height), (402, 183));
-    final image = await source.decode(targetWidth: 402, targetHeight: 183);
-    expect((image.width, image.height), (402, 183));
-    image.dispose();
-    source.dispose();
-  });
+  test(
+    'full-size decode is pixel-exact where the scaling entry floors',
+    () async {
+      // 402x183 makes the engine's scaled-codec path floor the derived
+      // axis to 182 even at scale 1.0; the full-size decode must not take
+      // that path.
+      const decoder = RitoUiImageDecoder();
+      final source = await decoder.open(
+        encodedBytes: await rasterPng(402, 183),
+        mediaType: 'image/png',
+      );
+      expect((source.width, source.height), (402, 183));
+      final image = await source.decode(targetWidth: 402, targetHeight: 183);
+      expect((image.width, image.height), (402, 183));
+      image.dispose();
+      source.dispose();
+    },
+  );
 
   test('scaled decode stays within its bounded target', () async {
     const decoder = RitoUiImageDecoder();

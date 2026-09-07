@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'display_models.dart';
+import 'primitive_models.dart';
 
 enum RitoLocatorMatch { sourceRange, sourcePoint, anchor, progression, href }
 
@@ -93,6 +93,8 @@ final class RitoRect {
   final double height;
 }
 
+/// The artifact's paint: its display commands lowered to the host's
+/// device grid, carried as the `RITODL1` format-2 primitive list.
 final class RitoDisplayListPayload {
   RitoDisplayListPayload({
     required this.formatVersion,
@@ -107,7 +109,7 @@ final class RitoDisplayListPayload {
   final int commandCount;
   final Uint8List semanticDigest;
   final Uint8List wireBytes;
-  final RitoDisplayList displayList;
+  final RitoPrimitiveList displayList;
 }
 
 final class RitoResourceRef {

@@ -140,10 +140,7 @@ final class RitoSearchDecoder {
       start: _position(record, 'start'),
       end: _position(record, 'end'),
       context: record.string('search context'),
-      locator: record.option(
-        'search locator',
-        () => readRitoLocator(record),
-      ),
+      locator: record.option('search locator', () => readRitoLocator(record)),
     );
     record.finish('search result');
     return result;

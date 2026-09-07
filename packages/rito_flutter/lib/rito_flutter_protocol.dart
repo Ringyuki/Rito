@@ -10,8 +10,7 @@ export 'src/protocol/background_decoder.dart' show RitoBackgroundDecoder;
 export 'src/protocol/background_encoder.dart' show RitoBackgroundEncoder;
 export 'src/protocol/background_models.dart';
 export 'src/protocol/display_color.dart';
-export 'src/protocol/display_decoder.dart'
-    show RitoDisplayListDecoder, RitoPrimitiveListDecoder;
+export 'src/protocol/display_decoder.dart' show RitoPrimitiveListDecoder;
 export 'src/protocol/display_geometry.dart';
 export 'src/protocol/display_models.dart';
 export 'src/protocol/display_paint.dart';
@@ -35,4 +34,3 @@ export 'src/protocol/resource_decoder.dart' show RitoResourceDecoder;
 export 'src/protocol/wire_exception.dart';
 export 'src/render/page_surface.dart' show RitoArtifactPainter;
 export 'src/render/primitive_replayer.dart';
-export 'src/render/replayer.dart';

@@ -33,7 +33,8 @@ final class RitoCanvasColorOverride {
   /// True when a page background is the book's own designed ground
   /// (R1): fully opaque and darker than the white-paper limit.
   static bool isBookOwnedPageGround(ui.Color color) {
-    return color.a >= 1 && _relativeLuminance(color) < _bookGroundLuminanceLimit;
+    return color.a >= 1 &&
+        _relativeLuminance(color) < _bookGroundLuminanceLimit;
   }
 
   /// Resolves the ink for a run whose effective ground is

@@ -1764,7 +1764,7 @@ impl ReaderSessionV1 {
         };
         let artifact_id = take_identity(&mut self.next_artifact_id, "artifactId")?;
         let artifact = build_reader_artifact_v1(
-            &self.document,
+            &mut self.document,
             ArtifactIdentityV1 {
                 session_id: self.session_id,
                 request_id,
@@ -2352,7 +2352,7 @@ impl ReaderSessionV1 {
         let revision = ReaderRevisionOwnerV1::from_advance(advance, layout, work.local_page_cap, 1);
         let navigation = reader_navigation(&self.document, &revision, target.local_spread_index);
         let artifact = match build_reader_artifact_v1(
-            &self.document,
+            &mut self.document,
             ArtifactIdentityV1 {
                 session_id: self.session_id,
                 request_id,
@@ -2439,7 +2439,7 @@ impl ReaderSessionV1 {
         let navigation = reader_navigation(&self.document, revision, local_spread_index);
         let artifact_id = take_identity(&mut self.next_artifact_id, "artifactId")?;
         let artifact = build_reader_artifact_v1(
-            &self.document,
+            &mut self.document,
             ArtifactIdentityV1 {
                 session_id: self.session_id,
                 request_id,

@@ -74,9 +74,11 @@ Browser APIs such as `Worker`, `FontFace`, `createImageBitmap`, `Blob`, Canvas,
 and `document.fonts` stay in this binding layer. The shell must not duplicate
 pagination, navigation, cache, or revision policy that belongs in Rust.
 
-`RITOFCB2` is the packed frame-command ABI. Rust revision-cache entries serving
-production frame windows retain this packed owner without eagerly retaining the
-legacy JSON command tree; the browser separately keeps decoded Canvas frames.
+The frame command buffer is `RITODL1` format 2: the frame's display commands
+lowered to the device grid at the document's render ratio. Rust revision-cache
+entries serving production frame windows retain those bytes beside the semantic
+frame summary without eagerly retaining the legacy JSON command tree; the
+browser separately keeps decoded primitive frames.
 Exact JSON frames are derived from the immutable revision model on
 compatibility demand. `RITORB1` is an experimental, private metadata wire and
 must remain opt-in until real-session A/B testing shows no interaction

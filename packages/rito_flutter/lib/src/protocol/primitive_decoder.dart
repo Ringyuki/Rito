@@ -1,21 +1,21 @@
 part of 'display_decoder.dart';
 
 /// Strict little-endian decoder for `RITODL1` format version 2, the
-/// device-resolved primitive list. Colours, run paints and block paints
-/// share the format-1 readers.
+/// device-resolved primitive list the engine paints every frame as.
 final class RitoPrimitiveListDecoder {
   const RitoPrimitiveListDecoder();
 
   /// Mirrors `READER_PRIMITIVE_LIST_FORMAT_VERSION` in
   /// crates/rito-core/src/render/commands/reader_wire_v1.rs.
   static const int formatVersion = 2;
+  static final List<int> _magic = ascii.encode('RITODL1');
 
   RitoPrimitiveList decode(Uint8List bytes) {
     if (bytes.length > ritoMaxWireBytes) {
       throw const FormatException('RITODL1 exceeds the byte limit.');
     }
     final reader = RitoBinaryReader(bytes);
-    reader.expectMagic(RitoDisplayListDecoder._magic, 'primitive list magic');
+    reader.expectMagic(_magic, 'primitive list magic');
     final version = reader.uint32('primitive list version');
     if (version != formatVersion) {
       reader.fail('unsupported primitive list version: $version');
@@ -84,12 +84,10 @@ final class RitoPrimitiveListDecoder {
         tiles: reader.option('image tiles', () => _tiles(reader)),
       ),
       12 => RitoPrimitiveText(
-        const RitoDisplayListDecoder()._text(reader, ruby: false)
-            as RitoPaintText,
+        _readTextRun(reader, ruby: false) as RitoPaintText,
       ),
       13 => RitoPrimitiveRuby(
-        const RitoDisplayListDecoder()._text(reader, ruby: true)
-            as RitoPaintRuby,
+        _readTextRun(reader, ruby: true) as RitoPaintRuby,
       ),
       _ => reader.fail('unknown primitive opcode: $opcode'),
     };

@@ -151,7 +151,9 @@ final class RitoWorkspace {
   }) {
     final exists = pathExists ?? (String path) => File(path).existsSync();
     final repositoryRoot = packageRoot.resolve('../../');
-    if (exists(repositoryRoot.resolve('crates/rito-core/Cargo.toml').toFilePath())) {
+    if (exists(
+      repositoryRoot.resolve('crates/rito-core/Cargo.toml').toFilePath(),
+    )) {
       return RitoWorkspace(repositoryRoot);
     }
     final packagedRoot = packageRoot.resolve('native/');

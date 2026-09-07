@@ -1089,6 +1089,8 @@ fn text_runs_pass_through_with_every_length_in_device_pixels() {
         source_text: Some("source".to_owned()),
         source_text_offset: Some(9),
         ruby_align: Some("center".to_owned()),
+        align_right: false,
+        vertical: false,
     };
     assert_eq!(
         primitives,
@@ -1392,5 +1394,7 @@ fn text() -> ReaderTextCommandV1 {
         source_text: Some("source".to_owned()),
         source_text_offset: Some(9),
         ruby_align: Some("center".to_owned()),
+        align_right: false,
+        vertical: false,
     }
 }

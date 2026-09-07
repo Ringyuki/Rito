@@ -69,26 +69,6 @@ pub(crate) enum ReaderDisplayCommandV1 {
         paint: ReaderHorizontalRulePaintV1,
     },
 }
-
-impl ReaderDisplayCommandV1 {
-    pub(crate) const fn opcode(&self) -> u16 {
-        match self {
-            Self::PushState => 1,
-            Self::PopState => 2,
-            Self::Translate { .. } => 3,
-            Self::Opacity { .. } => 4,
-            Self::Transform { .. } => 5,
-            Self::ClipRect { .. } => 6,
-            Self::PaintPage { .. } => 7,
-            Self::PaintBlock { .. } => 8,
-            Self::PaintText(_) => 9,
-            Self::PaintRuby(_) => 10,
-            Self::PaintImage { .. } => 11,
-            Self::PaintHorizontalRule { .. } => 12,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ReaderTextCommandV1 {
     pub text: String,
@@ -99,4 +79,12 @@ pub(crate) struct ReaderTextCommandV1 {
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
     pub ruby_align: Option<String>,
+    /// Right-aligned draw: `rect.x` is the text's RIGHT edge and the
+    /// renderer measures the string to place the pen (outside list
+    /// markers, whose width only the host's text stack can measure).
+    pub align_right: bool,
+    /// Vertical writing: the renderer draws the string as one downward
+    /// column with `rect.x` the column's left edge and `rect.y` the first
+    /// glyph's top.
+    pub vertical: bool,
 }

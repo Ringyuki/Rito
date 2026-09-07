@@ -317,6 +317,7 @@ function installActivePreview(
       spreadIndex: 0,
       width: 800,
       height: 600,
+      ratio: 1,
       commands: [],
       commandHash: 'preview',
       resourceRefs: { images: [] },

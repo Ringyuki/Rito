@@ -1,5 +1,4 @@
 import 'display_color.dart';
-import 'display_geometry.dart';
 
 final class RitoFontStyle {
   const RitoFontStyle._(this.name);
@@ -27,44 +26,6 @@ final class RitoBorderStyle {
   static const RitoBorderStyle outset = RitoBorderStyle._('outset');
 }
 
-final class RitoBackgroundSize {
-  const RitoBackgroundSize._(this.name) : x = null, y = null;
-
-  /// CSS `background-size` with explicit axes (`auto 40%`, `100% 100%`).
-  /// A null axis is `auto`: it derives from the image's intrinsic ratio
-  /// once the other axis resolves.
-  const RitoBackgroundSize.explicit({this.x, this.y}) : name = 'explicit';
-
-  final String name;
-  final RitoLength? x;
-  final RitoLength? y;
-
-  bool get isExplicit => name == 'explicit';
-
-  static const RitoBackgroundSize auto = RitoBackgroundSize._('auto');
-  static const RitoBackgroundSize cover = RitoBackgroundSize._('cover');
-  static const RitoBackgroundSize contain = RitoBackgroundSize._('contain');
-}
-
-final class RitoBackgroundRepeat {
-  const RitoBackgroundRepeat._(this.name);
-
-  final String name;
-
-  static const RitoBackgroundRepeat repeat = RitoBackgroundRepeat._('repeat');
-  static const RitoBackgroundRepeat noRepeat = RitoBackgroundRepeat._(
-    'no-repeat',
-  );
-  static const RitoBackgroundRepeat repeatX = RitoBackgroundRepeat._(
-    'repeat-x',
-  );
-  static const RitoBackgroundRepeat repeatY = RitoBackgroundRepeat._(
-    'repeat-y',
-  );
-  static const RitoBackgroundRepeat space = RitoBackgroundRepeat._('space');
-  static const RitoBackgroundRepeat round = RitoBackgroundRepeat._('round');
-}
-
 final class RitoRunDecorationKind {
   const RitoRunDecorationKind._(this.name);
 
@@ -78,120 +39,11 @@ final class RitoRunDecorationKind {
   );
 }
 
-final class RitoBackgroundPosition {
-  const RitoBackgroundPosition({required this.x, required this.y});
-
-  final RitoLength x;
-  final RitoLength y;
-}
-
-final class RitoBackgroundPaint {
-  const RitoBackgroundPaint({
-    this.color,
-    this.image,
-    this.size,
-    this.repeat,
-    this.position,
-  });
-
-  final RitoColor? color;
-  final String? image;
-  final RitoBackgroundSize? size;
-  final RitoBackgroundRepeat? repeat;
-  final RitoBackgroundPosition? position;
-}
-
 final class RitoBorderEdgePaint {
   const RitoBorderEdgePaint({required this.color, required this.style});
 
   final RitoColor color;
   final RitoBorderStyle style;
-}
-
-final class RitoBlockBorder {
-  const RitoBlockBorder({this.top, this.right, this.bottom, this.left});
-
-  final RitoBorderEdgePaint? top;
-  final RitoBorderEdgePaint? right;
-  final RitoBorderEdgePaint? bottom;
-  final RitoBorderEdgePaint? left;
-}
-
-sealed class RitoBlockRadius {
-  const RitoBlockRadius();
-}
-
-final class RitoBlockPxRadius extends RitoBlockRadius {
-  const RitoBlockPxRadius(this.value);
-
-  final double value;
-}
-
-final class RitoBlockPercentRadius extends RitoBlockRadius {
-  const RitoBlockPercentRadius(this.value);
-
-  final double value;
-}
-
-/// Circular per-corner radii in CSS order (top-left, top-right,
-/// bottom-right, bottom-left) for boxes whose corners disagree.
-final class RitoBlockCornersRadius extends RitoBlockRadius {
-  RitoBlockCornersRadius(List<double> corners)
-    : corners = List<double>.unmodifiable(corners);
-
-  final List<double> corners;
-}
-
-final class RitoBoxShadow {
-  const RitoBoxShadow({
-    required this.offsetX,
-    required this.offsetY,
-    required this.blur,
-    required this.spread,
-    required this.color,
-    required this.inset,
-  });
-
-  final double offsetX;
-  final double offsetY;
-  final double blur;
-  final double spread;
-  final RitoColor color;
-  final bool inset;
-}
-
-final class RitoBlockPaint {
-  RitoBlockPaint({
-    this.background,
-    this.border,
-    this.radius,
-    required List<RitoBoxShadow> boxShadows,
-  }) : boxShadows = List<RitoBoxShadow>.unmodifiable(boxShadows);
-
-  final RitoBackgroundPaint? background;
-  final RitoBlockBorder? border;
-  final RitoBlockRadius? radius;
-  final List<RitoBoxShadow> boxShadows;
-}
-
-final class RitoBorderBox {
-  const RitoBorderBox({
-    required this.topWidth,
-    required this.rightWidth,
-    required this.bottomWidth,
-    required this.leftWidth,
-  });
-
-  final double topWidth;
-  final double rightWidth;
-  final double bottomWidth;
-  final double leftWidth;
-}
-
-final class RitoPagePaint {
-  const RitoPagePaint({this.backgroundColor});
-
-  final RitoColor? backgroundColor;
 }
 
 final class RitoFontPaint {
@@ -306,11 +158,4 @@ final class RitoRunPaint {
   /// only where the box actually opens or closes.
   final bool boxStart;
   final bool boxEnd;
-}
-
-final class RitoHorizontalRulePaint {
-  const RitoHorizontalRulePaint({required this.color, required this.style});
-
-  final RitoColor color;
-  final RitoBorderStyle style;
 }

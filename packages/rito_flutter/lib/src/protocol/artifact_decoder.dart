@@ -10,7 +10,7 @@ part 'artifact_decoder_pages.dart';
 
 final class RitoArtifactDecoder {
   const RitoArtifactDecoder({
-    this.displayListDecoder = const RitoDisplayListDecoder(),
+    this.displayListDecoder = const RitoPrimitiveListDecoder(),
   });
 
   static const int protocolVersion = 3;
@@ -18,7 +18,7 @@ final class RitoArtifactDecoder {
   static const int _maxSemanticDepth = 64;
   static final List<int> _magic = ascii.encode('RITOART1');
 
-  final RitoDisplayListDecoder displayListDecoder;
+  final RitoPrimitiveListDecoder displayListDecoder;
 
   RitoArtifact decode(Uint8List bytes) {
     if (bytes.length > ritoMaxWireBytes) {

@@ -19,10 +19,7 @@ mod text_movement_tests;
 
 use std::num::NonZeroUsize;
 
-use command_hash::{
-    hash_json_value, json_values_match_after_number_round_trip,
-    normalize_runtime_commands_for_render_hash,
-};
+use command_hash::{hash_json_value, normalize_runtime_commands_for_render_hash};
 use fixture::{
     double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_epub_with_stylesheet,
     fixture_stylesheet, interaction_target_fixture_epub, layout, malformed_chapter_fixture_epub,
@@ -328,8 +325,6 @@ fn exposes_packed_frame_command_buffer_metadata_and_bytes() {
     assert_eq!(buffer.metadata.command_count, frame.command_count);
     assert_eq!(buffer.metadata.command_counts, frame.command_counts);
     assert_eq!(buffer.metadata.command_hash, frame.command_hash);
-    assert!(buffer.metadata.record_stats.geometry_records <= frame.command_count);
-    assert!(buffer.metadata.record_stats.payload_records <= frame.command_count);
     assert_eq!(buffer.metadata.byte_length, buffer.bytes.len());
     assert_eq!(
         buffer.metadata.resource_ref_count,
@@ -337,21 +332,20 @@ fn exposes_packed_frame_command_buffer_metadata_and_bytes() {
     );
     assert_eq!(buffer.metadata.resource_table, frame.resource_refs.images);
     assert_eq!(buffer.metadata.font_families, frame.font_families);
-    assert_eq!(&buffer.bytes[0..8], b"RITOFCB2");
-    assert!(!buffer.metadata.payload_table.is_empty());
-    for payload in &buffer.metadata.payload_table {
-        let value: Value = serde_json::from_str(payload).expect("command buffer payload is JSON");
-        // A stable JSON number can move by one ULP when parsed back into an f64.
-        // Keep object/array structure and non-number leaves exact while allowing
-        // only that negligible numeric wire round-trip difference.
-        assert!(
-            frame
-                .commands
-                .iter()
-                .any(|command| { json_values_match_after_number_round_trip(command, &value) }),
-            "command buffer payload should mirror a runtime frame command"
-        );
-    }
+    // The bytes are the frame's display list lowered to the device grid:
+    // the reader wire's format 2 at the document's render ratio.
+    assert_eq!(&buffer.bytes[0..7], b"RITODL1");
+    assert_eq!(buffer.metadata.protocol_version, 2);
+    assert_eq!(buffer.metadata.ratio, 1.0);
+    assert_eq!(
+        u32::from_le_bytes(buffer.bytes[7..11].try_into().expect("version lane")),
+        2
+    );
+    assert_eq!(
+        u32::from_le_bytes(buffer.bytes[19..23].try_into().expect("count lane")) as usize,
+        buffer.metadata.primitive_count
+    );
+    assert!(buffer.metadata.primitive_count > 0);
     assert_eq!(missing.message(), "unknown spread index: 99");
 }
 

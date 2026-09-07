@@ -1,7 +1,4 @@
-use super::{
-    READER_DISPLAY_LIST_FORMAT_VERSION, READER_DISPLAY_LIST_MAGIC,
-    READER_PRIMITIVE_LIST_FORMAT_VERSION,
-};
+use super::{READER_DISPLAY_LIST_MAGIC, READER_PRIMITIVE_LIST_FORMAT_VERSION};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum DecodeError {
@@ -24,24 +21,14 @@ pub(super) fn validate(bytes: &[u8]) -> Result<u32, DecodeError> {
         return Err(DecodeError::InvalidMagic);
     }
     let version = decoder.read_u32()?;
-    let command_count = match version {
-        READER_DISPLAY_LIST_FORMAT_VERSION => {
-            let command_count = decoder.read_u32()?;
-            for _ in 0..command_count {
-                decoder.read_command()?;
-            }
-            command_count
-        }
-        READER_PRIMITIVE_LIST_FORMAT_VERSION => {
-            decoder.read_finite_f64()?;
-            let command_count = decoder.read_u32()?;
-            for _ in 0..command_count {
-                decoder.read_primitive()?;
-            }
-            command_count
-        }
-        other => return Err(DecodeError::UnsupportedVersion(other)),
-    };
+    if version != READER_PRIMITIVE_LIST_FORMAT_VERSION {
+        return Err(DecodeError::UnsupportedVersion(version));
+    }
+    decoder.read_finite_f64()?;
+    let command_count = decoder.read_u32()?;
+    for _ in 0..command_count {
+        decoder.read_primitive()?;
+    }
     if decoder.offset != bytes.len() {
         return Err(DecodeError::TrailingBytes);
     }
@@ -54,35 +41,6 @@ struct Decoder<'a> {
 }
 
 impl Decoder<'_> {
-    fn read_command(&mut self) -> Result<(), DecodeError> {
-        match self.read_u16()? {
-            1 | 2 => Ok(()),
-            3 => self.read_f64s(2),
-            4 => self.read_finite_f64(),
-            5 => self.read_transform(),
-            6 => {
-                self.read_rect()?;
-                if self.read_option()? {
-                    self.read_f64s(2)?;
-                }
-                Ok(())
-            }
-            7 => {
-                self.read_rect()?;
-                self.read_optional_color()
-            }
-            8 => self.read_block(),
-            9 | 10 => self.read_text(),
-            11 => self.read_image(),
-            12 => {
-                self.read_rect()?;
-                self.read_color()?;
-                self.read_enum(1, 10)
-            }
-            opcode => Err(DecodeError::UnknownOpcode(opcode)),
-        }
-    }
-
     fn read_primitive(&mut self) -> Result<(), DecodeError> {
         match self.read_u16()? {
             1 | 2 => Ok(()),
@@ -171,77 +129,6 @@ impl Decoder<'_> {
         Ok(())
     }
 
-    fn read_transform(&mut self) -> Result<(), DecodeError> {
-        self.read_f64s(4)?;
-        let count = self.read_u32()?;
-        for _ in 0..count {
-            match self.read_u8()? {
-                1 => self.read_finite_f64()?,
-                2 => self.read_f64s(2)?,
-                3 => {
-                    self.read_length()?;
-                    self.read_length()?;
-                }
-                value => return Err(DecodeError::UnknownEnum(value)),
-            }
-        }
-        Ok(())
-    }
-
-    fn read_block(&mut self) -> Result<(), DecodeError> {
-        self.read_rect()?;
-        self.read_optional_background()?;
-        if self.read_option()? {
-            for _ in 0..4 {
-                if self.read_option()? {
-                    self.read_border_edge()?;
-                }
-            }
-        }
-        if self.read_option()? {
-            self.read_enum(1, 2)?;
-            self.read_finite_f64()?;
-        }
-        let shadow_count = self.read_u32()?;
-        for _ in 0..shadow_count {
-            self.read_f64s(4)?;
-            self.read_color()?;
-            self.read_bool()?;
-        }
-        if self.read_option()? {
-            self.read_f64s(4)?;
-        }
-        Ok(())
-    }
-
-    fn read_optional_background(&mut self) -> Result<(), DecodeError> {
-        if !self.read_option()? {
-            return Ok(());
-        }
-        self.read_optional_color()?;
-        self.read_optional_string()?;
-        if self.read_option()? {
-            // Size tag 4 (explicit) is followed by two optional lengths.
-            let tag = self.read_u8()?;
-            if !(1..=4).contains(&tag) {
-                return Err(DecodeError::UnknownEnum(tag));
-            }
-            if tag == 4 {
-                for _ in 0..2 {
-                    if self.read_option()? {
-                        self.read_length()?;
-                    }
-                }
-            }
-        }
-        self.read_optional_enum(1, 6)?;
-        if self.read_option()? {
-            self.read_length()?;
-            self.read_length()?;
-        }
-        Ok(())
-    }
-
     fn read_text(&mut self) -> Result<(), DecodeError> {
         self.read_string()?;
         self.read_rect()?;
@@ -253,6 +140,8 @@ impl Decoder<'_> {
             self.read_exact::<8>()?;
         }
         self.read_optional_string()?;
+        self.read_bool()?;
+        self.read_bool()?;
         Ok(())
     }
 
@@ -294,17 +183,6 @@ impl Decoder<'_> {
         Ok(())
     }
 
-    fn read_image(&mut self) -> Result<(), DecodeError> {
-        self.read_string()?;
-        self.read_rect()?;
-        self.read_optional_string()?;
-        self.read_optional_string()?;
-        if self.read_option()? {
-            self.read_rect()?;
-        }
-        Ok(())
-    }
-
     fn read_color(&mut self) -> Result<(), DecodeError> {
         self.read_enum(1, 15)?;
         for _ in 0..4 {
@@ -326,11 +204,6 @@ impl Decoder<'_> {
         self.read_f64s(4)
     }
 
-    fn read_length(&mut self) -> Result<(), DecodeError> {
-        self.read_enum(1, 2)?;
-        self.read_finite_f64()
-    }
-
     fn read_optional_color(&mut self) -> Result<(), DecodeError> {
         if self.read_option()? {
             self.read_color()?;
@@ -348,13 +221,6 @@ impl Decoder<'_> {
     fn read_optional_f64(&mut self) -> Result<(), DecodeError> {
         if self.read_option()? {
             self.read_finite_f64()?;
-        }
-        Ok(())
-    }
-
-    fn read_optional_enum(&mut self, min: u8, max: u8) -> Result<(), DecodeError> {
-        if self.read_option()? {
-            self.read_enum(min, max)?;
         }
         Ok(())
     }

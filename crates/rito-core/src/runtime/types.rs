@@ -15,7 +15,7 @@ use crate::{
         PaginationFlowChapterRange, SearchRuntimeResult, SearchTextPosition, TextRangeRect,
         TextRunOffset,
     },
-    render::{DisplayListResourceRefs, PackedDisplayCommandRecordStats},
+    render::DisplayListResourceRefs,
     resources::PublicationResources,
     xhtml::ChapterSource,
 };
@@ -652,7 +652,13 @@ pub struct RuntimeChapterLocalFrame {
     pub image_dominated: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Describes one cached frame's bytes: the `RITODL1` primitive list the
+/// frame's display commands lower to at `ratio` device pixels per CSS
+/// pixel. The command count, kind counts and hash describe the semantic
+/// display list the bytes were lowered from — the frame's identity, which
+/// the JSON projection is validated against — while `primitive_count`
+/// and `byte_length` describe the bytes themselves.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeFrameCommandBufferMetadata {
     pub revision_id: String,
@@ -660,20 +666,19 @@ pub struct RuntimeFrameCommandBufferMetadata {
     pub width: Value,
     pub height: Value,
     pub protocol_version: u32,
+    pub ratio: f64,
     pub command_count: usize,
     pub command_counts: BTreeMap<String, usize>,
-    pub record_stats: PackedDisplayCommandRecordStats,
+    pub primitive_count: usize,
     pub byte_length: usize,
     pub command_hash: String,
     pub resource_ref_count: usize,
     pub resource_table: Vec<String>,
     pub font_families: Vec<String>,
     pub image_dominated: bool,
-    pub string_table: Vec<String>,
-    pub payload_table: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RuntimeFrameCommandBuffer {
     pub metadata: RuntimeFrameCommandBufferMetadata,
     pub bytes: Vec<u8>,

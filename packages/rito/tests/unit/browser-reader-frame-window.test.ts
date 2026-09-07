@@ -712,7 +712,7 @@ describe('Browser reader frame window adapter', () => {
       disposed: false,
     } as unknown as BrowserReaderState;
 
-    if (frame(['paintImage', 'paintText'], ['cover.jpg']).imageDominated) {
+    if (frame(['draw-image', 'text'], ['cover.jpg']).imageDominated) {
       await preloadFrameResourceBytes(state, []);
     }
 
@@ -901,7 +901,7 @@ async function flushPromises(): Promise<void> {
 }
 
 function frame(
-  commandKinds: readonly ('paintImage' | 'paintRuby' | 'paintText')[],
+  commandKinds: readonly ('draw-image' | 'ruby' | 'text')[],
   imageRefs: readonly string[],
 ): BrowserReaderFrame {
   return {
@@ -909,30 +909,37 @@ function frame(
     spreadIndex: 0,
     width: 800,
     height: 600,
+    ratio: 1,
     commandHash: 'hash',
     commands: commandKinds.map(frameCommand),
     resourceRefs: { images: imageRefs },
     fontFamilies: [],
     imageDominated:
-      imageRefs.length > 0 &&
-      !commandKinds.some((kind) => kind === 'paintText' || kind === 'paintRuby'),
+      imageRefs.length > 0 && !commandKinds.some((kind) => kind === 'text' || kind === 'ruby'),
   };
 }
 
 function frameCommand(
-  kind: 'paintImage' | 'paintRuby' | 'paintText',
+  kind: 'draw-image' | 'ruby' | 'text',
 ): BrowserReaderFrame['commands'][number] {
   const rect = { x: 0, y: 0, width: 10, height: 10 };
-  if (kind === 'paintImage') return { kind, src: 'cover.jpg', rect };
+  if (kind === 'draw-image') return { kind, src: 'cover.jpg', dest: rect };
   const paint = {
-    color: '#000',
+    color: {
+      space: 'srgb' as const,
+      component0: 0,
+      component1: 0,
+      component2: 0,
+      alpha: 1,
+      none: { component0: false, component1: false, component2: false, alpha: false },
+    },
     font: { style: 'normal' as const, weight: 400, sizePx: 16, family: 'serif' },
+    textShadows: [],
+    boxStart: true,
+    boxEnd: true,
   };
-  if (kind === 'paintRuby') return { kind, text: 'ruby', rect, paint };
-  return {
-    kind,
-    text: 'text',
-    rect,
-    paint,
-  };
+  if (kind === 'ruby') {
+    return { kind, text: 'ruby', rect, paint, alignRight: false, vertical: false };
+  }
+  return { kind, text: 'text', rect, paint, alignRight: false, vertical: false };
 }

@@ -31,7 +31,6 @@ void main() {
 
     final lease = await cache.prepare(
       artifact: artifact,
-      pixelRatio: 1,
       readResource: (reference) async {
         active += 1;
         peak = active > peak ? active : peak;
@@ -52,7 +51,10 @@ void main() {
   });
 
   test('overlapping leases share one cache-wide four-work limit', () async {
-    final firstHrefs = List<String>.generate(6, (index) => 'images/a$index.png');
+    final firstHrefs = List<String>.generate(
+      6,
+      (index) => 'images/a$index.png',
+    );
     final secondHrefs = List<String>.generate(
       6,
       (index) => 'images/b$index.png',
@@ -84,7 +86,6 @@ void main() {
     Future<RitoArtifactImageLease> prepare(RitoArtifact artifact) {
       return cache.prepare(
         artifact: artifact,
-        pixelRatio: 1,
         readResource: (reference) async {
           active += 1;
           peak = active > peak ? active : peak;
@@ -110,52 +111,55 @@ void main() {
     cache.dispose();
   });
 
-  test('cache disposal rejects queued work and stops active read before decode', () async {
-    const firstSpec = TestImageSpec(code: 1, width: 20, height: 20);
-    const secondSpec = TestImageSpec(code: 2, width: 20, height: 20);
-    final artifact = imageArtifact(
-      artifactId: 7001,
-      hrefs: const <String>['images/active.png', 'images/queued.png'],
-      commands: <RitoCommand>[
-        directImage('images/active.png'),
-        directImage('images/queued.png'),
-      ],
-    );
-    final decoder = TestImageDecoder(
-      const <TestImageSpec>[firstSpec, secondSpec],
-    );
-    final cache = RitoArtifactImageCache(
-      decoder: decoder,
-      maxConcurrentDecodes: 1,
-    );
-    final started = Completer<void>();
-    final unblock = Completer<void>();
-    final preparation = cache.prepare(
-      artifact: artifact,
-      pixelRatio: 1,
-      readResource: (reference) async {
-        final active = reference.href.endsWith('active.png');
-        if (active) {
-          started.complete();
-          await unblock.future;
-        }
-        return imageResource(
-          artifact: artifact,
-          reference: reference,
-          spec: active ? firstSpec : secondSpec,
-        );
-      },
-    );
-    final failure = expectLater(preparation, throwsStateError);
+  test(
+    'cache disposal rejects queued work and stops active read before decode',
+    () async {
+      const firstSpec = TestImageSpec(code: 1, width: 20, height: 20);
+      const secondSpec = TestImageSpec(code: 2, width: 20, height: 20);
+      final artifact = imageArtifact(
+        artifactId: 7001,
+        hrefs: const <String>['images/active.png', 'images/queued.png'],
+        commands: <RitoPrimitive>[
+          directImage('images/active.png'),
+          directImage('images/queued.png'),
+        ],
+      );
+      final decoder = TestImageDecoder(const <TestImageSpec>[
+        firstSpec,
+        secondSpec,
+      ]);
+      final cache = RitoArtifactImageCache(
+        decoder: decoder,
+        maxConcurrentDecodes: 1,
+      );
+      final started = Completer<void>();
+      final unblock = Completer<void>();
+      final preparation = cache.prepare(
+        artifact: artifact,
+        readResource: (reference) async {
+          final active = reference.href.endsWith('active.png');
+          if (active) {
+            started.complete();
+            await unblock.future;
+          }
+          return imageResource(
+            artifact: artifact,
+            reference: reference,
+            spec: active ? firstSpec : secondSpec,
+          );
+        },
+      );
+      final failure = expectLater(preparation, throwsStateError);
 
-    await started.future;
-    cache.dispose();
-    unblock.complete();
-    await failure;
+      await started.future;
+      cache.dispose();
+      unblock.complete();
+      await failure;
 
-    expect(decoder.openedCodes, isEmpty);
-    expect(decoder.createdImages, isEmpty);
-  });
+      expect(decoder.openedCodes, isEmpty);
+      expect(decoder.createdImages, isEmpty);
+    },
+  );
 
   test('current and incoming animation artifacts share one decode', () async {
     const href = 'images/shared.png';
@@ -163,13 +167,13 @@ void main() {
     final first = imageArtifact(
       artifactId: 7001,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href, width: 80, height: 40)],
+      commands: <RitoPrimitive>[directImage(href, width: 80, height: 40)],
     );
     final incoming = imageArtifact(
       artifactId: 7002,
       requestId: 13,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href, width: 80, height: 40)],
+      commands: <RitoPrimitive>[directImage(href, width: 80, height: 40)],
     );
     final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
     final cache = RitoArtifactImageCache(decoder: decoder);
@@ -189,12 +193,10 @@ void main() {
 
     final current = await cache.prepare(
       artifact: first,
-      pixelRatio: 1,
       readResource: (reference) => reader(first, reference),
     );
     final next = await cache.prepare(
       artifact: incoming,
-      pixelRatio: 1,
       readResource: (reference) => reader(incoming, reference),
     );
     final image = current.resolveImage(href)!;
@@ -209,89 +211,91 @@ void main() {
     cache.dispose();
   });
 
-  test('a failing image degrades to recorded absence, not a blocked page', () async {
-    // One broken plate must never take down the whole artifact: the
-    // page still turns, the healthy image paints, the fault is reported
-    // through FlutterError and recorded on the lease.
-    const firstSpec = TestImageSpec(code: 1, width: 40, height: 40);
-    const failedSpec = TestImageSpec(
-      code: 2,
-      width: 40,
-      height: 40,
-      failDecode: true,
-    );
-    final artifact = imageArtifact(
-      artifactId: 7001,
-      hrefs: const <String>['images/one.png', 'images/two.png'],
-      commands: <RitoCommand>[
-        directImage('images/one.png'),
-        directImage('images/two.png'),
-      ],
-    );
-    final decoder = TestImageDecoder(
-      const <TestImageSpec>[firstSpec, failedSpec],
-    );
-    final cache = RitoArtifactImageCache(
-      decoder: decoder,
-      maxConcurrentDecodes: 1,
-    );
-
-    final reports = <FlutterErrorDetails>[];
-    final priorOnError = FlutterError.onError;
-    FlutterError.onError = reports.add;
-    final RitoArtifactImageLease lease;
-    try {
-      lease = await cache.prepare(
-        artifact: artifact,
-        pixelRatio: 1,
-        readResource: (reference) async => imageResource(
-          artifact: artifact,
-          reference: reference,
-          spec: reference.href.endsWith('one.png') ? firstSpec : failedSpec,
-        ),
+  test(
+    'a failing image degrades to recorded absence, not a blocked page',
+    () async {
+      // One broken plate must never take down the whole artifact: the
+      // page still turns, the healthy image paints, the fault is reported
+      // through FlutterError and recorded on the lease.
+      const firstSpec = TestImageSpec(code: 1, width: 40, height: 40);
+      const failedSpec = TestImageSpec(
+        code: 2,
+        width: 40,
+        height: 40,
+        failDecode: true,
       );
-    } finally {
-      FlutterError.onError = priorOnError;
-    }
+      final artifact = imageArtifact(
+        artifactId: 7001,
+        hrefs: const <String>['images/one.png', 'images/two.png'],
+        commands: <RitoPrimitive>[
+          directImage('images/one.png'),
+          directImage('images/two.png'),
+        ],
+      );
+      final decoder = TestImageDecoder(const <TestImageSpec>[
+        firstSpec,
+        failedSpec,
+      ]);
+      final cache = RitoArtifactImageCache(
+        decoder: decoder,
+        maxConcurrentDecodes: 1,
+      );
 
-    expect(lease.resolveImage('images/one.png'), isNotNull);
-    expect(lease.resolveImage('images/two.png'), isNull);
-    expect(lease.failedImages.keys, ['images/two.png']);
-    expect(reports, hasLength(1));
-    expect(decoder.disposedSources, 2);
-    lease.release();
-    expect(decoder.createdImages.single.debugDisposed, isTrue);
-    cache.dispose();
-  });
+      final reports = <FlutterErrorDetails>[];
+      final priorOnError = FlutterError.onError;
+      FlutterError.onError = reports.add;
+      final RitoArtifactImageLease lease;
+      try {
+        lease = await cache.prepare(
+          artifact: artifact,
+          readResource: (reference) async => imageResource(
+            artifact: artifact,
+            reference: reference,
+            spec: reference.href.endsWith('one.png') ? firstSpec : failedSpec,
+          ),
+        );
+      } finally {
+        FlutterError.onError = priorOnError;
+      }
 
-  test('lease release and cache disposal are idempotent and fail closed', () async {
-    const href = 'images/owned.png';
-    const spec = TestImageSpec(code: 9, width: 32, height: 32);
-    final artifact = imageArtifact(
-      artifactId: 7001,
-      hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href)],
-    );
-    final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
-    final cache = RitoArtifactImageCache(decoder: decoder);
-    final lease = await cache.prepare(
-      artifact: artifact,
-      pixelRatio: 1,
-      readResource: (reference) async => imageResource(
+      expect(lease.resolveImage('images/one.png'), isNotNull);
+      expect(lease.resolveImage('images/two.png'), isNull);
+      expect(lease.failedImages.keys, ['images/two.png']);
+      expect(reports, hasLength(1));
+      expect(decoder.disposedSources, 2);
+      lease.release();
+      expect(decoder.createdImages.single.debugDisposed, isTrue);
+      cache.dispose();
+    },
+  );
+
+  test(
+    'lease release and cache disposal are idempotent and fail closed',
+    () async {
+      const href = 'images/owned.png';
+      const spec = TestImageSpec(code: 9, width: 32, height: 32);
+      final artifact = imageArtifact(
+        artifactId: 7001,
+        hrefs: const <String>[href],
+        commands: <RitoPrimitive>[directImage(href)],
+      );
+      final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
+      final cache = RitoArtifactImageCache(decoder: decoder);
+      final lease = await cache.prepare(
         artifact: artifact,
-        reference: reference,
-        spec: spec,
-      ),
-    );
-    final image = lease.resolveImage(href)!;
+        readResource: (reference) async =>
+            imageResource(artifact: artifact, reference: reference, spec: spec),
+      );
+      final image = lease.resolveImage(href)!;
 
-    lease.release();
-    lease.release();
-    expect(image.debugDisposed, isTrue);
-    expect(() => lease.resolveImage(href), throwsStateError);
-    cache.dispose();
-    cache.dispose();
-  });
+      lease.release();
+      lease.release();
+      expect(image.debugDisposed, isTrue);
+      expect(() => lease.resolveImage(href), throwsStateError);
+      cache.dispose();
+      cache.dispose();
+    },
+  );
   test('one-pixel codec rounding on a full-size decode is tolerated', () async {
     // The 402x183 reality: the engine's scaled-decode entry floors the
     // derived axis and returns 402x182 for a same-size target.
@@ -313,7 +317,6 @@ void main() {
 
     final lease = await cache.prepare(
       artifact: artifact,
-      pixelRatio: 1,
       readResource: (reference) async =>
           imageResource(artifact: artifact, reference: reference, spec: spec),
     );
@@ -324,83 +327,90 @@ void main() {
     cache.dispose();
   });
 
-  test('a decode that breaks its target falls back to a full-size decode', () async {
-    // Scaled decode returns nonsense; the fallback full-size decode is
-    // exact, so the artifact survives with the source-sized image.
-    const spec = TestImageSpec(
-      code: 42,
-      width: 800,
-      height: 600,
-      decodedWidth: 100,
-      decodedHeight: 50,
-    );
-    final artifact = imageArtifact(
-      artifactId: 7302,
-      hrefs: const ['images/broken-scale.png'],
-      commands: [
-        directImage('images/broken-scale.png', width: 400, height: 300),
-      ],
-    );
-    final decoder = TestImageDecoder(const [spec]);
-    final cache = RitoArtifactImageCache(decoder: decoder);
+  test(
+    'a decode that breaks its target falls back to a full-size decode',
+    () async {
+      // Scaled decode returns nonsense; the fallback full-size decode is
+      // exact, so the artifact survives with the source-sized image.
+      const spec = TestImageSpec(
+        code: 42,
+        width: 800,
+        height: 600,
+        decodedWidth: 100,
+        decodedHeight: 50,
+      );
+      final artifact = imageArtifact(
+        artifactId: 7302,
+        hrefs: const ['images/broken-scale.png'],
+        commands: [
+          directImage('images/broken-scale.png', width: 400, height: 300),
+        ],
+      );
+      final decoder = TestImageDecoder(const [spec]);
+      final cache = RitoArtifactImageCache(decoder: decoder);
 
-    final lease = await cache.prepare(
-      artifact: artifact,
-      pixelRatio: 1,
-      readResource: (reference) async =>
-          imageResource(artifact: artifact, reference: reference, spec: spec),
-    );
-
-    expect(decoder.decodedCodes, hasLength(2), reason: 'fallback re-decodes');
-    final image = lease.resolveImage('images/broken-scale.png')!;
-    expect((image.width, image.height), (800, 600));
-    lease.release();
-    cache.dispose();
-  });
-
-  test('an image that cannot reproduce itself is recorded with full numbers', () async {
-    const spec = TestImageSpec(
-      code: 43,
-      width: 402,
-      height: 183,
-      decodedWidth: 50,
-      decodedHeight: 50,
-      misdecodeFullSize: true,
-    );
-    final artifact = imageArtifact(
-      artifactId: 7303,
-      hrefs: const ['images/broken.png'],
-      commands: [directImage('images/broken.png', width: 402, height: 183)],
-    );
-    final decoder = TestImageDecoder(const [spec]);
-    final cache = RitoArtifactImageCache(decoder: decoder);
-
-    final reports = <FlutterErrorDetails>[];
-    final priorOnError = FlutterError.onError;
-    FlutterError.onError = reports.add;
-    final RitoArtifactImageLease lease;
-    try {
-      lease = await cache.prepare(
+      final lease = await cache.prepare(
         artifact: artifact,
-        pixelRatio: 1,
         readResource: (reference) async =>
             imageResource(artifact: artifact, reference: reference, spec: spec),
       );
-    } finally {
-      FlutterError.onError = priorOnError;
-    }
-    expect(decoder.decodedCodes, hasLength(2));
-    expect(lease.resolveImage('images/broken.png'), isNull);
-    expect(
-      lease.failedImages['images/broken.png'],
-      isA<FormatException>().having(
-        (error) => error.message,
-        'message',
-        allOf(contains('decoded=50x50'), contains('source=402x183')),
-      ),
-    );
-    expect(reports, hasLength(1));
-    lease.release();
-    cache.dispose();
-  });
+
+      expect(decoder.decodedCodes, hasLength(2), reason: 'fallback re-decodes');
+      final image = lease.resolveImage('images/broken-scale.png')!;
+      expect((image.width, image.height), (800, 600));
+      lease.release();
+      cache.dispose();
+    },
+  );
+
+  test(
+    'an image that cannot reproduce itself is recorded with full numbers',
+    () async {
+      const spec = TestImageSpec(
+        code: 43,
+        width: 402,
+        height: 183,
+        decodedWidth: 50,
+        decodedHeight: 50,
+        misdecodeFullSize: true,
+      );
+      final artifact = imageArtifact(
+        artifactId: 7303,
+        hrefs: const ['images/broken.png'],
+        commands: [directImage('images/broken.png', width: 402, height: 183)],
+      );
+      final decoder = TestImageDecoder(const [spec]);
+      final cache = RitoArtifactImageCache(decoder: decoder);
+
+      final reports = <FlutterErrorDetails>[];
+      final priorOnError = FlutterError.onError;
+      FlutterError.onError = reports.add;
+      final RitoArtifactImageLease lease;
+      try {
+        lease = await cache.prepare(
+          artifact: artifact,
+          readResource: (reference) async => imageResource(
+            artifact: artifact,
+            reference: reference,
+            spec: spec,
+          ),
+        );
+      } finally {
+        FlutterError.onError = priorOnError;
+      }
+      expect(decoder.decodedCodes, hasLength(2));
+      expect(lease.resolveImage('images/broken.png'), isNull);
+      expect(
+        lease.failedImages['images/broken.png'],
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('decoded=50x50'), contains('source=402x183')),
+        ),
+      );
+      expect(reports, hasLength(1));
+      lease.release();
+      cache.dispose();
+    },
+  );
 }

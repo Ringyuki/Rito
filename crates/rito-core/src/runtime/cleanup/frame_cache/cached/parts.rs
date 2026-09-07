@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, vec};
 use serde_json::Value;
 
 use crate::{
-    render::{DisplayListResourceRefs, PackedDisplayCommandRecordStats},
+    render::DisplayListResourceRefs,
     runtime::{RuntimeFrame, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata},
 };
 
@@ -64,8 +64,6 @@ impl LegacyFrameParts {
 pub(super) struct CommandBufferParts {
     pub(super) resource_table: StringSource,
     pub(super) font_families: StringSource,
-    pub(super) string_table: StringSource,
-    pub(super) payload_table: StringSource,
     pub(super) bytes: Vec<u8>,
     pub(super) shell: RuntimeFrameCommandBufferShell,
 }
@@ -79,23 +77,20 @@ impl CommandBufferParts {
             width,
             height,
             protocol_version,
+            ratio,
             command_count,
             command_counts,
-            record_stats,
+            primitive_count,
             byte_length,
             command_hash,
             resource_ref_count,
             resource_table,
             font_families,
             image_dominated,
-            string_table,
-            payload_table,
         } = metadata;
         Self {
             resource_table: resource_table.into_iter(),
             font_families: font_families.into_iter(),
-            string_table: string_table.into_iter(),
-            payload_table: payload_table.into_iter(),
             bytes,
             shell: RuntimeFrameCommandBufferShell {
                 revision_id,
@@ -103,9 +98,10 @@ impl CommandBufferParts {
                 width,
                 height,
                 protocol_version,
+                ratio,
                 command_count,
                 command_counts,
-                record_stats,
+                primitive_count,
                 byte_length,
                 command_hash,
                 resource_ref_count,
@@ -165,7 +161,7 @@ impl RuntimeFrameShell {
     }
 }
 
-/// Remainder of a decomposed packed command buffer.
+/// Remainder of a decomposed primitive command buffer.
 #[derive(Debug)]
 pub(super) struct RuntimeFrameCommandBufferShell {
     revision_id: String,
@@ -173,9 +169,10 @@ pub(super) struct RuntimeFrameCommandBufferShell {
     width: Value,
     height: Value,
     protocol_version: u32,
+    ratio: f64,
     command_count: usize,
     command_counts: BTreeMap<String, usize>,
-    record_stats: PackedDisplayCommandRecordStats,
+    primitive_count: usize,
     byte_length: usize,
     command_hash: String,
     resource_ref_count: usize,
@@ -190,9 +187,10 @@ impl RuntimeFrameCommandBufferShell {
             width,
             height,
             protocol_version,
+            ratio,
             command_count,
             command_counts,
-            record_stats,
+            primitive_count,
             byte_length,
             command_hash,
             resource_ref_count,
@@ -204,9 +202,10 @@ impl RuntimeFrameCommandBufferShell {
             width,
             height,
             protocol_version,
+            ratio,
             command_count,
             command_counts,
-            record_stats,
+            primitive_count,
             byte_length,
             command_hash,
             resource_ref_count,

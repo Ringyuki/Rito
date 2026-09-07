@@ -282,14 +282,16 @@ Those names now belong to the old TS reference tree only.
   protocol. The opt-in named-machine latency and memory gates remain available
   for local calibration; the measurements recorded further down predate the
   fragment cutover and are retained as history, not as release gates.
-- `RITOFCB2` is the current packed frame command-buffer ABI.
-- Native revision-cache entries serving normal reader frame windows now retain
-  only `RITOFCB2` metadata/bytes. The browser still keeps its decoded Canvas
-  frame window. The legacy full `RuntimeFrame` JSON tree is materialized from
-  the immutable revision layout only when a compatibility frame API requests
-  it, then cached in the same native LRU entry. This does not make packing
-  JSON-free: payload-table encoding and the current command hash still
-  construct transient JSON values.
+- The frame command buffer is `RITODL1` format 2: the frame lowered to the
+  device grid at the document's render ratio (`RITOFCB2`, the packed semantic
+  record buffer, is gone).
+- Native revision-cache entries serving normal reader frame windows retain
+  only those bytes and the frame's semantic summary (command count, kind
+  counts, hash, resources, fonts). The browser still keeps its decoded
+  primitive frame window. The legacy full `RuntimeFrame` JSON tree is
+  materialized from the immutable revision layout only when a compatibility
+  frame API requests it, then cached in the same native LRU entry. The command
+  hash still constructs transient JSON values.
 - `RITORB1` has a private, opt-in view-revision slice. Its Rust encoder and
   Rust/JavaScript decoders share a checked 574-byte cross-language golden
   vector; unsafe integers, malformed counts, and special object keys such as
@@ -647,9 +649,9 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      diagnostic vectors and JSON values remain one summary-shell residual. A
      detached frame-cache owner keeps its frame map and LRU order
      together and now composes a persistent cursor for each cached frame. Let a
-     packed frame contain `R` resource-table entries, `F` font-family entries,
-     `S` string-table entries and `P` payload-table entries. Its cached-frame
-     cursor costs exactly `CF = 7 + R + F + S + P` units. If the same owner also
+     cached frame's command buffer contain `R` resource-table entries and `F`
+     font-family entries. Its cached-frame
+     cursor costs exactly `CF = 5 + R + F` units. If the same owner also
      has a materialized compatibility JSON frame with `C` commands, `I` resource
      images and `J` font families, that adds `C + I + J + 4` units. Each of those
      entries is retired separately; the packed byte allocation is one explicit
@@ -1222,7 +1224,7 @@ It is not the current implementation priority.
      string interning, and strict Rust/JS bounds validation.
    - It starts with `createViewRevisionBundleBytes()`, covering the current
      `WasmViewRevisionResponse` object including selected-frame window metadata.
-   - Do not include display commands; `RITOFCB2` already owns that path.
+   - Do not include display commands; the frame command buffer already owns that path.
 3. **Derive JSON and binary from one Rust model**
    - Done for `createViewRevisionBundle`: JSON and bytes are generated from the
      same typed `WasmViewRevisionResponse` model.

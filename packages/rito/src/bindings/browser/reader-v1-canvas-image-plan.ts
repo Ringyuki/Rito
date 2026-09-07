@@ -1,4 +1,4 @@
-import type { CoreFrameCommand } from './core-contracts';
+import type { CoreReaderPrimitive, CoreReaderPrimitiveList } from './core-contracts';
 
 interface ImageDimensionsV1 {
   readonly width: number;
@@ -9,9 +9,15 @@ interface ImageUseV1 {
   decodeScale(sourceWidth: number, sourceHeight: number): number;
 }
 
-type BlockCommand = Extract<CoreFrameCommand, { readonly kind: 'paintBlock' }>;
-type TransformCommand = Extract<CoreFrameCommand, { readonly kind: 'transform' }>;
+type TransformPrimitive = Extract<CoreReaderPrimitive, { readonly kind: 'transform' }>;
 
+/**
+ * The decode target every image in a primitive list needs: each draw
+ * names the device rect it lands in (a tiled draw, its tile), so the
+ * scale a bitmap is decoded at follows from that rect and the device
+ * transforms in force — no pixel ratio applies, the list is already on
+ * the device grid.
+ */
 export class BrowserReaderCanvasImageTargetPlanV1 {
   private constructor(private readonly usesByHref: ReadonlyMap<string, readonly ImageUseV1[]>) {}
 
@@ -49,13 +55,9 @@ export class BrowserReaderCanvasImageTargetPlanV1 {
     };
   }
 
-  static collect(
-    commands: readonly CoreFrameCommand[],
-    pixelRatio: number,
-  ): BrowserReaderCanvasImageTargetPlanV1 {
-    requirePositiveFinite(pixelRatio, 'pixelRatio');
-    const collector = new ImageTargetCollectorV1(pixelRatio);
-    collector.collect(commands);
+  static collect(list: CoreReaderPrimitiveList): BrowserReaderCanvasImageTargetPlanV1 {
+    const collector = new ImageTargetCollectorV1();
+    collector.collect(list.commands);
     return new BrowserReaderCanvasImageTargetPlanV1(collector.usesByHref);
   }
 }
@@ -64,20 +66,17 @@ class ImageTargetCollectorV1 {
   readonly usesByHref = new Map<string, ImageUseV1[]>();
   private readonly stack: LinearTransformV1[] = [LinearTransformV1.identity()];
 
-  constructor(private readonly pixelRatio: number) {}
-
-  collect(commands: readonly CoreFrameCommand[]): void {
-    for (const command of commands) this.collectCommand(command);
+  collect(primitives: readonly CoreReaderPrimitive[]): void {
+    for (const primitive of primitives) this.collectPrimitive(primitive);
     if (this.stack.length !== 1) throw new Error('Reader v1 display state is unbalanced.');
   }
 
-  private collectCommand(command: CoreFrameCommand): void {
-    if (command.kind === 'pushState') this.stack.push(this.transform);
-    else if (command.kind === 'popState') this.popState();
-    else if (command.kind === 'translate') this.validateTranslate(command.dx, command.dy);
-    else if (command.kind === 'transform') this.applyTransform(command);
-    else if (command.kind === 'paintImage') this.addDirect(command.src, command.rect);
-    else if (command.kind === 'paintBlock') this.addBackground(command);
+  private collectPrimitive(primitive: CoreReaderPrimitive): void {
+    if (primitive.kind === 'push-state') this.stack.push(this.transform);
+    else if (primitive.kind === 'pop-state') this.popState();
+    else if (primitive.kind === 'translate') this.validateTranslate(primitive.dx, primitive.dy);
+    else if (primitive.kind === 'transform') this.applyTransform(primitive);
+    else if (primitive.kind === 'draw-image') this.addDraw(primitive.src, primitive.dest);
   }
 
   private get transform(): LinearTransformV1 {
@@ -91,49 +90,37 @@ class ImageTargetCollectorV1 {
     this.stack.pop();
   }
 
-  private applyTransform(command: TransformCommand): void {
-    requireFinite(command.origin.x, 'transform origin x');
-    requireFinite(command.origin.y, 'transform origin y');
-    requireFinite(command.box.width, 'transform box width');
-    requireFinite(command.box.height, 'transform box height');
+  private applyTransform(primitive: TransformPrimitive): void {
+    requireFinite(primitive.origin.x, 'transform origin x');
+    requireFinite(primitive.origin.y, 'transform origin y');
     let next = this.transform;
-    for (const operation of command.transforms) {
+    for (const operation of primitive.transforms) {
       if (operation.kind === 'rotate') {
-        requireFinite(operation.rad, 'rotation');
-        next = next.rotate(operation.rad);
+        requireFinite(operation.radians, 'rotation');
+        next = next.rotate(operation.radians);
       } else if (operation.kind === 'scale') {
         requireFinite(operation.sx, 'scale x');
         requireFinite(operation.sy, 'scale y');
         next = next.scale(operation.sx, operation.sy);
       } else {
-        requireFinite(operation.x.value, 'transform translation x');
-        requireFinite(operation.y.value, 'transform translation y');
+        requireFinite(operation.dx, 'transform translation x');
+        requireFinite(operation.dy, 'transform translation y');
       }
     }
     this.stack[this.stack.length - 1] = next;
   }
 
-  private addDirect(href: string, rect: { readonly width: number; readonly height: number }): void {
+  private addDraw(href: string, dest: { readonly width: number; readonly height: number }): void {
     requireHref(href);
-    requireRect(rect, href);
+    requireRect(dest, href);
     const transform = this.transform;
     this.add(href, {
       decodeScale: (sourceWidth, sourceHeight) =>
         Math.max(
-          (rect.width * transform.xScale * this.pixelRatio) / sourceWidth,
-          (rect.height * transform.yScale * this.pixelRatio) / sourceHeight,
+          (dest.width * transform.xScale) / sourceWidth,
+          (dest.height * transform.yScale) / sourceHeight,
         ),
     });
-  }
-
-  private addBackground(hrefCommand: BlockCommand): void {
-    const background = hrefCommand.paint.background;
-    const href = background?.image;
-    if (!background || href === undefined) return;
-    requireHref(href);
-    requireRect(hrefCommand.rect, href);
-    const transform = this.transform;
-    this.add(href, backgroundUse(hrefCommand, transform, this.pixelRatio));
   }
 
   private add(href: string, use: ImageUseV1): void {
@@ -146,34 +133,6 @@ class ImageTargetCollectorV1 {
     requireFinite(dx, 'translation x');
     requireFinite(dy, 'translation y');
   }
-}
-
-function backgroundUse(
-  command: BlockCommand,
-  transform: LinearTransformV1,
-  pixelRatio: number,
-): ImageUseV1 {
-  const background = command.paint.background;
-  if (!background) throw new Error('Reader v1 background image paint is missing.');
-  return {
-    decodeScale(sourceWidth, sourceHeight) {
-      // The generic Canvas renderer derives CSS auto-size from bitmap.width / height.
-      // Keeping the intrinsic bitmap avoids changing layout geometry when a transform shrinks it.
-      if (background.size === undefined || background.size === 'auto') return 1;
-      const widthScale = command.rect.width / sourceWidth;
-      const heightScale = command.rect.height / sourceHeight;
-      const cssScale =
-        background.size === 'cover'
-          ? Math.max(widthScale, heightScale)
-          : Math.min(widthScale, heightScale);
-      const drawWidth = sourceWidth * cssScale;
-      const drawHeight = sourceHeight * cssScale;
-      return Math.max(
-        (drawWidth * transform.xScale * pixelRatio) / sourceWidth,
-        (drawHeight * transform.yScale * pixelRatio) / sourceHeight,
-      );
-    },
-  };
 }
 
 class LinearTransformV1 {

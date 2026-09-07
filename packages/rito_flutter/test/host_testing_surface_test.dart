@@ -22,7 +22,6 @@ Future<ui.Image> solidImage(int width, int height) async {
   return image;
 }
 
-
 RitoPinnedFontPolicy _testPinnedPolicy() {
   final pinned = File(
     '../../apps/reader/src/assets/fonts/Tinos-Regular.ttf',
@@ -86,9 +85,7 @@ void main() {
                 lineHeightOverride: lineHeight,
                 fontFamilyOverride: family,
               ),
-              locator: const RitoLocator(
-                href: 'OEBPS/Text/Section013.xhtml',
-              ),
+              locator: const RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
               work: work,
             ),
           ),
@@ -118,8 +115,8 @@ void main() {
         .displayList
         .displayList
         .commands
-        .whereType<RitoPaintText>()
-        .map((command) => command.paint.font.family)
+        .whereType<RitoPrimitiveText>()
+        .map((primitive) => primitive.command.paint.font.family)
         .first;
 
     final overridden = open(9203, family: 'Courier New, monospace');
@@ -151,7 +148,7 @@ void main() {
     final artifact = imageArtifact(
       artifactId: 8001,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href, width: 40, height: 40)],
+      commands: <RitoPrimitive>[directImage(href, width: 40, height: 40)],
     );
     final image = await solidImage(8, 8);
     addTearDown(image.dispose);

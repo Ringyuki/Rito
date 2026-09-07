@@ -30,28 +30,6 @@ const BORDER_STYLES = [
   'outset',
 ];
 
-export function readRitoDisplayPagePaintV1(reader) {
-  return { backgroundColor: reader.option('page background color', () => readColor(reader)) };
-}
-
-export function readRitoDisplayBlockPaintV1(reader) {
-  const background = reader.option('block background', () => readBackground(reader));
-  const border = reader.option('block border', () => readBlockBorder(reader));
-  const radius = reader.option('block radius', () => readRadius(reader));
-  const count = reader.count('box shadow count');
-  const boxShadows = Array.from({ length: count }, () => readBoxShadow(reader));
-  return { background, border, radius, boxShadows };
-}
-
-export function readRitoDisplayBorderBoxV1(reader) {
-  return {
-    topWidth: reader.f64('border box top width'),
-    rightWidth: reader.f64('border box right width'),
-    bottomWidth: reader.f64('border box bottom width'),
-    leftWidth: reader.f64('border box left width'),
-  };
-}
-
 export function readRitoDisplayRunPaintV1(reader) {
   const font = {
     family: reader.string('font family'),
@@ -99,101 +77,6 @@ export function readRitoDisplayRunPaintV1(reader) {
 
 export function readRitoDisplayColorV1(reader) {
   return readColor(reader);
-}
-
-export function readRitoDisplayHorizontalRulePaintV1(reader) {
-  return {
-    color: readColor(reader),
-    style: readerWireEnumV1(reader, 'horizontal rule style', BORDER_STYLES),
-  };
-}
-
-export function readRitoDisplayLengthV1(reader, field) {
-  const unit = reader.u8(`${field} unit`);
-  if (unit === 1) return { unit: 'px', value: reader.f64(`${field} value`) };
-  if (unit === 2) return { unit: 'percent', value: reader.f64(`${field} value`) };
-  reader.fail(`unknown ${field} unit tag: ${String(unit)}`);
-}
-
-function readBackground(reader) {
-  return {
-    color: reader.option('background color', () => readColor(reader)),
-    image: reader.option('background image', () => reader.string('background image')),
-    size: reader.option('background size', () => readBackgroundSize(reader)),
-    repeat: reader.option('background repeat', () =>
-      readerWireEnumV1(reader, 'background repeat', [
-        'repeat',
-        'no-repeat',
-        'repeat-x',
-        'repeat-y',
-        'space',
-        'round',
-      ]),
-    ),
-    position: reader.option('background position', () => ({
-      x: readRitoDisplayLengthV1(reader, 'background position x'),
-      y: readRitoDisplayLengthV1(reader, 'background position y'),
-    })),
-  };
-}
-
-function readBackgroundSize(reader) {
-  const tag = reader.u8('background size tag');
-  if (tag === 1) return 'auto';
-  if (tag === 2) return 'cover';
-  if (tag === 3) return 'contain';
-  if (tag === 4) {
-    // Explicit axes: two optional lengths; a missing axis is auto.
-    return {
-      x: reader.option('background size x', () =>
-        readRitoDisplayLengthV1(reader, 'background size x'),
-      ),
-      y: reader.option('background size y', () =>
-        readRitoDisplayLengthV1(reader, 'background size y'),
-      ),
-    };
-  }
-  reader.fail(`unknown background size tag: ${String(tag)}`);
-}
-
-function readBlockBorder(reader) {
-  return {
-    top: reader.option('top block border', () => readBorderEdge(reader)),
-    right: reader.option('right block border', () => readBorderEdge(reader)),
-    bottom: reader.option('bottom block border', () => readBorderEdge(reader)),
-    left: reader.option('left block border', () => readBorderEdge(reader)),
-  };
-}
-
-function readRadius(reader) {
-  const tag = reader.u8('block radius tag');
-  if (tag === 1) return { unit: 'px', value: reader.f64('block radius') };
-  if (tag === 2) return { unit: 'percent', value: reader.f64('block radius') };
-  if (tag === 3) {
-    // Circular corner radii in CSS order (top-left, top-right,
-    // bottom-right, bottom-left) for boxes whose corners disagree.
-    return {
-      unit: 'corners',
-      corners: [
-        reader.f64('block radius top-left'),
-        reader.f64('block radius top-right'),
-        reader.f64('block radius bottom-right'),
-        reader.f64('block radius bottom-left'),
-      ],
-    };
-  }
-  reader.fail(`unknown block radius tag: ${String(tag)}`);
-}
-
-function readBoxShadow(reader) {
-  return {
-    offsetX: reader.f64('box shadow offset x'),
-    offsetY: reader.f64('box shadow offset y'),
-    blur: reader.f64('box shadow blur'),
-    spread: reader.f64('box shadow spread'),
-    color: readColor(reader),
-    inset: reader.bool('box shadow inset'),
-  };
 }
 
 function readTextShadow(reader) {

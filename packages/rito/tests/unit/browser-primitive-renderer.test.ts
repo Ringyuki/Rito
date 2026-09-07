@@ -179,6 +179,8 @@ describe('browser primitive renderer', () => {
         },
         {
           kind: 'text',
+          alignRight: false,
+          vertical: false,
           text: 'run',
           rect: { x: 10, y: 10, width: 30, height: 20 },
           paint: {
@@ -224,6 +226,96 @@ describe('browser primitive renderer', () => {
     expect(mock.getCalls('fill')).toHaveLength(1);
   });
 
+  it('contains a ruby paint fault: no throw, ruby-local state restored', () => {
+    const mock = createMockCanvasContext();
+    const ctx = contextThrowingOn(mock.ctx, 'fillText');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      expect(() => {
+        renderReaderPrimitivesToCanvas(
+          list([
+            { kind: 'push-state' },
+            { kind: 'push-state' },
+            {
+              kind: 'ruby',
+              alignRight: false,
+              vertical: false,
+              text: 'boom',
+              rect: { x: 0, y: 0, width: 20, height: 10 },
+              paint: {
+                font: { family: 'serif', sizePx: 8, weight: 400, style: 'normal' },
+                color: INK,
+                textShadows: [],
+                boxStart: true,
+                boxEnd: true,
+              },
+            },
+          ]),
+          ctx,
+        );
+      }).not.toThrow();
+    } finally {
+      errorSpy.mockRestore();
+    }
+    expect(mock.getCalls('save')).toHaveLength(mock.getCalls('restore').length);
+  });
+
+  it('contains an image paint fault: no throw, state restored', () => {
+    const mock = createMockCanvasContext();
+    const ctx = contextThrowingOn(mock.ctx, 'drawImage');
+    const bitmap = { width: 20, height: 30 } as ImageBitmap;
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      expect(() => {
+        renderReaderPrimitivesToCanvas(
+          list([
+            { kind: 'push-state' },
+            { kind: 'push-state' },
+            {
+              kind: 'draw-image',
+              src: 'Images/pattern.png',
+              dest: { x: 0, y: 0, width: 10, height: 10 },
+            },
+          ]),
+          ctx,
+          { resolveImage: () => bitmap },
+        );
+      }).not.toThrow();
+    } finally {
+      errorSpy.mockRestore();
+    }
+    expect(mock.getCalls('save')).toHaveLength(mock.getCalls('restore').length);
+  });
+
+  it('hands every primitive to the paint tap with the on-screen flag', () => {
+    const mock = createMockCanvasContext();
+    const seen: string[] = [];
+    const scope = globalThis as {
+      __ritoPaintTap?: (p: { kind: string }, onScreen: boolean) => void;
+    };
+    scope.__ritoPaintTap = (primitive, onScreen) => {
+      seen.push(`${primitive.kind}:${String(onScreen)}`);
+    };
+    try {
+      renderReaderPrimitivesToCanvas(
+        list([
+          { kind: 'push-state' },
+          {
+            kind: 'fill-rect',
+            rect: { x: 0, y: 0, width: 1, height: 1 },
+            color: INK,
+            ground: 'none',
+          },
+          { kind: 'pop-state' },
+        ]),
+        mock.ctx,
+      );
+    } finally {
+      delete scope.__ritoPaintTap;
+    }
+    expect(seen).toEqual(['push-state:false', 'fill-rect:false', 'pop-state:false']);
+  });
+
   it('isolates a primitive fault, restores its state and records it', () => {
     const mock = createMockCanvasContext();
     const ctx = new Proxy(mock.ctx, {
@@ -244,6 +336,8 @@ describe('browser primitive renderer', () => {
             { kind: 'push-state' },
             {
               kind: 'text',
+              alignRight: false,
+              vertical: false,
               text: 'boom',
               rect: { x: 0, y: 0, width: 10, height: 10 },
               paint: {
@@ -276,3 +370,19 @@ describe('browser primitive renderer', () => {
     expect(failures?.at(-1)?.failedCommand.kind).toBe('text');
   });
 });
+
+function contextThrowingOn(
+  ctx: CanvasRenderingContext2D,
+  method: 'fillText' | 'drawImage',
+): CanvasRenderingContext2D {
+  return new Proxy(ctx, {
+    get(target, prop, receiver) {
+      if (prop === method) {
+        return () => {
+          throw new Error(`${method} failed`);
+        };
+      }
+      return Reflect.get(target, prop, receiver) as unknown;
+    },
+  });
+}

@@ -28,47 +28,48 @@ void main() {
     expect(worker, contains('Isolate.spawn'));
   });
 
-  test('exact initial open is cooperative, bounded, and never UI-synchronous', () {
-    final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
-    final pending = File(
-      'lib/src/native/pending_open.dart',
-    ).readAsStringSync();
-    final bindings = File(
-      'lib/src/native/bindings.dart',
-    ).readAsStringSync();
-    final worker = File('lib/src/native/worker.dart').readAsStringSync();
+  test(
+    'exact initial open is cooperative, bounded, and never UI-synchronous',
+    () {
+      final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
+      final pending = File(
+        'lib/src/native/pending_open.dart',
+      ).readAsStringSync();
+      final bindings = File('lib/src/native/bindings.dart').readAsStringSync();
+      final worker = File('lib/src/native/worker.dart').readAsStringSync();
 
-    expect(gateway, contains('Future<void>.delayed(Duration.zero)'));
-    expect(gateway, contains('_pendingExactSeek.resume('));
-    expect(
-      '_oneQuantumRequestWithId(request, intent.requestId)'.allMatches(gateway),
-      hasLength(2),
-    );
-    expect(gateway, contains('maxForegroundQuanta: 1'));
-    expect(gateway, contains('RitoResumableExactSeekGateway'));
-    expect(gateway, isNot(contains('RitoResumableOpenGateway')));
-    expect(
-      gateway,
-      contains('initialOperation: () => _requestArtifactOnce(nativeRequest)'),
-    );
-    expect(gateway, contains('return _requestArtifactOnce(continuation)'));
-    expect(pending, contains('maxForegroundQuanta: 1'));
-    expect(pending, contains('quantum < maxContinuationQuanta'));
-    expect(pending, contains('RitoPendingExactSeekLimitException('));
-    expect(bindings, contains('ritoNativeStatusExactSeekPendingV1 = 9'));
-    expect(pending, isNot(contains('.message')));
-    expect(worker, contains('liveSessions.add(operation.sessionId)'));
-    expect(worker, isNot(contains('Future<void>.delayed')));
-  });
+      expect(gateway, contains('Future<void>.delayed(Duration.zero)'));
+      expect(gateway, contains('_pendingExactSeek.resume('));
+      expect(
+        '_oneQuantumRequestWithId(request, intent.requestId)'.allMatches(
+          gateway,
+        ),
+        hasLength(2),
+      );
+      expect(gateway, contains('maxForegroundQuanta: 1'));
+      expect(gateway, contains('RitoResumableExactSeekGateway'));
+      expect(gateway, isNot(contains('RitoResumableOpenGateway')));
+      expect(
+        gateway,
+        contains('initialOperation: () => _requestArtifactOnce(nativeRequest)'),
+      );
+      expect(gateway, contains('return _requestArtifactOnce(continuation)'));
+      expect(pending, contains('maxForegroundQuanta: 1'));
+      expect(pending, contains('quantum < maxContinuationQuanta'));
+      expect(pending, contains('RitoPendingExactSeekLimitException('));
+      expect(bindings, contains('ritoNativeStatusExactSeekPendingV1 = 9'));
+      expect(pending, isNot(contains('.message')));
+      expect(worker, contains('liveSessions.add(operation.sessionId)'));
+      expect(worker, isNot(contains('Future<void>.delayed')));
+    },
+  );
 
   test('adjacent turns retain only typed bounded one-quantum work', () {
     final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
     final pending = File(
       'lib/src/native/pending_adjacent.dart',
     ).readAsStringSync();
-    final bindings = File(
-      'lib/src/native/bindings.dart',
-    ).readAsStringSync();
+    final bindings = File('lib/src/native/bindings.dart').readAsStringSync();
     final session = File('lib/src/reader_session.dart').readAsStringSync();
 
     expect(gateway, contains('_pendingAdjacent.resume('));
@@ -103,14 +104,8 @@ void main() {
       gateway,
       contains('error.status == ritoNativeStatusSessionTerminatedV1'),
     );
-    expect(
-      gateway,
-      contains('error.status != ritoNativeStatusNotFoundV1'),
-    );
-    expect(
-      gateway,
-      contains('error.status != ritoNativeStatusEngineErrorV1'),
-    );
+    expect(gateway, contains('error.status != ritoNativeStatusNotFoundV1'));
+    expect(gateway, contains('error.status != ritoNativeStatusEngineErrorV1'));
   });
 
   test('large native bytes cross isolates through transferable transport', () {
@@ -144,15 +139,9 @@ void main() {
     expect(binding, contains('assetId: ritoNativeAssetId'));
     expect(binding, contains("symbol: 'rito_request_adjacent_v1'"));
     expect(binding, contains("symbol: 'rito_read_publication_v1'"));
-    expect(
-      binding,
-      contains("symbol: 'rito_adopt_foreground_candidate_v1'"),
-    );
+    expect(binding, contains("symbol: 'rito_adopt_foreground_candidate_v1'"));
     expect(binding, contains("symbol: 'rito_advance_background_v1'"));
-    expect(
-      binding,
-      contains("symbol: 'rito_adopt_background_candidate_v1'"),
-    );
+    expect(binding, contains("symbol: 'rito_adopt_background_candidate_v1'"));
     expect(binding, contains('RitoNativeBindings.fromDynamicLibrary'));
 
     final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
@@ -195,13 +184,19 @@ void main() {
     final worker = File('lib/src/native/worker.dart').readAsStringSync();
     final session = File('lib/src/reader_session.dart').readAsStringSync();
 
-    expect(gateway, contains('Future<RitoForegroundHandoffAck> adoptForeground'));
+    expect(
+      gateway,
+      contains('Future<RitoForegroundHandoffAck> adoptForeground'),
+    );
     expect(gateway, contains('_queue.ordered<RitoForegroundHandoffAck>'));
     expect(gateway, contains('_pendingForegroundCandidates'));
     expect(worker, contains('_AdoptForegroundOperation()'));
     expect(worker, contains('_AdvanceBackgroundOperation()'));
     expect(worker, contains('_AdoptBackgroundOperation()'));
-    expect(session, contains('await session._prepareInitialCandidate(artifact)'));
+    expect(
+      session,
+      contains('await session._prepareInitialCandidate(artifact)'),
+    );
     expect(session, contains('await gateway.adoptForeground('));
     expect(session, contains('RitoArtifactResourcePreparer? resourcePreparer'));
     expect(session, contains('artifact.artifactId == _visibleArtifactId'));

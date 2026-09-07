@@ -11,13 +11,13 @@ mod parts;
 
 /// Incrementally releases one generated cached frame.
 ///
-/// Let the packed resource, font, string and payload tables contain `R`, `F`,
-/// `S` and `P` entries. A packed-only frame costs exactly
-/// `7 + R + F + S + P` units. If a compatibility JSON frame is present, with
-/// `C` commands, `I` image refs and `J` font families, it adds
-/// `C + I + J + 4` units. The packed byte allocation is one explicit unit;
-/// scalar metadata and bounded command-kind maps remain in the final shell.
-/// Each JSON command is still an indivisible nested-value residual.
+/// Let the command buffer's resource and font tables contain `R` and `F`
+/// entries. A buffer-only frame costs exactly `5 + R + F` units. If a
+/// compatibility JSON frame is present, with `C` commands, `I` image refs
+/// and `J` font families, it adds `C + I + J + 4` units. The primitive byte
+/// allocation is one explicit unit; scalar metadata and bounded
+/// command-kind maps remain in the final shell. Each JSON command is still
+/// an indivisible nested-value residual.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeCachedFrameCleanup {
     owner: Option<RuntimeCachedFrame>,
@@ -27,8 +27,6 @@ pub(in crate::runtime) struct PendingRuntimeCachedFrameCleanup {
     legacy_shell: Option<RuntimeFrameShell>,
     resource_table: Option<StringSource>,
     font_families: Option<StringSource>,
-    string_table: Option<StringSource>,
-    payload_table: Option<StringSource>,
     bytes: Option<Vec<u8>>,
     command_buffer_shell: Option<RuntimeFrameCommandBufferShell>,
     stage: RuntimeCachedFrameCleanupStage,
@@ -43,8 +41,6 @@ enum RuntimeCachedFrameCleanupStage {
     LegacyOwner,
     ResourceTable,
     FontFamilies,
-    StringTable,
-    PayloadTable,
     Bytes,
     CommandBufferOwner,
     Complete,
@@ -60,8 +56,6 @@ impl PendingRuntimeCachedFrameCleanup {
             legacy_shell: None,
             resource_table: None,
             font_families: None,
-            string_table: None,
-            payload_table: None,
             bytes: None,
             command_buffer_shell: None,
             stage: RuntimeCachedFrameCleanupStage::Source,
@@ -89,8 +83,6 @@ impl PendingRuntimeCachedFrameCleanup {
             RuntimeCachedFrameCleanupStage::LegacyOwner => self.release_legacy_owner(),
             RuntimeCachedFrameCleanupStage::ResourceTable => self.advance_resource_table(),
             RuntimeCachedFrameCleanupStage::FontFamilies => self.advance_font_families(),
-            RuntimeCachedFrameCleanupStage::StringTable => self.advance_string_table(),
-            RuntimeCachedFrameCleanupStage::PayloadTable => self.advance_payload_table(),
             RuntimeCachedFrameCleanupStage::Bytes => self.release_bytes(),
             RuntimeCachedFrameCleanupStage::CommandBufferOwner => {
                 self.release_command_buffer_owner()
@@ -131,15 +123,11 @@ impl PendingRuntimeCachedFrameCleanup {
         let CommandBufferParts {
             resource_table,
             font_families,
-            string_table,
-            payload_table,
             bytes,
             shell,
         } = CommandBufferParts::new(command_buffer);
         self.resource_table = Some(resource_table);
         self.font_families = Some(font_families);
-        self.string_table = Some(string_table);
-        self.payload_table = Some(payload_table);
         self.bytes = Some(bytes);
         self.command_buffer_shell = Some(shell);
         if let Some(frame) = frame {
@@ -197,27 +185,13 @@ impl PendingRuntimeCachedFrameCleanup {
 
     fn advance_font_families(&mut self) -> bool {
         if release_one_or_finish_source(&mut self.font_families) {
-            self.stage = RuntimeCachedFrameCleanupStage::StringTable;
-        }
-        true
-    }
-
-    fn advance_string_table(&mut self) -> bool {
-        if release_one_or_finish_source(&mut self.string_table) {
-            self.stage = RuntimeCachedFrameCleanupStage::PayloadTable;
-        }
-        true
-    }
-
-    fn advance_payload_table(&mut self) -> bool {
-        if release_one_or_finish_source(&mut self.payload_table) {
             self.stage = RuntimeCachedFrameCleanupStage::Bytes;
         }
         true
     }
 
     fn release_bytes(&mut self) -> bool {
-        drop(self.bytes.take().expect("packed command bytes exist"));
+        drop(self.bytes.take().expect("primitive command bytes exist"));
         self.stage = RuntimeCachedFrameCleanupStage::CommandBufferOwner;
         true
     }

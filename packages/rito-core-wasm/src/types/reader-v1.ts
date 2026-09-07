@@ -1,4 +1,5 @@
-import type { RitoReaderDisplayListV1, RitoReaderRectV1 } from './reader-v1-display';
+import type { RitoReaderRectV1 } from './reader-v1-display';
+import type { RitoReaderPrimitiveListV1 } from './reader-v1-primitive';
 
 export type RitoReaderSpreadModeV1 = 'single' | 'double';
 export type RitoReaderTextProfileV1 = 'platform-string-runs' | 'positioned-glyph-runs';
@@ -155,12 +156,14 @@ export interface RitoReaderBackgroundHandoffAckV1 {
   readonly visibleArtifactId: bigint;
 }
 
+/** The artifact's paint: its display commands lowered to the host's
+ * device grid, carried as the `RITODL1` format-2 primitive list. */
 export interface RitoReaderDisplayListPayloadV1 {
-  readonly formatVersion: 1;
+  readonly formatVersion: 2;
   readonly commandCount: number;
   readonly semanticDigest: Uint8Array;
   readonly wireBytes: Uint8Array;
-  readonly displayList: RitoReaderDisplayListV1;
+  readonly displayList: RitoReaderPrimitiveListV1;
 }
 
 export interface RitoReaderResourceRefV1 {

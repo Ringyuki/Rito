@@ -10,11 +10,10 @@ const READER_ROOT = join(SRC, 'reader');
 const BROWSER_READER_BINDING = join(SRC, 'bindings/browser/reader');
 const BROWSER_CORE_CONTRACTS = join(SRC, 'bindings/browser/core-contracts.ts');
 const BROWSER_READER_WASM_MODULE = join(BROWSER_READER_BINDING, 'wasm-module.ts');
-const BROWSER_CANVAS_PATH = join(SRC, 'bindings/browser/canvas-path.ts');
-const BROWSER_CANVAS_BLOCK = join(SRC, 'bindings/browser/canvas-block');
 const BROWSER_CANVAS_TEXT = join(SRC, 'bindings/browser/canvas-text');
 const BROWSER_THEME = join(SRC, 'bindings/browser/theme');
-const BROWSER_FRAME_COMMAND_RENDERER = join(SRC, 'bindings/browser/frame-command-renderer.ts');
+const BROWSER_PRIMITIVE_RENDERER = join(SRC, 'bindings/browser/primitive-renderer.ts');
+const BROWSER_PRIMITIVE_BLITS = join(SRC, 'bindings/browser/primitive-blits.ts');
 const BROWSER_IMAGE_HREF_RESOLVER = join(SRC, 'bindings/browser/image-href-resolver.ts');
 const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
 const BROWSER_REVISION_COMMIT = join(SRC, 'bindings/browser/revision-commit.ts');
@@ -224,32 +223,45 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(source).not.toContain('drawTextFragment');
     expect(source).not.toContain('drawRubyFragment');
     expect(source).toContain("from './image-href-resolver'");
-    expect(source).toContain('renderFrameCommandsToCanvas');
+    expect(source).toContain('renderReaderPrimitivesToCanvas');
     expect(source).not.toContain('canvasDisplayListRenderer');
     expect(source).not.toContain('as unknown as');
   });
 
   it('keeps production Canvas command helpers independent of the reference core', () => {
     const helpers = [
-      BROWSER_FRAME_COMMAND_RENDERER,
-      BROWSER_CANVAS_PATH,
+      BROWSER_PRIMITIVE_RENDERER,
+      BROWSER_PRIMITIVE_BLITS,
       BROWSER_IMAGE_HREF_RESOLVER,
-      ...walkTs(BROWSER_CANVAS_BLOCK),
       ...walkTs(BROWSER_CANVAS_TEXT),
       ...walkTs(BROWSER_THEME),
     ];
     expect(scan(helpers, /reference\/ts-core/g)).toEqual([]);
-    expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-path'");
-    expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-block/renderer'");
-    expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-text/renderer'");
+    expect(read(BROWSER_PRIMITIVE_RENDERER)).toContain("from './primitive-blits'");
+    expect(read(BROWSER_PRIMITIVE_RENDERER)).toContain("from './canvas-text/renderer'");
+  });
+
+  it('keeps the browser pen a blitter: no block geometry law lives in the binding', () => {
+    // Every raster decision for blocks (border bands, dot cadences, radius
+    // outlines, shadow spread, background tiling) is the engine's; the
+    // binding only traces device paths. A block-painting module returning
+    // here means a law was re-implemented on the host.
+    const browserRoot = join(SRC, 'bindings/browser');
+    const entries = readdirSync(browserRoot);
+    expect(entries.filter((entry) => /^canvas-block$|^canvas-path\.ts$/.test(entry))).toEqual([]);
+    expect(existsSync(join(browserRoot, 'frame-command-renderer.ts'))).toBe(false);
+    const hits = scan(
+      [BROWSER_PRIMITIVE_RENDERER, BROWSER_PRIMITIVE_BLITS],
+      /Math\.(?:round|floor|ceil)\(/g,
+    );
+    expect(
+      hits,
+      `The primitive blitter must not snap; the engine resolved every coordinate:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
   });
 
   it('keeps production Canvas paint helpers on paint-ready values', () => {
-    const paintHelpers = [
-      BROWSER_CANVAS_PATH,
-      ...walkTs(BROWSER_CANVAS_BLOCK),
-      ...walkTs(BROWSER_CANVAS_TEXT),
-    ];
+    const paintHelpers = [BROWSER_PRIMITIVE_BLITS, ...walkTs(BROWSER_CANVAS_TEXT)];
     const hits = scan(
       paintHelpers,
       /\.split\(|\bnew\s+RegExp\s*\(|^\s*const\s+[A-Z_]+_RE\s*=\s*\//gm,

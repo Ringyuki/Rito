@@ -1,6 +1,6 @@
 import type { RitoReaderPathOpV1, RitoReaderPrimitiveV1 } from '@ritojs/core-wasm/decoder';
 
-import type { FrameCommandImageResolver } from './frame-command-renderer';
+import type { CanvasImageResolver } from './primitive-renderer';
 import { toCanvasColorV1 } from './reader-v1-canvas-converter';
 
 type TransformPrimitive = Extract<RitoReaderPrimitiveV1, { readonly kind: 'transform' }>;
@@ -94,7 +94,7 @@ export function drawShadow(ctx: CanvasRenderingContext2D, primitive: ShadowPrimi
 export function drawImage(
   ctx: CanvasRenderingContext2D,
   primitive: ImagePrimitive,
-  resolveImage: FrameCommandImageResolver,
+  resolveImage: CanvasImageResolver,
 ): void {
   const bitmap = resolveImage(primitive.src);
   if (!bitmap) return;

@@ -1,7 +1,7 @@
 import type {
   decodeRitoFrameCommandBuffer,
   CoreRevisionBundle,
-  CoreFrameCommand,
+  CoreReaderPrimitive,
   CoreJsonObject,
   CoreLayoutConfig,
   CoreLineBreaking,
@@ -42,7 +42,9 @@ export interface BrowserReaderFrame {
   readonly spreadIndex: number;
   readonly width: number;
   readonly height: number;
-  readonly commands: readonly CoreFrameCommand[];
+  /** Device pixels per CSS pixel the frame's primitives are resolved at. */
+  readonly ratio: number;
+  readonly commands: readonly CoreReaderPrimitive[];
   readonly commandHash: string;
   readonly resourceRefs: {
     readonly images: readonly string[];

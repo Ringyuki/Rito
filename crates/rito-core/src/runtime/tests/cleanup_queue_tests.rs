@@ -69,14 +69,6 @@ fn install_wide_cached_frame(document: &mut RuntimeDocument, revision_id: &str) 
         .commands = (0..WIDE_FRAME_PAYLOAD_COUNT)
         .map(|index| json!({ "index": index }))
         .collect();
-    cached.command_buffer.metadata.string_table = wide_strings("string");
-    cached.command_buffer.metadata.payload_table = wide_strings("payload");
-}
-
-fn wide_strings(prefix: &str) -> Vec<String> {
-    (0..WIDE_FRAME_PAYLOAD_COUNT)
-        .map(|index| format!("{prefix}-{index}"))
-        .collect()
 }
 
 fn install_deep_page(document: &mut RuntimeDocument, revision_id: &str) {

@@ -24,7 +24,6 @@ export {
   decodeRitoReaderResourceV1,
 } from './reader-v1-artifact-decoder-runtime.js';
 export { decodeRitoReaderPublicationV1 } from './reader-v1-publication-runtime.js';
-export { decodeRitoReaderDisplayListV1 } from './reader-v1-display-decoder-runtime.js';
 export {
   decodeRitoReaderPrimitiveListV1,
   READER_V1_PRIMITIVE_LIST_FORMAT_VERSION,

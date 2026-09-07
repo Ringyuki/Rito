@@ -1,6 +1,6 @@
 part of 'canvas_target.dart';
 
-extension _TextPainting on RitoCanvasPaintTarget {
+extension _TextPainting on RitoPrimitiveCanvasTarget {
   void _paintText(RitoPaintText command) {
     _paintStringRun(command, ruby: false);
   }
@@ -17,9 +17,22 @@ extension _TextPainting on RitoCanvasPaintTarget {
   /// the laid-out run by its actual alphabetic baseline.
   static const double _canvasTopAscentRatio = 0.8;
 
+  // Punctuation that takes its vertical presentation: brackets, dashes
+  // and leaders rotate a quarter turn about the em center; comma and
+  // period marks sit in the em's top-right corner. Same classes as the
+  // browser pen's VERTICAL_ROTATED / VERTICAL_SHIFTED.
+  static final RegExp _verticalRotated = RegExp(
+    r'[「」『』()（）〔〕［］\[\]{}｛｝〈〉《》【】〖〗…‥ー―—–~〜～＝=]',
+  );
+  static final RegExp _verticalShifted = RegExp(r'[、。，．,.]');
+
   void _paintStringRun(RitoTextPaintCommand command, {required bool ruby}) {
     final rect = _rect(command.rect);
     _validateRunPaint(command.paint);
+    if (command.vertical) {
+      _paintVerticalRun(command, rect);
+      return;
+    }
     // Browser pen order: background, borders, shadows, glyphs,
     // decoration.
     _paintInlineBackground(rect, command.paint);
@@ -42,9 +55,12 @@ extension _TextPainting on RitoCanvasPaintTarget {
     // the whole run sits half a spacing to the right (measured via the
     // parity corpus ink scan). Compensate at the glyph origin only; the
     // rect geometry is spacing-free.
+    // An outside list marker rides right-aligned: the wire x is the
+    // text's right edge and only the text stack can measure the string.
+    final left = command.alignRight ? rect.left - painter.width : rect.left;
     final x = ruby
         ? rect.left + (rect.width - painter.width) / 2
-        : rect.left - (command.paint.letterSpacingPx ?? 0) / 2;
+        : left - (command.paint.letterSpacingPx ?? 0) / 2;
     // Ruby anchors its em-box top at the rect (browser textBaseline
     // 'top' = OS/2 sTypoAscender, probed against pinned Chromium);
     // regular runs anchor their alphabetic baseline at the snapped row.
@@ -72,6 +88,55 @@ extension _TextPainting on RitoCanvasPaintTarget {
     }
     painter.paint(_canvas, origin);
     _paintDecoration(rect, command.paint.decoration);
+  }
+
+  /// Vertical-rl column: the rect's x is the glyph column's left edge, y
+  /// the first glyph's top, width the font size. Each cluster paints
+  /// upright and the pen steps one font size (plus letter spacing) down
+  /// the column, exactly as the browser pen draws it.
+  void _paintVerticalRun(RitoTextPaintCommand command, ui.Rect rect) {
+    final size = command.paint.font.sizePx;
+    final step = size + (command.paint.letterSpacingPx ?? 0);
+    var penY = rect.top + _canvasTopAscentRatio * size;
+    for (final rune in command.text.runes) {
+      final cluster = String.fromCharCode(rune);
+      final painter = TextPainter(
+        text: TextSpan(
+          text: cluster,
+          style: _textStyle(
+            command.paint,
+            includeSpacing: false,
+            runRect: rect,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      final baselineOffset = painter.computeDistanceToActualBaseline(
+        TextBaseline.alphabetic,
+      );
+      if (_verticalRotated.hasMatch(cluster)) {
+        _canvas.save();
+        try {
+          _canvas.translate(rect.left + size / 2, penY - 0.3 * size);
+          _canvas.rotate(math.pi / 2);
+          painter.paint(
+            _canvas,
+            ui.Offset(-size / 2, 0.3 * size - baselineOffset),
+          );
+        } finally {
+          _canvas.restore();
+        }
+      } else if (_verticalShifted.hasMatch(cluster)) {
+        painter.paint(
+          _canvas,
+          ui.Offset(rect.left + 0.5 * size, penY - 0.6 * size - baselineOffset),
+        );
+      } else {
+        painter.paint(_canvas, ui.Offset(rect.left, penY - baselineOffset));
+      }
+      penY += step;
+    }
   }
 
   /// Mirrors the browser pen's scratch-canvas shadow pass: layers render
@@ -220,7 +285,9 @@ extension _TextPainting on RitoCanvasPaintTarget {
     }
     final effective = override.effectiveTextColor(
       color,
-      declaredGround: runRect == null ? null : _declaredGroundFor(paint, runRect),
+      declaredGround: runRect == null
+          ? null
+          : _declaredGroundFor(paint, runRect),
     );
     // _color already carries the opacity stack; a theme substitution
     // must re-apply it (the browser pen's globalAlpha does this).
@@ -499,5 +566,66 @@ extension _TextPainting on RitoCanvasPaintTarget {
       width: edge.widthPx,
       context: context,
     );
+  }
+
+  void _validateBorderStyle(
+    RitoBorderStyle style, {
+    required double width,
+    required String context,
+  }) {
+    if (width <= 0) {
+      return;
+    }
+    if (style == RitoBorderStyle.groove ||
+        style == RitoBorderStyle.ridge ||
+        style == RitoBorderStyle.inset ||
+        style == RitoBorderStyle.outset) {
+      throw UnsupportedError(
+        'RITODL1 ${style.name} $context is not supported by the Flutter '
+        'Canvas adapter.',
+      );
+    }
+  }
+
+  /// Strokes an inline border edge with the browser pen's dash
+  /// vocabulary: dotted shrinks the pen to 0.75w with round-cap dots
+  /// every 1.5w, dashed runs 3w on / 2w off, anything else strokes solid
+  /// at full width. Unsnapped: inline boxes still resolve on the host.
+  void _strokeStyledLine(
+    ui.Offset start,
+    ui.Offset end,
+    double width,
+    RitoColor color,
+    RitoBorderStyle style,
+  ) {
+    if (width <= 0) {
+      return;
+    }
+    _validateBorderStyle(style, width: width, context: 'border');
+    if (style == RitoBorderStyle.none || style == RitoBorderStyle.hidden) {
+      return;
+    }
+    final vector = end - start;
+    final length = vector.distance;
+    if (length == 0) {
+      return;
+    }
+    final paint = ui.Paint()
+      ..color = _color(color)
+      ..strokeWidth = style == RitoBorderStyle.dotted ? width * .75 : width
+      ..strokeCap = style == RitoBorderStyle.dotted
+          ? ui.StrokeCap.round
+          : ui.StrokeCap.butt;
+    if (style != RitoBorderStyle.dotted && style != RitoBorderStyle.dashed) {
+      _canvas.drawLine(start, end, paint);
+      return;
+    }
+    final unit = vector / length;
+    final dash = style == RitoBorderStyle.dotted ? .001 : width * 3;
+    final gap = style == RitoBorderStyle.dotted ? width * 1.5 : width * 2;
+    for (var cursor = 0.0; cursor < length; cursor += dash + gap) {
+      final finish = math.min(length, cursor + dash);
+      _canvas.drawLine(start + unit * cursor, start + unit * finish, paint);
+    }
   }
 }

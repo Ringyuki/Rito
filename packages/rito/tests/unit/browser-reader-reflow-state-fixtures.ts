@@ -20,14 +20,14 @@ export function createState(
     workerFactory: () => worker,
     decodeFrameCommandBuffer: vi.fn(() => ({
       protocolVersion: 2,
+      ratio: 1,
       commandCount: 0,
       commandCounts: {},
-      recordStats: recordStats(),
+      primitiveCount: 0,
       commands: [],
       commandHash: 'frame',
       resourceRefCount: 0,
       resourceTable: [],
-      records: [],
     })),
     documentData: new ArrayBuffer(0),
     fragmentPagination: false,
@@ -208,19 +208,18 @@ export function frameBuffer(revisionId = 'rev', spreadIndex = 0): BrowserReaderF
       width: 800,
       height: 600,
       protocolVersion: 2,
+      ratio: 1,
       commandCount: 0,
       commandCounts: {},
-      recordStats: recordStats(),
-      byteLength: 0,
+      primitiveCount: 0,
+      byteLength: 23,
       commandHash: 'frame',
       resourceRefCount: 0,
       resourceTable: [],
       fontFamilies: [],
       imageDominated: false,
-      stringTable: [],
-      payloadTable: [],
     },
-    bytes: new Uint8Array(),
+    bytes: new Uint8Array(23),
   };
 }
 
@@ -310,15 +309,5 @@ export function revisionResult(
       frame: initialFrameBuffer,
     },
     frameWindow,
-  };
-}
-
-function recordStats() {
-  return {
-    geometryRecords: 0,
-    paintRecords: 0,
-    payloadRecords: 0,
-    primaryStringRecords: 0,
-    secondaryStringRecords: 0,
   };
 }

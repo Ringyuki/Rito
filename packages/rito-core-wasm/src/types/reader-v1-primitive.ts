@@ -1,8 +1,4 @@
-import type {
-  RitoReaderColorV1,
-  RitoReaderPaintTextCommandV1,
-  RitoReaderRectV1,
-} from './reader-v1-display';
+import type { RitoReaderColorV1, RitoReaderRectV1, RitoReaderTextRunV1 } from './reader-v1-display';
 
 /**
  * `RITODL1` format version 2: the device-resolved primitive list. Every
@@ -73,18 +69,8 @@ export interface RitoReaderTilePlanV1 {
   readonly rows: number;
 }
 
-export interface RitoReaderTextPrimitiveV1 extends Omit<
-  RitoReaderPaintTextCommandV1,
-  'kind' | 'opcode'
-> {
+export interface RitoReaderTextPrimitiveV1 extends RitoReaderTextRunV1 {
   readonly kind: 'text' | 'ruby';
-}
-
-export interface RitoReaderBlockPrimitiveV1 extends Omit<
-  RitoReaderPaintBlockCommandV1,
-  'kind' | 'opcode'
-> {
-  readonly kind: 'block';
 }
 
 export type RitoReaderPrimitiveV1 =

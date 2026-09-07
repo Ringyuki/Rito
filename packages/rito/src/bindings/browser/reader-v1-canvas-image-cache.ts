@@ -1,4 +1,4 @@
-import type { CoreFrameCommand } from './core-contracts';
+import type { CoreReaderPrimitiveList } from './core-contracts';
 import type { BrowserReaderArtifactV1, BrowserReaderV1Session } from './reader-v1';
 import { BrowserReaderCanvasUnsupportedErrorV1 } from './reader-v1-canvas-error';
 import {
@@ -45,12 +45,11 @@ export class BrowserReaderCanvasImageCacheV1 {
 
   async prepare(
     artifact: BrowserReaderArtifactV1,
-    commands: readonly CoreFrameCommand[],
-    pixelRatio: number,
+    list: CoreReaderPrimitiveList,
   ): Promise<BrowserReaderCanvasImageLeaseV1> {
     this.assertOpen();
     assertImageArtifactOwnerV1(this.session, artifact);
-    const plan = BrowserReaderCanvasImageTargetPlanV1.collect(commands, pixelRatio);
+    const plan = BrowserReaderCanvasImageTargetPlanV1.collect(list);
     const declarations = imageDeclarationsV1(artifact);
     for (const href of plan.hrefs) {
       if (!declarations.has(href)) {

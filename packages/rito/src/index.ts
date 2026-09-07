@@ -33,7 +33,6 @@ export type {
 } from './bindings/browser/image-resource-error';
 export type {
   BrowserReaderCanvasPaintOptionsV1,
-  BrowserReaderCanvasPrepareOptionsV1,
   BrowserReaderCanvasPresenterV1,
   BrowserReaderCanvasTargetV1,
   BrowserReaderPreparedCanvasArtifactV1,

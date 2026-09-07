@@ -2,10 +2,11 @@ use std::collections::BTreeSet;
 
 use crate::{
     layout::{parse_font_family_list, LayoutConfig},
-    render::encode_reader_display_list_v1,
+    render::{encode_reader_primitive_list_v1, lower_display_commands},
     runtime::{
         page_artifact::{
-            PageArtifact, PageArtifactRect, PageArtifactSemanticNode, PageArtifactSemanticRole,
+            PageArtifact, PageArtifactFrame, PageArtifactRect, PageArtifactSemanticNode,
+            PageArtifactSemanticRole,
         },
         RuntimeChapterLocalRevisionHandle, RuntimeDocument, RuntimeRevision, RuntimeRevisionHandle,
         RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy, RuntimeSourcePoint,
@@ -52,16 +53,42 @@ pub(super) struct ArtifactIdentityV1 {
 }
 
 pub(super) fn build_reader_artifact_v1(
-    document: &RuntimeDocument,
+    document: &mut RuntimeDocument,
     identity: ArtifactIdentityV1,
     target: &ResolvedArtifactTarget,
     navigation: ReaderNavigationV1,
     render_ratio: f64,
 ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
-    let revision = match &target.owner {
+    // The frame first: its display commands name the images the lowering
+    // sizes background images by, and their dimensions load on the
+    // document before the revision is borrowed again to build the rest.
+    let frame = {
+        let revision = resolve_artifact_revision(document, &target.owner)?;
+        published_frame(revision, target.local_spread_index, render_ratio)?
+    };
+    document
+        .ensure_frame_image_sizes(&frame.commands)
+        .map_err(engine_error)?;
+    let revision = resolve_artifact_revision(document, &target.owner)?;
+    build_reader_artifact_from_revision(
+        document,
+        revision,
+        frame,
+        identity,
+        target,
+        navigation,
+        render_ratio,
+    )
+}
+
+fn resolve_artifact_revision<'a>(
+    document: &'a RuntimeDocument,
+    owner: &ResolvedArtifactOwnerV1,
+) -> Result<&'a RuntimeRevision, ReaderErrorV1> {
+    match owner {
         ResolvedArtifactOwnerV1::ChapterLocal(owner) => document
             .require_chapter_local_owner(owner)
-            .map_err(engine_error)?,
+            .map_err(engine_error),
         ResolvedArtifactOwnerV1::Publication(owner) => {
             document
                 .validate_revision_handle(owner)
@@ -71,39 +98,46 @@ pub(super) fn build_reader_artifact_v1(
                     ReaderErrorKindV1::EngineFailure,
                     "publication revision ownership is missing",
                 )
-            })?
+            })
         }
-    };
-    build_reader_artifact_from_revision(
-        document,
-        revision,
-        identity,
-        target,
-        navigation,
-        render_ratio,
-    )
+    }
 }
 
-fn build_reader_artifact_from_revision(
-    document: &RuntimeDocument,
+fn published_frame(
     revision: &RuntimeRevision,
-    identity: ArtifactIdentityV1,
-    target: &ResolvedArtifactTarget,
-    navigation: ReaderNavigationV1,
+    local_spread_index: usize,
     render_ratio: f64,
-) -> Result<ReaderArtifactV1, ReaderErrorV1> {
-    let engine = revision.chapter_engine_session();
-    let frame = engine
-        .frame(target.local_spread_index, render_ratio)
+) -> Result<PageArtifactFrame, ReaderErrorV1> {
+    revision
+        .chapter_engine_session()
+        .frame(local_spread_index, render_ratio)
         .map_err(engine_error)?
         .ok_or_else(|| {
             ReaderErrorV1::new(
                 ReaderErrorKindV1::TargetNotPublished,
                 "resolved target frame is not published",
             )
-        })?;
-    let encoded: crate::render::ReaderEncodedDisplayListV1 =
-        encode_reader_display_list_v1(&frame.commands).map_err(engine_error)?;
+        })
+}
+
+fn build_reader_artifact_from_revision(
+    document: &RuntimeDocument,
+    revision: &RuntimeRevision,
+    frame: PageArtifactFrame,
+    identity: ArtifactIdentityV1,
+    target: &ResolvedArtifactTarget,
+    navigation: ReaderNavigationV1,
+    render_ratio: f64,
+) -> Result<ReaderArtifactV1, ReaderErrorV1> {
+    let engine = revision.chapter_engine_session();
+    // The display list the artifact carries is the frame lowered to the
+    // host's device grid: every raster decision resolved here, the host
+    // only blits.
+    let lowered = lower_display_commands(&frame.commands, render_ratio, &|href| {
+        document.image_size(href)
+    })
+    .map_err(engine_error)?;
+    let encoded = encode_reader_primitive_list_v1(&lowered).map_err(engine_error)?;
     // Page geometry from the engine is content-box relative and
     // page-local. The display list this artifact carries is not: it
     // translates the right-hand page of a spread and paints content at

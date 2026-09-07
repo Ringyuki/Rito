@@ -1,14 +1,14 @@
-// Paint-parity instrument driver: renders the fixture corpus through
-// both pens, semantic and lowered, and diffs the bitmaps.
+// Paint-parity instrument driver: lowers the fixture corpus in the
+// engine, blits the bytes through both production pens, and diffs the
+// bitmaps.
 //
 //   node tools/paint-parity/run.mjs [outRoot]
 //
 // Lowering:    cargo test rito-core lower_paint_parity_fixtures → <outRoot>/lowered/*.ritodl
-// Flutter pen: flutter test packages/rito_flutter/test/paint_parity_render_test.dart
-//              (semantic → flutter/, lowered → flutter-lowered/)
-// Browser pen: tools/paint-parity/render-browser.mjs (Playwright Chromium; the
-//              semantic render is the oracle, the lowered render a lane)
-// Verdict:     <outRoot>/report.md via diff.mjs, one section per lane
+// Flutter pen: flutter test packages/rito_flutter/test/paint_parity_render_test.dart → flutter/
+// Browser pen: tools/paint-parity/render-browser.mjs (Playwright Chromium) → browser/,
+//              the oracle
+// Verdict:     <outRoot>/report.md via diff.mjs
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 

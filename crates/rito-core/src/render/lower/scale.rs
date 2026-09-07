@@ -17,6 +17,8 @@ pub(super) fn text_command(text: &ReaderTextCommandV1, ratio: f64) -> ReaderText
         source_text: text.source_text.clone(),
         source_text_offset: text.source_text_offset,
         ruby_align: text.ruby_align.clone(),
+        align_right: text.align_right,
+        vertical: text.vertical,
     }
 }
 

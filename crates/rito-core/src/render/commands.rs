@@ -5,29 +5,17 @@ use serde_json::Value;
 use crate::layout::RunPaint;
 
 mod json;
-mod packed;
 mod reader_wire_v1;
 mod refs;
 mod stable_json;
 
-pub(crate) use packed::pack_display_commands;
-pub use packed::{
-    PackedDisplayCommandBuffer, PackedDisplayCommandBufferMetadata, PackedDisplayCommandRecordStats,
-};
-#[cfg(test)]
-pub(crate) use reader_wire_v1::encode_reader_primitive_list_v1;
 pub(crate) use reader_wire_v1::{
-    adapt_reader_display_list_v1, contract, encode_reader_display_list_v1,
+    adapt_reader_display_list_v1, contract, encode_reader_primitive_list_v1,
     ReaderDisplayListWireError, ReaderEncodedDisplayListV1,
 };
 pub use refs::DisplayListResourceRefs;
 pub(crate) use refs::{summarize_display_list_font_families, summarize_display_list_resource_refs};
 use stable_json::hash_json;
-
-#[cfg(test)]
-pub(super) use packed::{
-    PACKED_DISPLAY_COMMAND_BUFFER_VERSION, PACKED_DISPLAY_COMMAND_RECORD_BYTES,
-};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DisplayCommandKind {
@@ -60,23 +48,6 @@ impl DisplayCommandKind {
             Self::PaintRuby => "paintRuby",
             Self::PaintImage => "paintImage",
             Self::PaintHorizontalRule => "paintHorizontalRule",
-        }
-    }
-
-    fn opcode(self) -> u16 {
-        match self {
-            Self::PushState => 1,
-            Self::PopState => 2,
-            Self::Translate => 3,
-            Self::Opacity => 4,
-            Self::Transform => 5,
-            Self::ClipRect => 6,
-            Self::PaintPage => 7,
-            Self::PaintBlock => 8,
-            Self::PaintText => 9,
-            Self::PaintRuby => 10,
-            Self::PaintImage => 11,
-            Self::PaintHorizontalRule => 12,
         }
     }
 }
@@ -228,44 +199,6 @@ impl DisplayCommand {
 
     fn to_value(&self) -> Value {
         json::command_value(self)
-    }
-
-    fn rect(&self) -> Option<&Value> {
-        match self {
-            Self::ClipRect { rect, .. }
-            | Self::PaintPage { rect, .. }
-            | Self::PaintBlock { rect, .. }
-            | Self::PaintImage { rect, .. }
-            | Self::PaintHorizontalRule { rect, .. } => Some(rect),
-            Self::PaintText(input) | Self::PaintRuby(input) => Some(&input.rect),
-            _ => None,
-        }
-    }
-
-    fn text(&self) -> Option<&Value> {
-        match self {
-            Self::PaintText(input) | Self::PaintRuby(input) => Some(&input.text),
-            _ => None,
-        }
-    }
-
-    fn has_paint(&self) -> bool {
-        matches!(
-            self,
-            Self::PaintPage { .. }
-                | Self::PaintBlock { .. }
-                | Self::PaintText(_)
-                | Self::PaintRuby(_)
-                | Self::PaintHorizontalRule { .. }
-        )
-    }
-
-    fn primary_href(&self) -> Option<&str> {
-        match self {
-            Self::PaintText(input) | Self::PaintRuby(input) => input.href.as_deref(),
-            Self::PaintImage { href, .. } => href.as_deref(),
-            _ => None,
-        }
     }
 }
 

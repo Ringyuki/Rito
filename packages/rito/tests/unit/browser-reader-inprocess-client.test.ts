@@ -129,23 +129,16 @@ function frameMetadata(spreadIndex: number) {
     width: 800,
     height: 600,
     protocolVersion: 2,
+    ratio: 1,
     commandCount: 0,
     commandCounts: {},
-    recordStats: {
-      geometryRecords: 0,
-      paintRecords: 0,
-      payloadRecords: 0,
-      primaryStringRecords: 0,
-      secondaryStringRecords: 0,
-    },
-    byteLength: 0,
+    primitiveCount: 0,
+    byteLength: 23,
     commandHash: 'hash',
     resourceRefCount: 0,
     resourceTable: [],
     fontFamilies: [],
     imageDominated: false,
-    stringTable: [],
-    payloadTable: [],
   };
 }
 

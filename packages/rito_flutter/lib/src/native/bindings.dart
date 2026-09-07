@@ -1305,10 +1305,8 @@ final class RitoNativeWireBindings {
   Uint8List searchEncoded({
     required int sessionId,
     required Uint8List requestBytes,
-  }) => _bindings.searchEncoded(
-    sessionId: sessionId,
-    requestBytes: requestBytes,
-  );
+  }) =>
+      _bindings.searchEncoded(sessionId: sessionId, requestBytes: requestBytes);
 
   Uint8List textRangeGeometryEncoded({
     required int sessionId,

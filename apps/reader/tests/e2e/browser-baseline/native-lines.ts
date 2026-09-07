@@ -54,6 +54,30 @@ export interface NativeLine {
   readonly text: string;
 }
 
+/** The primitives the baseline reads: text and ruby runs on the device grid. */
+type NativePrimitive =
+  | {
+      readonly kind: 'text' | 'ruby';
+      readonly text: string;
+      readonly rect: { x: number; y: number; width: number; height: number };
+      readonly paint: { font: { sizePx: number } };
+      readonly lineHeightPx?: number | undefined;
+    }
+  | {
+      readonly kind:
+        | 'push-state'
+        | 'pop-state'
+        | 'translate'
+        | 'opacity'
+        | 'transform'
+        | 'clip-path'
+        | 'fill-rect'
+        | 'fill-path'
+        | 'stroke-path'
+        | 'shadow'
+        | 'draw-image';
+    };
+
 interface CoreWasmDocumentLike {
   createFullRevisionBundle(request: object): {
     bundle: {
@@ -108,7 +132,8 @@ export async function openBaselineDocument(epubPath: string): Promise<BaselineDo
       metadata: unknown,
       bytes: Uint8Array,
     ) => {
-      commands: readonly Record<string, unknown>[];
+      ratio: number;
+      commands: readonly NativePrimitive[];
     };
   };
   const { initRitoCoreWasmEngine, decodeRitoFrameCommandBuffer } = coreWasm;
@@ -146,20 +171,21 @@ export async function openBaselineDocument(epubPath: string): Promise<BaselineDo
         const metadata = document.getFrameCommandBufferMetadata(revision.revisionId, pageIndex);
         const buffer = document.readFrameCommandBuffer(revision.revisionId, pageIndex);
         const decoded = decodeRitoFrameCommandBuffer(metadata, buffer);
+        // The buffer is lowered to the device grid at the document's
+        // render ratio; the baseline reads CSS pixels back out of it.
+        const ratio = decoded.ratio;
         const pageLines: NativeLine[] = [];
         for (const command of decoded.commands) {
-          if (command['kind'] === 'paintRuby') rubyCommandCount += 1;
-          if (command['kind'] !== 'paintText') continue;
-          const rect = command['rect'] as { x: number; y: number; width: number; height: number };
-          const paint = command['paint'] as { font: { sizePx: number } };
+          if (command.kind === 'ruby') rubyCommandCount += 1;
+          if (command.kind !== 'text') continue;
           pageLines.push({
             pageIndex,
-            x: rect.x - BASELINE_LAYOUT.marginLeft,
-            yInPage: rect.y - BASELINE_LAYOUT.marginTop,
-            width: rect.width,
-            lineHeightPx: command['lineHeightPx'] as number,
-            fontSizePx: paint.font.sizePx,
-            text: command['text'] as string,
+            x: command.rect.x / ratio - BASELINE_LAYOUT.marginLeft,
+            yInPage: command.rect.y / ratio - BASELINE_LAYOUT.marginTop,
+            width: command.rect.width / ratio,
+            lineHeightPx: (command.lineHeightPx ?? 0) / ratio,
+            fontSizePx: command.paint.font.sizePx / ratio,
+            text: command.text,
           });
         }
         pageLines.sort((left, right) => left.yInPage - right.yInPage || left.x - right.x);

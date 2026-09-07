@@ -16,6 +16,8 @@ import type {
 } from '../../src/bindings/browser/reader-v1';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 
+type Primitives = BrowserReaderArtifactV1['displayList']['displayList']['commands'];
+
 const fontSet = { add: vi.fn(), delete: vi.fn() };
 const closeImage = vi.fn();
 const adoptForegroundCandidate = vi.fn(() => Promise.resolve());
@@ -59,20 +61,24 @@ describe('Browser Reader v1 Canvas presenter', () => {
     const artifact = readerArtifact();
     const session = readerSession(artifact);
     const presenter = createBrowserReaderV1CanvasPresenter(session);
-    const prepared = await presenter.prepare(artifact, { pixelRatio: 2 });
+    const prepared = await presenter.prepare(artifact);
     await session.adoptForegroundCandidate(undefined, artifact.artifactId);
     const mock = createMockCanvasContext();
 
     expect(readResource).toHaveBeenCalledTimes(2);
     expect(fontSet.add).toHaveBeenCalledOnce();
     expect(adoptForegroundCandidate).toHaveBeenCalledWith(undefined, artifact.artifactId);
+    // The paint is resolved on the request's device grid; the host sizes
+    // its canvas on that grid and the presenter blits without scaling.
+    expect(prepared.ratio).toBe(2);
 
     presenter.paint(prepared, mock.ctx);
 
     expect(mock.getCalls('clearRect')[0]?.args).toEqual([0, 0, 800, 600]);
-    expect(mock.getCalls('scale')[0]?.args).toEqual([2, 2]);
-    expect(mock.getCalls('fillText')[0]?.args).toEqual(['target', 20, 42.8]);
-    expect(mock.getCalls('drawImage')[0]?.args.slice(1)).toEqual([0, 0, 40, 60]);
+    expect(mock.getCalls('scale')).toHaveLength(0);
+    expect(mock.getCalls('fillText')[0]?.args[0]).toBe('target');
+    expect(mock.getCalls('fillText')[0]?.args[1]).toBe(40);
+    expect(mock.getCalls('drawImage')[0]?.args.slice(1)).toEqual([0, 0, 80, 120]);
 
     presenter.paint(prepared, mock.ctx, {
       clear: false,
@@ -114,16 +120,12 @@ describe('Browser Reader v1 Canvas presenter', () => {
     vi.stubGlobal('createImageBitmap', bitmapFactoryFromResizeOptions());
     const base = readerArtifact();
     const href = 'Images/bucketed.png';
-    const commands: BrowserReaderArtifactV1['displayList']['displayList']['commands'] = [
-      {
-        kind: 'paint-image',
-        opcode: 11,
-        src: href,
-        rect: { x: 0, y: 0, width: 100, height: 50 },
-      },
-    ];
-    const first = artifactWithCommands(base, 31n, commands, [href]);
-    const second = { ...first, artifactId: 32n, requestId: 32n };
+    // The same 100×50 CSS box lowered at ratio 1 and at ratio 2.
+    const first = artifactWithCommands(base, 31n, [drawImage(href, 100, 50)], [href], 1);
+    const second = {
+      ...artifactWithCommands(base, 32n, [drawImage(href, 200, 100)], [href], 2),
+      requestId: 32n,
+    };
     // Past the natural-decode cap (4200x2100 = 8.8 MP), so the bucketed
     // decode still applies and is recorded as a parity exemption.
     readResource.mockImplementation((artifactId, _kind, href) =>
@@ -132,8 +134,8 @@ describe('Browser Reader v1 Canvas presenter', () => {
     (globalThis as { __ritoImageDecodeExemptions?: unknown[] }).__ritoImageDecodeExemptions = [];
     const presenter = createBrowserReaderV1CanvasPresenter(readerSession(first));
 
-    const current = await presenter.prepare(first, { pixelRatio: 1 });
-    const incoming = await presenter.prepare(second, { pixelRatio: 2 });
+    const current = await presenter.prepare(first);
+    const incoming = await presenter.prepare(second);
 
     expect(readResource).toHaveBeenCalledTimes(2);
     expect(
@@ -157,34 +159,27 @@ describe('Browser Reader v1 Canvas presenter', () => {
     presenter.dispose();
   });
 
-  it('decodes a transformed direct image into an aspect-preserving DPR target bucket', async () => {
+  it('decodes a transformed direct image into an aspect-preserving device target bucket', async () => {
     const createBitmap = bitmapFactoryFromResizeOptions();
     vi.stubGlobal('createImageBitmap', createBitmap);
     const base = readerArtifact();
-    const commands: BrowserReaderArtifactV1['displayList']['displayList']['commands'] = [
-      { kind: 'push-state', opcode: 1 },
+    const commands: Primitives = [
+      { kind: 'push-state' },
       {
         kind: 'transform',
-        opcode: 5,
         origin: { x: 0, y: 0 },
-        boxSize: { width: 100, height: 50 },
         transforms: [{ kind: 'scale', sx: 0.5, sy: 2 }],
       },
-      {
-        kind: 'paint-image',
-        opcode: 11,
-        src: 'Images/large.png',
-        rect: { x: 0, y: 0, width: 100, height: 50 },
-      },
-      { kind: 'pop-state', opcode: 2 },
+      drawImage('Images/large.png', 200, 100),
+      { kind: 'pop-state' },
     ];
-    const artifact = artifactWithCommands(base, 21n, commands, ['Images/large.png']);
+    const artifact = artifactWithCommands(base, 21n, commands, ['Images/large.png'], 2);
     readResource.mockResolvedValue(
       imageResource(artifact.artifactId, 'Images/large.png', 4200, 2100),
     );
     const presenter = createBrowserReaderV1CanvasPresenter(readerSession(artifact));
 
-    const prepared = await presenter.prepare(artifact, { pixelRatio: 2 });
+    const prepared = await presenter.prepare(artifact);
 
     expect(createBitmap).toHaveBeenCalledWith(
       expect.any(Blob),
@@ -194,32 +189,25 @@ describe('Browser Reader v1 Canvas presenter', () => {
     presenter.dispose();
   });
 
-  it('plans cover background decode size from its box, transform, and DPR', async () => {
+  it('plans a covering background decode size from the device rect it lands in', async () => {
     const createBitmap = bitmapFactoryFromResizeOptions();
     vi.stubGlobal('createImageBitmap', createBitmap);
     const base = readerArtifact();
-    const commands: BrowserReaderArtifactV1['displayList']['displayList']['commands'] = [
-      {
-        kind: 'paint-block',
-        opcode: 8,
-        rect: { x: 0, y: 0, width: 300, height: 300 },
-        paint: {
-          background: {
-            image: 'Images/background.png',
-            size: 'cover',
-            repeat: 'no-repeat',
-          },
-          boxShadows: [],
-        },
-      },
+    // A 300×300 CSS box at ratio 2 covered by a 4200×2800 image: the
+    // engine sized the draw to 900×600 device pixels and clipped it.
+    const commands: Primitives = [
+      { kind: 'push-state' },
+      { kind: 'clip-path', path: [{ op: 'rect', x: 0, y: 0, width: 600, height: 600 }] },
+      drawImage('Images/background.png', 900, 600),
+      { kind: 'pop-state' },
     ];
-    const artifact = artifactWithCommands(base, 22n, commands, ['Images/background.png']);
+    const artifact = artifactWithCommands(base, 22n, commands, ['Images/background.png'], 2);
     readResource.mockResolvedValue(
       imageResource(artifact.artifactId, 'Images/background.png', 4200, 2800),
     );
     const presenter = createBrowserReaderV1CanvasPresenter(readerSession(artifact));
 
-    const prepared = await presenter.prepare(artifact, { pixelRatio: 2 });
+    const prepared = await presenter.prepare(artifact);
 
     expect(createBitmap).toHaveBeenCalledWith(
       expect.any(Blob),
@@ -268,40 +256,19 @@ describe('Browser Reader v1 Canvas presenter', () => {
     presenter.dispose();
   });
 
-  it('binds paint DPR to the prepared resource target before clearing the canvas', async () => {
-    const artifact = readerArtifact();
-    const presenter = createBrowserReaderV1CanvasPresenter(readerSession(artifact));
-    const prepared = await presenter.prepare(artifact, { pixelRatio: 2 });
-    const mock = createMockCanvasContext();
-
-    expect(() => {
-      presenter.paint(prepared, mock.ctx, { pixelRatio: 1 });
-    }).toThrow('pixelRatio must match');
-    expect(mock.getCalls('clearRect')).toHaveLength(0);
-    prepared.dispose();
-    presenter.dispose();
-  });
-
   it('prepares large resource sets in bounded batches below the worker queue limit', async () => {
     const hrefs = Array.from({ length: 12 }, (_, index) => `Images/page-${String(index)}.png`);
-    const commands: BrowserReaderArtifactV1['displayList']['displayList']['commands'] = hrefs.map(
-      (src, index) => ({
-        kind: 'paint-image',
-        opcode: 11,
-        src,
-        rect: { x: index * 10, y: 0, width: 10, height: 10 },
-      }),
-    );
+    const commands: Primitives = hrefs.map((src, index) => ({
+      kind: 'draw-image',
+      src,
+      dest: { x: index * 10, y: 0, width: 10, height: 10 },
+    }));
     const base = readerArtifact();
     const artifact: BrowserReaderArtifactV1 = {
       ...base,
       fonts: [],
       resources: hrefs.map((href) => ({ kind: 'image', href })),
-      displayList: {
-        ...base.displayList,
-        commandCount: commands.length,
-        displayList: { formatVersion: 1, commandCount: commands.length, commands },
-      },
+      displayList: displayList(commands, 1),
     };
     let active = 0;
     let peak = 0;
@@ -412,25 +379,26 @@ describe('Browser Reader v1 Canvas presenter', () => {
       ...artifact,
       resources: [],
       fonts: [],
-      displayList: {
-        ...artifact.displayList,
-        displayList: {
-          formatVersion: 1,
-          commandCount: 1,
-          commands: [
-            {
-              kind: 'paint-block',
-              opcode: 8,
-              rect: { x: 0, y: 0, width: 40, height: 40 },
-              paint: {
-                border: { top: { color: srgb(0, 0, 0), style: 'groove' } },
-                boxShadows: [],
-              },
-              borderBox: { topWidth: 3, rightWidth: 0, bottomWidth: 0, leftWidth: 0 },
+      displayList: displayList(
+        [
+          {
+            kind: 'text',
+            alignRight: false,
+            vertical: false,
+            text: 'ruled',
+            rect: { x: 0, y: 0, width: 40, height: 40 },
+            paint: {
+              font: { family: 'Book Font', sizePx: 16, weight: 400, style: 'normal' },
+              color: srgb(0, 0, 0),
+              textShadows: [],
+              border: { top: { widthPx: 3, paint: { color: srgb(0, 0, 0), style: 'groove' } } },
+              boxStart: true,
+              boxEnd: true,
             },
-          ],
-        },
-      },
+          },
+        ],
+        1,
+      ),
     };
     const presenter = createBrowserReaderV1CanvasPresenter(readerSession(unsupported));
 
@@ -472,14 +440,7 @@ describe('Browser Reader v1 Canvas presenter', () => {
       ...artifact,
       resources: [],
       fonts: [],
-      displayList: {
-        ...artifact.displayList,
-        displayList: {
-          formatVersion: 1,
-          commandCount: 1,
-          commands: [{ kind: 'pop-state', opcode: 2 }],
-        },
-      },
+      displayList: displayList([{ kind: 'pop-state' }], 1),
     };
     const presenter = createBrowserReaderV1CanvasPresenter(readerSession(invalid));
 
@@ -499,14 +460,7 @@ describe('Browser Reader v1 Canvas presenter', () => {
     const fontOnly: BrowserReaderArtifactV1 = {
       ...artifact,
       resources: artifact.resources.filter(({ kind }) => kind === 'font'),
-      displayList: {
-        ...artifact.displayList,
-        displayList: {
-          formatVersion: 1,
-          commandCount: 1,
-          commands: artifact.displayList.displayList.commands.slice(1, 2),
-        },
-      },
+      displayList: displayList(artifact.displayList.displayList.commands.slice(1, 2), 2),
     };
     const presenter = createBrowserReaderV1CanvasPresenter(readerSession(fontOnly));
 
@@ -618,33 +572,31 @@ function writeU32Be(bytes: Uint8Array, offset: number, value: number): void {
   bytes[offset + 3] = value & 0xff;
 }
 
+/** A 400×600 CSS page lowered at ratio 2: page ground, one text run and
+ * the cover image, every rect in device pixels. */
 function readerArtifact(): BrowserReaderArtifactV1 {
-  const commands: BrowserReaderArtifactV1['displayList']['displayList']['commands'] = [
+  const commands: Primitives = [
     {
-      kind: 'paint-page',
-      opcode: 7,
-      rect: { x: 0, y: 0, width: 400, height: 600 },
-      paint: { backgroundColor: srgb(1, 1, 1) },
+      kind: 'fill-rect',
+      rect: { x: 0, y: 0, width: 800, height: 1200 },
+      color: srgb(1, 1, 1),
+      ground: 'page',
     },
     {
-      kind: 'paint-text',
-      opcode: 9,
+      kind: 'text',
+      alignRight: false,
+      vertical: false,
       text: 'target',
-      rect: { x: 20, y: 30, width: 80, height: 24 },
+      rect: { x: 40, y: 60, width: 160, height: 48 },
       paint: {
-        font: { family: 'Book Font', sizePx: 16, weight: 400, style: 'normal' },
+        font: { family: 'Book Font', sizePx: 32, weight: 400, style: 'normal' },
         color: srgb(0, 0, 0),
         textShadows: [],
         boxStart: true,
         boxEnd: true,
       },
     },
-    {
-      kind: 'paint-image',
-      opcode: 11,
-      src: 'Images/cover.png',
-      rect: { x: 0, y: 0, width: 40, height: 60 },
-    },
+    drawImage('Images/cover.png', 80, 120),
   ];
   return {
     protocolVersion: 1,
@@ -664,13 +616,7 @@ function readerArtifact(): BrowserReaderArtifactV1 {
     terminalExtent: false,
     navigation: { previous: 'available', next: 'available' },
     textProfile: 'platform-string-runs',
-    displayList: {
-      formatVersion: 1,
-      commandCount: commands.length,
-      semanticDigest: new Uint8Array(32),
-      wireBytes: new Uint8Array(),
-      displayList: { formatVersion: 1, commandCount: commands.length, commands },
-    },
+    displayList: displayList(commands, 2),
     resources: [
       { kind: 'font', href: 'Fonts/book.woff2' },
       { kind: 'image', href: 'Images/cover.png' },
@@ -689,6 +635,20 @@ function readerArtifact(): BrowserReaderArtifactV1 {
   };
 }
 
+function displayList(commands: Primitives, ratio: number): BrowserReaderArtifactV1['displayList'] {
+  return {
+    formatVersion: 2,
+    commandCount: commands.length,
+    semanticDigest: new Uint8Array(32),
+    wireBytes: new Uint8Array(),
+    displayList: { formatVersion: 2, ratio, commandCount: commands.length, commands },
+  };
+}
+
+function drawImage(src: string, width: number, height: number, x = 0, y = 0): Primitives[number] {
+  return { kind: 'draw-image', src, dest: { x, y, width, height } };
+}
+
 function imageOnlyArtifact(
   base: BrowserReaderArtifactV1,
   artifactId: bigint,
@@ -699,33 +659,23 @@ function imageOnlyArtifact(
     { length: count },
     (_, index) => `Images/${prefix}-${String(index)}.png`,
   );
-  const commands: BrowserReaderArtifactV1['displayList']['displayList']['commands'] = hrefs.map(
-    (src, index) => ({
-      kind: 'paint-image',
-      opcode: 11,
-      src,
-      rect: { x: index * 10, y: 0, width: 10, height: 10 },
-    }),
-  );
+  const commands: Primitives = hrefs.map((src, index) => drawImage(src, 10, 10, index * 10));
   return {
     ...base,
     artifactId,
     requestId: artifactId,
     fonts: [],
     resources: hrefs.map((href) => ({ kind: 'image' as const, href })),
-    displayList: {
-      ...base.displayList,
-      commandCount: commands.length,
-      displayList: { formatVersion: 1, commandCount: commands.length, commands },
-    },
+    displayList: displayList(commands, 1),
   };
 }
 
 function artifactWithCommands(
   base: BrowserReaderArtifactV1,
   artifactId: bigint,
-  commands: BrowserReaderArtifactV1['displayList']['displayList']['commands'],
+  commands: Primitives,
   imageHrefs: readonly string[],
+  ratio: number,
 ): BrowserReaderArtifactV1 {
   return {
     ...base,
@@ -733,11 +683,7 @@ function artifactWithCommands(
     requestId: artifactId,
     fonts: [],
     resources: imageHrefs.map((href) => ({ kind: 'image' as const, href })),
-    displayList: {
-      ...base.displayList,
-      commandCount: commands.length,
-      displayList: { formatVersion: 1, commandCount: commands.length, commands },
-    },
+    displayList: displayList(commands, ratio),
   };
 }
 

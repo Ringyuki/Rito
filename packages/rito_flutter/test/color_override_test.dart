@@ -79,10 +79,7 @@ void main() {
       // exact channels mirror the browser pen's quantized HSL round
       // trip: #cc0000 -> hsl(0, 100%, L(fg)) -> rgb(255, 203, 203).
       const red = ui.Color(0xffcc0000);
-      expect(
-        dark.effectiveTextColor(red),
-        const ui.Color(0xffffcbcb),
-      );
+      expect(dark.effectiveTextColor(red), const ui.Color(0xffffcbcb));
     });
 
     test('a foreground that cannot carry the hue falls back exactly', () {

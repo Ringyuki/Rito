@@ -45,6 +45,7 @@ impl ReaderColorSpaceV1 {
     }
 
     /// The space's CSS name, as a JSON decoder spells it.
+    #[cfg(test)]
     pub(crate) const fn tag_name(self) -> &'static str {
         match self {
             Self::Srgb => "srgb",
@@ -105,6 +106,7 @@ impl ReaderFontStyleV1 {
         }
     }
 
+    #[cfg(test)]
     pub(crate) const fn tag_name(self) -> &'static str {
         match self {
             Self::Normal => "normal",
@@ -143,6 +145,7 @@ impl ReaderBorderStyleV1 {
         }
     }
 
+    #[cfg(test)]
     pub(crate) const fn tag_name(self) -> &'static str {
         match self {
             Self::None => "none",
@@ -172,18 +175,6 @@ pub(crate) enum ReaderBackgroundSizeV1 {
         y: Option<ReaderLengthV1>,
     },
 }
-
-impl ReaderBackgroundSizeV1 {
-    pub(crate) const fn tag(self) -> u8 {
-        match self {
-            Self::Auto => 1,
-            Self::Cover => 2,
-            Self::Contain => 3,
-            Self::Explicit { .. } => 4,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ReaderBackgroundRepeatV1 {
     Repeat,
@@ -193,20 +184,6 @@ pub(crate) enum ReaderBackgroundRepeatV1 {
     Space,
     Round,
 }
-
-impl ReaderBackgroundRepeatV1 {
-    pub(crate) const fn tag(self) -> u8 {
-        match self {
-            Self::Repeat => 1,
-            Self::NoRepeat => 2,
-            Self::RepeatX => 3,
-            Self::RepeatY => 4,
-            Self::Space => 5,
-            Self::Round => 6,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ReaderRunDecorationKindV1 {
     Underline,
@@ -221,6 +198,7 @@ impl ReaderRunDecorationKindV1 {
         }
     }
 
+    #[cfg(test)]
     pub(crate) const fn tag_name(self) -> &'static str {
         match self {
             Self::Underline => "underline",
@@ -266,17 +244,6 @@ pub(crate) enum ReaderBlockRadiusV1 {
     /// bottom-right, bottom-left) for boxes whose corners disagree.
     Corners([f64; 4]),
 }
-
-impl ReaderBlockRadiusV1 {
-    pub(crate) const fn tag(self) -> u8 {
-        match self {
-            Self::Px(_) => 1,
-            Self::Percent(_) => 2,
-            Self::Corners(_) => 3,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct ReaderBoxShadowV1 {
     pub offset_x: f64,

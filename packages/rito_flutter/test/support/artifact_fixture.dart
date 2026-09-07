@@ -18,7 +18,7 @@ Uint8List artifactFixture({
   String locatorHref = 'chapter-4.xhtml',
   int localPageIndex = 7,
 }) {
-  final display = displayFixture();
+  final display = primitiveFixture();
   final writer = TestWireWriter.message('RITOART1');
   writer
     ..uint32(3)
@@ -45,8 +45,8 @@ Uint8List artifactFixture({
     ..uint32(0);
   writer.record((record) {
     record
-      ..uint32(1)
-      ..uint32(12)
+      ..uint32(2)
+      ..uint32(13)
       ..fixed(List<int>.filled(32, 0x5a))
       ..blob(display);
   });

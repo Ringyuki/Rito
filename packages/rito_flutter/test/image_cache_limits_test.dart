@@ -7,95 +7,91 @@ import 'support/image_cache_fixture.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('uses DPR and the larger stretched axis without full-size decode', () async {
-    const href = 'images/wide-target.png';
-    const spec = TestImageSpec(code: 1, width: 1000, height: 1000);
-    final artifact = imageArtifact(
-      artifactId: 7001,
-      hrefs: const <String>[href],
-      commands: <RitoCommand>[
-        directImage(href, width: 400, height: 40),
-      ],
-    );
-    final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
-    final cache = RitoArtifactImageCache(
-      decoder: decoder,
-      targetBucketSize: 1,
-    );
+  test(
+    'uses the larger stretched axis of the device rect without full-size decode',
+    () async {
+      // A 400×40 CSS box lowered at ratio 2 is an 800×80 device rect; the
+      // aspect-preserving decode follows its wider axis.
+      const href = 'images/wide-target.png';
+      const spec = TestImageSpec(code: 1, width: 1000, height: 1000);
+      final artifact = imageArtifact(
+        artifactId: 7001,
+        hrefs: const <String>[href],
+        commands: <RitoPrimitive>[directImage(href, width: 800, height: 80)],
+        ratio: 2,
+      );
+      final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
+      final cache = RitoArtifactImageCache(
+        decoder: decoder,
+        targetBucketSize: 1,
+      );
 
-    final lease = await cache.prepare(
-      artifact: artifact,
-      pixelRatio: 2,
-      readResource: (reference) async => imageResource(
+      final lease = await cache.prepare(
         artifact: artifact,
-        reference: reference,
-        spec: spec,
-      ),
-    );
+        readResource: (reference) async =>
+            imageResource(artifact: artifact, reference: reference, spec: spec),
+      );
 
-    expect(decoder.targets[1], (width: 800, height: 800));
-    lease.release();
-    cache.dispose();
-  });
+      expect(decoder.targets[1], (width: 800, height: 800));
+      lease.release();
+      cache.dispose();
+    },
+  );
 
-  test('background cover target is collected at its actual tile size', () async {
-    const href = 'images/background.png';
-    const spec = TestImageSpec(code: 2, width: 4000, height: 2000);
-    final artifact = imageArtifact(
-      artifactId: 7001,
-      hrefs: const <String>[href],
-      commands: <RitoCommand>[
-        coverBackground(href, width: 200, height: 100),
-      ],
-    );
-    final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
-    final cache = RitoArtifactImageCache(
-      decoder: decoder,
-      targetBucketSize: 1,
-    );
+  test(
+    'a covering background decodes at the device rect it lands in',
+    () async {
+      // A 200×100 CSS box lowered at ratio 2 and covered by a 4000×2000
+      // image: the engine sized the draw to 400×200 device pixels.
+      const href = 'images/background.png';
+      const spec = TestImageSpec(code: 2, width: 4000, height: 2000);
+      final artifact = imageArtifact(
+        artifactId: 7001,
+        hrefs: const <String>[href],
+        commands: <RitoPrimitive>[directImage(href, width: 400, height: 200)],
+        ratio: 2,
+      );
+      final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
+      final cache = RitoArtifactImageCache(
+        decoder: decoder,
+        targetBucketSize: 1,
+      );
 
-    final lease = await cache.prepare(
-      artifact: artifact,
-      pixelRatio: 2,
-      readResource: (reference) async => imageResource(
+      final lease = await cache.prepare(
         artifact: artifact,
-        reference: reference,
-        spec: spec,
-      ),
-    );
+        readResource: (reference) async =>
+            imageResource(artifact: artifact, reference: reference, spec: spec),
+      );
 
-    expect(decoder.targets[2], (width: 400, height: 200));
-    lease.release();
-    cache.dispose();
-  });
+      expect(decoder.targets[2], (width: 400, height: 200));
+      lease.release();
+      cache.dispose();
+    },
+  );
 
-  test('background auto retains source pixels because they define CSS tile size', () async {
+  test('a tiled background decodes at its device tile size', () async {
+    // An auto-sized 1200×800 tile lowered at ratio 0.5 is 600×400 device
+    // pixels; the tile geometry is the engine's, so the decode follows it.
     const href = 'images/auto-background.png';
     const spec = TestImageSpec(code: 8, width: 1200, height: 800);
     final artifact = imageArtifact(
       artifactId: 7001,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[
-        autoBackground(href, width: 200, height: 100),
+      commands: <RitoPrimitive>[
+        tiledImage(href, tileWidth: 600, tileHeight: 400, columns: 2, rows: 2),
       ],
+      ratio: 0.5,
     );
     final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
-    final cache = RitoArtifactImageCache(
-      decoder: decoder,
-      targetBucketSize: 1,
-    );
+    final cache = RitoArtifactImageCache(decoder: decoder, targetBucketSize: 1);
 
     final lease = await cache.prepare(
       artifact: artifact,
-      pixelRatio: 0.5,
-      readResource: (reference) async => imageResource(
-        artifact: artifact,
-        reference: reference,
-        spec: spec,
-      ),
+      readResource: (reference) async =>
+          imageResource(artifact: artifact, reference: reference, spec: spec),
     );
 
-    expect(decoder.targets[8], (width: 1200, height: 800));
+    expect(decoder.targets[8], (width: 600, height: 400));
     lease.release();
     cache.dispose();
   });
@@ -106,7 +102,7 @@ void main() {
     final artifact = imageArtifact(
       artifactId: 7001,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href)],
+      commands: <RitoPrimitive>[directImage(href)],
     );
     final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
     final cache = RitoArtifactImageCache(decoder: decoder);
@@ -135,9 +131,7 @@ void main() {
     final artifact = imageArtifact(
       artifactId: 7001,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[
-        directImage(href, width: 100, height: 100),
-      ],
+      commands: <RitoPrimitive>[directImage(href, width: 100, height: 100)],
     );
     final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
     final cache = RitoArtifactImageCache(
@@ -149,20 +143,14 @@ void main() {
     final lease = await preparedWithContainedFailure(
       cache: cache,
       artifact: artifact,
-      readResource: (reference) async => imageResource(
-        artifact: artifact,
-        reference: reference,
-        spec: spec,
-      ),
+      readResource: (reference) async =>
+          imageResource(artifact: artifact, reference: reference, spec: spec),
     );
 
     expect(decoder.decodedCodes, isEmpty);
     expect(decoder.disposedSources, 1);
     expect(lease.resolveImage(href), isNull);
-    expect(
-      lease.failedImages[href],
-      isA<RitoImageBudgetExceededException>(),
-    );
+    expect(lease.failedImages[href], isA<RitoImageBudgetExceededException>());
     lease.release();
     cache.dispose();
   });
@@ -173,7 +161,7 @@ void main() {
     final artifact = imageArtifact(
       artifactId: 7001,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href)],
+      commands: <RitoPrimitive>[directImage(href)],
     );
     final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
     final cache = RitoArtifactImageCache(decoder: decoder);
@@ -181,20 +169,14 @@ void main() {
     final lease = await preparedWithContainedFailure(
       cache: cache,
       artifact: artifact,
-      readResource: (reference) async => imageResource(
-        artifact: artifact,
-        reference: reference,
-        spec: spec,
-      ),
+      readResource: (reference) async =>
+          imageResource(artifact: artifact, reference: reference, spec: spec),
     );
 
     expect(decoder.decodedCodes, isEmpty);
     expect(decoder.disposedSources, 1);
     expect(lease.resolveImage(href), isNull);
-    expect(
-      lease.failedImages[href],
-      isA<RitoImageBudgetExceededException>(),
-    );
+    expect(lease.failedImages[href], isA<RitoImageBudgetExceededException>());
     lease.release();
     cache.dispose();
   });
@@ -213,11 +195,7 @@ Future<RitoArtifactImageLease> preparedWithContainedFailure({
   FlutterError.onError = reports.add;
   final RitoArtifactImageLease lease;
   try {
-    lease = await cache.prepare(
-      artifact: artifact,
-      pixelRatio: 1,
-      readResource: readResource,
-    );
+    lease = await cache.prepare(artifact: artifact, readResource: readResource);
   } finally {
     FlutterError.onError = priorOnError;
   }

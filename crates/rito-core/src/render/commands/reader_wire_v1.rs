@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 
 use super::DisplayCommand;
 use crate::render::lower::{Primitive, PrimitiveList};
-use contract::{ReaderDisplayCommandV1, ReaderDisplayListV1};
+use contract::ReaderDisplayListV1;
 
 pub(crate) mod contract;
 #[cfg(test)]
@@ -15,9 +15,9 @@ mod legacy_adapter;
 mod tests;
 
 const READER_DISPLAY_LIST_MAGIC: &[u8; 7] = b"RITODL1";
-pub(crate) const READER_DISPLAY_LIST_FORMAT_VERSION: u32 = 1;
-/// Format 2 carries the device-resolved primitive list instead of semantic
-/// commands; a decoder pinned to format 1 rejects it.
+/// Format 2 is the device-resolved primitive list. Format 1 carried the
+/// semantic commands and is no longer written: hosts blit, they do not
+/// interpret.
 pub(crate) const READER_PRIMITIVE_LIST_FORMAT_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,7 +32,6 @@ pub(crate) struct ReaderEncodedDisplayListV1 {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ReaderDisplayListWireError {
-    CommandCountOverflow,
     LengthOverflow(&'static str),
     SourceTextOffsetOverflow,
     NonFiniteNumber,
@@ -44,7 +43,6 @@ pub(crate) enum ReaderDisplayListWireError {
 impl fmt::Display for ReaderDisplayListWireError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::CommandCountOverflow => formatter.write_str("display command count exceeds u32"),
             Self::LengthOverflow(context) => write!(formatter, "{context} length exceeds u32"),
             Self::SourceTextOffsetOverflow => formatter.write_str("source text offset exceeds u64"),
             Self::NonFiniteNumber => formatter.write_str("display value contains NaN or infinity"),
@@ -69,48 +67,16 @@ impl fmt::Display for ReaderDisplayListWireError {
 
 impl Error for ReaderDisplayListWireError {}
 
-/// Temporary provider boundary for the existing JSON-shaped layout commands.
-///
-/// The primary encoder below never consumes `DisplayCommand` or a JSON value.
-/// Removing this adapter is independent of freezing the `RITODL1` schema.
-pub(crate) fn encode_reader_display_list_v1(
-    commands: &[DisplayCommand],
-) -> Result<ReaderEncodedDisplayListV1, ReaderDisplayListWireError> {
-    let typed = legacy_adapter::adapt(commands)?;
-    encode_typed_reader_display_list_v1(&typed)
-}
-
-/// Adapts the JSON-shaped provider's commands to the owned V1 contract
-/// without encoding them: the lowering's entry from the same provider.
+/// Adapts the JSON-shaped layout provider's commands to the owned V1
+/// contract: the lowering's entry. The lowering and the encoder below
+/// never consume `DisplayCommand` or a JSON value.
 pub(crate) fn adapt_reader_display_list_v1(
     commands: &[DisplayCommand],
 ) -> Result<ReaderDisplayListV1, ReaderDisplayListWireError> {
     legacy_adapter::adapt(commands)
 }
 
-fn encode_typed_reader_display_list_v1(
-    display_list: &ReaderDisplayListV1,
-) -> Result<ReaderEncodedDisplayListV1, ReaderDisplayListWireError> {
-    let command_count = u32::try_from(display_list.commands.len())
-        .map_err(|_| ReaderDisplayListWireError::CommandCountOverflow)?;
-    let bytes = encode::encode(display_list)?;
-    let semantic_digest = Sha256::digest(&bytes).into();
-    let (image_hrefs, font_families) = collect_refs(display_list);
-    Ok(ReaderEncodedDisplayListV1 {
-        format_version: READER_DISPLAY_LIST_FORMAT_VERSION,
-        command_count,
-        semantic_digest,
-        bytes,
-        image_hrefs,
-        font_families,
-    })
-}
-
 /// Encodes a lowered primitive list as `RITODL1` format version 2.
-#[allow(
-    dead_code,
-    reason = "production paint switches to the primitive wire at its flag day; the paint-parity lane and the wire tests encode it now"
-)]
 pub(crate) fn encode_reader_primitive_list_v1(
     list: &PrimitiveList,
 ) -> Result<ReaderEncodedDisplayListV1, ReaderDisplayListWireError> {
@@ -138,34 +104,6 @@ fn collect_primitive_refs(list: &PrimitiveList) -> (Vec<String>, Vec<String>) {
             }
             Primitive::Text(text) | Primitive::Ruby(text) if !text.paint.font.family.is_empty() => {
                 families.insert(text.paint.font.family.clone());
-            }
-            _ => {}
-        }
-    }
-    (images.into_iter().collect(), families.into_iter().collect())
-}
-
-fn collect_refs(display_list: &ReaderDisplayListV1) -> (Vec<String>, Vec<String>) {
-    let mut images = BTreeSet::new();
-    let mut families = BTreeSet::new();
-    for command in &display_list.commands {
-        match command {
-            ReaderDisplayCommandV1::PaintBlock { paint, .. } => {
-                if let Some(image) = paint
-                    .background
-                    .as_ref()
-                    .and_then(|background| background.image.as_ref())
-                {
-                    images.insert(image.clone());
-                }
-            }
-            ReaderDisplayCommandV1::PaintText(input) | ReaderDisplayCommandV1::PaintRuby(input)
-                if !input.paint.font.family.is_empty() =>
-            {
-                families.insert(input.paint.font.family.clone());
-            }
-            ReaderDisplayCommandV1::PaintImage { src, .. } => {
-                images.insert(src.clone());
             }
             _ => {}
         }

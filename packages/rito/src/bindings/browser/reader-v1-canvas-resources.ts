@@ -1,4 +1,4 @@
-import type { CoreFrameCommand } from './core-contracts';
+import type { CoreReaderPrimitiveList } from './core-contracts';
 import type { BrowserReaderArtifactV1, BrowserReaderV1Session } from './reader-v1';
 import { BrowserReaderCanvasUnsupportedErrorV1 } from './reader-v1-canvas-error';
 import type { BrowserReaderCanvasDecodedImageV1 } from './reader-v1-canvas-image-cache-support';
@@ -38,8 +38,7 @@ export class BrowserReaderCanvasResourceOwnerV1 {
 
   async prepare(
     artifact: BrowserReaderArtifactV1,
-    commands: readonly CoreFrameCommand[],
-    pixelRatio: number,
+    list: CoreReaderPrimitiveList,
   ): Promise<BrowserReaderCanvasArtifactResourcesV1> {
     this.assertOpen();
     assertArtifactOwner(this.session, artifact);
@@ -49,7 +48,7 @@ export class BrowserReaderCanvasResourceOwnerV1 {
     try {
       const [fontResult, imageResult] = await Promise.allSettled([
         this.acquireFonts(artifact, fonts),
-        this.images.prepare(artifact, commands, pixelRatio),
+        this.images.prepare(artifact, list),
       ]);
       if (imageResult.status === 'fulfilled') imageLease = imageResult.value;
       const failure = [fontResult, imageResult].find((result) => result.status === 'rejected');

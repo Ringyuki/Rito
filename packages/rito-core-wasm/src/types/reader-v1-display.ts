@@ -1,3 +1,8 @@
+/**
+ * The paint vocabulary the `RITODL1` primitive list shares with the
+ * engine's typed contract: rects, typed colours, border edge paints and
+ * the text run body carried by the text and ruby primitives.
+ */
 export interface RitoReaderRectV1 {
   readonly x: number;
   readonly y: number;
@@ -49,65 +54,6 @@ export type RitoReaderBorderStyleV1 =
 export interface RitoReaderBorderEdgePaintV1 {
   readonly color: RitoReaderColorV1;
   readonly style: RitoReaderBorderStyleV1;
-}
-
-export interface RitoReaderLengthV1 {
-  readonly unit: 'px' | 'percent';
-  readonly value: number;
-}
-
-/**
- * Circular corner radii in CSS order (top-left, top-right, bottom-right,
- * bottom-left) for boxes whose corners disagree.
- */
-export interface RitoReaderCornerRadiiV1 {
-  readonly unit: 'corners';
-  readonly corners: readonly [number, number, number, number];
-}
-
-/** CSS `background-size` with explicit axes; a missing axis is `auto`
- * and derives from the image's intrinsic ratio once the other resolves. */
-export interface RitoReaderExplicitBackgroundSizeV1 {
-  readonly x?: RitoReaderLengthV1 | undefined;
-  readonly y?: RitoReaderLengthV1 | undefined;
-}
-
-export interface RitoReaderBackgroundPaintV1 {
-  readonly color?: RitoReaderColorV1 | undefined;
-  readonly image?: string | undefined;
-  readonly size?: 'auto' | 'cover' | 'contain' | RitoReaderExplicitBackgroundSizeV1 | undefined;
-  readonly repeat?:
-    | 'repeat'
-    | 'no-repeat'
-    | 'repeat-x'
-    | 'repeat-y'
-    | 'space'
-    | 'round'
-    | undefined;
-  readonly position?:
-    | { readonly x: RitoReaderLengthV1; readonly y: RitoReaderLengthV1 }
-    | undefined;
-}
-
-export interface RitoReaderBlockPaintV1 {
-  readonly background?: RitoReaderBackgroundPaintV1 | undefined;
-  readonly border?:
-    | {
-        readonly top?: RitoReaderBorderEdgePaintV1 | undefined;
-        readonly right?: RitoReaderBorderEdgePaintV1 | undefined;
-        readonly bottom?: RitoReaderBorderEdgePaintV1 | undefined;
-        readonly left?: RitoReaderBorderEdgePaintV1 | undefined;
-      }
-    | undefined;
-  readonly radius?: RitoReaderLengthV1 | RitoReaderCornerRadiiV1 | undefined;
-  readonly boxShadows: readonly {
-    readonly offsetX: number;
-    readonly offsetY: number;
-    readonly blur: number;
-    readonly spread: number;
-    readonly color: RitoReaderColorV1;
-    readonly inset: boolean;
-  }[];
 }
 
 export interface RitoReaderRunPaintV1 {
@@ -166,67 +112,9 @@ export interface RitoReaderRunBorderEdgeV1 {
   readonly paint: RitoReaderBorderEdgePaintV1;
 }
 
-export type RitoReaderDisplayCommandV1 =
-  | { readonly kind: 'push-state'; readonly opcode: 1 }
-  | { readonly kind: 'pop-state'; readonly opcode: 2 }
-  | { readonly kind: 'translate'; readonly opcode: 3; readonly dx: number; readonly dy: number }
-  | { readonly kind: 'opacity'; readonly opcode: 4; readonly value: number }
-  | RitoReaderTransformCommandV1
-  | {
-      readonly kind: 'clip-rect';
-      readonly opcode: 6;
-      readonly rect: RitoReaderRectV1;
-      readonly radius?: { readonly rx: number; readonly ry: number } | undefined;
-    }
-  | {
-      readonly kind: 'paint-page';
-      readonly opcode: 7;
-      readonly rect: RitoReaderRectV1;
-      readonly paint: { readonly backgroundColor?: RitoReaderColorV1 | undefined };
-    }
-  | RitoReaderPaintBlockCommandV1
-  | RitoReaderPaintTextCommandV1
-  | RitoReaderPaintImageCommandV1
-  | {
-      readonly kind: 'paint-horizontal-rule';
-      readonly opcode: 12;
-      readonly rect: RitoReaderRectV1;
-      readonly paint: {
-        readonly color: RitoReaderColorV1;
-        readonly style: RitoReaderBorderStyleV1;
-      };
-    };
-
-export interface RitoReaderTransformCommandV1 {
-  readonly kind: 'transform';
-  readonly opcode: 5;
-  readonly origin: { readonly x: number; readonly y: number };
-  readonly boxSize: { readonly width: number; readonly height: number };
-  readonly transforms: readonly (
-    | { readonly kind: 'rotate'; readonly radians: number }
-    | { readonly kind: 'scale'; readonly sx: number; readonly sy: number }
-    | { readonly kind: 'translate'; readonly x: RitoReaderLengthV1; readonly y: RitoReaderLengthV1 }
-  )[];
-}
-
-export interface RitoReaderPaintBlockCommandV1 {
-  readonly kind: 'paint-block';
-  readonly opcode: 8;
-  readonly rect: RitoReaderRectV1;
-  readonly paint: RitoReaderBlockPaintV1;
-  readonly borderBox?:
-    | {
-        readonly topWidth: number;
-        readonly rightWidth: number;
-        readonly bottomWidth: number;
-        readonly leftWidth: number;
-      }
-    | undefined;
-}
-
-export interface RitoReaderPaintTextCommandV1 {
-  readonly kind: 'paint-text' | 'paint-ruby';
-  readonly opcode: 9 | 10;
+/** The text run body the text and ruby primitives carry; every length
+ * is already in device pixels. */
+export interface RitoReaderTextRunV1 {
   readonly text: string;
   readonly rect: RitoReaderRectV1;
   readonly paint: RitoReaderRunPaintV1;
@@ -236,21 +124,10 @@ export interface RitoReaderPaintTextCommandV1 {
   readonly sourceTextOffset?: bigint | undefined;
   /** Non-initial ruby-align keyword; absent means space-around. */
   readonly rubyAlign?: 'start' | 'center' | 'space-between' | undefined;
-}
-
-export interface RitoReaderPaintImageCommandV1 {
-  readonly kind: 'paint-image';
-  readonly opcode: 11;
-  readonly src: string;
-  readonly rect: RitoReaderRectV1;
-  readonly alt?: string | undefined;
-  readonly href?: string | undefined;
-  /** Raster-pixel subregion to sample; absent samples the whole raster. */
-  readonly sourceRect?: RitoReaderRectV1 | undefined;
-}
-
-export interface RitoReaderDisplayListV1 {
-  readonly formatVersion: 1;
-  readonly commandCount: number;
-  readonly commands: readonly RitoReaderDisplayCommandV1[];
+  /** Right-aligned draw: `rect.x` is the text's right edge and the host
+   * measures the string to place the pen (outside list markers). */
+  readonly alignRight: boolean;
+  /** Vertical writing: one downward column, `rect.x` its left edge and
+   * `rect.y` the first glyph's top. */
+  readonly vertical: boolean;
 }

@@ -1,33 +1,44 @@
-import type { RitoReaderPrimitiveListV1, RitoReaderPrimitiveV1 } from '@ritojs/core-wasm/decoder';
-
+import type { CoreReaderPrimitive, CoreReaderPrimitiveList } from './core-contracts';
 import { drawCanvasRubyFragment, drawCanvasTextFragment } from './canvas-text/renderer';
 import type { CanvasTextColorOverride } from './canvas-text/types';
-import {
-  declaredGroundFor,
-  recordRenderFailure,
-  type DeclaredGrounds,
-  type FrameCommandImageResolver,
-} from './frame-command-renderer';
 import { applyTransform, drawImage, drawShadow, strokePath, tracePath } from './primitive-blits';
 import {
   convertReaderRubyV1,
   convertReaderTextV1,
   toCanvasColorV1,
 } from './reader-v1-canvas-converter';
-import { isBookOwnedPageGround } from './theme/text-color';
+import { isBookOwnedPageGround, isOpaqueColor } from './theme/text-color';
 
-type Primitive = RitoReaderPrimitiveV1;
+type Primitive = CoreReaderPrimitive;
 type FillPrimitive = Extract<Primitive, { readonly kind: 'fill-rect' | 'fill-path' }>;
 type TextPrimitive = Extract<Primitive, { readonly kind: 'text' | 'ruby' }>;
 
+export type CanvasRenderingTarget = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+export type CanvasImageResolver = (src: string) => ImageBitmap | HTMLImageElement | undefined;
+
 export interface PrimitiveRenderOptions {
-  readonly resolveImage?: FrameCommandImageResolver;
+  readonly resolveImage?: CanvasImageResolver;
   readonly foregroundColor?: string;
   readonly backgroundColor?: string;
 }
 
+interface DeviceRect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** The declared grounds a replay accumulates for the theme override:
+ * opaque block backgrounds so far, and the page ground R1 kept for the
+ * book. Reset by every page ground. */
+interface DeclaredGrounds {
+  readonly blockGrounds: { readonly rect: DeviceRect; readonly color: string }[];
+  bookOwnedPageGround: string | undefined;
+}
+
 interface RenderState extends DeclaredGrounds {
-  readonly resolveImage: FrameCommandImageResolver;
+  readonly resolveImage: CanvasImageResolver;
   readonly colorOverride?: CanvasTextColorOverride;
   saveDepth: number;
 }
@@ -36,23 +47,40 @@ interface RenderState extends DeclaredGrounds {
  * Blits a device-resolved primitive list. The canvas is assumed to be
  * device-sized with an identity transform: every coordinate lands on the
  * device grid as the engine resolved it, nothing here measures or snaps.
- * Text runs go to the semantic text painter with their lengths already in
- * device pixels.
+ * Text runs go to the text painter with their lengths already in device
+ * pixels.
  */
 export function renderReaderPrimitivesToCanvas(
-  list: RitoReaderPrimitiveListV1,
-  ctx: CanvasRenderingContext2D,
+  list: CoreReaderPrimitiveList,
+  target: CanvasRenderingTarget,
   options: PrimitiveRenderOptions = {},
 ): void {
+  const ctx = target as CanvasRenderingContext2D;
   const state = createRenderState(options);
+  // Session-scoped tap for paint-parity instruments (pixel-walk probes):
+  // observes the exact primitive stream without altering rendering. The
+  // second argument tells probes whether this canvas is the on-screen one
+  // — spread pre-renders replay the same primitives into offscreen
+  // canvases, and a probe that cannot tell them apart records the wrong
+  // spread.
+  const paintTap = (globalThis as { __ritoPaintTap?: (p: Primitive, onScreen: boolean) => void })
+    .__ritoPaintTap;
+  const onScreen =
+    typeof (ctx.canvas as { isConnected?: boolean }).isConnected === 'boolean'
+      ? (ctx.canvas as unknown as { isConnected: boolean }).isConnected
+      : false;
   let rendered = 0;
   let failed = 0;
   let firstFailure: unknown;
   ctx.save();
   try {
     for (const primitive of list.commands) {
-      // A paint fault is isolated per primitive and never propagates:
-      // the same degrade-not-block rule as the semantic renderer.
+      paintTap?.(primitive, onScreen);
+      // A paint fault is isolated per primitive and never propagates: one
+      // bad primitive must not truncate the frame, and an exception
+      // escaping the paint path would leave the spread permanently "not
+      // ready" and wedge paging into it. The fault is recorded loudly
+      // instead; the canvas keeps everything else.
       const entryDepth = state.saveDepth;
       try {
         renderPrimitive(ctx, primitive, state);
@@ -81,6 +109,38 @@ export function renderReaderPrimitivesToCanvas(
       firstFailure,
     );
   }
+}
+
+/** Publish a paint fault for support diagnostics, keeping the last few. */
+export function recordRenderFailure(
+  error: unknown,
+  command: { readonly kind: string },
+  commandIndex: number,
+  totalCommands: number,
+): void {
+  const scope = globalThis as { __ritoRenderFailures?: unknown[] };
+  const failedCommand: unknown = (() => {
+    try {
+      return JSON.parse(
+        JSON.stringify(command, (_key, value: unknown) =>
+          typeof value === 'bigint' ? value.toString() : value,
+        ),
+      ) as unknown;
+    } catch {
+      return { kind: command.kind };
+    }
+  })();
+  scope.__ritoRenderFailures = [
+    ...(scope.__ritoRenderFailures ?? []).slice(-9),
+    {
+      message: String(error),
+      stack: error instanceof Error ? error.stack?.slice(0, 600) : undefined,
+      commandIndex,
+      totalCommands,
+      failedCommand,
+      at: new Date().toISOString(),
+    },
+  ];
 }
 
 function createRenderState(options: PrimitiveRenderOptions): RenderState {
@@ -184,8 +244,34 @@ function declareGround(primitive: FillPrimitive, state: RenderState): string {
   return color;
 }
 
-/** Text runs go to the semantic text painter with their lengths already in
- * device pixels. */
+/** The ground a run's ink was typeset against, when the book expressed
+ * one (R2): the run's own inline background, else the nearest opaque
+ * block background containing the run's rect, else the page ground R1
+ * kept for the book. Undefined means the theme supplies the ground. */
+function declaredGroundFor(
+  rect: DeviceRect,
+  paint: { readonly backgroundColor?: string },
+  state: DeclaredGrounds,
+): string | undefined {
+  const runBackground = paint.backgroundColor;
+  if (runBackground !== undefined && isOpaqueColor(runBackground)) return runBackground;
+  for (let index = state.blockGrounds.length - 1; index >= 0; index -= 1) {
+    const ground = state.blockGrounds[index];
+    if (
+      ground !== undefined &&
+      rect.x >= ground.rect.x &&
+      rect.y >= ground.rect.y &&
+      rect.x + rect.width <= ground.rect.x + ground.rect.width &&
+      rect.y + rect.height <= ground.rect.y + ground.rect.height
+    ) {
+      return ground.color;
+    }
+  }
+  return state.bookOwnedPageGround;
+}
+
+/** Text runs go to the text painter with their lengths already in device
+ * pixels. */
 function renderText(
   ctx: CanvasRenderingContext2D,
   primitive: TextPrimitive,
@@ -195,7 +281,13 @@ function renderText(
     const command = convertReaderTextV1(primitive);
     drawCanvasTextFragment(
       ctx,
-      { text: command.text, rect: command.rect, paint: command.paint },
+      {
+        text: command.text,
+        rect: command.rect,
+        paint: command.paint,
+        ...(command.alignRight === undefined ? {} : { alignRight: command.alignRight }),
+        ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
+      },
       state.colorOverride,
       declaredGroundFor(command.rect, command.paint, state),
     );
@@ -209,6 +301,7 @@ function renderText(
       rect: command.rect,
       paint: command.paint,
       ...(command.rubyAlign === undefined ? {} : { rubyAlign: command.rubyAlign }),
+      ...(command.vertical === undefined ? {} : { vertical: command.vertical }),
     },
     state.colorOverride,
     declaredGroundFor(command.rect, command.paint, state),

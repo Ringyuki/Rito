@@ -1,67 +1,26 @@
-// Decodes bytes the live Rust encoders wrote (tests/fixtures/*.hex, kept
-// in step by crates/rito-core's cross_language_wire_fixtures_match_the_encoders
+// Decodes bytes the live Rust encoder wrote (tests/fixtures/*.hex, kept in
+// step by crates/rito-core's cross_language_wire_fixture_matches_the_encoder
 // test). A hand-built fixture can agree with a stale reading of the wire;
 // these cannot.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { decodeRitoReaderDisplayListV1 } from '../src/reader-v1-display-decoder-runtime.js';
 import {
   READER_V1_PRIMITIVE_LIST_FORMAT_VERSION,
   decodeRitoReaderPrimitiveListV1,
 } from '../src/reader-v1-primitive-decoder-runtime.js';
 
-function fixture(name) {
-  const hex = readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8').trim();
+export function primitiveListFixture() {
+  const hex = readFileSync(
+    new URL('./fixtures/reader-v1-primitive-list.hex', import.meta.url),
+    'utf8',
+  ).trim();
   return Uint8Array.from(hex.match(/../g), (pair) => Number.parseInt(pair, 16));
 }
 
-test('decodes every display command the Rust encoder writes, optional tails included', () => {
-  const list = decodeRitoReaderDisplayListV1(fixture('reader-v1-display-list.hex'));
-  assert.equal(list.formatVersion, 1);
-  assert.equal(list.commandCount, 14);
-  assert.deepEqual(
-    list.commands.map((command) => command.opcode),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 9, 8],
-  );
-
-  const text = list.commands[12];
-  assert.equal(text.kind, 'paint-text');
-  assert.equal(text.text, 'run');
-  assert.deepEqual(text.rect, { x: 1.5, y: 2, width: 10, height: 20 });
-  assert.equal(text.paint.font.weight, 700);
-  assert.equal(text.paint.font.style, 'italic');
-  assert.equal(text.paint.backgroundColor.space, 'display-p3');
-  assert.equal(text.paint.decoration.kind, 'line-through');
-  assert.equal(text.paint.border.start.widthPx, 2);
-  assert.equal(text.paint.border.start.paint.style, 'dotted');
-  assert.deepEqual(text.paint.boxOffsets, { top: -2, bottom: 22 });
-  assert.equal(text.paint.boxStart, false);
-  assert.equal(text.paint.boxEnd, true);
-  assert.equal(text.lineHeightPx, 24);
-  assert.equal(text.href, '#note');
-  assert.equal(text.sourceTextOffset, 9n);
-  assert.equal(text.rubyAlign, 'center');
-
-  const block = list.commands[13];
-  assert.equal(block.kind, 'paint-block');
-  assert.deepEqual(block.paint.background.size, { x: { unit: 'px', value: 10 }, y: undefined });
-  assert.equal(block.paint.background.repeat, 'repeat-x');
-  assert.deepEqual(block.paint.background.position, {
-    x: { unit: 'percent', value: 50 },
-    y: { unit: 'px', value: 4 },
-  });
-  assert.equal(block.paint.border.left.style, 'double');
-  assert.deepEqual(block.paint.radius, { unit: 'corners', corners: [1, 2, 3, 4] });
-  assert.equal(block.paint.boxShadows.length, 2);
-  assert.equal(block.paint.boxShadows[0].inset, true);
-  assert.equal(block.paint.boxShadows[1].offsetX, -1);
-  assert.deepEqual(block.borderBox, { topWidth: 1, rightWidth: 2, bottomWidth: 3, leftWidth: 4 });
-});
-
 test('decodes every primitive the Rust encoder writes', () => {
-  const list = decodeRitoReaderPrimitiveListV1(fixture('reader-v1-primitive-list.hex'));
+  const list = decodeRitoReaderPrimitiveListV1(primitiveListFixture());
   assert.equal(list.formatVersion, READER_V1_PRIMITIVE_LIST_FORMAT_VERSION);
   assert.equal(list.ratio, 2);
   assert.equal(list.commandCount, 13);
@@ -130,24 +89,65 @@ test('decodes every primitive the Rust encoder writes', () => {
     columns: 2,
     rows: 3,
   });
-  const text = list.commands[11];
-  assert.equal(text.text, 'text');
-  assert.equal(text.paint.font.family, 'Rito Serif');
-  assert.equal(text.lineHeightPx, 37);
-  assert.equal(text.sourceTextOffset, 9n);
   assert.equal(list.commands[12].kind, 'ruby');
 });
 
-test('the primitive decoder rejects format 1, truncation and trailing bytes', () => {
-  const display = fixture('reader-v1-display-list.hex');
-  assert.throws(
-    () => decodeRitoReaderPrimitiveListV1(display),
-    /unsupported primitive list version: 1/,
+test('decodes every optional field of a text run, scaled to the device grid', () => {
+  // The fixture's run is lowered at ratio 2: every CSS length doubled.
+  const list = decodeRitoReaderPrimitiveListV1(primitiveListFixture());
+  const text = list.commands[11];
+  assert.equal(text.text, 'text');
+  assert.deepEqual(text.rect, { x: 0, y: 0, width: 40, height: 60 });
+  assert.deepEqual(text.paint.font, {
+    family: 'Rito Serif',
+    sizePx: 32,
+    weight: 700,
+    style: 'italic',
+  });
+  assert.equal(text.paint.color.space, 'srgb');
+  assert.equal(text.paint.wordSpacingPx, 2);
+  assert.equal(text.paint.letterSpacingPx, 1);
+  assert.equal(text.paint.backgroundColor.space, 'display-p3');
+  assert.equal(text.paint.backgroundColor.alpha, 0.5);
+  assert.equal(text.paint.backgroundRadius, 4);
+  assert.equal(text.paint.textShadows.length, 1);
+  assert.deepEqual(
+    [
+      text.paint.textShadows[0].offsetX,
+      text.paint.textShadows[0].offsetY,
+      text.paint.textShadows[0].blur,
+    ],
+    [2, 4, 6],
   );
-  const primitives = fixture('reader-v1-primitive-list.hex');
+  assert.equal(text.paint.decoration.kind, 'line-through');
+  assert.equal(text.paint.decoration.y, 36);
+  assert.equal(text.paint.decoration.thickness, 2);
+  assert.deepEqual(text.paint.padding, { top: 2, right: 4, bottom: 6, left: 8 });
+  assert.equal(text.paint.border.top.widthPx, 2);
+  assert.equal(text.paint.border.top.paint.style, 'solid');
+  assert.equal(text.paint.border.start.widthPx, 4);
+  assert.equal(text.paint.border.start.paint.style, 'dotted');
+  assert.equal(text.paint.border.bottom, undefined);
+  assert.equal(text.paint.border.end, undefined);
+  assert.deepEqual(text.paint.boxOffsets, { top: -4, bottom: 44 });
+  assert.equal(text.paint.boxStart, false);
+  assert.equal(text.paint.boxEnd, true);
+  assert.equal(text.lineHeightPx, 37);
+  assert.equal(text.href, '#note');
+  assert.equal(text.sourceText, 'source');
+  assert.equal(text.sourceTextOffset, 9n);
+  assert.equal(text.rubyAlign, 'center');
+  assert.equal(text.alignRight, true);
+  assert.equal(text.vertical, false);
+});
+
+test('the primitive decoder rejects format 1, truncation and trailing bytes', () => {
+  const primitives = primitiveListFixture();
+  const formatOne = Uint8Array.from(primitives);
+  new DataView(formatOne.buffer).setUint32(7, 1, true);
   assert.throws(
-    () => decodeRitoReaderDisplayListV1(primitives),
-    /unsupported display list version: 2/,
+    () => decodeRitoReaderPrimitiveListV1(formatOne),
+    /unsupported primitive list version: 1/,
   );
   for (const end of [0, 7, 11, 19, 23, 25, primitives.length - 1]) {
     assert.throws(() => decodeRitoReaderPrimitiveListV1(primitives.subarray(0, end)));

@@ -3,7 +3,7 @@ import {
   readerWireBytesV1,
   validateReaderWireMessageV1,
 } from './reader-v1-wire-base-runtime.js';
-import { decodeRitoReaderDisplayListV1 } from './reader-v1-display-decoder-runtime.js';
+import { decodeRitoReaderPrimitiveListV1 } from './reader-v1-primitive-decoder-runtime.js';
 
 const MAX_SEMANTIC_DEPTH = 64;
 const LOCATOR_MATCHES = ['source-range', 'source-point', 'anchor', 'progression', 'href'];
@@ -145,7 +145,7 @@ function readDisplayList(reader) {
   const semanticDigest = record.fixedBytes(32, 'display list digest');
   const wireBytes = record.blob('display list bytes');
   record.finish('display list');
-  const displayList = decodeRitoReaderDisplayListV1(wireBytes);
+  const displayList = decodeRitoReaderPrimitiveListV1(wireBytes);
   if (displayList.formatVersion !== formatVersion || displayList.commandCount !== commandCount) {
     reader.fail('display list metadata does not match RITODL1 bytes');
   }

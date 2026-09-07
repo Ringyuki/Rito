@@ -20,7 +20,8 @@ describe('browser reader frame decoding', () => {
       spreadIndex: 2,
       width: 800,
       height: 600,
-      commands: [paintPageCommand()],
+      ratio: 2,
+      commands: [pageGround()],
       commandHash: 'metadata-hash',
       resourceRefs: { images: ['images/cover.jpg'] },
       fontFamilies: ['BookFont'],
@@ -89,28 +90,30 @@ function createDecoder(
 function decodedFrameCommandBuffer(): DecodedRitoFrameCommandBuffer {
   return {
     protocolVersion: 2,
+    ratio: 2,
     commandCount: 1,
     commandCounts: { paintPage: 1 },
-    recordStats: {
-      geometryRecords: 1,
-      paintRecords: 0,
-      payloadRecords: 0,
-      primaryStringRecords: 0,
-      secondaryStringRecords: 0,
-    },
+    primitiveCount: 1,
     commandHash: 'decoded-hash',
     resourceRefCount: 1,
     resourceTable: ['images/cover.jpg'],
-    records: [],
-    commands: [paintPageCommand()],
+    commands: [pageGround()],
   };
 }
 
-function paintPageCommand(): DecodedRitoFrameCommandBuffer['commands'][number] {
+function pageGround(): DecodedRitoFrameCommandBuffer['commands'][number] {
   return {
-    kind: 'paintPage',
-    rect: { x: 0, y: 0, width: 800, height: 600 },
-    paint: {},
+    kind: 'fill-rect',
+    rect: { x: 0, y: 0, width: 1600, height: 1200 },
+    color: {
+      space: 'srgb',
+      component0: 1,
+      component1: 1,
+      component2: 1,
+      alpha: 1,
+      none: { component0: false, component1: false, component2: false, alpha: false },
+    },
+    ground: 'page',
   };
 }
 
@@ -125,24 +128,17 @@ function frameBuffer(input: {
       width: 800,
       height: 600,
       protocolVersion: 2,
+      ratio: 2,
       commandCount: 1,
       commandCounts: { paintPage: 1 },
-      recordStats: {
-        geometryRecords: 1,
-        paintRecords: 0,
-        payloadRecords: 0,
-        primaryStringRecords: 0,
-        secondaryStringRecords: 0,
-      },
-      byteLength: 16,
+      primitiveCount: 1,
+      byteLength: 23,
       commandHash: 'metadata-hash',
       resourceRefCount: 1,
       resourceTable: ['images/cover.jpg'],
       fontFamilies: ['BookFont'],
       imageDominated: true,
-      stringTable: [],
-      payloadTable: [],
     },
-    bytes: new Uint8Array(16),
+    bytes: new Uint8Array(23),
   };
 }

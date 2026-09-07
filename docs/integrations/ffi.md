@@ -57,19 +57,24 @@ commit as any engine-side encoding change. When you bump your pinned
 commit, diff that directory (and `render/commands/reader_wire_v1/` on
 the Rust side) against your bridge.
 
-`RITODL1` has two format versions. Format 1 is the semantic display
-list every current artifact carries. Format 2 is the device-resolved
-primitive list the engine lowers it to: the header carries the render
-ratio (u32 format version, f64 ratio, u32 primitive count), every
-coordinate is a device pixel, and the opcodes are fills, paths, clips,
-strokes, shadows and images plus pass-through text runs and blocks.
-The Rust encoder for format 2 (`reader_wire_v1/encode/lowered.rs`) and
-the Dart decoder (`protocol/primitive_decoder.dart`) are the reference;
-`packages/rito-core-wasm/tests/fixtures/*.hex` hold bytes the live
-encoders wrote for one of every shape, and a Rust test keeps them in
-step. A decoder pinned to format 1 rejects format 2 by its version
-field. Artifacts keep carrying format 1 until the engine's paint
-switches over.
+`RITODL1` is written at format version 2 only: the device-resolved
+primitive list the engine lowers every frame to. The header carries the
+render ratio (u32 format version, f64 ratio, u32 primitive count), every
+coordinate is a device pixel on the grid the host rasterizes, and the
+opcodes are state, transforms, clips, fills, strokes, shadows and images
+plus text and ruby runs whose lengths are already device pixels. Every
+raster decision for blocks — border bands and dash cadences, rounded
+rings, box shadows, background sizing and tiling — is resolved in the
+engine; a host blits paths and draws images, and lays out text runs.
+The Rust encoder (`reader_wire_v1/encode/lowered.rs`) and the Dart
+decoder (`protocol/primitive_decoder.dart`) are the reference;
+`packages/rito-core-wasm/tests/fixtures/reader-v1-primitive-list.hex`
+holds bytes the live encoder wrote for one of every primitive, and a
+Rust test keeps it in step. Format 1, the semantic display list, is no
+longer written; a decoder rejects it by its version field. The same
+bytes back the reader worker's frame command buffer, whose metadata
+carries the ratio and primitive count beside the semantic frame's
+command count, kind counts and hash.
 
 Wire changes landed with the paint-geometry lowering (reader protocol
 version 3, rito_flutter 0.3.0 era):

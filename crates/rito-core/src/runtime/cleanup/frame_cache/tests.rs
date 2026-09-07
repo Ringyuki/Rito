@@ -17,8 +17,10 @@ type FrameFactory = fn(usize) -> RuntimeCachedFrame;
 #[test]
 fn synthetic_cached_frames_have_exact_q1_costs() {
     for count in [0, 3, WIDE_OWNER_COUNT] {
-        let materialized_expected = 13 + count * 3;
-        let packed_expected = 8 + count * 2;
+        // The command buffer's bytes are one unit whatever their length;
+        // only the materialized JSON commands scale with the count.
+        let materialized_expected = 11 + count;
+        let packed_expected = 6;
 
         assert_eq!(
             drive_cached_q1(
@@ -98,8 +100,8 @@ fn frame_cache_composes_nested_frame_costs_exactly() {
     let mut cleanup = PendingRuntimeFrameCacheCleanup::new(frame_cache_owner(frames));
 
     // 3 cache-shell units plus one retirement unit after each nested cost:
-    // cached(0) = 13, packed(3) = 14, cached(127) = 394.
-    assert_eq!(drive_cache_q1(&mut cleanup, 427), 427);
+    // cached(0) = 11, packed(3) = 6, cached(127) = 138.
+    assert_eq!(drive_cache_q1(&mut cleanup, 161), 161);
 }
 
 #[test]
@@ -117,7 +119,7 @@ fn parent_cache_keeps_active_owner_until_nested_completion_and_retires_it_separa
     assert_eq!(cleanup.pending_frame_owner_count(), 1);
     assert!(cleanup.frame.is_some());
 
-    for _ in 1..6 {
+    for _ in 1..4 {
         assert_cache_one(&mut cleanup);
         assert_eq!(cleanup.pending_frame_owner_count(), 1);
     }
@@ -177,15 +179,13 @@ fn immediate_and_panic_unwind_drops_drain_the_parent_cache() {
     assert!(result.is_err());
 }
 
-fn frame_factories() -> [(FrameFactory, usize); 7] {
+fn frame_factories() -> [(FrameFactory, usize); 5] {
     [
-        (legacy_commands_frame, 11),
-        (legacy_resource_images_frame, 11),
-        (legacy_font_families_frame, 11),
-        (packed_resource_table_frame, 7),
-        (packed_font_families_frame, 7),
-        (packed_string_table_frame, 7),
-        (packed_payload_table_frame, 7),
+        (legacy_commands_frame, 9),
+        (legacy_resource_images_frame, 9),
+        (legacy_font_families_frame, 9),
+        (packed_resource_table_frame, 5),
+        (packed_font_families_frame, 5),
     ]
 }
 
@@ -232,18 +232,6 @@ fn packed_font_families_frame(count: usize) -> RuntimeCachedFrame {
     frame
 }
 
-fn packed_string_table_frame(count: usize) -> RuntimeCachedFrame {
-    let mut frame = stripped_packed_frame(0);
-    frame.command_buffer.metadata.string_table = strings("packed-string", count);
-    frame
-}
-
-fn packed_payload_table_frame(count: usize) -> RuntimeCachedFrame {
-    let mut frame = stripped_packed_frame(0);
-    frame.command_buffer.metadata.payload_table = strings("packed-payload", count);
-    frame
-}
-
 fn stripped_materialized_frame(spread_index: usize) -> RuntimeCachedFrame {
     let mut frame = cached_frame(spread_index, 0);
     let legacy = frame
@@ -267,8 +255,6 @@ fn strip_packed_tables(frame: &mut RuntimeCachedFrame) {
     let metadata = &mut frame.command_buffer.metadata;
     metadata.resource_table.clear();
     metadata.font_families.clear();
-    metadata.string_table.clear();
-    metadata.payload_table.clear();
     frame.command_buffer.bytes.clear();
 }
 

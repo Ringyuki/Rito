@@ -9,7 +9,11 @@ final class _ImageDecodeDimensions {
   int get pixels => width * height;
 }
 
-/// Image paint requirements collected from one immutable display list.
+/// The decode target every image in a primitive list needs: each draw
+/// names the device rect it lands in (a tiled draw, its tile), so the
+/// scale a bitmap is decoded at follows from that rect and the device
+/// transforms in force — no pixel ratio applies, the list is already on
+/// the device grid.
 final class _ImageTargetPlan {
   _ImageTargetPlan._(this._usesByHref);
 
@@ -48,23 +52,14 @@ final class _ImageTargetPlan {
     );
   }
 
-  static _ImageTargetPlan collect(
-    RitoArtifact artifact, {
-    required double pixelRatio,
-  }) {
-    if (!pixelRatio.isFinite || pixelRatio <= 0) {
-      throw ArgumentError.value(pixelRatio, 'pixelRatio', 'must be positive');
-    }
-    final collector = _RitoImageTargetCollector(pixelRatio);
+  static _ImageTargetPlan collect(RitoArtifact artifact) {
+    final collector = _RitoImageTargetCollector();
     collector.collect(artifact.displayList.displayList);
     return _ImageTargetPlan._(collector.usesByHref);
   }
 }
 
 final class _RitoImageTargetCollector {
-  _RitoImageTargetCollector(this.pixelRatio);
-
-  final double pixelRatio;
   final Map<String, List<_RitoImageUse>> usesByHref =
       <String, List<_RitoImageUse>>{};
   final List<_RitoLinearTransform> _stack = <_RitoLinearTransform>[
@@ -73,25 +68,23 @@ final class _RitoImageTargetCollector {
 
   _RitoLinearTransform get _transform => _stack.last;
 
-  void collect(RitoDisplayList displayList) {
-    for (final command in displayList.commands) {
-      switch (command) {
-        case RitoPushState():
+  void collect(RitoPrimitiveList list) {
+    for (final primitive in list.commands) {
+      switch (primitive) {
+        case RitoPrimitivePushState():
           _stack.add(_transform);
-        case RitoPopState():
+        case RitoPrimitivePopState():
           if (_stack.length == 1) {
             throw const FormatException('Display list restore is unbalanced.');
           }
           _stack.removeLast();
-        case RitoTranslate(:final dx, :final dy):
+        case RitoPrimitiveTranslate(:final dx, :final dy):
           _requireFinite(dx, 'translation x');
           _requireFinite(dy, 'translation y');
-        case RitoTransform():
-          _applyTransform(command);
-        case RitoPaintImage():
-          _addDirect(command.src, command.rect);
-        case RitoPaintBlock():
-          _addBackground(command);
+        case RitoPrimitiveTransform():
+          _applyTransform(primitive);
+        case RitoPrimitiveDrawImage():
+          _addDraw(primitive.src, primitive.dest);
         default:
           break;
       }
@@ -101,58 +94,35 @@ final class _RitoImageTargetCollector {
     }
   }
 
-  void _applyTransform(RitoTransform command) {
-    _requireFinite(command.origin.x, 'transform origin x');
-    _requireFinite(command.origin.y, 'transform origin y');
-    _requireFinite(command.boxSize.width, 'transform box width');
-    _requireFinite(command.boxSize.height, 'transform box height');
+  void _applyTransform(RitoPrimitiveTransform primitive) {
+    _requireFinite(primitive.origin.x, 'transform origin x');
+    _requireFinite(primitive.origin.y, 'transform origin y');
     var next = _transform;
-    for (final operation in command.transforms) {
+    for (final operation in primitive.transforms) {
       switch (operation) {
-        case RitoRotateTransform(:final radians):
+        case RitoDeviceRotate(:final radians):
           _requireFinite(radians, 'rotation');
           next = next.rotate(radians);
-        case RitoScaleTransform(:final sx, :final sy):
+        case RitoDeviceScale(:final sx, :final sy):
           _requireFinite(sx, 'scale x');
           _requireFinite(sy, 'scale y');
           next = next.scale(sx, sy);
-        case RitoTranslateTransform(:final x, :final y):
-          _validateLength(x, command.boxSize.width);
-          _validateLength(y, command.boxSize.height);
+        case RitoDeviceTranslate(:final dx, :final dy):
+          _requireFinite(dx, 'transform translation x');
+          _requireFinite(dy, 'transform translation y');
       }
     }
     _stack[_stack.length - 1] = next;
   }
 
-  void _addDirect(String href, RitoDisplayRect rect) {
+  void _addDraw(String href, RitoDisplayRect dest) {
     _requireHref(href);
-    _requireRect(rect, href);
+    _requireRect(dest, href);
     _add(
       href,
-      _RitoDirectImageUse(
-        targetWidth: rect.width * _transform.xScale * pixelRatio,
-        targetHeight: rect.height * _transform.yScale * pixelRatio,
-      ),
-    );
-  }
-
-  void _addBackground(RitoPaintBlock command) {
-    final background = command.paint.background;
-    final href = background?.image;
-    if (background == null || href == null) {
-      return;
-    }
-    _requireHref(href);
-    _requireRect(command.rect, href);
-    _add(
-      href,
-      _RitoBackgroundImageUse(
-        boxWidth: command.rect.width,
-        boxHeight: command.rect.height,
-        physicalScaleX: _transform.xScale * pixelRatio,
-        physicalScaleY: _transform.yScale * pixelRatio,
-        size: background.size ?? RitoBackgroundSize.auto,
-        repeat: background.repeat ?? RitoBackgroundRepeat.repeat,
+      _RitoImageUse(
+        targetWidth: dest.width * _transform.xScale,
+        targetHeight: dest.height * _transform.yScale,
       ),
     );
   }
@@ -176,11 +146,6 @@ final class _RitoImageTargetCollector {
     }
   }
 
-  void _validateLength(RitoLength length, double basis) {
-    _requireFinite(length.value, 'transform translation');
-    _requireFinite(basis, 'transform translation basis');
-  }
-
   void _requireFinite(double value, String field) {
     if (!value.isFinite) {
       throw FormatException('Display list $field is not finite.');
@@ -188,93 +153,17 @@ final class _RitoImageTargetCollector {
   }
 }
 
-sealed class _RitoImageUse {
-  const _RitoImageUse();
-
-  double decodeScale(int sourceWidth, int sourceHeight);
-}
-
-final class _RitoDirectImageUse extends _RitoImageUse {
-  const _RitoDirectImageUse({
-    required this.targetWidth,
-    required this.targetHeight,
-  });
+final class _RitoImageUse {
+  const _RitoImageUse({required this.targetWidth, required this.targetHeight});
 
   final double targetWidth;
   final double targetHeight;
 
-  @override
   double decodeScale(int sourceWidth, int sourceHeight) {
-    // drawImageRect may stretch either axis. Preserve source aspect ratio while
-    // retaining enough decoded samples for the more demanding destination axis.
+    // drawImageRect may stretch either axis. Preserve source aspect ratio
+    // while retaining enough decoded samples for the more demanding
+    // destination axis.
     return math.max(targetWidth / sourceWidth, targetHeight / sourceHeight);
-  }
-}
-
-final class _RitoBackgroundImageUse extends _RitoImageUse {
-  const _RitoBackgroundImageUse({
-    required this.boxWidth,
-    required this.boxHeight,
-    required this.physicalScaleX,
-    required this.physicalScaleY,
-    required this.size,
-    required this.repeat,
-  });
-
-  final double boxWidth;
-  final double boxHeight;
-  final double physicalScaleX;
-  final double physicalScaleY;
-  final RitoBackgroundSize size;
-  final RitoBackgroundRepeat repeat;
-
-  @override
-  double decodeScale(int sourceWidth, int sourceHeight) {
-    if (size == RitoBackgroundSize.auto) {
-      // Flutter paints the decoded image's dimensions as the CSS intrinsic
-      // tile size. Downsampling here would change background geometry, not
-      // merely raster quality, so auto must retain the source dimensions.
-      return 1;
-    }
-    var width = sourceWidth.toDouble();
-    var height = sourceHeight.toDouble();
-    if (size.isExplicit) {
-      // CSS Backgrounds 3 §3.9: a length axis resolves against the
-      // positioning area, an auto axis derives from the intrinsic ratio
-      // once the other axis resolves.
-      final x = switch (size.x) {
-        null => null,
-        RitoPxLength(:final value) => value,
-        RitoPercentLength(:final value) => boxWidth * value / 100,
-      };
-      final y = switch (size.y) {
-        null => null,
-        RitoPxLength(:final value) => value,
-        RitoPercentLength(:final value) => boxHeight * value / 100,
-      };
-      final intrinsicWidth = width;
-      final intrinsicHeight = height;
-      width = x ?? (y == null ? width : y * intrinsicWidth / intrinsicHeight);
-      height = y ?? (x == null ? height : x * intrinsicHeight / intrinsicWidth);
-    } else {
-      final widthScale = boxWidth / sourceWidth;
-      final heightScale = boxHeight / sourceHeight;
-      final cssScale = size == RitoBackgroundSize.cover
-          ? math.max(widthScale, heightScale)
-          : math.min(widthScale, heightScale);
-      width *= cssScale;
-      height *= cssScale;
-    }
-    if (repeat == RitoBackgroundRepeat.round) {
-      width = boxWidth / math.max(1, (boxWidth / width).round());
-      height = boxHeight / math.max(1, (boxHeight / height).round());
-    }
-    // Non-uniform transforms may stretch one tile axis more than the other.
-    // The decode remains aspect preserving, so cover the larger sampling need.
-    return math.max(
-      width * physicalScaleX / sourceWidth,
-      height * physicalScaleY / sourceHeight,
-    );
   }
 }
 

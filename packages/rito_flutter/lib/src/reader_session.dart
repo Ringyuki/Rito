@@ -1188,7 +1188,6 @@ final class RitoReaderSession {
         imageLease = await imageCache.prepare(
           artifact: artifact,
           readResource: (reference) => _readOwnedResource(artifact, reference),
-          pixelRatio: _imagePixelRatio,
         );
         prepared = RitoPreparedArtifact.withImageLease(
           fontPrepared: prepared,

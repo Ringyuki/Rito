@@ -1,7 +1,8 @@
-import type { CoreFrameCommand } from './core-contracts';
-import { renderFrameCommandsToCanvas, type CanvasRenderingTarget } from './frame-command-renderer';
+import type { CoreReaderPrimitiveList } from './core-contracts';
+import { renderReaderPrimitivesToCanvas, type CanvasRenderingTarget } from './primitive-renderer';
 import type { BrowserReaderArtifactV1, BrowserReaderV1Session } from './reader-v1';
-import { convertReaderDisplayCommandsV1 } from './reader-v1-canvas-converter';
+import { convertReaderRubyV1, convertReaderTextV1 } from './reader-v1-canvas-converter';
+import { BrowserReaderCanvasUnsupportedErrorV1 } from './reader-v1-canvas-error';
 import {
   BrowserReaderCanvasResourceOwnerV1,
   type BrowserReaderCanvasArtifactResourcesV1,
@@ -11,14 +12,7 @@ export { BrowserReaderCanvasUnsupportedErrorV1 } from './reader-v1-canvas-error'
 
 export type BrowserReaderCanvasTargetV1 = CanvasRenderingTarget;
 
-export interface BrowserReaderCanvasPrepareOptionsV1 {
-  /** Physical output pixels per Reader v1 layout pixel. Defaults to one. */
-  readonly pixelRatio?: number | undefined;
-}
-
 export interface BrowserReaderCanvasPaintOptionsV1 {
-  /** Must match the ratio used to prepare the artifact, when provided. */
-  readonly pixelRatio?: number | undefined;
   readonly foregroundColor?: string | undefined;
   readonly backgroundColor?: string | undefined;
   readonly clear?: boolean | undefined;
@@ -26,6 +20,14 @@ export interface BrowserReaderCanvasPaintOptionsV1 {
 
 export interface BrowserReaderPreparedCanvasArtifactV1 {
   readonly artifact: BrowserReaderArtifactV1;
+  /**
+   * Device pixels per CSS pixel the artifact's paint is resolved at (the
+   * `renderRatio` of the request that produced it). The target canvas
+   * must be sized on that grid: `round(width × ratio)` by
+   * `round(height × ratio)` device pixels, painted with an identity
+   * transform.
+   */
+  readonly ratio: number;
   readonly disposed: boolean;
   /** Releases only browser-side decoded resources, never the Core artifact. */
   dispose(): void;
@@ -38,10 +40,7 @@ export interface BrowserReaderCanvasPresenterV1 {
    * session.adoptForegroundCandidate, and only paint after that ACK succeeds.
    * A preparation failure must release the Core candidate without adopting it.
    */
-  prepare(
-    artifact: BrowserReaderArtifactV1,
-    options?: BrowserReaderCanvasPrepareOptionsV1,
-  ): Promise<BrowserReaderPreparedCanvasArtifactV1>;
+  prepare(artifact: BrowserReaderArtifactV1): Promise<BrowserReaderPreparedCanvasArtifactV1>;
   /** Paints a prepared artifact only after the host has received its adoption ACK. */
   paint(
     prepared: BrowserReaderPreparedCanvasArtifactV1,
@@ -68,24 +67,19 @@ class CanvasPresenter implements BrowserReaderCanvasPresenterV1 {
     this.resources = new BrowserReaderCanvasResourceOwnerV1(session);
   }
 
-  async prepare(
-    artifact: BrowserReaderArtifactV1,
-    options: BrowserReaderCanvasPrepareOptionsV1 = {},
-  ): Promise<BrowserReaderPreparedCanvasArtifactV1> {
+  async prepare(artifact: BrowserReaderArtifactV1): Promise<BrowserReaderPreparedCanvasArtifactV1> {
     this.assertOpen();
-    const pixelRatio = normalizePixelRatio(options.pixelRatio);
-    const commands = convertReaderDisplayCommandsV1(artifact.displayList.displayList.commands);
-    const resources = await this.resources.prepare(artifact, commands, pixelRatio);
+    const list = artifact.displayList.displayList;
+    // Everything the paint cannot express fails here, before any resource
+    // is loaded or a wrong frame committed; the paint itself then only
+    // blits what the engine resolved.
+    validateReaderPrimitivesV1(list);
+    const resources = await this.resources.prepare(artifact, list);
     try {
-      assertRequiredImages(commands, resources);
+      assertRequiredImages(list, resources);
       this.assertOpen();
-      const prepared = new PreparedCanvasArtifact(
-        this.owner,
-        artifact,
-        pixelRatio,
-        commands,
-        resources,
-        (value) => this.prepared.delete(value),
+      const prepared = new PreparedCanvasArtifact(this.owner, artifact, list, resources, (value) =>
+        this.prepared.delete(value),
       );
       this.prepared.add(prepared);
       return prepared;
@@ -102,13 +96,8 @@ class CanvasPresenter implements BrowserReaderCanvasPresenterV1 {
   ): void {
     this.assertOpen();
     const owned = requirePreparedArtifact(prepared, this.owner);
-    const pixelRatio = options.pixelRatio ?? owned.pixelRatio;
-    if (pixelRatio !== owned.pixelRatio) {
-      throw new Error('Reader v1 Canvas paint pixelRatio must match artifact preparation.');
-    }
     if (options.clear !== false) clearTarget(target);
-    renderFrameCommandsToCanvas(owned.commands, target, {
-      pixelRatio,
+    renderReaderPrimitivesToCanvas(owned.list, target, {
       ...(options.foregroundColor === undefined
         ? {}
         : { foregroundColor: options.foregroundColor }),
@@ -149,11 +138,14 @@ class PreparedCanvasArtifact implements BrowserReaderPreparedCanvasArtifactV1 {
   constructor(
     readonly owner: symbol,
     readonly artifact: BrowserReaderArtifactV1,
-    readonly pixelRatio: number,
-    readonly commands: readonly CoreFrameCommand[],
+    readonly list: CoreReaderPrimitiveList,
     readonly resources: BrowserReaderCanvasArtifactResourcesV1,
     private readonly onDispose: (value: PreparedCanvasArtifact) => void,
   ) {}
+
+  get ratio(): number {
+    return this.list.ratio;
+  }
 
   dispose(): void {
     if (this.disposed) return;
@@ -163,6 +155,27 @@ class PreparedCanvasArtifact implements BrowserReaderPreparedCanvasArtifactV1 {
     } finally {
       this.onDispose(this);
     }
+  }
+}
+
+/** Rejects a list the paint cannot express: an unbalanced state stack, or
+ * a text run whose colour space or border style the canvas has no
+ * spelling for. */
+function validateReaderPrimitivesV1(list: CoreReaderPrimitiveList): void {
+  let stateDepth = 0;
+  for (const primitive of list.commands) {
+    if (primitive.kind === 'push-state') stateDepth += 1;
+    if (primitive.kind === 'pop-state') {
+      if (stateDepth === 0) {
+        throw new BrowserReaderCanvasUnsupportedErrorV1('display-state:unmatched-pop');
+      }
+      stateDepth -= 1;
+    }
+    if (primitive.kind === 'text') convertReaderTextV1(primitive);
+    if (primitive.kind === 'ruby') convertReaderRubyV1(primitive);
+  }
+  if (stateDepth !== 0) {
+    throw new BrowserReaderCanvasUnsupportedErrorV1('display-state:unclosed-push');
   }
 }
 
@@ -178,28 +191,14 @@ function requirePreparedArtifact(
 }
 
 function assertRequiredImages(
-  commands: readonly CoreFrameCommand[],
+  list: CoreReaderPrimitiveList,
   resources: BrowserReaderCanvasArtifactResourcesV1,
 ): void {
-  for (const command of commands) {
-    const href =
-      command.kind === 'paintImage'
-        ? command.src
-        : command.kind === 'paintBlock'
-          ? command.paint.background?.image
-          : undefined;
-    if (href !== undefined && !resources.hasImage(href)) {
-      throw new Error(`Reader v1 artifact omitted required image resource ${href}.`);
+  for (const primitive of list.commands) {
+    if (primitive.kind === 'draw-image' && !resources.hasImage(primitive.src)) {
+      throw new Error(`Reader v1 artifact omitted required image resource ${primitive.src}.`);
     }
   }
-}
-
-function normalizePixelRatio(value: number | undefined): number {
-  const pixelRatio = value ?? 1;
-  if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) {
-    throw new RangeError('Reader v1 Canvas pixelRatio must be positive and finite.');
-  }
-  return pixelRatio;
 }
 
 function clearTarget(target: BrowserReaderCanvasTargetV1): void {

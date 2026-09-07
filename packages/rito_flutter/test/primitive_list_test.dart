@@ -1,7 +1,7 @@
-// Decodes and replays bytes the live Rust encoders wrote
-// (packages/rito-core-wasm/tests/fixtures/*.hex, kept in step by
-// crates/rito-core's cross_language_wire_fixtures_match_the_encoders
-// test). A hand-built fixture can agree with a stale reading of the wire;
+// Decodes and replays bytes the live Rust encoder wrote
+// (packages/rito-core-wasm/tests/fixtures/reader-v1-primitive-list.hex,
+// kept in step by crates/rito-core's
+// cross_language_wire_fixture_matches_the_encoder test). A hand-built fixture can agree with a stale reading of the wire;
 // these cannot.
 import 'dart:io';
 import 'dart:typed_data';
@@ -26,33 +26,37 @@ Uint8List _fixture(String name) {
 }
 
 void main() {
-  test('the display decoder reads every optional tail the encoder writes', () {
-    final display = const RitoDisplayListDecoder().decode(
-      _fixture('reader-v1-display-list.hex'),
+  test('the decoder reads every optional tail the encoder writes', () {
+    // The fixture's run is lowered at ratio 2: every CSS length doubled.
+    final list = const RitoPrimitiveListDecoder().decode(
+      _fixture('reader-v1-primitive-list.hex'),
     );
-    expect(display.commandCount, 14);
-    final text = display.commands[12] as RitoPaintText;
-    expect(text.paint.boxTopPx, -2);
-    expect(text.paint.boxBottomPx, 22);
+    final text = (list.commands[11] as RitoPrimitiveText).command;
+    expect(text.paint.font.sizePx, 32);
+    expect(text.paint.font.style, RitoFontStyle.italic);
+    expect(text.paint.wordSpacingPx, 2);
+    expect(text.paint.letterSpacingPx, 1);
+    expect(text.paint.backgroundColor?.space, RitoColorSpace.displayP3);
+    expect(text.paint.backgroundRadius, 4);
+    expect(text.paint.textShadows.single.blur, 6);
+    expect(text.paint.decoration?.kind, RitoRunDecorationKind.lineThrough);
+    expect(text.paint.decoration?.y, 36);
+    expect(text.paint.padding?.left, 8);
+    expect(text.paint.border?.top?.widthPx, 2);
+    expect(text.paint.border?.start?.widthPx, 4);
+    expect(text.paint.border?.start?.paint.style, RitoBorderStyle.dotted);
+    expect(text.paint.border?.bottom, isNull);
+    expect(text.paint.boxTopPx, -4);
+    expect(text.paint.boxBottomPx, 44);
     expect(text.paint.boxStart, isFalse);
     expect(text.paint.boxEnd, isTrue);
-    expect(text.paint.border?.start?.widthPx, 2);
+    expect(text.lineHeightPx, 37);
+    expect(text.href, '#note');
+    expect(text.sourceText, 'source');
     expect(text.sourceTextOffset, 9);
     expect(text.rubyAlign, 'center');
-    final block = display.commands[13] as RitoPaintBlock;
-    final size = block.paint.background?.size;
-    expect(size?.isExplicit, isTrue);
-    expect(size?.x?.value, 10);
-    expect(size?.y, isNull);
-    expect(block.paint.background?.repeat, RitoBackgroundRepeat.repeatX);
-    expect((block.paint.radius! as RitoBlockCornersRadius).corners, <double>[
-      1,
-      2,
-      3,
-      4,
-    ]);
-    expect(block.paint.boxShadows.first.inset, isTrue);
-    expect(block.borderBox?.leftWidth, 4);
+    expect(text.alignRight, isTrue);
+    expect(text.vertical, isFalse);
   });
 
   test('decodes every primitive the Rust encoder writes', () {
@@ -112,11 +116,10 @@ void main() {
 
   test('rejects format 1, every truncated prefix and trailing bytes', () {
     const decoder = RitoPrimitiveListDecoder();
-    expect(
-      () => decoder.decode(_fixture('reader-v1-display-list.hex')),
-      throwsA(isA<RitoWireException>()),
-    );
     final fixture = _fixture('reader-v1-primitive-list.hex');
+    final formatOne = Uint8List.fromList(fixture)
+      ..setRange(7, 11, <int>[1, 0, 0, 0]);
+    expect(() => decoder.decode(formatOne), throwsA(isA<RitoWireException>()));
     for (var end = 0; end < fixture.length; end += 1) {
       expect(
         () => decoder.decode(Uint8List.sublistView(fixture, 0, end)),

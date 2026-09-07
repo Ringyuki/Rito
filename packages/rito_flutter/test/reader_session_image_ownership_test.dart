@@ -13,13 +13,13 @@ void main() {
     final first = imageArtifact(
       artifactId: 7001,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href, width: 100, height: 50)],
+      commands: <RitoPrimitive>[directImage(href, width: 100, height: 50)],
     );
     final next = imageArtifact(
       artifactId: 7002,
       requestId: 13,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href, width: 100, height: 50)],
+      commands: <RitoPrimitive>[directImage(href, width: 100, height: 50)],
     );
     final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
     final gateway = _ImageGateway(
@@ -83,13 +83,13 @@ void main() {
       final first = imageArtifact(
         artifactId: 7001,
         hrefs: const <String>[firstHref],
-        commands: <RitoCommand>[directImage(firstHref)],
+        commands: <RitoPrimitive>[directImage(firstHref)],
       );
       final next = imageArtifact(
         artifactId: 7002,
         requestId: 13,
         hrefs: const <String>[nextHref],
-        commands: <RitoCommand>[directImage(nextHref)],
+        commands: <RitoPrimitive>[directImage(nextHref)],
       );
       final decoder = TestImageDecoder(const <TestImageSpec>[
         firstSpec,

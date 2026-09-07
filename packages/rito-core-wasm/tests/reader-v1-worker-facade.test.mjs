@@ -6,7 +6,7 @@ import {
   decodeRitoReaderArtifactV1,
   decodeRitoReaderResourceV1,
 } from '../src/reader-v1-artifact-decoder-runtime.js';
-import { decodeRitoReaderDisplayListV1 } from '../src/reader-v1-display-decoder-runtime.js';
+import { decodeRitoReaderPrimitiveListV1 } from '../src/reader-v1-primitive-decoder-runtime.js';
 import {
   decodeRitoReaderForegroundHandoffAckV1,
   encodeRitoReaderForegroundHandoffV1,
@@ -1761,12 +1761,9 @@ test('client coalesces concurrent releases of the same live artifact', async () 
   await disposing;
 });
 
-test('typed decoders reject unknown RITODL1 commands and artifact metadata mismatches', () => {
+test('typed decoders reject unknown RITODL1 primitives and artifact metadata mismatches', () => {
   const invalidDisplay = displayWire(1, (writer) => writer.u16(99, 'opcode'));
-  assert.throws(
-    () => decodeRitoReaderDisplayListV1(invalidDisplay),
-    /unknown display command opcode/,
-  );
+  assert.throws(() => decodeRitoReaderPrimitiveListV1(invalidDisplay), /unknown primitive opcode/);
 
   const mismatched = artifactWire(1n, 1n, 1n, 'Text/Section001.xhtml', {
     displayCommandCount: 1,
@@ -1857,7 +1854,7 @@ function artifactWire(sessionId, requestId, artifactId, href, options = {}) {
   writer.u32(0, 'text profile');
   writer.record((record) => {
     const display = displayWire(0);
-    record.u32(1, 'display version');
+    record.u32(2, 'display version');
     record.u32(options.displayCommandCount ?? 0, 'display commands');
     record.u32(32, 'digest length');
     record.raw(new Uint8Array(32));
@@ -1902,7 +1899,8 @@ function publicationWire(sessionId) {
 function displayWire(count, write = () => undefined) {
   const writer = new ReaderWireWriterV1();
   writer.raw(new TextEncoder().encode('RITODL1'));
-  writer.u32(1, 'display version');
+  writer.u32(2, 'display version');
+  writer.f64(1, 'display ratio');
   writer.count(count, 'display commands');
   write(writer);
   return Uint8Array.from(writer.bytes);

@@ -48,6 +48,7 @@ describe('Browser bounded locator mutation coordinator', () => {
       spreadIndex: 2,
       width: 800,
       height: 600,
+      ratio: 1,
       commands: [],
       commandHash: 'cached-same-revision-frame',
       resourceRefs: { images: ['same-revision-cover.png'] },

@@ -28,6 +28,8 @@ export type {
   RitoCoreWasmFootnotes as CoreFootnotes,
   RitoCoreWasmFrameCommand as CoreFrameCommand,
   RitoCoreWasmFrameCommandBufferMetadata as CoreFrameCommandBufferMetadata,
+  RitoReaderPrimitiveListV1 as CoreReaderPrimitiveList,
+  RitoReaderPrimitiveV1 as CoreReaderPrimitive,
   RitoCoreWasmFrameResourceWarmPlan as CoreFrameResourceWarmPlan,
   RitoCoreWasmJsonObject as CoreJsonObject,
   RitoCoreWasmLayoutConfig as CoreLayoutConfig,

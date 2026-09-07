@@ -7,21 +7,21 @@ use rito_style_contract::{InlineStyleTableV1, LayoutStyleTableV1};
 use serde_json::{Number, Value};
 
 use crate::{
-    epub::{EpubError, EpubResult},
+    epub::{EpubError, EpubResult, LoadedEpubDocument},
     interaction::{FootnoteEntry, FootnoteTargetSet},
     layout::{BuiltLayout, LayoutConfig},
     render::{
-        count_display_commands, display_command_values, hash_display_commands,
-        pack_display_commands, summarize_display_list_font_families,
-        summarize_display_list_resource_refs, PackedDisplayCommandBufferMetadata,
+        count_display_commands, display_command_values, encode_reader_primitive_list_v1,
+        hash_display_commands, lower_display_commands, summarize_display_list_font_families,
+        summarize_display_list_resource_refs, DisplayCommand, ImageSize,
     },
 };
 
 use super::{
-    page_artifact::PageArtifactFrame, RuntimeChapterTextIndex, RuntimeDocument, RuntimeFrame,
-    RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata, RuntimeInitialFrameDecision,
-    RuntimeInitialFrameRequest, RuntimePrefetchRequest, RuntimePrefetchResponse,
-    RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeRevisionSummary,
+    page_artifact::PageArtifactFrame, resource::find_image_size, RuntimeChapterTextIndex,
+    RuntimeDocument, RuntimeFrame, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
+    RuntimeInitialFrameDecision, RuntimeInitialFrameRequest, RuntimePrefetchRequest,
+    RuntimePrefetchResponse, RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeRevisionSummary,
 };
 
 pub(super) const FRAME_CACHE_CAPACITY: usize = 12;
@@ -110,7 +110,7 @@ pub(super) enum RuntimeChapterTextIndexSource {
     Materialized(BTreeMap<String, RuntimeChapterTextIndex>),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub(super) struct RuntimeCachedFrame {
     pub(super) frame: Option<RuntimeFrame>,
     pub(super) command_buffer: RuntimeFrameCommandBuffer,
@@ -257,35 +257,83 @@ fn revision_extent(layout: &BuiltLayout) -> RuntimeRevisionExtent {
     }
 }
 
+/// Caches a spread's frame: its display commands lowered to the device
+/// grid at `ratio` and encoded as the `RITODL1` primitive list hosts blit,
+/// beside the semantic summary (counts, hash, resources, fonts) that
+/// identifies the frame. Background images size against the publication's
+/// resource table, so their dimensions are loaded first.
 fn runtime_cached_frame(
     revision_id: &str,
     layout_config: &LayoutConfig,
     frame: PageArtifactFrame,
     payload: RuntimeFrameCachePayload,
-) -> RuntimeCachedFrame {
+    ratio: f64,
+    document: &mut LoadedEpubDocument,
+) -> EpubResult<RuntimeCachedFrame> {
     let spread_index = frame.spread_index;
     let commands = &frame.commands;
+    let command_counts = count_display_commands(commands);
+    let command_hash = hash_display_commands(commands);
+    let resource_refs = summarize_display_list_resource_refs(commands);
     let font_families = summarize_display_list_font_families(commands);
-    let packed = pack_display_commands(commands);
-    let image_dominated = frame_image_dominated(
-        &packed.metadata.command_counts,
-        !packed.metadata.resource_table.is_empty(),
-    );
-    let command_buffer = runtime_frame_command_buffer(RuntimeFrameCommandBufferInput {
-        revision_id,
+    let image_dominated = frame_image_dominated(&command_counts, resource_refs.unique_images > 0);
+    let encoded = lower_frame_commands(commands, ratio, document)?;
+    let metadata = RuntimeFrameCommandBufferMetadata {
+        revision_id: revision_id.to_owned(),
         spread_index,
         width: number_value(layout_config.viewport_width),
         height: number_value(layout_config.viewport_height),
-        metadata: packed.metadata,
-        bytes: packed.bytes,
+        protocol_version: encoded.format_version,
+        ratio,
+        command_count: commands.len(),
+        command_counts,
+        primitive_count: encoded.command_count as usize,
+        byte_length: encoded.bytes.len(),
+        command_hash,
+        resource_ref_count: resource_refs.image_refs,
+        resource_table: resource_refs.images.clone(),
         font_families,
         image_dominated,
-    });
+    };
     let runtime_frame = (payload == RuntimeFrameCachePayload::IncludeJson)
-        .then(|| runtime_frame_from_commands(frame, &command_buffer.metadata));
-    RuntimeCachedFrame {
+        .then(|| runtime_frame_from_commands_with_resource_refs(frame, &metadata, resource_refs));
+    Ok(RuntimeCachedFrame {
         frame: runtime_frame,
-        command_buffer,
+        command_buffer: RuntimeFrameCommandBuffer {
+            metadata,
+            bytes: encoded.bytes,
+        },
+    })
+}
+
+/// Lowers a frame's display commands at `ratio` and encodes the primitive
+/// list, loading the intrinsic size of every image the frame references
+/// first so background images can be sized and tiled.
+fn lower_frame_commands(
+    commands: &[DisplayCommand],
+    ratio: f64,
+    document: &mut LoadedEpubDocument,
+) -> EpubResult<crate::render::ReaderEncodedDisplayListV1> {
+    document.ensure_frame_image_sizes(commands)?;
+    let images = |href: &str| find_image_size(&document.images, href);
+    let lowered = lower_display_commands(commands, ratio, &images)
+        .map_err(|error| EpubError::new(error.to_string()))?;
+    encode_reader_primitive_list_v1(&lowered).map_err(|error| EpubError::new(error.to_string()))
+}
+
+impl LoadedEpubDocument {
+    /// Loads the dimensions of every image a frame's display commands
+    /// reference, so the lowering can size them.
+    pub(super) fn ensure_frame_image_sizes(
+        &mut self,
+        commands: &[DisplayCommand],
+    ) -> EpubResult<()> {
+        let refs = summarize_display_list_resource_refs(commands);
+        if refs.images.is_empty() {
+            return Ok(());
+        }
+        self.ensure_image_dimensions_loaded_for_refs(&refs.images)?;
+        Ok(())
     }
 }
 
@@ -333,6 +381,21 @@ impl RuntimeDocument {
     /// The ratio document-level frames are currently painted at.
     pub fn render_ratio(&self) -> f64 {
         self.render_ratio.get()
+    }
+
+    /// An image's intrinsic size once its dimensions are loaded; the paint
+    /// lowering sizes background images by it.
+    pub(super) fn image_size(&self, href: &str) -> Option<ImageSize> {
+        find_image_size(&self.document.images, href)
+    }
+
+    /// Loads the dimensions of every image a frame's display commands
+    /// reference, so lowering the frame can size them.
+    pub(super) fn ensure_frame_image_sizes(
+        &mut self,
+        commands: &[DisplayCommand],
+    ) -> EpubResult<()> {
+        self.document.ensure_frame_image_sizes(commands)
     }
 
     pub fn get_frame(
@@ -561,12 +624,20 @@ impl RuntimeDocument {
         payload: RuntimeFrameCachePayload,
     ) -> EpubResult<&RuntimeCachedFrame> {
         let ratio = self.render_ratio.get();
+        let document = &mut self.document;
         let result = self
             .revisions
             .get_mut(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))
             .and_then(|revision| {
-                cache_runtime_frame(revision, revision_id, spread_index, payload, ratio)
+                cache_runtime_frame(
+                    revision,
+                    revision_id,
+                    spread_index,
+                    payload,
+                    ratio,
+                    document,
+                )
             });
         match result {
             Ok((replaced, evicted)) => {
@@ -593,12 +664,20 @@ impl RuntimeDocument {
         payload: RuntimeFrameCachePayload,
     ) -> EpubResult<&RuntimeCachedFrame> {
         let ratio = self.render_ratio.get();
+        let document = &mut self.document;
         let result = self
             .chapter_local_revisions
             .get_mut(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown chapter-local revision: {revision_id}")))
             .and_then(|revision| {
-                cache_runtime_frame(revision, revision_id, local_spread_index, payload, ratio)
+                cache_runtime_frame(
+                    revision,
+                    revision_id,
+                    local_spread_index,
+                    payload,
+                    ratio,
+                    document,
+                )
             });
         match result {
             Ok((replaced, evicted)) => {
@@ -641,6 +720,7 @@ fn cache_runtime_frame(
     spread_index: usize,
     payload: RuntimeFrameCachePayload,
     ratio: f64,
+    document: &mut LoadedEpubDocument,
 ) -> EpubResult<(Option<RuntimeCachedFrame>, Option<RuntimeCachedFrame>)> {
     if spread_index >= revision.known_extent.spread_count {
         return Err(EpubError::new(format!(
@@ -661,7 +741,9 @@ fn cache_runtime_frame(
         &revision.layout_config,
         frame_commands,
         payload,
-    );
+        ratio,
+        document,
+    )?;
     let replaced = revision.frame_cache.insert(spread_index, cached_frame);
     touch_cached_frame(revision, spread_index);
     let evicted = evict_oldest_frame(revision);
@@ -743,51 +825,6 @@ fn initial_frame_index(spread_count: usize, request: RuntimeInitialFrameRequest)
     }
     let progress = progress.clamp(0.0, 1.0);
     Some(((spread_count - 1) as f64 * progress).round() as usize)
-}
-
-struct RuntimeFrameCommandBufferInput<'a> {
-    revision_id: &'a str,
-    spread_index: usize,
-    width: Value,
-    height: Value,
-    metadata: PackedDisplayCommandBufferMetadata,
-    bytes: Vec<u8>,
-    font_families: Vec<String>,
-    image_dominated: bool,
-}
-
-fn runtime_frame_command_buffer(
-    input: RuntimeFrameCommandBufferInput<'_>,
-) -> RuntimeFrameCommandBuffer {
-    RuntimeFrameCommandBuffer {
-        metadata: RuntimeFrameCommandBufferMetadata {
-            revision_id: input.revision_id.to_owned(),
-            spread_index: input.spread_index,
-            width: input.width,
-            height: input.height,
-            protocol_version: input.metadata.protocol_version,
-            command_count: input.metadata.command_count,
-            command_counts: input.metadata.command_counts,
-            record_stats: input.metadata.record_stats,
-            byte_length: input.metadata.byte_length,
-            command_hash: input.metadata.command_hash,
-            resource_ref_count: input.metadata.resource_ref_count,
-            resource_table: input.metadata.resource_table,
-            font_families: input.font_families,
-            image_dominated: input.image_dominated,
-            string_table: input.metadata.string_table,
-            payload_table: input.metadata.payload_table,
-        },
-        bytes: input.bytes,
-    }
-}
-
-fn runtime_frame_from_commands(
-    frame: PageArtifactFrame,
-    metadata: &RuntimeFrameCommandBufferMetadata,
-) -> RuntimeFrame {
-    let resource_refs = summarize_display_list_resource_refs(&frame.commands);
-    runtime_frame_from_commands_with_resource_refs(frame, metadata, resource_refs)
 }
 
 fn runtime_frame_from_commands_with_resource_refs(
