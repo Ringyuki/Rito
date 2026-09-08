@@ -174,6 +174,12 @@ impl RuntimeDocument {
     /// `None` when it can (or already has). Rebuilds the page table to
     /// find out, so this is a diagnostic surface, not a hot path.
     pub fn fragment_page_table_rejection_reason(&self, revision_id: &str) -> Option<String> {
+        if self
+            .any_revision(revision_id)
+            .is_some_and(|revision| revision.fragment_layout.is_some())
+        {
+            return None;
+        }
         self.build_fragment_page_table(revision_id).err()
     }
 

@@ -79,6 +79,7 @@ pub(crate) fn build_prepared_loaded_document_runtime_layout<'a>(
 
 /// Projected style tables plus the shapeable publication faces, without
 /// running the retained layout engine — the fragment-only revision path.
+#[cfg(test)]
 pub(crate) struct ProjectedDocumentStyles {
     pub(crate) chapter_style_tables: Vec<ChapterStyleTable>,
     pub(crate) shapeable_publication_faces: Vec<ShapeablePublicationFontFace>,
@@ -87,6 +88,7 @@ pub(crate) struct ProjectedDocumentStyles {
 /// Runs style projection for every prepared chapter and stops there: no
 /// retained boxes, lines, or pages are built. The fragment engine builds
 /// its own page table from these tables.
+#[cfg(test)]
 pub(crate) fn project_prepared_document_styles<'a>(
     document: &'a LoadedEpubDocument,
     prepared: &PreparedLoadedDocument,

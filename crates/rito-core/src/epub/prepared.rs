@@ -294,7 +294,14 @@ fn parsed_loaded_chapter_sources<'a>(
 }
 
 fn parse_loaded_chapter_source(chapter: &LoadedChapter) -> ParsedLoadedChapterSource {
-    let (source_arena, parsed) = match parse_xhtml_with_source(&chapter.xhtml_source) {
+    parsed_loaded_chapter_source_from_text(chapter, &chapter.xhtml_source)
+}
+
+pub(crate) fn parsed_loaded_chapter_source_from_text(
+    chapter: &LoadedChapter,
+    xhtml: &str,
+) -> ParsedLoadedChapterSource {
+    let (source_arena, parsed) = match parse_xhtml_with_source(xhtml) {
         Ok(parsed_source) => (Some(parsed_source.source_arena), parsed_source.parsed),
         Err(error) => (
             None,
@@ -313,8 +320,8 @@ fn parse_loaded_chapter_source(chapter: &LoadedChapter) -> ParsedLoadedChapterSo
         idref: chapter.idref.clone(),
         href: chapter.href.clone(),
         linear: chapter.linear,
-        text_length: utf16_len(&chapter.xhtml_source),
-        text_hash: short_sha256(chapter.xhtml_source.as_bytes()),
+        text_length: utf16_len(xhtml),
+        text_hash: short_sha256(xhtml.as_bytes()),
     };
 
     ParsedLoadedChapterSource {

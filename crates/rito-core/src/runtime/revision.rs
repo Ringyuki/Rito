@@ -16,6 +16,8 @@ use super::{
     RuntimeDocument, RuntimeRevisionRequest, RuntimeRevisionSummary,
 };
 
+mod fragment;
+
 impl RuntimeDocument {
     pub fn create_revision(
         &mut self,
@@ -175,7 +177,8 @@ impl RuntimeDocument {
     /// The revision keeps an empty retained scaffold only because the
     /// storage type still requires one; every query serves from the
     /// fragment page table.
-    fn create_fragment_revision(
+    #[cfg(test)]
+    pub(super) fn create_fragment_revision_eager_reference(
         &mut self,
         layout_config: LayoutConfig,
         line_breaking: LineBreaking,

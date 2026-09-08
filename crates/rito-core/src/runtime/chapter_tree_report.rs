@@ -140,9 +140,19 @@ impl RuntimeDocument {
                 "revision retains no style tables for chapter {idref}"
             ))
         })?;
-        let prepared = self.prepared.as_ref().ok_or_else(|| {
-            crate::epub::EpubError::new("document is not prepared for tree construction")
-        })?;
+        let transient;
+        let prepared = if let Some(prepared) = self.prepared.as_ref() {
+            prepared
+        } else {
+            let index = self
+                .document
+                .chapters
+                .iter()
+                .position(|c| c.idref == idref)
+                .ok_or_else(|| crate::epub::EpubError::new(format!("unknown chapter: {idref}")))?;
+            transient = self.prepare_fragment_chapter(index)?;
+            &transient
+        };
         self.formatting_tree_from_prepared(prepared, tables, idref, filter_footnotes)
     }
 

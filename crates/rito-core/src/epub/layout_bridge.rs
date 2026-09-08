@@ -19,9 +19,10 @@ mod runtime;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+pub(crate) use runtime::project_prepared_document_styles;
 pub(crate) use runtime::{
-    build_prepared_loaded_document_runtime_layout, project_prepared_document_styles,
-    PreparedRuntimeLayoutOptions,
+    build_prepared_loaded_document_runtime_layout, PreparedRuntimeLayoutOptions,
 };
 
 use super::{

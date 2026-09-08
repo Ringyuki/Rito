@@ -560,13 +560,23 @@ impl RuntimeDocument {
         match &revision.interactions.chapter_text_indices {
             RuntimeChapterTextIndexSource::Materialized(entries) => Ok(entries),
             RuntimeChapterTextIndexSource::FullDocument => {
-                let prepared = self
-                    .prepared
-                    .as_ref()
-                    .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
+                if self.full_chapter_text_indices.get().is_none() {
+                    let entries = if let Some(prepared) = self.prepared.as_ref() {
+                        runtime_chapter_text_index_entries(prepared)
+                    } else {
+                        let mut entries = BTreeMap::new();
+                        for index in 0..self.document.chapters.len() {
+                            let prepared = self.prepare_fragment_chapter(index)?;
+                            entries.extend(runtime_chapter_text_index_entries(&prepared));
+                        }
+                        entries
+                    };
+                    let _ = self.full_chapter_text_indices.set(entries);
+                }
                 Ok(self
                     .full_chapter_text_indices
-                    .get_or_init(|| runtime_chapter_text_index_entries(prepared)))
+                    .get()
+                    .expect("text indices were initialized"))
             }
         }
     }
