@@ -130,7 +130,7 @@ pub(crate) fn layout_unit(value: f64) -> f64 {
 /// that is exactly on the grid in fixed point must not climb a whole
 /// 1/64); real off-grid widths sit at least 1/128 away and keep their
 /// ceiling.
-pub(crate) fn layout_unit_ceil(value: f64) -> f64 {
+pub fn layout_unit_ceil(value: f64) -> f64 {
     (((value - 1.0 / 1024.0) * 64.0).ceil() / 64.0).max(0.0)
 }
 

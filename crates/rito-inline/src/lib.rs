@@ -63,6 +63,7 @@ pub(crate) use paragraph::*;
 pub(crate) use punctuation::*;
 pub(crate) use ruby::*;
 pub(crate) use shaping::*;
+pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
 
 /// Inline formatting context backed by Parley shaping and line breaking.

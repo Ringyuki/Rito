@@ -1029,6 +1029,28 @@ fn append_line_commands(
             None,
         ));
     }
+    // Each item's extent on this line. The browser lays an item's line
+    // fragment out at LayoutUnit precision — its right edge, where the
+    // item's inline box band and decoration line end, sits at the
+    // item's start plus its shaped width ceiled onto the 1/64 grid —
+    // while the runs inside it accumulate in float; the run closing an
+    // item takes that edge as its rect's end.
+    let mut item_extents: BTreeMap<usize, (f64, f64)> = BTreeMap::new();
+    for child in &line.children {
+        if let Fragment::Text(run) = child {
+            let (start, end) = (run.text_start as usize, run.text_end as usize);
+            if let Some((_, item_index)) = text_ranges
+                .iter()
+                .find(|(range, _)| range.start <= start && end <= range.end)
+            {
+                let extent = item_extents
+                    .entry(*item_index)
+                    .or_insert((f64::INFINITY, f64::NEG_INFINITY));
+                extent.0 = extent.0.min(run.rect.x);
+                extent.1 = extent.1.max(run.rect.x + run.rect.width);
+            }
+        }
+    }
     for child in &line.children {
         match child {
             Fragment::Text(run) => {
@@ -1038,6 +1060,7 @@ fn append_line_commands(
                     styles,
                     &full_text,
                     &text_ranges,
+                    &item_extents,
                     line,
                     run,
                     line_x,
@@ -1102,6 +1125,7 @@ fn append_text_run_command(
     styles: &rito_fragment::FormattingTreeStyles,
     full_text: &str,
     text_ranges: &[(std::ops::Range<usize>, usize)],
+    item_extents: &BTreeMap<usize, (f64, f64)>,
     line: &LineFragment,
     run: &TextFragment,
     line_x: f64,
@@ -1147,6 +1171,15 @@ fn append_text_run_command(
         .find(|(range, _)| range.start <= start && end <= range.end)
         .cloned()
         .unwrap_or((start..end, 0));
+    // The run closing its item on this line ends where the browser's
+    // item fragment ends: the item's start plus its width on the 1/64
+    // grid (its band and decoration line end there too).
+    let rect_width = item_extents
+        .get(item_index)
+        .filter(|(_, right)| (run.rect.x + run.rect.width - right).abs() < 1e-9)
+        .map_or(run.rect.width, |(left, right)| {
+            left + rito_inline::layout_unit_ceil(right - left) - run.rect.x
+        });
     let mut paint = run_paint(
         style,
         family_policy,
@@ -1390,7 +1423,7 @@ fn append_text_run_command(
         rect: rect_value(
             run_origin_x,
             em_top,
-            run.rect.width + run.opener_trim_px,
+            rect_width + run.opener_trim_px,
             font_size,
         ),
         paint,
@@ -2435,6 +2468,39 @@ mod tests {
             assert!((y - expected).abs() < 1e-9, "{ys:?}");
         }
         assert!(annotation.clusters.iter().all(|(_, x, _)| *x == 212.0));
+    }
+
+    /// A run's rect ends where the browser's item fragment ends: the
+    /// item's start plus its shaped width ceiled onto the 1/64 grid, so
+    /// the inline box band and the decoration line end on that edge,
+    /// while a run inside the item keeps its float advance.
+    #[test]
+    fn the_run_closing_an_item_ends_on_the_layout_grid() {
+        let fixture = two_color_flow(|red, black| {
+            vec![
+                text_item("Hello world", red, 0.0),
+                text_item("black.", black, 0.0),
+            ]
+        });
+        // One item shaped as two runs (0..5, 5..11), then a second item.
+        let root = boxed_line(vec![
+            text_run(0.0, 30.31, 0, 5),
+            text_run(30.31, 20.2, 5, 11),
+            text_run(50.51, 20.2, 11, 17),
+        ]);
+        let commands = paint(&fixture.tree, &root);
+        let widths: Vec<f64> = commands
+            .iter()
+            .filter_map(|command| match command {
+                DisplayCommand::PaintText(input) => input.rect["width"].as_f64(),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(widths.len(), 3);
+        assert!((widths[0] - 30.31).abs() < 1e-9, "{widths:?}");
+        // 50.51 ceils to 3233/64 = 50.515625; the closing run takes the rest.
+        assert!((widths[1] - (50.515625 - 30.31)).abs() < 1e-9, "{widths:?}");
+        assert!((widths[2] - 20.203125).abs() < 1e-9, "{widths:?}");
     }
 
     #[test]
