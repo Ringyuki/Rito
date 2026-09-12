@@ -267,8 +267,6 @@ fn run_paint(paint: &ReaderTextRunPaintV1) -> Value {
         ),
         ("color", color(&paint.color)),
     ]);
-    insert_number(&mut object, "wordSpacingPx", paint.word_spacing_px);
-    insert_number(&mut object, "letterSpacingPx", paint.letter_spacing_px);
     object.insert(
         "textShadows".to_owned(),
         Value::Array(

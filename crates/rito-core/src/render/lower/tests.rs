@@ -1434,8 +1434,6 @@ fn json_form_mirrors_the_decoded_wire_shape() {
                     "paint": {
                         "font": { "family": "Rito Serif", "sizePx": 16.0, "weight": 400.0, "style": "italic" },
                         "color": ink,
-                        "wordSpacingPx": 1.0,
-                        "letterSpacingPx": 0.5,
                         "textShadows": [{ "offsetX": 1.0, "offsetY": 2.0, "blur": 3.0, "color": ink }],
                     },
                     "lineHeightPx": 24.0,
@@ -1575,8 +1573,6 @@ fn text_run() -> ReaderTextRunV1 {
         paint: ReaderTextRunPaintV1 {
             font: text.paint.font,
             color: text.paint.color,
-            word_spacing_px: text.paint.word_spacing_px,
-            letter_spacing_px: text.paint.letter_spacing_px,
             text_shadows: text.paint.text_shadows,
         },
         line_height_px: text.line_height_px,

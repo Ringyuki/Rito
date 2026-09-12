@@ -208,3 +208,29 @@ fn a_ruby_annotation_measures_at_its_size_with_the_base_spacing_off() {
     );
     assert_eq!(annotation.advance, 8.0);
 }
+
+/// Word spacing rides a space cluster outside the fixed-point round trip,
+/// like letter spacing: the browser adds it to the shaped advance in
+/// float, so quantizing the spaced space onto the font's unit grid would
+/// drift every later cluster a few thousandths per space.
+#[test]
+fn word_spacing_folds_outside_the_fixed_point_round_trip() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let mut style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    style.text_flow.word_spacing =
+        LengthPercentage::Length(CssPx::new(2.13).expect("finite spacing"));
+    let run = context.measure_run(&style, "a b");
+    // Tinos at 16px: 'a' advances 7.1015625 and the space 4; the word
+    // spacing adds its 2.13 on top of the space unquantized.
+    let origins: Vec<f64> = run.clusters.iter().map(|cluster| cluster.x).collect();
+    assert!((origins[1] - 7.1015625).abs() < 1e-9, "{origins:?}");
+    assert!(
+        (origins[2] - (7.1015625 + 4.0 + 2.13)).abs() < 1e-5,
+        "{origins:?}"
+    );
+}

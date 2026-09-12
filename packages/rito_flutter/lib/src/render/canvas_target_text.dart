@@ -24,14 +24,13 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       _paintClusteredRun(command, rect, ruby: ruby);
       return;
     }
-    // The run's inline box and decoration line arrive as primitives of
-    // their own; the pen paints shadows, then glyphs.
+    // A run that arrives without origins (a fixture written by hand)
+    // draws as one string at the rect's start; no placement law lives
+    // here.
     final painter = TextPainter(
       text: TextSpan(
         text: command.text,
-        // Ruby ignores run spacing, matching the browser pen's forced
-        // '0px' letter/word spacing.
-        style: _textStyle(command.paint, includeSpacing: !ruby, runRect: rect),
+        style: _textStyle(command.paint, runRect: rect),
       ),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
@@ -39,14 +38,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
     final baselineOffset = painter.computeDistanceToActualBaseline(
       TextBaseline.alphabetic,
     );
-    // SkParagraph splits letter spacing across both cluster edges where
-    // Chromium trails all of it after the cluster — same total advance,
-    // the whole run sits half a spacing to the right (measured via the
-    // parity corpus ink scan). Compensate at the glyph origin only; the
-    // rect geometry is spacing-free.
-    final x = ruby
-        ? rect.left + (rect.width - painter.width) / 2
-        : rect.left - (command.paint.letterSpacingPx ?? 0) / 2;
+    final x = rect.left;
     // Ruby anchors its em-box top at the rect (browser textBaseline
     // 'top' = OS/2 sTypoAscender, probed against pinned Chromium);
     // regular runs anchor their alphabetic baseline at the snapped row.
@@ -344,7 +336,6 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   TextStyle _textStyle(
     RitoRunPaint paint, {
     ui.Paint? foreground,
-    bool includeSpacing = true,
     ui.Rect? runRect,
   }) {
     final font = paint.font;
@@ -363,8 +354,6 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
           ? FontStyle.italic
           : FontStyle.normal,
       fontWeight: _paintWeight(families, font.weight),
-      wordSpacing: includeSpacing ? paint.wordSpacingPx : null,
-      letterSpacing: includeSpacing ? paint.letterSpacingPx : null,
     );
   }
 

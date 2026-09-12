@@ -151,8 +151,6 @@ impl Decoder<'_> {
         self.read_f64s(2)?;
         self.read_enum(1, 2)?;
         self.read_color()?;
-        self.read_optional_f64()?;
-        self.read_optional_f64()?;
         let shadow_count = self.read_u32()?;
         for _ in 0..shadow_count {
             self.read_f64s(3)?;

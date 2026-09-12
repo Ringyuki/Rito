@@ -44,14 +44,10 @@ final class RitoRunPaint {
   RitoRunPaint({
     required this.font,
     required this.color,
-    this.wordSpacingPx,
-    this.letterSpacingPx,
     required List<RitoTextShadow> textShadows,
   }) : textShadows = List<RitoTextShadow>.unmodifiable(textShadows);
 
   final RitoFontPaint font;
   final RitoColor color;
-  final double? wordSpacingPx;
-  final double? letterSpacingPx;
   final List<RitoTextShadow> textShadows;
 }

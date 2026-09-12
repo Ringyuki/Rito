@@ -35,8 +35,6 @@ void main() {
     final text = (list.commands[11] as RitoPrimitiveText).command;
     expect(text.paint.font.sizePx, 16);
     expect(text.paint.font.style, RitoFontStyle.italic);
-    expect(text.paint.wordSpacingPx, 1);
-    expect(text.paint.letterSpacingPx, 0.5);
     expect(text.paint.textShadows.single.blur, 3);
     expect(text.lineHeightPx, 18.5);
     expect(text.href, '#note');

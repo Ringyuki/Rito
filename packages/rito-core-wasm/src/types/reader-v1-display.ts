@@ -50,8 +50,6 @@ export interface RitoReaderRunPaintV1 {
     readonly style: 'normal' | 'italic';
   };
   readonly color: RitoReaderColorV1;
-  readonly wordSpacingPx?: number | undefined;
-  readonly letterSpacingPx?: number | undefined;
   readonly textShadows: readonly {
     readonly offsetX: number;
     readonly offsetY: number;

@@ -4,8 +4,8 @@
 //!
 //! The step from one cluster to the next is its bare glyph advance on the
 //! browser's 16.16 fixed-point scale, plus the spacing layout folded into
-//! it (author spacing, a trim, a box gap, a ruby gap), plus the justify
-//! share the line gave it. Two accumulation laws, both measured against
+//! it (author letter and word spacing, a trim, a box gap, a ruby gap),
+//! plus the justify share the line gave it. Two accumulation laws, both measured against
 //! pinned Chromium: an all-CJK run at a fractional font size lands every
 //! cluster on the 1/64 CSS-pixel grid (floor of the running sum: 21 of 21
 //! positions on a 12.16px line), and everything else accumulates in float
@@ -55,11 +55,21 @@ pub(crate) fn piece_clusters(
         if steps.is_empty() {
             font_size = f64::from(current.run().font_size());
         }
-        let folded = spacing_edits
-            .iter()
-            .rev()
-            .find(|(edited, _)| edited.contains(&text_range.start))
-            .map_or(0.0, |(_, spacing)| f64::from(*spacing));
+        let folded_in = |edits: &[(std::ops::Range<usize>, f32)]| {
+            edits
+                .iter()
+                .rev()
+                .find(|(edited, _)| edited.contains(&text_range.start))
+                .map_or(0.0, |(_, spacing)| f64::from(*spacing))
+        };
+        // Word spacing rides the space clusters only, the way layout
+        // applied it.
+        let folded = folded_in(&spacing_edits.letter)
+            + if current.is_space_or_nbsp() {
+                folded_in(&spacing_edits.word)
+            } else {
+                0.0
+            };
         let step = hb_fixed_cluster_advance(&current, folded) + justify_px;
         let trim = halt_trims
             .iter()

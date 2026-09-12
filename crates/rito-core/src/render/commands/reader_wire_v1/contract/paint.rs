@@ -302,8 +302,6 @@ pub(crate) struct ReaderRunPaintV1 {
 pub(crate) struct ReaderTextRunPaintV1 {
     pub font: ReaderFontPaintV1,
     pub color: ReaderColorV1,
-    pub word_spacing_px: Option<f64>,
-    pub letter_spacing_px: Option<f64>,
     pub text_shadows: Vec<ReaderTextShadowV1>,
 }
 

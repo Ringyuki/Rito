@@ -48,8 +48,6 @@ function convertRunPaint(paint: RitoReaderRunPaintV1): CoreRunPaint {
   return {
     font: paint.font,
     color: toCanvasColorV1(paint.color),
-    ...(paint.wordSpacingPx === undefined ? {} : { wordSpacingPx: paint.wordSpacingPx }),
-    ...(paint.letterSpacingPx === undefined ? {} : { letterSpacingPx: paint.letterSpacingPx }),
     textShadow: paint.textShadows.map((shadow) => ({
       ...shadow,
       color: toCanvasColorV1(shadow.color),

@@ -864,13 +864,23 @@ pub(crate) struct SpacingBuilder<'a> {
 
 /// Letter-spacing pushes in builder order: a later push overrides an
 /// earlier one on the bytes they share.
-pub(crate) type SpacingEdits = Vec<(std::ops::Range<usize>, f32)>;
+/// The spacing layout folded into cluster advances, recorded as the
+/// builder pushed it (a later push over the same bytes wins): letter
+/// spacing on every cluster, word spacing on space clusters. The cluster
+/// origins subtract these before the fixed-point round trip and add them
+/// back after, the way the browser adds spacing to shaped advances in
+/// float.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct SpacingEdits {
+    pub letter: Vec<(std::ops::Range<usize>, f32)>,
+    pub word: Vec<(std::ops::Range<usize>, f32)>,
+}
 
 impl<'a> SpacingBuilder<'a> {
     pub(crate) fn new(inner: RangedBuilder<'a, [u8; 4]>) -> Self {
         Self {
             inner,
-            edits: Vec::new(),
+            edits: SpacingEdits::default(),
         }
     }
 
@@ -880,8 +890,14 @@ impl<'a> SpacingBuilder<'a> {
         range: std::ops::Range<usize>,
     ) {
         let property = property.into();
-        if let StyleProperty::LetterSpacing(spacing) = &property {
-            self.edits.push((range.clone(), *spacing));
+        match &property {
+            StyleProperty::LetterSpacing(spacing) => {
+                self.edits.letter.push((range.clone(), *spacing));
+            }
+            StyleProperty::WordSpacing(spacing) => {
+                self.edits.word.push((range.clone(), *spacing));
+            }
+            _ => {}
         }
         self.inner.push(property, range);
     }

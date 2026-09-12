@@ -1,4 +1,3 @@
-import { canvasSpacingValue } from './spacing';
 import type { CanvasTextFragment, CanvasTextShadow } from './types';
 
 /** One drawn stretch of a run: its text and the origin its pen draws it
@@ -59,7 +58,7 @@ export function drawTextShadows(
   if (!scratch) return;
 
   scratch.ctx.scale(pixelRatio, pixelRatio);
-  syncTextState(scratch.ctx, ctx, fragment, color);
+  syncTextState(scratch.ctx, ctx, color);
   // The caster must sit EXACTLY where the glyph paint will: alphabetic
   // baseline at em-top + 0.8·size, the same convention as the renderer.
   // A 'top'-baseline caster hung the shadow fontAscent − 0.8·size lower
@@ -144,7 +143,7 @@ function drawSnappedShadows(
   const scratch = createScratchCanvas(physicalWidth, physicalHeight);
   if (!scratch) return;
   scratch.ctx.scale(pixelRatio, pixelRatio);
-  syncTextState(scratch.ctx, ctx, fragment, color);
+  syncTextState(scratch.ctx, ctx, color);
   renderShadowLayers(
     scratch.ctx,
     shadows,
@@ -230,12 +229,13 @@ function createScratchCanvas(width: number, height: number): ScratchCanvas | nul
 function syncTextState(
   destination: ScratchCanvasContext,
   source: CanvasRenderingContext2D,
-  fragment: CanvasTextFragment,
   color: string,
 ): void {
   destination.font = source.font;
   destination.textBaseline = 'alphabetic';
   destination.fillStyle = color;
-  destination.wordSpacing = canvasSpacingValue(fragment.paint.wordSpacingPx);
-  destination.letterSpacing = canvasSpacingValue(fragment.paint.letterSpacingPx);
+  // The caster draws the same cluster pieces at the same origins as the
+  // glyph pen, with every spacing already in those origins.
+  destination.wordSpacing = '0px';
+  destination.letterSpacing = '0px';
 }

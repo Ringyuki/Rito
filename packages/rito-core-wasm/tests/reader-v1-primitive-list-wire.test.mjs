@@ -107,8 +107,6 @@ test('decodes every optional field of a text run, scaled to the device grid', ()
     style: 'italic',
   });
   assert.equal(text.paint.color.space, 'srgb');
-  assert.equal(text.paint.wordSpacingPx, 1);
-  assert.equal(text.paint.letterSpacingPx, 0.5);
   assert.equal(text.paint.textShadows.length, 1);
   assert.deepEqual(
     [

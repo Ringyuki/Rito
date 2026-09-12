@@ -67,9 +67,10 @@ device grid: their lengths stay in CSS pixels and a host draws them under
 a `scale(ratio)` transform, because glyph rasterization follows the CSS
 font size (a synthetic-bold run drawn at the device size on the device
 grid rasters different ink from the browser's). A run carries only glyph
-paint — font, colour, spacing, text shadows: its inline box (background
-band, padding, border edges) and its decoration line arrive as fill and
-stroke primitives around it. Every run carries the origin of every
+paint — font, colour, text shadows: its inline box (background band,
+padding, border edges) and its decoration line arrive as fill and stroke
+primitives around it, and its letter and word spacing are already in its
+cluster origins. Every run carries the origin of every
 cluster (UTF-8 byte offset into its text, absolute CSS x and y — the
 alphabetic baseline of a text run, the em-box top of an annotation) with
 spacing, justification and the browser's fixed-point advances already
@@ -109,6 +110,14 @@ ratio` — device pixels per CSS pixel the host rasterizes at (its
   is not finite and positive fails the request with `InvalidLayout`.
 - Artifacts and publications stamp protocol version 3; a decoder pinned
   to 2 must move with it.
+- Text and ruby runs (opcodes 12 and 13) carry glyph paint only — font,
+  colour, text shadows — followed by line height, link target, source
+  text and offset, then the cluster list: `u32` count and, per cluster,
+  `u32` UTF-8 byte offset, `f64` x, `f64` y. The run's inline box and
+  decoration line, its spacing, its `ruby-align`, the right-aligned
+  marker flag and the vertical flag no longer exist on the wire: every
+  glyph is placed by its origin, a column's rotated marks arrive as
+  their own runs under a transform primitive.
 
 Wire changes landed with the chapter-local one-pass cutover
 (rito_flutter 0.2.0 era) that a hand-written decoder must mirror:

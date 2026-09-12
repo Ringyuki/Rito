@@ -172,8 +172,6 @@ void _text(
     ..float64(400)
     ..uint8(fontStyleTag);
   _color(writer, red: .1, green: .2, blue: .3);
-  writer.option(() => writer.float64(1));
-  writer.option(() => writer.float64(.5));
   writer
     ..uint32(1)
     ..float64(1)

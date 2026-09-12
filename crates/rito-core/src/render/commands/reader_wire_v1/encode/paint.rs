@@ -2,9 +2,7 @@ use super::super::{
     contract::{ReaderColorV1, ReaderTextRunPaintV1, ReaderTextShadowV1},
     ReaderDisplayListWireError,
 };
-use super::primitives::{
-    write_finite_f32, write_finite_f64, write_length, write_optional, write_string,
-};
+use super::primitives::{write_finite_f32, write_finite_f64, write_length, write_string};
 
 pub(super) fn write_run_paint(
     output: &mut Vec<u8>,
@@ -15,22 +13,11 @@ pub(super) fn write_run_paint(
     write_finite_f64(output, paint.font.weight)?;
     output.push(paint.font.style.tag());
     write_color(output, &paint.color)?;
-    write_optional_f64(output, paint.word_spacing_px)?;
-    write_optional_f64(output, paint.letter_spacing_px)?;
     write_length(output, paint.text_shadows.len(), "text shadow")?;
     for shadow in &paint.text_shadows {
         write_text_shadow(output, shadow)?;
     }
     Ok(())
-}
-
-fn write_optional_f64(
-    output: &mut Vec<u8>,
-    value: Option<f64>,
-) -> Result<(), ReaderDisplayListWireError> {
-    write_optional(output, value.as_ref(), |output, value| {
-        write_finite_f64(output, *value)
-    })
 }
 
 fn write_text_shadow(

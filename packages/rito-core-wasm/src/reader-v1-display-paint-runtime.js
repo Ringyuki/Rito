@@ -25,11 +25,9 @@ export function readRitoDisplayRunPaintV1(reader) {
     style: readerWireEnumV1(reader, 'font style', ['normal', 'italic']),
   };
   const color = readColor(reader);
-  const wordSpacingPx = reader.option('word spacing', () => reader.f64('word spacing'));
-  const letterSpacingPx = reader.option('letter spacing', () => reader.f64('letter spacing'));
   const count = reader.count('text shadow count');
   const textShadows = Array.from({ length: count }, () => readTextShadow(reader));
-  return { font, color, wordSpacingPx, letterSpacingPx, textShadows };
+  return { font, color, textShadows };
 }
 
 export function readRitoDisplayColorV1(reader) {

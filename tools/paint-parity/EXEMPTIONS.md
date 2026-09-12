@@ -44,7 +44,7 @@ rastered by two engines.
 | block-box-shadow             | 4169 (4.13%)  | 23    | blur/AA edge                          | 1–3px ring at the box/clip boundary; the spread box, offset and interior exclusion are the same device path on both sides; remaining delta is Skia mask-blur vs Chromium layer-blur edge treatment                                                                                                                                                                                                |
 | state-transform-clip         | 3454 (2.87%)  | 2     | edge AA rounding                      | Δ≤2 everywhere; rotated/scaled/clipped edges only                                                                                                                                                                                                                                                                                                                                                 |
 | theme-override-dark          | 3348 (3.98%)  | 2     | glyph AA on themed ground             | dark-theme override verified end to end under R1–R3: white page ground taken over, achromatic ink lands exactly on the theme foreground, chromatic link-blue relights along lightness — both pens byte-agree on every policy decision (Δ≤2 is glyph AA)                                                                                                                                           |
-| text-shadow-ruby             | 2024 (2.41%)  | 213   | shadow sub-pixel phase + glyph AA     | shadow geometry (em-box 'top' anchor + offset) matches; Chromium's scratch canvas rasters the shadow glyph at a fractional baseline phase while Skia snaps glyphs to whole rows — a ≤1px soft fringe. Ruby itself is row-identical including AA gray levels                                                                                                                                       |
+| text-shadow-ruby             | 3251 (3.87%)  | 14    | shadow blur kernel + glyph AA         | shadow geometry (em-box 'top' anchor + offset) matches on both pens; since the pens draw the engine's cluster origins, the Flutter pen blurs each run's clusters as one layer (Skia ImageFilter) where Chromium blurs a scratch canvas (shadowBlur) — the residual is the two blur profiles' soft fringe (Δ≤14), no glyph or shadow moves. Ruby itself is row-identical including AA gray levels  |
 | text-colors-fonts            | 1561 (1.85%)  | 3     | glyph AA + alpha compositing rounding | Δ≤3; synthetic-italic and translucent-fill coverage rounding                                                                                                                                                                                                                                                                                                                                      |
 | text-inline-box              | 1538 (1.52%)  | 2     | fill edge AA                          | envelope geometry exact; Δ≤2 on fractional box edges                                                                                                                                                                                                                                                                                                                                              |
 | text-vertical                | 1534 (2.0%)   | 255   | glyph AA + rotated-mark raster        | a vertical-rl column generated from the painter itself: upright glyphs one step apart, corner marks shifted, brackets and dashes each under a quarter-turn transform, the annotation spread down its base — both pens draw the same engine origins (the browser lane is byte-identical to the column pen it replaced); residual is Skia vs Chromium glyph AA on CJK strokes and the rotated marks |
@@ -72,11 +72,11 @@ rastered by two engines.
   engine, a column's rotated marks as their own runs under a quarter-turn
   transform — and both pens draw each cluster at its origin with their
   own spacing off: the browser pen one `fillText` per cluster, the
-  Flutter pen one cached `ui.Paragraph` per (cluster, style). Only a
-  fixture run written without origins takes the pens' whole-run path,
-  where SkParagraph half-leads each cluster edge vs Chromium trailing and
-  the glyph origin compensates by `−letterSpacing/2` (word spacing needs
-  no compensation).
+  Flutter pen one cached `ui.Paragraph` per (cluster, style). A fixture
+  run written without origins is shaped by the engine on the way in
+  (`lower/parity.rs`, the pinned faces both harnesses load), so neither
+  pen holds a spacing or placement law: a run that still arrives without
+  origins draws as one string at its rect start.
 - Text shadows: every layer is one bitmap holding the whole run (all its
   clusters), blurred once, the way the browser blurs a run's mask —
   blurring clusters one by one composites neighbouring glows over each

@@ -14,6 +14,11 @@ use super::super::{
 };
 use super::{lower_display_commands, ImageSize};
 use crate::layout::RunPaint;
+use rito_inline::{plain_paragraph_style, ParleyInlineContext};
+use rito_style_contract::{
+    CssPx, FontFamilies, FontFamily, FontFamilyName, FontSlant, FontWeight, GenericFontFamily,
+    LengthPercentage, RubyAlign,
+};
 
 /// The synthetic image sources both renderers generate for the corpus
 /// (harness/entry.ts and parity_fixture_loader.dart keep them
@@ -57,6 +62,7 @@ fn lower_paint_parity_fixtures() {
         .collect();
     paths.sort();
     assert!(!paths.is_empty(), "no fixtures in {}", fixtures.display());
+    let shaper = fixture_shaper();
 
     for path in paths {
         let fixture: Value =
@@ -68,7 +74,7 @@ fn lower_paint_parity_fixtures() {
             .expect("fixture commands")
             .iter()
             .map(|command| {
-                parse_command(command)
+                parse_command(&shaper, ratio, command)
                     .unwrap_or_else(|| panic!("{name}: command not expressible: {command}"))
             })
             .collect();
@@ -99,10 +105,112 @@ fn lower_paint_parity_fixtures() {
     }
 }
 
+/// The pinned faces both parity harnesses load, so the engine shapes a
+/// fixture's text with the glyph advances the pens raster.
+fn fixture_shaper() -> ParleyInlineContext {
+    let read = |path: &str| {
+        std::fs::read(format!("{}/../../{path}", env!("CARGO_MANIFEST_DIR")))
+            .unwrap_or_else(|error| panic!("{path}: {error}"))
+    };
+    ParleyInlineContext::new(vec![
+        read("apps/reader/src/assets/fonts/Tinos-Regular.ttf"),
+        read("apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"),
+    ])
+    .expect("fixture faces register")
+}
+
+/// A fixture run written without origins gets them from the engine, the
+/// way a painted run does: a text run's clusters step by the shaped
+/// advances with the paint's spacing folded in (floored onto the 1/64
+/// grid for an all-CJK run at a fractional size) from the rect's start,
+/// their baseline 0.8 em below its top rounded onto the device grid the
+/// way the painter rounds every glyph baseline; an annotation shapes
+/// packed and spreads over the rect by the initial `ruby-align`,
+/// anchored at its top.
+fn shape_fixture_clusters(
+    shaper: &ParleyInlineContext,
+    ratio: f64,
+    kind: &str,
+    value: &Value,
+) -> Option<Vec<(u32, f64, f64)>> {
+    let text = value.get("text")?.as_str()?;
+    let rect = value.get("rect")?;
+    let (x, y, width) = (
+        rect.get("x")?.as_f64()?,
+        rect.get("y")?.as_f64()?,
+        rect.get("width")?.as_f64()?,
+    );
+    let paint = value.get("paint")?;
+    let font = paint.get("font")?;
+    let size = font.get("sizePx")?.as_f64()? as f32;
+    let number = |key: &str| paint.get(key).and_then(Value::as_f64).unwrap_or(0.0) as f32;
+    let families = font
+        .get("family")?
+        .as_str()?
+        .split(',')
+        .map(|name| match name.trim().trim_matches('"') {
+            "serif" => FontFamily::Generic(GenericFontFamily::Serif),
+            "sans-serif" => FontFamily::Generic(GenericFontFamily::SansSerif),
+            "monospace" => FontFamily::Generic(GenericFontFamily::Monospace),
+            name => FontFamily::Named(FontFamilyName::new(name)),
+        })
+        .collect();
+    let mut style = plain_paragraph_style(FontFamilies::new(families).ok()?, size, 0.0);
+    style.font.weight =
+        FontWeight::new(font.get("weight").and_then(Value::as_f64).unwrap_or(400.0) as f32).ok()?;
+    if font.get("style").and_then(Value::as_str) == Some("italic") {
+        style.font.slant = FontSlant::Italic;
+    }
+    style.text_flow.letter_spacing =
+        LengthPercentage::Length(CssPx::new(number("letterSpacingPx")).ok()?);
+    style.text_flow.word_spacing =
+        LengthPercentage::Length(CssPx::new(number("wordSpacingPx")).ok()?);
+    if kind == "paintRuby" {
+        let run = shaper.measure_ruby_annotation(&style, size, text);
+        let origins = rito_fragment::distribute_ruby_annotation(
+            text,
+            &run.clusters,
+            run.advance,
+            x,
+            width,
+            RubyAlign::SpaceAround,
+        );
+        return Some(
+            run.clusters
+                .iter()
+                .zip(origins)
+                .map(|(cluster, origin)| (cluster.byte, origin, y))
+                .collect(),
+        );
+    }
+    let run = shaper.measure_run(&style, text);
+    let baseline = ((y + 0.8 * f64::from(size)) * ratio).round() / ratio;
+    Some(
+        run.clusters
+            .iter()
+            .map(|cluster| {
+                let origin = x + cluster.x;
+                let origin = if run.grid {
+                    (origin * 64.0).floor() / 64.0
+                } else {
+                    origin
+                };
+                (cluster.byte, origin, baseline)
+            })
+            .collect(),
+    )
+}
+
 /// The browser pen's command JSON is the engine's own display-command
 /// shape, so every field passes through to the JSON-shaped provider; a
 /// shape this cannot express fails the fixture instead of dropping it.
-fn parse_command(value: &Value) -> Option<DisplayCommand> {
+/// A text or ruby run written without cluster origins is shaped by the
+/// engine on the way in.
+fn parse_command(
+    shaper: &ParleyInlineContext,
+    ratio: f64,
+    value: &Value,
+) -> Option<DisplayCommand> {
     let kind = value.get("kind")?.as_str()?;
     let field = |key: &str| value.get(key).cloned();
     let string = |key: &str| value.get(key).and_then(Value::as_str).map(str::to_owned);
@@ -132,7 +240,7 @@ fn parse_command(value: &Value) -> Option<DisplayCommand> {
                     .and_then(Value::as_u64)
                     .map(|offset| offset as usize),
                 clusters: match value.get("clusters") {
-                    None => Vec::new(),
+                    None => shape_fixture_clusters(shaper, ratio, kind, value)?,
                     Some(clusters) => clusters
                         .as_array()?
                         .iter()

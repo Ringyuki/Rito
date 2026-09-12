@@ -161,8 +161,6 @@ fn text_run(text: &ReaderTextCommandV1) -> ReaderTextRunV1 {
         paint: ReaderTextRunPaintV1 {
             font: paint.font.clone(),
             color: paint.color,
-            word_spacing_px: paint.word_spacing_px,
-            letter_spacing_px: paint.letter_spacing_px,
             text_shadows: paint.text_shadows.clone(),
         },
         line_height_px: text.line_height_px,

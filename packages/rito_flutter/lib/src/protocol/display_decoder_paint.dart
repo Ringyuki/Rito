@@ -30,11 +30,6 @@ extension _RitoDisplayPaintReader on RitoBinaryReader {
       ]),
     );
     final color = readColor();
-    final wordSpacing = option('word spacing', () => float64('word spacing'));
-    final letterSpacing = option(
-      'letter spacing',
-      () => float64('letter spacing'),
-    );
     final shadowCount = count('text shadow count');
     final shadows = <RitoTextShadow>[];
     for (var index = 0; index < shadowCount; index += 1) {
@@ -43,8 +38,6 @@ extension _RitoDisplayPaintReader on RitoBinaryReader {
     return RitoRunPaint(
       font: font,
       color: color,
-      wordSpacingPx: wordSpacing,
-      letterSpacingPx: letterSpacing,
       textShadows: shadows,
     );
   }

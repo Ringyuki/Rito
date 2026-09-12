@@ -71,8 +71,10 @@ describe('production Canvas text shadows', () => {
     expect(snapshot.domCreateElementCalls).toEqual([]);
     expect(propertyValues(scratch.records, 'shadowColor')).toEqual(['#2244ff', '#cc3300']);
     expect(propertyValues(scratch.records, 'shadowBlur')).toEqual([2.1875, 3.5]);
-    expect(propertyValues(scratch.records, 'wordSpacing')).toEqual(['2.5px']);
-    expect(propertyValues(scratch.records, 'letterSpacing')).toEqual(['-0.75px']);
+    // The caster draws the pen's pieces at the pen's origins: every
+    // spacing is already in them.
+    expect(propertyValues(scratch.records, 'wordSpacing')).toEqual(['0px']);
+    expect(propertyValues(scratch.records, 'letterSpacing')).toEqual(['0px']);
     expect(propertyValues(scratch.records, 'globalCompositeOperation')).toEqual([]);
     expect(propertyValues(scratch.records, 'shadowOffsetY')).toEqual([
       (6 + 20000) * 1.75,
