@@ -2,10 +2,11 @@ use std::collections::BTreeSet;
 
 use crate::{
     epub::{
-        resolve_font_face_sources, text_measurement_font_assembly_for_layout_with_sources,
-        ResolvedFontFaceSource, ShapeablePublicationFontFace,
+        parse_font_family_list, resolve_font_face_sources,
+        shapeable_publication_faces_for_layout_with_sources, ResolvedFontFaceSource,
+        ShapeablePublicationFontFace,
     },
-    layout::{parse_font_family_list, LayoutConfig, TextMeasurementMode},
+    layout::{LayoutConfig, TextMeasurementMode},
 };
 
 use super::{
@@ -26,14 +27,14 @@ impl RuntimeDocument {
         }
         let pinned_faces = self
             .pinned_font_policy
-            .measurement_faces_for_layout(layout_config);
-        let assembly = text_measurement_font_assembly_for_layout_with_sources(
+            .pinned_faces_for_layout(layout_config);
+        let faces = shapeable_publication_faces_for_layout_with_sources(
             &self.document,
             self.resolved_font_face_sources(),
             layout_config,
             pinned_faces,
         );
-        self.required_font_face_catalog_from_faces(assembly.shapeable_publication_faces)
+        self.required_font_face_catalog_from_faces(faces)
     }
 
     pub(super) fn resolved_font_face_sources(&self) -> &[ResolvedFontFaceSource] {

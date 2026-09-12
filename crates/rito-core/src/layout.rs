@@ -1,28 +1,9 @@
 pub const NAME: &str = "layout";
-pub const OWNS: &str = "Block layout, inline layout, line breaking, pagination, pages, and spreads";
+pub const OWNS: &str = "Layout configuration and the page ranges a revision publishes per chapter";
 
 use std::collections::BTreeMap;
 
-mod cleanup;
-mod paint;
-mod search_flow;
-mod spread;
-mod text_measure;
-
 use serde::{Deserialize, Serialize};
-
-pub(crate) use cleanup::{CleanupProgress, PendingLayoutConfigCleanup};
-pub(crate) use paint::TextShadowPaint;
-pub(crate) use paint::{BorderEdgePaint, FontPaint, FontPaintStyle, MeasurePaint, RunBorder};
-pub(crate) use paint::{BorderLineStyle, RunSpacing};
-pub(crate) use paint::{RunBorderEdge, RunDecoration, RunDecorationKind, RunPaint, RunPaintData};
-pub(crate) use search_flow::{
-    search_prebuilt_runtime_pages, SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource,
-    SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
-};
-pub use search_flow::{SearchRuntimeResult, SearchTextPosition};
-pub(crate) use spread::build_spread_slots;
-pub(crate) use text_measure::{parse_font_family_list, TextMeasurementFontFace};
 
 /// One chapter's page span inside a revision's page table.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

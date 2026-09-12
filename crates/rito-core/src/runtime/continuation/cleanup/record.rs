@@ -1,7 +1,8 @@
 use std::num::NonZeroUsize;
 
 use crate::{
-    layout::{CleanupProgress, LineBreaking, PendingLayoutConfigCleanup},
+    layout::LineBreaking,
+    runtime::cleanup::{CleanupProgress, PendingLayoutConfigCleanup},
     runtime::RuntimeSourceLocator,
 };
 

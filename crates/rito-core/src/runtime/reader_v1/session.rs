@@ -3050,8 +3050,8 @@ fn page_display_origin(
 
 fn runtime_text_position(
     value: ReaderTextPositionV1,
-) -> Result<crate::layout::SearchTextPosition, ReaderErrorV1> {
-    Ok(crate::layout::SearchTextPosition {
+) -> Result<crate::runtime::SearchTextPosition, ReaderErrorV1> {
+    Ok(crate::runtime::SearchTextPosition {
         block_index: usize_from_u32(value.block_index, "text position block index")?,
         line_index: usize_from_u32(value.line_index, "text position line index")?,
         run_index: usize_from_u32(value.run_index, "text position run index")?,
@@ -3085,7 +3085,7 @@ fn reader_search_result(
 }
 
 fn reader_text_position(
-    value: crate::layout::SearchTextPosition,
+    value: crate::runtime::SearchTextPosition,
 ) -> Result<ReaderTextPositionV1, ReaderErrorV1> {
     Ok(ReaderTextPositionV1 {
         block_index: u32_from_usize(value.block_index, "text position block index")?,

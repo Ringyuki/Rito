@@ -10,7 +10,7 @@ use std::{env, fs, path::Path};
 use serde_json::{json, Value};
 
 use super::super::{lower_display_commands, ImageSize};
-use crate::layout::RunPaint;
+use crate::render::RunPaint;
 use crate::render::{
     commands::encode_reader_primitive_list_v1, DisplayCommand, DisplayTextCommandInput,
 };

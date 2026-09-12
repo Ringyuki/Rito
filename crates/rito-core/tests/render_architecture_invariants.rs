@@ -148,10 +148,11 @@ fn collect_rust_sources(directory: &Path, paths: &mut Vec<PathBuf>) {
     for entry in entries {
         let path = entry.path();
         // Test modules are instruments, not the render boundary: a fixture
-        // writer may read the style contract and traverse JSON.
+        // writer may read the style contract and traverse JSON. The crate
+        // names its `#[cfg(test)]` fixture builders `test_support`.
         let is_test_module = path
             .file_name()
-            .is_some_and(|name| name == "tests" || name == "tests.rs");
+            .is_some_and(|name| name == "tests" || name == "tests.rs" || name == "test_support.rs");
         if is_test_module {
             continue;
         }

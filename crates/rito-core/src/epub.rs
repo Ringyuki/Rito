@@ -20,9 +20,9 @@ pub use document::{
     LoadedChapter, LoadedEpubDocument, LoadedTextResource,
 };
 pub(crate) use fonts::{
-    publication_font_face_catalog, resolve_font_face_sources,
-    text_measurement_font_assembly_for_layout_with_sources, ResolvedFontFaceSource,
-    ShapeablePublicationFontFace,
+    parse_font_family_list, publication_font_face_catalog, resolve_font_face_sources,
+    shapeable_publication_faces_for_layout_with_sources, PublicationFontFace,
+    ResolvedFontFaceSource, ShapeablePublicationFontFace,
 };
 pub(crate) use layout_bridge::{
     prepare_runtime_layout_chapter, project_prepared_document_styles, ChapterStyleTable,

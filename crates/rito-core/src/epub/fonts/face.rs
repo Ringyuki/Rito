@@ -4,7 +4,7 @@ use ttf_parser::Face as TtfFace;
 /// face descriptor the font-fallback policy consults when deciding which
 /// declared families a publication can actually shape.
 #[derive(Clone)]
-pub(crate) struct TextMeasurementFontFace<'a> {
+pub(crate) struct PublicationFontFace<'a> {
     pub(crate) family: String,
     pub(crate) style: Option<String>,
     pub(crate) weight: Option<u16>,
@@ -14,10 +14,10 @@ pub(crate) struct TextMeasurementFontFace<'a> {
     shape_cmap_subtable: Option<u16>,
 }
 
-impl std::fmt::Debug for TextMeasurementFontFace<'_> {
+impl std::fmt::Debug for PublicationFontFace<'_> {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
-            .debug_struct("TextMeasurementFontFace")
+            .debug_struct("PublicationFontFace")
             .field("family", &self.family)
             .field("style", &self.style)
             .field("weight", &self.weight)
@@ -26,7 +26,7 @@ impl std::fmt::Debug for TextMeasurementFontFace<'_> {
     }
 }
 
-impl<'a> TextMeasurementFontFace<'a> {
+impl<'a> PublicationFontFace<'a> {
     pub(crate) fn new(
         family: String,
         style: Option<String>,

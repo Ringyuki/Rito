@@ -1,6 +1,6 @@
 use std::{num::NonZeroUsize, vec};
 
-use crate::layout::{CleanupProgress, PendingLayoutConfigCleanup};
+use crate::runtime::cleanup::{CleanupProgress, PendingLayoutConfigCleanup};
 
 use super::{
     super::{

@@ -23,11 +23,11 @@ use std::collections::BTreeMap;
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::{FlowItemSource, NodePaint};
-use crate::layout::{
+use crate::render::{DisplayCommand, DisplayTextCommandInput};
+use crate::render::{
     FontPaint, FontPaintStyle, MeasurePaint, RunDecoration, RunDecorationKind, RunPaint,
     RunPaintData, TextShadowPaint,
 };
-use crate::render::{DisplayCommand, DisplayTextCommandInput};
 use crate::style::{absolute_color, serialize_font_families};
 
 /// How painted family stacks reach the canvas when the reader pins fonts.
@@ -1741,13 +1741,13 @@ fn run_box_padding(
     style: &InlineFormattingStyleV1,
     box_start: bool,
     box_end: bool,
-) -> Option<crate::layout::RunSpacing> {
+) -> Option<crate::render::RunSpacing> {
     let side = |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
         LengthPercentage::Length(px) => f64::from(px.get()),
         _ => 0.0,
     };
     let padding = &style.fragment.padding;
-    let spacing = crate::layout::RunSpacing {
+    let spacing = crate::render::RunSpacing {
         top: side(&padding.top),
         right: if box_end { side(&padding.right) } else { 0.0 },
         bottom: side(&padding.bottom),
@@ -1763,8 +1763,8 @@ fn run_box_border(
     style: &InlineFormattingStyleV1,
     box_start: bool,
     box_end: bool,
-) -> EpubResult<Option<crate::layout::RunBorder>> {
-    use crate::layout::{BorderEdgePaint, BorderLineStyle, RunBorder, RunBorderEdge};
+) -> EpubResult<Option<crate::render::RunBorder>> {
+    use crate::render::{BorderEdgePaint, BorderLineStyle, RunBorder, RunBorderEdge};
     use rito_style_contract::BorderStyle;
     let edge = |edge: &rito_style_contract::BorderEdge| -> EpubResult<Option<RunBorderEdge>> {
         let width = f64::from(edge.resolved_width.get());

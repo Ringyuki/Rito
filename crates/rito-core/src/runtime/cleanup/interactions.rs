@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    interaction::FootnoteEntry, layout::CleanupProgress,
+    interaction::FootnoteEntry, runtime::cleanup::CleanupProgress,
     runtime::frame::RuntimeRevisionInteractions,
 };
 

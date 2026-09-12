@@ -3,6 +3,7 @@ pub const OWNS: &str = "Platform-neutral display-list and paint command generati
 
 mod commands;
 mod lower;
+mod run_paint;
 
 pub use commands::DisplayListResourceRefs;
 
@@ -13,3 +14,8 @@ pub(crate) use commands::{
     ReaderEncodedDisplayListV1,
 };
 pub(crate) use lower::{lower_display_commands, ImageSize};
+pub(crate) use run_paint::{
+    BorderEdgePaint, BorderLineStyle, FontPaint, FontPaintStyle, MeasurePaint, RunBorder,
+    RunBorderEdge, RunDecoration, RunDecorationKind, RunPaint, RunPaintData, RunSpacing,
+    TextShadowPaint,
+};

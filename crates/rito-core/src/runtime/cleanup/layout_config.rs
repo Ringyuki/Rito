@@ -3,7 +3,9 @@ use std::{
     num::NonZeroUsize,
 };
 
-use crate::layout::{CleanupProgress, LayoutConfig};
+use crate::layout::LayoutConfig;
+
+use super::CleanupProgress;
 
 use self::shell::LayoutConfigShell;
 
@@ -22,7 +24,7 @@ type FamilyAdvanceMapSource = btree_map::IntoIter<String, BTreeMap<String, f64>>
 /// retains logarithmic internal work, so this removes whole-map destructor
 /// stalls without claiming a strict constant-time unit.
 #[derive(Debug)]
-pub(crate) struct PendingLayoutConfigCleanup {
+pub(in crate::runtime) struct PendingLayoutConfigCleanup {
     owner: Option<LayoutConfig>,
     generic_serif_advances: Option<AdvanceMapSource>,
     font_family_advances: Option<FamilyAdvanceMapSource>,
@@ -52,7 +54,7 @@ enum SourceProgress {
 }
 
 impl PendingLayoutConfigCleanup {
-    pub(crate) fn new(owner: LayoutConfig) -> Self {
+    pub(in crate::runtime) fn new(owner: LayoutConfig) -> Self {
         Self {
             owner: Some(owner),
             generic_serif_advances: None,
@@ -66,11 +68,11 @@ impl PendingLayoutConfigCleanup {
         }
     }
 
-    pub(crate) fn is_complete(&self) -> bool {
+    pub(in crate::runtime) fn is_complete(&self) -> bool {
         self.stage == LayoutConfigCleanupStage::Complete
     }
 
-    pub(crate) fn advance_one(&mut self) -> bool {
+    pub(in crate::runtime) fn advance_one(&mut self) -> bool {
         match self.stage {
             LayoutConfigCleanupStage::Source => self.start_sources(),
             LayoutConfigCleanupStage::GenericSerifAdvances => self.advance_generic_serif_advances(),
@@ -86,7 +88,7 @@ impl PendingLayoutConfigCleanup {
         }
     }
 
-    pub(crate) fn advance(&mut self, budget: NonZeroUsize) -> CleanupProgress {
+    pub(in crate::runtime) fn advance(&mut self, budget: NonZeroUsize) -> CleanupProgress {
         let mut consumed_units = 0;
         while consumed_units < budget.get() && self.advance_one() {
             consumed_units += 1;
@@ -99,7 +101,7 @@ impl PendingLayoutConfigCleanup {
         progress
     }
 
-    pub(crate) fn drain(&mut self) {
+    pub(in crate::runtime) fn drain(&mut self) {
         loop {
             let progress = self.advance(NonZeroUsize::MAX);
             debug_assert!(progress.complete || progress.consumed_units == usize::MAX);
@@ -247,5 +249,4 @@ impl Drop for PendingLayoutConfigCleanup {
 }
 
 #[cfg(test)]
-#[path = "config/tests.rs"]
 mod tests;

@@ -1,6 +1,6 @@
 use std::{collections::btree_map::IntoIter, collections::VecDeque, num::NonZeroUsize};
 
-use crate::layout::CleanupProgress;
+use crate::runtime::cleanup::CleanupProgress;
 
 use super::super::frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner};
 

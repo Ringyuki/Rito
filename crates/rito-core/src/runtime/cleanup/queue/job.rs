@@ -1,5 +1,6 @@
 use crate::{
-    layout::{LayoutConfig, PendingLayoutConfigCleanup},
+    layout::LayoutConfig,
+    runtime::cleanup::PendingLayoutConfigCleanup,
     runtime::{
         continuation::{PendingRuntimeContinuationRecordCleanup, RuntimeContinuationRecord},
         frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner, RuntimeRevision},

@@ -26,7 +26,7 @@ impl RuntimeDocument {
             .chapter_local_revisions
             .get_mut(revision_id)
             .ok_or_else(|| local_unknown_revision(revision_id))?;
-        let spread_count = crate::layout::build_spread_slots(
+        let spread_count = crate::runtime::spread::build_spread_slots(
             page_count,
             layout.chapter_start_pages(),
             &revision.layout_config,

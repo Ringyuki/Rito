@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::layout::RunPaint;
+use crate::render::RunPaint;
 
 use super::{
     count_display_commands, display_command_values, summarize_display_list_font_families,

@@ -2,7 +2,7 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    layout::RunPaint,
+    render::RunPaint,
     render::{
         lower::{
             lower_display_commands, DashPattern, DevicePath, DevicePoint, DeviceRect,

@@ -1,15 +1,15 @@
-use crate::layout::{LayoutConfig, TextMeasurementFontFace};
+use crate::layout::LayoutConfig;
 
 use super::{chapter_style_tables, ChapterStyleTable};
 use crate::epub::{
-    fonts::text_measurement_font_assembly_for_layout, EpubResult, LoadedEpubDocument,
-    PreparedLoadedDocument, ShapeablePublicationFontFace,
+    fonts::shapeable_publication_faces_for_layout, EpubResult, LoadedEpubDocument,
+    PreparedLoadedDocument, PublicationFontFace, ShapeablePublicationFontFace,
 };
 
 pub(crate) struct PreparedRuntimeLayoutOptions<'a> {
     pub(crate) chapter_start: usize,
     pub(crate) chapter_count: usize,
-    pub(crate) pinned_faces: Vec<TextMeasurementFontFace<'a>>,
+    pub(crate) pinned_faces: Vec<PublicationFontFace<'a>>,
 }
 
 /// Projected style tables plus the shapeable publication faces.
@@ -32,7 +32,8 @@ pub(crate) fn project_prepared_document_styles<'a>(
         chapter_count,
         pinned_faces,
     } = options;
-    let assembly = text_measurement_font_assembly_for_layout(document, layout_config, pinned_faces);
+    let shapeable_publication_faces =
+        shapeable_publication_faces_for_layout(document, layout_config, pinned_faces);
     let end = chapter_start
         .saturating_add(chapter_count)
         .min(prepared.chapters.len());
@@ -43,6 +44,6 @@ pub(crate) fn project_prepared_document_styles<'a>(
     )?;
     Ok(ProjectedDocumentStyles {
         chapter_style_tables,
-        shapeable_publication_faces: assembly.shapeable_publication_faces,
+        shapeable_publication_faces,
     })
 }

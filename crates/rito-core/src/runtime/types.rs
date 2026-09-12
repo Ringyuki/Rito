@@ -6,14 +6,12 @@ use serde_json::Value;
 use super::source_locator::{
     RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
 };
+use super::{SearchRuntimeResult, SearchTextPosition};
 
 use crate::{
     epub::{PackageDocument, TocEntry},
     interaction::{FootnoteEntry, FootnoteKind},
-    layout::{
-        LayoutConfig, LineBreaking, PaginationFlowChapterRange, SearchRuntimeResult,
-        SearchTextPosition,
-    },
+    layout::{LayoutConfig, LineBreaking, PaginationFlowChapterRange},
     render::DisplayListResourceRefs,
     resources::PublicationResources,
     xhtml::ChapterSource,

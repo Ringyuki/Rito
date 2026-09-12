@@ -1,6 +1,6 @@
 use serde_json::{Map, Value};
 
-use crate::layout::{BorderEdgePaint, RunBorderEdge, RunPaint};
+use crate::render::{BorderEdgePaint, RunBorderEdge, RunPaint};
 
 use super::super::{
     contract::{
@@ -336,7 +336,7 @@ pub(super) fn adapt_run_paint(
 }
 
 fn adapt_run_border(
-    border: &crate::layout::RunBorder,
+    border: &crate::render::RunBorder,
 ) -> Result<ReaderRunBorderV1, ReaderDisplayListWireError> {
     Ok(ReaderRunBorderV1 {
         top: border.top.as_ref().map(adapt_run_border_edge).transpose()?,

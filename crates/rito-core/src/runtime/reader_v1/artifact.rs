@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    layout::{parse_font_family_list, LayoutConfig},
+    epub::parse_font_family_list,
+    layout::LayoutConfig,
     render::{encode_reader_primitive_list_v1, lower_display_commands},
     runtime::{
         page_artifact::{

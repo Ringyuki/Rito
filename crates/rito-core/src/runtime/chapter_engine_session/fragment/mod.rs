@@ -24,8 +24,9 @@ use crate::interaction::{
 use super::super::page_artifact::{
     PageArtifactTextSelectionMovement, PageArtifactTextSelectionMovementTarget,
 };
-use crate::layout::{build_spread_slots, SpreadMode};
+use crate::layout::SpreadMode;
 use crate::render::DisplayCommand;
+use crate::runtime::spread::build_spread_slots;
 
 use super::super::{
     fragment_backend::FragmentBuiltLayout,
@@ -275,28 +276,28 @@ impl<'a> FragmentChapterEngineSession<'a> {
         Some(starts)
     }
 
-    pub(super) fn search_page_index(&self) -> Vec<crate::layout::SearchPageText> {
+    pub(super) fn search_page_index(&self) -> Vec<crate::runtime::search::SearchPageText> {
         (0..self.layout.page_count())
             .filter_map(|page_index| {
                 let artifact = self.artifact(page_index)?;
                 let runs = artifact
                     .interaction_runs()
                     .iter()
-                    .map(|run| crate::layout::SearchPrebuiltRun {
+                    .map(|run| crate::runtime::search::SearchPrebuiltRun {
                         start: run.start,
                         end: run.end,
                         block_index: run.block_index,
                         line_index: run.line_index,
                         run_index: run.run_index,
                         source: run.source.as_ref().map(|source| {
-                            crate::layout::SearchPrebuiltRunSource {
+                            crate::runtime::search::SearchPrebuiltRunSource {
                                 node_path: source.path.clone(),
                                 segments: source.segments.clone(),
                             }
                         }),
                     })
                     .collect();
-                Some(crate::layout::SearchPageText::from_parts(
+                Some(crate::runtime::search::SearchPageText::from_parts(
                     page_index,
                     artifact.page_text().to_owned(),
                     runs,

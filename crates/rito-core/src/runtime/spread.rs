@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use super::{LayoutConfig, SpreadMode};
+use crate::layout::{LayoutConfig, SpreadMode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SpreadSlot {

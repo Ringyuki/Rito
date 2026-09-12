@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use crate::layout::RunPaint;
+use super::RunPaint;
 
 mod json;
 mod reader_wire_v1;

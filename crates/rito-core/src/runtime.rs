@@ -30,6 +30,7 @@ mod revision;
 mod revision_fonts;
 mod search;
 mod source_locator;
+mod spread;
 mod style_table_summary;
 mod text_interaction;
 mod transfer_store;
@@ -78,6 +79,7 @@ use resource::{
     runtime_text_resource,
 };
 use search::search_revision;
+pub use search::{SearchRuntimeResult, SearchTextPosition};
 pub use style_table_summary::{
     RuntimeChapterStyleTableSummary, RuntimeStyleTableSummary,
     RUNTIME_STYLE_TABLE_SUMMARY_SCHEMA_VERSION,

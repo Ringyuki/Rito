@@ -60,7 +60,7 @@ impl RuntimeDocument {
                 .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
             let pinned_faces = document
                 .pinned_font_policy
-                .measurement_faces_for_layout(layout_config);
+                .pinned_faces_for_layout(layout_config);
             let projected = crate::epub::project_prepared_document_styles(
                 &document.document,
                 prepared,

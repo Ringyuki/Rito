@@ -6,7 +6,7 @@ mod probe;
 #[cfg(test)]
 use probe::RuntimeCleanupProbe;
 
-use crate::layout::{CleanupProgress, LayoutConfig};
+use crate::{layout::LayoutConfig, runtime::cleanup::CleanupProgress};
 
 use super::super::{
     continuation::RuntimeContinuationRecord,

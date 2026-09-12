@@ -87,7 +87,7 @@ impl<'a> ChapterEngineSession<'a> {
     }
 
     /// Search index built from the page artifacts.
-    pub(super) fn search_page_index(&self) -> Vec<crate::layout::SearchPageText> {
+    pub(super) fn search_page_index(&self) -> Vec<crate::runtime::search::SearchPageText> {
         self.backend.search_page_index()
     }
 

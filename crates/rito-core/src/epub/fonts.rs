@@ -1,17 +1,13 @@
-use crate::layout::{LayoutConfig, TextMeasurementFontFace, TextMeasurementMode};
+use crate::layout::{LayoutConfig, TextMeasurementMode};
 use std::collections::BTreeSet;
 
 use super::LoadedEpubDocument;
 
+mod face;
 mod sources;
 
+pub(crate) use face::{parse_font_family_list, PublicationFontFace};
 pub(crate) use sources::{resolve_font_face_sources, ResolvedFontFaceSource};
-
-/// The publication faces a pinned layout can shape, as the required-face
-/// catalog reports them to the host.
-pub(crate) struct TextMeasurementFontAssembly {
-    pub(crate) shapeable_publication_faces: Vec<ShapeablePublicationFontFace>,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ShapeablePublicationFontFace {
@@ -24,48 +20,40 @@ pub(crate) struct ShapeablePublicationFontFace {
     pub(crate) source_order: usize,
 }
 
-pub(crate) fn text_measurement_font_assembly_for_layout<'a>(
+/// The publication faces a pinned layout can shape, as the required-face
+/// catalog reports them to the host.
+pub(crate) fn shapeable_publication_faces_for_layout<'a>(
     document: &'a LoadedEpubDocument,
     layout_config: &LayoutConfig,
-    pinned_faces: Vec<TextMeasurementFontFace<'a>>,
-) -> TextMeasurementFontAssembly {
+    pinned_faces: Vec<PublicationFontFace<'a>>,
+) -> Vec<ShapeablePublicationFontFace> {
     match layout_config.text_measurement {
-        TextMeasurementMode::FixtureCompatible => empty_font_assembly(),
+        TextMeasurementMode::FixtureCompatible => Vec::new(),
         TextMeasurementMode::FontAware => {
             let sources = resolve_font_face_sources(document);
-            text_measurement_font_assembly(document, &sources, pinned_faces)
+            select_publication_fonts(document, &sources, &pinned_faces)
         }
     }
 }
 
-pub(crate) fn text_measurement_font_assembly_for_layout_with_sources<'a>(
+pub(crate) fn shapeable_publication_faces_for_layout_with_sources<'a>(
     document: &'a LoadedEpubDocument,
     sources: &[ResolvedFontFaceSource],
     layout_config: &LayoutConfig,
-    pinned_faces: Vec<TextMeasurementFontFace<'a>>,
-) -> TextMeasurementFontAssembly {
+    pinned_faces: Vec<PublicationFontFace<'a>>,
+) -> Vec<ShapeablePublicationFontFace> {
     match layout_config.text_measurement {
-        TextMeasurementMode::FixtureCompatible => empty_font_assembly(),
+        TextMeasurementMode::FixtureCompatible => Vec::new(),
         TextMeasurementMode::FontAware => {
-            text_measurement_font_assembly(document, sources, pinned_faces)
+            select_publication_fonts(document, sources, &pinned_faces)
         }
-    }
-}
-
-fn text_measurement_font_assembly<'a>(
-    document: &'a LoadedEpubDocument,
-    sources: &[ResolvedFontFaceSource],
-    pinned_faces: Vec<TextMeasurementFontFace<'a>>,
-) -> TextMeasurementFontAssembly {
-    TextMeasurementFontAssembly {
-        shapeable_publication_faces: select_publication_fonts(document, sources, &pinned_faces),
     }
 }
 
 fn select_publication_fonts<'a>(
     document: &'a LoadedEpubDocument,
     sources: &[ResolvedFontFaceSource],
-    pinned_faces: &[TextMeasurementFontFace<'a>],
+    pinned_faces: &[PublicationFontFace<'a>],
 ) -> Vec<ShapeablePublicationFontFace> {
     let pinned_active = !pinned_faces.is_empty();
     if !pinned_active {
@@ -93,7 +81,7 @@ fn selectable_publication_face<'a>(
     pinned_aliases: &BTreeSet<String>,
 ) -> Option<(
     &'a crate::epub::LoadedBinaryResource,
-    TextMeasurementFontFace<'a>,
+    PublicationFontFace<'a>,
 )> {
     let resource = document.fonts.get(source.resource_index)?;
     let face = source.measurement_face(resource);
@@ -124,7 +112,7 @@ pub(crate) fn publication_font_face_catalog(
 fn shapeable_catalog_face(
     source: &ResolvedFontFaceSource,
     resource: &crate::epub::LoadedBinaryResource,
-    face: &TextMeasurementFontFace<'_>,
+    face: &PublicationFontFace<'_>,
 ) -> ShapeablePublicationFontFace {
     ShapeablePublicationFontFace {
         family: face.family.clone(),
@@ -134,12 +122,6 @@ fn shapeable_catalog_face(
         shape_fingerprint: source.catalog_fingerprint(&resource.bytes),
         byte_length: resource.bytes.len(),
         source_order: source.source_order,
-    }
-}
-
-fn empty_font_assembly() -> TextMeasurementFontAssembly {
-    TextMeasurementFontAssembly {
-        shapeable_publication_faces: Vec::new(),
     }
 }
 

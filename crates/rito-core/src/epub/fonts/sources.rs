@@ -2,7 +2,9 @@ use std::cell::OnceCell;
 
 use rito_stylo::{parse_font_faces_v1, FontFaceStylesheetInputV1};
 
-use crate::{layout::TextMeasurementFontFace, resources::hash_bytes};
+use crate::resources::hash_bytes;
+
+use super::face::PublicationFontFace;
 
 use super::super::{paths::normalize_href_path, LoadedBinaryResource, LoadedEpubDocument};
 
@@ -30,8 +32,8 @@ impl ResolvedFontFaceSource {
     pub(super) fn measurement_face<'a>(
         &self,
         resource: &'a LoadedBinaryResource,
-    ) -> TextMeasurementFontFace<'a> {
-        TextMeasurementFontFace::new(
+    ) -> PublicationFontFace<'a> {
+        PublicationFontFace::new(
             self.family.clone(),
             self.style.clone(),
             self.weight,

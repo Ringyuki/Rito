@@ -14,9 +14,9 @@ use std::{
 
 use rito_fragment::CancelFlag;
 
+use super::spread::build_spread_slots;
 use crate::fragment_pagination::{paginate_chapter, paint_chapter_page};
 use crate::fragment_paint::{FragmentPaintContext, PaintFamilyPolicy};
-use crate::layout::build_spread_slots;
 use crate::render::DisplayCommand;
 
 use super::frame::RuntimeRevisionCoordinateSpace;
