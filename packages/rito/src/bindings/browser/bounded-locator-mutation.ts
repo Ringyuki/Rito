@@ -25,14 +25,7 @@ type LocatorMutation = (
 interface LocatorRequest extends LocatorRequestSettlement {
   readonly locator: ReaderLocator;
   readonly mutate: LocatorMutation;
-  readonly onTargetStarted: (() => void) | undefined;
-  readonly onCancelled: (() => void) | undefined;
   readonly promise: Promise<ReaderLocatorResolution | undefined>;
-}
-
-export interface BrowserReaderBoundedLocatorLifecycle {
-  readonly onTargetStarted?: (() => void) | undefined;
-  readonly onCancelled?: (() => void) | undefined;
 }
 
 interface LocatorCoordinator {
@@ -55,11 +48,10 @@ export function ensureCoalescedBrowserReaderBoundedLocator(
   locator: ReaderLocator,
   signal: AbortSignal | undefined,
   mutate: LocatorMutation,
-  lifecycle: BrowserReaderBoundedLocatorLifecycle = {},
 ): Promise<ReaderLocatorResolution | undefined> {
   if (state.disposed || signal?.aborted) return Promise.resolve(undefined);
   const coordinator = locatorCoordinator(state);
-  const request = createLocatorRequest(state, coordinator, locator, signal, mutate, lifecycle);
+  const request = createLocatorRequest(state, coordinator, locator, signal, mutate);
   submitLocatorRequest(state, coordinator, request);
   return request.promise;
 }
@@ -89,7 +81,6 @@ function createLocatorRequest(
   locator: ReaderLocator,
   signal: AbortSignal | undefined,
   mutate: LocatorMutation,
-  lifecycle: BrowserReaderBoundedLocatorLifecycle,
 ): LocatorRequest {
   let resolvePromise!: (value: ReaderLocatorResolution | undefined) => void;
   let rejectPromise!: (error: unknown) => void;
@@ -100,8 +91,6 @@ function createLocatorRequest(
   const request: LocatorRequest = {
     locator,
     mutate,
-    onTargetStarted: lifecycle.onTargetStarted,
-    onCancelled: lifecycle.onCancelled,
     promise,
     resolve: resolvePromise,
     reject: rejectPromise,
@@ -242,7 +231,6 @@ function startLocatorTarget(
   owner: BrowserReaderBoundedSessionOwner,
   request: LocatorRequest,
 ): void {
-  request.onTargetStarted?.();
   startLocatorValueTarget(coordinator, owner, request.locator);
 }
 
@@ -301,7 +289,6 @@ function cancelLocatorRequest(
   request: LocatorRequest,
 ): void {
   if (coordinator.pending === request) coordinator.pending = undefined;
-  request.onCancelled?.();
   resolveLocatorRequest(request, undefined);
   if (coordinator.current === request && coordinator.phase === 'targeting' && coordinator.owner) {
     startSpreadRecoveryTarget(coordinator, coordinator.owner, state.activeSpreadIndex);

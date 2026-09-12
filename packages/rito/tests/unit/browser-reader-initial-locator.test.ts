@@ -33,11 +33,7 @@ describe('Browser reader initial locator', () => {
     await expect(startInitialCandidate(state, owner, locator)).resolves.toBe(snapshot);
 
     const request = start.mock.calls[0]?.[0];
-    expect(request).toMatchObject({
-      targetLocator: locator,
-      budget: { maxTopLevelNodes: 32 },
-      growthBudget: { maxTopLevelNodes: 32 },
-    });
+    expect(request).toMatchObject({ targetLocator: locator });
     expect(request).not.toHaveProperty('targetSpreadIndex');
     expect(request?.targetLocator).not.toBe(locator);
     expect(ensureLocator).not.toHaveBeenCalled();

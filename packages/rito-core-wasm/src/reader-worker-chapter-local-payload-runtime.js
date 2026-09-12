@@ -2,10 +2,7 @@ import { requireReaderChapterLocalFrame } from './chapter-local-frame-validation
 import { requireChapterLocalRelease } from './chapter-local-advance-validation-runtime.js';
 import { requireChapterLocalOwner } from './chapter-local-owner-validation-runtime.js';
 
-const MUTATION_KINDS = new Set([
-  'createBoundedChapterLocalRevision',
-  'continueChapterLocalRevision',
-]);
+const MUTATION_KINDS = new Set(['createBoundedChapterLocalRevision']);
 
 export function chapterLocalReaderWorkerPayload(document, request) {
   switch (request.kind) {
@@ -14,12 +11,6 @@ export function chapterLocalReaderWorkerPayload(document, request) {
         document,
         request.kind,
         document.createBoundedChapterLocalRevision(request.request),
-      );
-    case 'continueChapterLocalRevision':
-      return mutationResponse(
-        document,
-        request.kind,
-        document.continueChapterLocalRevision(request.request),
       );
     case 'releaseChapterLocalRevision':
       return {

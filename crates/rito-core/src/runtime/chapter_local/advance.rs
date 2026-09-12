@@ -1,7 +1,6 @@
 use crate::runtime::{
     RuntimeChapterLocalPageRange, RuntimeChapterLocalRevisionAdvance,
-    RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionExtent, RuntimeDocument,
-    RuntimeRevisionStatus, RuntimeSourceLocator,
+    RuntimeChapterLocalRevisionError, RuntimeDocument, RuntimeRevisionStatus, RuntimeSourceLocator,
 };
 
 use super::model::{
@@ -11,8 +10,7 @@ use super::model::{
 impl RuntimeDocument {
     /// Publishes a chapter-local revision paginated by the fragment
     /// engine in one pass: the revision owns its complete single-chapter
-    /// page table, so there is no continuation and no page-cap window —
-    /// the advertised extent is the whole chapter.
+    /// page table, so the advertised extent is the whole chapter.
     pub(super) fn publish_chapter_local_fragment(
         &mut self,
         revision_id: &str,
@@ -58,13 +56,7 @@ impl RuntimeDocument {
                 end_local_page_exclusive: summary.known_extent.local_page_count,
             },
             revision: summary,
-            previous_known_extent: RuntimeChapterLocalRevisionExtent {
-                local_page_count: 0,
-                local_spread_count: 0,
-            },
-            processed_top_level_nodes: 0,
             target,
-            continuation: None,
         })
     }
 

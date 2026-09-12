@@ -21,8 +21,6 @@ export type {
   RitoCoreWasmChapterLocalOwner as CoreChapterLocalOwner,
   RitoCoreWasmChapterLocalRevisionAdvance as CoreChapterLocalRevisionAdvance,
   RitoCoreWasmChapterLocalRevisionRelease as CoreChapterLocalRevisionRelease,
-  RitoCoreWasmContinueChapterLocalRevisionRequest as CoreContinueChapterLocalRevisionRequest,
-  RitoCoreWasmContinuedChapterLocalRevisionAdvance as CoreContinuedChapterLocalRevisionAdvance,
   RitoCoreWasmExactSourceRangeRequest as CoreExactSourceRangeRequest,
   RitoCoreWasmExactSourceRangeResponse as CoreExactSourceRangeResponse,
   RitoCoreWasmFootnotes as CoreFootnotes,

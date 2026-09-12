@@ -228,8 +228,6 @@ function createRequest() {
     lineBreaking: 'greedy',
     targetChapterIndex: 3,
     targetLocator: { href: 'chapter.xhtml' },
-    localPageCap: 4,
-    budget: { maxTopLevelNodes: 1 },
   };
 }
 
@@ -248,14 +246,10 @@ function completedAdvance(exactOwner) {
       ...exactOwner,
       layoutKey: 'layout',
       status: 'complete',
-      localPageCap: 4,
       knownExtent,
       finalExtent: knownExtent,
-      pageCapReached: false,
     },
-    previousKnownExtent: { localPageCount: 0, localSpreadCount: 0 },
     newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 1 },
-    processedTopLevelNodes: 1,
     target: {
       status: 'resolved',
       owner: exactOwner,

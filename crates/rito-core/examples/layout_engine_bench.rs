@@ -1,3 +1,11 @@
+//! Times one whole-book pagination through the production runtime.
+//!
+//! Usage: `layout-engine-bench <epub> <serif-font-path>`. The book is
+//! opened with the given face pinned as the serif fallback (the fragment
+//! engine shapes with pinned faces only) and paginated once at a fixed
+//! 420×640 single-page layout; the wall-clock time and page count are
+//! printed.
+
 use std::{env, fs, process, time::Instant};
 
 use rito_core::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
@@ -21,10 +29,10 @@ fn run() -> Result<(), String> {
     }
     let bytes = fs::read(&args[0]).map_err(|error| format!("read {}: {error}", args[0]))?;
     let serif_bytes = fs::read(&args[1]).map_err(|error| format!("read {}: {error}", args[1]))?;
-    let policy = || RuntimePinnedFontPolicyInput {
+    let policy = RuntimePinnedFontPolicyInput {
         faces: vec![RuntimePinnedFontFaceInput {
             expected_sha256: format!("{:x}", Sha256::digest(&serif_bytes)),
-            bytes: serif_bytes.clone(),
+            bytes: serif_bytes,
             generic_role: RuntimePinnedFontGenericRole::Serif,
             language: None,
         }],
@@ -45,35 +53,16 @@ fn run() -> Result<(), String> {
         text_measurement: None,
     });
 
-    // Pass 1: continuous whole-book layout only.
-    let mut document = RuntimeDocument::open_with_pinned_font_policy(&bytes, policy())
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(&bytes, policy)
         .map_err(|e| format!("open: {e:?}"))?;
     let started = Instant::now();
     let revision = document
         .create_revision(&layout)
-        .map_err(|e| format!("continuous revision: {e:?}"))?;
-    let continuous_ms = started.elapsed().as_secs_f64() * 1_000.0;
+        .map_err(|e| format!("revision: {e:?}"))?;
+    let elapsed_ms = started.elapsed().as_secs_f64() * 1_000.0;
     println!(
-        "continuous whole-book: {continuous_ms:.1} ms ({} pages)",
+        "whole-book pagination: {elapsed_ms:.1} ms ({} pages)",
         revision.page_count
-    );
-
-    // Pass 2: same, plus the fragment page-table build on top. The delta
-    // is the fragment engine's own whole-book cost.
-    let mut document = RuntimeDocument::open_with_pinned_font_policy(&bytes, policy())
-        .map_err(|e| format!("open: {e:?}"))?;
-    let started = Instant::now();
-    let revision = document
-        .create_revision(&layout)
-        .map_err(|e| format!("fragment revision: {e:?}"))?;
-    let with_fragment_ms = started.elapsed().as_secs_f64() * 1_000.0;
-    println!(
-        "continuous + fragment build: {with_fragment_ms:.1} ms ({} pages)",
-        revision.page_count
-    );
-    println!(
-        "fragment whole-book build alone: ~{:.1} ms",
-        with_fragment_ms - continuous_ms
     );
     Ok(())
 }

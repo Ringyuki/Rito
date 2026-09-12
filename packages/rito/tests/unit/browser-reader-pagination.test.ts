@@ -16,20 +16,9 @@ describe('Browser reader incremental pagination accessor', () => {
     mocks.ensureBrowserReaderBoundedSpread.mockResolvedValue(true);
   });
 
-  it('reflects the current committed revision completion dynamically', () => {
+  it('reports the committed revision as complete', () => {
     const state = readyState();
     const pagination = createBrowserReaderIncrementalPagination(state);
-
-    expect(pagination.complete).toBe(false);
-
-    state.revisionBundle = {
-      ...state.revisionBundle,
-      revision: {
-        ...state.revisionBundle.revision,
-        status: 'complete',
-        finalExtent: state.revisionBundle.revision.knownExtent,
-      },
-    };
 
     expect(pagination.complete).toBe(true);
   });
@@ -52,8 +41,8 @@ function readyState(): ReturnType<typeof createState> {
     revision: {
       ...state.revisionBundle.revision,
       revisionId: 'ready',
-      status: 'ready',
-      finalExtent: undefined,
+      status: 'complete',
+      finalExtent: state.revisionBundle.revision.knownExtent,
     },
   };
   return state;

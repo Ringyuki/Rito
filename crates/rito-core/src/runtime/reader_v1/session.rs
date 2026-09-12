@@ -1,16 +1,13 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     layout::{LayoutConfig, LineBreaking},
     runtime::{
         RuntimeBoundedChapterLocalRevisionRequest, RuntimeBoundedRevisionRequest,
-        RuntimeChapterLocalRevisionAdvance, RuntimeChapterLocalRevisionCursor,
-        RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalSourceLocatorResolution,
-        RuntimeContinueChapterLocalRevisionRequest, RuntimeContinueRevisionRequest,
-        RuntimeDocument, RuntimePageReadingAnchor, RuntimeRevision, RuntimeRevisionWorkBudget,
-        RuntimeRolloverChapterLocalRevisionRequest, RuntimeSearchRequest, RuntimeSourceLocator,
-        RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorResolution,
-        RuntimeTextRangeGeometryRequest, RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX,
+        RuntimeChapterLocalRevisionAdvance, RuntimeChapterLocalRevisionHandle,
+        RuntimeChapterLocalSourceLocatorResolution, RuntimeDocument, RuntimePageReadingAnchor,
+        RuntimeRevision, RuntimeSearchRequest, RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy,
+        RuntimeSourceLocatorResolution, RuntimeTextRangeGeometryRequest,
     },
 };
 
@@ -35,7 +32,7 @@ use super::{
     ReaderForegroundHandoffV1, ReaderLocatorV1, ReaderNavigationV1, ReaderPublicationV1,
     ReaderRectV1, ReaderResourceKindV1, ReaderResourceV1, ReaderSearchRequestV1,
     ReaderSearchResponseV1, ReaderSearchResultV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1,
-    ReaderTextRangeRequestV1, ReaderTextRectV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
+    ReaderTextRangeRequestV1, ReaderTextRectV1, ReaderTextRenderingProfileV1,
     READER_EXTERNAL_ID_MAX_V1,
 };
 
@@ -45,7 +42,6 @@ mod exact_cache;
 // artifact + one peeked neighbor per direction + an in-flight foreground
 // candidate, with one slot of slack.
 pub const READER_LIVE_ARTIFACT_CAP_V1: u32 = 6;
-const READER_RETAINED_WINDOW_CAP_V1: usize = 2;
 
 #[derive(Debug, Clone)]
 struct ReaderArtifactOwnerV1 {
@@ -67,72 +63,40 @@ struct ReaderArtifactOwnerV1 {
 #[derive(Debug)]
 struct ReaderRevisionOwnerV1 {
     owner: RuntimeChapterLocalRevisionHandle,
-    continuation: Option<RuntimeChapterLocalRevisionCursor>,
     layout: LayoutConfig,
-    local_page_cap: u32,
     known_local_spread_count: usize,
     final_local_spread_count: Option<usize>,
-    page_cap_reached: bool,
     artifact_ref_count: u32,
-    previous_window_revision_id: Option<u64>,
-    previous_window_evicted: bool,
-    next_window_revision_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy)]
 struct ReaderPendingAdjacentV1 {
     from_artifact_id: u64,
     direction: ReaderAdjacentDirectionV1,
-    local_page_cap: u32,
 }
 
 impl ReaderPendingAdjacentV1 {
     fn matches(&self, request: &ReaderAdjacentRequestV1) -> bool {
-        self.from_artifact_id == request.from_artifact_id
-            && self.direction == request.direction
-            && self.local_page_cap == request.work.local_page_cap
+        self.from_artifact_id == request.from_artifact_id && self.direction == request.direction
     }
-}
-
-#[derive(Debug)]
-enum ReaderExactSeekAdvanceV1 {
-    Resolved(RuntimeChapterLocalRevisionAdvance),
 }
 
 impl ReaderRevisionOwnerV1 {
     fn from_advance(
         advance: RuntimeChapterLocalRevisionAdvance,
         layout: LayoutConfig,
-        local_page_cap: u32,
         artifact_ref_count: u32,
     ) -> Self {
         Self {
             owner: owner_from_advance(&advance),
-            continuation: advance.continuation,
             layout,
-            local_page_cap,
             known_local_spread_count: advance.revision.known_extent.local_spread_count,
             final_local_spread_count: advance
                 .revision
                 .final_extent
                 .map(|extent| extent.local_spread_count),
-            page_cap_reached: advance.revision.page_cap_reached,
             artifact_ref_count,
-            previous_window_revision_id: None,
-            previous_window_evicted: false,
-            next_window_revision_id: None,
         }
-    }
-
-    fn apply_advance(&mut self, advance: RuntimeChapterLocalRevisionAdvance) {
-        self.owner = owner_from_advance(&advance);
-        self.continuation = advance.continuation;
-        self.known_local_spread_count = advance.revision.known_extent.local_spread_count;
-        self.final_local_spread_count = advance
-            .revision
-            .final_extent
-            .map(|extent| extent.local_spread_count);
-        self.page_cap_reached = advance.revision.page_cap_reached;
     }
 }
 
@@ -149,7 +113,6 @@ pub struct ReaderSessionV1 {
     active_publication_revision_id: Option<u64>,
     artifacts: BTreeMap<u64, ReaderArtifactOwnerV1>,
     released_artifacts: BTreeSet<u64>,
-    retained_windows: VecDeque<u64>,
     // Read-only adjacent artifacts produced by `peek_adjacent`. Only these
     // may take the `commit_peeked_artifact` fast path to visibility; the
     // set keeps arbitrary live artifacts from being promoted.
@@ -158,9 +121,7 @@ pub struct ReaderSessionV1 {
     foreground_candidate: Option<ReaderForegroundCandidateV1>,
     // At most one unpublished owner survives a bounded exact seek. It never
     // receives reader revision/artifact identities until the target resolves.
-    // Adjacent retries have their own typed intent identity. The underlying
-    // progress remains owned by the source revision or, at a chapter
-    // boundary, by `pending_exact_seek`.
+    // Adjacent retries have their own typed intent identity.
     pending_adjacent: Option<ReaderPendingAdjacentV1>,
     /// Device pixels per CSS pixel the host rasterizes artifacts at; paint
     /// snaps land on that grid. Pagination never reads it.
@@ -208,7 +169,6 @@ impl ReaderSessionV1 {
             active_publication_revision_id: None,
             artifacts: BTreeMap::new(),
             released_artifacts: BTreeSet::new(),
-            retained_windows: VecDeque::new(),
             peeked_artifacts: BTreeSet::new(),
             visible_intent: None,
             foreground_candidate: None,
@@ -238,8 +198,8 @@ impl ReaderSessionV1 {
         false
     }
 
-    /// True only while a newer adjacent request with the same source,
-    /// direction, and page cap can resume retained foreground work.
+    /// True only while a newer adjacent request with the same source and
+    /// direction can resume retained foreground work.
     pub const fn has_pending_adjacent_v1(&self) -> bool {
         self.pending_adjacent.is_some()
     }
@@ -249,7 +209,6 @@ impl ReaderSessionV1 {
         request: ReaderArtifactRequestV1,
     ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
         self.validate_request_identity(request.session_id, request.request_id, "artifact")?;
-        validate_work(request.work)?;
         if request.text_profile != ReaderTextRenderingProfileV1::PlatformStringRuns {
             return Err(ReaderErrorV1::new(
                 ReaderErrorKindV1::UnsupportedTextProfile,
@@ -268,7 +227,6 @@ impl ReaderSessionV1 {
             request.request_id,
             layout.clone(),
             locator,
-            request.work,
         )?;
         self.install_foreground_candidate(
             request.request_id,
@@ -285,7 +243,6 @@ impl ReaderSessionV1 {
     ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
         self.validate_request_identity(request.session_id, request.request_id, "adjacent")?;
         validate_external_request_id(request.from_artifact_id, "fromArtifactId")?;
-        validate_work(request.work)?;
         self.require_artifact_capacity()?;
 
         let source = self
@@ -294,18 +251,11 @@ impl ReaderSessionV1 {
             .cloned()
             .ok_or_else(|| unknown_artifact(request.from_artifact_id))?;
         let layout = match source.backing {
-            ReaderRevisionBackingV1::ChapterLocal => {
-                let revision = self.revisions.get(&source.revision_id).ok_or_else(|| {
-                    missing_artifact_revision(ReaderRevisionBackingV1::ChapterLocal)
-                })?;
-                if request.work.local_page_cap != revision.local_page_cap {
-                    return Err(ReaderErrorV1::new(
-                        ReaderErrorKindV1::InvalidRequest,
-                        "adjacent request localPageCap must match the source revision",
-                    ));
-                }
-                revision.layout.clone()
-            }
+            ReaderRevisionBackingV1::ChapterLocal => self
+                .revisions
+                .get(&source.revision_id)
+                .map(|revision| revision.layout.clone())
+                .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::ChapterLocal))?,
             ReaderRevisionBackingV1::Publication => self
                 .publication_revisions
                 .get(&source.revision_id)
@@ -330,20 +280,19 @@ impl ReaderSessionV1 {
                         source.local_spread_index - 1,
                         request.request_id,
                     ),
-                ReaderAdjacentDirectionV1::Previous => self.request_previous_window_or_chapter(
-                    source.clone(),
+                ReaderAdjacentDirectionV1::Previous => self.request_chapter_boundary(
+                    source.revision_id,
+                    ReaderAdjacentDirectionV1::Previous,
                     request.request_id,
-                    request.work,
                 ),
                 ReaderAdjacentDirectionV1::Next => {
-                    self.request_next(source.clone(), request.request_id, request.work)
+                    self.request_next(source.clone(), request.request_id)
                 }
             },
             ReaderRevisionBackingV1::Publication => self.request_publication_adjacent(
                 source.clone(),
                 request.request_id,
                 request.direction,
-                request.work,
             ),
         };
         match result {
@@ -362,7 +311,6 @@ impl ReaderSessionV1 {
                     self.pending_adjacent = Some(ReaderPendingAdjacentV1 {
                         from_artifact_id: request.from_artifact_id,
                         direction: request.direction,
-                        local_page_cap: request.work.local_page_cap,
                     });
                 } else {
                     self.pending_adjacent = None;
@@ -382,27 +330,20 @@ impl ReaderSessionV1 {
     /// Unlike [`Self::request_adjacent`] this never begins a foreground
     /// intent, never installs a candidate, and never touches pending
     /// exact-seek or adjacent continuations — the visible artifact and
-    /// every in-flight navigation stay exactly as they were. Pagination
-    /// MAY advance (bounded by the request's work budget, exactly like
-    /// an ordinary forward turn) so the next spread is peekable without
-    /// a committed navigation; pagination progress is shared revision
-    /// state, not foreground state. This applies to chapter-local and
-    /// publication-backed sources alike, and covers window rollover and
-    /// adjacent-chapter boundaries (next peeks the following chapter's
-    /// first spread, previous the preceding chapter's last). Targets
-    /// still out of reach (the publication's terminal boundary, or a
-    /// budget the neighbor could not be paginated within) return
-    /// `TargetNotPublished`,
-    /// which hosts surface as "not peekable yet". The artifact still
-    /// occupies one live-artifact slot and must be released by the
-    /// caller.
+    /// every in-flight navigation stay exactly as they were. A neighbor
+    /// in another chapter is paginated on demand (next peeks the
+    /// following chapter's first spread, previous the preceding
+    /// chapter's last); pagination is shared revision state, not
+    /// foreground state. The publication's terminal boundary returns
+    /// `TargetNotPublished`, which hosts surface as "not peekable". The
+    /// artifact still occupies one live-artifact slot and must be
+    /// released by the caller.
     pub fn peek_adjacent(
         &mut self,
         request: ReaderAdjacentRequestV1,
     ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
         self.validate_request_identity(request.session_id, request.request_id, "peek")?;
         validate_external_request_id(request.from_artifact_id, "fromArtifactId")?;
-        validate_work(request.work)?;
         self.require_artifact_capacity()?;
         let source = self
             .artifacts
@@ -420,12 +361,9 @@ impl ReaderSessionV1 {
             // Publication turns already resolve their neighbor with
             // bounded cooperative pagination and no foreground effect,
             // so peeking reuses that path verbatim.
-            ReaderRevisionBackingV1::Publication => self.request_publication_adjacent(
-                source,
-                request.request_id,
-                request.direction,
-                request.work,
-            )?,
+            ReaderRevisionBackingV1::Publication => {
+                self.request_publication_adjacent(source, request.request_id, request.direction)?
+            }
         };
         self.peeked_artifacts.insert(artifact.artifact_id);
         Ok(artifact)
@@ -436,20 +374,13 @@ impl ReaderSessionV1 {
         source: ReaderArtifactOwnerV1,
         request: ReaderAdjacentRequestV1,
     ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
-        let revision = self
-            .revisions
-            .get(&source.revision_id)
-            .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::ChapterLocal))?;
-        if request.work.local_page_cap != revision.local_page_cap {
-            return Err(ReaderErrorV1::new(
-                ReaderErrorKindV1::InvalidRequest,
-                "peek request localPageCap must match the source revision",
+        if !self.revisions.contains_key(&source.revision_id) {
+            return Err(missing_artifact_revision(
+                ReaderRevisionBackingV1::ChapterLocal,
             ));
         }
-        // Reuses the foreground navigation helpers wholesale: window
-        // rollover and adjacent-chapter creation are shared pagination
-        // progress, exactly like in-chapter continuation. The one piece
-        // of foreground state those helpers touch is the pending exact
+        // Reuses the foreground navigation helpers wholesale: adjacent
+        // chapter creation is shared pagination progress.
         match request.direction {
             ReaderAdjacentDirectionV1::Previous if source.local_spread_index > 0 => self
                 .publish_revision_artifact(
@@ -457,12 +388,12 @@ impl ReaderSessionV1 {
                     source.local_spread_index - 1,
                     request.request_id,
                 ),
-            ReaderAdjacentDirectionV1::Previous => {
-                self.request_previous_window_or_chapter(source, request.request_id, request.work)
-            }
-            ReaderAdjacentDirectionV1::Next => {
-                self.request_next(source, request.request_id, request.work)
-            }
+            ReaderAdjacentDirectionV1::Previous => self.request_chapter_boundary(
+                source.revision_id,
+                ReaderAdjacentDirectionV1::Previous,
+                request.request_id,
+            ),
+            ReaderAdjacentDirectionV1::Next => self.request_next(source, request.request_id),
         }
     }
 
@@ -958,7 +889,6 @@ impl ReaderSessionV1 {
                 })?;
             }
         }
-        self.retained_windows.clear();
         let revision_ids = self.revisions.keys().copied().collect::<Vec<_>>();
         for revision_id in revision_ids {
             self.retire_reader_revision(revision_id)?;
@@ -1108,37 +1038,26 @@ impl ReaderSessionV1 {
             }
         }
 
-        let budget = RuntimeRevisionWorkBudget {
-            max_top_level_nodes: usize_from_u32(
-                request.max_top_level_nodes_per_quantum,
-                "background top-level work budget",
-            )?,
-        };
         let (revision_id, state) = match self.active_publication_revision_id {
             Some(revision_id) => {
-                let continued = self.continue_publication_once(revision_id, budget)?;
-                if !continued {
-                    // Pagination just finished. Every artifact minted
-                    // before this point predates the final extent and so
-                    // carries no book page count; offer one last
-                    // candidate for the same visible locator so a reader
-                    // who never turns a page still learns the total.
-                    let completion_candidate =
-                        self.take_completion_handoff(revision_id, &intent)?;
-                    let moves = completion_candidate.as_ref().is_some_and(|candidate| {
-                        self.handoff_moves_visible_content(intent.visible_artifact_id, candidate)
-                    });
-                    return Ok(background_result_with_move(
-                        ReaderBackgroundStateV1::Complete,
-                        &intent,
-                        completion_candidate,
-                        moves,
-                    ));
-                }
-                (revision_id, ReaderBackgroundStateV1::Advanced)
+                // The publication paginated whole when it started. Every
+                // artifact minted before this point predates the final
+                // extent and so carries no book page count; offer one last
+                // candidate for the same visible locator so a reader who
+                // never turns a page still learns the total.
+                let completion_candidate = self.take_completion_handoff(revision_id, &intent)?;
+                let moves = completion_candidate.as_ref().is_some_and(|candidate| {
+                    self.handoff_moves_visible_content(intent.visible_artifact_id, candidate)
+                });
+                return Ok(background_result_with_move(
+                    ReaderBackgroundStateV1::Complete,
+                    &intent,
+                    completion_candidate,
+                    moves,
+                ));
             }
             None => (
-                self.start_publication_once(intent.layout.clone(), budget)?,
+                self.start_publication_once(intent.layout.clone())?,
                 ReaderBackgroundStateV1::Started,
             ),
         };
@@ -1398,17 +1317,12 @@ impl ReaderSessionV1 {
         Ok(())
     }
 
-    fn start_publication_once(
-        &mut self,
-        layout: LayoutConfig,
-        budget: RuntimeRevisionWorkBudget,
-    ) -> Result<u64, ReaderErrorV1> {
+    fn start_publication_once(&mut self, layout: LayoutConfig) -> Result<u64, ReaderErrorV1> {
         let advance = self
             .document
             .create_bounded_revision(RuntimeBoundedRevisionRequest {
                 layout_config: layout.clone(),
                 line_breaking: LineBreaking::Greedy,
-                budget,
             })
             .map_err(engine_error)?;
         let runtime_revision_id = advance.revision.revision_id.clone();
@@ -1425,51 +1339,6 @@ impl ReaderSessionV1 {
         );
         self.active_publication_revision_id = Some(reader_revision_id);
         Ok(reader_revision_id)
-    }
-
-    fn continue_publication_once(
-        &mut self,
-        revision_id: u64,
-        budget: RuntimeRevisionWorkBudget,
-    ) -> Result<bool, ReaderErrorV1> {
-        let cursor = {
-            let revision = self
-                .publication_revisions
-                .get_mut(&revision_id)
-                .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::Publication))?;
-            let Some(cursor) = revision.continuation.take() else {
-                return Ok(false);
-            };
-            cursor
-        };
-        let result = self
-            .document
-            .continue_revision(RuntimeContinueRevisionRequest {
-                revision_id: cursor.revision_id,
-                revision_version: cursor.revision_version,
-                cursor: cursor.cursor,
-                budget,
-            });
-        match result {
-            Ok(advance) => {
-                self.publication_revisions
-                    .get_mut(&revision_id)
-                    .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::Publication))?
-                    .apply_advance(advance);
-                Ok(true)
-            }
-            Err(error) => {
-                if let Some(summary) = error.revision.as_deref() {
-                    if let Some(revision) = self.publication_revisions.get_mut(&revision_id) {
-                        revision.owner = crate::runtime::RuntimeRevisionHandle::from(summary);
-                        revision.known_spread_count = summary.known_extent.spread_count;
-                        revision.final_spread_count =
-                            summary.final_extent.map(|extent| extent.spread_count);
-                    }
-                }
-                Err(engine_error(error))
-            }
-        }
     }
 
     /// Offers the single post-completion candidate, or `None` when the
@@ -1652,7 +1521,6 @@ impl ReaderSessionV1 {
         source: ReaderArtifactOwnerV1,
         request_id: u64,
         direction: ReaderAdjacentDirectionV1,
-        work: ReaderWorkBudgetV1,
     ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
         let target_spread = match direction {
             ReaderAdjacentDirectionV1::Previous => source
@@ -1664,26 +1532,6 @@ impl ReaderSessionV1 {
                 .checked_add(1)
                 .ok_or_else(|| numeric_overflow("publication spread index"))?,
         };
-        let budget = RuntimeRevisionWorkBudget {
-            max_top_level_nodes: usize_from_u32(
-                work.max_top_level_nodes_per_quantum,
-                "adjacent publication top-level work budget",
-            )?,
-        };
-        let mut used_quanta = 0u32;
-        while self
-            .publication_revisions
-            .get(&source.revision_id)
-            .is_some_and(|revision| {
-                target_spread >= revision.known_spread_count && revision.continuation.is_some()
-            })
-            && used_quanta < work.max_foreground_quanta
-        {
-            if !self.continue_publication_once(source.revision_id, budget)? {
-                break;
-            }
-            used_quanta += 1;
-        }
         let revision = self
             .publication_revisions
             .get(&source.revision_id)
@@ -1691,10 +1539,8 @@ impl ReaderSessionV1 {
         if target_spread >= revision.known_spread_count {
             let message = if revision.final_spread_count.is_some() {
                 "publication boundary is terminal"
-            } else if revision.continuation.is_some() {
-                "publication adjacent spread remains pending after bounded foreground work"
             } else {
-                "publication adjacent spread is not resumable"
+                "publication adjacent spread is not published"
             };
             return Err(target_not_published(message));
         }
@@ -1806,12 +1652,6 @@ impl ReaderSessionV1 {
     }
 
     #[cfg(test)]
-    #[cfg(test)]
-    pub(super) fn clear_retained_windows(&mut self) {
-        self.retained_windows.clear();
-    }
-
-    #[cfg(test)]
     pub(super) fn artifact_owner_backing(
         &self,
         artifact_id: u64,
@@ -1896,96 +1736,22 @@ impl ReaderSessionV1 {
         })
     }
 
-    fn request_previous_window_or_chapter(
-        &mut self,
-        source: ReaderArtifactOwnerV1,
-        request_id: u64,
-        work: ReaderWorkBudgetV1,
-    ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
-        let previous_revision_id = self
-            .revisions
-            .get(&source.revision_id)
-            .and_then(|revision| revision.previous_window_revision_id);
-        let Some(previous_revision_id) = previous_revision_id else {
-            if self
-                .revisions
-                .get(&source.revision_id)
-                .is_some_and(|revision| revision.previous_window_evicted)
-            {
-                return Err(target_not_published(
-                    "previous rollover window is no longer retained",
-                ));
-            }
-            return self.request_chapter_boundary(
-                source.revision_id,
-                ReaderAdjacentDirectionV1::Previous,
-                request_id,
-                work,
-            );
-        };
-        let previous_spread = self
-            .revisions
-            .get(&previous_revision_id)
-            .and_then(|revision| revision.known_local_spread_count.checked_sub(1))
-            .ok_or_else(|| {
-                target_not_published("retained previous window has no published spread")
-            })?;
-        self.retain_adjacent_windows(previous_revision_id, source.revision_id)?;
-        self.publish_revision_artifact(previous_revision_id, previous_spread, request_id)
-    }
-
     fn request_next(
         &mut self,
         source: ReaderArtifactOwnerV1,
         request_id: u64,
-        work: ReaderWorkBudgetV1,
     ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
         let target_spread = source
             .local_spread_index
             .checked_add(1)
             .ok_or_else(|| numeric_overflow("local spread index"))?;
-        if self
-            .revisions
-            .get(&source.revision_id)
-            .is_some_and(|revision| target_spread < revision.known_local_spread_count)
-        {
-            return self.publish_revision_artifact(source.revision_id, target_spread, request_id);
-        }
-
-        let runtime_budget = RuntimeRevisionWorkBudget {
-            max_top_level_nodes: usize_from_u32(
-                work.max_top_level_nodes_per_quantum,
-                "top-level work budget",
-            )?,
-        };
-        if self
-            .revisions
-            .get(&source.revision_id)
-            .is_some_and(|revision| revision.page_cap_reached)
-        {
-            return self.request_next_window(
-                source.revision_id,
-                request_id,
-                work,
-                work.max_foreground_quanta,
-                runtime_budget,
-            );
-        }
-
-        let used_quanta = self.continue_revision_until(
-            source.revision_id,
-            target_spread,
-            work.max_foreground_quanta,
-            runtime_budget,
-        )?;
-        let (known_spreads, final_spreads, page_cap_reached) = self
+        let (known_spreads, final_spreads) = self
             .revisions
             .get(&source.revision_id)
             .map(|revision| {
                 (
                     revision.known_local_spread_count,
                     revision.final_local_spread_count,
-                    revision.page_cap_reached,
                 )
             })
             .ok_or_else(|| {
@@ -1997,203 +1763,14 @@ impl ReaderSessionV1 {
         if target_spread < known_spreads {
             return self.publish_revision_artifact(source.revision_id, target_spread, request_id);
         }
-        let remaining_quanta = work.max_foreground_quanta.saturating_sub(used_quanta);
         if final_spreads.is_some() {
-            if remaining_quanta == 0 {
-                return Err(target_not_published(
-                    "chapter boundary was reached after exhausting the bounded work request",
-                ));
-            }
             return self.request_chapter_boundary(
                 source.revision_id,
                 ReaderAdjacentDirectionV1::Next,
                 request_id,
-                ReaderWorkBudgetV1 {
-                    max_foreground_quanta: remaining_quanta,
-                    ..work
-                },
             );
         }
-        if page_cap_reached {
-            return self.request_next_window(
-                source.revision_id,
-                request_id,
-                work,
-                remaining_quanta,
-                runtime_budget,
-            );
-        }
-        Err(target_not_published(
-            "adjacent spread was not published within the requested bounded work",
-        ))
-    }
-
-    fn request_next_window(
-        &mut self,
-        source_revision_id: u64,
-        request_id: u64,
-        work: ReaderWorkBudgetV1,
-        mut remaining_quanta: u32,
-        budget: RuntimeRevisionWorkBudget,
-    ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
-        let linked_revision_id = self
-            .revisions
-            .get(&source_revision_id)
-            .and_then(|revision| revision.next_window_revision_id);
-        let next_revision_id = if let Some(linked_revision_id) = linked_revision_id {
-            linked_revision_id
-        } else {
-            if remaining_quanta == 0 {
-                return Err(target_not_published(
-                    "window rollover exceeded the requested bounded work",
-                ));
-            }
-            remaining_quanta -= 1;
-            self.create_rollover_window(source_revision_id, budget)?
-        };
-        let used = self.continue_revision_until(next_revision_id, 0, remaining_quanta, budget)?;
-        remaining_quanta = remaining_quanta.saturating_sub(used);
-        let (known_spreads, final_spreads) = self
-            .revisions
-            .get(&next_revision_id)
-            .map(|revision| {
-                (
-                    revision.known_local_spread_count,
-                    revision.final_local_spread_count,
-                )
-            })
-            .ok_or_else(|| {
-                ReaderErrorV1::new(
-                    ReaderErrorKindV1::EngineFailure,
-                    "rollover revision ownership is missing",
-                )
-            })?;
-        if known_spreads > 0 {
-            self.retain_adjacent_windows(source_revision_id, next_revision_id)?;
-            return self.publish_revision_artifact(next_revision_id, 0, request_id);
-        }
-        if final_spreads.is_some() && remaining_quanta > 0 {
-            return self.request_chapter_boundary(
-                next_revision_id,
-                ReaderAdjacentDirectionV1::Next,
-                request_id,
-                ReaderWorkBudgetV1 {
-                    max_foreground_quanta: remaining_quanta,
-                    ..work
-                },
-            );
-        }
-        Err(target_not_published(
-            "next window did not publish a spread within the requested bounded work",
-        ))
-    }
-
-    fn create_rollover_window(
-        &mut self,
-        source_revision_id: u64,
-        budget: RuntimeRevisionWorkBudget,
-    ) -> Result<u64, ReaderErrorV1> {
-        let (continuation, layout, local_page_cap) = {
-            let revision = self.revisions.get_mut(&source_revision_id).ok_or_else(|| {
-                ReaderErrorV1::new(
-                    ReaderErrorKindV1::EngineFailure,
-                    "source rollover revision ownership is missing",
-                )
-            })?;
-            let continuation = revision.continuation.take().ok_or_else(|| {
-                target_not_published("sealed page-cap window has no rollover break token")
-            })?;
-            (
-                continuation,
-                revision.layout.clone(),
-                revision.local_page_cap,
-            )
-        };
-        let advance = self
-            .document
-            .rollover_chapter_local_revision(RuntimeRolloverChapterLocalRevisionRequest {
-                continuation,
-                budget,
-            })
-            .map_err(engine_error)?;
-        let runtime_owner = owner_from_advance(&advance);
-        let revision_id = match take_identity(&mut self.next_revision_id, "revisionId") {
-            Ok(value) => value,
-            Err(error) => {
-                let _ = self
-                    .document
-                    .release_chapter_local_revision_immediately(&runtime_owner);
-                return Err(error);
-            }
-        };
-        let mut revision = ReaderRevisionOwnerV1::from_advance(advance, layout, local_page_cap, 0);
-        revision.previous_window_revision_id = Some(source_revision_id);
-        revision.previous_window_evicted = false;
-        self.revisions.insert(revision_id, revision);
-        let source = self.revisions.get_mut(&source_revision_id).ok_or_else(|| {
-            ReaderErrorV1::new(
-                ReaderErrorKindV1::EngineFailure,
-                "source rollover revision disappeared",
-            )
-        })?;
-        source.next_window_revision_id = Some(revision_id);
-        self.retain_adjacent_windows(source_revision_id, revision_id)?;
-        Ok(revision_id)
-    }
-
-    fn continue_revision_until(
-        &mut self,
-        revision_id: u64,
-        target_spread: usize,
-        max_quanta: u32,
-        budget: RuntimeRevisionWorkBudget,
-    ) -> Result<u32, ReaderErrorV1> {
-        let mut revision = self.revisions.remove(&revision_id).ok_or_else(|| {
-            ReaderErrorV1::new(
-                ReaderErrorKindV1::EngineFailure,
-                "artifact revision ownership is missing",
-            )
-        })?;
-        let result = (|| {
-            let mut used = 0u32;
-            while target_spread >= revision.known_local_spread_count
-                && !revision.page_cap_reached
-                && used < max_quanta
-            {
-                let Some(continuation) = revision.continuation.take() else {
-                    break;
-                };
-                let advance = match self.document.continue_chapter_local_revision(
-                    RuntimeContinueChapterLocalRevisionRequest {
-                        continuation,
-                        budget,
-                        max_quanta: None,
-                    },
-                ) {
-                    Ok(advance) => advance,
-                    Err(error) => {
-                        if let Some(summary) = error.revision.as_deref() {
-                            revision.owner = RuntimeChapterLocalRevisionHandle {
-                                revision_id: summary.revision_id.clone(),
-                                revision_version: summary.revision_version,
-                                coordinate: summary.coordinate.clone(),
-                            };
-                            revision.known_local_spread_count =
-                                summary.known_extent.local_spread_count;
-                            revision.final_local_spread_count =
-                                summary.final_extent.map(|extent| extent.local_spread_count);
-                            revision.page_cap_reached = summary.page_cap_reached;
-                        }
-                        return Err(engine_error(error));
-                    }
-                };
-                revision.apply_advance(advance);
-                used += 1;
-            }
-            Ok(used)
-        })();
-        self.revisions.insert(revision_id, revision);
-        result
+        Err(target_not_published("adjacent spread is not published"))
     }
 
     fn request_chapter_boundary(
@@ -2201,7 +1778,6 @@ impl ReaderSessionV1 {
         revision_id: u64,
         direction: ReaderAdjacentDirectionV1,
         request_id: u64,
-        work: ReaderWorkBudgetV1,
     ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
         let revision = self.revisions.get(&revision_id).ok_or_else(|| {
             ReaderErrorV1::new(
@@ -2226,7 +1802,6 @@ impl ReaderSessionV1 {
                 source_range: None,
                 progression: (direction == ReaderAdjacentDirectionV1::Previous).then_some(1.0),
             },
-            work,
         )
     }
 
@@ -2245,19 +1820,14 @@ impl ReaderSessionV1 {
         request_id: u64,
         layout: LayoutConfig,
         locator: RuntimeSourceLocator,
-        work: ReaderWorkBudgetV1,
     ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
         let mut attempt = locator;
         loop {
-            let error = match self.create_revision_artifact(
-                request_id,
-                layout.clone(),
-                attempt.clone(),
-                work,
-            ) {
-                Ok(artifact) => return Ok(artifact),
-                Err(error) => error,
-            };
+            let error =
+                match self.create_revision_artifact(request_id, layout.clone(), attempt.clone()) {
+                    Ok(artifact) => return Ok(artifact),
+                    Err(error) => error,
+                };
             if error.kind != ReaderErrorKindV1::InvalidLocator {
                 return Err(error);
             }
@@ -2281,18 +1851,14 @@ impl ReaderSessionV1 {
         request_id: u64,
         layout: LayoutConfig,
         locator: RuntimeSourceLocator,
-        work: ReaderWorkBudgetV1,
     ) -> Result<ReaderArtifactV1, ReaderErrorV1> {
         let (chapter_index, canonical_locator) = self
             .document
             .validate_source_locator_for_chapter_local(locator)
             .map_err(invalid_locator)?;
-        if let Some((revision_id, target)) = self.find_cached_exact_target(
-            chapter_index,
-            &layout,
-            &canonical_locator,
-            work.local_page_cap,
-        )? {
+        if let Some((revision_id, target)) =
+            self.find_cached_exact_target(chapter_index, &layout, &canonical_locator)?
+        {
             let artifact =
                 self.publish_resolved_revision_artifact(revision_id, target, request_id)?;
             #[cfg(test)]
@@ -2301,21 +1867,9 @@ impl ReaderSessionV1 {
             }
             return Ok(artifact);
         }
-        let budget = RuntimeRevisionWorkBudget {
-            max_top_level_nodes: usize_from_u32(
-                work.max_top_level_nodes_per_quantum,
-                "top-level work budget",
-            )?,
-        };
-        let advance = self.start_exact_seek(
-            chapter_index,
-            layout.clone(),
-            canonical_locator.clone(),
-            work,
-            budget,
-        )?;
-        let ReaderExactSeekAdvanceV1::Resolved(advance) =
-            self.advance_until_target(advance, work.max_foreground_quanta, budget)?;
+        let advance =
+            self.start_exact_seek(chapter_index, layout.clone(), canonical_locator.clone())?;
+        let advance = self.require_resolved_advance(advance)?;
         let target = resolved_target(&advance).ok_or_else(|| {
             ReaderErrorV1::new(
                 ReaderErrorKindV1::EngineFailure,
@@ -2341,7 +1895,7 @@ impl ReaderSessionV1 {
                 return Err(error);
             }
         };
-        let revision = ReaderRevisionOwnerV1::from_advance(advance, layout, work.local_page_cap, 1);
+        let revision = ReaderRevisionOwnerV1::from_advance(advance, layout, 1);
         let navigation = reader_navigation(&self.document, &revision, target.local_spread_index);
         let artifact = match build_reader_artifact_v1(
             &mut self.document,
@@ -2379,8 +1933,6 @@ impl ReaderSessionV1 {
         chapter_index: usize,
         layout: LayoutConfig,
         canonical_locator: RuntimeSourceLocator,
-        work: ReaderWorkBudgetV1,
-        budget: RuntimeRevisionWorkBudget,
     ) -> Result<RuntimeChapterLocalRevisionAdvance, ReaderErrorV1> {
         #[cfg(test)]
         {
@@ -2392,9 +1944,6 @@ impl ReaderSessionV1 {
                 line_breaking: LineBreaking::Greedy,
                 target_chapter_index: chapter_index,
                 target_locator: canonical_locator,
-                local_page_cap: usize_from_u32(work.local_page_cap, "local page cap")?,
-                budget,
-                max_quanta: None,
             })
             .map_err(engine_error)
     }
@@ -2502,30 +2051,20 @@ impl ReaderSessionV1 {
         ))
     }
 
-    fn advance_until_target(
+    /// Chapter-local revisions publish complete in one pass, so an
+    /// advance either already resolved its target or never will.
+    fn require_resolved_advance(
         &mut self,
         advance: RuntimeChapterLocalRevisionAdvance,
-        _max_additional_quanta: u32,
-        _budget: RuntimeRevisionWorkBudget,
-    ) -> Result<ReaderExactSeekAdvanceV1, ReaderErrorV1> {
-        // Chapter-local revisions publish complete in one pass, so the
-        // advance either already resolved its target or never will:
-        // there is no continuation to drive.
+    ) -> Result<RuntimeChapterLocalRevisionAdvance, ReaderErrorV1> {
         if resolved_target(&advance).is_some() {
-            return Ok(ReaderExactSeekAdvanceV1::Resolved(advance));
+            return Ok(advance);
         }
-        self.release_unresolvable_advance(advance)
-    }
-
-    fn release_unresolvable_advance(
-        &mut self,
-        advance: RuntimeChapterLocalRevisionAdvance,
-    ) -> Result<ReaderExactSeekAdvanceV1, ReaderErrorV1> {
         self.document
             .release_chapter_local_revision_immediately(&owner_from_advance(&advance))
             .map_err(engine_error)?;
         Err(target_not_published(
-            "exact locator cannot be published from the completed bounded revision",
+            "exact locator cannot be published from the completed chapter-local revision",
         ))
     }
 
@@ -2534,38 +2073,6 @@ impl ReaderSessionV1 {
             return Ok(());
         };
         let _ = pending;
-        Ok(())
-    }
-
-    fn retain_adjacent_windows(
-        &mut self,
-        first_revision_id: u64,
-        second_revision_id: u64,
-    ) -> Result<(), ReaderErrorV1> {
-        for revision_id in [first_revision_id, second_revision_id] {
-            if !self.revisions.contains_key(&revision_id) {
-                return Err(ReaderErrorV1::new(
-                    ReaderErrorKindV1::EngineFailure,
-                    "cannot retain an unknown rollover revision",
-                ));
-            }
-            self.retained_windows
-                .retain(|candidate| *candidate != revision_id);
-            self.retained_windows.push_back(revision_id);
-        }
-        while self.retained_windows.len() > READER_RETAINED_WINDOW_CAP_V1 {
-            let revision_id = self
-                .retained_windows
-                .pop_front()
-                .expect("retained-window overflow has an oldest entry");
-            if self
-                .revisions
-                .get(&revision_id)
-                .is_some_and(|revision| revision.artifact_ref_count == 0)
-            {
-                self.retire_reader_revision_immediately(revision_id)?;
-            }
-        }
         Ok(())
     }
 
@@ -2580,8 +2087,7 @@ impl ReaderSessionV1 {
         if revision.artifact_ref_count == 0 {
             return Err(invalid_artifact_reference_count());
         }
-        let retire_revision = revision.artifact_ref_count == 1
-            && !self.retained_windows.contains(&artifact.revision_id);
+        let retire_revision = revision.artifact_ref_count == 1;
         self.revisions
             .get_mut(&artifact.revision_id)
             .expect("chapter-local revision existence was checked")
@@ -2628,21 +2134,6 @@ impl ReaderSessionV1 {
     }
 
     fn retire_reader_revision(&mut self, revision_id: u64) -> Result<(), ReaderErrorV1> {
-        self.retire_reader_revision_with_mode(revision_id, false)
-    }
-
-    fn retire_reader_revision_immediately(
-        &mut self,
-        revision_id: u64,
-    ) -> Result<(), ReaderErrorV1> {
-        self.retire_reader_revision_with_mode(revision_id, true)
-    }
-
-    fn retire_reader_revision_with_mode(
-        &mut self,
-        revision_id: u64,
-        immediate: bool,
-    ) -> Result<(), ReaderErrorV1> {
         let revision = self.revisions.get(&revision_id).ok_or_else(|| {
             ReaderErrorV1::new(
                 ReaderErrorKindV1::EngineFailure,
@@ -2656,31 +2147,10 @@ impl ReaderSessionV1 {
             ));
         }
         let owner = revision.owner.clone();
-        let previous = revision.previous_window_revision_id;
-        let next = revision.next_window_revision_id;
-        if immediate {
-            self.document
-                .release_chapter_local_revision_immediately(&owner)
-                .map_err(engine_error)?;
-        } else {
-            self.document
-                .release_chapter_local_revision(&owner)
-                .map_err(engine_error)?;
-        }
+        self.document
+            .release_chapter_local_revision(&owner)
+            .map_err(engine_error)?;
         self.revisions.remove(&revision_id);
-        self.retained_windows
-            .retain(|candidate| *candidate != revision_id);
-        if let Some(previous) = previous.and_then(|id| self.revisions.get_mut(&id)) {
-            if previous.next_window_revision_id == Some(revision_id) {
-                previous.next_window_revision_id = None;
-            }
-        }
-        if let Some(next) = next.and_then(|id| self.revisions.get_mut(&id)) {
-            if next.previous_window_revision_id == Some(revision_id) {
-                next.previous_window_revision_id = None;
-                next.previous_window_evicted = true;
-            }
-        }
         Ok(())
     }
 
@@ -2780,8 +2250,6 @@ fn publication_navigation(
     let next_index = spread_index.checked_add(1);
     let next = if next_index.is_some_and(|index| index < revision.known_spread_count) {
         ReaderAdjacentAvailabilityV1::Available
-    } else if revision.continuation.is_some() {
-        ReaderAdjacentAvailabilityV1::Pending
     } else if revision.final_spread_count.is_some() {
         ReaderAdjacentAvailabilityV1::Terminal
     } else {
@@ -2810,10 +2278,8 @@ fn reader_navigation(
     local_spread_index: usize,
 ) -> ReaderNavigationV1 {
     let chapter_index = revision.owner.coordinate.chapter_index;
-    let previous = if local_spread_index > 0 || revision.previous_window_revision_id.is_some() {
+    let previous = if local_spread_index > 0 {
         ReaderAdjacentAvailabilityV1::Available
-    } else if revision.previous_window_evicted {
-        ReaderAdjacentAvailabilityV1::Blocked
     } else if adjacent_linear_chapter(document, chapter_index, ReaderAdjacentDirectionV1::Previous)
         .is_some()
     {
@@ -2824,11 +2290,6 @@ fn reader_navigation(
     let next_index = local_spread_index.checked_add(1);
     let next = if next_index.is_some_and(|index| index < revision.known_local_spread_count) {
         ReaderAdjacentAvailabilityV1::Available
-    } else if revision.next_window_revision_id.is_some()
-        || revision.page_cap_reached
-        || revision.continuation.is_some()
-    {
-        ReaderAdjacentAvailabilityV1::Pending
     } else if revision.final_local_spread_count.is_some() {
         if adjacent_linear_chapter(document, chapter_index, ReaderAdjacentDirectionV1::Next)
             .is_some()
@@ -2860,25 +2321,6 @@ fn adjacent_linear_chapter(
             .skip(chapter_index.checked_add(1)?)
             .find_map(|(index, chapter)| chapter.linear.then_some(index)),
     }
-}
-
-fn validate_work(work: ReaderWorkBudgetV1) -> Result<(), ReaderErrorV1> {
-    if work.max_top_level_nodes_per_quantum == 0 || work.max_foreground_quanta == 0 {
-        return Err(ReaderErrorV1::new(
-            ReaderErrorKindV1::InvalidRequest,
-            "foreground work budgets must be non-zero",
-        ));
-    }
-    if work.local_page_cap == 0
-        || work.local_page_cap
-            > u32::try_from(RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX).unwrap_or(u32::MAX)
-    {
-        return Err(ReaderErrorV1::new(
-            ReaderErrorKindV1::InvalidRequest,
-            format!("localPageCap must be within 1..={RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX}"),
-        ));
-    }
-    Ok(())
 }
 
 fn resolved_target(advance: &RuntimeChapterLocalRevisionAdvance) -> Option<ResolvedArtifactTarget> {

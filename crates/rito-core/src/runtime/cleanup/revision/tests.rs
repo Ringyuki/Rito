@@ -23,10 +23,7 @@ const LARGE_FONT_FACE_COUNT: usize = 16_384;
 fn empty_revision_units_include_each_required_font_face() {
     for status in [
         RuntimeRevisionStatus::Warming,
-        RuntimeRevisionStatus::Ready,
         RuntimeRevisionStatus::Complete,
-        RuntimeRevisionStatus::Cancelled,
-        RuntimeRevisionStatus::Failed,
     ] {
         for has_final_extent in [false, true] {
             for has_font_catalog in [false, true] {
@@ -78,23 +75,6 @@ fn cache_and_flat_fields_release_in_order() {
     assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::LayoutConfig);
 
     assert_eq!(drive_q1(&mut cleanup, 17), 17);
-}
-
-#[test]
-fn detached_cache_owner_is_immediately_invisible_to_the_revision() {
-    let mut owner = revision();
-    owner.frame_cache.insert(9, cached_frame(9, 3));
-    owner.frame_cache.insert(2, cached_frame(2, 0));
-    owner.frame_cache_order.extend([9, 2]);
-
-    let detached = owner.take_frame_cache();
-
-    assert!(owner.frame_cache.is_empty());
-    assert!(owner.frame_cache_order.is_empty());
-    assert_eq!(detached.frames.len(), 2);
-    assert_eq!(detached.order.len(), 2);
-    drop(detached);
-    drop(PendingRuntimeRevisionCleanup::new(owner));
 }
 
 #[test]

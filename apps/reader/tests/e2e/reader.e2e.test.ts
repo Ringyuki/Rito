@@ -200,8 +200,6 @@ test.describe('reader app bounded worker session', () => {
       ]),
     );
     expect(observations.some((entry) => entry.kind === 'createViewRevision')).toBe(false);
-    const initial = observations.find((entry) => entry.kind === 'createBoundedRevision');
-    expect(initial?.maxTopLevelNodes).toBe(1);
     expect(observations.some((entry) => (entry.revision?.knownSpreadCount ?? 0) > 0)).toBe(true);
   });
 });

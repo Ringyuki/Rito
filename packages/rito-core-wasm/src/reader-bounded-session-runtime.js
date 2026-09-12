@@ -1,10 +1,6 @@
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
-import { requireContinuationBatchLimit } from './core-wasm-versioned-validation-runtime.js';
 import {
-  defaultYieldControl,
   evaluateBoundedReaderTarget,
-  isActiveRevision,
-  isNextFailedRevision,
   isRecoverableTargetReadError,
   locatorTarget,
   requireAcceptedHandle,
@@ -19,29 +15,21 @@ import {
 } from './reader-bounded-session-support-runtime.js';
 
 export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
-  const yieldControl = options.yieldControl ?? defaultYieldControl;
-  const resolveContinuationBatchQuanta = continuationBatchQuantaResolver(
-    options.continuationBatchQuanta,
-  );
   let phase = 'idle';
   let generation = 0;
   let targetSequence = 0;
   let requestedTarget;
   let presentationSpreadIndex = 0;
-  let hasPublishedSnapshot = false;
   let targetEvaluation;
   let targetFailure;
   let snapshotTargetToken;
   let startRequest;
   let revision;
   let revisionPresentation;
-  let continuation;
   let snapshot;
-  let releasedTransferRevision;
   let drainPromise;
   let stopRequested;
   let terminalError;
-  let pendingFailureMaximumStride = 1;
 
   const start = (request) => {
     if (phase !== 'idle') throw new Error(`bounded reader session cannot start while ${phase}`);
@@ -138,7 +126,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   async function runPump() {
     try {
       if (revision === undefined) {
-        acceptAdvance(await client.createBoundedRevision(initialRevisionRequest()), undefined);
+        acceptAdvance(await client.createBoundedRevision(initialRevisionRequest()));
       }
       while (phase === 'running') {
         if (stopRequested !== undefined) return cleanupLatest();
@@ -148,69 +136,20 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
           continue;
         }
         if (stopRequested !== undefined) return cleanupLatest();
-        if (evaluation.available && !snapshotMatchesEvaluation(evaluation)) {
+        if (!evaluation.available) {
+          // The revision paginated whole when it was created; a target
+          // it cannot serve now can never be served by it.
+          throw new Error('bounded reader target is unavailable on a complete revision');
+        }
+        if (!snapshotMatchesEvaluation(evaluation)) {
           await refreshSnapshot(evaluation);
           if (targetFailure?.token === requestedTarget?.token) return;
           continue;
         }
-        if (evaluation.available) return;
-        await yieldControl();
-        if (stopRequested !== undefined) return cleanupLatest();
-        await advanceIfTargetStillUnavailable(revision);
-        if (targetFailure?.token === requestedTarget?.token) return;
+        return;
       }
     } catch (error) {
       await handlePumpFailure(error);
-    }
-  }
-
-  async function advanceIfTargetStillUnavailable(previous) {
-    const initialAtomicMode = atomicContinuationMode(client);
-    if (initialAtomicMode === 'none') {
-      await releaseRevisionTransfers(previous);
-      if (stopRequested !== undefined) return;
-    }
-    const latestEvaluation = await evaluateRequestedTarget();
-    if (latestEvaluation === undefined || latestEvaluation.available) return;
-    const target = requestedTarget;
-    if (target === undefined || latestEvaluation.token !== target.token) return;
-    const atomicMode = atomicContinuationMode(client);
-    const continuationBatchQuanta =
-      atomicMode === 'none' ? undefined : resolveContinuationBatchQuanta();
-    const request = {
-      ...continuation,
-      budget: hasPublishedSnapshot ? startRequest.growthBudget : startRequest.budget,
-      ...(atomicMode === 'none' ? {} : { maxQuanta: continuationBatchQuanta }),
-      ...(atomicMode === 'generic' && target.kind === 'spread'
-        ? { targetSpreadIndex: target.spreadIndex }
-        : {}),
-    };
-    if (atomicMode === 'none') {
-      pendingFailureMaximumStride = 1;
-      acceptAdvance(await client.continueRevision(request), previous);
-      return;
-    }
-    pendingFailureMaximumStride = continuationBatchQuanta;
-    const continued = await client.continueRevisionAfterTransferRelease(request);
-    acceptTransferReleasedAdvance(continued, previous);
-  }
-
-  function acceptTransferReleasedAdvance(continued, previous) {
-    acceptAdvance(
-      { revision: continued.revision, value: continued.value.advance },
-      previous,
-      continued.value.advancedQuanta ?? 1,
-    );
-    requireSameHandle(
-      continued.value.releasedRevision,
-      revisionHandle(previous),
-      'continued transfer release',
-    );
-    if (
-      !Number.isSafeInteger(continued.value.releasedTransferCount) ||
-      continued.value.releasedTransferCount < 0
-    ) {
-      throw new Error('continued transfer release returned an invalid transfer count');
     }
   }
 
@@ -276,7 +215,6 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
       presentationSpreadIndex: target,
       ...(frameWindow !== undefined ? { frameWindow } : {}),
     };
-    hasPublishedSnapshot = true;
     presentationSpreadIndex = target;
     snapshotTargetToken = evaluation.token;
   }
@@ -287,7 +225,6 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
       ...(startRequest.lineBreaking !== undefined
         ? { lineBreaking: startRequest.lineBreaking }
         : {}),
-      budget: startRequest.budget,
     };
   }
 
@@ -304,22 +241,10 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     return presentation;
   }
 
-  function acceptAdvance(envelope, previous, advancedQuanta = 1) {
-    requireAcceptedHandle(envelope, previous, 'revision advance', advancedQuanta);
+  function acceptAdvance(envelope) {
+    requireAcceptedHandle(envelope, 'revision advance');
     requireSameHandle(envelope.value.revision, envelope.revision, 'revision advance summary');
     revision = envelope.value.revision;
-    continuation = envelope.value.continuation;
-    acceptRevision();
-  }
-
-  function acceptSummary(envelope, previous, status) {
-    requireAcceptedHandle(envelope, previous, 'revision summary');
-    requireSameHandle(envelope.value, envelope.revision, 'revision summary value');
-    if (envelope.value.status !== status) {
-      throw new Error(`revision summary did not enter ${status}`);
-    }
-    revision = envelope.value;
-    continuation = undefined;
     acceptRevision();
   }
 
@@ -330,38 +255,17 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     targetEvaluation = undefined;
     targetFailure = undefined;
     revisionPresentation = undefined;
-    releasedTransferRevision = undefined;
-    pendingFailureMaximumStride = 1;
     options.onAcceptedRevision?.({ generation, revision });
   }
 
   async function handlePumpFailure(error) {
     terminalError = error;
-    if (
-      error?.code === 'engine-error' &&
-      isNextFailedRevision(error.revision, revision, pendingFailureMaximumStride)
-    ) {
-      revision = error.revision;
-      continuation = undefined;
-      try {
-        acceptRevision();
-      } catch {
-        // Preserve the engine failure while still releasing its exact failed revision.
-      }
-    }
     await cleanupLatest();
   }
 
+  // The revision is complete the moment it exists, so cleanup is one
+  // exact release: no transfer release or cancel round trip precedes it.
   async function cleanupLatest() {
-    try {
-      if (isActiveRevision(revision)) {
-        const previous = revision;
-        await releaseRevisionTransfers(previous);
-        acceptSummary(await client.cancelRevision(revisionHandle(previous)), previous, 'cancelled');
-      }
-    } catch (error) {
-      terminalError ??= error;
-    }
     if (revision !== undefined) {
       const handle = revisionHandle(revision);
       try {
@@ -378,18 +282,9 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     revisionPresentation = undefined;
     targetEvaluation = undefined;
     targetFailure = undefined;
-    continuation = undefined;
     snapshot = undefined;
     snapshotTargetToken = undefined;
     phase = stopRequested === 'dispose' ? 'disposed' : 'stopped';
-  }
-
-  async function releaseRevisionTransfers(value) {
-    const handle = revisionHandle(value);
-    if (sameHandle(releasedTransferRevision, handle)) return;
-    const released = await client.releaseRevisionTransfersAtRevision(handle);
-    requireSameHandle(released.revision, handle, 'revision transfer release');
-    releasedTransferRevision = handle;
   }
 
   function isCurrentTarget(target, handle) {
@@ -432,18 +327,6 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     cancel,
     dispose,
   };
-}
-
-function atomicContinuationMode(client) {
-  return client.continueRevisionAfterTransferRelease === undefined ? 'none' : 'generic';
-}
-
-function continuationBatchQuantaResolver(value) {
-  if (typeof value === 'function') {
-    return () => requireContinuationBatchLimit(value(), 'bounded reader session');
-  }
-  const continuationBatchQuanta = requireContinuationBatchLimit(value, 'bounded reader session');
-  return () => continuationBatchQuanta;
 }
 
 function initialTarget(request, token) {

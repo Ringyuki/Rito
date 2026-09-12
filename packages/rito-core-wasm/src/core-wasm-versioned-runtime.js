@@ -1,14 +1,12 @@
 import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
-import { runBoundedMutation, runCancelMutation } from './core-wasm-versioned-mutation-runtime.js';
+import { runBoundedMutation } from './core-wasm-versioned-mutation-runtime.js';
 import {
   encodeJson,
   parseObject,
-  requireFlatRevisionHandle,
   requireMatchingHandle,
   requireMatchingRevisionSummary,
   requireObjectInput,
   requireRevisionHandle,
-  requireRevisionWorkBudget,
   requireVersionedValueIdentity,
 } from './core-wasm-versioned-validation-runtime.js';
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
@@ -47,31 +45,7 @@ import {
 export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   const methods = {
     createBoundedRevision(request) {
-      return boundedRequest(
-        this,
-        'createBoundedRevision',
-        request,
-        'createBoundedRevisionJson',
-        undefined,
-        0,
-      );
-    },
-    continueRevision(request) {
-      const input = requireObjectInput(request, 'continueRevision');
-      const handle = requireFlatRevisionHandle(input, 'continueRevision');
-      return boundedRequest(
-        this,
-        'continueRevision',
-        input,
-        'continueRevisionJson',
-        handle.revisionId,
-        handle.revisionVersion + 1,
-      );
-    },
-    cancelRevision(request) {
-      const input = requireObjectInput(request, 'cancelRevision');
-      const handle = requireFlatRevisionHandle(input, 'cancelRevision');
-      return callRitoCoreWasm('cancelRevision', () => runCancelMutation(this, input, handle));
+      return boundedRequest(this, 'createBoundedRevision', request, 'createBoundedRevisionJson');
     },
     getFrameCommandBufferMetadataAtRevision(handle, spreadIndex) {
       return versionedJson(this, 'getFrameCommandBufferMetadataAtRevision', handle, (revision) =>
@@ -379,26 +353,10 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   );
 }
 
-function boundedRequest(
-  document,
-  operation,
-  request,
-  rawMethod,
-  expectedRevisionId,
-  expectedRevisionVersion,
-) {
+function boundedRequest(document, operation, request, rawMethod) {
   return callRitoCoreWasm(operation, () => {
     const input = requireObjectInput(request, operation);
-    const maximum = requireRevisionWorkBudget(input.budget, operation);
-    return runBoundedMutation(
-      document,
-      rawMethod,
-      operation,
-      input,
-      maximum,
-      expectedRevisionId,
-      expectedRevisionVersion,
-    );
+    return runBoundedMutation(document, rawMethod, operation, input);
   });
 }
 

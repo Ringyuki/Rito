@@ -34,7 +34,7 @@ export type {
   ReaderProfileStartup,
 } from './reader-profile-startup';
 
-export const READER_PROFILE_SCHEMA_VERSION = 5;
+export const READER_PROFILE_SCHEMA_VERSION = 6;
 
 export interface ReaderProfileArtifactIdentity {
   readonly schemaVersion: 1;
@@ -126,7 +126,6 @@ export interface ReaderLoadProfileReport {
   readonly stages: {
     readonly initial: ReaderProfileStage;
     readonly cachedTurn: ReaderProfileStage;
-    readonly deferredGrowth: ReaderProfileStage;
     readonly tocSupersede: ReaderProfileStage;
     readonly freshFarBootstrap: ReaderProfileStage;
     readonly farToc: ReaderProfileFarTocStage;
@@ -134,7 +133,6 @@ export interface ReaderLoadProfileReport {
   };
   readonly transitions: {
     readonly cachedTurn: ReaderProfileTransition;
-    readonly deferredGrowth: ReaderProfileTransition;
     readonly tocSupersede: ReaderProfileTocSupersedeTransition;
     readonly freshFarGeneration: ReaderProfileFreshFarGeneration;
     readonly farToc: ReaderProfileFarTocTransition;
@@ -163,13 +161,11 @@ export interface ReaderLoadProfileReportInput {
   readonly canvasAt: number;
   readonly initial: ReaderProfileStageInput;
   readonly cachedTurn: ReaderProfileStageInput;
-  readonly deferredGrowth: ReaderProfileStageInput;
   readonly tocSupersede: ReaderProfileStageInput;
   readonly freshFarBootstrap: ReaderProfileStageInput;
   readonly farToc: ReaderProfileFarTocStageInput;
   readonly reflow: ReaderProfileStageInput;
   readonly cachedTurnTransition: ReaderProfileTransition;
-  readonly deferredGrowthTransition: ReaderProfileTransition;
   readonly tocSupersedeTransition: ReaderProfileTocSupersedeTransitionInput;
   readonly freshFarGeneration: ReaderProfileFreshFarGeneration;
   readonly farTocTransition: ReaderProfileFarTocTransition;
@@ -191,7 +187,6 @@ export function buildReaderLoadProfileReport(
     stages: {
       initial: profileStage(input.initial),
       cachedTurn: profileStage(input.cachedTurn),
-      deferredGrowth: profileStage(input.deferredGrowth),
       tocSupersede: profileStage(input.tocSupersede),
       freshFarBootstrap: profileStage(input.freshFarBootstrap),
       farToc: {
@@ -202,7 +197,6 @@ export function buildReaderLoadProfileReport(
     },
     transitions: {
       cachedTurn: input.cachedTurnTransition,
-      deferredGrowth: input.deferredGrowthTransition,
       tocSupersede: buildTocSupersedeTransition(input.tocSupersedeTransition),
       freshFarGeneration: copyFreshFarGeneration(input.freshFarGeneration),
       farToc: input.farTocTransition,

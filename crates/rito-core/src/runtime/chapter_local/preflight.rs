@@ -2,123 +2,13 @@ use crate::runtime::{
     frame::{into_chapter_window_layout_config, RuntimeRevision},
     metadata::layout_key,
     RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalCoordinate,
-    RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionHandle,
-    RuntimeContinuationErrorKind, RuntimeContinueChapterLocalRevisionRequest,
-    RuntimeContinueRevisionRequest, RuntimeDocument, RuntimeRevisionWorkBudget,
-    RuntimeRolloverChapterLocalRevisionRequest, RuntimeSourceLocator,
+    RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionHandle, RuntimeDocument,
+    RuntimeRevisionErrorKind, RuntimeSourceLocator,
 };
 
-use super::{
-    super::RuntimeContinuationRecord,
-    model::{
-        chapter_local_coordinate, checked_local_budget, checked_local_quanta, local_engine_error,
-        local_error, local_error_from_continuation, local_error_from_source,
-        validate_local_page_cap,
-    },
+use super::model::{
+    chapter_local_coordinate, local_engine_error, local_error, local_error_from_source,
 };
-
-pub(super) struct PreparedChapterLocalContinuation {
-    pub(super) record: RuntimeContinuationRecord,
-}
-
-pub(super) struct InitializedChapterLocalRollover {
-    pub(super) record: RuntimeContinuationRecord,
-}
-
-pub(super) fn prepare_chapter_local_continuation(
-    document: &mut RuntimeDocument,
-    request: RuntimeContinueChapterLocalRevisionRequest,
-) -> Result<PreparedChapterLocalContinuation, RuntimeChapterLocalRevisionError> {
-    let budget = checked_local_budget(request.budget)?;
-    let max_quanta = checked_local_quanta(request.max_quanta)?;
-    let continuation = request.continuation;
-    let previous_extent = document.require_chapter_local_appendable(&continuation.owner)?;
-    document.require_chapter_local_cursor(&continuation)?;
-    let target_locator = document
-        .validate_chapter_local_owner_target(&continuation.owner, continuation.target_locator)?;
-    let revision_id = continuation.owner.revision_id.clone();
-    let generic_request = RuntimeContinueRevisionRequest {
-        revision_id: revision_id.clone(),
-        revision_version: continuation.owner.revision_version,
-        cursor: continuation.cursor,
-        budget: RuntimeRevisionWorkBudget {
-            max_top_level_nodes: budget.get(),
-        },
-    };
-    let record = document
-        .take_continuation(&generic_request)
-        .map_err(local_error_from_continuation)?;
-    let _ = (
-        budget,
-        max_quanta,
-        previous_extent,
-        revision_id,
-        target_locator,
-    );
-    Ok(PreparedChapterLocalContinuation { record })
-}
-
-pub(super) fn initialize_chapter_local_rollover(
-    document: &mut RuntimeDocument,
-    request: RuntimeRolloverChapterLocalRevisionRequest,
-) -> Result<InitializedChapterLocalRollover, RuntimeChapterLocalRevisionError> {
-    let budget = checked_local_budget(request.budget)?;
-    let continuation = request.continuation;
-    document.require_chapter_local_continuable(&continuation.owner)?;
-    document.require_chapter_local_cursor(&continuation)?;
-    let target_locator = document.validate_chapter_local_owner_target(
-        &continuation.owner,
-        continuation.target_locator.clone(),
-    )?;
-    let (layout_config, required_font_face_catalog, interactions, local_page_cap, coordinate) = {
-        let revision = document.require_chapter_local_owner(&continuation.owner)?;
-        let crate::runtime::frame::RuntimeRevisionCoordinateSpace::ChapterLocal {
-            local_page_cap,
-            page_cap_reached,
-            ..
-        } = revision.coordinate_space
-        else {
-            unreachable!("chapter-local store contains chapter-local revisions");
-        };
-        if !page_cap_reached || revision.final_extent.is_some() {
-            return Err(local_error(
-                RuntimeContinuationErrorKind::RevisionNotContinuable,
-                "chapter-local rollover requires a non-terminal sealed page-cap window",
-            ));
-        }
-        (
-            revision.layout_config.clone(),
-            revision.required_font_face_catalog.clone(),
-            revision.interactions.clone(),
-            local_page_cap,
-            continuation.owner.coordinate.clone(),
-        )
-    };
-    let generic_request = RuntimeContinueRevisionRequest {
-        revision_id: continuation.owner.revision_id,
-        revision_version: continuation.owner.revision_version,
-        cursor: continuation.cursor,
-        budget: RuntimeRevisionWorkBudget {
-            max_top_level_nodes: budget.get(),
-        },
-    };
-    let mut record = document
-        .take_continuation(&generic_request)
-        .map_err(local_error_from_continuation)?;
-    debug_assert!(record.reached_local_page_cap());
-    let revision_id = document.create_revision_id();
-    record.rollover_chapter_local_window(revision_id.clone());
-    let revision = RuntimeRevision::warming_chapter_local(
-        layout_config,
-        required_font_face_catalog,
-        interactions,
-        coordinate.chapter_index,
-        local_page_cap,
-    );
-    document.insert_new_chapter_local_revision(revision_id, revision);
-    let _ = (budget, coordinate, target_locator);
-    Ok(InitializedChapterLocalRollover { record })
-}
 
 struct ChapterLocalPreflight {
     revision_id: String,
@@ -134,10 +24,9 @@ pub(super) struct InitializedChapterLocalFragment {
     pub(super) target_locator: RuntimeSourceLocator,
 }
 
-/// The fragment-engine variant of chapter-local initialization: same
-/// validation, preflight, and warming-revision insertion, but no
-/// continuous-continuation record — the fragment engine paginates the
-/// whole chapter in one pass and leaves nothing to continue.
+/// Validation, preflight, and warming-revision insertion for a
+/// chapter-local revision. The fragment engine paginates the whole chapter
+/// in one pass right after this.
 pub(super) fn initialize_chapter_local_fragment(
     document: &mut RuntimeDocument,
     request: RuntimeBoundedChapterLocalRevisionRequest,
@@ -147,13 +36,7 @@ pub(super) fn initialize_chapter_local_fragment(
         line_breaking: _,
         target_chapter_index,
         target_locator,
-        local_page_cap,
-        budget,
-        max_quanta,
     } = request;
-    checked_local_budget(budget)?;
-    checked_local_quanta(max_quanta)?;
-    validate_local_page_cap(&layout_config, local_page_cap)?;
     let (coordinate, target_locator) =
         document.validate_chapter_local_target(target_chapter_index, target_locator)?;
     let layout_config = into_chapter_window_layout_config(layout_config);
@@ -171,7 +54,6 @@ pub(super) fn initialize_chapter_local_fragment(
         document,
         &layout_config,
         &coordinate,
-        local_page_cap,
         &revision_id,
         required_font_face_catalog,
         footnotes,
@@ -188,7 +70,6 @@ fn insert_chapter_local_revision(
     document: &mut RuntimeDocument,
     layout_config: &crate::layout::LayoutConfig,
     coordinate: &RuntimeChapterLocalCoordinate,
-    local_page_cap: usize,
     revision_id: &str,
     required_font_face_catalog: Option<Vec<crate::runtime::RuntimeRequiredFontFace>>,
     footnotes: std::collections::BTreeMap<String, crate::interaction::FootnoteEntry>,
@@ -198,7 +79,6 @@ fn insert_chapter_local_revision(
         required_font_face_catalog,
         initial_revision_interactions(footnotes),
         coordinate.chapter_index,
-        local_page_cap,
     );
     document.insert_new_chapter_local_revision(revision_id.to_owned(), revision);
 }
@@ -217,7 +97,7 @@ impl RuntimeDocument {
             .map_err(local_error_from_source)?;
         if chapter_index != target_chapter_index {
             return Err(local_error(
-                RuntimeContinuationErrorKind::InvalidChapterLocalTarget,
+                RuntimeRevisionErrorKind::InvalidChapterLocalTarget,
                 format!(
                     "targetChapterIndex {target_chapter_index} does not match locator chapter {chapter_index}"
                 ),
@@ -236,7 +116,7 @@ impl RuntimeDocument {
             self.validate_chapter_local_target(owner.coordinate.chapter_index, target_locator)?;
         if coordinate != owner.coordinate {
             return Err(local_error(
-                RuntimeContinuationErrorKind::ChapterLocalOwnerMismatch,
+                RuntimeRevisionErrorKind::ChapterLocalOwnerMismatch,
                 "chapter-local locator does not belong to the revision coordinate",
             ));
         }

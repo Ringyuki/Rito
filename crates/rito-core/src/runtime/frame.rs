@@ -29,11 +29,7 @@ pub(super) const FRAME_CACHE_CAPACITY: usize = 12;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RuntimeRevisionCoordinateSpace {
     Absolute,
-    ChapterLocal {
-        chapter_index: usize,
-        local_page_cap: usize,
-        page_cap_reached: bool,
-    },
+    ChapterLocal { chapter_index: usize },
 }
 
 /// The typed style tables one resolved chapter retains.
@@ -51,10 +47,9 @@ pub(super) struct RuntimeRevision {
     pub(super) known_extent: RuntimeRevisionExtent,
     pub(super) final_extent: Option<RuntimeRevisionExtent>,
     pub(super) layout_config: LayoutConfig,
-    /// Typed style tables per resolved chapter idref. Populated
-    /// whole-revision on eager builds and per chapter as continuations
-    /// publish; the fragment pipeline and style diagnostics read these
-    /// instead of any JSON style representation.
+    /// Typed style tables per resolved chapter idref; the fragment
+    /// pipeline and style diagnostics read these instead of any JSON
+    /// style representation.
     pub(super) chapter_style_tables: BTreeMap<String, RuntimeChapterStyleTables>,
     pub(super) required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
     pub(super) interactions: RuntimeRevisionInteractions,
@@ -187,22 +182,10 @@ impl RuntimeRevision {
         required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
         interactions: RuntimeRevisionInteractions,
         chapter_index: usize,
-        local_page_cap: usize,
     ) -> Self {
         let mut revision = Self::warming(layout_config, required_font_face_catalog, interactions);
-        revision.coordinate_space = RuntimeRevisionCoordinateSpace::ChapterLocal {
-            chapter_index,
-            local_page_cap,
-            page_cap_reached: false,
-        };
+        revision.coordinate_space = RuntimeRevisionCoordinateSpace::ChapterLocal { chapter_index };
         revision
-    }
-
-    pub(super) fn take_frame_cache(&mut self) -> RuntimeFrameCacheOwner {
-        RuntimeFrameCacheOwner {
-            frames: std::mem::take(&mut self.frame_cache),
-            order: std::mem::take(&mut self.frame_cache_order),
-        }
     }
 }
 

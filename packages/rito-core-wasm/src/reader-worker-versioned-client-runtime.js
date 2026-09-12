@@ -1,15 +1,8 @@
 import {
-  requireAdvancedRevisionHandle,
-  requireContinuationBatchCount,
-  requireContinuationBatchLimit,
-  requireContinuationTargetSpreadIndex,
-  requireInitialRevisionAdvance,
   requireMatchingRevisionSummary,
-  requireMatchingHandle,
   requireRevisionAdvance,
   requireRevisionHandle,
   requireRevisionTransferCount,
-  requireRevisionWorkBudget,
 } from './core-wasm-versioned-validation-runtime.js';
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
 import {
@@ -61,114 +54,17 @@ import {
 
 export function createVersionedReaderClientMethods(send, disposeInvalid) {
   return {
-    createBoundedRevision: (request) => {
-      const maximum = requireRevisionWorkBudget(request?.budget, 'createBoundedRevision');
-      return versionedResult(
+    createBoundedRevision: (request) =>
+      versionedResult(
         send,
         'createBoundedRevision',
         { kind: 'createBoundedRevision', request },
         { revisionVersion: 0 },
         (result, revision) =>
-          requireInitialRevisionAdvance(
-            result,
-            revision,
-            'createBoundedRevision response',
-            maximum,
-          ),
+          requireRevisionAdvance(result, revision, 'createBoundedRevision response'),
         true,
         disposeInvalid,
-      );
-    },
-    continueRevision: (request) => {
-      const current = requireRevisionHandle(request, 'continueRevision');
-      const maximum = requireRevisionWorkBudget(request?.budget, 'continueRevision');
-      return versionedResult(
-        send,
-        'continueRevision',
-        {
-          kind: 'continueRevision',
-          revision: current,
-          cursor: request.cursor,
-          budget: request.budget,
-        },
-        nextRevision(current, 'continueRevision'),
-        (result, revision) =>
-          requireRevisionAdvance(result, revision, 'continueRevision response', maximum),
-        true,
-        disposeInvalid,
-      );
-    },
-    continueRevisionAfterTransferRelease: (request) => {
-      const operation = 'continueRevisionAfterTransferRelease';
-      const current = requireRevisionHandle(request, operation);
-      const maximum = requireRevisionWorkBudget(request?.budget, operation);
-      const batchMaximum = continuationBatchMaximum(
-        current,
-        requireContinuationBatchLimit(request?.maxQuanta, operation),
-        operation,
-      );
-      const targetSpreadIndex = requireContinuationTargetSpreadIndex(
-        request?.targetSpreadIndex,
-        operation,
-      );
-      return versionedResult(
-        send,
-        operation,
-        {
-          kind: operation,
-          revision: current,
-          cursor: request.cursor,
-          budget: request.budget,
-          maxQuanta: batchMaximum,
-          ...(targetSpreadIndex !== undefined ? { targetSpreadIndex } : {}),
-        },
-        advancedRevisionRange(current, batchMaximum),
-        (result, revision) => {
-          if (result === null || typeof result !== 'object' || Array.isArray(result)) {
-            throw new Error(`${operation} response returned an invalid result`);
-          }
-          const advancedQuanta = requireContinuationBatchCount(
-            result.advancedQuanta,
-            batchMaximum,
-            operation,
-          );
-          requireAdvancedRevisionHandle(current, revision, advancedQuanta, operation);
-          return {
-            advance: requireRevisionAdvance(
-              result.advance,
-              revision,
-              `${operation} response`,
-              processedNodeMaximum(maximum, advancedQuanta),
-            ),
-            releasedRevision: requireMatchingHandle(
-              result.releasedRevision,
-              current,
-              `${operation} response released revision`,
-            ),
-            releasedTransferCount: requireRevisionTransferCount(
-              result.releasedTransferCount,
-              `${operation} response`,
-            ),
-            advancedQuanta,
-          };
-        },
-        true,
-        disposeInvalid,
-      );
-    },
-    cancelRevision: (request) => {
-      const current = requireRevisionHandle(request, 'cancelRevision');
-      return versionedResult(
-        send,
-        'cancelRevision',
-        { kind: 'cancelRevision', revision: current },
-        nextRevision(current, 'cancelRevision'),
-        (result, revision) =>
-          requireMatchingRevisionSummary(result, revision, 'cancelRevision response', 'cancelled'),
-        true,
-        disposeInvalid,
-      );
-    },
+      ),
     getRevisionSummaryAtRevision: (revision) =>
       currentRevisionResult(
         send,
@@ -480,44 +376,8 @@ async function rollbackCommittedRevision(send, revision) {
   }
 }
 
-function nextRevision(revision, operation) {
-  if (revision.revisionVersion === 0xffff_ffff) {
-    throw new Error(`${operation} cannot advance revisionVersion beyond u32`);
-  }
-  return {
-    revisionId: revision.revisionId,
-    revisionVersion: revision.revisionVersion + 1,
-  };
-}
-
-function continuationBatchMaximum(revision, requested, operation) {
-  if (revision.revisionVersion === 0xffff_ffff) {
-    throw new Error(`${operation} cannot advance revisionVersion beyond u32`);
-  }
-  return Math.min(requested, 0xffff_ffff - revision.revisionVersion);
-}
-
-function advancedRevisionRange(revision, maximum) {
-  return {
-    revisionId: revision.revisionId,
-    minimumRevisionVersion: revision.revisionVersion + 1,
-    maximumRevisionVersion: revision.revisionVersion + maximum,
-  };
-}
-
 function matchesExpectedRevision(revision, expected) {
   if (expected.revisionId !== undefined && revision.revisionId !== expected.revisionId)
     return false;
-  if (expected.revisionVersion !== undefined) {
-    return revision.revisionVersion === expected.revisionVersion;
-  }
-  return (
-    revision.revisionVersion >= expected.minimumRevisionVersion &&
-    revision.revisionVersion <= expected.maximumRevisionVersion
-  );
-}
-
-function processedNodeMaximum(perQuantumMaximum, advancedQuanta) {
-  const product = perQuantumMaximum * advancedQuanta;
-  return Number.isSafeInteger(product) ? product : Number.MAX_SAFE_INTEGER;
+  return revision.revisionVersion === expected.revisionVersion;
 }

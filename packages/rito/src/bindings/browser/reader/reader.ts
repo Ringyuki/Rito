@@ -380,7 +380,7 @@ export function createBrowserReaderIncrementalPagination(
 ): ReaderIncrementalPagination {
   return {
     get complete() {
-      return state.revisionBundle.revision.status === 'complete';
+      return true;
     },
     ensureSpread(spreadIndex, signal) {
       return ensureBrowserReaderBoundedSpread(state, spreadIndex, signal);

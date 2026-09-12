@@ -34,13 +34,10 @@ export function createFontGeometryReplacementWorker(
         revision,
         value: {
           revision: snapshot.revision,
-          previousKnownExtent: { pageCount: 0, spreadCount: 0 },
           newlyKnownPages: {
             startPage: 0,
             endPageExclusive: snapshot.revision.knownExtent.pageCount,
           },
-          processedTopLevelNodes: 1,
-          continuation: { ...revision, cursor: 'cursor-1' },
         },
       }),
     ),

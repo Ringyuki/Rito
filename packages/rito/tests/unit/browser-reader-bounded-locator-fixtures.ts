@@ -87,7 +87,7 @@ export function locatorSnapshot(
   const revision = {
     ...result.bundle.revision,
     revisionVersion,
-    status: 'ready' as const,
+    status: 'complete' as const,
     finalExtent: undefined,
   };
   const navigation = result.bundle.navigation;
@@ -187,7 +187,7 @@ export function spreadSnapshot(
   const revision = {
     ...result.bundle.revision,
     revisionVersion,
-    status: 'ready' as const,
+    status: 'complete' as const,
     finalExtent: undefined,
   };
   const navigation = result.bundle.navigation;

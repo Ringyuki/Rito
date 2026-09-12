@@ -1,6 +1,6 @@
 mod access_tests;
+mod chapter_local_tests;
 mod chapter_tree_report_tests;
-mod continuation_tests;
 pub(in crate::runtime) mod fixture;
 mod fragment_page_table_tests;
 mod pinned_font_policy_fixtures;
@@ -159,13 +159,10 @@ fn revision_statuses_use_stable_camel_case_wire_values() {
     assert_eq!(
         serde_json::to_value([
             RuntimeRevisionStatus::Warming,
-            RuntimeRevisionStatus::Ready,
             RuntimeRevisionStatus::Complete,
-            RuntimeRevisionStatus::Cancelled,
-            RuntimeRevisionStatus::Failed,
         ])
         .expect("statuses serialize"),
-        serde_json::json!(["warming", "ready", "complete", "cancelled", "failed"])
+        serde_json::json!(["warming", "complete"])
     );
 }
 

@@ -169,20 +169,6 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
-    #[wasm_bindgen(js_name = continueRevisionJson)]
-    pub fn continue_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
-        self.inner
-            .continue_revision_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = cancelRevisionJson)]
-    pub fn cancel_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
-        self.inner
-            .cancel_revision_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
     #[wasm_bindgen(js_name = getRevisionSummaryJson)]
     pub fn get_revision_summary_json(&self, revision_id: &str) -> Result<String, JsValue> {
         self.inner
@@ -304,9 +290,6 @@ fn error_json_string(error: WasmRuntimeError) -> String {
     let payload = WasmErrorPayload {
         code: error.code().as_str(),
         message: error.message().to_owned(),
-        revision: error.revision().cloned(),
-        chapter_local_revision: error.chapter_local_revision().cloned(),
-        released_chapter_local_revision: error.released_chapter_local_revision().cloned(),
     };
     serde_json::to_string(&payload).unwrap_or_else(|_| "{\"code\":\"internal-error\"}".to_owned())
 }
@@ -316,12 +299,6 @@ fn error_json_string(error: WasmRuntimeError) -> String {
 struct WasmErrorPayload {
     code: &'static str,
     message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    revision: Option<rito_core::runtime::RuntimeRevisionSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    chapter_local_revision: Option<rito_core::runtime::RuntimeChapterLocalRevisionSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    released_chapter_local_revision: Option<rito_core::runtime::RuntimeChapterLocalRevisionSummary>,
 }
 
 #[cfg(test)]

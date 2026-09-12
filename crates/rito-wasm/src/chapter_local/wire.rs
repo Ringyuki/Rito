@@ -1,23 +1,13 @@
 use std::collections::BTreeMap;
 
 use rito_core::runtime::{
-    RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionAdvance,
-    RuntimeChapterLocalRevisionHandle, RuntimeContinueChapterLocalRevisionRequest,
+    RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionHandle,
     RuntimeFrameCommandBufferMetadata, RuntimeResource, RuntimeResourceKind, RuntimeSourceLocator,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::WasmRuntimeError;
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct WasmChapterLocalRevisionAdvance {
-    #[serde(flatten)]
-    pub(super) advance: RuntimeChapterLocalRevisionAdvance,
-    pub(super) released_previous_owner: RuntimeChapterLocalRevisionHandle,
-    pub(super) released_previous_owner_transfer_count: usize,
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -135,12 +125,6 @@ pub(super) fn parse_create_request(
     json: &str,
 ) -> Result<RuntimeBoundedChapterLocalRevisionRequest, WasmRuntimeError> {
     parse_json(json, "bounded chapter-local revision request")
-}
-
-pub(super) fn parse_continue_request(
-    json: &str,
-) -> Result<RuntimeContinueChapterLocalRevisionRequest, WasmRuntimeError> {
-    parse_json(json, "chapter-local continuation request")
 }
 
 pub(super) fn parse_owner(

@@ -2,22 +2,15 @@ import {
   requireSourceLocatorRequest,
   requireSourceLocatorResolution,
 } from './reader-worker-interaction-validation-runtime.js';
-import { requireRevisionWorkBudget } from './core-wasm-versioned-validation-runtime.js';
 
 export function requireBoundedReaderStartRequest(request) {
   if (request === null || typeof request !== 'object' || Array.isArray(request)) {
     throw new TypeError('bounded reader start request must be an object');
   }
-  const budget = boundedReaderBudget(request.budget, 'bounded reader start');
   const target = boundedReaderStartTarget(request);
   return {
     layoutConfig: request.layoutConfig,
     ...(request.lineBreaking !== undefined ? { lineBreaking: request.lineBreaking } : {}),
-    budget,
-    growthBudget:
-      request.growthBudget === undefined
-        ? budget
-        : boundedReaderBudget(request.growthBudget, 'bounded reader growth'),
     ...target,
   };
 }
@@ -39,10 +32,6 @@ function boundedReaderStartTarget(request) {
     };
   }
   return { targetSpreadIndex: requireSpreadIndex(request.targetSpreadIndex ?? 0) };
-}
-
-function boundedReaderBudget(value, operation) {
-  return { maxTopLevelNodes: requireRevisionWorkBudget(value, operation) };
 }
 
 export function requireSpreadIndex(value) {
@@ -140,28 +129,13 @@ export function evaluateBoundedReaderLocatorResolution(
   };
 }
 
-export function requireAcceptedHandle(envelope, previous, operation, advancedQuanta = 1) {
+export function requireAcceptedHandle(envelope, operation) {
   if (envelope?.revision === undefined || envelope?.value === undefined) {
     throw new Error(`${operation} returned no versioned value`);
   }
-  if (!Number.isSafeInteger(advancedQuanta) || advancedQuanta <= 0) {
-    throw new Error(`${operation} returned an invalid advanced quantum count`);
+  if (envelope.revision.revisionVersion !== 0) {
+    throw new Error(`${operation} did not start at revision version zero`);
   }
-  if (previous === undefined) {
-    if (envelope.revision.revisionVersion !== 0) {
-      throw new Error(`${operation} did not start at revision version zero`);
-    }
-    return;
-  }
-  const revisionVersion = previous.revisionVersion + advancedQuanta;
-  if (!Number.isSafeInteger(revisionVersion) || revisionVersion > 0xffff_ffff) {
-    throw new Error(`${operation} advanced revision version beyond u32`);
-  }
-  requireSameHandle(
-    envelope.revision,
-    { revisionId: previous.revisionId, revisionVersion },
-    operation,
-  );
 }
 
 export function requireSameHandle(actual, expected, operation) {
@@ -191,26 +165,8 @@ export function revisionHandle(revision) {
   return { revisionId: revision.revisionId, revisionVersion: revision.revisionVersion };
 }
 
-export function isActiveRevision(revision) {
-  return revision?.status === 'warming' || revision?.status === 'ready';
-}
-
-export function isNextFailedRevision(candidate, previous, maximumStride = 1) {
-  const stride = candidate?.revisionVersion - previous?.revisionVersion;
-  return (
-    candidate?.status === 'failed' &&
-    previous !== undefined &&
-    candidate.revisionId === previous.revisionId &&
-    Number.isSafeInteger(maximumStride) &&
-    maximumStride > 0 &&
-    Number.isSafeInteger(stride) &&
-    stride >= 1 &&
-    stride <= maximumStride
-  );
-}
-
 export function isRecoverableTargetReadError(error) {
-  return error?.code === 'engine-error' && error?.revision === undefined;
+  return error?.code === 'engine-error';
 }
 
 export function defaultYieldControl() {

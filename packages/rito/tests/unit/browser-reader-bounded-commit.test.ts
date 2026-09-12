@@ -260,7 +260,7 @@ describe('Browser bounded revision commit adapter', () => {
           matchedBy: 'href',
         },
       },
-      'ready',
+      'complete',
     ],
   ] as const)('commits %s without inventing a selected frame', async (_label, target, status) => {
     const previous = createWorker(() => undefined, 'previous-session');
@@ -539,7 +539,7 @@ function boundedSnapshot(
   revisionVersion = 3,
 ): BrowserReaderBoundedSnapshot {
   const result = revisionResult(revisionId, pageCount, spreadCount, spreadIndex);
-  const revision = { ...result.bundle.revision, revisionVersion, status: 'ready' as const };
+  const revision = { ...result.bundle.revision, revisionVersion, status: 'complete' as const };
   const navigation = result.bundle.navigation;
   const frameWindow =
     spreadCount > 0
@@ -594,7 +594,7 @@ function owner(
 function retargetWithoutFrame(
   snapshot: BrowserReaderBoundedSnapshot,
   target: BrowserReaderBoundedSnapshot['target'],
-  status: 'ready' | 'complete',
+  status: 'complete',
 ): BrowserReaderBoundedSnapshot {
   const { frameWindow: _frameWindow, ...rest } = snapshot;
   const revision = { ...snapshot.revision, status };

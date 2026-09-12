@@ -134,8 +134,7 @@ fn versioned_revision_presentation_is_slim_and_exact() {
             .create_bounded_revision_json(
                 &json!({
                     "layoutConfig": config,
-                    "lineBreaking": "greedy",
-                    "budget": { "maxTopLevelNodes": 64 },
+                    "lineBreaking": "greedy"
                 })
                 .to_string(),
             )

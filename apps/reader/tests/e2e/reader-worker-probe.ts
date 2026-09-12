@@ -1,13 +1,10 @@
 import type { BrowserContext, Page } from '@playwright/test';
-import {
-  READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS,
-  READER_WORKER_MAIN_CONTINUATION_KINDS,
-} from './reader-worker-probe-observations';
+import { READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS } from './reader-worker-probe-observations';
 import type {
   ReaderLongTaskObservation,
   ReaderWorkerChapterLocalRevisionObservation,
   ReaderWorkerCreationObservation,
-  ReaderWorkerHeldContinuationObservation,
+  ReaderWorkerHeldMutationObservation,
   ReaderWorkerOperationObservation,
   ReaderWorkerRevisionHandleObservation,
   ReaderWorkerRevisionObservation,
@@ -23,10 +20,10 @@ type InitScriptTarget = Pick<Page, 'addInitScript'> | Pick<BrowserContext, 'addI
 interface ReaderWorkerProbeGlobal {
   __RITO_READER_WORKER_OPERATIONS__?: ReaderWorkerOperationObservation[];
   __RITO_READER_WORKER_CREATIONS__?: ReaderWorkerCreationObservation[];
-  __RITO_READER_WORKER_HELD_CONTINUATIONS__?: ReaderWorkerHeldContinuationObservation[];
+  __RITO_READER_WORKER_HELD_MUTATIONS__?: ReaderWorkerHeldMutationObservation[];
   __RITO_READER_WORKER_TERMINATIONS__?: ReaderWorkerTerminationObservation[];
   __RITO_READER_WORKER_RESPONSE_HOLD_PLAN__?: ReaderWorkerResponseHoldPlan;
-  __RITO_READER_WORKER_RELEASE_CONTINUATIONS__?: () => void;
+  __RITO_READER_WORKER_RELEASE_MUTATIONS__?: () => void;
   __RITO_READER_LONG_TASKS__?: ReaderLongTaskObservation[];
   __RITO_READER_LONG_TASK_OBSERVER__?: PerformanceObserver;
   __RITO_READER_FLUSH_LONG_TASKS__?: () => void;
@@ -34,16 +31,13 @@ interface ReaderWorkerProbeGlobal {
 
 export async function installReaderWorkerProbe(target: InitScriptTarget): Promise<void> {
   await target.addInitScript(
-    (responseKinds) => {
+    (chapterLocalMutationKinds) => {
       const runtime = globalThis as typeof globalThis & ReaderWorkerProbeGlobal;
       runtime.__RITO_READER_WORKER_OPERATIONS__ = [];
       runtime.__RITO_READER_WORKER_CREATIONS__ = [];
-      runtime.__RITO_READER_WORKER_HELD_CONTINUATIONS__ = [];
+      runtime.__RITO_READER_WORKER_HELD_MUTATIONS__ = [];
       runtime.__RITO_READER_WORKER_TERMINATIONS__ = [];
-      runtime.__RITO_READER_WORKER_RESPONSE_HOLD_PLAN__ = {
-        mainContinuation: false,
-        chapterLocalMutation: false,
-      };
+      runtime.__RITO_READER_WORKER_RESPONSE_HOLD_PLAN__ = { chapterLocalMutation: false };
       runtime.__RITO_READER_LONG_TASKS__ = [];
       installLongTaskProbe(runtime);
       runtime.__RITO_READER_FLUSH_LONG_TASKS__ = () => {
@@ -52,9 +46,9 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
 
       const NativeWorker = globalThis.Worker;
       let nextWorkerId = 1;
-      const releaseContinuations = new Set<() => void>();
-      runtime.__RITO_READER_WORKER_RELEASE_CONTINUATIONS__ = () => {
-        for (const release of releaseContinuations) release();
+      const releaseMutations = new Set<() => void>();
+      runtime.__RITO_READER_WORKER_RELEASE_MUTATIONS__ = () => {
+        for (const release of releaseMutations) release();
       };
       class ReaderWorkerProbe extends NativeWorker {
         readonly probeWorkerId: number;
@@ -79,16 +73,16 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
             workerId: this.probeWorkerId,
             createdAt: performance.now(),
           });
-          releaseContinuations.add(this.releaseHeldResponses);
+          releaseMutations.add(this.releaseHeldResponses);
           this.addEventListener('message', (event: MessageEvent<unknown>) => {
-            if (this.holdContinuationResponse(event)) return;
+            if (this.holdMutationResponse(event)) return;
             recordResponse(runtime, this.probeWorkerId, event.data);
           });
         }
 
         override terminate(): void {
           if (this.shouldProbe) {
-            releaseContinuations.delete(this.releaseHeldResponses);
+            releaseMutations.delete(this.releaseHeldResponses);
             runtime.__RITO_READER_WORKER_TERMINATIONS__?.push({
               workerId: this.probeWorkerId,
               terminatedAt: performance.now(),
@@ -116,13 +110,13 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
         private readonly releaseHeldResponses = (): void => {
           for (const [requestId, held] of this.heldResponses) {
             this.bypassHold.add(requestId);
-            markHeldContinuationReleased(runtime, this.probeWorkerId, requestId);
+            markHeldMutationReleased(runtime, this.probeWorkerId, requestId);
             this.dispatchEvent(new MessageEvent('message', { data: held.data }));
             this.heldResponses.delete(requestId);
           }
         };
 
-        private holdContinuationResponse(event: MessageEvent<unknown>): boolean {
+        private holdMutationResponse(event: MessageEvent<unknown>): boolean {
           const response = objectValue(event.data);
           const requestId = response?.['id'];
           if (typeof requestId !== 'number') return false;
@@ -139,7 +133,7 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
           const kind = request?.kind;
           if (typeof kind !== 'string') return false;
           this.heldResponses.set(requestId, { data: event.data, kind, category });
-          runtime.__RITO_READER_WORKER_HELD_CONTINUATIONS__?.push({
+          runtime.__RITO_READER_WORKER_HELD_MUTATIONS__?.push({
             workerId: this.probeWorkerId,
             requestId,
             kind,
@@ -187,8 +181,6 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
       ): void {
         const message = objectValue(value);
         if (typeof message?.['id'] !== 'number' || typeof message['kind'] !== 'string') return;
-        const request = objectValue(message['request']);
-        const budget = objectValue(message['budget']) ?? objectValue(request?.['budget']);
         const data = message['data'];
         root.__RITO_READER_WORKER_OPERATIONS__?.push({
           workerId,
@@ -196,11 +188,6 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
           kind: message['kind'],
           startedAt: performance.now(),
           requestBytes: data instanceof ArrayBuffer ? data.byteLength : null,
-          maxTopLevelNodes:
-            typeof budget?.['maxTopLevelNodes'] === 'number' ? budget['maxTopLevelNodes'] : null,
-          maxQuanta: typeof message['maxQuanta'] === 'number' ? message['maxQuanta'] : null,
-          processedTopLevelNodes: null,
-          advancedQuanta: null,
           spreadIndex: typeof message['spreadIndex'] === 'number' ? message['spreadIndex'] : null,
           completedAt: null,
           durationMs: null,
@@ -217,11 +204,9 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
 
       function responseHoldCategory(value: unknown): ReaderWorkerResponseHoldCategory | undefined {
         if (typeof value !== 'string') return undefined;
-        return responseKinds.mainContinuation.some((kind) => kind === value)
-          ? 'mainContinuation'
-          : responseKinds.chapterLocalMutation.some((kind) => kind === value)
-            ? 'chapterLocalMutation'
-            : undefined;
+        return chapterLocalMutationKinds.some((kind) => kind === value)
+          ? 'chapterLocalMutation'
+          : undefined;
       }
 
       function recordResponse(
@@ -249,23 +234,8 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
           typeof payload?.['wasmMemoryByteLength'] === 'number'
             ? payload['wasmMemoryByteLength']
             : null;
-        record.processedTopLevelNodes = processedTopLevelNodes(payload);
-        record.advancedQuanta = advancedQuanta(payload);
         record.revision = revisionObservation(payload);
         record.chapterLocalRevision = chapterLocalRevisionObservation(payload);
-      }
-
-      function processedTopLevelNodes(payload: Record<string, unknown> | undefined): number | null {
-        const result = objectValue(payload?.['result']);
-        const advance = objectValue(result?.['advance']) ?? result;
-        return typeof advance?.['processedTopLevelNodes'] === 'number'
-          ? advance['processedTopLevelNodes']
-          : null;
-      }
-
-      function advancedQuanta(payload: Record<string, unknown> | undefined): number | null {
-        const result = objectValue(payload?.['result']);
-        return typeof result?.['advancedQuanta'] === 'number' ? result['advancedQuanta'] : null;
       }
 
       function findPendingRecord(
@@ -284,12 +254,12 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
           );
       }
 
-      function markHeldContinuationReleased(
+      function markHeldMutationReleased(
         root: typeof globalThis & ReaderWorkerProbeGlobal,
         workerId: number,
         requestId: number,
       ): void {
-        const held = root.__RITO_READER_WORKER_HELD_CONTINUATIONS__?.find(
+        const held = root.__RITO_READER_WORKER_HELD_MUTATIONS__?.find(
           (entry) =>
             entry.workerId === workerId &&
             entry.requestId === requestId &&
@@ -372,9 +342,6 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
         return value as Record<string, unknown>;
       }
     },
-    {
-      mainContinuation: [...READER_WORKER_MAIN_CONTINUATION_KINDS],
-      chapterLocalMutation: [...READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS],
-    },
+    [...READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS],
   );
 }

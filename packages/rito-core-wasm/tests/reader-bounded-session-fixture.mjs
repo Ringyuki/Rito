@@ -10,37 +10,8 @@ export function fixtureClient(overrides) {
     }
     return response;
   };
-  const releasedHandle = (request) => ({
-    revisionId: request.revisionId,
-    revisionVersion: request.revisionVersion,
-  });
-  const atomicMethods =
-    overrides.atomic === false
-      ? {}
-      : {
-          continueRevisionAfterTransferRelease: async (request) => {
-            const releasedRevision = releasedHandle(request);
-            const continued = await track(overrides.continue, request);
-            await overrides.releaseTransfers?.(releasedRevision);
-            return {
-              revision: continued.revision,
-              value: {
-                advance: continued.value,
-                releasedRevision,
-                releasedTransferCount: 0,
-              },
-            };
-          },
-        };
   return {
     createBoundedRevision: (...args) => track(overrides.create, ...args),
-    continueRevision: (...args) => track(overrides.continue, ...args),
-    ...atomicMethods,
-    cancelRevision:
-      overrides.cancel === undefined
-        ? (value) =>
-            track(async () => versionedSummary(summary(value.revisionVersion + 1, 'cancelled', 0)))
-        : (...args) => track(overrides.cancel, ...args),
     getRevisionPresentationAtRevision: async (value) => {
       const extent = extents.get(value.revisionVersion);
       if (overrides.presentation !== undefined) {
@@ -125,34 +96,18 @@ export function sourceResolution(revision, locator, extent, spreadIndex = 0) {
   };
 }
 
-export function startRequest(targetSpreadIndex, budget = 1, growthBudget = 32) {
-  return {
-    layoutConfig: {},
-    budget: { maxTopLevelNodes: budget },
-    growthBudget: { maxTopLevelNodes: growthBudget },
-    targetSpreadIndex,
-  };
+export function startRequest(targetSpreadIndex) {
+  return { layoutConfig: {}, targetSpreadIndex };
 }
 
-export function locatorStartRequest(targetLocator, budget = 32, growthBudget = 32) {
-  return {
-    layoutConfig: {},
-    budget: { maxTopLevelNodes: budget },
-    growthBudget: { maxTopLevelNodes: growthBudget },
-    targetLocator,
-  };
+export function locatorStartRequest(targetLocator) {
+  return { layoutConfig: {}, targetLocator };
 }
 
-export function advance(version, spreadCount, continuing) {
-  const revision = summary(version, continuing ? 'ready' : 'complete', spreadCount);
+export function advance(version, spreadCount) {
   return {
-    revision,
-    previousKnownExtent: { pageCount: 0, spreadCount: 0 },
+    revision: summary(version, 'complete', spreadCount),
     newlyKnownPages: { startPage: 0, endPageExclusive: spreadCount },
-    processedTopLevelNodes: 1,
-    ...(continuing
-      ? { continuation: { ...handle(version), cursor: `cursor-${String(version + 1)}` } }
-      : {}),
   };
 }
 
@@ -171,10 +126,6 @@ export function summary(version, status, spreadCount) {
 
 export function versioned(value) {
   return { revision: handle(value.revision.revisionVersion), value };
-}
-
-export function versionedSummary(value) {
-  return { revision: handle(value.revisionVersion), value };
 }
 
 export function handle(revisionVersion) {

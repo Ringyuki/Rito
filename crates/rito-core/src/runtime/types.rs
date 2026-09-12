@@ -88,11 +88,10 @@ pub struct RuntimeRevisionExtent {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum RuntimeRevisionStatus {
+    /// Inserted but not yet paginated; never observable outside the call
+    /// that publishes the revision.
     Warming,
-    Ready,
     Complete,
-    Cancelled,
-    Failed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -110,23 +109,6 @@ pub struct RuntimeRevisionSummary {
     /// Backward-compatible alias for `known_extent.spread_count`.
     pub spread_count: usize,
 }
-
-/// Maximum top-level source nodes that one continuation quantum may accept.
-///
-/// Greedy leaf paragraphs at the root and inside ordinary transparent
-/// containers share internal descendant-node and line-box quanta. Visually
-/// decorated or floated containers, tables, optimal paragraphs, paragraph
-/// or container preparation, and individual shaping calls remain atomic.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionWorkBudget {
-    pub max_top_level_nodes: usize,
-}
-
-/// Hard memory bound for a provisional chapter-local revision.
-///
-/// A caller may choose a smaller cap, but cannot request a larger window.
-pub const RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX: usize = 16;
 
 /// Explicit identity for the only chapter represented by a chapter-local
 /// revision. Page and spread coordinates in that revision are local to this
@@ -153,14 +135,6 @@ pub struct RuntimeBoundedChapterLocalRevisionRequest {
     pub line_breaking: LineBreaking,
     pub target_chapter_index: usize,
     pub target_locator: RuntimeSourceLocator,
-    pub local_page_cap: usize,
-    pub budget: RuntimeRevisionWorkBudget,
-    /// Optional number of internal work meters one request may run before it
-    /// publishes. Advancing stops early the moment the target resolves, so a
-    /// larger cap front-loads target-seeking work without overshoot. Absent
-    /// means one meter: the original single-quantum behavior.
-    #[serde(default)]
-    pub max_quanta: Option<std::num::NonZeroUsize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -169,36 +143,6 @@ pub struct RuntimeChapterLocalRevisionHandle {
     pub revision_id: String,
     pub revision_version: u32,
     pub coordinate: RuntimeChapterLocalCoordinate,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalRevisionCursor {
-    pub owner: RuntimeChapterLocalRevisionHandle,
-    pub cursor: String,
-    pub target_locator: RuntimeSourceLocator,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeContinueChapterLocalRevisionRequest {
-    pub continuation: RuntimeChapterLocalRevisionCursor,
-    pub budget: RuntimeRevisionWorkBudget,
-    /// See [`RuntimeBoundedChapterLocalRevisionRequest::max_quanta`].
-    #[serde(default)]
-    pub max_quanta: Option<std::num::NonZeroUsize>,
-}
-
-/// Transfers a chapter-local break token into a fresh bounded revision.
-///
-/// The source revision remains immutable and independently releasable. The
-/// layout session itself is moved, so the destination window resumes at the
-/// exact page boundary without replaying the chapter prefix.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRolloverChapterLocalRevisionRequest {
-    pub continuation: RuntimeChapterLocalRevisionCursor,
-    pub budget: RuntimeRevisionWorkBudget,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -223,23 +167,17 @@ pub struct RuntimeChapterLocalRevisionSummary {
     pub layout_key: String,
     pub status: RuntimeRevisionStatus,
     pub coordinate: RuntimeChapterLocalCoordinate,
-    pub local_page_cap: usize,
     pub known_extent: RuntimeChapterLocalRevisionExtent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub final_extent: Option<RuntimeChapterLocalRevisionExtent>,
-    pub page_cap_reached: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeChapterLocalRevisionAdvance {
     pub revision: RuntimeChapterLocalRevisionSummary,
-    pub previous_known_extent: RuntimeChapterLocalRevisionExtent,
     pub newly_known_local_pages: RuntimeChapterLocalPageRange,
-    pub processed_top_level_nodes: usize,
     pub target: RuntimeChapterLocalSourceLocatorResolution,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub continuation: Option<RuntimeChapterLocalRevisionCursor>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -269,52 +207,23 @@ pub enum RuntimeChapterLocalSourceLocatorResolution {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeChapterLocalRevisionError {
-    pub kind: RuntimeContinuationErrorKind,
+    pub kind: RuntimeRevisionErrorKind,
     pub message: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revision: Option<Box<RuntimeChapterLocalRevisionSummary>>,
 }
 
-/// Request for the experimental core-only bounded revision path.
+/// Request for a whole-book revision through the host protocol.
 ///
-/// The first bounded request scans every spine XHTML source once to establish
-/// exact publication-wide footnote targets and definitions. The scan is cached
-/// and does not mark lazy chapters or binary resources as loaded. Unreadable
-/// future spine resources are skipped so their failure remains deferred until
-/// continuation reaches them. Malformed XHTML contributes no footnote data,
-/// matching eager preparation.
+/// The first request scans every spine XHTML source once to establish
+/// exact publication-wide footnote targets and definitions. The scan is
+/// cached and does not mark lazy chapters or binary resources as loaded.
+/// Malformed XHTML contributes no footnote data, matching eager
+/// preparation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeBoundedRevisionRequest {
     pub layout_config: LayoutConfig,
     #[serde(default = "default_revision_line_breaking")]
     pub line_breaking: LineBreaking,
-    pub budget: RuntimeRevisionWorkBudget,
-}
-
-/// Opaque one-shot handle bound to one revision version.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionCursor {
-    pub revision_id: String,
-    pub revision_version: u32,
-    pub cursor: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeContinueRevisionRequest {
-    pub revision_id: String,
-    pub revision_version: u32,
-    pub cursor: String,
-    pub budget: RuntimeRevisionWorkBudget,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeCancelRevisionRequest {
-    pub revision_id: String,
-    pub revision_version: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -324,44 +233,30 @@ pub struct RuntimeRevisionPageRange {
     pub end_page_exclusive: usize,
 }
 
-/// The newly published stable prefix and the cursor for the next quantum.
+/// The published revision and the page range it made known: the whole
+/// table, since the book paginates in one step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionAdvance {
     pub revision: RuntimeRevisionSummary,
-    pub previous_known_extent: RuntimeRevisionExtent,
     pub newly_known_pages: RuntimeRevisionPageRange,
-    /// Top-level source nodes accepted during this quantum. A continuation
-    /// that only resumes an accepted paragraph can report zero while still
-    /// making deterministic line-layout progress.
-    pub processed_top_level_nodes: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub continuation: Option<RuntimeRevisionCursor>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum RuntimeContinuationErrorKind {
-    InvalidBudget,
+pub enum RuntimeRevisionErrorKind {
     InvalidChapterLocalTarget,
-    InvalidPageCap,
     UnknownRevision,
     StaleRevisionVersion,
-    UnknownCursor,
-    CursorOwnerMismatch,
     ChapterLocalOwnerMismatch,
-    ChapterLocalTargetMismatch,
-    RevisionNotContinuable,
     EngineFailure,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeContinuationError {
-    pub kind: RuntimeContinuationErrorKind,
+pub struct RuntimeRevisionError {
+    pub kind: RuntimeRevisionErrorKind,
     pub message: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revision: Option<Box<RuntimeRevisionSummary>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

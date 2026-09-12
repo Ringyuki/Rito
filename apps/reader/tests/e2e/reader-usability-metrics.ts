@@ -11,7 +11,6 @@ export interface ReaderUsabilityMetrics {
   readonly canvasReadyMs: number;
   readonly cachedTurnFirstFrameMs: number;
   readonly cachedTurnStableMs: number;
-  readonly deferredGrowthFirstFrameMs: number;
   readonly tocSupersedeFirstFrameMs: number;
   readonly farTocFirstFrameMs: number;
   readonly farTocWorkerRequestsToFirstFrame: number;
@@ -30,7 +29,6 @@ export const READER_USABILITY_METRIC_KEYS = [
   'canvasReadyMs',
   'cachedTurnFirstFrameMs',
   'cachedTurnStableMs',
-  'deferredGrowthFirstFrameMs',
   'tocSupersedeFirstFrameMs',
   'farTocFirstFrameMs',
   'farTocWorkerRequestsToFirstFrame',
@@ -54,7 +52,6 @@ export function readerUsabilityMetrics(report: ReaderLoadProfileReport): ReaderU
     canvasReadyMs: report.milestones.canvasReadyMs,
     cachedTurnFirstFrameMs: report.stages.cachedTurn.durationMs,
     cachedTurnStableMs: report.stages.cachedTurn.observedDurationMs,
-    deferredGrowthFirstFrameMs: report.stages.deferredGrowth.durationMs,
     tocSupersedeFirstFrameMs: report.stages.tocSupersede.durationMs,
     farTocFirstFrameMs: report.stages.farToc.durationMs,
     farTocWorkerRequestsToFirstFrame: report.stages.farToc.workerRequestsToFirstFrame,
@@ -62,7 +59,6 @@ export function readerUsabilityMetrics(report: ReaderLoadProfileReport): ReaderU
     maxLongTaskMs: Math.max(
       report.stages.initial.longTasks.maxMs,
       report.stages.cachedTurn.longTasks.maxMs,
-      report.stages.deferredGrowth.longTasks.maxMs,
       report.stages.tocSupersede.longTasks.maxMs,
       report.stages.freshFarBootstrap.longTasks.maxMs,
       report.stages.farToc.longTasks.maxMs,
@@ -85,7 +81,6 @@ export function mapReaderUsabilityMetrics(
     canvasReadyMs: value('canvasReadyMs'),
     cachedTurnFirstFrameMs: value('cachedTurnFirstFrameMs'),
     cachedTurnStableMs: value('cachedTurnStableMs'),
-    deferredGrowthFirstFrameMs: value('deferredGrowthFirstFrameMs'),
     tocSupersedeFirstFrameMs: value('tocSupersedeFirstFrameMs'),
     farTocFirstFrameMs: value('farTocFirstFrameMs'),
     farTocWorkerRequestsToFirstFrame: value('farTocWorkerRequestsToFirstFrame'),

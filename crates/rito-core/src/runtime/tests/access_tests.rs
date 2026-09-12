@@ -7,8 +7,8 @@ use crate::{
     runtime::{
         RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimeInitialFrameRequest,
         RuntimeLocatorRequest, RuntimePageTargetKind, RuntimePrefetchRequest, RuntimeResourceKind,
-        RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
-        RuntimeSearchRequest, RuntimeSemanticRole, RuntimeSourceLocator, RuntimeTextPointRequest,
+        RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeSearchRequest,
+        RuntimeSemanticRole, RuntimeSourceLocator, RuntimeTextPointRequest,
         RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeVersioned,
     },
 };
@@ -257,9 +257,6 @@ fn revision_presentation_is_exact_and_omits_heavy_aggregates() {
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
             layout_config: layout(),
             line_breaking: LineBreaking::Greedy,
-            budget: RuntimeRevisionWorkBudget {
-                max_top_level_nodes: 1,
-            },
         })
         .expect("bounded revision starts");
     let handle = handle_for(&initial.revision);

@@ -41,13 +41,13 @@ describe('Browser bounded session runtime', () => {
     const previous = createWorker(() => undefined, 'previous');
     const candidate = createWorker(() => undefined, 'candidate');
     const state = createState(previous.worker);
-    const initial = boundedSnapshot('old', 0, 1, 'ready');
+    const initial = boundedSnapshot('old', 0, 1, 'complete');
     setRevisionState(state, initial.revision, initial.navigation);
     const previousControllerDispose = vi.fn(() => Promise.resolve());
     const previousOwner = owner(previous.worker, { dispose: previousControllerDispose });
     recordBrowserReaderAcceptedRevision(previousOwner, initial.revision);
     state.boundedSessions.current = previousOwner;
-    const next = boundedSnapshot('next', 1, 2, 'ready');
+    const next = boundedSnapshot('next', 1, 2, 'complete');
     const start = vi.fn(() => Promise.resolve(next));
     const candidateOwner = owner(candidate.worker, { start });
     recordBrowserReaderAcceptedRevision(candidateOwner, next.revision);
@@ -64,8 +64,6 @@ describe('Browser bounded session runtime', () => {
     expect(start).toHaveBeenCalledWith({
       layoutConfig: toCoreLayoutConfig(state.config, state.fontMetrics),
       lineBreaking: 'greedy',
-      budget: { maxTopLevelNodes: 32 },
-      growthBudget: { maxTopLevelNodes: 32 },
       targetSpreadIndex: 1,
     });
     expect(state.boundedSessions.current).toBe(candidateOwner);
@@ -78,13 +76,13 @@ describe('Browser bounded session runtime', () => {
     const previous = createWorker(() => undefined, 'stalled-previous');
     const candidate = createWorker(() => undefined, 'candidate-after-stalled-previous');
     const state = createState(previous.worker);
-    const initial = boundedSnapshot('old', 0, 1, 'ready');
+    const initial = boundedSnapshot('old', 0, 1, 'complete');
     setRevisionState(state, initial.revision, initial.navigation);
     const previousControllerDispose = vi.fn(() => new Promise<void>(() => undefined));
     const previousOwner = owner(previous.worker, { dispose: previousControllerDispose });
     recordBrowserReaderAcceptedRevision(previousOwner, initial.revision);
     state.boundedSessions.current = previousOwner;
-    const next = boundedSnapshot('next', 0, 1, 'ready');
+    const next = boundedSnapshot('next', 0, 1, 'complete');
     const candidateOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(next)),
     });
@@ -114,7 +112,7 @@ describe('Browser bounded session runtime', () => {
   it('drops a candidate when navigation moves after its anchor was captured', async () => {
     const fixture = currentFixture();
     const candidate = createWorker(() => undefined, 'stale-navigation');
-    const snapshot = boundedSnapshot('stale-navigation', 0, 1, 'ready');
+    const snapshot = boundedSnapshot('stale-navigation', 0, 1, 'complete');
     const candidateOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(snapshot)),
     });
@@ -139,7 +137,7 @@ describe('Browser bounded session runtime', () => {
   it('publishes the candidate callback before layout listeners', async () => {
     const fixture = currentFixture();
     const candidate = createWorker(() => undefined, 'callback-order');
-    const snapshot = boundedSnapshot('callback-order', 0, 1, 'ready');
+    const snapshot = boundedSnapshot('callback-order', 0, 1, 'complete');
     const candidateOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(snapshot)),
     });
@@ -177,7 +175,7 @@ describe('Browser bounded session runtime', () => {
     await Promise.resolve();
 
     const latestWorker = createWorker(() => undefined, 'latest-candidate');
-    const latestSnapshot = boundedSnapshot('latest', 0, 1, 'ready');
+    const latestSnapshot = boundedSnapshot('latest', 0, 1, 'complete');
     const latestOwner = owner(latestWorker.worker, {
       start: vi.fn(() => Promise.resolve(latestSnapshot)),
     });
@@ -203,7 +201,7 @@ describe('Browser bounded session runtime', () => {
   it('aborts a candidate during commit preparation without publishing it', async () => {
     const fixture = currentFixture();
     const candidate = createWorker(() => undefined, 'aborted-candidate');
-    const snapshot = boundedSnapshot('aborted', 0, 1, 'ready');
+    const snapshot = boundedSnapshot('aborted', 0, 1, 'complete');
     const controllerDispose = vi.fn(() => Promise.resolve());
     const candidateOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(snapshot)),
@@ -375,10 +373,10 @@ describe('Browser bounded session runtime', () => {
     allSettled.mockRestore();
   });
 
-  it('uses a one-node startup quantum for spread zero and a larger growth quantum', async () => {
+  it('starts a candidate with only its layout and target', async () => {
     const fixture = currentFixture();
     const candidate = createWorker(() => undefined, 'first-spread-budget');
-    const snapshot = boundedSnapshot('first-spread-budget', 0, 1, 'ready');
+    const snapshot = boundedSnapshot('first-spread-budget', 0, 1, 'complete');
     const start = vi.fn(() => Promise.resolve(snapshot));
     const candidateOwner = owner(candidate.worker, { start });
     recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
@@ -394,8 +392,6 @@ describe('Browser bounded session runtime', () => {
     expect(start).toHaveBeenCalledWith({
       layoutConfig: toCoreLayoutConfig(fixture.state.config, fixture.state.fontMetrics),
       lineBreaking: 'greedy',
-      budget: { maxTopLevelNodes: 1 },
-      growthBudget: { maxTopLevelNodes: 32 },
       targetSpreadIndex: 0,
     });
   });
@@ -460,18 +456,18 @@ describe('Browser bounded session runtime', () => {
     expect(candidate.dispose).toHaveBeenCalled();
   });
 
-  it('commits an accepted spread after abort but resolves the caller as cancelled', async () => {
+  it('commits an accepted completion after abort but resolves the caller as cancelled', async () => {
     const fixture = currentFixture();
-    const next = boundedSnapshot('current', 1, 2, 'ready');
+    const next = boundedSnapshot('current', 0, 2, 'complete', { target: { kind: 'complete' } });
     const deferred = createDeferred<BrowserReaderBoundedSnapshot>();
-    const ensureSpread = vi.fn(() => deferred.promise);
-    fixture.owner.controller.ensureSpread = ensureSpread;
+    const complete = vi.fn(() => deferred.promise);
+    fixture.owner.controller.complete = complete;
     const abort = new AbortController();
-    const committed = vi.fn();
-    fixture.state.layoutCommittedListeners.add(committed);
 
-    const task = ensureBrowserReaderBoundedSpread(fixture.state, 1, abort.signal);
-    await waitForCall(ensureSpread);
+    const task = completeBrowserReaderBoundedSession(fixture.state, abort.signal, {
+      refreshHostLineMetrics: true,
+    });
+    await waitForCall(complete);
     abort.abort();
     recordBrowserReaderAcceptedRevision(fixture.owner, next.revision);
     mockAggregates(fixture.worker, next);
@@ -480,59 +476,47 @@ describe('Browser bounded session runtime', () => {
     await expect(task).resolves.toBeUndefined();
     expect(fixture.state.revisionBundle.revision).toBe(next.revision);
     expect(fixture.owner.readsSuspended).toBe(false);
-    expect(committed).not.toHaveBeenCalled();
   });
 
-  it('keeps an ordinary same-owner spread append silent', async () => {
+  it('publishes a layout commit when completion requires a font-geometry replacement', async () => {
     const fixture = currentFixture();
-    const next = boundedSnapshot('current', 1, 2, 'ready');
-    fixture.owner.controller.ensureSpread = vi.fn(() => {
-      recordBrowserReaderAcceptedRevision(fixture.owner, next.revision);
-      return Promise.resolve(next);
+    const uncalibrated = boundedSnapshot('current', 0, 2, 'complete', {
+      target: { kind: 'complete' },
     });
-    mockAggregates(fixture.worker, next);
-    const committed = vi.fn();
-    fixture.state.layoutCommittedListeners.add(committed);
-    await expect(ensureBrowserReaderBoundedSpread(fixture.state, 1)).resolves.toBe(true);
-    expect(committed).not.toHaveBeenCalled();
-  });
-
-  it('publishes a layout commit when spread growth requires a font-geometry replacement', async () => {
-    const fixture = currentFixture();
-    const uncalibrated = boundedSnapshot('current', 1, 2, 'ready');
-    fixture.owner.controller.ensureSpread = vi.fn(() => {
+    fixture.owner.controller.complete = vi.fn(() => {
       recordBrowserReaderAcceptedRevision(fixture.owner, uncalibrated.revision);
       return Promise.resolve(uncalibrated);
     });
     mockAggregates(fixture.worker, uncalibrated);
 
-    const calibrated = boundedSnapshot('calibrated', 1, 2, 'ready', { revisionVersion: 0 });
+    const calibrated = boundedSnapshot('calibrated', 0, 2, 'complete', {
+      revisionVersion: 0,
+      target: { kind: 'complete' },
+    });
     const candidate = createFontGeometryReplacementWorker(fixture.state, calibrated);
     const committed = vi.fn();
     fixture.state.layoutCommittedListeners.add(committed);
-    await expect(ensureBrowserReaderBoundedSpread(fixture.state, 1)).resolves.toBe(true);
+    await expect(
+      completeBrowserReaderBoundedSession(fixture.state, undefined, {
+        refreshHostLineMetrics: true,
+      }),
+    ).resolves.toBe(true);
 
     expect(fixture.state.boundedSessions.current?.worker).toBe(candidate);
     expect(fixture.state.revisionBundle.revision.revisionId).toBe('calibrated');
     expect(committed).toHaveBeenCalledOnce();
-    // A growth commit extends the table without moving the visible
-    // spread: the reader stays where it is and the navigation layer
-    // performs the turn when it resumes off this commit.
     expect(committed).toHaveBeenCalledWith(0);
   });
 
-  it('commits a complete final miss before returning false', async () => {
+  it('answers spread availability from the committed table without layout work', async () => {
     const fixture = currentFixture();
-    const final = boundedSnapshot('current', 1, 1, 'complete', {
-      target: { kind: 'spread', spreadIndex: 3 },
-      withFrame: false,
-    });
-    fixture.owner.controller.ensureSpread = vi.fn(() => Promise.resolve(final));
-    recordBrowserReaderAcceptedRevision(fixture.owner, final.revision);
-    mockAggregates(fixture.worker, final);
+    const ensureSpread = vi.fn();
+    fixture.owner.controller.ensureSpread = ensureSpread;
 
+    await expect(ensureBrowserReaderBoundedSpread(fixture.state, 0)).resolves.toBe(true);
     await expect(ensureBrowserReaderBoundedSpread(fixture.state, 3)).resolves.toBe(false);
-    expect(fixture.state.revisionBundle.revision.status).toBe('complete');
+    await expect(ensureBrowserReaderBoundedSpread(fixture.state, -1)).rejects.toThrow(RangeError);
+    expect(ensureSpread).not.toHaveBeenCalled();
     expect(fixture.state.activeSpreadIndex).toBe(0);
   });
 
@@ -542,7 +526,7 @@ describe('Browser bounded session runtime', () => {
       href: 'chapter.xhtml',
       sourcePoint: { nodePath: [1, 2], textOffset: 3 },
     };
-    const resolved = boundedSnapshot('current', 1, 2, 'ready', {
+    const resolved = boundedSnapshot('current', 1, 2, 'complete', {
       target: {
         kind: 'locator',
         locator,
@@ -578,7 +562,7 @@ describe('Browser bounded session runtime', () => {
     expect(request?.sourcePoint?.nodePath).not.toBe(locator.sourcePoint?.nodePath);
   });
 
-  it('completes once and publishes a full layout commit', async () => {
+  it('re-completes only on a host line metric refresh and publishes one layout commit', async () => {
     const fixture = currentFixture();
     const final = boundedSnapshot('current', 0, 1, 'complete', {
       target: { kind: 'complete' },
@@ -590,17 +574,25 @@ describe('Browser bounded session runtime', () => {
     const committed = vi.fn();
     fixture.state.layoutCommittedListeners.add(committed);
 
-    await expect(completeBrowserReaderBoundedSession(fixture.state)).resolves.toBe(true);
+    await expect(
+      completeBrowserReaderBoundedSession(fixture.state, undefined, {
+        refreshHostLineMetrics: true,
+      }),
+    ).resolves.toBe(true);
     await expect(completeBrowserReaderBoundedSession(fixture.state)).resolves.toBe(true);
     expect(complete).toHaveBeenCalledOnce();
     expect(committed).toHaveBeenCalledOnce();
   });
 
-  it('restores the exact read gate when growth fails before accepting an advance', async () => {
+  it('restores the exact read gate when completion fails before accepting an advance', async () => {
     const fixture = currentFixture();
-    fixture.owner.controller.ensureSpread = vi.fn(() => Promise.reject(new Error('failed')));
+    fixture.owner.controller.complete = vi.fn(() => Promise.reject(new Error('failed')));
 
-    await expect(ensureBrowserReaderBoundedSpread(fixture.state, 1)).rejects.toThrow('failed');
+    await expect(
+      completeBrowserReaderBoundedSession(fixture.state, undefined, {
+        refreshHostLineMetrics: true,
+      }),
+    ).rejects.toThrow('failed');
     expect(fixture.state.boundedSessions.current).toBe(fixture.owner);
     expect(fixture.state.revisionHandle).toBeDefined();
     expect(
@@ -612,7 +604,7 @@ describe('Browser bounded session runtime', () => {
 
   it('detaches and drains a current owner that fails after accepting an advance', async () => {
     const fixture = currentFixture();
-    fixture.owner.controller.ensureSpread = vi.fn(() => {
+    fixture.owner.controller.complete = vi.fn(() => {
       recordBrowserReaderAcceptedRevision(fixture.owner, {
         ...fixture.state.revisionBundle.revision,
         revisionVersion: 1,
@@ -620,7 +612,11 @@ describe('Browser bounded session runtime', () => {
       return Promise.reject(new Error('terminal'));
     });
 
-    await expect(ensureBrowserReaderBoundedSpread(fixture.state, 1)).rejects.toThrow('terminal');
+    await expect(
+      completeBrowserReaderBoundedSession(fixture.state, undefined, {
+        refreshHostLineMetrics: true,
+      }),
+    ).rejects.toThrow('terminal');
     expect(fixture.state.boundedSessions.current).toBeUndefined();
     expect(fixture.state.revisionHandle).toBeUndefined();
     expect(fixture.controllerDispose).toHaveBeenCalledOnce();
@@ -629,14 +625,16 @@ describe('Browser bounded session runtime', () => {
 
   it('does not restore a revision released by a terminal controller failure', async () => {
     const fixture = currentFixture();
-    fixture.owner.controller.ensureSpread = vi.fn(() => {
+    fixture.owner.controller.complete = vi.fn(() => {
       fixture.owner.controller.currentSnapshot = vi.fn(() => undefined);
       return Promise.reject(new Error('terminal cleanup'));
     });
 
-    await expect(ensureBrowserReaderBoundedSpread(fixture.state, 1)).rejects.toThrow(
-      'terminal cleanup',
-    );
+    await expect(
+      completeBrowserReaderBoundedSession(fixture.state, undefined, {
+        refreshHostLineMetrics: true,
+      }),
+    ).rejects.toThrow('terminal cleanup');
     expect(fixture.state.boundedSessions.current).toBeUndefined();
     expect(fixture.state.revisionHandle).toBeUndefined();
     expect(fixture.controllerDispose).toHaveBeenCalledOnce();
@@ -644,14 +642,16 @@ describe('Browser bounded session runtime', () => {
 
   it('treats a current mutation stopped by candidate replacement as superseded', async () => {
     const fixture = currentFixture();
-    const growth = createDeferred<BrowserReaderBoundedSnapshot>();
-    const ensureSpread = vi.fn(() => growth.promise);
-    fixture.owner.controller.ensureSpread = ensureSpread;
-    const pending = ensureBrowserReaderBoundedSpread(fixture.state, 1);
-    await waitForCall(ensureSpread);
+    const completion = createDeferred<BrowserReaderBoundedSnapshot>();
+    const complete = vi.fn(() => completion.promise);
+    fixture.owner.controller.complete = complete;
+    const pending = completeBrowserReaderBoundedSession(fixture.state, undefined, {
+      refreshHostLineMetrics: true,
+    });
+    await waitForCall(complete);
 
     const candidate = createWorker(() => undefined, 'replacement');
-    const replacement = boundedSnapshot('replacement', 0, 1, 'ready');
+    const replacement = boundedSnapshot('replacement', 0, 1, 'complete');
     const replacementOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(replacement)),
     });
@@ -663,7 +663,7 @@ describe('Browser bounded session runtime', () => {
       lineBreaking: fixture.state.lineBreaking,
       targetSpreadIndex: 0,
     });
-    growth.reject(new Error('bounded reader session stopped'));
+    completion.reject(new Error('bounded reader session stopped'));
 
     await expect(pending).resolves.toBeUndefined();
     expect(fixture.state.boundedSessions.current).toBe(replacementOwner);
@@ -679,7 +679,7 @@ function currentFixture(): {
 } {
   const fixture = createWorker(() => undefined, 'current');
   const state = createState(fixture.worker);
-  const initial = boundedSnapshot('current', 0, 1, 'ready', { revisionVersion: 0 });
+  const initial = boundedSnapshot('current', 0, 1, 'complete', { revisionVersion: 0 });
   setRevisionState(state, initial.revision, initial.navigation);
   const controllerDispose = vi.fn(() => Promise.resolve());
   const currentOwner = owner(fixture.worker, {
@@ -723,7 +723,7 @@ function boundedSnapshot(
   revisionId: string,
   spreadIndex: number,
   spreadCount: number,
-  status: 'ready' | 'complete',
+  status: 'complete',
   options: {
     readonly revisionVersion?: number;
     readonly target?: BrowserReaderBoundedSnapshot['target'];
@@ -736,9 +736,7 @@ function boundedSnapshot(
     ...result.bundle.revision,
     revisionVersion,
     status,
-    ...(status === 'complete'
-      ? { finalExtent: { pageCount: spreadCount, spreadCount } }
-      : { finalExtent: undefined }),
+    finalExtent: { pageCount: spreadCount, spreadCount },
   };
   const navigation = result.bundle.navigation;
   const withFrame = options.withFrame ?? true;

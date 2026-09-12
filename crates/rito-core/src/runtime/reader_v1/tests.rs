@@ -189,7 +189,7 @@ fn exact_href_seek_reuses_only_a_chapter_origin_revision() {
 }
 
 #[test]
-fn exact_cache_falls_back_for_layout_cap_and_unpublished_target_misses() {
+fn exact_cache_falls_back_for_layout_misses_only() {
     let mut session =
         open_test_session(123, source_locator_fixture_epub()).expect("reader session opens");
     let first = session
@@ -200,20 +200,14 @@ fn exact_cache_falls_back_for_layout_cap_and_unpublished_target_misses() {
     let relayout = session
         .request_artifact(layout_change)
         .expect("different layout creates a fresh exact revision");
-    let mut cap_change = request(123, 3, "chapter.xhtml#point-0");
-    cap_change.work.local_page_cap = 8;
-    let recap = session
-        .request_artifact(cap_change)
-        .expect("different page cap creates a fresh exact revision");
     let quanta_before_far_target = session.exact_layout_quantum_count();
     // The chapter paginated whole in one pass, so a far anchor in the
     // same chapter reuses the existing revision without new layout.
     let far = session
-        .request_artifact(request(123, 4, "chapter.xhtml#point-47"))
+        .request_artifact(request(123, 3, "chapter.xhtml#point-47"))
         .expect("a far same-chapter anchor resolves from the whole-chapter revision");
 
     assert_ne!(relayout.revision_id, first.revision_id);
-    assert_ne!(recap.revision_id, first.revision_id);
     assert_eq!(far.locator.anchor_id.as_deref(), Some("point-47"));
     assert_eq!(
         session.exact_layout_quantum_count(),
@@ -604,7 +598,6 @@ fn failed_revision_retirement_restores_artifact_ownership() {
         .artifact_owner_backing(artifact.artifact_id)
         .expect("artifact owner is live");
     assert_eq!(backing, ReaderRevisionBackingV1::ChapterLocal);
-    session.clear_retained_windows();
     let valid_version = session
         .runtime_revision_version(revision_id)
         .expect("revision owner is live");
@@ -1013,16 +1006,12 @@ fn exact_cache_reuses_the_whole_chapter_revision_for_a_repeat_target() {
 }
 
 #[test]
-fn exact_tail_locator_returns_only_its_target_window_with_sufficient_work() {
+fn exact_tail_locator_resolves_from_the_whole_chapter_revision() {
     let mut session =
         open_test_session(105, long_chapter_window_fixture_epub()).expect("reader session");
-    let mut tail_request = request(105, 1, "chapter.xhtml#window-point-519");
-    tail_request.work.local_page_cap = 4;
-    tail_request.work.max_top_level_nodes_per_quantum = 8;
-    tail_request.work.max_foreground_quanta = 384;
     let tail = session
-        .request_artifact(tail_request)
-        .expect("tail locator scans bounded provisional windows with sufficient work");
+        .request_artifact(request(105, 1, "chapter.xhtml#window-point-519"))
+        .expect("tail locator resolves from the one-pass chapter revision");
 
     assert_eq!(tail.locator.anchor_id.as_deref(), Some("window-point-519"));
     assert!(tail
@@ -1030,17 +1019,6 @@ fn exact_tail_locator_returns_only_its_target_window_with_sufficient_work() {
         .iter()
         .any(|page| page.text.contains("Window paragraph 519")));
     assert_eq!(session.live_revision_count(), 1);
-}
-
-#[test]
-fn double_spread_first_page_alone_rollover_matches_a_wider_reference_window() {
-    let publication = long_chapter_window_fixture_epub();
-    let narrow_windows = collect_double_spread_text(publication.clone(), 103, 4, 12);
-    let reference_windows = collect_double_spread_text(publication, 104, 16, 12);
-    assert_eq!(
-        narrow_windows, reference_windows,
-        "double-spread rollover must not skip or repeat pages"
-    );
 }
 
 #[test]
@@ -1130,18 +1108,6 @@ fn adjacent(
     }
 }
 
-fn adjacent_with_cap(
-    session_id: u64,
-    request_id: u64,
-    from_artifact_id: u64,
-    direction: ReaderAdjacentDirectionV1,
-    local_page_cap: u32,
-) -> ReaderAdjacentRequestV1 {
-    let mut request = adjacent(session_id, request_id, from_artifact_id, direction);
-    request.work.local_page_cap = local_page_cap;
-    request
-}
-
 fn adopt_initial(
     session: &mut ReaderSessionV1,
     session_id: u64,
@@ -1174,47 +1140,6 @@ fn adopt_replacement(
 fn single_page_text(artifact: &ReaderArtifactV1) -> String {
     assert_eq!(artifact.pages.len(), 1);
     artifact.pages[0].text.clone()
-}
-
-fn collect_double_spread_text(
-    publication: Vec<u8>,
-    session_id: u64,
-    local_page_cap: u32,
-    turn_count: usize,
-) -> Vec<String> {
-    let mut session = open_test_session(session_id, publication).expect("reader session");
-    let mut initial = request(session_id, 1, "chapter.xhtml");
-    initial.layout.viewport_width = 900.0;
-    initial.layout.spread_mode = ReaderSpreadModeV1::Double;
-    initial.layout.first_page_alone = true;
-    initial.layout.spread_gap = 20.0;
-    initial.work.local_page_cap = local_page_cap;
-    let mut current = session
-        .request_artifact(initial)
-        .expect("double-spread first artifact");
-    let mut page_text = current
-        .pages
-        .iter()
-        .map(|page| page.text.clone())
-        .collect::<Vec<_>>();
-    for turn in 0..turn_count {
-        let next = session
-            .request_adjacent(adjacent_with_cap(
-                session_id,
-                u64::try_from(turn).expect("turn id") + 2,
-                current.artifact_id,
-                ReaderAdjacentDirectionV1::Next,
-                local_page_cap,
-            ))
-            .expect("double-spread adjacent artifact");
-        page_text.extend(next.pages.iter().map(|page| page.text.clone()));
-        session
-            .release_artifact(current.artifact_id)
-            .expect("old double-spread artifact releases");
-        current = next;
-    }
-    session.dispose().expect("double-spread session disposes");
-    page_text
 }
 
 #[test]

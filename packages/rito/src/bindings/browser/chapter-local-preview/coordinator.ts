@@ -3,10 +3,6 @@ import { toCoreLayoutConfig } from '../reader-layout';
 import { copyReaderLocator } from '../reader/interaction-capture';
 import { trackBrowserReaderHostTask } from '../reader/host-tasks';
 import type { BrowserReaderState } from '../reader/types';
-import {
-  bindBrowserReaderContinuationBatchIntent,
-  type BrowserReaderContinuationBatchIntent,
-} from '../adaptive-continuation-batch';
 import { buildBrowserReaderChapterLocalPreview } from './task';
 import { previewTarget } from './target';
 import {
@@ -28,7 +24,6 @@ import type {
 export function beginBrowserReaderChapterLocalPreview(
   state: BrowserReaderState,
   locator: ReaderLocator,
-  continuationBatchIntent?: BrowserReaderContinuationBatchIntent,
 ): BrowserReaderChapterLocalPreviewRequest | undefined {
   if (browserReaderChapterLocalLocatorHasAnchorConflict(locator)) return undefined;
   const transport = browserReaderChapterLocalTransport(state.worker);
@@ -50,9 +45,6 @@ export function beginBrowserReaderChapterLocalPreview(
     transport,
     mainSettled: false,
   };
-  if (continuationBatchIntent) {
-    bindBrowserReaderContinuationBatchIntent(request, continuationBatchIntent);
-  }
   state.chapterLocalPreview.latestRequestId = request.id;
   retireVisiblePreview(state, true, true);
   const task = trackBrowserReaderHostTask(

@@ -14,16 +14,6 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
-    #[wasm_bindgen(js_name = continueChapterLocalRevisionJson)]
-    pub fn continue_chapter_local_revision_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .continue_chapter_local_revision_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
     #[wasm_bindgen(js_name = getChapterLocalRevisionSummaryJson)]
     pub fn get_chapter_local_revision_summary_json(
         &self,

@@ -19,16 +19,10 @@ import type {
   BrowserReaderChapterLocalMutationResult,
   BrowserReaderChapterLocalOwner,
   BrowserReaderChapterLocalPreviewRequest,
-  BrowserReaderContinuedChapterLocalAdvance,
 } from './types';
 
-const LOCAL_PAGE_CAP = 16;
-const LOCAL_WORK_BUDGET = 32;
-// Core runs up to this many bounded meters per request and stops the moment
-// the target resolves, so each Worker round trip delivers several dense
-// pages of target-seeking work instead of one line quantum.
-const LOCAL_QUANTA_PER_REQUEST = 4;
-
+/// The chapter paginates whole in one request: the advance either resolved
+/// the target on the chapter's own page grid or never will.
 export async function buildBrowserReaderChapterLocalPreview(
   state: BrowserReaderState,
   request: BrowserReaderChapterLocalPreviewRequest,
@@ -38,40 +32,21 @@ export async function buildBrowserReaderChapterLocalPreview(
     lineBreaking: request.lineBreaking,
     targetChapterIndex: request.targetChapterIndex,
     targetLocator: request.locator,
-    localPageCap: LOCAL_PAGE_CAP,
-    budget: { maxTopLevelNodes: LOCAL_WORK_BUDGET },
-    maxQuanta: LOCAL_QUANTA_PER_REQUEST,
   });
-  let accepted = await acceptMutation(state, request, created, undefined);
-  let previousOwner: BrowserReaderChapterLocalOwner | undefined;
-  for (;;) {
-    const { mutation, owner } = accepted;
-    const releaseOwner = releaseChapterLocalOwnerOnce(state, request, owner);
-    if (!ownsBrowserReaderChapterLocalPreviewRequest(state, request)) {
-      await releaseOwner();
-      return;
-    }
-    if (mutation.advance.target.status === 'resolved') {
-      try {
-        await publishResolvedPreview(state, request, owner, mutation, releaseOwner);
-      } catch (error) {
-        await releaseOwner();
-        throw error;
-      }
-      return;
-    }
-    const continuation = mutation.advance.continuation;
-    if (!continuation) {
-      await releaseOwner();
-      return;
-    }
-    previousOwner = owner;
-    const continued: unknown = await request.transport.continueChapterLocalRevision({
-      continuation,
-      budget: { maxTopLevelNodes: LOCAL_WORK_BUDGET },
-      maxQuanta: LOCAL_QUANTA_PER_REQUEST,
-    });
-    accepted = await acceptMutation(state, request, continued, previousOwner);
+  const { mutation, owner } = await acceptMutation(state, request, created);
+  const releaseOwner = releaseChapterLocalOwnerOnce(state, request, owner);
+  if (
+    !ownsBrowserReaderChapterLocalPreviewRequest(state, request) ||
+    mutation.advance.target.status !== 'resolved'
+  ) {
+    await releaseOwner();
+    return;
+  }
+  try {
+    await publishResolvedPreview(state, request, owner, mutation, releaseOwner);
+  } catch (error) {
+    await releaseOwner();
+    throw error;
   }
 }
 
@@ -84,7 +59,6 @@ async function acceptMutation(
   state: BrowserReaderState,
   request: BrowserReaderChapterLocalPreviewRequest,
   value: unknown,
-  previousOwner: BrowserReaderChapterLocalOwner | undefined,
 ): Promise<AcceptedMutation> {
   const owner = extractMutationOwner(value);
   if (!owner) {
@@ -94,7 +68,7 @@ async function acceptMutation(
   }
   try {
     const mutation = value as BrowserReaderChapterLocalMutationResult;
-    requireAdvance(mutation.advance, request, previousOwner);
+    requireAdvance(mutation.advance, request);
     return { mutation, owner };
   } catch (error) {
     await releaseBrowserReaderChapterLocalOwner(state, request, owner);
@@ -160,7 +134,6 @@ function releaseChapterLocalOwnerOnce(
 function requireAdvance(
   advance: BrowserReaderChapterLocalAdvance,
   request: BrowserReaderChapterLocalPreviewRequest,
-  previousOwner: BrowserReaderChapterLocalOwner | undefined,
 ): BrowserReaderChapterLocalOwner {
   const owner: BrowserReaderChapterLocalOwner = {
     revisionId: advance.revision.revisionId,
@@ -175,8 +148,6 @@ function requireAdvance(
   ) {
     throw new Error('Reader chapter-local advance does not match its exact target owner');
   }
-  requireContinuation(advance, owner, request);
-  if (previousOwner) requireContinuedAdvance(advance, previousOwner, owner);
   return owner;
 }
 
@@ -214,38 +185,4 @@ function extractMutationOwner(value: unknown): BrowserReaderChapterLocalOwner | 
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function requireContinuation(
-  advance: BrowserReaderChapterLocalAdvance,
-  owner: BrowserReaderChapterLocalOwner,
-  request: BrowserReaderChapterLocalPreviewRequest,
-): void {
-  const continuation = advance.continuation;
-  if (
-    continuation &&
-    (!sameBrowserReaderChapterLocalOwner(continuation.owner, owner) ||
-      !sameBrowserReaderLocator(continuation.targetLocator, request.locator))
-  ) {
-    throw new Error('Reader chapter-local cursor does not match its exact target owner');
-  }
-}
-
-function requireContinuedAdvance(
-  advance: BrowserReaderChapterLocalAdvance,
-  previous: BrowserReaderChapterLocalOwner,
-  owner: BrowserReaderChapterLocalOwner,
-): void {
-  const continued = advance as BrowserReaderContinuedChapterLocalAdvance;
-  if (
-    !sameBrowserReaderChapterLocalOwner(continued.releasedPreviousOwner, previous) ||
-    owner.revisionId !== previous.revisionId ||
-    owner.revisionVersion !== previous.revisionVersion + 1 ||
-    owner.coordinate.href !== previous.coordinate.href ||
-    owner.coordinate.chapterIndex !== previous.coordinate.chapterIndex ||
-    !Number.isSafeInteger(continued.releasedPreviousOwnerTransferCount) ||
-    continued.releasedPreviousOwnerTransferCount < 0
-  ) {
-    throw new Error('Reader chapter-local continuation broke exact N-to-N+1 ownership');
-  }
 }

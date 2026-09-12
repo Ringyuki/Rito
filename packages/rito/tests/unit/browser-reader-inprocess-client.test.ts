@@ -1,12 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createInProcessBrowserReaderSession } from '../../src/bindings/browser/reader/worker-client';
 import type { BrowserReaderBindingModule } from '../../src/bindings/browser/reader/types';
 
 describe('Browser reader in-process client', () => {
-  afterEach(() => {
-    delete readerWireGlobal().__RITO_CORE_WASM_READER_WIRE__;
-  });
-
   it('rejects malformed locators the same way as the worker message path', async () => {
     const client = createInProcessBrowserReaderSession(bindingModule(documentRuntime()));
 
@@ -145,12 +141,4 @@ function documentRuntime(overrides: Record<string, unknown> = {}): unknown {
 
 function emptyPinnedFontPolicy() {
   return { schemaVersion: 1 as const, policyId: '01'.repeat(32), faces: [] };
-}
-
-function readerWireGlobal(): typeof globalThis & {
-  __RITO_CORE_WASM_READER_WIRE__?: 'json' | 'ritorb1';
-} {
-  return globalThis as typeof globalThis & {
-    __RITO_CORE_WASM_READER_WIRE__?: 'json' | 'ritorb1';
-  };
 }

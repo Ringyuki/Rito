@@ -17,9 +17,6 @@ function chapterLocalRevisionDeclarations() {
     '  createBoundedChapterLocalRevision(',
     '    request: RitoCoreWasmBoundedChapterLocalRevisionRequest,',
     '  ): RitoCoreWasmChapterLocalRevisionAdvance;',
-    '  continueChapterLocalRevision(',
-    '    request: RitoCoreWasmContinueChapterLocalRevisionRequest,',
-    '  ): RitoCoreWasmContinuedChapterLocalRevisionAdvance;',
     '  readChapterLocalFrame(',
     '    owner: RitoCoreWasmChapterLocalOwner,',
     '    localSpreadIndex: number,',
@@ -50,12 +47,6 @@ function boundedRevisionDeclarations() {
     '  createBoundedRevision(',
     '    request: RitoCoreWasmBoundedRevisionRequest,',
     '  ): RitoCoreWasmRevisionAdvance;',
-    '  continueRevision(',
-    '    request: RitoCoreWasmContinueRevisionRequest,',
-    '  ): RitoCoreWasmRevisionAdvance;',
-    '  cancelRevision(',
-    '    request: RitoCoreWasmCancelRevisionRequest,',
-    '  ): RitoCoreWasmRevisionSummary;',
   ];
 }
 

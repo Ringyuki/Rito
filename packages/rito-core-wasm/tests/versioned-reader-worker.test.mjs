@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { createRitoCoreWasmDocumentRuntime } from '../dist/core-wasm-document-runtime.js';
-import { RitoCoreWasmError } from '../dist/core-wasm-error-runtime.js';
 import {
   createRitoCoreWasmInProcessReaderClient,
   createRitoCoreWasmReaderWorkerHandler,
@@ -20,29 +19,24 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
   await client.open(new ArrayBuffer(0));
 
-  const created = await client.createBoundedRevision({ layoutConfig: {}, budget: budget() });
+  const created = await client.createBoundedRevision({ layoutConfig: {} });
   assert.deepEqual(created.revision, handle(0));
-  const continued = await client.continueRevision({
-    ...created.revision,
-    cursor: created.value.continuation.cursor,
-    budget: budget(),
-  });
-  assert.deepEqual(continued.revision, handle(1));
+  assert.equal(created.value.revision.status, 'complete');
 
-  const summaryResult = await client.getRevisionSummaryAtRevision(handle(1));
-  const bundleResult = await client.getRevisionBundleAtRevision(handle(1), true);
-  const presentationResult = await client.getRevisionPresentationAtRevision(handle(1));
-  const navigation = await client.getRevisionNavigationAtRevision(handle(1));
-  const frame = await client.readFrameBufferAtRevision(handle(1), 0);
-  const resource = await client.readResourceAtRevision(handle(1), 'image', 'cover.png');
-  const source = await client.resolveSourceLocatorAtRevision(handle(1), {
+  const summaryResult = await client.getRevisionSummaryAtRevision(handle(0));
+  const bundleResult = await client.getRevisionBundleAtRevision(handle(0), true);
+  const presentationResult = await client.getRevisionPresentationAtRevision(handle(0));
+  const navigation = await client.getRevisionNavigationAtRevision(handle(0));
+  const frame = await client.readFrameBufferAtRevision(handle(0), 0);
+  const resource = await client.readResourceAtRevision(handle(0), 'image', 'cover.png');
+  const source = await client.resolveSourceLocatorAtRevision(handle(0), {
     href: 'chapter.xhtml',
   });
-  const footnotes = await client.getFootnotesAtRevision(handle(1));
-  const chapterTextIndices = await client.getChapterTextIndicesAtRevision(handle(1));
-  const search = await client.searchAtRevision(handle(1), searchRequest());
-  const transferRelease = await client.releaseRevisionTransfersAtRevision(handle(1));
-  const revisionRelease = await client.releaseRevisionAtRevision(handle(1));
+  const footnotes = await client.getFootnotesAtRevision(handle(0));
+  const chapterTextIndices = await client.getChapterTextIndicesAtRevision(handle(0));
+  const search = await client.searchAtRevision(handle(0), searchRequest());
+  const transferRelease = await client.releaseRevisionTransfersAtRevision(handle(0));
+  const revisionRelease = await client.releaseRevisionAtRevision(handle(0));
 
   for (const result of [
     summaryResult,
@@ -58,7 +52,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
     transferRelease,
     revisionRelease,
   ]) {
-    assert.deepEqual(result.revision, handle(1));
+    assert.deepEqual(result.revision, handle(0));
   }
   assert.deepEqual(frame.value.bytes, Uint8Array.of(4, 5));
   assert.deepEqual(resource.value.bytes, Uint8Array.of(6, 7, 8));
@@ -69,224 +63,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   assert.ok(
     calls.some(([name, args]) => name === 'getRevisionBundleAtRevisionJson' && args[2] === true),
   );
-  assert.ok(calls.some(([name, args]) => name === 'releaseRevisionAtRevision' && args[1] === 1));
-  client.dispose();
-});
-
-test('in-process continuation releases predecessor transfers inside one dispatch', async () => {
-  const { document, calls } = fixtureDocument();
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  const continued = await client.continueRevisionAfterTransferRelease({
-    ...handle(0),
-    cursor: 'cursor-1',
-    budget: budget(),
-  });
-
-  assert.deepEqual(continued.revision, handle(1));
-  assert.deepEqual(continued.value.advance, advance(1, false));
-  assert.deepEqual(continued.value.releasedRevision, handle(0));
-  assert.equal(continued.value.releasedTransferCount, 1);
-  assert.deepEqual(
-    calls
-      .filter(([name]) =>
-        ['releaseRevisionTransfersAtRevision', 'continueRevisionJson'].includes(name),
-      )
-      .map(([name]) => name),
-    ['continueRevisionJson', 'releaseRevisionTransfersAtRevision'],
-  );
-  client.dispose();
-});
-
-test('in-process atomic continuation batches native quanta and aggregates the advance', async () => {
-  const continuedVersions = [];
-  const releasedVersions = [];
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionJson: (requestJson) => {
-      const request = JSON.parse(requestJson);
-      const version = request.revisionVersion + 1;
-      continuedVersions.push(version);
-      return JSON.stringify(growingAdvance(version));
-    },
-    releaseRevisionTransfersAtRevision: (_revisionId, version) => {
-      releasedVersions.push(version);
-      return envelope(version, 1);
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  const continued = await client.continueRevisionAfterTransferRelease({
-    ...handle(0),
-    cursor: 'cursor-0',
-    budget: budget(),
-    maxQuanta: 8,
-  });
-
-  assert.deepEqual(continued.revision, handle(8));
-  assert.equal(continued.value.advancedQuanta, 8);
-  assert.equal(continued.value.releasedTransferCount, 8);
-  assert.deepEqual(continued.value.releasedRevision, handle(0));
-  assert.deepEqual(continued.value.advance.previousKnownExtent, extent(0));
-  assert.deepEqual(continued.value.advance.newlyKnownPages, {
-    startPage: 0,
-    endPageExclusive: 8,
-  });
-  assert.equal(continued.value.advance.processedTopLevelNodes, 8);
-  assert.equal(continued.value.advance.continuation.cursor, 'cursor-8');
-  assert.deepEqual(continuedVersions, [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.deepEqual(releasedVersions, [0, 1, 2, 3, 4, 5, 6, 7]);
-  client.dispose();
-});
-
-test('in-process atomic continuation does not release transfers when continuation rejects', async () => {
-  const calls = [];
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionJson: () => {
-      calls.push('continueRevisionJson');
-      throw new Error('forged continuation cursor');
-    },
-    releaseRevisionTransfersAtRevision: () => {
-      calls.push('releaseRevisionTransfersAtRevision');
-      return envelope(0, 1);
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  await assert.rejects(
-    client.continueRevisionAfterTransferRelease({
-      ...handle(0),
-      cursor: 'forged-cursor',
-      budget: budget(),
-    }),
-    /forged continuation cursor/,
-  );
-
-  assert.deepEqual(calls, ['continueRevisionJson']);
-  client.dispose();
-});
-
-test('in-process atomic continuation releases predecessor transfers after a committed failure', async () => {
-  const calls = [];
-  const failedRevision = summary(1, 'failed');
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionJson: () => {
-      calls.push('continueRevisionJson');
-      throw new Error(
-        JSON.stringify({
-          code: 'engine-error',
-          message: 'layout failed',
-          revision: failedRevision,
-        }),
-      );
-    },
-    releaseRevisionTransfersAtRevision: (_revisionId, version) => {
-      calls.push('releaseRevisionTransfersAtRevision');
-      return envelope(version, 1);
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  await assert.rejects(
-    client.continueRevisionAfterTransferRelease({
-      ...handle(0),
-      cursor: 'cursor-1',
-      budget: budget(),
-    }),
-    (error) => {
-      assert.deepEqual(error.revision, failedRevision);
-      return true;
-    },
-  );
-
-  assert.deepEqual(calls, ['continueRevisionJson', 'releaseRevisionTransfersAtRevision']);
-  client.dispose();
-});
-
-test('in-process atomic continuation rolls back the committed revision when transfer release validation fails', async () => {
-  const calls = [];
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionJson: () => {
-      calls.push(['continueRevisionJson', 1]);
-      return JSON.stringify(advance(1, false));
-    },
-    releaseRevisionTransfersAtRevision: () => {
-      calls.push(['releaseRevisionTransfersAtRevision', 0]);
-      return envelope(99, 1);
-    },
-    releaseRevisionAtRevision: (_revisionId, version) => {
-      calls.push(['releaseRevisionAtRevision', version]);
-      return envelope(version, { releasedRevision: true, releasedTransferCount: 0 });
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  await assert.rejects(
-    client.continueRevisionAfterTransferRelease({
-      ...handle(0),
-      cursor: 'cursor-1',
-      budget: budget(),
-    }),
-    /mismatched revision handle/,
-  );
-
-  assert.deepEqual(calls, [
-    ['continueRevisionJson', 1],
-    ['releaseRevisionTransfersAtRevision', 0],
-    ['releaseRevisionAtRevision', 1],
-  ]);
-  client.dispose();
-});
-
-test('worker client sends atomic transfer release and continuation as one request', async () => {
-  const worker = new ManualWorker();
-  const client = createRitoCoreWasmWorkerReaderClient(worker);
-  const opening = client.open(new ArrayBuffer(0));
-  await Promise.resolve();
-  worker.respond(worker.messages[0].id, {
-    kind: 'open',
-    result: readerOpenResult({ title: 'fixture' }),
-  });
-  await opening;
-
-  const messageCount = worker.messages.length;
-  const pending = client.continueRevisionAfterTransferRelease({
-    ...handle(0),
-    cursor: 'cursor-1',
-    budget: budget(),
-  });
-  const request = worker.messages.at(-1);
-  assert.equal(worker.messages.length, messageCount + 1);
-  assert.equal(request.kind, 'continueRevisionAfterTransferRelease');
-  worker.respond(request.id, {
-    kind: request.kind,
-    revision: handle(1),
-    result: {
-      advance: advance(1, false),
-      releasedRevision: handle(0),
-      releasedTransferCount: 2,
-    },
-  });
-
-  const continued = await pending;
-  assert.deepEqual(continued.revision, handle(1));
-  assert.equal(continued.value.releasedTransferCount, 2);
+  assert.ok(calls.some(([name, args]) => name === 'releaseRevisionAtRevision' && args[1] === 0));
   client.dispose();
 });
 
@@ -319,7 +96,7 @@ test('real worker handler uses the same bounded dispatch and transfers versioned
   const created = await scope.send({
     id: 2,
     kind: 'createBoundedRevision',
-    request: { layoutConfig: {}, budget: budget() },
+    request: { layoutConfig: {} },
   });
   assert.equal(created.ok, true);
   assert.deepEqual(created.payload.revision, handle(0));
@@ -487,39 +264,6 @@ test('worker client rejects cross-version races even when responses arrive out o
   client.dispose();
 });
 
-test('failed revision recovery state survives the worker error round trip', async () => {
-  const worker = new ManualWorker();
-  const client = createRitoCoreWasmWorkerReaderClient(worker);
-  const opening = client.open(new ArrayBuffer(0));
-  await Promise.resolve();
-  worker.respond(worker.messages[0].id, {
-    kind: 'open',
-    result: readerOpenResult({ title: 'fixture' }),
-  });
-  await opening;
-
-  const continuing = client.continueRevision({
-    ...handle(1),
-    cursor: 'cursor-2',
-    budget: budget(),
-  });
-  const failedRevision = summary(2, 'failed');
-  worker.fail(worker.messages.at(-1).id, {
-    name: 'RitoCoreWasmError',
-    message: 'layout failed',
-    code: 'engine-error',
-    revision: failedRevision,
-  });
-
-  await assert.rejects(continuing, (error) => {
-    assert.ok(error instanceof RitoCoreWasmError);
-    assert.equal(error.code, 'engine-error');
-    assert.deepEqual(error.revision, failedRevision);
-    return true;
-  });
-  client.dispose();
-});
-
 function fixtureDocument() {
   const calls = [];
   const transferId = 'transfer-1';
@@ -528,8 +272,7 @@ function fixtureDocument() {
       publicationJson: () => JSON.stringify({ title: 'fixture' }),
       pinnedFontPolicyJson,
       free() {},
-      createBoundedRevisionJson: () => JSON.stringify(advance(0, true)),
-      continueRevisionJson: () => JSON.stringify(advance(1, false)),
+      createBoundedRevisionJson: () => JSON.stringify(advance(0)),
       getRevisionSummaryAtRevisionJson: (_revisionId, version) =>
         envelope(version, summary(version, 'complete')),
       getRevisionBundleAtRevisionJson: (_revisionId, version) =>
@@ -583,10 +326,10 @@ function moduleFor(document) {
 }
 
 function versionedPayload(kind, version) {
-  return { kind, revision: handle(version), result: summary(version, 'ready') };
+  return { kind, revision: handle(version), result: summary(version, 'complete') };
 }
 
-function bundle(version, status = 'ready') {
+function bundle(version, status = 'complete') {
   const revisionId = 'rev-1';
   return {
     revision: summary(version, status),
@@ -598,7 +341,7 @@ function bundle(version, status = 'ready') {
   };
 }
 
-function presentation(version, status = 'ready') {
+function presentation(version, status = 'complete') {
   const revisionId = 'rev-1';
   return {
     revision: summary(version, status),
@@ -670,44 +413,11 @@ function envelope(version, value) {
   return JSON.stringify({ revision: handle(version), value });
 }
 
-function advance(version, continuing) {
+function advance(version) {
   return {
-    revision: summary(version, continuing ? 'ready' : 'complete'),
-    previousKnownExtent: { pageCount: 0, spreadCount: 0 },
+    revision: summary(version, 'complete'),
     newlyKnownPages: { startPage: 0, endPageExclusive: 1 },
-    processedTopLevelNodes: 1,
-    ...(continuing ? { continuation: { ...handle(version), cursor: 'cursor-1' } } : {}),
   };
-}
-
-function growingAdvance(version) {
-  const previousKnownExtent = extent(version - 1);
-  const knownExtent = extent(version);
-  return {
-    revision: growingSummary(version, knownExtent),
-    previousKnownExtent,
-    newlyKnownPages: {
-      startPage: previousKnownExtent.pageCount,
-      endPageExclusive: knownExtent.pageCount,
-    },
-    processedTopLevelNodes: 1,
-    continuation: { ...handle(version), cursor: `cursor-${String(version)}` },
-  };
-}
-
-function growingSummary(version, knownExtent) {
-  return {
-    ...handle(version),
-    layoutKey: 'layout',
-    status: 'ready',
-    knownExtent,
-    pageCount: knownExtent.pageCount,
-    spreadCount: knownExtent.spreadCount,
-  };
-}
-
-function extent(count) {
-  return { pageCount: count, spreadCount: count };
 }
 
 function summary(version, status) {
@@ -725,10 +435,6 @@ function summary(version, status) {
 
 function handle(revisionVersion) {
   return { revisionId: 'rev-1', revisionVersion };
-}
-
-function budget() {
-  return { maxTopLevelNodes: 1 };
 }
 
 function normalizeError(error) {

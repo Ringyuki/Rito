@@ -1,10 +1,9 @@
 use rito_core::runtime::{
-    RuntimeBoundedRevisionRequest, RuntimeCancelRevisionRequest, RuntimeContinueRevisionRequest,
-    RuntimeExactSourceRangeRequest, RuntimeFrameResourceWarmPlan, RuntimeLocatorRequest,
-    RuntimeResourceKind, RuntimeResourceTransferPayload, RuntimeSearchRequest,
-    RuntimeSourceLocator, RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
-    RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeTextRangeToPointRequest,
-    RuntimeTextSelectionMovementRequest,
+    RuntimeBoundedRevisionRequest, RuntimeExactSourceRangeRequest, RuntimeFrameResourceWarmPlan,
+    RuntimeLocatorRequest, RuntimeResourceKind, RuntimeResourceTransferPayload,
+    RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextPointRequest,
+    RuntimeTextRangeFromPointsRequest, RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest,
+    RuntimeTextRangeToPointRequest, RuntimeTextSelectionMovementRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -68,22 +67,6 @@ pub fn parse_bounded_revision_request(
 ) -> Result<RuntimeBoundedRevisionRequest, WasmRuntimeError> {
     serde_json::from_str(json).map_err(|error| {
         WasmRuntimeError::bad_request(format!("invalid bounded revision request JSON: {error}"))
-    })
-}
-
-pub fn parse_continue_revision_request(
-    json: &str,
-) -> Result<RuntimeContinueRevisionRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!("invalid continue revision request JSON: {error}"))
-    })
-}
-
-pub fn parse_cancel_revision_request(
-    json: &str,
-) -> Result<RuntimeCancelRevisionRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!("invalid cancel revision request JSON: {error}"))
     })
 }
 

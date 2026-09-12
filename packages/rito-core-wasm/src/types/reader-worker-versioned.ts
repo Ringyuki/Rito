@@ -38,10 +38,7 @@ import type { RitoCoreWasmResourcePayload } from './resource';
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
-  RitoCoreWasmCancelRevisionRequest,
-  RitoCoreWasmContinueRevisionRequest,
   RitoCoreWasmRevisionAdvance,
-  RitoCoreWasmRevisionAdvanceWithTransferRelease,
   RitoCoreWasmRevisionBundle,
   RitoCoreWasmRevisionHandle,
   RitoCoreWasmRevisionNavigation,
@@ -50,28 +47,13 @@ import type {
   RitoCoreWasmRevisionReleaseResult,
   RitoCoreWasmRevisionSummary,
   RitoCoreWasmRevisionTransferRelease,
-  RitoCoreWasmRevisionWorkBudget,
   RitoCoreWasmVersioned,
 } from './revision';
-
-type RitoCoreWasmReaderBatchedContinueRevisionRequest = RitoCoreWasmContinueRevisionRequest & {
-  readonly maxQuanta?: number | undefined;
-  readonly targetSpreadIndex?: number | undefined;
-};
 
 export interface RitoCoreWasmReaderVersionedClient {
   createBoundedRevision(
     request: RitoCoreWasmBoundedRevisionRequest,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
-  continueRevision(
-    request: RitoCoreWasmContinueRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
-  continueRevisionAfterTransferRelease?(
-    request: RitoCoreWasmReaderBatchedContinueRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvanceWithTransferRelease>>;
-  cancelRevision(
-    request: RitoCoreWasmCancelRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
@@ -174,8 +156,6 @@ export interface RitoCoreWasmReaderVersionedClient {
 
 export interface RitoCoreWasmReaderVersionedDocumentRuntime {
   createBoundedRevision(request: RitoCoreWasmBoundedRevisionRequest): RitoCoreWasmRevisionAdvance;
-  continueRevision(request: RitoCoreWasmContinueRevisionRequest): RitoCoreWasmRevisionAdvance;
-  cancelRevision(request: RitoCoreWasmCancelRevisionRequest): RitoCoreWasmRevisionSummary;
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>;
@@ -363,21 +343,6 @@ export type RitoCoreWasmReaderWorkerCreateBoundedRevisionRequest = VersionedWork
   readonly request: RitoCoreWasmBoundedRevisionRequest;
 };
 
-export type RitoCoreWasmReaderWorkerContinueRevisionRequest =
-  RevisionRequest<'continueRevision'> & {
-    readonly cursor: string;
-    readonly budget: RitoCoreWasmRevisionWorkBudget;
-  };
-
-export type RitoCoreWasmReaderWorkerContinueRevisionAfterTransferReleaseRequest =
-  RevisionRequest<'continueRevisionAfterTransferRelease'> & {
-    readonly cursor: string;
-    readonly budget: RitoCoreWasmRevisionWorkBudget;
-    readonly maxQuanta?: number | undefined;
-    readonly targetSpreadIndex?: number | undefined;
-  };
-
-export type RitoCoreWasmReaderWorkerCancelRevisionRequest = RevisionRequest<'cancelRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionSummaryRequest =
   RevisionRequest<'getRevisionSummaryAtRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionBundleRequest =
@@ -458,9 +423,6 @@ export type RitoCoreWasmReaderWorkerReleaseRevisionAtRevisionRequest =
 
 export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerCreateBoundedRevisionRequest
-  | RitoCoreWasmReaderWorkerContinueRevisionRequest
-  | RitoCoreWasmReaderWorkerContinueRevisionAfterTransferReleaseRequest
-  | RitoCoreWasmReaderWorkerCancelRevisionRequest
   | RitoCoreWasmReaderWorkerGetRevisionSummaryRequest
   | RitoCoreWasmReaderWorkerGetRevisionBundleRequest
   | RitoCoreWasmReaderWorkerGetRevisionPresentationRequest
@@ -501,12 +463,6 @@ export interface RitoCoreWasmReaderWorkerVersionedResponse<Kind extends string, 
 
 export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<'createBoundedRevision', RitoCoreWasmRevisionAdvance>
-  | RitoCoreWasmReaderWorkerVersionedResponse<'continueRevision', RitoCoreWasmRevisionAdvance>
-  | RitoCoreWasmReaderWorkerVersionedResponse<
-      'continueRevisionAfterTransferRelease',
-      RitoCoreWasmRevisionAdvanceWithTransferRelease
-    >
-  | RitoCoreWasmReaderWorkerVersionedResponse<'cancelRevision', RitoCoreWasmRevisionSummary>
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionSummaryAtRevision',
       RitoCoreWasmRevisionSummary

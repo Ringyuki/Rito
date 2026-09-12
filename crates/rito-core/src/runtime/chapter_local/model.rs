@@ -1,60 +1,16 @@
-use std::{error::Error, fmt, num::NonZeroUsize};
+use std::{error::Error, fmt};
 
 use crate::{
     epub::{EpubError, LoadedEpubDocument},
-    layout::SpreadMode,
     runtime::{
         frame::{RuntimeRevision, RuntimeRevisionCoordinateSpace},
         RuntimeChapterLocalCoordinate, RuntimeChapterLocalCoordinateKind,
         RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionExtent,
         RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalRevisionSummary,
-        RuntimeChapterLocalSourceLocatorResolution, RuntimeContinuationError,
-        RuntimeContinuationErrorKind, RuntimeRevisionExtent, RuntimeRevisionWorkBudget,
-        RuntimeSourceLocatorError, RuntimeSourceLocatorResolution,
-        RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX,
+        RuntimeChapterLocalSourceLocatorResolution, RuntimeRevisionErrorKind,
+        RuntimeRevisionExtent, RuntimeSourceLocatorError, RuntimeSourceLocatorResolution,
     },
 };
-
-use super::super::error::checked_budget;
-
-pub(super) fn checked_local_budget(
-    budget: RuntimeRevisionWorkBudget,
-) -> Result<NonZeroUsize, RuntimeChapterLocalRevisionError> {
-    checked_budget(budget).map_err(local_error_from_continuation)
-}
-
-/// One meter seals roughly one dense page, so the page cap is the natural
-/// upper bound for how many meters a single request may run.
-pub(super) fn checked_local_quanta(
-    max_quanta: Option<NonZeroUsize>,
-) -> Result<NonZeroUsize, RuntimeChapterLocalRevisionError> {
-    let quanta = max_quanta.unwrap_or(NonZeroUsize::MIN);
-    if quanta.get() > RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX {
-        return Err(local_error(
-            RuntimeContinuationErrorKind::InvalidBudget,
-            format!("maxQuanta must be within 1..={RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX}"),
-        ));
-    }
-    Ok(quanta)
-}
-
-pub(super) fn validate_local_page_cap(
-    layout: &crate::layout::LayoutConfig,
-    cap: usize,
-) -> Result<(), RuntimeChapterLocalRevisionError> {
-    let in_range = (1..=RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX).contains(&cap);
-    let complete_spreads =
-        layout.spread_mode != SpreadMode::Double || cap >= 2 && cap.is_multiple_of(2);
-    if in_range && complete_spreads {
-        return Ok(());
-    }
-    Err(local_error(
-        RuntimeContinuationErrorKind::InvalidPageCap,
-        format!(
-            "localPageCap must be within 1..={RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX} and cover complete double spreads"
-        ),
-    ))
-}
 
 pub(super) fn chapter_local_coordinate(
     chapter_index: usize,
@@ -74,7 +30,7 @@ pub(super) fn chapter_local_owner(
     revision: &RuntimeRevision,
 ) -> RuntimeChapterLocalRevisionHandle {
     let chapter_index = match revision.coordinate_space {
-        RuntimeRevisionCoordinateSpace::ChapterLocal { chapter_index, .. } => chapter_index,
+        RuntimeRevisionCoordinateSpace::ChapterLocal { chapter_index } => chapter_index,
         RuntimeRevisionCoordinateSpace::Absolute => {
             unreachable!("chapter-local store must not contain an absolute revision")
         }
@@ -94,30 +50,14 @@ pub(super) fn chapter_local_summary(
     layout_key: &str,
     revision: &RuntimeRevision,
 ) -> RuntimeChapterLocalRevisionSummary {
-    let (local_page_cap, page_cap_reached) = local_cap_state(revision);
     RuntimeChapterLocalRevisionSummary {
         revision_id: owner.revision_id.clone(),
         revision_version: owner.revision_version,
         layout_key: layout_key.to_owned(),
         status: revision.status,
         coordinate: owner.coordinate.clone(),
-        local_page_cap,
         known_extent: local_extent(revision.known_extent),
         final_extent: revision.final_extent.map(local_extent),
-        page_cap_reached,
-    }
-}
-
-fn local_cap_state(revision: &RuntimeRevision) -> (usize, bool) {
-    match revision.coordinate_space {
-        RuntimeRevisionCoordinateSpace::ChapterLocal {
-            local_page_cap,
-            page_cap_reached,
-            ..
-        } => (local_page_cap, page_cap_reached),
-        RuntimeRevisionCoordinateSpace::Absolute => {
-            unreachable!("chapter-local store must not contain an absolute revision")
-        }
     }
 }
 
@@ -165,40 +105,33 @@ pub(super) fn local_locator_resolution(
 }
 
 pub(super) fn local_error(
-    kind: RuntimeContinuationErrorKind,
+    kind: RuntimeRevisionErrorKind,
     message: impl Into<String>,
 ) -> RuntimeChapterLocalRevisionError {
     RuntimeChapterLocalRevisionError {
         kind,
         message: message.into(),
-        revision: None,
     }
 }
 
 pub(super) fn local_unknown_revision(revision_id: &str) -> RuntimeChapterLocalRevisionError {
     local_error(
-        RuntimeContinuationErrorKind::UnknownRevision,
+        RuntimeRevisionErrorKind::UnknownRevision,
         format!("unknown chapter-local revision: {revision_id}"),
     )
 }
 
 pub(super) fn local_engine_error(error: EpubError) -> RuntimeChapterLocalRevisionError {
-    local_error(RuntimeContinuationErrorKind::EngineFailure, error.message())
+    local_error(RuntimeRevisionErrorKind::EngineFailure, error.message())
 }
 
 pub(super) fn local_error_from_source(
     error: RuntimeSourceLocatorError,
 ) -> RuntimeChapterLocalRevisionError {
     local_error(
-        RuntimeContinuationErrorKind::InvalidChapterLocalTarget,
+        RuntimeRevisionErrorKind::InvalidChapterLocalTarget,
         error.message,
     )
-}
-
-pub(super) fn local_error_from_continuation(
-    error: RuntimeContinuationError,
-) -> RuntimeChapterLocalRevisionError {
-    local_error(error.kind, error.message)
 }
 
 impl fmt::Display for RuntimeChapterLocalRevisionError {

@@ -1,5 +1,4 @@
 import { decodeRitoFrameCommandBuffer as decodeFrameCommandBufferRuntime } from './frame-command-buffer-decoder-runtime.js';
-import { decodeRitoRuntimeBundle as decodeRuntimeBundleRuntime } from './runtime-bundle-decoder-runtime.js';
 
 export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error-runtime.js';
 export { createRitoCoreWasmBoundedReaderSession } from './reader-bounded-session-runtime.js';
@@ -53,4 +52,3 @@ export type { RitoCoreWasmErrorCode, RitoCoreWasmErrorOptions } from './core-was
 export type * from './types';
 
 export const decodeRitoFrameCommandBuffer = decodeFrameCommandBufferRuntime;
-export const decodeRitoRuntimeBundle = decodeRuntimeBundleRuntime;

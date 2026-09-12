@@ -2,7 +2,8 @@ import type { RitoCoreWasmLayoutConfig, RitoCoreWasmLineBreaking } from './commo
 import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './interaction';
 import type { RitoCoreWasmTocEntry } from './publication';
 
-export type RitoCoreWasmRevisionStatus = 'warming' | 'ready' | 'complete' | 'cancelled' | 'failed';
+/** Every published revision is complete; the engine never exposes an in-flight one. */
+export type RitoCoreWasmRevisionStatus = 'complete';
 
 export interface RitoCoreWasmRevisionExtent {
   readonly pageCount: number;
@@ -34,56 +35,24 @@ export interface RitoCoreWasmVersioned<T> {
   readonly value: T;
 }
 
-export interface RitoCoreWasmRevisionWorkBudget {
-  /**
-   * Maximum top-level source nodes accepted by one continuation quantum.
-   * Rust separately meters transparent descendants and Greedy line boxes.
-   */
-  readonly maxTopLevelNodes: number;
-}
-
 export interface RitoCoreWasmBoundedRevisionRequest {
   readonly layoutConfig: RitoCoreWasmLayoutConfig;
   readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly budget: RitoCoreWasmRevisionWorkBudget;
 }
-
-export interface RitoCoreWasmRevisionCursor extends RitoCoreWasmRevisionHandle {
-  readonly cursor: string;
-}
-
-export interface RitoCoreWasmContinueRevisionRequest extends RitoCoreWasmRevisionHandle {
-  readonly cursor: string;
-  readonly budget: RitoCoreWasmRevisionWorkBudget;
-}
-
-export type RitoCoreWasmCancelRevisionRequest = RitoCoreWasmRevisionHandle;
 
 export interface RitoCoreWasmRevisionPageRange {
   readonly startPage: number;
   readonly endPageExclusive: number;
 }
 
+/**
+ * The published revision and the page range it made known. The book
+ * paginates in one step, so the revision is complete and the range covers
+ * its whole table.
+ */
 export interface RitoCoreWasmRevisionAdvance {
   readonly revision: RitoCoreWasmRevisionSummary;
-  readonly previousKnownExtent: RitoCoreWasmRevisionExtent;
   readonly newlyKnownPages: RitoCoreWasmRevisionPageRange;
-  /**
-   * Top-level source nodes accepted in this advance. Batched worker responses
-   * sum the committed quanta. Line-only paragraph continuation can report zero
-   * while still making deterministic progress.
-   */
-  readonly processedTopLevelNodes: number;
-  readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
-}
-
-/** One or more continuation commits with predecessor transfers released in the same dispatch. */
-export interface RitoCoreWasmRevisionAdvanceWithTransferRelease {
-  readonly advance: RitoCoreWasmRevisionAdvance;
-  readonly releasedRevision: RitoCoreWasmRevisionHandle;
-  readonly releasedTransferCount: number;
-  /** Native quanta committed by this dispatch; absent responses are one quantum. */
-  readonly advancedQuanta?: number | undefined;
 }
 
 export interface RitoCoreWasmRevisionReleaseResult {

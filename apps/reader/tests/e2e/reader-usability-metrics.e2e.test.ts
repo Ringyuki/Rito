@@ -45,18 +45,9 @@ test('requires strict no-rebuild execution for identified A/B pairs', () => {
   ).toMatchObject({ abPairId: 'pair-1', abOrder: 1 });
 });
 
-test('arms exact dual response categories only when chapter-local preview is enabled', () => {
-  expect(readerWorkerTocResponseHoldPlan(true)).toEqual({
-    mainContinuation: true,
-    chapterLocalMutation: true,
-  });
-  expect(readerWorkerTocResponseHoldPlan(false)).toEqual({
-    mainContinuation: true,
-    chapterLocalMutation: false,
-  });
-  expect(readerWorkerResponseHoldCategory('continueRevisionAfterTransferRelease')).toBe(
-    'mainContinuation',
-  );
+test('arms the chapter-local response hold only when chapter-local preview is enabled', () => {
+  expect(readerWorkerTocResponseHoldPlan(true)).toEqual({ chapterLocalMutation: true });
+  expect(readerWorkerTocResponseHoldPlan(false)).toEqual({ chapterLocalMutation: false });
   expect(readerWorkerResponseHoldCategory('createBoundedChapterLocalRevision')).toBe(
     'chapterLocalMutation',
   );
@@ -137,12 +128,11 @@ test('does not count a pending far commit synchronously flushed before near acce
       { href: 'chapter-1.xhtml', observedAt: 11 },
     ],
     supersededAt: 10,
-    heldContinuationRequestId: 41,
     heldResponses: [
       {
         workerId: 1,
-        category: 'mainContinuation',
-        kind: 'continueRevision',
+        category: 'chapterLocalMutation',
+        kind: 'createBoundedChapterLocalRevision',
         requestId: 41,
         heldAt: 5,
         releasedAt: 6,
@@ -171,12 +161,11 @@ test('counts a far TOC commit observed at or after supersede acceptance as stale
       { href: 'chapter-1.xhtml', observedAt: 11 },
     ],
     supersededAt: 10,
-    heldContinuationRequestId: 41,
     heldResponses: [
       {
         workerId: 1,
-        category: 'mainContinuation',
-        kind: 'continueRevision',
+        category: 'chapterLocalMutation',
+        kind: 'createBoundedChapterLocalRevision',
         requestId: 41,
         heldAt: 5,
         releasedAt: 6,
@@ -223,10 +212,6 @@ function chapterLocalOperation(): ReaderWorkerOperationObservation {
     kind: 'createBoundedChapterLocalRevision',
     startedAt: 10,
     requestBytes: 128,
-    maxTopLevelNodes: 32,
-    maxQuanta: null,
-    processedTopLevelNodes: 4,
-    advancedQuanta: null,
     spreadIndex: null,
     completedAt: 15,
     durationMs: 5,

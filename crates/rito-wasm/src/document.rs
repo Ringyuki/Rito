@@ -38,7 +38,7 @@ impl WasmRuntimeDocument {
         let summary = self
             .document
             .get_revision_summary(revision_id)
-            .map_err(WasmRuntimeError::from_continuation)?;
+            .map_err(WasmRuntimeError::from_revision)?;
         let handle = RuntimeRevisionHandle::from(&summary);
         let resource = self
             .document

@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
 
+mod bounded;
+mod error;
+
 use crate::{
     epub::{EpubError, EpubResult},
     layout::{LayoutConfig, LineBreaking, TextMeasurementMode},

@@ -6,12 +6,11 @@ use std::{cell::OnceCell, collections::BTreeMap, num::NonZeroUsize};
 
 mod access;
 mod bundle;
-mod bundle_wire;
 mod chapter_engine_session;
+mod chapter_local;
 mod chapter_text;
 mod chapter_tree_report;
 mod cleanup;
-mod continuation;
 mod fragment_backend;
 mod fragment_frame;
 mod fragment_probe;
@@ -47,11 +46,6 @@ use crate::{
 pub use access::{
     RuntimeRevisionAccessError, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
     RuntimeVersioned,
-};
-pub use bundle_wire::{
-    decode_runtime_bundle, encode_runtime_bundle, DecodedRuntimeBundle,
-    RUNTIME_BUNDLE_HEADER_BYTES, RUNTIME_BUNDLE_MAGIC, RUNTIME_BUNDLE_MAGIC_TEXT,
-    RUNTIME_BUNDLE_VERSION,
 };
 use chapter_text::runtime_chapter_text_index_entries;
 pub use chapter_tree_report::{
@@ -135,7 +129,6 @@ pub struct RuntimeDocument {
     next_revision_index: usize,
     revisions: BTreeMap<String, RuntimeRevision>,
     chapter_local_revisions: BTreeMap<String, RuntimeRevision>,
-    continuations: continuation::RuntimeContinuationStore,
     cleanup_queue: RuntimeCleanupQueue,
     /// Publication faces the host's font decoder rejected (normalized
     /// family names). The browser cannot paint these faces — its
@@ -189,7 +182,6 @@ impl RuntimeDocument {
             next_revision_index: 1,
             revisions: BTreeMap::new(),
             chapter_local_revisions: BTreeMap::new(),
-            continuations: continuation::RuntimeContinuationStore::default(),
             cleanup_queue: RuntimeCleanupQueue::default(),
             unavailable_font_families: std::collections::BTreeSet::new(),
         }
@@ -246,9 +238,6 @@ impl RuntimeDocument {
             return false;
         };
         self.cleanup_queue.enqueue_revision(revision);
-        if let Some(continuation) = self.continuations.remove_revision(revision_id) {
-            self.cleanup_queue.enqueue_continuation(continuation);
-        }
         self.service_cleanup_queue();
         true
     }
@@ -259,9 +248,6 @@ impl RuntimeDocument {
             return false;
         };
         self.cleanup_queue.enqueue_revision(revision);
-        if let Some(continuation) = self.continuations.remove_revision(revision_id) {
-            self.cleanup_queue.enqueue_continuation(continuation);
-        }
         self.service_cleanup_queue();
         true
     }
@@ -550,9 +536,6 @@ impl RuntimeDocument {
 impl Drop for RuntimeDocument {
     fn drop(&mut self) {
         self.cleanup_queue.drain_sync();
-        while let Some(continuation) = self.continuations.pop_first() {
-            continuation::PendingRuntimeContinuationRecordCleanup::new(continuation).drain();
-        }
         while let Some((_revision_id, revision)) = self.revisions.pop_first() {
             PendingRuntimeRevisionCleanup::new(revision).drain();
         }

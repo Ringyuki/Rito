@@ -32,15 +32,6 @@ import {
   beginBrowserReaderChapterLocalPreview,
   settleBrowserReaderChapterLocalPreview,
 } from './chapter-local-preview/coordinator';
-import {
-  activateBrowserReaderContinuationBatchCandidate,
-  activateBrowserReaderContinuationBatchTargetWithoutPreview,
-  beginBrowserReaderContinuationBatchIntent,
-  createBrowserReaderContinuationBatchLocatorLifecycle,
-} from './adaptive-continuation-batch';
-
-const INITIAL_SPREAD_LAYOUT_NODE_BUDGET = 1;
-const BOUNDED_GROWTH_LAYOUT_NODE_BUDGET = 32;
 
 export { createBrowserReaderBoundedSessionOwner };
 
@@ -117,12 +108,7 @@ async function runCandidate(
   const startRequest = {
     layoutConfig: toCoreLayoutConfig(request.config, state.fontMetrics),
     lineBreaking: request.lineBreaking,
-    budget: {
-      maxTopLevelNodes: candidateStartBudget(request),
-    },
-    growthBudget: { maxTopLevelNodes: BOUNDED_GROWTH_LAYOUT_NODE_BUDGET },
   } as const;
-  activateBrowserReaderContinuationBatchCandidate(owner);
   let snapshot = await startBrowserReaderCandidateTarget(owner, request, startRequest);
   if (request.complete) snapshot = await owner.controller.complete();
   if (!ownsBrowserReaderBoundedCandidate(state, owner, generation) || signal?.aborted) {
@@ -149,12 +135,8 @@ async function runCandidate(
   return signal?.aborted ? undefined : snapshot;
 }
 
-function candidateStartBudget(request: BrowserReaderBoundedLayoutRequest): number {
-  return request.preserveLocator || request.targetSpreadIndex !== 0
-    ? BOUNDED_GROWTH_LAYOUT_NODE_BUDGET
-    : INITIAL_SPREAD_LAYOUT_NODE_BUDGET;
-}
-
+/// The committed revision holds the whole book, so a spread is either in
+/// its table or beyond the book.
 export function ensureBrowserReaderBoundedSpread(
   state: BrowserReaderState,
   spreadIndex: number,
@@ -165,30 +147,13 @@ export function ensureBrowserReaderBoundedSpread(
       new RangeError('Bounded reader spread index must be a non-negative integer'),
     );
   }
-  const continuationBatchIntent = beginBrowserReaderContinuationBatchIntent(state);
-  return enqueueBrowserReaderCurrentMutation(state, async () => {
-    if (signal?.aborted || state.disposed) return undefined;
-    if (spreadIndex < state.revisionBundle.revision.spreadCount) return true;
-    if (state.revisionBundle.revision.status === 'complete') return false;
-    activateBrowserReaderContinuationBatchTargetWithoutPreview(state, continuationBatchIntent);
-    // A growth commit extends the page table; it never moves the visible
-    // spread. The reader may have navigated while this layout was in
-    // flight, and the request-time target is stale by then — the
-    // navigation layer performs the actual turn when it resumes off the
-    // commit (measured: rapid keyboard turns during pagination bounced
-    // back to the growth target one spread behind).
-    const snapshot = await mutateCurrent(
-      state,
-      (owner) => owner.controller.ensureSpread(spreadIndex),
-      false,
-      () => ({ targetSpreadIndex: spreadIndex }),
-      undefined,
-      undefined,
-      () => true,
-    );
-    if (!snapshot || signal?.aborted) return undefined;
-    return spreadIndex < snapshot.revision.spreadCount;
-  });
+  return enqueueBrowserReaderCurrentMutation(state, () =>
+    Promise.resolve(
+      signal?.aborted || state.disposed
+        ? undefined
+        : spreadIndex < state.revisionBundle.revision.spreadCount,
+    ),
+  );
 }
 
 export function ensureBrowserReaderBoundedLocator(
@@ -197,10 +162,7 @@ export function ensureBrowserReaderBoundedLocator(
   signal?: AbortSignal,
 ): Promise<ReaderLocatorResolution | undefined> {
   const copied = copyReaderLocator(locator);
-  const continuationBatchIntent = signal?.aborted
-    ? undefined
-    : beginBrowserReaderContinuationBatchIntent(state);
-  const preview = beginBrowserReaderChapterLocalPreview(state, copied, continuationBatchIntent);
+  const preview = beginBrowserReaderChapterLocalPreview(state, copied);
   // Without a provisional owner, the exact revision publication is the visual
   // handoff. Notify Kit before resolving the locator so its subsequent
   // onResolved continuation observes the target as current and stays atomic.
@@ -219,7 +181,6 @@ export function ensureBrowserReaderBoundedLocator(
         isCurrent,
         whenSuperseded,
       ),
-    createBrowserReaderContinuationBatchLocatorLifecycle(state, preview, continuationBatchIntent),
   );
   return main.then(
     (resolution) => {
@@ -240,27 +201,24 @@ export function completeBrowserReaderBoundedSession(
 ): Promise<boolean | undefined> {
   return enqueueBrowserReaderCurrentMutation(state, async () => {
     if (signal?.aborted || state.disposed) return undefined;
-    // A completed table normally stands — but host line metrics measured
-    // AFTER the bounded worker opened never reached it, so a refresh
-    // pushes the full metric cache into that worker and re-completes:
-    // without this, lines whose metrics arrived late stay laid out with
-    // the shaped fallback forever (a footnote-marker line painted its
-    // baseline one row high).
-    const refresh = options?.refreshHostLineMetrics === true;
-    if (!refresh && state.revisionBundle.revision.status === 'complete') return true;
+    // The committed table stands — but host line metrics measured AFTER
+    // the bounded worker opened never reached it, so a refresh pushes the
+    // full metric cache into that worker and re-completes: without this,
+    // lines whose metrics arrived late stay laid out with the shaped
+    // fallback forever (a footnote-marker line painted its baseline one
+    // row high).
+    if (options?.refreshHostLineMetrics !== true) return true;
     // Completion also only extends/settles the table; the visible spread
     // stays wherever the reader is at commit time (the request-time
     // capture below is stale once the user turns mid-flight).
     const snapshot = await mutateCurrent(
       state,
       async (owner) => {
-        if (refresh) {
-          await owner.worker.setRenderRatio(state.dpr);
-          const cached = cachedHostLineMetricEntries();
-          if (cached.length > 0) await owner.worker.setHostLineMetrics(cached);
-          const denied = cachedUnavailableFontFamilies();
-          if (denied.length > 0) await owner.worker.setUnavailableFontFaces(denied);
-        }
+        await owner.worker.setRenderRatio(state.dpr);
+        const cached = cachedHostLineMetricEntries();
+        if (cached.length > 0) await owner.worker.setHostLineMetrics(cached);
+        const denied = cachedUnavailableFontFamilies();
+        if (denied.length > 0) await owner.worker.setUnavailableFontFaces(denied);
         return owner.controller.complete();
       },
       true,
@@ -270,8 +228,8 @@ export function completeBrowserReaderBoundedSession(
       () => true,
     );
     if (!snapshot || signal?.aborted) return undefined;
-    if (snapshot.target.kind !== 'complete' || snapshot.revision.status !== 'complete') {
-      throw new Error('Bounded reader completion mutation did not commit a complete revision');
+    if (snapshot.target.kind !== 'complete') {
+      throw new Error('Bounded reader completion mutation did not commit a completion target');
     }
     return true;
   });

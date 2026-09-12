@@ -1,9 +1,4 @@
-import {
-  requireContinuationBatchLimit,
-  requireContinuationTargetSpreadIndex,
-  requireRevisionHandle,
-  requireRevisionTransferCount,
-} from './core-wasm-versioned-validation-runtime.js';
+import { requireRevisionHandle } from './core-wasm-versioned-validation-runtime.js';
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
 import {
   requireTextCaretResponse,
@@ -56,22 +51,6 @@ export function versionedReaderWorkerPayload(document, request) {
   switch (request.kind) {
     case 'createBoundedRevision':
       return advanceResponse(request.kind, document.createBoundedRevision(request.request));
-    case 'continueRevision':
-      return advanceResponse(
-        request.kind,
-        document.continueRevision({
-          ...requireRevisionHandle(request.revision, request.kind),
-          cursor: request.cursor,
-          budget: request.budget,
-        }),
-      );
-    case 'continueRevisionAfterTransferRelease':
-      return continueRevisionAfterTransferReleaseResponse(document, request);
-    case 'cancelRevision':
-      return summaryResponse(
-        request.kind,
-        document.cancelRevision(requireRevisionHandle(request.revision, request.kind)),
-      );
     case 'getRevisionSummaryAtRevision':
       return valueResponse(request.kind, document.getRevisionSummaryAtRevision(request.revision));
     case 'getRevisionBundleAtRevision':
@@ -204,140 +183,6 @@ export function warmVersionedReaderFrameWindow(document, requestedRevision, spre
 function advanceResponse(kind, advance) {
   const revision = requireRevisionHandle(advance.revision, `${kind} result`);
   return { kind, revision, result: advance };
-}
-
-function continueRevisionAfterTransferReleaseResponse(document, request) {
-  const operation = request.kind;
-  const previous = requireRevisionHandle(request.revision, operation);
-  const maximum = requireContinuationBatchLimit(request.maxQuanta, operation);
-  const targetSpreadIndex = requireContinuationTargetSpreadIndex(
-    request.targetSpreadIndex,
-    operation,
-  );
-  let current = previous;
-  let cursor = request.cursor;
-  let advance;
-  let revision;
-  let previousKnownExtent;
-  let processedTopLevelNodes = 0;
-  let releasedTransferCount = 0;
-  let advancedQuanta = 0;
-  while (advancedQuanta < maximum) {
-    try {
-      advance = document.continueRevision({
-        ...current,
-        cursor,
-        budget: request.budget,
-      });
-    } catch (error) {
-      if (isCommittedNextFailure(error, current)) {
-        bestEffortReleaseRevisionTransfers(document, current);
-      } else if (advancedQuanta > 0) {
-        bestEffortReleaseRevision(document, current);
-      }
-      throw error;
-    }
-    revision = requireRevisionHandle(advance.revision, `${operation} result`);
-    previousKnownExtent ??= advance.previousKnownExtent;
-    processedTopLevelNodes = addSafeCount(
-      processedTopLevelNodes,
-      advance.processedTopLevelNodes,
-      `${operation} processed top-level node count`,
-    );
-    try {
-      releasedTransferCount = addSafeCount(
-        releasedTransferCount,
-        releaseRevisionTransfers(document, current, operation),
-        `${operation} released transfer count`,
-      );
-    } catch (error) {
-      bestEffortReleaseRevision(document, revision);
-      throw error;
-    }
-    advancedQuanta += 1;
-    if (advance.continuation === undefined || spreadTargetIsAvailable(advance, targetSpreadIndex)) {
-      break;
-    }
-    current = revision;
-    cursor = advance.continuation.cursor;
-  }
-  const aggregateAdvance = aggregateRevisionAdvance(
-    advance,
-    previousKnownExtent,
-    processedTopLevelNodes,
-  );
-  return {
-    kind: operation,
-    revision,
-    result: {
-      advance: aggregateAdvance,
-      releasedRevision: previous,
-      releasedTransferCount,
-      advancedQuanta,
-    },
-  };
-}
-
-function releaseRevisionTransfers(document, revision, operation) {
-  const released = document.releaseRevisionTransfersAtRevision(revision);
-  requireSameHandle(revision, released.revision, `${operation} release`);
-  return requireRevisionTransferCount(released.value, operation);
-}
-
-function addSafeCount(total, addition, operation) {
-  const result = total + addition;
-  if (!Number.isSafeInteger(addition) || addition < 0 || !Number.isSafeInteger(result)) {
-    throw new Error(`${operation} overflowed`);
-  }
-  return result;
-}
-
-function spreadTargetIsAvailable(advance, targetSpreadIndex) {
-  return (
-    targetSpreadIndex !== undefined && advance.revision.knownExtent.spreadCount > targetSpreadIndex
-  );
-}
-
-function aggregateRevisionAdvance(finalAdvance, previousKnownExtent, processedTopLevelNodes) {
-  return {
-    ...finalAdvance,
-    previousKnownExtent,
-    newlyKnownPages: {
-      startPage: previousKnownExtent.pageCount,
-      endPageExclusive: finalAdvance.revision.knownExtent.pageCount,
-    },
-    processedTopLevelNodes,
-  };
-}
-
-function isCommittedNextFailure(error, previous) {
-  return (
-    error?.code === 'engine-error' &&
-    error.revision?.status === 'failed' &&
-    error.revision.revisionId === previous.revisionId &&
-    error.revision.revisionVersion === previous.revisionVersion + 1
-  );
-}
-
-function bestEffortReleaseRevisionTransfers(document, revision) {
-  try {
-    document.releaseRevisionTransfersAtRevision(revision);
-  } catch {
-    // Preserve the committed continuation failure and its exact recovery revision.
-  }
-}
-
-function bestEffortReleaseRevision(document, revision) {
-  try {
-    document.releaseRevisionAtRevision(revision);
-  } catch {
-    // Preserve the post-commit release failure after exact rollback is attempted.
-  }
-}
-
-function summaryResponse(kind, summary) {
-  const revision = requireRevisionHandle(summary, `${kind} result`);
-  return { kind, revision, result: summary };
 }
 
 function valueResponse(kind, envelope) {

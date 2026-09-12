@@ -2,37 +2,20 @@ import type { RitoCoreWasmReaderFrameWindowWarmResult } from './reader-worker';
 import type { RitoCoreWasmSourceLocator, RitoCoreWasmSourceLocatorResolution } from './interaction';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
-  RitoCoreWasmContinueRevisionRequest,
   RitoCoreWasmRevisionAdvance,
   RitoCoreWasmRevisionHandle,
-  RitoCoreWasmRevisionAdvanceWithTransferRelease,
   RitoCoreWasmRevisionNavigation,
   RitoCoreWasmRevisionPresentation,
   RitoCoreWasmRevisionRelease,
   RitoCoreWasmRevisionSummary,
   RitoCoreWasmRevisionTransferRelease,
-  RitoCoreWasmRevisionWorkBudget,
   RitoCoreWasmVersioned,
 } from './revision';
-
-type RitoCoreWasmBatchedContinueRevisionRequest = RitoCoreWasmContinueRevisionRequest & {
-  readonly maxQuanta?: number | undefined;
-  readonly targetSpreadIndex?: number | undefined;
-};
 
 export interface RitoCoreWasmBoundedReaderSessionClient {
   createBoundedRevision(
     request: RitoCoreWasmBoundedRevisionRequest,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
-  continueRevision(
-    request: RitoCoreWasmContinueRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
-  continueRevisionAfterTransferRelease?(
-    request: RitoCoreWasmBatchedContinueRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvanceWithTransferRelease>>;
-  cancelRevision(
-    request: RitoCoreWasmRevisionHandle,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
   getRevisionPresentationAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionPresentation>>;
@@ -52,12 +35,7 @@ export interface RitoCoreWasmBoundedReaderSessionClient {
   ): Promise<RitoCoreWasmRevisionRelease>;
 }
 
-interface RitoCoreWasmBoundedReaderStartBase extends RitoCoreWasmBoundedRevisionRequest {
-  /** Work quantum used only after the first snapshot; defaults to `budget`. */
-  readonly growthBudget?: RitoCoreWasmRevisionWorkBudget | undefined;
-}
-
-export type RitoCoreWasmBoundedReaderStartRequest = RitoCoreWasmBoundedReaderStartBase &
+export type RitoCoreWasmBoundedReaderStartRequest = RitoCoreWasmBoundedRevisionRequest &
   (
     | {
         /** Durable source target resolved before the first snapshot is published. */
@@ -102,13 +80,6 @@ export interface RitoCoreWasmBoundedReaderAcceptedRevision {
 }
 
 export interface RitoCoreWasmBoundedReaderSessionOptions {
-  /**
-   * Native continuation quanta grouped into one atomic worker dispatch.
-   * A resolver is sampled once immediately before each atomic continuation dispatch.
-   * Defaults to `1`; implementations reject resolved values outside their bounded limit.
-   */
-  readonly continuationBatchQuanta?: number | (() => number) | undefined;
-  readonly yieldControl?: (() => void | Promise<void>) | undefined;
   readonly onAcceptedRevision?:
     | ((accepted: RitoCoreWasmBoundedReaderAcceptedRevision) => void)
     | undefined;
@@ -120,11 +91,11 @@ export interface RitoCoreWasmBoundedReaderSession {
    * `cancel`/`dispose` and must never release a snapshot revision directly.
    */
   start(request: RitoCoreWasmBoundedReaderStartRequest): Promise<RitoCoreWasmBoundedReaderSnapshot>;
-  /** Callers must close exact-read gates before requesting growth. */
+  /** Callers must close exact-read gates before retargeting. */
   ensureSpread(spreadIndex: number): Promise<RitoCoreWasmBoundedReaderSnapshot>;
-  /** Callers must close exact-read gates before requesting growth. */
+  /** Callers must close exact-read gates before retargeting. */
   ensureLocator(locator: RitoCoreWasmSourceLocator): Promise<RitoCoreWasmBoundedReaderSnapshot>;
-  /** Callers must close exact-read gates before requesting completion. */
+  /** Callers must close exact-read gates before retargeting. */
   complete(): Promise<RitoCoreWasmBoundedReaderSnapshot>;
   currentSnapshot(): RitoCoreWasmBoundedReaderSnapshot | undefined;
   cancel(): Promise<void>;

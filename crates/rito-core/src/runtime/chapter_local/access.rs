@@ -1,15 +1,13 @@
 use crate::runtime::{
-    frame::RuntimeRevision, metadata::layout_key, RuntimeChapterLocalRevisionCursor,
-    RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionExtent,
+    frame::RuntimeRevision, metadata::layout_key, RuntimeChapterLocalRevisionError,
     RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalRevisionSummary,
-    RuntimeChapterLocalSourceLocatorResolution, RuntimeContinuationErrorKind, RuntimeDocument,
-    RuntimeFrameCommandBufferMetadata, RuntimeResource, RuntimeResourceKind, RuntimeRevisionStatus,
-    RuntimeSourceLocator,
+    RuntimeChapterLocalSourceLocatorResolution, RuntimeDocument, RuntimeFrameCommandBufferMetadata,
+    RuntimeResource, RuntimeResourceKind, RuntimeRevisionErrorKind, RuntimeSourceLocator,
 };
 
 use super::model::{
     chapter_local_owner, chapter_local_summary, local_engine_error, local_error,
-    local_error_from_source, local_extent, local_locator_resolution, local_unknown_revision,
+    local_error_from_source, local_locator_resolution, local_unknown_revision,
 };
 
 impl RuntimeDocument {
@@ -44,10 +42,10 @@ impl RuntimeDocument {
         Ok(self.remove_chapter_local_revision(&owner.revision_id))
     }
 
-    /// Retires a window without placing its owners on the cooperative queue.
-    /// Reader v1 uses this for unpublished locator-scan windows and for an
-    /// unreferenced retained neighbor, preventing a rollover chain from being
-    /// replaced by an equally unbounded cleanup backlog.
+    /// Retires a chapter-local revision without placing its owners on the
+    /// cooperative cleanup queue. Reader v1 uses this for unpublished
+    /// locator-scan revisions so a burst of seeks cannot pile up a cleanup
+    /// backlog.
     pub(in crate::runtime) fn release_chapter_local_revision_immediately(
         &mut self,
         owner: &RuntimeChapterLocalRevisionHandle,
@@ -57,9 +55,6 @@ impl RuntimeDocument {
             .chapter_local_revisions
             .remove(&owner.revision_id)
             .expect("validated provisional revision exists");
-        if let Some(continuation) = self.continuations.remove_revision(&owner.revision_id) {
-            super::super::PendingRuntimeContinuationRecordCleanup::new(continuation).drain();
-        }
         crate::runtime::cleanup::PendingRuntimeRevisionCleanup::new(revision).drain();
         Ok(true)
     }
@@ -143,80 +138,11 @@ impl RuntimeDocument {
         );
         if expected != *owner {
             return Err(local_error(
-                RuntimeContinuationErrorKind::ChapterLocalOwnerMismatch,
+                RuntimeRevisionErrorKind::ChapterLocalOwnerMismatch,
                 "chapter-local handle coordinate does not own the revision",
             ));
         }
         Ok(revision)
-    }
-
-    pub(super) fn require_chapter_local_continuable(
-        &self,
-        owner: &RuntimeChapterLocalRevisionHandle,
-    ) -> Result<RuntimeChapterLocalRevisionExtent, RuntimeChapterLocalRevisionError> {
-        let revision = self.require_chapter_local_owner(owner)?;
-        if !matches!(
-            revision.status,
-            RuntimeRevisionStatus::Warming | RuntimeRevisionStatus::Ready
-        ) {
-            return Err(local_error(
-                RuntimeContinuationErrorKind::RevisionNotContinuable,
-                format!(
-                    "chapter-local revision is not continuable: {:?}",
-                    revision.status
-                ),
-            ));
-        }
-        Ok(local_extent(revision.known_extent))
-    }
-
-    pub(super) fn require_chapter_local_appendable(
-        &self,
-        owner: &RuntimeChapterLocalRevisionHandle,
-    ) -> Result<RuntimeChapterLocalRevisionExtent, RuntimeChapterLocalRevisionError> {
-        let extent = self.require_chapter_local_continuable(owner)?;
-        let revision = self.require_chapter_local_owner(owner)?;
-        let crate::runtime::frame::RuntimeRevisionCoordinateSpace::ChapterLocal {
-            page_cap_reached,
-            ..
-        } = revision.coordinate_space
-        else {
-            unreachable!("chapter-local store contains chapter-local revisions");
-        };
-        if page_cap_reached {
-            return Err(local_error(
-                RuntimeContinuationErrorKind::RevisionNotContinuable,
-                "sealed chapter-local page-cap window requires rollover",
-            ));
-        }
-        Ok(extent)
-    }
-
-    pub(super) fn require_chapter_local_cursor(
-        &self,
-        cursor: &RuntimeChapterLocalRevisionCursor,
-    ) -> Result<(), RuntimeChapterLocalRevisionError> {
-        let record = self.continuations.get(&cursor.cursor).ok_or_else(|| {
-            local_error(
-                RuntimeContinuationErrorKind::UnknownCursor,
-                format!("unknown or consumed continuation cursor: {}", cursor.cursor),
-            )
-        })?;
-        if record.revision_id != cursor.owner.revision_id
-            || record.revision_version != cursor.owner.revision_version
-        {
-            return Err(local_error(
-                RuntimeContinuationErrorKind::CursorOwnerMismatch,
-                "chapter-local cursor does not belong to the requested revision version",
-            ));
-        }
-        if record.chapter_local_target.as_ref() != Some(&cursor.target_locator) {
-            return Err(local_error(
-                RuntimeContinuationErrorKind::ChapterLocalTargetMismatch,
-                "chapter-local continuation target does not match its original locator",
-            ));
-        }
-        Ok(())
     }
 }
 
@@ -225,7 +151,7 @@ fn stale_local_revision(
     owner: &RuntimeChapterLocalRevisionHandle,
 ) -> RuntimeChapterLocalRevisionError {
     local_error(
-        RuntimeContinuationErrorKind::StaleRevisionVersion,
+        RuntimeRevisionErrorKind::StaleRevisionVersion,
         format!(
             "stale chapter-local revision version: expected {}, got {}",
             revision.revision_version, owner.revision_version

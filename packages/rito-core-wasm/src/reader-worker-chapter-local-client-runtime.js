@@ -1,15 +1,12 @@
 import {
   requireChapterLocalRelease,
-  requireContinuedChapterLocalAdvance,
   requireCreatedChapterLocalAdvance,
 } from './chapter-local-advance-validation-runtime.js';
 import { requireReaderChapterLocalFrame } from './chapter-local-frame-validation-runtime.js';
 import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import {
-  nextChapterLocalOwner,
   requireBoundedChapterLocalRequest,
   requireChapterLocalOwner,
-  requireContinueChapterLocalRequest,
   requireRecord,
 } from './chapter-local-owner-validation-runtime.js';
 
@@ -28,27 +25,6 @@ export function createChapterLocalReaderClientMethods(send, disposeInvalid) {
           requireCreatedChapterLocalAdvance(
             value,
             normalized.request,
-            normalized.maximum,
-            `${operation} response`,
-            bindOwner,
-          ),
-      );
-    },
-    continueChapterLocalRevision: (request) => {
-      const operation = 'continueChapterLocalRevision';
-      const normalized = requireContinueChapterLocalRequest(request, operation);
-      const rollbackOwner = nextChapterLocalOwner(normalized.request.continuation.owner, operation);
-      return mutationResult(
-        send,
-        disposeInvalid,
-        operation,
-        { kind: operation, request: normalized.request },
-        rollbackOwner,
-        (value, bindOwner) =>
-          requireContinuedChapterLocalAdvance(
-            value,
-            normalized.request,
-            normalized.maximum,
             `${operation} response`,
             bindOwner,
           ),

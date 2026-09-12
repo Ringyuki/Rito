@@ -89,7 +89,6 @@ describe('Browser reader chapter-local preview contract', () => {
       sessionId: 'worker-session',
       dispose: vi.fn(),
       createBoundedChapterLocalRevision: vi.fn(),
-      continueChapterLocalRevision: vi.fn(),
       releaseChapterLocalRevision: vi.fn(),
     } as unknown as BrowserReaderWorkerClient;
 
@@ -222,7 +221,6 @@ describe('Browser reader chapter-local preview contract', () => {
     const failure = new Error('create preview failed');
     Object.assign(fixture.worker, {
       createBoundedChapterLocalRevision: vi.fn(() => Promise.reject(failure)),
-      continueChapterLocalRevision: vi.fn(() => Promise.reject(new Error('unused'))),
       releaseChapterLocalRevision: vi.fn(() => Promise.reject(new Error('unused'))),
     });
     const state = createState(fixture.worker, {
@@ -273,7 +271,6 @@ describe('Browser reader chapter-local preview contract', () => {
       createBoundedChapterLocalRevision: vi.fn(() =>
         Promise.resolve(resolvedPreviewMutation(owner, locator)),
       ),
-      continueChapterLocalRevision: vi.fn(() => Promise.reject(new Error('unused'))),
       releaseChapterLocalRevision: release,
     });
     const state = createState(fixture.worker, {
@@ -328,7 +325,6 @@ function installPaintablePresentation(
     workerSessionId: state.worker.sessionId,
     disposeSession,
     createBoundedChapterLocalRevision: vi.fn(() => Promise.reject(new Error('unused'))),
-    continueChapterLocalRevision: vi.fn(() => Promise.reject(new Error('unused'))),
     releaseChapterLocalRevision: release,
   };
   const request: BrowserReaderChapterLocalPreviewRequest = {
@@ -383,15 +379,11 @@ function resolvedPreviewMutation(
       revision: {
         ...owner,
         layoutKey: 'local-layout',
-        status: 'ready',
-        localPageCap: 16,
+        status: 'complete',
         knownExtent: { localPageCount: 1, localSpreadCount: 1 },
         finalExtent: { localPageCount: 1, localSpreadCount: 1 },
-        pageCapReached: false,
       },
-      previousKnownExtent: { localPageCount: 0, localSpreadCount: 0 },
       newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 1 },
-      processedTopLevelNodes: 1,
       target: {
         status: 'resolved',
         owner,

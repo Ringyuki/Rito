@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { createRitoCoreWasmWorkerReaderClient } from '../src/reader-worker-client-runtime.js';
 import { readerOpenResult } from './reader-worker-test-fixture.mjs';
 
-test('chapter-local create and continue each use one Worker request and canonicalize fragments', async () => {
+test('chapter-local create uses one Worker request and canonicalizes fragments', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
   const beforeCreate = worker.messages.length;
@@ -18,36 +18,15 @@ test('chapter-local create and continue each use one Worker request and canonica
     href: 'chapter.xhtml',
     anchorId: '章',
   });
-  const createdAdvance = pendingAdvance(owner(0), {
-    href: 'chapter.xhtml',
-    anchorId: '章',
-  });
+  const locator = { href: 'chapter.xhtml', anchorId: '章' };
   worker.respond(createMessage.id, {
     kind: createMessage.kind,
-    result: { advance: createdAdvance },
+    result: { advance: completedAdvance(owner(0), locator), frame: resolvedFrame(owner(0), 0) },
   });
   const created = await creating;
 
-  const beforeContinue = worker.messages.length;
-  const continuing = client.continueChapterLocalRevision({
-    continuation: created.advance.continuation,
-    budget: budget(),
-  });
-  const continueMessage = worker.messages.at(-1);
-  assert.equal(worker.messages.length, beforeContinue + 1);
-  assert.equal(continueMessage.kind, 'continueChapterLocalRevision');
-  const continuedAdvance = completedAdvance(owner(1), createdAdvance.continuation.targetLocator, {
-    releasedPreviousOwner: owner(0),
-    releasedPreviousOwnerTransferCount: 2,
-  });
-  worker.respond(continueMessage.id, {
-    kind: continueMessage.kind,
-    result: { advance: continuedAdvance, frame: resolvedFrame(owner(1), 0) },
-  });
-  const continued = await continuing;
-
-  assert.deepEqual(continued.advance.releasedPreviousOwner, owner(0));
-  assert.equal(continued.advance.releasedPreviousOwnerTransferCount, 2);
+  assert.deepEqual(created.advance.target.locator, locator);
+  assert.equal(created.frame.localSpreadIndex, 0);
   client.dispose();
 });
 
@@ -84,14 +63,13 @@ test('malformed committed create with a bound owner rolls back that exact local 
     createRequest({ href: 'chapter.xhtml' }),
   );
   const messageCount = worker.messages.length;
-  const advance = pendingAdvance(owner(0), { href: 'chapter.xhtml' });
+  const advance = completedAdvance(owner(0), { href: 'chapter.xhtml' });
   worker.respondLast({
     kind: 'createBoundedChapterLocalRevision',
     result: {
       advance: {
         ...advance,
-        releasedPreviousOwner: owner(99),
-        releasedPreviousOwnerTransferCount: 0,
+        newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 2 },
       },
     },
   });
@@ -101,7 +79,7 @@ test('malformed committed create with a bound owner rolls back that exact local 
   assert.equal(rollback.kind, 'releaseChapterLocalRevision');
   assert.deepEqual(rollback.owner, owner(0));
   worker.respond(rollback.id, releasePayload(owner(0), true));
-  await assert.rejects(creating, /forged predecessor-release proof/);
+  await assert.rejects(creating, /local range inconsistent with its extent/);
   assert.equal(worker.terminateCount, 0);
   client.dispose();
 });
@@ -114,7 +92,7 @@ test('unbound malformed create disposes the Worker session without guessing an o
   );
   worker.respondLast({
     kind: 'unrelated',
-    result: { advance: pendingAdvance(owner(0), { href: 'chapter.xhtml' }) },
+    result: { advance: completedAdvance(owner(0), { href: 'chapter.xhtml' }) },
   });
 
   await assert.rejects(creating);
@@ -124,27 +102,6 @@ test('unbound malformed create disposes the Worker session without guessing an o
     worker.messages.filter(({ kind }) => kind === 'releaseChapterLocalRevision').length,
     0,
   );
-});
-
-test('unconfirmed exact N+1 continuation rollback disposes the Worker session', async () => {
-  const worker = new ManualWorker();
-  const client = await openClient(worker);
-  const continuation = pendingAdvance(owner(0), { href: 'chapter.xhtml' }).continuation;
-  const continuing = client.continueChapterLocalRevision({ continuation, budget: budget() });
-  const messageCount = worker.messages.length;
-  const advance = completedAdvance(owner(1), continuation.targetLocator, {
-    releasedPreviousOwner: owner(0),
-    releasedPreviousOwnerTransferCount: 1,
-  });
-  worker.respondLast({ kind: 'continueChapterLocalRevision', result: { advance } });
-
-  await waitForMessageCount(worker, messageCount + 1);
-  const rollback = worker.messages.at(-1);
-  assert.deepEqual(rollback.owner, owner(1));
-  worker.respond(rollback.id, releasePayload(owner(1), false));
-  await assert.rejects(continuing, /omitted its resolved packed frame/);
-  await client.whenDisposed();
-  assert.equal(worker.terminateCount, 1);
 });
 
 test('typed create failure propagates without disposing the shared Worker session', async () => {
@@ -160,57 +117,6 @@ test('typed create failure propagates without disposing the shared Worker sessio
   await assert.rejects(creating, /create failed in the worker/);
   assert.equal(worker.terminateCount, 0);
   assert.equal(worker.messages.length, messageCount);
-  client.dispose();
-});
-
-test('typed continue failure does not double-release the worker-contained owner', async () => {
-  const worker = new ManualWorker();
-  const client = await openClient(worker);
-  const continuation = pendingAdvance(owner(0), { href: 'chapter.xhtml' }).continuation;
-  const continuing = client.continueChapterLocalRevision({ continuation, budget: budget() });
-  const messageCount = worker.messages.length;
-
-  worker.rejectLast('continue failed in the worker');
-
-  await assert.rejects(continuing, /continue failed in the worker/);
-  assert.equal(
-    worker.messages.filter(({ kind }) => kind === 'releaseChapterLocalRevision').length,
-    0,
-  );
-  assert.equal(worker.messages.length, messageCount);
-  assert.equal(worker.terminateCount, 0);
-  client.dispose();
-});
-
-test('chapter-local requests forward a validated maxQuanta and reject bad ones', async () => {
-  const worker = new ManualWorker();
-  const client = await openClient(worker);
-
-  assert.throws(() =>
-    client.createBoundedChapterLocalRevision({
-      ...createRequest({ href: 'chapter.xhtml' }),
-      maxQuanta: 17,
-    }),
-  );
-  assert.throws(() =>
-    client.createBoundedChapterLocalRevision({
-      ...createRequest({ href: 'chapter.xhtml' }),
-      maxQuanta: 0,
-    }),
-  );
-
-  const creating = client.createBoundedChapterLocalRevision({
-    ...createRequest({ href: 'chapter.xhtml' }),
-    maxQuanta: 4,
-  });
-  const message = worker.messages.at(-1);
-  assert.equal(message.kind, 'createBoundedChapterLocalRevision');
-  assert.equal(message.request.maxQuanta, 4);
-  worker.respondLast({
-    kind: 'createBoundedChapterLocalRevision',
-    result: { advance: pendingAdvance(owner(0), { href: 'chapter.xhtml' }) },
-  });
-  await creating;
   client.dispose();
 });
 
@@ -246,13 +152,7 @@ function createRequest(targetLocator) {
     lineBreaking: 'greedy',
     targetChapterIndex: 3,
     targetLocator,
-    localPageCap: 4,
-    budget: budget(),
   };
-}
-
-function budget() {
-  return { maxTopLevelNodes: 1 };
 }
 
 function owner(revisionVersion) {
@@ -263,30 +163,10 @@ function owner(revisionVersion) {
   };
 }
 
-function pendingAdvance(exactOwner, locator) {
+function completedAdvance(exactOwner, locator) {
   return {
-    revision: summary(exactOwner, 'ready'),
-    previousKnownExtent: { localPageCount: 0, localSpreadCount: 0 },
+    revision: summary(exactOwner),
     newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 1 },
-    processedTopLevelNodes: 1,
-    target: {
-      status: 'pending',
-      owner: exactOwner,
-      locator,
-      spineIdref: 'chapter',
-      reason: 'notPaginated',
-      matchedBy: locator.anchorId ? 'anchor' : 'href',
-    },
-    continuation: { owner: exactOwner, cursor: 'cursor-1', targetLocator: locator },
-  };
-}
-
-function completedAdvance(exactOwner, locator, fields = {}) {
-  return {
-    revision: summary(exactOwner, 'complete'),
-    previousKnownExtent: { localPageCount: 0, localSpreadCount: 0 },
-    newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 1 },
-    processedTopLevelNodes: 1,
     target: {
       status: 'resolved',
       owner: exactOwner,
@@ -296,20 +176,17 @@ function completedAdvance(exactOwner, locator, fields = {}) {
       localSpreadIndex: 0,
       matchedBy: locator.anchorId ? 'anchor' : 'href',
     },
-    ...fields,
   };
 }
 
-function summary(exactOwner, status) {
+function summary(exactOwner) {
   const knownExtent = { localPageCount: 1, localSpreadCount: 1 };
   return {
     ...exactOwner,
     layoutKey: 'layout',
-    status,
-    localPageCap: 4,
+    status: 'complete',
     knownExtent,
-    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
-    pageCapReached: false,
+    finalExtent: knownExtent,
   };
 }
 

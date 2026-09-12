@@ -16,25 +16,14 @@ import {
 
 test('bounded startup targets a locator before publishing or warming any spread', async () => {
   const locatorReads = [];
-  const budgets = [];
   const warmed = [];
   let presentationCount = 0;
   const locator = { href: 'late.xhtml', progression: 0.5 };
   const client = fixtureClient({
-    create: async (request) => {
-      budgets.push(request.budget.maxTopLevelNodes);
-      return versioned(advance(0, 1, true));
-    },
-    continue: async (request) => {
-      budgets.push(request.budget.maxTopLevelNodes);
-      const version = request.revisionVersion + 1;
-      return versioned(advance(version, version === 1 ? 2 : 4, true));
-    },
+    create: async () => versioned(advance(0, 4)),
     locator: (revision, request, extent) => {
       locatorReads.push(revision.revisionVersion);
-      return revision.revisionVersion < 2
-        ? pending(revision, request, 'notPaginated')
-        : sourceResolution(revision, request, extent, 3);
+      return sourceResolution(revision, request, extent, 3);
     },
     presentation: (revision, extent, accepted) => {
       presentationCount += 1;
@@ -45,9 +34,7 @@ test('bounded startup targets a locator before publishing or warming any spread'
       return { spreadIndex };
     },
   });
-  const session = createRitoCoreWasmBoundedReaderSession(client, {
-    yieldControl: async () => {},
-  });
+  const session = createRitoCoreWasmBoundedReaderSession(client);
   let standaloneLocatorRequests = 0;
   const resolveSourceLocator = client.resolveSourceLocatorAtRevision;
   client.resolveSourceLocatorAtRevision = async (...args) => {
@@ -60,91 +47,16 @@ test('bounded startup targets a locator before publishing or warming any spread'
   assert.equal(snapshot.target.kind, 'locator');
   assert.equal(snapshot.target.resolution.status, 'resolved');
   assert.equal(snapshot.presentationSpreadIndex, 3);
-  assert.deepEqual(locatorReads, [0, 1, 2]);
-  assert.deepEqual(budgets, [32, 32, 32]);
+  assert.deepEqual(locatorReads, [0]);
   assert.deepEqual(warmed, [3]);
   assert.equal(presentationCount, 1);
-  assert.equal(standaloneLocatorRequests, 3);
+  assert.equal(standaloneLocatorRequests, 1);
   await session.dispose();
 });
 
-test('ensureLocator advances exact revisions until its source target resolves', async () => {
-  const locatorReads = [];
-  const releasedTransfers = [];
-  const warmed = [];
-  let presentationCount = 0;
+test('ensureLocator settles a typed no-page projection', async () => {
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
-    continue: async (request) => {
-      const version = request.revisionVersion + 1;
-      return versioned(advance(version, version === 1 ? 2 : 4, true));
-    },
-    locator: (revision, locator, extent) => {
-      locatorReads.push(revision);
-      if (revision.revisionVersion < 2) return pending(revision, locator, 'notPaginated');
-      return sourceResolution(revision, locator, extent, 3);
-    },
-    presentation: (revision, extent, accepted) => {
-      presentationCount += 1;
-      return presentationEnvelope(revision, extent, accepted);
-    },
-    warm: (_revision, spreadIndex) => {
-      warmed.push(spreadIndex);
-      return { spreadIndex };
-    },
-    releaseTransfers: (revision) => releasedTransfers.push(revision),
-  });
-  const session = createRitoCoreWasmBoundedReaderSession(client, {
-    yieldControl: async () => {},
-  });
-  await session.start(startRequest(0));
-
-  const snapshot = await session.ensureLocator({ href: 'late.xhtml', progression: 0.5 });
-
-  assert.equal(snapshot.revision.revisionVersion, 2);
-  assert.equal(snapshot.presentationSpreadIndex, 3);
-  assert.equal(snapshot.frameWindow.spreadIndex, 3);
-  assert.equal(snapshot.target.kind, 'locator');
-  assert.equal(snapshot.target.resolution.status, 'resolved');
-  assert.deepEqual(
-    locatorReads.map(({ revisionVersion }) => revisionVersion),
-    [0, 1, 2],
-  );
-  assert.deepEqual(
-    releasedTransfers.map(({ revisionVersion }) => revisionVersion),
-    [0, 1],
-  );
-  assert.equal(presentationCount, 2);
-  assert.deepEqual(warmed, [0, 3]);
-  await session.dispose();
-});
-
-test('313-quantum far locator protocol drops worker requests from 940 to 314', async () => {
-  const growthQuanta = 313;
-  const legacy = await farLocatorProtocolCounts(growthQuanta, false);
-  const atomic = await farLocatorProtocolCounts(growthQuanta, true);
-
-  assert.deepEqual(legacy, {
-    standaloneLocator: growthQuanta + 1,
-    directRelease: growthQuanta,
-    directContinue: growthQuanta,
-    total: growthQuanta * 3 + 1,
-  });
-  assert.deepEqual(atomic, {
-    standaloneLocator: growthQuanta + 1,
-    directRelease: 0,
-    directContinue: 0,
-    total: growthQuanta + 1,
-  });
-});
-
-test('ensureLocator settles a typed no-page projection without continuing', async () => {
-  let continueCount = 0;
-  const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
-    continue: async () => {
-      continueCount += 1;
-    },
+    create: async () => versioned(advance(0, 1)),
     locator: (revision, locator) => pending(revision, locator, 'noPageProjection'),
   });
   const session = createRitoCoreWasmBoundedReaderSession(client);
@@ -156,13 +68,12 @@ test('ensureLocator settles a typed no-page projection without continuing', asyn
   assert.equal(snapshot.target.resolution.status, 'pending');
   assert.equal(snapshot.target.resolution.reason, 'noPageProjection');
   assert.equal(snapshot.presentationSpreadIndex, 0);
-  assert.equal(continueCount, 0);
   await session.dispose();
 });
 
 test('ensureLocator accepts and publishes a canonicalized Rust locator', async () => {
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
+    create: async () => versioned(advance(0, 1)),
     locator: (revision, _locator, extent) =>
       sourceResolution(revision, { href: 'chapter.xhtml', anchorId: 'target' }, extent),
   });
@@ -180,60 +91,45 @@ test('ensureLocator accepts and publishes a canonicalized Rust locator', async (
   await session.dispose();
 });
 
-test('complete coalesces startup and publishes only the terminal presentation', async () => {
+test('complete coalesces with startup on the one complete revision', async () => {
   const created = deferred();
-  let continueCount = 0;
   let presentationCount = 0;
   const client = fixtureClient({
     create: () => created.promise,
-    continue: async (request) => {
-      continueCount += 1;
-      const version = request.revisionVersion + 1;
-      return versioned(advance(version, version + 1, version < 2));
-    },
     presentation: (revision, extent, accepted) => {
       presentationCount += 1;
       return presentationEnvelope(revision, extent, accepted);
     },
   });
-  const session = createRitoCoreWasmBoundedReaderSession(client, {
-    yieldControl: async () => {},
-  });
+  const session = createRitoCoreWasmBoundedReaderSession(client);
 
   const started = session.start(startRequest(0));
   const completed = session.complete();
-  created.resolve(versioned(advance(0, 1, true)));
+  created.resolve(versioned(advance(0, 1)));
   const [startSnapshot, completeSnapshot] = await Promise.all([started, completed]);
 
   assert.equal(startSnapshot.target.kind, 'complete');
   assert.equal(completeSnapshot.revision.status, 'complete');
-  assert.equal(completeSnapshot.revision.revisionVersion, 2);
-  assert.equal(continueCount, 2);
+  assert.equal(completeSnapshot.revision.revisionVersion, 0);
   assert.equal(presentationCount, 1);
   await session.dispose();
 });
 
-test('a blocked locator probe yields to a known spread without another quantum', async () => {
+test('a blocked locator probe yields to the latest spread target', async () => {
   const locatorStarted = deferred();
   const locatorAllowed = deferred();
-  let continueCount = 0;
   const callerLocator = { href: 'late.xhtml', sourcePoint: { nodePath: [1], textOffset: 2 } };
   const seenLocators = [];
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 3, true)),
-    continue: async () => {
-      continueCount += 1;
-    },
+    create: async () => versioned(advance(0, 3)),
     locator: async (revision, locator) => {
       seenLocators.push(locator);
       locatorStarted.resolve();
       await locatorAllowed.promise;
-      return pending(revision, locator, 'notPaginated');
+      return pending(revision, locator, 'noPageProjection');
     },
   });
-  const session = createRitoCoreWasmBoundedReaderSession(client, {
-    yieldControl: async () => {},
-  });
+  const session = createRitoCoreWasmBoundedReaderSession(client);
   await session.start(startRequest(0));
 
   const locating = session.ensureLocator(callerLocator);
@@ -245,8 +141,8 @@ test('a blocked locator probe yields to a known spread without another quantum',
   const [locatorSnapshot, spreadSnapshot] = await Promise.all([locating, spreading]);
 
   assert.equal(locatorSnapshot.target.kind, 'spread');
+  assert.equal(locatorSnapshot, spreadSnapshot);
   assert.equal(spreadSnapshot.presentationSpreadIndex, 2);
-  assert.equal(continueCount, 0);
   assert.deepEqual(seenLocators, [
     { href: 'late.xhtml', sourcePoint: { nodePath: [1], textOffset: 2 } },
   ]);
@@ -258,7 +154,7 @@ test('a rejected superseded locator probe cannot cancel the latest spread target
   const locatorResult = deferred();
   const released = [];
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 2, true)),
+    create: async () => versioned(advance(0, 2)),
     locator: async () => {
       locatorStarted.resolve();
       return locatorResult.promise;
@@ -284,7 +180,7 @@ test('recoverable locator and frame reads fail only their target', async () => {
   for (const kind of ['locator', 'frame']) {
     const released = [];
     const client = fixtureClient({
-      create: async () => versioned(advance(0, 2, true)),
+      create: async () => versioned(advance(0, 2)),
       locator: () => {
         throw engineReadError('invalid locator');
       },
@@ -311,79 +207,13 @@ test('recoverable locator and frame reads fail only their target', async () => {
   }
 });
 
-test('a locator failure after growth can recover the latest accepted revision', async () => {
-  const released = [];
-  const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
-    continue: async () => versioned(advance(1, 2, true)),
-    locator: (revision, locator) => {
-      if (revision.revisionVersion === 0) return pending(revision, locator, 'notPaginated');
-      throw engineReadError('invalid locator after growth');
-    },
-    release: (revision) => released.push(revision),
-  });
-  const session = createRitoCoreWasmBoundedReaderSession(client, {
-    yieldControl: async () => {},
-  });
-  await session.start(startRequest(0));
-
-  await assert.rejects(
-    session.ensureLocator({ href: 'missing.xhtml' }),
-    /invalid locator after growth/,
-  );
-  assert.equal(session.currentSnapshot(), undefined);
-
-  const recovered = await session.ensureSpread(0);
-  assert.equal(recovered.revision.revisionVersion, 1);
-  assert.equal(recovered.presentationSpreadIndex, 0);
-  assert.deepEqual(released, []);
-  await session.dispose();
-});
-
-test('a retarget during atomic growth accepts at most one quantum and publishes the latest target', async () => {
-  const releaseStarted = deferred();
-  const releaseAllowed = deferred();
-  let continueCount = 0;
-  const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
-    continue: async (request) => {
-      continueCount += 1;
-      return versioned(advance(request.revisionVersion + 1, 2, true));
-    },
-    releaseTransfers: async () => {
-      releaseStarted.resolve();
-      await releaseAllowed.promise;
-    },
-    locator: (revision, locator) => pending(revision, locator, 'noPageProjection'),
-  });
-  const session = createRitoCoreWasmBoundedReaderSession(client, {
-    yieldControl: async () => {},
-  });
-  await session.start(startRequest(0));
-
-  const far = session.ensureSpread(10);
-  await releaseStarted.promise;
-  const locating = session.ensureLocator({ href: 'empty.xhtml' });
-  releaseAllowed.resolve();
-  const [farSnapshot, locatorSnapshot] = await Promise.all([far, locating]);
-
-  assert.equal(farSnapshot.target.kind, 'locator');
-  assert.equal(farSnapshot.revision.revisionVersion, 1);
-  assert.equal(locatorSnapshot.presentationSpreadIndex, 0);
-  assert.equal(locatorSnapshot.frameWindow.spreadIndex, 0);
-  assert.equal(continueCount, 1);
-  await session.dispose();
-});
-
-test('locator invariants fail instead of looping a complete or out-of-range revision', async () => {
+test('locator invariants fail on an unpaginated or out-of-range resolution', async () => {
   for (const fixture of [
     {
-      create: async () => versioned(advance(0, 1, false)),
       locator: (revision, locator) => pending(revision, locator, 'notPaginated'),
       pattern: /complete revision left a source locator unpaginated/,
     },
     {
-      create: async () => versioned(advance(0, 1, true)),
       locator: (revision, locator) => ({
         ...sourceResolution(revision, locator, { pageCount: 2, spreadCount: 2 }, 1),
         pageIndex: 1,
@@ -393,7 +223,8 @@ test('locator invariants fail instead of looping a complete or out-of-range revi
   ]) {
     const released = [];
     const client = fixtureClient({
-      ...fixture,
+      create: async () => versioned(advance(0, 1)),
+      locator: fixture.locator,
       release: (revision) => released.push(revision),
     });
     const session = createRitoCoreWasmBoundedReaderSession(client);
@@ -405,47 +236,6 @@ test('locator invariants fail instead of looping a complete or out-of-range revi
     assert.equal(session.currentSnapshot(), undefined);
   }
 });
-
-async function farLocatorProtocolCounts(growthQuanta, atomic) {
-  const target = { href: 'far.xhtml' };
-  const client = fixtureClient({
-    atomic,
-    create: async () => versioned(advance(0, 1, true)),
-    continue: async (request) => {
-      const version = request.revisionVersion + 1;
-      return versioned(advance(version, version + 1, true));
-    },
-    locator: (revision, locator, extent) =>
-      revision.revisionVersion < growthQuanta
-        ? pending(revision, locator, 'notPaginated')
-        : sourceResolution(revision, locator, extent, 0),
-  });
-  const counts = {
-    standaloneLocator: 0,
-    directRelease: 0,
-    directContinue: 0,
-  };
-  wrapCount(client, 'resolveSourceLocatorAtRevision', counts, 'standaloneLocator');
-  wrapCount(client, 'releaseRevisionTransfersAtRevision', counts, 'directRelease');
-  wrapCount(client, 'continueRevision', counts, 'directContinue');
-  const session = createRitoCoreWasmBoundedReaderSession(client, { yieldControl: async () => {} });
-
-  const snapshot = await session.start(locatorStartRequest(target));
-  assert.equal(snapshot.revision.revisionVersion, growthQuanta);
-  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
-  const result = { ...counts, total };
-  await session.dispose();
-  return result;
-}
-
-function wrapCount(client, method, counts, field) {
-  const operation = client[method];
-  if (operation === undefined) return;
-  client[method] = async (...args) => {
-    counts[field] += 1;
-    return operation(...args);
-  };
-}
 
 function pending(revision, locator, reason) {
   return {

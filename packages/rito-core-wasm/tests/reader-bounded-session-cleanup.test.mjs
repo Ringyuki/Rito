@@ -6,6 +6,7 @@ import {
   advance,
   deferred,
   fixtureClient,
+  handle,
   revisionNavigation,
   startRequest,
   versioned,
@@ -14,7 +15,7 @@ import {
 test('cancel and dispose report cleanup failures after best-effort release', async () => {
   for (const operation of ['cancel', 'dispose']) {
     const client = fixtureClient({
-      create: async () => versioned(advance(0, 1, false)),
+      create: async () => versioned(advance(0, 1)),
       release: async () => {
         throw new Error('release failed');
       },
@@ -29,7 +30,7 @@ test('cancel and dispose report cleanup failures after best-effort release', asy
 test('cancel and dispose reject a response that did not release the exact revision', async () => {
   for (const operation of ['cancel', 'dispose']) {
     const client = fixtureClient({
-      create: async () => versioned(advance(0, 1, false)),
+      create: async () => versioned(advance(0, 1)),
       releaseResponse: (value) => ({
         revision: value,
         value: { releasedRevision: false, releasedTransferCount: 0 },
@@ -41,97 +42,24 @@ test('cancel and dispose reject a response that did not release the exact revisi
   }
 });
 
-test('atomic growth rejects forged predecessor transfer-release ownership', async () => {
-  const accepted = [];
-  const released = [];
-  const releasedTransfers = [];
+test('dispose remains terminal when cancel races the same in-flight create', async () => {
+  const created = deferred();
+  const createStarted = deferred();
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
-    continue: async () => versioned(advance(1, 2, true)),
-    release: async (revision) => released.push(revision),
-    releaseTransfers: async (revision) => releasedTransfers.push(revision),
-  });
-  const atomicContinue = client.continueRevisionAfterTransferRelease;
-  client.continueRevisionAfterTransferRelease = async (request) => {
-    const continued = await atomicContinue(request);
-    return {
-      ...continued,
-      value: {
-        ...continued.value,
-        releasedRevision: { ...continued.value.releasedRevision, revisionVersion: 99 },
-      },
-    };
-  };
-  const session = createRitoCoreWasmBoundedReaderSession(client, {
-    yieldControl: async () => {},
-    onAcceptedRevision: ({ revision }) => accepted.push(revision.revisionVersion),
-  });
-
-  await assert.rejects(session.start(startRequest(1)), /continued transfer release/);
-  assert.deepEqual(accepted, [0, 1, 2]);
-  assert.deepEqual(releasedTransfers, [
-    { revisionId: 'rev-1', revisionVersion: 0 },
-    { revisionId: 'rev-1', revisionVersion: 1 },
-  ]);
-  assert.deepEqual(released, [{ revisionId: 'rev-1', revisionVersion: 2 }]);
-});
-
-test('dispose remains terminal when cancel races the same in-flight quantum', async () => {
-  const continued = deferred();
-  const continueStarted = deferred();
-  const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
-    continue: async () => {
-      continueStarted.resolve();
-      return continued.promise;
+    create: () => {
+      createStarted.resolve();
+      return created.promise;
     },
   });
-  const session = createRitoCoreWasmBoundedReaderSession(client, {
-    yieldControl: async () => {},
-  });
+  const session = createRitoCoreWasmBoundedReaderSession(client);
   const started = session.start(startRequest(2));
-  await continueStarted.promise;
+  await createStarted.promise;
   const disposing = session.dispose();
   const cancelling = session.cancel();
-  continued.resolve(versioned(advance(1, 2, true)));
+  created.resolve(versioned(advance(0, 2)));
   await Promise.all([disposing, cancelling]);
   await assert.rejects(started, /stopped/);
   assert.throws(() => session.ensureSpread(0), /disposed/);
-});
-
-test('stop during transfer cleanup does not start another layout quantum', async () => {
-  for (const operation of ['cancel', 'dispose']) {
-    const releaseStarted = deferred();
-    const releaseAllowed = deferred();
-    let continueCount = 0;
-    let transferReleaseCount = 0;
-    const client = fixtureClient({
-      atomic: false,
-      create: async () => versioned(advance(0, 1, true)),
-      continue: async () => {
-        continueCount += 1;
-        return versioned(advance(1, 2, true));
-      },
-      releaseTransfers: async () => {
-        transferReleaseCount += 1;
-        releaseStarted.resolve();
-        await releaseAllowed.promise;
-      },
-    });
-    const session = createRitoCoreWasmBoundedReaderSession(client, {
-      yieldControl: async () => {},
-    });
-
-    const started = session.start(startRequest(2));
-    await releaseStarted.promise;
-    const stopping = session[operation]();
-    releaseAllowed.resolve();
-    await stopping;
-    await assert.rejects(started, /stopped/);
-
-    assert.equal(continueCount, 0);
-    assert.equal(transferReleaseCount, 1);
-  }
 });
 
 test('stop during presentation refresh does not start frame warmup', async () => {
@@ -139,7 +67,7 @@ test('stop during presentation refresh does not start frame warmup', async () =>
   const presentationAllowed = deferred();
   let warmCount = 0;
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
+    create: async () => versioned(advance(0, 1)),
     navigation: async (value, extent) => {
       presentationStarted.resolve();
       await presentationAllowed.promise;
@@ -165,13 +93,9 @@ test('cancel and dispose drain an in-flight locator probe before exact cleanup',
   for (const operation of ['cancel', 'dispose']) {
     const locatorStarted = deferred();
     const locatorAllowed = deferred();
-    let continueCount = 0;
     let warmCount = 0;
     const client = fixtureClient({
-      create: async () => versioned(advance(0, 1, true)),
-      continue: async () => {
-        continueCount += 1;
-      },
+      create: async () => versioned(advance(0, 1)),
       locator: async (revision, locator) => {
         locatorStarted.resolve();
         await locatorAllowed.promise;
@@ -180,7 +104,7 @@ test('cancel and dispose drain an in-flight locator probe before exact cleanup',
           revisionId: revision.revisionId,
           locator,
           spineIdref: 'chapter',
-          reason: 'notPaginated',
+          reason: 'noPageProjection',
           matchedBy: 'href',
         };
       },
@@ -188,9 +112,7 @@ test('cancel and dispose drain an in-flight locator probe before exact cleanup',
         warmCount += 1;
       },
     });
-    const session = createRitoCoreWasmBoundedReaderSession(client, {
-      yieldControl: async () => {},
-    });
+    const session = createRitoCoreWasmBoundedReaderSession(client);
     await session.start(startRequest(0));
 
     const locating = session.ensureLocator({ href: 'late.xhtml' });
@@ -200,7 +122,6 @@ test('cancel and dispose drain an in-flight locator probe before exact cleanup',
     await stopping;
     await assert.rejects(locating, /stopped/);
 
-    assert.equal(continueCount, 0);
     assert.equal(warmCount, 1);
   }
 });
@@ -209,7 +130,7 @@ test('forged presentation handles fail the snapshot and release the accepted rev
   const released = [];
   let warmCount = 0;
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
+    create: async () => versioned(advance(0, 1)),
     presentation: async (value) => ({
       revision: { ...value, revisionVersion: value.revisionVersion + 1 },
       value: {},
@@ -223,7 +144,7 @@ test('forged presentation handles fail the snapshot and release the accepted rev
 
   await assert.rejects(session.start(startRequest(0)), /mismatched revision handle/);
 
-  assert.deepEqual(released, [{ revisionId: 'rev-1', revisionVersion: 1 }]);
+  assert.deepEqual(released, [handle(0)]);
   assert.equal(warmCount, 0);
   assert.equal(session.currentSnapshot(), undefined);
 });

@@ -15,8 +15,7 @@ pub fn revision_id(document: &mut WasmRuntimeDocument) -> String {
         .create_bounded_revision_json(
             &serde_json::json!({
                 "layoutConfig": layout(),
-                "lineBreaking": "greedy",
-                "budget": { "maxTopLevelNodes": 64 }
+                "lineBreaking": "greedy"
             })
             .to_string(),
         )

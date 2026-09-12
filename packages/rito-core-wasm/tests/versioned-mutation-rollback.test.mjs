@@ -15,18 +15,7 @@ test('direct mutation facade rolls back committed malformed revisions by exact h
     {
       expected: handle(0),
       raw: { createBoundedRevisionJson: () => JSON.stringify(forgedAdvance(0)) },
-      invoke: (document) => document.createBoundedRevision({ layoutConfig: {}, budget: budget() }),
-    },
-    {
-      expected: handle(2),
-      raw: { continueRevisionJson: () => '{malformed' },
-      invoke: (document) =>
-        document.continueRevision({ ...handle(1), cursor: 'cursor-2', budget: budget() }),
-    },
-    {
-      expected: handle(2),
-      raw: { cancelRevisionJson: () => JSON.stringify(summary(2, 'ready')) },
-      invoke: (document) => document.cancelRevision(handle(1)),
+      invoke: (document) => document.createBoundedRevision({ layoutConfig: {} }),
     },
   ];
 
@@ -48,36 +37,9 @@ test('worker client rolls back only matched malformed mutation responses', async
   const cases = [
     {
       expected: handle(0),
-      start: () => client.createBoundedRevision({ layoutConfig: {}, budget: budget() }),
+      start: () => client.createBoundedRevision({ layoutConfig: {} }),
       kind: 'createBoundedRevision',
       result: forgedAdvance(0),
-    },
-    {
-      expected: handle(2),
-      start: () => client.continueRevision({ ...handle(1), cursor: 'cursor-2', budget: budget() }),
-      kind: 'continueRevision',
-      result: forgedAdvance(2),
-    },
-    {
-      expected: handle(2),
-      start: () =>
-        client.continueRevisionAfterTransferRelease({
-          ...handle(1),
-          cursor: 'cursor-2',
-          budget: budget(),
-        }),
-      kind: 'continueRevisionAfterTransferRelease',
-      result: {
-        advance: forgedAdvance(2),
-        releasedRevision: handle(1),
-        releasedTransferCount: 1,
-      },
-    },
-    {
-      expected: handle(2),
-      start: () => client.cancelRevision(handle(1)),
-      kind: 'cancelRevision',
-      result: summary(2, 'ready'),
     },
   ];
 
@@ -103,41 +65,6 @@ test('worker client rolls back only matched malformed mutation responses', async
   client.dispose();
 });
 
-test('worker mutations roll back request-derived next revision for malformed envelopes', async () => {
-  const worker = new ManualWorker();
-  const client = await openClient(worker);
-  const payloads = [
-    { kind: 'unrelated', revision: handle(2), result: advance(2) },
-    {
-      kind: 'continueRevision',
-      revision: { revisionId: 'rev-1', revisionVersion: '2' },
-      result: advance(2),
-    },
-    { kind: 'continueRevision', revision: handle(7), result: advance(2) },
-  ];
-
-  for (const payload of payloads) {
-    const pending = client.continueRevision({
-      ...handle(1),
-      cursor: 'cursor-2',
-      budget: budget(),
-    });
-    const mutationMessageCount = worker.messages.length;
-    worker.respondLast(payload);
-    await waitForMessageCount(worker, mutationMessageCount + 1);
-    const rollback = worker.messages.at(-1);
-    assert.equal(rollback.kind, 'releaseRevisionAtRevision');
-    assert.deepEqual(rollback.revision, handle(2));
-    worker.respond(rollback.id, {
-      kind: 'releaseRevisionAtRevision',
-      revision: handle(2),
-      result: { releasedRevision: true, releasedTransferCount: 0 },
-    });
-    await assert.rejects(pending);
-  }
-  client.dispose();
-});
-
 test('worker client disposes an unbound committed create envelope', async () => {
   for (const payload of [
     {
@@ -149,7 +76,7 @@ test('worker client disposes an unbound committed create envelope', async () => 
   ]) {
     const worker = new ManualWorker();
     const client = await openClient(worker);
-    const pending = client.createBoundedRevision({ layoutConfig: {}, budget: budget() });
+    const pending = client.createBoundedRevision({ layoutConfig: {} });
 
     worker.respondLast(payload);
 
@@ -166,24 +93,20 @@ test('worker client disposes an unbound committed create envelope', async () => 
 test('worker client disposes its owner when exact mutation rollback is not confirmed', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
-  const pending = client.continueRevision({
-    ...handle(1),
-    cursor: 'cursor-2',
-    budget: budget(),
-  });
+  const pending = client.createBoundedRevision({ layoutConfig: {} });
   const mutationMessageCount = worker.messages.length;
 
   worker.respondLast({
-    kind: 'continueRevision',
-    revision: handle(2),
-    result: forgedAdvance(2),
+    kind: 'createBoundedRevision',
+    revision: handle(0),
+    result: forgedAdvance(0),
   });
   await waitForMessageCount(worker, mutationMessageCount + 1);
   const rollback = worker.messages.at(-1);
   assert.equal(rollback.kind, 'releaseRevisionAtRevision');
   worker.respond(rollback.id, {
     kind: 'releaseRevisionAtRevision',
-    revision: handle(2),
+    revision: handle(0),
     result: { releasedRevision: false, releasedTransferCount: 0 },
   });
 
@@ -200,17 +123,14 @@ async function waitForMessageCount(worker, count) {
 }
 
 function forgedAdvance(version) {
-  return { ...advance(version), processedTopLevelNodes: 2 };
+  return { ...advance(version), newlyKnownPages: { startPage: 0, endPageExclusive: 2 } };
 }
 
 function advance(version) {
-  const revision = summary(version, 'ready');
+  const revision = summary(version, 'complete');
   return {
     revision,
-    previousKnownExtent: { pageCount: 0, spreadCount: 0 },
     newlyKnownPages: { startPage: 0, endPageExclusive: 1 },
-    processedTopLevelNodes: 1,
-    continuation: { ...handle(version), cursor: `cursor-${String(version + 1)}` },
   };
 }
 
@@ -221,6 +141,7 @@ function summary(version, status) {
     layoutKey: 'layout',
     status,
     knownExtent,
+    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
     pageCount: 1,
     spreadCount: 1,
   };
@@ -228,10 +149,6 @@ function summary(version, status) {
 
 function handle(revisionVersion) {
   return { revisionId: 'rev-1', revisionVersion };
-}
-
-function budget() {
-  return { maxTopLevelNodes: 1 };
 }
 
 async function openClient(worker) {

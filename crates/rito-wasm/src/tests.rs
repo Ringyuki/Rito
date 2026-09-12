@@ -1,5 +1,5 @@
+mod bounded;
 mod chapter_local;
-mod continuation;
 pub(crate) mod fixture;
 mod pinned_font;
 mod versioned;

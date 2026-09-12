@@ -10,41 +10,32 @@ const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   unusedRawDocument,
 );
 
-test('direct bounded revisions reject forged progress, range, continuation, and status semantics', () => {
+test('direct bounded revisions reject forged range and status semantics', () => {
   const forgeries = [
-    { ...advance(0, 'ready', true), processedTopLevelNodes: 2 },
     {
-      ...advance(0, 'ready', true),
+      ...advance(0, 'complete'),
       newlyKnownPages: { startPage: 0, endPageExclusive: 2 },
     },
     {
-      ...advance(0, 'ready', true),
-      previousKnownExtent: { pageCount: 1, spreadCount: 1 },
+      ...advance(0, 'complete'),
+      newlyKnownPages: { startPage: 1, endPageExclusive: 1 },
     },
-    { ...advance(0, 'ready', true), continuation: undefined },
-    {
-      ...advance(0, 'complete', false),
-      continuation: { ...handle(0), cursor: 'cursor-forged' },
-    },
-    {
-      ...advance(0, 'ready', true),
-      continuation: { ...handle(0), cursor: '' },
-    },
-    { ...advance(0, 'cancelled', false) },
-    advanceWithExtent(0, 'warming', 1, 1),
-    advanceWithExtent(0, 'ready', 1, 0),
+    advance(0, 'ready'),
+    advance(0, 'warming'),
+    advance(0, 'cancelled'),
+    advance(1, 'complete'),
   ];
   for (const forged of forgeries) {
     const document = new RitoCoreWasmDocument({
       createBoundedRevisionJson: () => JSON.stringify(forged),
     });
-    assert.throws(() => document.createBoundedRevision({ layoutConfig: {}, budget: budget() }));
+    assert.throws(() => document.createBoundedRevision({ layoutConfig: {} }));
   }
 });
 
 test('direct versioned reads reject matching envelopes with forged embedded revisions', () => {
   for (const [method, value] of [
-    ['getRevisionSummaryAtRevisionJson', summary(2, 'ready')],
+    ['getRevisionSummaryAtRevisionJson', summary(2, 'complete')],
     ['getRevisionBundleAtRevisionJson', bundle(2)],
   ]) {
     const document = new RitoCoreWasmDocument({
@@ -214,11 +205,11 @@ test('worker client rejects forged bounded and summary results behind a matching
   const worker = new ManualWorker();
   const client = await openClient(worker);
 
-  let pending = client.createBoundedRevision({ layoutConfig: {}, budget: budget() });
+  let pending = client.createBoundedRevision({ layoutConfig: {} });
   worker.respondLast({
     kind: 'createBoundedRevision',
     revision: handle(0),
-    result: { ...advance(0, 'ready', true), revision: summary(1, 'ready') },
+    result: { ...advance(0, 'complete'), revision: summary(1, 'complete') },
   });
   await rejectMalformedMutation(
     worker,
@@ -227,33 +218,19 @@ test('worker client rejects forged bounded and summary results behind a matching
     /mismatched revision|non-sequential revisionVersion/,
   );
 
-  pending = client.createBoundedRevision({ layoutConfig: {}, budget: budget() });
+  pending = client.createBoundedRevision({ layoutConfig: {} });
   worker.respondLast({
     kind: 'createBoundedRevision',
     revision: handle(0),
-    result: { ...advance(0, 'ready', true), processedTopLevelNodes: 2 },
+    result: { ...advance(0, 'complete'), newlyKnownPages: { startPage: 0, endPageExclusive: 2 } },
   });
-  await rejectMalformedMutation(worker, pending, handle(0), /exceeded its top-level node budget/);
-
-  pending = client.continueRevision({ ...handle(1), cursor: 'cursor-1', budget: budget() });
-  const continued = advance(2, 'ready', true);
-  continued.continuation = { ...handle(3), cursor: 'cursor-3' };
-  worker.respondLast({ kind: 'continueRevision', revision: handle(2), result: continued });
-  await rejectMalformedMutation(worker, pending, handle(2), /mismatched revision handle/);
-
-  pending = client.cancelRevision(handle(1));
-  worker.respondLast({
-    kind: 'cancelRevision',
-    revision: handle(2),
-    result: summary(2, 'ready'),
-  });
-  await rejectMalformedMutation(worker, pending, handle(2), /invalid revision status/);
+  await rejectMalformedMutation(worker, pending, handle(0), /inconsistent with its extent/);
 
   pending = client.getRevisionSummaryAtRevision(handle(1));
   worker.respondLast({
     kind: 'getRevisionSummaryAtRevision',
     revision: handle(1),
-    result: summary(2, 'ready'),
+    result: summary(2, 'complete'),
   });
   await assert.rejects(pending, /non-sequential revisionVersion/);
   client.dispose();
@@ -275,30 +252,12 @@ async function rejectMalformedMutation(worker, pending, revision, pattern) {
   await assert.rejects(pending, pattern);
 }
 
-function advance(version, status, continuing) {
+function advance(version, status) {
   const revision = summary(version, status);
   return {
     revision,
-    previousKnownExtent: { pageCount: 0, spreadCount: 0 },
     newlyKnownPages: { startPage: 0, endPageExclusive: revision.pageCount },
-    processedTopLevelNodes: 1,
-    ...(continuing
-      ? { continuation: { ...handle(version), cursor: `cursor-${String(version + 1)}` } }
-      : {}),
   };
-}
-
-function advanceWithExtent(version, status, pageCount, spreadCount) {
-  const result = advance(version, status, status !== 'complete');
-  const knownExtent = { pageCount, spreadCount };
-  result.revision = {
-    ...result.revision,
-    knownExtent,
-    pageCount,
-    spreadCount,
-  };
-  result.newlyKnownPages = { startPage: 0, endPageExclusive: pageCount };
-  return result;
 }
 
 function summary(version, status) {
@@ -317,7 +276,7 @@ function summary(version, status) {
 function bundle(version) {
   const revisionId = 'rev-1';
   return {
-    revision: summary(version, 'ready'),
+    revision: summary(version, 'complete'),
     navigation: { revisionId },
     tocTargets: { revisionId, targets: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
@@ -328,7 +287,7 @@ function bundle(version) {
 
 function presentation(version) {
   return {
-    revision: summary(version, 'ready'),
+    revision: summary(version, 'complete'),
     navigation: {
       revisionId: 'rev-1',
       pageCount: 1,
@@ -344,10 +303,6 @@ function presentation(version) {
 
 function handle(revisionVersion) {
   return { revisionId: 'rev-1', revisionVersion };
-}
-
-function budget() {
-  return { maxTopLevelNodes: 1 };
 }
 
 function searchRequest() {

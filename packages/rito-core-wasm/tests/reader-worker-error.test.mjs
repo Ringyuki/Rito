@@ -4,58 +4,26 @@ import { test } from 'node:test';
 import { RitoCoreWasmError } from '../dist/core-wasm-error-runtime.js';
 import { createRitoCoreWasmWorkerReaderClient } from '../dist/reader-worker-client-runtime.js';
 
-test('worker errors preserve only validated failed revision recovery state', async () => {
+test('worker errors keep their wire code, message and name', async () => {
   const worker = new ErrorWorker();
   const client = createRitoCoreWasmWorkerReaderClient(worker);
-  const failedRevision = {
-    revisionId: 'rev-1',
-    revisionVersion: 2,
-    layoutKey: 'layout',
-    status: 'failed',
-    knownExtent: { pageCount: 1, spreadCount: 1 },
-    pageCount: 1,
-    spreadCount: 1,
-  };
-  const valid = client.getRevisionSummaryAtRevision(handle());
-  worker.fail({
-    name: 'RitoCoreWasmError',
-    code: 'engine-error',
-    message: 'failed',
-    revision: failedRevision,
-  });
-  await assert.rejects(valid, (error) => {
+
+  const failing = client.getRevisionSummaryAtRevision(handle());
+  worker.fail({ name: 'RitoCoreWasmError', code: 'engine-error', message: 'failed' });
+  await assert.rejects(failing, (error) => {
     assert.ok(error instanceof RitoCoreWasmError);
     assert.equal(error.code, 'engine-error');
-    assert.deepEqual(error.revision, failedRevision);
+    assert.equal(error.message, 'failed');
     return true;
   });
 
-  const malformed = client.getRevisionSummaryAtRevision(handle());
-  worker.fail({
-    name: 'RitoCoreWasmError',
-    code: 'stale-revision-version',
-    message: 'stale',
-    revision: { ...failedRevision, revisionVersion: -1 },
-  });
-  await assert.rejects(malformed, (error) => {
+  const stale = client.getRevisionSummaryAtRevision(handle());
+  worker.fail({ name: 'RitoCoreWasmError', code: 'stale-revision-version', message: 'stale' });
+  await assert.rejects(stale, (error) => {
     assert.equal(error.code, 'stale-revision-version');
     assert.equal(error.message, 'stale');
-    assert.equal(error.revision, undefined);
     return true;
   });
-
-  for (const payload of [
-    { code: 'stale-revision-version', revision: failedRevision },
-    { code: 'engine-error', revision: { ...failedRevision, status: 'ready' } },
-  ]) {
-    const forged = client.getRevisionSummaryAtRevision(handle());
-    worker.fail({ name: 'RitoCoreWasmError', message: 'forged', ...payload });
-    await assert.rejects(forged, (error) => {
-      assert.equal(error.code, payload.code);
-      assert.equal(error.revision, undefined);
-      return true;
-    });
-  }
 
   const unreadable = client.getRevisionSummaryAtRevision(handle());
   worker.fail(null);

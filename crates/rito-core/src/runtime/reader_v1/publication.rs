@@ -1,8 +1,6 @@
 use crate::{
     layout::LayoutConfig,
-    runtime::{
-        RuntimeRevisionAdvance, RuntimeRevisionCursor, RuntimeRevisionHandle, RuntimeSourceLocator,
-    },
+    runtime::{RuntimeRevisionAdvance, RuntimeRevisionHandle, RuntimeSourceLocator},
 };
 
 use super::ReaderLocatorV1;
@@ -20,7 +18,6 @@ pub(super) enum ReaderRevisionBackingV1 {
 #[derive(Debug)]
 pub(super) struct ReaderPublicationRevisionOwnerV1 {
     pub(super) owner: RuntimeRevisionHandle,
-    pub(super) continuation: Option<RuntimeRevisionCursor>,
     pub(super) layout: LayoutConfig,
     pub(super) known_spread_count: usize,
     pub(super) final_spread_count: Option<usize>,
@@ -37,7 +34,6 @@ impl ReaderPublicationRevisionOwnerV1 {
     pub(super) fn from_advance(advance: RuntimeRevisionAdvance, layout: LayoutConfig) -> Self {
         Self {
             owner: RuntimeRevisionHandle::from(&advance.revision),
-            continuation: advance.continuation,
             layout,
             known_spread_count: advance.revision.known_extent.spread_count,
             final_spread_count: advance
@@ -47,16 +43,6 @@ impl ReaderPublicationRevisionOwnerV1 {
             artifact_ref_count: 0,
             completion_handoff_offered: false,
         }
-    }
-
-    pub(super) fn apply_advance(&mut self, advance: RuntimeRevisionAdvance) {
-        self.owner = RuntimeRevisionHandle::from(&advance.revision);
-        self.continuation = advance.continuation;
-        self.known_spread_count = advance.revision.known_extent.spread_count;
-        self.final_spread_count = advance
-            .revision
-            .final_extent
-            .map(|extent| extent.spread_count);
     }
 }
 

@@ -89,18 +89,10 @@ function requireSelectedSnapshotFrame(snapshot: BrowserReaderBoundedSnapshot): v
   }
 }
 
+// The revision is complete by construction, so a spread beyond its table
+// is simply beyond the book; only a locator can still be unavailable.
 function requireTargetAvailability(snapshot: BrowserReaderBoundedSnapshot): void {
   const { target, revision } = snapshot;
-  if (target.kind === 'complete' && revision.status !== 'complete') {
-    throw new Error('Bounded reader completion snapshot is not complete');
-  }
-  if (
-    target.kind === 'spread' &&
-    target.spreadIndex >= revision.spreadCount &&
-    revision.status !== 'complete'
-  ) {
-    throw new Error('Bounded reader spread snapshot is not yet available');
-  }
   if (
     target.kind === 'locator' &&
     (target.resolution.revisionId !== revision.revisionId ||
@@ -127,7 +119,6 @@ function requireSameRevision(
     actual.revisionId !== expected.revisionId ||
     actual.revisionVersion !== expected.revisionVersion ||
     actual.layoutKey !== expected.layoutKey ||
-    actual.status !== expected.status ||
     actual.pageCount !== expected.pageCount ||
     actual.spreadCount !== expected.spreadCount
   ) {

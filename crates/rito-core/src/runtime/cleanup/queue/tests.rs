@@ -10,23 +10,19 @@ use super::{
     RuntimeCleanupProbe, RuntimeCleanupQueue, FRAME_BACKLOG_HIGH_WATER, RUNTIME_CLEANUP_QUANTUM,
 };
 use crate::{
-    layout::{
-        create_layout_config, LayoutConfig, LayoutConfigInput, LineBreaking, MarginInput,
-        SpreadMode,
-    },
+    layout::{create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode},
     runtime::{
         cleanup::test_support::{cached_frame, wide_resource_cached_frame},
-        continuation::RuntimeContinuationRecord,
         frame::{
-            RuntimeChapterTextIndexSource, RuntimeFrameCacheOwner, RuntimeRevision,
-            RuntimeRevisionInteractions, FRAME_CACHE_CAPACITY,
+            RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionInteractions,
+            FRAME_CACHE_CAPACITY,
         },
     },
 };
 
 const EMPTY_FRAME_UNITS: usize = 6;
 const LARGE_FRAME_PAYLOAD_COUNT: usize = 16_384;
-const REAL_JOB_FIXTURE_UNITS: usize = 12 + 22 + 4 + (EMPTY_FRAME_UNITS + 1) + 7;
+const REAL_JOB_FIXTURE_UNITS: usize = 22 + (EMPTY_FRAME_UNITS + 1) + 7;
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -247,36 +243,6 @@ fn repeated_revisions_do_not_accumulate_behind_regular_backlog() {
 }
 
 #[test]
-fn default_quantum_resumes_a_large_persistent_layout_config() {
-    let mut layout_config = test_layout();
-    layout_config.generic_serif_advances = (0..256)
-        .map(|index| (format!("glyph-{index}"), index as f64))
-        .collect();
-    let mut queue = RuntimeCleanupQueue::default();
-    queue.enqueue_continuation(RuntimeContinuationRecord::new(
-        "revision".to_owned(),
-        "layout".to_owned(),
-        layout_config,
-        LineBreaking::Greedy,
-        0,
-    ));
-    let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup quantum is non-zero");
-
-    let first = queue.advance(budget);
-
-    assert_eq!(first.consumed_units, RUNTIME_CLEANUP_QUANTUM);
-    assert!(!first.complete);
-    assert_eq!(queue.pending_frame_owner_count(), 0);
-    assert_eq!(queue.job_count(), 1);
-
-    let mut consumed_units = first.consumed_units;
-    while !queue.is_empty() {
-        consumed_units += queue.advance(budget).consumed_units;
-    }
-    assert_eq!(consumed_units, 268);
-}
-
-#[test]
 fn default_quantum_resumes_a_large_transient_layout_config() {
     let mut layout_config = test_layout();
     layout_config.generic_serif_advances = (0..256)
@@ -329,21 +295,9 @@ fn unwind_drains_partially_advanced_real_jobs() {
 }
 
 fn enqueue_real_job_fixtures(queue: &mut RuntimeCleanupQueue) {
-    queue.enqueue_continuation(empty_continuation());
     queue.enqueue_revision(empty_revision());
-    queue.enqueue_frame_cache(RuntimeFrameCacheOwner::default());
     queue.enqueue_cached_frame(cached_frame(0, 0));
     queue.enqueue_layout_config(test_layout());
-}
-
-fn empty_continuation() -> RuntimeContinuationRecord {
-    RuntimeContinuationRecord::new(
-        "revision".to_owned(),
-        "layout".to_owned(),
-        test_layout(),
-        LineBreaking::Greedy,
-        0,
-    )
 }
 
 fn empty_revision() -> RuntimeRevision {

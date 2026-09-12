@@ -9,7 +9,6 @@ const requiredFiles = [
   'core-wasm-error-runtime.js',
   'reader-compat-runtime.js',
   'reader-worker-client-runtime.js',
-  'runtime-bundle-decoder-runtime.js',
   'frame-command-buffer-decoder-runtime.js',
   'reader-v1-display-decoder-runtime.js',
   'reader-v1-primitive-decoder-runtime.js',

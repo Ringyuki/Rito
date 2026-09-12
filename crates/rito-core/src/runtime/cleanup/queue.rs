@@ -8,10 +8,7 @@ use probe::RuntimeCleanupProbe;
 
 use crate::{layout::LayoutConfig, runtime::cleanup::CleanupProgress};
 
-use super::super::{
-    continuation::RuntimeContinuationRecord,
-    frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner, RuntimeRevision},
-};
+use super::super::frame::{RuntimeCachedFrame, RuntimeRevision};
 use job::RuntimeCleanupJob;
 
 pub(in crate::runtime) const RUNTIME_CLEANUP_QUANTUM: usize = 64;
@@ -46,16 +43,8 @@ impl Default for RuntimeCleanupQueue {
 }
 
 impl RuntimeCleanupQueue {
-    pub(in crate::runtime) fn enqueue_continuation(&mut self, owner: RuntimeContinuationRecord) {
-        self.enqueue(RuntimeCleanupJob::continuation(owner));
-    }
-
     pub(in crate::runtime) fn enqueue_revision(&mut self, owner: RuntimeRevision) {
         self.enqueue(RuntimeCleanupJob::revision(owner));
-    }
-
-    pub(in crate::runtime) fn enqueue_frame_cache(&mut self, owner: RuntimeFrameCacheOwner) {
-        self.enqueue(RuntimeCleanupJob::frame_cache(owner));
     }
 
     pub(in crate::runtime) fn enqueue_cached_frame(&mut self, owner: RuntimeCachedFrame) {

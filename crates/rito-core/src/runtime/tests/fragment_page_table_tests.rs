@@ -9,9 +9,8 @@ use super::{
 use crate::interaction::TextSelectionMovement;
 use crate::runtime::page_artifact::PageArtifactSemanticRole;
 use crate::runtime::{
-    RuntimeBoundedRevisionRequest, RuntimeContinueRevisionRequest, RuntimeDocument,
-    RuntimePinnedFontGenericRole, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
-    RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
+    RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimePinnedFontGenericRole,
+    RuntimeRevisionHandle, RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
     RuntimeTextRangeFromPointsResolution, RuntimeTextRangeToPointRequest,
     RuntimeTextSelectionGranularity, RuntimeTextSelectionMovementRequest,
     RuntimeTextSelectionMovementResolution,
@@ -297,27 +296,12 @@ fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
-    let mut advance = document
+    let advance = document
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
             layout_config: layout,
             line_breaking: crate::layout::LineBreaking::Greedy,
-            budget: RuntimeRevisionWorkBudget {
-                max_top_level_nodes: 1,
-            },
         })
         .expect("bounded revision starts");
-    while let Some(cursor) = advance.continuation.clone() {
-        advance = document
-            .continue_revision(RuntimeContinueRevisionRequest {
-                revision_id: cursor.revision_id,
-                revision_version: cursor.revision_version,
-                cursor: cursor.cursor,
-                budget: RuntimeRevisionWorkBudget {
-                    max_top_level_nodes: 1,
-                },
-            })
-            .expect("bounded revision advances");
-    }
     assert!(
         document
             .fragment_page_table_rejection_reason(&advance.revision.revision_id)
@@ -674,27 +658,12 @@ fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
         let mut layout = font_aware_layout();
         layout.font_family_override = Some(family.to_owned());
         layout.font_family_force = Some(true);
-        let mut advance = document
+        let advance = document
             .create_bounded_revision(RuntimeBoundedRevisionRequest {
                 layout_config: layout,
                 line_breaking: crate::layout::LineBreaking::Greedy,
-                budget: RuntimeRevisionWorkBudget {
-                    max_top_level_nodes: 1,
-                },
             })
             .expect("bounded revision starts");
-        while let Some(cursor) = advance.continuation.clone() {
-            advance = document
-                .continue_revision(RuntimeContinueRevisionRequest {
-                    revision_id: cursor.revision_id,
-                    revision_version: cursor.revision_version,
-                    cursor: cursor.cursor,
-                    budget: RuntimeRevisionWorkBudget {
-                        max_top_level_nodes: 1,
-                    },
-                })
-                .expect("bounded revision advances");
-        }
         assert!(
             document
                 .fragment_page_table_rejection_reason(&advance.revision.revision_id)

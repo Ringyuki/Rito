@@ -16,7 +16,7 @@ test('superseded locator waiters all settle with the latest locator snapshot', a
   const firstAllowed = deferred();
   const seenLocators = [];
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 3, true)),
+    create: async () => versioned(advance(0, 3)),
     locator: async (revision, locator, extent) => {
       seenLocators.push(locator.href);
       if (locator.href === 'a.xhtml') {
@@ -50,7 +50,7 @@ function pending(revision, locator) {
     revisionId: revision.revisionId,
     locator,
     spineIdref: 'chapter',
-    reason: 'notPaginated',
+    reason: 'noPageProjection',
     matchedBy: 'href',
   };
 }

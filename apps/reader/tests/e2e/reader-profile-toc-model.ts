@@ -75,7 +75,7 @@ export interface ReaderProfileActiveHrefObservation {
 
 export interface ReaderProfileHeldTocResponse {
   readonly workerId: number;
-  readonly category: 'mainContinuation' | 'chapterLocalMutation';
+  readonly category: 'chapterLocalMutation';
   readonly kind: string;
   readonly requestId: number;
   readonly heldAt: number;
@@ -88,7 +88,6 @@ export interface ReaderProfileTocSupersedeTransitionInput extends ReaderProfileT
   readonly observedHrefObservations: readonly ReaderProfileActiveHrefObservation[];
   /** The near-target click time at which the earlier far intent became stale. */
   readonly supersededAt: number;
-  readonly heldContinuationRequestId: number;
   readonly heldResponses: readonly ReaderProfileHeldTocResponse[];
 }
 
@@ -97,7 +96,6 @@ export interface ReaderProfileTocSupersedeTransition extends ReaderProfileTocTra
   readonly observedHrefs: readonly string[];
   readonly observedHrefObservations: readonly ReaderProfileActiveHrefObservation[];
   readonly supersededAt: number;
-  readonly heldContinuationRequestId: number;
   readonly heldResponses: readonly ReaderProfileHeldTocResponse[];
   readonly staleCommitCount: number;
 }

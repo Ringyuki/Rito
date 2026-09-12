@@ -24,7 +24,6 @@ export function browserReaderChapterLocalTransport(
     },
     createBoundedChapterLocalRevision: (request) =>
       worker.createBoundedChapterLocalRevision(request),
-    continueChapterLocalRevision: (request) => worker.continueChapterLocalRevision(request),
     releaseChapterLocalRevision: (owner) => worker.releaseChapterLocalRevision(owner),
   };
 }
@@ -35,7 +34,6 @@ function isCapableWorker(
   const candidate = worker as Partial<BrowserReaderChapterLocalCapableWorker>;
   return (
     typeof candidate.createBoundedChapterLocalRevision === 'function' &&
-    typeof candidate.continueChapterLocalRevision === 'function' &&
     typeof candidate.releaseChapterLocalRevision === 'function'
   );
 }

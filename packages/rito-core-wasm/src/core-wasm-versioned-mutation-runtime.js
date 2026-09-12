@@ -1,55 +1,16 @@
 import {
   encodeJson,
   parseObject,
-  requireInitialRevisionAdvance,
   requireRevisionAdvance,
   requireRevisionHandle,
   requireRevisionSummary,
 } from './core-wasm-versioned-validation-runtime.js';
 
-export function runBoundedMutation(
-  document,
-  rawMethod,
-  operation,
-  input,
-  maximum,
-  expectedRevisionId,
-  expectedRevisionVersion,
-) {
-  const fallback =
-    expectedRevisionId === undefined
-      ? undefined
-      : { revisionId: expectedRevisionId, revisionVersion: expectedRevisionVersion };
-  return runCommittedMutation(document, rawMethod, operation, input, fallback, (result) => {
-    const revision = requireRevisionSummary(
-      result.revision,
-      operation,
-      fallback?.revisionId,
-      fallback?.revisionVersion ?? 0,
-    );
-    return operation === 'createBoundedRevision'
-      ? requireInitialRevisionAdvance(result, revision, operation, maximum)
-      : requireRevisionAdvance(result, revision, operation, maximum);
+export function runBoundedMutation(document, rawMethod, operation, input) {
+  return runCommittedMutation(document, rawMethod, operation, input, undefined, (result) => {
+    const revision = requireRevisionSummary(result.revision, operation, undefined, 0);
+    return requireRevisionAdvance(result, revision, operation);
   });
-}
-
-export function runCancelMutation(document, input, handle) {
-  const next = { revisionId: handle.revisionId, revisionVersion: handle.revisionVersion + 1 };
-  return runCommittedMutation(
-    document,
-    'cancelRevisionJson',
-    'cancelRevision',
-    input,
-    next,
-    (result) =>
-      requireRevisionSummary(
-        result,
-        'cancelRevision',
-        next.revisionId,
-        next.revisionVersion,
-        'cancelled',
-      ),
-  );
 }
 
 function runCommittedMutation(document, rawMethod, operation, input, fallbackHandle, validate) {

@@ -1,15 +1,8 @@
 import {
   requireObjectInput,
   requireRevisionTransferCount,
-  requireRevisionWorkBudget,
 } from './core-wasm-versioned-validation-runtime.js';
-import {
-  requireMatchingSourceLocatorRequest,
-  requireSourceLocatorRequest,
-} from './reader-worker-interaction-validation-runtime.js';
-
-const MAX_LOCAL_PAGE_CAP = 16;
-const MAX_LOCAL_QUANTA = 16;
+import { requireSourceLocatorRequest } from './reader-worker-interaction-validation-runtime.js';
 
 export function requireChapterLocalOwner(value, operation) {
   const owner = requireRecord(value, `${operation} owner`);
@@ -37,14 +30,6 @@ export function sameChapterLocalOwner(left, right) {
   );
 }
 
-export function nextChapterLocalOwner(owner, operation) {
-  const current = requireChapterLocalOwner(owner, operation);
-  if (current.revisionVersion === 0xffff_ffff) {
-    throw new Error(`${operation} cannot advance revisionVersion beyond u32`);
-  }
-  return { ...current, revisionVersion: current.revisionVersion + 1 };
-}
-
 export function requireBoundedChapterLocalRequest(value, operation) {
   const request = requireObjectInput(value, operation);
   requireRecord(request.layoutConfig, `${operation} layoutConfig`);
@@ -56,9 +41,6 @@ export function requireBoundedChapterLocalRequest(value, operation) {
     requireSourceLocatorRequest(request.targetLocator, operation),
     operation,
   );
-  const localPageCap = requireLocalPageCap(request.localPageCap, request.layoutConfig, operation);
-  const nodesPerQuantum = requireRevisionWorkBudget(request.budget, operation);
-  const maxQuanta = requireLocalQuanta(request.maxQuanta, operation);
   const lineBreaking = requireLineBreaking(request.lineBreaking, operation);
   return {
     request: {
@@ -66,48 +48,8 @@ export function requireBoundedChapterLocalRequest(value, operation) {
       ...(lineBreaking === undefined ? {} : { lineBreaking }),
       targetChapterIndex,
       targetLocator,
-      localPageCap,
-      budget: { maxTopLevelNodes: nodesPerQuantum },
-      ...(maxQuanta === undefined ? {} : { maxQuanta }),
     },
-    maximum: nodesPerQuantum * (maxQuanta ?? 1),
   };
-}
-
-export function requireContinueChapterLocalRequest(value, operation) {
-  const request = requireObjectInput(value, operation);
-  const continuation = requireChapterLocalCursor(request.continuation, operation);
-  const nodesPerQuantum = requireRevisionWorkBudget(request.budget, operation);
-  const maxQuanta = requireLocalQuanta(request.maxQuanta, operation);
-  return {
-    request: {
-      continuation,
-      budget: { maxTopLevelNodes: nodesPerQuantum },
-      ...(maxQuanta === undefined ? {} : { maxQuanta }),
-    },
-    maximum: nodesPerQuantum * (maxQuanta ?? 1),
-  };
-}
-
-export function requireChapterLocalCursor(value, operation, expectedOwner, expectedLocator) {
-  const cursor = requireRecord(value, `${operation} continuation`);
-  const owner =
-    expectedOwner === undefined
-      ? requireChapterLocalOwner(cursor.owner, `${operation} continuation`)
-      : requireMatchingChapterLocalOwner(cursor.owner, expectedOwner, `${operation} continuation`);
-  const token = requireNonEmptyString(cursor.cursor, `${operation} continuation cursor`);
-  const targetLocator = requireSourceLocatorRequest(
-    cursor.targetLocator,
-    `${operation} continuation`,
-  );
-  if (expectedLocator !== undefined) {
-    requireMatchingSourceLocatorRequest(
-      targetLocator,
-      expectedLocator,
-      `${operation} continuation`,
-    );
-  }
-  return { owner, cursor: token, targetLocator };
 }
 
 export function canonicalChapterLocalTarget(locator, operation = 'chapter-local target') {
@@ -186,25 +128,7 @@ function requireU32(value, operation) {
   return value;
 }
 
-function requireLocalPageCap(value, layoutConfig, operation) {
-  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_LOCAL_PAGE_CAP) {
-    throw new Error(`${operation} localPageCap must be within 1..=${MAX_LOCAL_PAGE_CAP}`);
-  }
-  if (layoutConfig.spreadMode === 'double' && (value < 2 || value % 2 !== 0)) {
-    throw new Error(`${operation} localPageCap must cover complete double spreads`);
-  }
-  return value;
-}
-
 function requireLineBreaking(value, operation) {
   if (value === undefined || value === 'greedy' || value === 'optimal') return value;
   throw new Error(`${operation} lineBreaking must be greedy or optimal`);
-}
-
-function requireLocalQuanta(value, operation) {
-  if (value === undefined) return undefined;
-  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_LOCAL_QUANTA) {
-    throw new Error(`${operation} maxQuanta must be within 1..=${MAX_LOCAL_QUANTA}`);
-  }
-  return value;
 }

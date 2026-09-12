@@ -5,8 +5,6 @@ import type {
   CoreChapterLocalOwner,
   CoreChapterLocalRevisionAdvance,
   CoreChapterLocalRevisionRelease,
-  CoreContinueChapterLocalRevisionRequest,
-  CoreContinuedChapterLocalRevisionAdvance,
   CoreLayoutConfig,
   CoreReaderChapterLocalFrame,
   CoreReaderChapterLocalMutationResult,
@@ -17,9 +15,7 @@ import type { BrowserReaderFrame } from '../reader/types';
 // aliases deliberately do not recreate a second wire contract in `rito`.
 export type BrowserReaderChapterLocalOwner = CoreChapterLocalOwner;
 export type BrowserReaderChapterLocalCreateRequest = CoreBoundedChapterLocalRevisionRequest;
-export type BrowserReaderChapterLocalContinueRequest = CoreContinueChapterLocalRevisionRequest;
 export type BrowserReaderChapterLocalAdvance = CoreChapterLocalRevisionAdvance;
-export type BrowserReaderContinuedChapterLocalAdvance = CoreContinuedChapterLocalRevisionAdvance;
 export type BrowserReaderChapterLocalFrameBuffer = Pick<
   CoreReaderChapterLocalFrame,
   'owner' | 'localSpreadIndex' | 'metadata' | 'bytes'
@@ -39,9 +35,6 @@ export interface BrowserReaderChapterLocalTransport {
   createBoundedChapterLocalRevision(
     request: BrowserReaderChapterLocalCreateRequest,
   ): Promise<BrowserReaderChapterLocalMutationResult>;
-  continueChapterLocalRevision(
-    request: BrowserReaderChapterLocalContinueRequest,
-  ): Promise<BrowserReaderChapterLocalMutationResult<BrowserReaderContinuedChapterLocalAdvance>>;
   releaseChapterLocalRevision(
     owner: BrowserReaderChapterLocalOwner,
   ): Promise<BrowserReaderChapterLocalRelease>;
@@ -85,7 +78,5 @@ export interface BrowserReaderChapterLocalPreviewState {
 export type BrowserReaderChapterLocalCapableWorker = BrowserReaderWorkerClient &
   Pick<
     BrowserReaderChapterLocalTransport,
-    | 'createBoundedChapterLocalRevision'
-    | 'continueChapterLocalRevision'
-    | 'releaseChapterLocalRevision'
+    'createBoundedChapterLocalRevision' | 'releaseChapterLocalRevision'
   >;

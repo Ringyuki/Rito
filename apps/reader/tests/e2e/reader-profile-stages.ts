@@ -21,11 +21,9 @@ import type {
   ReaderProfileTransition,
   ReaderProfileViewport,
 } from './reader-profile-model';
-import { requireIncompleteRevision } from './reader-profile-protocol';
 import {
   captureReaderProbeCursor,
   readReaderProbeSlice,
-  readReaderWorkerOperations,
   waitForReaderProbeIdle,
   type ReaderProbeCursor,
   type ReaderProbeSlice,
@@ -118,40 +116,6 @@ export async function runCachedTurnProfile(
   }
 }
 
-export async function runDeferredGrowthProfile(
-  page: Page,
-  previousChecksum: string,
-): Promise<TransitionProfileResult> {
-  const knownSpreadCount = await readerNumberAttribute(page, 'data-total-spreads');
-  const knownLastSpread = knownSpreadCount - 1;
-  const checksumBefore = await moveToKnownRevisionEnd(page, knownLastSpread, previousChecksum);
-  requireIncompleteRevision(await readReaderWorkerOperations(page));
-  await waitForReaderTransitionEnd(page);
-  const cursor = await captureReaderProbeCursor(page);
-  await startReaderTransitionObserver(page);
-  try {
-    await page.keyboard.press('ArrowRight');
-    await waitForExtentGrowth(page, knownSpreadCount, knownLastSpread);
-    const targetSpread = await currentSpread(page);
-    const targetFrame = await waitForReaderSpreadPaintSample(page, targetSpread, checksumBefore);
-    const paintedAt = await pageNow(page);
-    await requireAnimatedReaderTurn(page, targetFrame.capturedAt);
-    const checksumAfter = await stableReaderCanvasSampleChecksum(page);
-    const observedUntil = await pageNow(page);
-    const slice = await finishProbeSlice(page, cursor);
-    return transitionResult(checksumAfter, slice, paintedAt, observedUntil, {
-      fromSpread: knownLastSpread,
-      toSpread: targetSpread,
-      knownSpreadCountBefore: knownSpreadCount,
-      knownSpreadCountAfter: await readerNumberAttribute(page, 'data-total-spreads'),
-      checksumBefore,
-      checksumAfter,
-    });
-  } finally {
-    await stopReaderTransitionObserver(page);
-  }
-}
-
 export async function runReflowProfile(
   page: Page,
   viewport: ReaderProfileViewport,
@@ -188,38 +152,6 @@ async function warmSecondSpread(page: Page, previousChecksum: string): Promise<s
   const checksum = await stableReaderCanvasSampleChecksum(page);
   await waitForReaderProbeIdle(page);
   return checksum;
-}
-
-async function moveToKnownRevisionEnd(
-  page: Page,
-  knownLastSpread: number,
-  previousChecksum: string,
-): Promise<string> {
-  await page.keyboard.press('End');
-  await waitForReaderSpreadPaint(
-    page,
-    knownLastSpread,
-    knownLastSpread === 1 ? undefined : previousChecksum,
-  );
-  const checksum = await stableReaderCanvasSampleChecksum(page);
-  await waitForReaderProbeIdle(page);
-  return checksum;
-}
-
-async function waitForExtentGrowth(
-  page: Page,
-  knownSpreadCount: number,
-  knownLastSpread: number,
-): Promise<void> {
-  await expect
-    .poll(() => readerNumberAttribute(page, 'data-total-spreads'), {
-      timeout: READER_LOAD_TIMEOUT_MS,
-      intervals: [10],
-    })
-    .toBeGreaterThan(knownSpreadCount);
-  await expect
-    .poll(() => currentSpread(page), { timeout: READER_LOAD_TIMEOUT_MS, intervals: [10] })
-    .toBeGreaterThan(knownLastSpread);
 }
 
 function transitionResult(
