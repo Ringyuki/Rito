@@ -31683,7 +31683,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 198,
-            "hash": "03ecdae29d3e39e2",
+            "hash": "788ae693b0fb71f6",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -31905,7 +31905,7 @@
                     "hash": "ca74b06295750d2c",
                     "length": 8
                   },
-                  196.8,
+                  196.797,
                   42.4
                 ],
                 "method": "fillText",
@@ -32956,7 +32956,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 198,
-            "hash": "56d77090e824d7f4",
+            "hash": "344cdb650f50be47",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -33178,7 +33178,7 @@
                     "hash": "ca74b06295750d2c",
                     "length": 8
                   },
-                  196.8,
+                  196.797,
                   42.4
                 ],
                 "method": "fillText",

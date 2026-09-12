@@ -160,14 +160,150 @@ impl ParleyInlineContext {
     /// annotation's own size, with the base's letter and word spacing
     /// off (an annotation ignores its base's spacing; the browser's
     /// annotation pen draws it packed and distributes the free width by
-    /// `ruby-align` afterwards).
+    /// `ruby-align` afterwards), and measures where its line sits over
+    /// the base `base_text` shaped in `style`: Chromium places the
+    /// annotation line so that its em-height descent rests on the base's
+    /// em-height ascent (LayoutNG `RubyBlockPositionCalculator`), each
+    /// em height the fonts' OS/2 typo ascent and descent normalized to
+    /// the em, united over the fonts the text used, ceiled to whole
+    /// pixels and capped by the style's primary font's rounded ascent and
+    /// descent (`ComputeEmHeight`). Measured on two books: a base whose
+    /// primary font is the Latin pin over a CJK fallback and a Latin
+    /// annotation sit 16px apart; a book face's 8.8px annotation 15px.
     pub fn measure_ruby_annotation(
         &self,
         style: &InlineFormattingStyleV1,
         annotation_size: f32,
+        base_text: &str,
         text: &str,
-    ) -> MeasuredRun {
-        self.shaped_run(style, Some(annotation_size), false, text)
+    ) -> MeasuredRuby {
+        let run = self.shaped_run(style, Some(annotation_size), false, text);
+        let base = self.em_height(style, None, base_text);
+        let annotation = self.em_height(style, Some(annotation_size), text);
+        MeasuredRuby {
+            run,
+            over_offset: base.ascent + annotation.descent,
+            em_ascent: annotation.primary_typo_ascent,
+        }
+    }
+
+    /// The em height of `text` shaped in `style` (at `size_override`
+    /// when given), the way Chromium's line layout reads it for ruby
+    /// placement: the OS/2 typo ascent and descent of every font the text
+    /// used, normalized so they sum to the em (`SimpleFontData::
+    /// NormalizedTypoAscentAndDescent`, each rounded onto the 1/64 grid),
+    /// united, ceiled to whole pixels, and capped by the primary font's
+    /// platform ascent and descent — the hhea metrics (typo when the
+    /// face asks for them) rounded to whole pixels the way Skia reports
+    /// them to Blink.
+    fn em_height(
+        &self,
+        style: &InlineFormattingStyleV1,
+        size_override: Option<f32>,
+        text: &str,
+    ) -> EmHeight {
+        let size = f64::from(size_override.unwrap_or(style.font.size.get()));
+        let mut united = (0.0_f64, 0.0_f64);
+        if !text.is_empty() {
+            let mut sized;
+            let shaped_style = match size_override
+                .and_then(|size| rito_style_contract::NonNegativeCssPx::new(size).ok())
+            {
+                Some(size) => {
+                    sized = style.clone();
+                    sized.font.size = size;
+                    &sized
+                }
+                None => style,
+            };
+            let mut fonts = self.fonts.borrow_mut();
+            let mut layouts = self.layouts.borrow_mut();
+            let mut builder =
+                SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
+            push_item_styles(&mut builder, shaped_style, 0..text.len());
+            let (mut layout, _) = builder.build(text);
+            layout.break_all_lines(None);
+            let mut seen: Vec<(u64, u32)> = Vec::new();
+            for line in layout.lines() {
+                for item in line.items() {
+                    let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                        continue;
+                    };
+                    let font = glyph_run.run().font();
+                    let key = (font.data.id(), font.index);
+                    if seen.contains(&key) {
+                        continue;
+                    }
+                    seen.push(key);
+                    let Ok(font_ref) = skrifa::FontRef::from_index(font.data.as_ref(), font.index)
+                    else {
+                        continue;
+                    };
+                    let (ascent, descent) = normalized_typo_height(&font_ref, size);
+                    united.0 = united.0.max(ascent);
+                    united.1 = united.1.max(descent);
+                }
+            }
+        }
+        let (primary_ascent, primary_descent, primary_typo_ascent) = self
+            .primary_font(style)
+            .and_then(|(blob, index)| {
+                let font_ref = skrifa::FontRef::from_index(blob.as_ref(), index).ok()?;
+                let (ascent, descent) = platform_ascent_descent(&font_ref, size);
+                let (typo_ascent, _) = normalized_typo_height(&font_ref, size);
+                Some((ascent, descent, typo_ascent))
+            })
+            .unwrap_or((f64::INFINITY, f64::INFINITY, 0.0));
+        EmHeight {
+            ascent: united.0.ceil().min(primary_ascent),
+            descent: united.1.ceil().min(primary_descent),
+            primary_typo_ascent,
+        }
+    }
+
+    /// The style's primary font — the first family of its list the
+    /// collection can serve (a named face that is registered, or the
+    /// first face behind a generic), the face Chromium reads platform
+    /// metrics from.
+    fn primary_font(
+        &self,
+        style: &InlineFormattingStyleV1,
+    ) -> Option<(parley::fontique::Blob<u8>, u32)> {
+        use parley::fontique::GenericFamily;
+        let mut fonts = self.fonts.borrow_mut();
+        let parley::FontContext {
+            collection,
+            source_cache,
+        } = &mut *fonts;
+        for family in style.font.families.iter() {
+            let id = match family {
+                FontFamily::Named(name) => collection.family_id(name.as_str()),
+                FontFamily::Generic(generic) => collection
+                    .generic_families(match generic {
+                        GenericFontFamily::Serif => GenericFamily::Serif,
+                        GenericFontFamily::SansSerif => GenericFamily::SansSerif,
+                        GenericFontFamily::Monospace => GenericFamily::Monospace,
+                        GenericFontFamily::Cursive => GenericFamily::Cursive,
+                        GenericFontFamily::Fantasy => GenericFamily::Fantasy,
+                        GenericFontFamily::SystemUi => GenericFamily::SystemUi,
+                    })
+                    .next(),
+            };
+            let Some(id) = id else {
+                continue;
+            };
+            let Some(info) = collection.family(id) else {
+                continue;
+            };
+            let Some(font) = info.default_font() else {
+                continue;
+            };
+            let index = font.index();
+            if let Some(blob) = font.load(Some(source_cache)) {
+                return Some((blob, index));
+            }
+        }
+        None
     }
 
     fn shaped_run(
@@ -227,6 +363,90 @@ impl ParleyInlineContext {
             grid: piece.grid,
         }
     }
+}
+
+/// A ruby annotation shaped for painting: its clusters and where its
+/// line sits over the base.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MeasuredRuby {
+    /// The annotation string shaped at its own size.
+    pub run: MeasuredRun,
+    /// How far above the base's alphabetic baseline the annotation's
+    /// alphabetic baseline sits (CSS px): the base's em-height ascent
+    /// plus the annotation's em-height descent, whole pixels in every
+    /// measured case.
+    pub over_offset: f64,
+    /// The annotation's em-box top above its alphabetic baseline at its
+    /// size: its primary font's OS/2 typo ascent normalized to the em
+    /// (what a browser canvas's `textBaseline: 'top'` resolves to).
+    pub em_ascent: f64,
+}
+
+/// A run's em height on Chromium's terms (see
+/// [`ParleyInlineContext::measure_ruby_annotation`]).
+struct EmHeight {
+    ascent: f64,
+    descent: f64,
+    primary_typo_ascent: f64,
+}
+
+/// The OS/2 typo ascent and descent of a face at `size`, normalized so
+/// they sum to the em and each rounded onto the 1/64 grid (Chromium's
+/// `NormalizedTypoAscentAndDescent`); a face without usable typo metrics
+/// normalizes its platform ascent and descent instead.
+fn normalized_typo_height(font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64) {
+    use skrifa::raw::TableProvider as _;
+    let typo = font_ref
+        .os2()
+        .ok()
+        .map(|os2| {
+            (
+                f64::from(os2.s_typo_ascender()),
+                -f64::from(os2.s_typo_descender()),
+            )
+        })
+        .filter(|(ascent, _)| *ascent > 0.0);
+    let (ascent, descent) = match typo {
+        Some(pair) => pair,
+        None => platform_ascent_descent(font_ref, size),
+    };
+    let height = ascent + descent;
+    if height <= 0.0 || ascent < 0.0 || ascent > height {
+        return (0.0, 0.0);
+    }
+    let normalized_ascent = layout_unit(ascent * size / height);
+    (normalized_ascent, layout_unit(size) - normalized_ascent)
+}
+
+/// A face's platform ascent and descent at `size`: the hhea metrics (the
+/// OS/2 typo metrics when the face sets USE_TYPO_METRICS), each rounded
+/// to a whole pixel the way Skia hands them to Blink's `FontMetrics`.
+fn platform_ascent_descent(font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64) {
+    use skrifa::raw::TableProvider as _;
+    let Ok(head) = font_ref.head() else {
+        return (0.0, 0.0);
+    };
+    let upem = f64::from(head.units_per_em());
+    if upem <= 0.0 {
+        return (0.0, 0.0);
+    }
+    let use_typo = font_ref.os2().ok().is_some_and(|os2| {
+        os2.fs_selection()
+            .contains(skrifa::raw::tables::os2::SelectionFlags::USE_TYPO_METRICS)
+    });
+    let (ascent, descent) = match (use_typo, font_ref.os2(), font_ref.hhea()) {
+        (true, Ok(os2), _) => (
+            f64::from(os2.s_typo_ascender()),
+            -f64::from(os2.s_typo_descender()),
+        ),
+        (_, _, Ok(hhea)) => (
+            f64::from(hhea.ascender().to_i16()),
+            -f64::from(hhea.descender().to_i16()),
+        ),
+        _ => return (0.0, 0.0),
+    };
+    let scale = |units: f64| (units * size / upem + 0.5).floor();
+    (scale(ascent), scale(descent))
 }
 
 /// The CJK blocks whose clusters shape one to one with no kerning, plus

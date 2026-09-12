@@ -60,17 +60,19 @@ export function drawCanvasRubyFragment(
   try {
     ctx.font = buildFontString(paint.font);
     ctx.fillStyle = color;
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'alphabetic';
     ctx.wordSpacing = '0px';
     ctx.letterSpacing = '0px';
     // The engine distributed the annotation over its base by the
     // computed `ruby-align` — across a horizontal base or down a
-    // vertical one — and sent every cluster's origin: the canvas draws
-    // each at its origin from the em-box top, spacing off. A run that
-    // arrives without origins draws as one string at the box's start.
+    // vertical one — and placed its line over the base: every cluster's
+    // origin is its alphabetic baseline, exactly like a text run's, so
+    // the canvas draws each at its origin with spacing off. A run that
+    // arrives without origins draws as one string at the box's start,
+    // its baseline 0.8 em below the rect's top like a text run's.
     const pieces = clusterPieces(ruby.text, ruby.clusters ?? []);
     if (pieces.length === 0) {
-      ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y);
+      ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y + 0.8 * paint.font.sizePx);
       return;
     }
     for (const piece of pieces) {

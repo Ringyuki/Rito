@@ -15,8 +15,8 @@ export function readRitoDisplayTextCommandV1(reader) {
 }
 
 /** The origin of every cluster in text order: byte offset into the run's
- * text and the absolute CSS point the pen draws it at — the alphabetic
- * baseline of a text run, the em-box top of an annotation. */
+ * text and the absolute CSS point the pen draws it at: the alphabetic
+ * baseline, for a text run and an annotation alike. */
 function readClusters(reader) {
   const count = reader.count('cluster count');
   const clusters = [];

@@ -3870,7 +3870,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 532,
-            "hash": "5d60c53dbf4bc253",
+            "hash": "6bb3c842ffc9c4a4",
             "methods": {
               "beginPath": 15,
               "clip": 1,
@@ -6859,7 +6859,7 @@
                     "hash": "0989f7efd3f03163",
                     "length": 35
                   },
-                  193.44,
+                  193.438,
                   368
                 ],
                 "method": "fillText",
@@ -7387,7 +7387,7 @@
                     "hash": "76b3c0acc0f178df",
                     "length": 25
                   },
-                  189.6,
+                  189.594,
                   441.4
                 ],
                 "method": "fillText",
@@ -7805,7 +7805,7 @@
                     "hash": "8670c52369386ddb",
                     "length": 15
                   },
-                  189.6,
+                  189.594,
                   514.8
                 ],
                 "method": "fillText",
@@ -8054,7 +8054,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 532,
-            "hash": "704bf5ff226925ae",
+            "hash": "4d66d9870bb4d2c5",
             "methods": {
               "beginPath": 15,
               "clip": 1,
@@ -11043,7 +11043,7 @@
                     "hash": "0989f7efd3f03163",
                     "length": 35
                   },
-                  193.44,
+                  193.438,
                   368
                 ],
                 "method": "fillText",
@@ -11571,7 +11571,7 @@
                     "hash": "76b3c0acc0f178df",
                     "length": 25
                   },
-                  189.6,
+                  189.594,
                   441.4
                 ],
                 "method": "fillText",
@@ -11989,7 +11989,7 @@
                     "hash": "8670c52369386ddb",
                     "length": 15
                   },
-                  189.6,
+                  189.594,
                   514.8
                 ],
                 "method": "fillText",
@@ -12279,7 +12279,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 317,
-            "hash": "6df797574054388b",
+            "hash": "48469dc459d2421c",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -13019,7 +13019,7 @@
                     "hash": "a8c687f343a4c244",
                     "length": 1
                   },
-                  95.366,
+                  95.359,
                   467.2
                 ],
                 "method": "fillText",
@@ -13941,7 +13941,7 @@
                     "hash": "315f00417a502594",
                     "length": 3
                   },
-                  460.131,
+                  460.125,
                   546
                 ],
                 "method": "fillText",
@@ -14289,7 +14289,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 317,
-            "hash": "c293c0c56b88cef3",
+            "hash": "b3604b9494549ab0",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -15029,7 +15029,7 @@
                     "hash": "a8c687f343a4c244",
                     "length": 1
                   },
-                  95.366,
+                  95.359,
                   467.2
                 ],
                 "method": "fillText",
@@ -15951,7 +15951,7 @@
                     "hash": "315f00417a502594",
                     "length": 3
                   },
-                  460.131,
+                  460.125,
                   546
                 ],
                 "method": "fillText",
@@ -16341,7 +16341,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 327,
-            "hash": "6797d4d077b907a1",
+            "hash": "9a858c0d792bd884",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -17662,7 +17662,7 @@
                     "hash": "ea48d9096ff42984",
                     "length": 2
                   },
-                  550.4,
+                  550.391,
                   457.6
                 ],
                 "method": "fillText",
@@ -17892,7 +17892,7 @@
                     "hash": "82fa6c72b7ca6d8b",
                     "length": 3
                   },
-                  133.6,
+                  133.594,
                   517.2
                 ],
                 "method": "fillText",
@@ -18413,7 +18413,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 327,
-            "hash": "2a6ad098b1888fea",
+            "hash": "b1f188c6172023a3",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -19734,7 +19734,7 @@
                     "hash": "ea48d9096ff42984",
                     "length": 2
                   },
-                  550.4,
+                  550.391,
                   457.6
                 ],
                 "method": "fillText",
@@ -19964,7 +19964,7 @@
                     "hash": "82fa6c72b7ca6d8b",
                     "length": 3
                   },
-                  133.6,
+                  133.594,
                   517.2
                 ],
                 "method": "fillText",

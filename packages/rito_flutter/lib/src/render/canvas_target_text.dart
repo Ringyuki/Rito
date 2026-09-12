@@ -2,26 +2,27 @@ part of 'canvas_target.dart';
 
 extension _TextPainting on RitoPrimitiveCanvasTarget {
   void _paintText(RitoPaintText command) {
-    _paintStringRun(command, ruby: false);
+    _paintStringRun(command);
   }
 
   void _paintRuby(RitoPaintRuby command) {
-    _paintStringRun(command, ruby: true);
+    _paintStringRun(command);
   }
 
   /// The engine pre-composes the run rect so its em-top encodes
-  /// `baseline - 0.8 * sizePx` (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
-  /// The browser pen paints with `textBaseline: 'alphabetic'`, which
-  /// Chromium snaps to the nearest device row — bit-identical to Blink's
-  /// DOM raster. Mirror both stages: resolve the target row, then anchor
-  /// the laid-out run by its actual alphabetic baseline.
+  /// `baseline - 0.8 * sizePx` (fragment_paint::CANVAS_TOP_ASCENT_RATIO)
+  /// for a text run and an annotation alike. The browser pen paints with
+  /// `textBaseline: 'alphabetic'`, which Chromium snaps to the nearest
+  /// device row — bit-identical to Blink's DOM raster. Mirror both
+  /// stages: resolve the target row, then anchor the laid-out run by its
+  /// actual alphabetic baseline.
   static const double _canvasTopAscentRatio = 0.8;
 
-  void _paintStringRun(RitoTextPaintCommand command, {required bool ruby}) {
+  void _paintStringRun(RitoTextPaintCommand command) {
     final rect = _rect(command.rect);
     _validateRunPaint(command.paint);
     if (command.clusters.isNotEmpty) {
-      _paintClusteredRun(command, rect, ruby: ruby);
+      _paintClusteredRun(command, rect);
       return;
     }
     // A run that arrives without origins (a fixture written by hand)
@@ -39,67 +40,39 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       TextBaseline.alphabetic,
     );
     final x = rect.left;
-    // Ruby anchors its em-box top at the rect (browser textBaseline
-    // 'top' = OS/2 sTypoAscender, probed against pinned Chromium);
-    // regular runs anchor their alphabetic baseline at the snapped row.
-    // Either way the raster lands the baseline on a whole device row.
+    // The run anchors its alphabetic baseline at the snapped row, so
+    // the raster lands the baseline on a whole device row.
     final baselineRow =
         (rect.top + _canvasTopAscentRatio * command.paint.font.sizePx)
             .roundToDouble();
-    final topAscent =
-        _fontEnvelopes
-            ?.lookupFamilyStack(command.paint.font.family)
-            ?.topAnchorAscentPx(command.paint.font.sizePx) ??
-        baselineOffset;
-    final topAnchorY = (rect.top + topAscent).roundToDouble() - baselineOffset;
-    final origin = ruby
-        ? ui.Offset(x, topAnchorY)
-        : ui.Offset(x, baselineRow - baselineOffset);
+    final origin = ui.Offset(x, baselineRow - baselineOffset);
     if (command.paint.textShadows.isNotEmpty) {
       // Shadow ink must be congruent with the glyph ink it copies: the
       // browser pen's scratch blit lands the shadow at the same baseline
       // its own glyph paints on, offset only by the shadow's offsets.
-      // Anchoring the shadow at the ruby top anchor while the glyph
-      // paints at the snapped alphabetic row floated every glow a few
-      // pixels above its glyphs (b52 colorpages dialogue).
       _paintTextShadows(painter, command.paint, origin);
     }
     painter.paint(_canvas, origin);
   }
 
   /// A run whose clusters the engine placed: every cluster draws at its
-  /// own origin. A text run's origin is its alphabetic baseline, already
-  /// on a device row; an annotation's origin is its em-box top (the
-  /// browser pen's textBaseline 'top'), which the font envelope's top
-  /// anchor turns into a whole baseline row. Spacing, justification,
-  /// ruby distribution, column stepping and the browser's fixed-point
-  /// advances are already in the origins, so the paragraphs carry no
-  /// spacing and one laid-out paragraph per (cluster, style) serves every
-  /// paint — laying each cluster out per paint costs twenty times what
-  /// a run does.
-  void _paintClusteredRun(
-    RitoTextPaintCommand command,
-    ui.Rect rect, {
-    bool ruby = false,
-  }) {
+  /// own origin, its alphabetic baseline — a text run's on a device row
+  /// already, an annotation's a whole number of pixels over its base's.
+  /// Spacing, justification, ruby distribution, column stepping and the
+  /// browser's fixed-point advances are already in the origins, so the
+  /// paragraphs carry no spacing and one laid-out paragraph per
+  /// (cluster, style) serves every paint — laying each cluster out per
+  /// paint costs twenty times what a run does.
+  void _paintClusteredRun(RitoTextPaintCommand command, ui.Rect rect) {
     final paint = command.paint;
     final color = _effectiveTextColor(paint, rect);
-    final topAscent = ruby
-        ? _fontEnvelopes
-              ?.lookupFamilyStack(paint.font.family)
-              ?.topAnchorAscentPx(paint.font.sizePx)
-        : null;
     final pieces = _clusterPieces(command.text, command.clusters);
     final placed = <(ui.Paragraph, ui.Offset)>[];
     for (final piece in pieces) {
       final paragraph = _clusterParagraph(piece.text, paint, color);
-      final row = ruby
-          ? (piece.y + (topAscent ?? paragraph.alphabeticBaseline))
-                .roundToDouble()
-          : piece.y;
       placed.add((
         paragraph,
-        ui.Offset(piece.x, row - paragraph.alphabeticBaseline),
+        ui.Offset(piece.x, piece.y - paragraph.alphabeticBaseline),
       ));
     }
     if (paint.textShadows.isNotEmpty) {

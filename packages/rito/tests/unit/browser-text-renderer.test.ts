@@ -125,8 +125,9 @@ describe('production Canvas text renderer', () => {
     };
     const result = drawRuby(ruby, COLOR_OVERRIDE);
     // The engine distributed the annotation (here the space-around
-    // shares over a 50px base); the pen draws each cluster at its origin
-    // from the box top with its own spacing off.
+    // shares over a 50px base) and placed its line; the pen draws each
+    // cluster at its origin, its alphabetic baseline, with its own
+    // spacing off — exactly as a text run.
     expect(result.getCalls('fillText').map((call) => call.args)).toEqual([
       ['か', 19.5, 20],
       ['な', 38.5, 20],
@@ -134,7 +135,7 @@ describe('production Canvas text renderer', () => {
     expect(result.getCalls('measureText')).toHaveLength(0);
     expect(lastProperty(result, 'wordSpacing')).toBe('0px');
     expect(lastProperty(result, 'letterSpacing')).toBe('0px');
-    expect(lastProperty(result, 'textBaseline')).toBe('top');
+    expect(lastProperty(result, 'textBaseline')).toBe('alphabetic');
     expect(lastProperty(result, 'fillStyle')).toBe('rgb(32, 32, 0)');
   });
 
@@ -147,7 +148,8 @@ describe('production Canvas text renderer', () => {
         'rt',
       ),
     );
-    expect(result.getCalls('fillText').map((call) => call.args)).toEqual([['rt', 10, 20]]);
+    // Its baseline 0.8 em below the rect's top, like a text run's.
+    expect(result.getCalls('fillText').map((call) => call.args)).toEqual([['rt', 10, 28]]);
     expect(result.getCalls('measureText')).toHaveLength(0);
   });
 

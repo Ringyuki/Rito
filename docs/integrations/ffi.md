@@ -71,8 +71,8 @@ paint — font, colour, text shadows: its inline box (background band,
 padding, border edges) and its decoration line arrive as fill and stroke
 primitives around it, and its letter and word spacing are already in its
 cluster origins. Every run carries the origin of every
-cluster (UTF-8 byte offset into its text, absolute CSS x and y — the
-alphabetic baseline of a text run, the em-box top of an annotation) with
+cluster (UTF-8 byte offset into its text, absolute CSS x and y — its
+alphabetic baseline, for a text run and an annotation alike) with
 spacing, justification and the browser's fixed-point advances already
 applied: a host draws each cluster at its origin with its own spacing
 off and never places a glyph itself. An outside list marker is such a
@@ -118,6 +118,10 @@ ratio` — device pixels per CSS pixel the host rasterizes at (its
   marker flag and the vertical flag no longer exist on the wire: every
   glyph is placed by its origin, a column's rotated marks arrive as
   their own runs under a transform primitive.
+- A ruby run's cluster origins are alphabetic baselines like a text
+  run's (they were the annotation's em-box top): the engine places the
+  annotation line over its base and a host draws every cluster the
+  same way whichever run it belongs to.
 
 Wire changes landed with the chapter-local one-pass cutover
 (rito_flutter 0.2.0 era) that a hand-written decoder must mirror:

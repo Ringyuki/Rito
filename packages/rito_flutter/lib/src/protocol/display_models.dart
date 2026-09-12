@@ -7,8 +7,8 @@ import 'display_paint.dart';
 /// at [byte] of the run's text, in CSS pixels, spacing and justification
 /// already applied.
 /// Where one cluster of a run paints: the origin of the cluster starting
-/// at [byte] of the run's UTF-8 text — [y] is the alphabetic baseline of
-/// a text run, the em-box top of an annotation.
+/// at [byte] of the run's UTF-8 text — [y] is the alphabetic baseline,
+/// for a text run and an annotation alike.
 final class RitoClusterPosition {
   const RitoClusterPosition({
     required this.byte,

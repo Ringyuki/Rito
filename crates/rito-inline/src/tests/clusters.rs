@@ -196,7 +196,7 @@ fn a_ruby_annotation_measures_at_its_size_with_the_base_spacing_off() {
         base.clusters[1].x, 10.0,
         "the base run folds 2px spacing after each 8px digit"
     );
-    let annotation = context.measure_ruby_annotation(&style, 8.0, "12");
+    let annotation = context.measure_ruby_annotation(&style, 8.0, "11", "12").run;
     assert_eq!(
         annotation
             .clusters
@@ -337,4 +337,58 @@ fn a_spread_ruby_base_keeps_one_origin_per_cluster_after_merging() {
         "the second glyph steps by the em plus the interior share: {origins:?} vs {}",
         16.0 + share
     );
+}
+
+/// Where an annotation's line sits over its base, Chromium's way: the
+/// base's em-height ascent plus the annotation's em-height descent, each
+/// the normalized OS/2 typo metric united over the fonts the text used,
+/// ceiled to whole pixels and capped by the primary font's rounded
+/// platform metric. Measured on the 042 witness: a CJK base under the
+/// Latin pin's primary metrics (Tinos 16px: ascent 14) with a Latin
+/// annotation (Tinos 8px: descent 2) sit 16px apart; the annotation's
+/// em-box top is its typo ascent (6.09375 = 1420/1862 × 8 on the grid).
+#[test]
+fn a_ruby_annotation_measures_its_line_offset_over_the_base() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context =
+        ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![
+            FontFamily::Named(FontFamilyName::new("Tinos")),
+            FontFamily::Generic(GenericFontFamily::Serif),
+        ])
+        .expect("family list"),
+        16.0,
+        0.0,
+    );
+    let measured = context.measure_ruby_annotation(&style, 8.0, "人族", "Emnetwiht");
+    assert_eq!(measured.over_offset, 16.0);
+    assert_eq!(measured.em_ascent, 6.09375);
+    // A CJK annotation over the same base: Source Han's 8px typo
+    // descent rounds to 0.953125 and ceils to 1, under Tinos's rounded
+    // platform descent of 2.
+    let cjk = context.measure_ruby_annotation(&style, 8.0, "人族", "かんじ");
+    assert_eq!(cjk.over_offset, 15.0);
+    assert_eq!(cjk.em_ascent, 6.09375);
+    // With Source Han primary, its own rounded platform ascent (18) no
+    // longer caps the ceiled typo ascent (15).
+    let serif = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    let source_han_context = ParleyInlineContext::new(vec![std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads")])
+    .expect("context builds");
+    let own = source_han_context.measure_ruby_annotation(&serif, 8.0, "人族", "かんじ");
+    assert_eq!(own.over_offset, 16.0);
+    assert_eq!(own.em_ascent, 7.046875);
 }

@@ -7946,7 +7946,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 222,
-            "hash": "c405c2c29da69fb5",
+            "hash": "0f5a694832c75317",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -8871,7 +8871,7 @@
                     "hash": "100b769dab43020c",
                     "length": 10
                   },
-                  115.2,
+                  115.188,
                   610.56
                 ],
                 "method": "fillText",
@@ -9002,7 +9002,7 @@
                     "hash": "d1ffcb638c935f67",
                     "length": 11
                   },
-                  141.6,
+                  141.594,
                   610.56
                 ],
                 "method": "fillText",
@@ -9133,7 +9133,7 @@
                     "hash": "7648cd367614d240",
                     "length": 12
                   },
-                  177.6,
+                  177.594,
                   610.56
                 ],
                 "method": "fillText",
@@ -9370,7 +9370,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 222,
-            "hash": "86ccd44f65d41ef6",
+            "hash": "8f1a133f88a88d4f",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -10295,7 +10295,7 @@
                     "hash": "100b769dab43020c",
                     "length": 10
                   },
-                  115.2,
+                  115.188,
                   610.56
                 ],
                 "method": "fillText",
@@ -10426,7 +10426,7 @@
                     "hash": "d1ffcb638c935f67",
                     "length": 11
                   },
-                  141.6,
+                  141.594,
                   610.56
                 ],
                 "method": "fillText",
@@ -10557,7 +10557,7 @@
                     "hash": "7648cd367614d240",
                     "length": 12
                   },
-                  177.6,
+                  177.594,
                   610.56
                 ],
                 "method": "fillText",

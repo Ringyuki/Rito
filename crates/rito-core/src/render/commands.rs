@@ -212,9 +212,9 @@ pub(crate) struct DisplayTextCommandInput {
     pub source_text: Option<Value>,
     pub source_text_offset: Option<usize>,
     /// Where each cluster of the text paints, in text order: byte offset
-    /// into `text` and the absolute CSS origin the pen draws it at — the
-    /// alphabetic baseline for a text run, the em-box top for an
-    /// annotation. Empty only for a run the renderer still places itself.
+    /// into `text` and the absolute CSS origin the pen draws it at — its
+    /// alphabetic baseline, for a text run and an annotation alike.
+    /// Empty only for a run the renderer still places itself.
     pub clusters: Vec<(u32, f64, f64)>,
 }
 

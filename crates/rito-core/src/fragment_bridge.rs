@@ -88,8 +88,9 @@ pub struct ChapterFormattingTree {
     /// Ruby annotations shaped at their own size with the base's spacing
     /// off, keyed by (inline-flow node id, item index): the natural
     /// cluster origins the painter distributes over each base segment by
-    /// `ruby-align`. Filled by [`ChapterFormattingTree::measure_painted_runs`].
-    pub ruby_annotation_runs: BTreeMap<(u32, usize), rito_inline::MeasuredRun>,
+    /// `ruby-align`, and how far over the base's baseline the annotation
+    /// line sits. Filled by [`ChapterFormattingTree::measure_painted_runs`].
+    pub ruby_annotation_runs: BTreeMap<(u32, usize), rito_inline::MeasuredRuby>,
     /// Constructs the tree could not represent exactly and rendered with
     /// an approximation instead (ignored decoration, flattened display,
     /// collapsed preserved white space, …). Empty means exact.
@@ -148,6 +149,7 @@ impl ChapterFormattingTree {
             };
             for (item_index, item) in items.iter().enumerate() {
                 let InlineItem::Text {
+                    text,
                     style,
                     ruby_annotation: Some(annotation),
                     ..
@@ -162,7 +164,7 @@ impl ChapterFormattingTree {
                 let annotation_size = style.font.size.get() * annotation.size_ratio;
                 self.ruby_annotation_runs.insert(
                     (node_id.0, item_index),
-                    context.measure_ruby_annotation(style, annotation_size, &annotation.text),
+                    context.measure_ruby_annotation(style, annotation_size, text, &annotation.text),
                 );
             }
         }

@@ -4018,7 +4018,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 532,
-            "hash": "ee3ef04224a1146e",
+            "hash": "f74dc03e466e411e",
             "methods": {
               "beginPath": 15,
               "clip": 1,
@@ -7007,7 +7007,7 @@
                     "hash": "0989f7efd3f03163",
                     "length": 35
                   },
-                  81.44,
+                  81.438,
                   356
                 ],
                 "method": "fillText",
@@ -7535,7 +7535,7 @@
                     "hash": "76b3c0acc0f178df",
                     "length": 25
                   },
-                  77.6,
+                  77.594,
                   429.4
                 ],
                 "method": "fillText",
@@ -7953,7 +7953,7 @@
                     "hash": "8670c52369386ddb",
                     "length": 15
                   },
-                  77.6,
+                  77.594,
                   502.8
                 ],
                 "method": "fillText",
@@ -8202,7 +8202,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 532,
-            "hash": "fa71267f17ac8309",
+            "hash": "d0d0e5ff1334bc29",
             "methods": {
               "beginPath": 15,
               "clip": 1,
@@ -11191,7 +11191,7 @@
                     "hash": "0989f7efd3f03163",
                     "length": 35
                   },
-                  81.44,
+                  81.438,
                   356
                 ],
                 "method": "fillText",
@@ -11719,7 +11719,7 @@
                     "hash": "76b3c0acc0f178df",
                     "length": 25
                   },
-                  77.6,
+                  77.594,
                   429.4
                 ],
                 "method": "fillText",
@@ -12137,7 +12137,7 @@
                     "hash": "8670c52369386ddb",
                     "length": 15
                   },
-                  77.6,
+                  77.594,
                   502.8
                 ],
                 "method": "fillText",
@@ -12428,7 +12428,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 313,
-            "hash": "fbbe2ee729d3d2b3",
+            "hash": "90d948b1a0e9a5f6",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -12798,7 +12798,7 @@
                     "hash": "a8c687f343a4c244",
                     "length": 1
                   },
-                  300.267,
+                  300.266,
                   151.2
                 ],
                 "method": "fillText",
@@ -13023,7 +13023,7 @@
                     "hash": "ffbd40cde60b276d",
                     "length": 3
                   },
-                  25.6,
+                  25.594,
                   210.8
                 ],
                 "method": "fillText",
@@ -13920,7 +13920,7 @@
                     "hash": "315f00417a502594",
                     "length": 3
                   },
-                  143.36,
+                  143.359,
                   343
                 ],
                 "method": "fillText",
@@ -14416,7 +14416,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 313,
-            "hash": "5860542512863760",
+            "hash": "1e83466be612aa05",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -14786,7 +14786,7 @@
                     "hash": "a8c687f343a4c244",
                     "length": 1
                   },
-                  300.267,
+                  300.266,
                   151.2
                 ],
                 "method": "fillText",
@@ -15011,7 +15011,7 @@
                     "hash": "ffbd40cde60b276d",
                     "length": 3
                   },
-                  25.6,
+                  25.594,
                   210.8
                 ],
                 "method": "fillText",
@@ -15908,7 +15908,7 @@
                     "hash": "315f00417a502594",
                     "length": 3
                   },
-                  143.36,
+                  143.359,
                   343
                 ],
                 "method": "fillText",

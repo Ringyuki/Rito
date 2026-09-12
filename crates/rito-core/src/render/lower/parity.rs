@@ -166,7 +166,12 @@ fn shape_fixture_clusters(
     style.text_flow.word_spacing =
         LengthPercentage::Length(CssPx::new(number("wordSpacingPx")).ok()?);
     if kind == "paintRuby" {
-        let run = shaper.measure_ruby_annotation(&style, size, text);
+        // A fixture's ruby rect starts at the annotation's em-box top;
+        // its clusters paint at the alphabetic baseline below it, on the
+        // device row the browser's pen snaps to.
+        let measured = shaper.measure_ruby_annotation(&style, size, "", text);
+        let run = measured.run;
+        let baseline = ((y + measured.em_ascent) * ratio).round() / ratio;
         let origins = rito_fragment::distribute_ruby_annotation(
             text,
             &run.clusters,
@@ -179,7 +184,7 @@ fn shape_fixture_clusters(
             run.clusters
                 .iter()
                 .zip(origins)
-                .map(|(cluster, origin)| (cluster.byte, origin, y))
+                .map(|(cluster, origin)| (cluster.byte, origin, baseline))
                 .collect(),
         );
     }
