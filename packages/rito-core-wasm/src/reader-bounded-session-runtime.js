@@ -1,10 +1,7 @@
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
-import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import { requireContinuationBatchLimit } from './core-wasm-versioned-validation-runtime.js';
-import { requireFontVerticalMetricCalibrationTransferResult } from './font-vertical-metric-calibration-validation-runtime.js';
 import {
   defaultYieldControl,
-  evaluateBoundedReaderLocatorResolution,
   evaluateBoundedReaderTarget,
   isActiveRevision,
   isNextFailedRevision,
@@ -78,18 +75,6 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     requestedTarget = { kind: 'complete', token: ++targetSequence };
     targetEvaluation = undefined;
     targetFailure = undefined;
-    return waitForSnapshot();
-  };
-
-  const calibrateFontVerticalMetrics = async (fontVerticalMetrics) => {
-    requireRunning('calibrate vertical font metrics');
-    const previous = revision;
-    const calibrated = await client.calibrateRevisionFontVerticalMetrics({
-      ...revisionHandle(previous),
-      ...(continuation === undefined ? {} : { continuation }),
-      fontVerticalMetrics,
-    });
-    acceptCalibration(calibrated, previous);
     return waitForSnapshot();
   };
 
@@ -180,7 +165,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   }
 
   async function advanceIfTargetStillUnavailable(previous) {
-    const initialAtomicMode = atomicContinuationMode(client, requestedTarget);
+    const initialAtomicMode = atomicContinuationMode(client);
     if (initialAtomicMode === 'none') {
       await releaseRevisionTransfers(previous);
       if (stopRequested !== undefined) return;
@@ -189,7 +174,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     if (latestEvaluation === undefined || latestEvaluation.available) return;
     const target = requestedTarget;
     if (target === undefined || latestEvaluation.token !== target.token) return;
-    const atomicMode = atomicContinuationMode(client, target);
+    const atomicMode = atomicContinuationMode(client);
     const continuationBatchQuanta =
       atomicMode === 'none' ? undefined : resolveContinuationBatchQuanta();
     const request = {
@@ -206,38 +191,8 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
       return;
     }
     pendingFailureMaximumStride = continuationBatchQuanta;
-    if (atomicMode === 'locator') {
-      await continueTowardSourceLocator(target, request, previous);
-      return;
-    }
     const continued = await client.continueRevisionAfterTransferRelease(request);
     acceptTransferReleasedAdvance(continued, previous);
-  }
-
-  async function continueTowardSourceLocator(target, request, previous) {
-    const continued = await client.continueRevisionTowardSourceLocator({
-      ...request,
-      locator: target.locator,
-    });
-    acceptTransferReleasedAdvance(continued, previous);
-    if (!isCurrentTarget(target, continued.revision)) return;
-    const outcome = continued.value.locatorOutcome;
-    if (outcome.kind === 'failed') {
-      const error = new RitoCoreWasmError(outcome.code, outcome.message, {
-        revision: outcome.revision,
-      });
-      if (isRecoverableTargetReadError(error)) {
-        targetFailure = { token: target.token, error };
-        return;
-      }
-      throw error;
-    }
-    targetEvaluation = evaluateBoundedReaderLocatorResolution(
-      target,
-      revision,
-      presentationSpreadIndex,
-      outcome.resolution,
-    );
   }
 
   function acceptTransferReleasedAdvance(continued, previous) {
@@ -368,20 +323,6 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     acceptRevision();
   }
 
-  function acceptCalibration(envelope, previous) {
-    requireAcceptedHandle(envelope, previous, 'vertical font metric calibration');
-    const value = requireFontVerticalMetricCalibrationTransferResult(
-      envelope.value,
-      revisionHandle(previous),
-      envelope.revision,
-      'vertical font metric calibration',
-    );
-    requirePreservedCalibrationRevision(previous, value.revision);
-    revision = value.revision;
-    continuation = value.continuation;
-    acceptRevision();
-  }
-
   function acceptRevision() {
     generation += 1;
     snapshot = undefined;
@@ -487,41 +428,13 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     ensureSpread,
     ensureLocator,
     complete,
-    calibrateFontVerticalMetrics,
     currentSnapshot,
     cancel,
     dispose,
   };
 }
 
-function requirePreservedCalibrationRevision(previous, calibrated) {
-  if (
-    previous.layoutKey !== calibrated.layoutKey ||
-    previous.status !== calibrated.status ||
-    previous.pageCount !== calibrated.pageCount ||
-    previous.spreadCount !== calibrated.spreadCount ||
-    previous.knownExtent.pageCount !== calibrated.knownExtent.pageCount ||
-    previous.knownExtent.spreadCount !== calibrated.knownExtent.spreadCount ||
-    !sameExtent(previous.finalExtent, calibrated.finalExtent)
-  ) {
-    throw new Error('vertical font metric calibration changed pagination identity');
-  }
-}
-
-function sameExtent(left, right) {
-  return (
-    left === right ||
-    (left !== undefined &&
-      right !== undefined &&
-      left.pageCount === right.pageCount &&
-      left.spreadCount === right.spreadCount)
-  );
-}
-
-function atomicContinuationMode(client, target) {
-  if (target?.kind === 'locator' && client.continueRevisionTowardSourceLocator !== undefined) {
-    return 'locator';
-  }
+function atomicContinuationMode(client) {
   return client.continueRevisionAfterTransferRelease === undefined ? 'none' : 'generic';
 }
 

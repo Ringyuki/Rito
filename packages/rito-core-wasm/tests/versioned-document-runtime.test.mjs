@@ -171,7 +171,6 @@ test('all versioned direct methods validate and echo the complete handle', () =>
     () => document.getFootnotesAtRevision(handle),
     () => document.getChapterTextIndicesAtRevision(handle),
     () => document.getRevisionSummaryAtRevision(handle),
-    () => document.getShapeProvenanceDiagnosticAtRevision(handle),
     () => document.getRevisionBundleAtRevision(handle, true),
     () => document.getRevisionPresentationAtRevision(handle),
     () => document.getRevisionNavigationAtRevision(handle),
@@ -214,34 +213,6 @@ test('versioned direct methods reject invalid input and mismatched raw envelopes
     /mismatched revision handle/,
   );
 });
-
-function shapeDiagnostic() {
-  return {
-    schemaVersion: 1,
-    isComplete: true,
-    knownPageCount: 1,
-    totalTextRuns: 1,
-    exactTextRuns: 0,
-    unavailableTextRuns: 1,
-    totalTextUtf16CodeUnitCount: 1,
-    exactTextUtf16CodeUnitCount: 0,
-    unavailableTextUtf16CodeUnitCount: 1,
-    excludedRubyTextRunCount: 0,
-    excludedRubyTextUtf16CodeUnitCount: 0,
-    singleFontTextRuns: 0,
-    mixedFontTextRuns: 0,
-    unavailableReasonCounts: { hostMetricsFallback: 1 },
-    unavailableReasonUtf16CodeUnitCounts: { hostMetricsFallback: 1 },
-    singleFontFingerprints: {},
-    mixedFontFingerprints: {},
-    unavailableAffectedCodepoints: [
-      { codepoint: 'U+0041', count: 1, reasonCounts: { hostMetricsFallback: 1 } },
-    ],
-    unavailableAffectedCodepointOccurrenceCount: 1,
-    unavailableAffectedCodepointDistinctCount: 1,
-    unavailableAffectedCodepointOmittedCount: 0,
-  };
-}
 
 function advance(version, status, continuing) {
   const revision = summary(version, status);
@@ -312,7 +283,6 @@ function versionedValue(property, args, version) {
   if (property === 'getRevisionPresentationAtRevisionJson') {
     return presentation(version, revisionId);
   }
-  if (property === 'getShapeProvenanceDiagnosticAtRevisionJson') return shapeDiagnostic();
   if (property === 'resolveTextCaretAtRevisionJson') return caretResponse({ revisionId });
   if (property === 'resolveTextRangeAtRevisionJson') {
     return rangeResponse(JSON.parse(args[2]), { revisionId });

@@ -71,23 +71,10 @@ test.fixme('restores a saved position before the first visible reader frame', as
 
   const operations = await readReaderWorkerOperations(page);
   expect(operations.some((operation) => operation.ok === false)).toBe(false);
-  const targetContinuation = operations
-    .filter(
-      (operation) =>
-        operation.kind === 'continueRevisionTowardSourceLocator' && operation.ok === true,
-    )
-    .at(-1);
-  expect(targetContinuation?.revision).not.toBeNull();
   const firstFrameRead = operations.find(
     (operation) => operation.kind === 'warmFrameWindowAtRevision' && operation.ok === true,
   );
   expect(firstFrameRead?.spreadIndex).toBe(expectedSpread);
-  expect(firstFrameRead?.requestedRevision?.revisionId).toBe(
-    targetContinuation?.revision?.revisionId,
-  );
-  expect(firstFrameRead?.requestedRevision?.revisionVersion ?? -1).toBeGreaterThanOrEqual(
-    targetContinuation?.revision?.revisionVersion ?? Number.MAX_SAFE_INTEGER,
-  );
 });
 
 async function loadDemoBook(page: Page): Promise<void> {

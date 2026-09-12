@@ -41,21 +41,12 @@ describe('Browser bounded font geometry replacement', () => {
       wordSpacing: '',
       letterSpacing: '',
     });
-    const demands = [
-      { fontFamily: 'missing', fontStyle: 'normal' as const, fontWeight: 400, fontSizePx: 16 },
-    ];
-
-    expect(captureBrowserReaderCandidateHostFontMetrics(state, demands, false, false)).toEqual({
+    expect(captureBrowserReaderCandidateHostFontMetrics(state, false, false)).toEqual({
       horizontalMetricsChanged: true,
-      addedVerticalMetricSamples: [],
-      demandedVerticalMetricSamples: [],
     });
     expect(state.fontMetrics.genericSerif).toBeDefined();
-    expect(state.fontMetrics.verticalMetrics).toEqual({});
-    expect(captureBrowserReaderCandidateHostFontMetrics(state, demands, false, false)).toEqual({
+    expect(captureBrowserReaderCandidateHostFontMetrics(state, false, false)).toEqual({
       horizontalMetricsChanged: false,
-      addedVerticalMetricSamples: [],
-      demandedVerticalMetricSamples: [],
     });
   });
 
@@ -130,14 +121,7 @@ describe('Browser bounded font geometry replacement', () => {
         ) => Promise<BrowserReaderBoundedSnapshot | undefined>
       >()
       .mockImplementationOnce(() => {
-        state.fontMetrics.verticalMetrics['new'] = {
-          fontFamily: 'body',
-          fontStyle: 'normal',
-          fontWeight: 400,
-          fontSizePx: 16,
-          topBaselineAscentPx: 3,
-          topBaselineDescentPx: 14,
-        };
+        state.fontMetrics.fontFamilies['new'] = { advances: {}, pairAdjustments: {} };
         return Promise.resolve(undefined);
       })
       .mockResolvedValueOnce(snapshot);
@@ -212,7 +196,6 @@ function owner(
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
-      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(),
       cancel: vi.fn(),
       dispose: vi.fn(),

@@ -16,32 +16,6 @@ impl RuntimeContinuationStore {
         self.by_cursor.get(cursor)
     }
 
-    pub(in crate::runtime) fn insert_new(
-        &mut self,
-        cursor: String,
-        continuation: RuntimeContinuationRecord,
-    ) {
-        let revision_id = continuation.revision_id.clone();
-        self.assert_matching_lengths();
-        assert!(
-            !self.by_cursor.contains_key(&cursor),
-            "continuation cursor must be unique"
-        );
-        assert!(
-            !self.active_cursor_by_revision.contains_key(&revision_id),
-            "revision must not already own an active continuation cursor"
-        );
-        assert!(self
-            .by_cursor
-            .insert(cursor.clone(), continuation)
-            .is_none());
-        assert!(self
-            .active_cursor_by_revision
-            .insert(revision_id, cursor)
-            .is_none());
-        self.assert_matching_lengths();
-    }
-
     pub(in crate::runtime) fn take_exact(
         &mut self,
         revision_id: &str,
@@ -110,11 +84,6 @@ impl RuntimeContinuationStore {
     #[cfg(test)]
     pub(in crate::runtime) fn is_empty(&self) -> bool {
         self.by_cursor.is_empty()
-    }
-    pub(in crate::runtime) fn cursor_for_revision(&self, revision_id: &str) -> Option<&str> {
-        self.active_cursor_by_revision
-            .get(revision_id)
-            .map(String::as_str)
     }
 }
 

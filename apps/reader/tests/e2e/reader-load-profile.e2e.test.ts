@@ -100,11 +100,7 @@ function writeConfiguredProfileOutput(json: string): void {
 }
 
 function continuationDiagnostics(stage: ReaderLoadProfileReport['stages']['farToc']) {
-  const continuationKinds = new Set([
-    'continueRevision',
-    'continueRevisionAfterTransferRelease',
-    'continueRevisionTowardSourceLocator',
-  ]);
+  const continuationKinds = new Set(['continueRevision', 'continueRevisionAfterTransferRelease']);
   const operations = stage.operations.filter((entry) => continuationKinds.has(entry.kind));
   return {
     count: operations.length,

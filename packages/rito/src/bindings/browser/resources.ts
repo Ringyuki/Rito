@@ -10,11 +10,7 @@ import type {
   CoreRevisionHandle,
   CoreResourceKind,
 } from './core-contracts';
-import {
-  ensureHostFontFamilyMetrics,
-  ensureHostFontVerticalMetrics,
-  ensureHostGenericSerifMetrics,
-} from './font-metrics';
+import { ensureHostFontFamilyMetrics, ensureHostGenericSerifMetrics } from './font-metrics';
 import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
 import { trackBrowserReaderHostTask } from './reader-host-tasks';
 import { prepareBrowserReaderRevisionFonts } from './publication-fonts';
@@ -56,10 +52,7 @@ export interface BrowserReaderMissingFrameResource {
 }
 
 export async function preloadReaderFonts(state: BrowserReaderState): Promise<boolean> {
-  const verticalDemands = state.revisionBundle.fontVerticalMetricDemands ?? [];
-  if (state.pinnedFonts.summary.faces.length > 0) {
-    return ensureHostFontVerticalMetrics(state.fontMetrics, state.ctx, verticalDemands);
-  }
+  if (state.pinnedFonts.summary.faces.length > 0) return false;
   const revision = state.revisionHandle;
   if (!revision) return false;
   const worker = state.worker;
@@ -81,9 +74,6 @@ export async function preloadReaderFonts(state: BrowserReaderState): Promise<boo
         state.ctx,
         [...state.registeredFontFaces.values()].map((face) => face.family),
       ) || metricsChanged;
-    metricsChanged =
-      ensureHostFontVerticalMetrics(state.fontMetrics, state.ctx, verticalDemands) ||
-      metricsChanged;
   }
   if (state.registeredFontFaces.size > registeredBefore) {
     for (const spreadIndex of [...state.frames.keys()])

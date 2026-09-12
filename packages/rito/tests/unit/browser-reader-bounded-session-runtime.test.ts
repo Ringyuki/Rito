@@ -578,70 +578,6 @@ describe('Browser bounded session runtime', () => {
     expect(request?.sourcePoint?.nodePath).not.toBe(locator.sourcePoint?.nodePath);
   });
 
-  it('publishes a calibrated exact-only locator before resolving its atomic handoff', async () => {
-    Object.defineProperty(globalThis, CHAPTER_LOCAL_PREVIEW_GATE, {
-      configurable: true,
-      value: false,
-    });
-    const fixture = currentFixture();
-    const locator: ReaderLocator = { href: 'chapter.xhtml' };
-    const demanded = withVerticalMetricDemand(
-      boundedSnapshot('current', 1, 2, 'ready', {
-        target: {
-          kind: 'locator',
-          locator,
-          resolution: {
-            status: 'resolved',
-            revisionId: 'current',
-            locator,
-            spineIdref: 'chapter',
-            pageIndex: 1,
-            spreadIndex: 1,
-            matchedBy: 'href',
-          },
-        },
-      }),
-    );
-    const calibrated = withoutVerticalMetricDemand(demanded);
-    fixture.owner.controller.ensureLocator = vi.fn(() => {
-      recordBrowserReaderAcceptedRevision(fixture.owner, demanded.revision);
-      mockAggregates(fixture.worker, demanded);
-      return Promise.resolve(demanded);
-    });
-    const calibrateFontVerticalMetrics = vi.fn(() => {
-      recordBrowserReaderAcceptedRevision(fixture.owner, calibrated.revision);
-      mockAggregates(fixture.worker, calibrated);
-      return Promise.resolve(calibrated);
-    });
-    fixture.owner.controller.calibrateFontVerticalMetrics = calibrateFontVerticalMetrics;
-    Object.assign(fixture.state.ctx, {
-      save: vi.fn(),
-      restore: vi.fn(),
-      measureText: vi.fn(() => ({
-        width: 16,
-        fontBoundingBoxAscent: 3,
-        fontBoundingBoxDescent: 14,
-      })),
-      font: '',
-      textBaseline: 'alphabetic',
-    });
-    const order: string[] = [];
-    fixture.state.layoutCommittedListeners.add((spreadIndex) => {
-      order.push(`layout:${String(spreadIndex)}`);
-    });
-
-    const resolution = ensureBrowserReaderBoundedLocator(fixture.state, locator).then((value) => {
-      order.push('resolved');
-      return value;
-    });
-    await expect(resolution).resolves.toMatchObject({ status: 'resolved', spreadIndex: 1 });
-
-    expect(calibrateFontVerticalMetrics).toHaveBeenCalledOnce();
-    expect(order).toEqual(['layout:1', 'resolved']);
-    expect(fixture.state.activeSpreadIndex).toBe(1);
-    expect(fixture.state.revisionBundle.revision).toBe(calibrated.revision);
-  });
-
   it('completes once and publishes a full layout commit', async () => {
     const fixture = currentFixture();
     const final = boundedSnapshot('current', 0, 1, 'complete', {
@@ -771,7 +707,6 @@ function owner(
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
-      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(),
       cancel: vi.fn(),
       dispose: vi.fn(() => Promise.resolve()),
@@ -833,45 +768,6 @@ function boundedSnapshot(
           },
         }
       : {}),
-  };
-}
-
-function withVerticalMetricDemand(
-  snapshot: BrowserReaderBoundedSnapshot,
-): BrowserReaderBoundedSnapshot {
-  return {
-    ...snapshot,
-    presentation: {
-      ...snapshot.presentation,
-      fontFamilies: ['ReaderBody'],
-      fontVerticalMetricDemands: [
-        {
-          fontFamily: 'ReaderBody',
-          fontStyle: 'normal',
-          fontWeight: 400,
-          fontSizePx: 16,
-        },
-      ],
-    },
-  };
-}
-
-function withoutVerticalMetricDemand(
-  snapshot: BrowserReaderBoundedSnapshot,
-): BrowserReaderBoundedSnapshot {
-  const revision = {
-    ...snapshot.revision,
-    revisionVersion: snapshot.revision.revisionVersion + 1,
-  };
-  return {
-    ...snapshot,
-    generation: snapshot.generation + 1,
-    revision,
-    presentation: {
-      ...snapshot.presentation,
-      revision,
-      fontVerticalMetricDemands: [],
-    },
   };
 }
 

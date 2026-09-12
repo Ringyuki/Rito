@@ -41,7 +41,6 @@ export function createState(
     fontMetrics: {
       genericSerif: { advances: {}, pairAdjustments: {} },
       fontFamilies: {},
-      verticalMetrics: {},
     },
     publication: {
       package: {

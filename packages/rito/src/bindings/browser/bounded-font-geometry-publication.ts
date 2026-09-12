@@ -1,4 +1,4 @@
-import type { BrowserReaderBoundedSnapshot, BrowserReaderRevisionResult } from './core-contracts';
+import type { BrowserReaderRevisionResult } from './core-contracts';
 import {
   prepareControllerOwnedBrowserReaderCommitFrame,
   type BrowserReaderPreparedCommitFrame,
@@ -8,7 +8,6 @@ import type { BrowserReaderBoundedSnapshotCommitContract } from './bounded-revis
 import type { BrowserReaderState } from './reader/types';
 import { prepareBrowserReaderRevisionFonts } from './resources';
 import { captureBrowserReaderCandidateHostFontMetrics } from './bounded-font-geometry';
-import type { HostFontVerticalMetricSample } from './font-metrics';
 import { boundedSnapshotRevisionHandle } from './bounded-revision-result';
 
 interface BrowserReaderFontGeometryPublicationInput extends BrowserReaderBoundedSnapshotCommitContract {
@@ -23,11 +22,6 @@ export interface PreparedHorizontalFontGeometryReplacement extends PreparedPubli
   readonly kind: 'horizontalFontGeometryReplacement';
 }
 
-export interface PreparedVerticalFontGeometryCalibration extends PreparedPublicationBase {
-  readonly kind: 'verticalFontGeometryCalibration';
-  readonly samples: readonly HostFontVerticalMetricSample[];
-}
-
 export interface PreparedRevisionPublication extends PreparedPublicationBase {
   readonly kind: 'revisionPublication';
   readonly commitFrame: BrowserReaderPreparedCommitFrame;
@@ -35,26 +29,7 @@ export interface PreparedRevisionPublication extends PreparedPublicationBase {
 
 export type PreparedFontGeometryPublication =
   | PreparedHorizontalFontGeometryReplacement
-  | PreparedVerticalFontGeometryCalibration
   | PreparedRevisionPublication;
-
-type BrowserReaderFontVerticalMetricDemands = NonNullable<
-  BrowserReaderRevisionResult['bundle']['fontVerticalMetricDemands']
->;
-
-export function claimVerticalMetricCalibrationSamples(
-  progressKeys: Set<string>,
-  snapshot: BrowserReaderBoundedSnapshot,
-  samples: readonly HostFontVerticalMetricSample[],
-): readonly HostFontVerticalMetricSample[] {
-  const pending = samples.filter(
-    (sample) => !progressKeys.has(verticalMetricProgressKey(snapshot, sample)),
-  );
-  for (const sample of pending) {
-    progressKeys.add(verticalMetricProgressKey(snapshot, sample));
-  }
-  return pending;
-}
 
 export async function prepareBrowserReaderFontGeometryPublication(
   state: BrowserReaderState,
@@ -62,14 +37,12 @@ export async function prepareBrowserReaderFontGeometryPublication(
   result: BrowserReaderRevisionResult,
   isEligible: () => boolean,
 ): Promise<PreparedFontGeometryPublication | undefined> {
-  const demands = result.bundle.fontVerticalMetricDemands ?? [];
   const pinned = state.pinnedFonts.summary.faces.length > 0;
   const publicationFontsReady = await preparePublicationFonts(
     state,
     input,
     result,
     pinned,
-    demands.length > 0,
     isEligible,
   );
   if (!isEligible()) return undefined;
@@ -84,7 +57,6 @@ export async function prepareBrowserReaderFontGeometryPublication(
     state,
     input,
     result,
-    demands,
     pinned,
     publicationFontsReady,
     isEligible,
@@ -97,10 +69,11 @@ async function preparePublicationFonts(
   input: BrowserReaderFontGeometryPublicationInput,
   result: BrowserReaderRevisionResult,
   pinned: boolean,
-  hasVerticalMetricDemands: boolean,
   isEligible: () => boolean,
 ): Promise<boolean> {
-  if (pinned) return hasVerticalMetricDemands;
+  // A pinned policy shapes with the engine's own faces; the host never
+  // measures publication fonts for it.
+  if (pinned) return false;
   return prepareBrowserReaderRevisionFonts(
     state,
     input.owner.worker,
@@ -114,7 +87,6 @@ async function capturePublication(
   state: BrowserReaderState,
   input: BrowserReaderFontGeometryPublicationInput,
   result: BrowserReaderRevisionResult,
-  demands: BrowserReaderFontVerticalMetricDemands,
   pinned: boolean,
   publicationFontsReady: boolean,
   isEligible: () => boolean,
@@ -123,19 +95,11 @@ async function capturePublication(
   try {
     const captured = captureBrowserReaderCandidateHostFontMetrics(
       state,
-      demands,
       pinned,
       publicationFontsReady,
     );
     if (captured.horizontalMetricsChanged) {
       return { kind: 'horizontalFontGeometryReplacement', rollbackFonts };
-    }
-    if (captured.demandedVerticalMetricSamples.length > 0) {
-      return {
-        kind: 'verticalFontGeometryCalibration',
-        rollbackFonts,
-        samples: captured.demandedVerticalMetricSamples,
-      };
     }
     return await preparePublicationFrame(state, input, result, isEligible, rollbackFonts);
   } catch (error) {
@@ -151,9 +115,6 @@ async function preparePublicationFrame(
   isEligible: () => boolean,
   rollbackFonts: () => void,
 ): Promise<PreparedRevisionPublication | undefined> {
-  // Missing browser font boxes only reduce caret/selection precision. Rust
-  // retains a run-bounds fallback, so an unmeasurable descriptor must not
-  // block pagination or paint publication.
   const commitFrame = await prepareControllerOwnedBrowserReaderCommitFrame(
     state,
     result,
@@ -164,28 +125,4 @@ async function preparePublicationFrame(
   }
   rollbackFonts();
   return undefined;
-}
-
-function verticalMetricProgressKey(
-  snapshot: BrowserReaderBoundedSnapshot,
-  sample: HostFontVerticalMetricSample,
-): string {
-  return JSON.stringify([
-    snapshot.revision.revisionId,
-    snapshot.revision.knownExtent.pageCount,
-    verticalMetricSampleKey(sample),
-  ]);
-}
-
-function verticalMetricSampleKey(sample: HostFontVerticalMetricSample): string {
-  return JSON.stringify([
-    asciiLowerCase(sample.fontFamily.trim()),
-    sample.fontStyle,
-    sample.fontWeight,
-    sample.fontSizePx,
-  ]);
-}
-
-function asciiLowerCase(value: string): string {
-  return value.replace(/[A-Z]/g, (character) => character.toLowerCase());
 }

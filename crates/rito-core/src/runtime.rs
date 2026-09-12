@@ -29,7 +29,6 @@ mod resource;
 mod revision;
 mod revision_fonts;
 mod search;
-mod shape_provenance_diagnostic;
 mod source_locator;
 mod style_table_summary;
 mod text_interaction;
@@ -79,10 +78,6 @@ use resource::{
     runtime_text_resource,
 };
 use search::search_revision;
-pub use shape_provenance_diagnostic::{
-    RuntimeShapeAffectedCodepointFrequency, RuntimeShapeProvenanceDiagnostic,
-    RUNTIME_SHAPE_PROVENANCE_DIAGNOSTIC_SCHEMA_VERSION,
-};
 pub use style_table_summary::{
     RuntimeChapterStyleTableSummary, RuntimeStyleTableSummary,
     RUNTIME_STYLE_TABLE_SUMMARY_SCHEMA_VERSION,
@@ -136,7 +131,6 @@ pub struct RuntimeDocument {
     render_ratio: std::cell::Cell<f64>,
     pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
     next_revision_index: usize,
-    next_continuation_index: usize,
     revisions: BTreeMap<String, RuntimeRevision>,
     chapter_local_revisions: BTreeMap<String, RuntimeRevision>,
     continuations: continuation::RuntimeContinuationStore,
@@ -191,7 +185,6 @@ impl RuntimeDocument {
             render_ratio: std::cell::Cell::new(1.0),
             pinned_font_policy,
             next_revision_index: 1,
-            next_continuation_index: 1,
             revisions: BTreeMap::new(),
             chapter_local_revisions: BTreeMap::new(),
             continuations: continuation::RuntimeContinuationStore::default(),

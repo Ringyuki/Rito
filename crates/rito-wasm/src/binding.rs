@@ -5,7 +5,6 @@ use wasm_bindgen::prelude::*;
 use crate::{WasmRuntimeDocument, WasmRuntimeError};
 
 mod chapter_local;
-mod continuation;
 pub(crate) mod pinned_font;
 mod resource;
 mod versioned;

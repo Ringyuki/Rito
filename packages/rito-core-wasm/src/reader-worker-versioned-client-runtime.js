@@ -51,7 +51,6 @@ import {
   requireTextRangeGeometryDiagnostic,
   requireTextRangeGeometryRequest,
 } from './reader-worker-text-geometry-validation-runtime.js';
-import { requireShapeProvenanceDiagnostic } from './shape-provenance-diagnostic-validation-runtime.js';
 import {
   requireChapterTextIndices,
   requireFootnotes,
@@ -59,11 +58,6 @@ import {
   requireSearchRequest,
   requireSearchResponse,
 } from './reader-worker-versioned-read-validation-runtime.js';
-import { requireSourceLocatorContinuationResult } from './source-locator-continuation-validation-runtime.js';
-import {
-  requireFontVerticalMetricCalibrationRequest,
-  requireFontVerticalMetricCalibrationTransferResult,
-} from './font-vertical-metric-calibration-validation-runtime.js';
 
 export function createVersionedReaderClientMethods(send, disposeInvalid) {
   return {
@@ -162,67 +156,6 @@ export function createVersionedReaderClientMethods(send, disposeInvalid) {
         disposeInvalid,
       );
     },
-    continueRevisionTowardSourceLocator: (request) => {
-      const operation = 'continueRevisionTowardSourceLocator';
-      const current = requireRevisionHandle(request, operation);
-      const maximum = requireRevisionWorkBudget(request?.budget, operation);
-      const batchMaximum = continuationBatchMaximum(
-        current,
-        requireContinuationBatchLimit(request?.maxQuanta, operation),
-        operation,
-      );
-      const locator = requireSourceLocatorRequest(request?.locator, operation);
-      return versionedResult(
-        send,
-        operation,
-        {
-          kind: operation,
-          revision: current,
-          cursor: request.cursor,
-          budget: request.budget,
-          locator,
-          maxQuanta: batchMaximum,
-        },
-        advancedRevisionRange(current, batchMaximum),
-        (result, revision) =>
-          requireSourceLocatorContinuationResult(
-            result,
-            current,
-            revision,
-            locator,
-            `${operation} response`,
-            maximum,
-            batchMaximum,
-          ),
-        true,
-        disposeInvalid,
-      );
-    },
-    calibrateRevisionFontVerticalMetrics: (request) => {
-      const operation = 'calibrateRevisionFontVerticalMetrics';
-      const input = requireFontVerticalMetricCalibrationRequest(request, operation);
-      const current = requireRevisionHandle(input, operation);
-      return versionedResult(
-        send,
-        operation,
-        {
-          kind: operation,
-          revision: current,
-          ...(input.continuation === undefined ? {} : { continuation: input.continuation }),
-          fontVerticalMetrics: input.fontVerticalMetrics,
-        },
-        nextRevision(current, operation),
-        (result, revision) =>
-          requireFontVerticalMetricCalibrationTransferResult(
-            result,
-            current,
-            revision,
-            `${operation} response`,
-          ),
-        true,
-        disposeInvalid,
-      );
-    },
     cancelRevision: (request) => {
       const current = requireRevisionHandle(request, 'cancelRevision');
       return versionedResult(
@@ -259,14 +192,6 @@ export function createVersionedReaderClientMethods(send, disposeInvalid) {
         revision,
         {},
         requireRevisionPresentation,
-      ),
-    getShapeProvenanceDiagnosticAtRevision: (revision) =>
-      currentRevisionResult(
-        send,
-        'getShapeProvenanceDiagnosticAtRevision',
-        revision,
-        {},
-        requireShapeProvenanceDiagnostic,
       ),
     getRevisionNavigationAtRevision: (revision) =>
       currentRevisionResult(send, 'getRevisionNavigationAtRevision', revision),

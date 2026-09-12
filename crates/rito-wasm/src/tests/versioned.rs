@@ -73,26 +73,6 @@ fn versioned_raw_reads_return_stamped_envelopes() {
     assert_eq!(source["value"]["status"], "resolved");
     assert_eq!(source["value"]["matchedBy"], "anchor");
 
-    let diagnostic = parse(
-        document
-            .get_shape_provenance_diagnostic_at_revision_json(&revision_id, 0)
-            .expect("shape provenance diagnostic"),
-    );
-    assert_revision(&diagnostic, &revision_id, 0);
-    assert_eq!(diagnostic["value"]["schemaVersion"], 1);
-    assert_eq!(diagnostic["value"]["isComplete"], true);
-    assert_eq!(
-        diagnostic["value"]["totalTextUtf16CodeUnitCount"]
-            .as_u64()
-            .unwrap(),
-        diagnostic["value"]["exactTextUtf16CodeUnitCount"]
-            .as_u64()
-            .unwrap()
-            + diagnostic["value"]["unavailableTextUtf16CodeUnitCount"]
-                .as_u64()
-                .unwrap()
-    );
-
     for response in [
         document
             .get_page_targets_at_revision_json(&revision_id, 0, 0)

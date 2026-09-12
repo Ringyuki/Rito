@@ -22,8 +22,6 @@ const runtimeSources = [
   'chapter-local-frame-validation-runtime.js',
   'chapter-local-document-runtime.js',
   'revision-presentation-validation-runtime.js',
-  'font-vertical-metric-validation-runtime.js',
-  'font-vertical-metric-calibration-validation-runtime.js',
   'required-font-faces-validation-runtime.js',
   'reader-compat-runtime.js',
   'reader-bounded-session-runtime.js',
@@ -45,8 +43,6 @@ const runtimeSources = [
   'reader-worker-exact-source-range-validation-runtime.js',
   'reader-worker-text-geometry-validation-runtime.js',
   'reader-worker-versioned-read-validation-runtime.js',
-  'shape-provenance-diagnostic-validation-runtime.js',
-  'source-locator-continuation-validation-runtime.js',
   'reader-worker-session-runtime.js',
   'reader-worker-versioned-client-runtime.js',
   'reader-worker-versioned-payload-runtime.js',
@@ -96,7 +92,6 @@ const typeDeclarationSources = [
   'interaction-movement',
   'reading-anchor',
   'status',
-  'shape-provenance',
   'pinned-font',
   'reader-v1-display',
   'reader-v1-primitive',
@@ -235,8 +230,6 @@ function requireDocumentDeclarationContract(declaration) {
   for (const required of [
     'publication(): RitoCoreWasmPublicationInfo;',
     'pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;',
-    'request: RitoCoreWasmContinueRevisionTowardSourceLocatorRequest,',
-    'request: RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest,',
     'takeResourceTransfer(transferId: string): Uint8Array;',
   ]) {
     if (!declaration.includes(required)) {

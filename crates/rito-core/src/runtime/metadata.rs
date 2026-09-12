@@ -269,8 +269,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use crate::layout::{
-        create_layout_config, FontVerticalMetricSample, LayoutConfigInput, MarginInput,
-        PaginationPolicy, SpreadMode, TextMeasurementMode,
+        create_layout_config, LayoutConfigInput, MarginInput, PaginationPolicy, SpreadMode,
+        TextMeasurementMode,
     };
 
     use super::*;
@@ -330,31 +330,6 @@ mod tests {
             ),
             ("bf4b78407bf7a2d3".to_owned(), "851328446b8fd5ef".to_owned(),)
         );
-    }
-
-    #[test]
-    fn vertical_interaction_metrics_do_not_change_layout_identity() {
-        let baseline = test_layout();
-        let mut calibrated = baseline.clone();
-        calibrated
-            .font_vertical_metrics
-            .push(FontVerticalMetricSample {
-                font_family: "Book".to_owned(),
-                font_style: "normal".to_owned(),
-                font_weight: 400,
-                font_size_px: 16.0,
-                top_baseline_ascent_px: 3.0,
-                top_baseline_descent_px: 13.0,
-            });
-
-        for policy_identity in [None, Some(&b"pinned-policy"[..])] {
-            assert_eq!(
-                layout_key_from_policy_identity(&baseline, policy_identity)
-                    .expect("baseline key succeeds"),
-                layout_key_from_policy_identity(&calibrated, policy_identity)
-                    .expect("calibrated key succeeds"),
-            );
-        }
     }
 
     fn legacy_vec_layout_key(

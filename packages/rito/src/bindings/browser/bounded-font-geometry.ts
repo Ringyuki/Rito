@@ -5,13 +5,9 @@ import type { BrowserReaderBoundedLayoutRequest } from './bounded-session-runtim
 import type { BrowserReaderBoundedSnapshot } from './core-contracts';
 import type { BrowserReaderState } from './reader/types';
 import {
-  captureHostFontVerticalMetricSamples,
   ensureHostFontFamilyMetrics,
   ensureHostGenericSerifMetrics,
   hostFontMetricSampleCount,
-  hostFontVerticalMetricSamplesForDemands,
-  type HostFontVerticalMetricDemand,
-  type HostFontVerticalMetricSample,
 } from './font-metrics';
 
 export type BrowserReaderBoundedReplacementTarget = Pick<
@@ -27,8 +23,6 @@ type StartCandidate = (
 
 export interface BrowserReaderHostFontMetricCapture {
   readonly horizontalMetricsChanged: boolean;
-  readonly addedVerticalMetricSamples: readonly HostFontVerticalMetricSample[];
-  readonly demandedVerticalMetricSamples: readonly HostFontVerticalMetricSample[];
 }
 
 /** Allow one fresh Worker for an unchanged metric set, never an unbounded rebuild loop. */
@@ -52,7 +46,6 @@ export function createBrowserReaderFontGeometryRetryGuard(
 
 export function captureBrowserReaderCandidateHostFontMetrics(
   state: BrowserReaderState,
-  demands: readonly HostFontVerticalMetricDemand[],
   pinned: boolean,
   fontsReady: boolean,
 ): BrowserReaderHostFontMetricCapture {
@@ -68,29 +61,19 @@ export function captureBrowserReaderCandidateHostFontMetrics(
         [...state.registeredFontFaces.values()].map((face) => face.family),
       ) || horizontalMetricsChanged;
   }
-  const addedVerticalMetricSamples = fontsReady
-    ? captureHostFontVerticalMetricSamples(state.fontMetrics, state.ctx, demands)
-    : [];
-  const demandedVerticalMetricSamples = fontsReady
-    ? hostFontVerticalMetricSamplesForDemands(state.fontMetrics, demands)
-    : [];
-  return {
-    horizontalMetricsChanged,
-    addedVerticalMetricSamples,
-    demandedVerticalMetricSamples,
-  };
+  return { horizontalMetricsChanged };
 }
 
 /** Rebuild an uncommitted growth snapshot with newly captured host font geometry. */
 export async function replaceBrowserReaderFontGeometryMutation(
   state: BrowserReaderState,
-  uncalibratedOwner: BrowserReaderBoundedSessionOwner,
+  replacedOwner: BrowserReaderBoundedSessionOwner,
   target: () => BrowserReaderBoundedReplacementTarget,
   notifyLayoutCommitted: boolean,
   startCandidate: StartCandidate,
   preserveActiveSpread?: () => boolean,
 ): Promise<BrowserReaderBoundedSnapshot | undefined> {
-  while (fontGeometryReplacementIsLive(state, uncalibratedOwner)) {
+  while (fontGeometryReplacementIsLive(state, replacedOwner)) {
     const sampleCount = hostFontMetricSampleCount(state.fontMetrics);
     const worker = state.workerFactory();
     let ownerCreated = false;
@@ -102,7 +85,7 @@ export async function replaceBrowserReaderFontGeometryMutation(
         state.dpr,
         state.pinnedFonts.summary,
       );
-      if (!fontGeometryReplacementIsLive(state, uncalibratedOwner)) return undefined;
+      if (!fontGeometryReplacementIsLive(state, replacedOwner)) return undefined;
       const owner = createBrowserReaderBoundedSessionOwner(worker);
       ownerCreated = true;
       const snapshot = await startCandidate(state, owner, {

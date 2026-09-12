@@ -1,10 +1,10 @@
 use rito_core::runtime::{
-    RuntimeBoundedRevisionRequest, RuntimeCalibrateRevisionFontVerticalMetricsRequest,
-    RuntimeCancelRevisionRequest, RuntimeContinueRevisionRequest, RuntimeExactSourceRangeRequest,
-    RuntimeFrameResourceWarmPlan, RuntimeLocatorRequest, RuntimeResourceKind,
-    RuntimeResourceTransferPayload, RuntimeSearchRequest, RuntimeSourceLocator,
-    RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest, RuntimeTextRangeGeometryRequest,
-    RuntimeTextRangeRequest, RuntimeTextRangeToPointRequest, RuntimeTextSelectionMovementRequest,
+    RuntimeBoundedRevisionRequest, RuntimeCancelRevisionRequest, RuntimeContinueRevisionRequest,
+    RuntimeExactSourceRangeRequest, RuntimeFrameResourceWarmPlan, RuntimeLocatorRequest,
+    RuntimeResourceKind, RuntimeResourceTransferPayload, RuntimeSearchRequest,
+    RuntimeSourceLocator, RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
+    RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeTextRangeToPointRequest,
+    RuntimeTextSelectionMovementRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -14,14 +14,6 @@ use crate::WasmRuntimeError;
 #[serde(rename_all = "camelCase")]
 pub struct WasmResourcePrefetchRequest {
     pub resources: Vec<WasmResourceRequest>,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WasmContinueRevisionTowardSourceLocatorRequest {
-    #[serde(flatten)]
-    pub continuation: RuntimeContinueRevisionRequest,
-    pub locator: RuntimeSourceLocator,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -84,26 +76,6 @@ pub fn parse_continue_revision_request(
 ) -> Result<RuntimeContinueRevisionRequest, WasmRuntimeError> {
     serde_json::from_str(json).map_err(|error| {
         WasmRuntimeError::bad_request(format!("invalid continue revision request JSON: {error}"))
-    })
-}
-
-pub fn parse_calibrate_revision_font_vertical_metrics_request(
-    json: &str,
-) -> Result<RuntimeCalibrateRevisionFontVerticalMetricsRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!(
-            "invalid revision font vertical metric calibration request JSON: {error}"
-        ))
-    })
-}
-
-pub fn parse_continue_revision_toward_source_locator_request(
-    json: &str,
-) -> Result<WasmContinueRevisionTowardSourceLocatorRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!(
-            "invalid source locator continuation request JSON: {error}"
-        ))
     })
 }
 

@@ -25,11 +25,9 @@ import { createBrowserReaderBoundedRevisionResult } from './bounded-revision-res
 import { prepareBrowserReaderBoundedFrameCache } from './bounded-frame-cache';
 import { resumeBrowserReaderSuspendedFrameMisses } from './suspended-frame-misses';
 import {
-  claimVerticalMetricCalibrationSamples,
   prepareBrowserReaderFontGeometryPublication,
   type PreparedFontGeometryPublication,
   type PreparedRevisionPublication as PreparedFontGeometryRevisionPublication,
-  type PreparedVerticalFontGeometryCalibration,
 } from './bounded-font-geometry-publication';
 
 export interface BrowserReaderBoundedCommitInput extends BrowserReaderBoundedSnapshotCommitContract {
@@ -55,8 +53,6 @@ export interface BrowserReaderBoundedCommitInput extends BrowserReaderBoundedSna
 export interface BrowserReaderBoundedCommitResult {
   readonly committed: boolean;
   readonly requiresFontGeometryReflow?: boolean | undefined;
-  /** Present when same-owner vertical calibration advanced the committed snapshot. */
-  readonly committedSnapshot?: BrowserReaderBoundedSnapshotCommitContract['snapshot'] | undefined;
   /** The caller must drain this controller before disposing its worker. */
   readonly retiredOwner?: BrowserReaderBoundedSessionOwner | undefined;
 }
@@ -74,65 +70,24 @@ type PreparedBoundedCommit =
   | (PreparedBoundedCommitBase & PreparedFontGeometryPublication)
   | PreparedSameRevisionFrame;
 
-type PublishableBoundedCommit = Exclude<
-  PreparedBoundedCommit,
-  PreparedVerticalFontGeometryCalibration
->;
-
 export async function commitBrowserReaderBoundedSnapshot(
   state: BrowserReaderState,
   input: BrowserReaderBoundedCommitInput,
 ): Promise<BrowserReaderBoundedCommitResult> {
-  let current = input;
-  let committedSnapshot: BrowserReaderBoundedSnapshotCommitContract['snapshot'] | undefined;
-  const calibrationRollbacks: Array<() => void> = [];
-  const calibratedVerticalMetricProgressKeys = new Set<string>();
-  try {
-    for (;;) {
-      const prepared = await prepareBoundedCommit(state, current);
-      if (!prepared) {
-        rollbackFontPreparations(calibrationRollbacks);
-        return { committed: false };
-      }
-      if (prepared.kind === 'verticalFontGeometryCalibration') {
-        const samples = claimVerticalMetricCalibrationSamples(
-          calibratedVerticalMetricProgressKeys,
-          current.snapshot,
-          prepared.samples,
-        );
-        if (samples.length === 0) {
-          prepared.rollbackFonts();
-          rollbackFontPreparations(calibrationRollbacks);
-          return { committed: false, requiresFontGeometryReflow: true };
-        }
-        calibrationRollbacks.push(prepared.rollbackFonts);
-        const snapshot = await current.owner.controller.calibrateFontVerticalMetrics(samples);
-        current = { ...current, snapshot };
-        committedSnapshot = snapshot;
-        continue;
-      }
-      const result = publishPreparedBoundedCommit(state, prepared);
-      if (!result.committed) {
-        rollbackPreparedFonts(prepared);
-        rollbackFontPreparations(calibrationRollbacks);
-        return result;
-      }
-      calibrationRollbacks.length = 0;
-      return committedSnapshot ? { ...result, committedSnapshot } : result;
-    }
-  } catch (error) {
-    rollbackFontPreparations(calibrationRollbacks);
-    throw error;
-  }
+  const prepared = await prepareBoundedCommit(state, input);
+  if (!prepared) return { committed: false };
+  const result = publishPreparedBoundedCommit(state, prepared);
+  if (!result.committed) rollbackPreparedFonts(prepared);
+  return result;
 }
 
-function rollbackPreparedFonts(prepared: PublishableBoundedCommit): void {
+function rollbackPreparedFonts(prepared: PreparedBoundedCommit): void {
   if (prepared.kind !== 'sameRevisionFrame') prepared.rollbackFonts();
 }
 
 function publishPreparedBoundedCommit(
   state: BrowserReaderState,
-  prepared: PublishableBoundedCommit,
+  prepared: PreparedBoundedCommit,
 ): BrowserReaderBoundedCommitResult {
   try {
     return publishBoundedCommit(state, prepared);
@@ -140,10 +95,6 @@ function publishPreparedBoundedCommit(
     rollbackPreparedFonts(prepared);
     throw error;
   }
-}
-
-function rollbackFontPreparations(rollbacks: readonly (() => void)[]): void {
-  for (let index = rollbacks.length - 1; index >= 0; index -= 1) rollbacks[index]?.();
 }
 
 async function prepareBoundedCommit(
@@ -175,7 +126,7 @@ async function prepareRevisionPublication(
 
 function publishBoundedCommit(
   state: BrowserReaderState,
-  prepared: PublishableBoundedCommit,
+  prepared: PreparedBoundedCommit,
 ): BrowserReaderBoundedCommitResult {
   const { input } = prepared;
   if (!isEligibleCommit(state, input)) {

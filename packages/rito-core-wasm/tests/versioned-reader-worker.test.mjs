@@ -32,7 +32,6 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   const summaryResult = await client.getRevisionSummaryAtRevision(handle(1));
   const bundleResult = await client.getRevisionBundleAtRevision(handle(1), true);
   const presentationResult = await client.getRevisionPresentationAtRevision(handle(1));
-  const shapeDiagnosticResult = await client.getShapeProvenanceDiagnosticAtRevision(handle(1));
   const navigation = await client.getRevisionNavigationAtRevision(handle(1));
   const frame = await client.readFrameBufferAtRevision(handle(1), 0);
   const resource = await client.readResourceAtRevision(handle(1), 'image', 'cover.png');
@@ -49,7 +48,6 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
     summaryResult,
     bundleResult,
     presentationResult,
-    shapeDiagnosticResult,
     navigation,
     frame,
     resource,
@@ -142,51 +140,6 @@ test('in-process atomic continuation batches native quanta and aggregates the ad
   assert.equal(continued.value.advance.continuation.cursor, 'cursor-8');
   assert.deepEqual(continuedVersions, [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.deepEqual(releasedVersions, [0, 1, 2, 3, 4, 5, 6, 7]);
-  client.dispose();
-});
-
-test('in-process locator continuation stops its batch as soon as the locator resolves', async () => {
-  const continuedVersions = [];
-  const locator = { href: 'chapter.xhtml' };
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionTowardSourceLocatorJson: (requestJson) => {
-      const request = JSON.parse(requestJson);
-      const version = request.revisionVersion + 1;
-      continuedVersions.push(version);
-      return JSON.stringify({
-        advance: growingAdvance(version),
-        releasedRevision: handle(request.revisionVersion),
-        releasedTransferCount: 1,
-        request: request.locator,
-        canonicalRequest: request.locator,
-        locatorOutcome: {
-          kind: 'resolved',
-          resolution: growingSourceResolution(version, request.locator),
-        },
-      });
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  const continued = await client.continueRevisionTowardSourceLocator({
-    ...handle(0),
-    cursor: 'cursor-0',
-    budget: budget(),
-    locator,
-    maxQuanta: 8,
-  });
-
-  assert.deepEqual(continued.revision, handle(4));
-  assert.equal(continued.value.advancedQuanta, 4);
-  assert.equal(continued.value.releasedTransferCount, 4);
-  assert.deepEqual(continued.value.advance.previousKnownExtent, extent(0));
-  assert.equal(continued.value.advance.processedTopLevelNodes, 4);
-  assert.equal(continued.value.locatorOutcome.resolution.status, 'resolved');
-  assert.deepEqual(continuedVersions, [1, 2, 3, 4]);
   client.dispose();
 });
 
@@ -301,33 +254,6 @@ test('in-process atomic continuation rolls back the committed revision when tran
   client.dispose();
 });
 
-test('in-process locator continuation returns the next exact locator projection', async () => {
-  const { document, calls } = fixtureDocument();
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-  const locator = { href: 'chapter.xhtml' };
-
-  const continued = await client.continueRevisionTowardSourceLocator({
-    ...handle(0),
-    cursor: 'cursor-1',
-    budget: budget(),
-    locator,
-  });
-
-  assert.deepEqual(continued.revision, handle(1));
-  assert.deepEqual(continued.value.releasedRevision, handle(0));
-  assert.deepEqual(continued.value.canonicalRequest, locator);
-  assert.equal(continued.value.locatorOutcome.kind, 'resolved');
-  assert.equal(continued.value.locatorOutcome.resolution.status, 'resolved');
-  assert.deepEqual(
-    calls
-      .filter(([name]) => ['continueRevisionTowardSourceLocatorJson'].includes(name))
-      .map(([name]) => name),
-    ['continueRevisionTowardSourceLocatorJson'],
-  );
-  client.dispose();
-});
-
 test('worker client sends atomic transfer release and continuation as one request', async () => {
   const worker = new ManualWorker();
   const client = createRitoCoreWasmWorkerReaderClient(worker);
@@ -361,49 +287,6 @@ test('worker client sends atomic transfer release and continuation as one reques
   const continued = await pending;
   assert.deepEqual(continued.revision, handle(1));
   assert.equal(continued.value.releasedTransferCount, 2);
-  client.dispose();
-});
-
-test('worker client advances toward a locator with one request per quantum', async () => {
-  const worker = new ManualWorker();
-  const client = createRitoCoreWasmWorkerReaderClient(worker);
-  const opening = client.open(new ArrayBuffer(0));
-  await Promise.resolve();
-  worker.respond(worker.messages[0].id, {
-    kind: 'open',
-    result: readerOpenResult({ title: 'fixture' }),
-  });
-  await opening;
-  const locator = { href: 'chapter.xhtml#' };
-  const canonicalLocator = { href: 'chapter.xhtml' };
-
-  const messageCount = worker.messages.length;
-  const pending = client.continueRevisionTowardSourceLocator({
-    ...handle(0),
-    cursor: 'cursor-1',
-    budget: budget(),
-    locator,
-  });
-  const request = worker.messages.at(-1);
-  assert.equal(worker.messages.length, messageCount + 1);
-  assert.equal(request.kind, 'continueRevisionTowardSourceLocator');
-  worker.respond(request.id, {
-    kind: request.kind,
-    revision: handle(1),
-    result: {
-      advance: advance(1, false),
-      releasedRevision: handle(0),
-      releasedTransferCount: 1,
-      request: locator,
-      canonicalRequest: canonicalLocator,
-      locatorOutcome: { kind: 'resolved', resolution: sourceResolution(1, canonicalLocator) },
-    },
-  });
-
-  const continued = await pending;
-  assert.equal(continued.value.locatorOutcome.kind, 'resolved');
-  assert.deepEqual(continued.value.request, locator);
-  assert.deepEqual(continued.value.canonicalRequest, canonicalLocator);
   client.dispose();
 });
 
@@ -647,28 +530,12 @@ function fixtureDocument() {
       free() {},
       createBoundedRevisionJson: () => JSON.stringify(advance(0, true)),
       continueRevisionJson: () => JSON.stringify(advance(1, false)),
-      continueRevisionTowardSourceLocatorJson: (requestJson) => {
-        const request = JSON.parse(requestJson);
-        return JSON.stringify({
-          advance: advance(1, false),
-          releasedRevision: handle(0),
-          releasedTransferCount: 1,
-          request: request.locator,
-          canonicalRequest: request.locator,
-          locatorOutcome: {
-            kind: 'resolved',
-            resolution: sourceResolution(1, request.locator),
-          },
-        });
-      },
       getRevisionSummaryAtRevisionJson: (_revisionId, version) =>
         envelope(version, summary(version, 'complete')),
       getRevisionBundleAtRevisionJson: (_revisionId, version) =>
         envelope(version, bundle(version, 'complete')),
       getRevisionPresentationAtRevisionJson: (_revisionId, version) =>
         envelope(version, presentation(version, 'complete')),
-      getShapeProvenanceDiagnosticAtRevisionJson: (_revisionId, version) =>
-        envelope(version, shapeDiagnostic()),
       getRevisionNavigationAtRevisionJson: (_revisionId, version) =>
         envelope(version, { revisionId: 'rev-1' }),
       getFootnotesAtRevisionJson: (_revisionId, version) =>
@@ -713,34 +580,6 @@ function fixtureDocument() {
 
 function moduleFor(document) {
   return { initRitoCoreWasmEngine: async () => ({ openDocument: () => document }) };
-}
-
-function shapeDiagnostic() {
-  return {
-    schemaVersion: 1,
-    isComplete: true,
-    knownPageCount: 1,
-    totalTextRuns: 1,
-    exactTextRuns: 0,
-    unavailableTextRuns: 1,
-    totalTextUtf16CodeUnitCount: 1,
-    exactTextUtf16CodeUnitCount: 0,
-    unavailableTextUtf16CodeUnitCount: 1,
-    excludedRubyTextRunCount: 0,
-    excludedRubyTextUtf16CodeUnitCount: 0,
-    singleFontTextRuns: 0,
-    mixedFontTextRuns: 0,
-    unavailableReasonCounts: { hostMetricsFallback: 1 },
-    unavailableReasonUtf16CodeUnitCounts: { hostMetricsFallback: 1 },
-    singleFontFingerprints: {},
-    mixedFontFingerprints: {},
-    unavailableAffectedCodepoints: [
-      { codepoint: 'U+0041', count: 1, reasonCounts: { hostMetricsFallback: 1 } },
-    ],
-    unavailableAffectedCodepointOccurrenceCount: 1,
-    unavailableAffectedCodepointDistinctCount: 1,
-    unavailableAffectedCodepointOmittedCount: 0,
-  };
 }
 
 function versionedPayload(kind, version) {
@@ -864,28 +703,6 @@ function growingSummary(version, knownExtent) {
     knownExtent,
     pageCount: knownExtent.pageCount,
     spreadCount: knownExtent.spreadCount,
-  };
-}
-
-function growingSourceResolution(version, locator) {
-  if (version < 4) {
-    return {
-      status: 'pending',
-      revisionId: 'rev-1',
-      locator,
-      spineIdref: 'chapter',
-      reason: 'notPaginated',
-      matchedBy: 'href',
-    };
-  }
-  return {
-    status: 'resolved',
-    revisionId: 'rev-1',
-    locator,
-    spineIdref: 'chapter',
-    pageIndex: 3,
-    spreadIndex: 3,
-    matchedBy: 'href',
   };
 }
 

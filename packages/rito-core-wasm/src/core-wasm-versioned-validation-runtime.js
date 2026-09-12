@@ -1,6 +1,5 @@
 import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
-import { requireFontVerticalMetricDemands } from './font-vertical-metric-validation-runtime.js';
 
 export const MAX_READER_CONTINUATION_BATCH_QUANTA = 16;
 
@@ -169,7 +168,6 @@ export function requireRevisionBundle(value, revision, operation) {
   for (const field of ['navigation', 'tocTargets', 'footnotes', 'chapterTextIndices']) {
     requireMatchingRevisionId(bundle[field], revision, `${operation} ${field}`);
   }
-  requireFontVerticalMetricDemands(bundle.fontVerticalMetricDemands, operation);
   requireRequiredFontFaces(bundle.requiredFontFaces, revision.revisionId, operation);
   return bundle;
 }

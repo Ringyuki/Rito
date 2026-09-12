@@ -196,7 +196,6 @@ function installBoundedOwner(state: BrowserReaderState): BrowserReaderBoundedSes
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
-      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(
         () => ({ revision: state.revisionBundle.revision }) as BrowserReaderBoundedSnapshot,
       ),

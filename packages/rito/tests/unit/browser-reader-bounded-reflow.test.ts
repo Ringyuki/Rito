@@ -131,14 +131,7 @@ describe('Browser bounded reflow coordinator', () => {
     Object.assign(state, { workerFactory: () => calibrated.worker });
     mocks.startCandidate
       .mockImplementationOnce((candidateState) => {
-        candidateState.fontMetrics.verticalMetrics['body'] = {
-          fontFamily: 'body',
-          fontStyle: 'normal',
-          fontWeight: 400,
-          fontSizePx: 16,
-          topBaselineAscentPx: 3,
-          topBaselineDescentPx: 14,
-        };
+        candidateState.fontMetrics.fontFamilies['body'] = { advances: {}, pairAdjustments: {} };
         return Promise.resolve(undefined);
       })
       .mockResolvedValueOnce(snapshot());
@@ -457,7 +450,6 @@ function owner(worker: BrowserReaderWorkerClient): BrowserReaderBoundedSessionOw
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
-      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(),
       cancel: vi.fn(),
       dispose: vi.fn(() => Promise.resolve()),

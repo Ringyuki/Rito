@@ -146,7 +146,7 @@ async function runCandidate(
     return undefined;
   }
   if (result.retiredOwner) await retireBrowserReaderBoundedOwner(state, result.retiredOwner);
-  return signal?.aborted ? undefined : (result.committedSnapshot ?? snapshot);
+  return signal?.aborted ? undefined : snapshot;
 }
 
 function candidateStartBudget(request: BrowserReaderBoundedLayoutRequest): number {
@@ -306,7 +306,7 @@ async function mutateCurrent(
       superseded: whenSuperseded?.(),
       preserveActiveSpread: preserveActiveSpread ?? (() => !isCurrent()),
     });
-    if (result.committed) return result.committedSnapshot ?? snapshot;
+    if (result.committed) return snapshot;
     if (result.requiresFontGeometryReflow) {
       const replacement = await replaceBrowserReaderFontGeometryMutation(
         state,

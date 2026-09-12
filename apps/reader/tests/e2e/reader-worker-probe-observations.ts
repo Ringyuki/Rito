@@ -63,7 +63,6 @@ export type ReaderWorkerResponseHoldCategory = 'mainContinuation' | 'chapterLoca
 export const READER_WORKER_MAIN_CONTINUATION_KINDS = [
   'continueRevision',
   'continueRevisionAfterTransferRelease',
-  'continueRevisionTowardSourceLocator',
 ] as const;
 
 export const READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS = [

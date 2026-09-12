@@ -13,11 +13,7 @@ import {
   type ReaderWorkerOperationObservation,
 } from './reader-worker-probe';
 
-const CONTINUATION_KINDS = [
-  'continueRevision',
-  'continueRevisionAfterTransferRelease',
-  'continueRevisionTowardSourceLocator',
-] as const;
+const CONTINUATION_KINDS = ['continueRevision', 'continueRevisionAfterTransferRelease'] as const;
 
 export function requireProfileProtocol(
   initial: InitialProfileResult,

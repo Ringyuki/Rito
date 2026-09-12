@@ -51,10 +51,6 @@ import {
   requireSearchRequest,
   requireSearchResponse,
 } from './reader-worker-versioned-read-validation-runtime.js';
-import {
-  requireFontVerticalMetricCalibrationRequest,
-  requireFontVerticalMetricCalibrationTransferResult,
-} from './font-vertical-metric-calibration-validation-runtime.js';
 
 export function versionedReaderWorkerPayload(document, request) {
   switch (request.kind) {
@@ -71,10 +67,6 @@ export function versionedReaderWorkerPayload(document, request) {
       );
     case 'continueRevisionAfterTransferRelease':
       return continueRevisionAfterTransferReleaseResponse(document, request);
-    case 'continueRevisionTowardSourceLocator':
-      return continueRevisionTowardSourceLocatorResponse(document, request);
-    case 'calibrateRevisionFontVerticalMetrics':
-      return calibrateRevisionFontVerticalMetricsResponse(document, request);
     case 'cancelRevision':
       return summaryResponse(
         request.kind,
@@ -86,11 +78,6 @@ export function versionedReaderWorkerPayload(document, request) {
       return revisionBundleResponse(document, request);
     case 'getRevisionPresentationAtRevision':
       return exactReadResponse(document, request, requireRevisionPresentation);
-    case 'getShapeProvenanceDiagnosticAtRevision':
-      return valueResponse(
-        request.kind,
-        document.getShapeProvenanceDiagnosticAtRevision(request.revision),
-      );
     case 'getRevisionNavigationAtRevision':
       return valueResponse(
         request.kind,
@@ -217,32 +204,6 @@ export function warmVersionedReaderFrameWindow(document, requestedRevision, spre
 function advanceResponse(kind, advance) {
   const revision = requireRevisionHandle(advance.revision, `${kind} result`);
   return { kind, revision, result: advance };
-}
-
-function calibrateRevisionFontVerticalMetricsResponse(document, request) {
-  const operation = request.kind;
-  const previous = requireRevisionHandle(request.revision, operation);
-  const input = requireFontVerticalMetricCalibrationRequest(
-    {
-      ...previous,
-      ...(request.continuation === undefined ? {} : { continuation: request.continuation }),
-      fontVerticalMetrics: request.fontVerticalMetrics,
-    },
-    operation,
-  );
-  const calibrated = document.calibrateRevisionFontVerticalMetrics(input);
-  const revision = requireRevisionHandle(calibrated.revision, `${operation} result`);
-  const result = requireFontVerticalMetricCalibrationTransferResult(
-    calibrated,
-    previous,
-    revision,
-    operation,
-  );
-  return {
-    kind: operation,
-    revision,
-    result,
-  };
 }
 
 function continueRevisionAfterTransferReleaseResponse(document, request) {
@@ -372,74 +333,6 @@ function bestEffortReleaseRevision(document, revision) {
   } catch {
     // Preserve the post-commit release failure after exact rollback is attempted.
   }
-}
-
-function continueRevisionTowardSourceLocatorResponse(document, request) {
-  const operation = request.kind;
-  const previous = requireRevisionHandle(request.revision, operation);
-  const locator = requireSourceLocatorRequest(request.locator, operation);
-  const maximum = requireContinuationBatchLimit(request.maxQuanta, operation);
-  let current = previous;
-  let cursor = request.cursor;
-  let result;
-  let revision;
-  let previousKnownExtent;
-  let processedTopLevelNodes = 0;
-  let releasedTransferCount = 0;
-  let advancedQuanta = 0;
-  while (advancedQuanta < maximum) {
-    try {
-      result = document.continueRevisionTowardSourceLocator({
-        ...current,
-        cursor,
-        budget: request.budget,
-        locator,
-      });
-    } catch (error) {
-      if (advancedQuanta > 0 && !isCommittedNextFailure(error, current)) {
-        bestEffortReleaseRevision(document, current);
-      }
-      throw error;
-    }
-    revision = requireRevisionHandle(result.advance?.revision, `${operation} result`);
-    previousKnownExtent ??= result.advance.previousKnownExtent;
-    processedTopLevelNodes = addSafeCount(
-      processedTopLevelNodes,
-      result.advance.processedTopLevelNodes,
-      `${operation} processed top-level node count`,
-    );
-    releasedTransferCount = addSafeCount(
-      releasedTransferCount,
-      requireRevisionTransferCount(result.releasedTransferCount, operation),
-      `${operation} released transfer count`,
-    );
-    advancedQuanta += 1;
-    if (locatorBatchIsComplete(result) || result.advance.continuation === undefined) break;
-    current = revision;
-    cursor = result.advance.continuation.cursor;
-  }
-  const aggregateAdvance = aggregateRevisionAdvance(
-    result.advance,
-    previousKnownExtent,
-    processedTopLevelNodes,
-  );
-  return {
-    kind: operation,
-    revision,
-    result: {
-      ...result,
-      advance: aggregateAdvance,
-      releasedRevision: previous,
-      releasedTransferCount,
-      advancedQuanta,
-    },
-  };
-}
-
-function locatorBatchIsComplete(result) {
-  if (result.locatorOutcome?.kind === 'failed') return true;
-  const resolution = result.locatorOutcome?.resolution;
-  return resolution?.status === 'resolved' || resolution?.reason === 'noPageProjection';
 }
 
 function summaryResponse(kind, summary) {

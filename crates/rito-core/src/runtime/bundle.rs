@@ -41,7 +41,6 @@ impl RuntimeDocument {
                 entries: self.chapter_text_indices_for_revision(revision_id)?.clone(),
             },
             font_families: presentation.font_families,
-            font_vertical_metric_demands: presentation.font_vertical_metric_demands,
             required_font_faces: presentation.required_font_faces,
         })
     }
@@ -79,7 +78,6 @@ impl RuntimeDocument {
             .unwrap_or_default();
         // The fragment engine shapes with its own faces and never asks the
         // host for vertical-metric samples.
-        let font_vertical_metric_demands = None;
         let required_font_faces = revision_record
             .required_font_face_catalog
             .as_deref()
@@ -89,7 +87,6 @@ impl RuntimeDocument {
             navigation,
             toc_targets,
             font_families,
-            font_vertical_metric_demands,
             required_font_faces,
         })
     }

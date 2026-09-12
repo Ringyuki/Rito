@@ -3,14 +3,13 @@ use crate::runtime::frame::{revision_summary, RuntimeRevision};
 use super::{
     metadata::layout_key, RuntimeBoundedRevisionRequest, RuntimeCancelRevisionRequest,
     RuntimeContinuationError, RuntimeContinuationErrorKind, RuntimeContinueRevisionRequest,
-    RuntimeDocument, RuntimeRevisionAdvance, RuntimeRevisionCursor, RuntimeRevisionExtent,
-    RuntimeRevisionStatus, RuntimeRevisionSummary,
+    RuntimeDocument, RuntimeRevisionAdvance, RuntimeRevisionExtent, RuntimeRevisionStatus,
+    RuntimeRevisionSummary,
 };
 
 mod chapter_local;
 mod cleanup;
 mod error;
-mod font_vertical_metrics;
 mod state;
 
 pub(in crate::runtime) use cleanup::PendingRuntimeContinuationRecordCleanup;
@@ -82,24 +81,6 @@ impl RuntimeDocument {
         ))
     }
 
-    pub(super) fn store_continuation(
-        &mut self,
-        continuation: RuntimeContinuationRecord,
-    ) -> RuntimeRevisionCursor {
-        let cursor = format!("cursor-{}", self.next_continuation_index);
-        let Some(next_continuation_index) = self.next_continuation_index.checked_add(1) else {
-            PendingRuntimeContinuationRecordCleanup::new(continuation).drain();
-            panic!("runtime continuation id space is exhausted");
-        };
-        self.next_continuation_index = next_continuation_index;
-        let handle = RuntimeRevisionCursor {
-            revision_id: continuation.revision_id.clone(),
-            revision_version: continuation.revision_version,
-            cursor: cursor.clone(),
-        };
-        self.continuations.insert_new(cursor, continuation);
-        handle
-    }
     pub(super) fn require_continuable_revision(
         &self,
         revision_id: &str,

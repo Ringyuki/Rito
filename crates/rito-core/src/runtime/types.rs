@@ -11,8 +11,8 @@ use crate::{
     epub::{PackageDocument, TocEntry},
     interaction::{FootnoteEntry, FootnoteKind},
     layout::{
-        FontVerticalMetricDemand, FontVerticalMetricSample, LayoutConfig, LineBreaking,
-        PaginationFlowChapterRange, SearchRuntimeResult, SearchTextPosition,
+        LayoutConfig, LineBreaking, PaginationFlowChapterRange, SearchRuntimeResult,
+        SearchTextPosition,
     },
     render::DisplayListResourceRefs,
     resources::PublicationResources,
@@ -313,26 +313,6 @@ pub struct RuntimeContinueRevisionRequest {
     pub budget: RuntimeRevisionWorkBudget,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeCalibrateRevisionFontVerticalMetricsRequest {
-    pub revision_id: String,
-    pub revision_version: u32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub continuation: Option<RuntimeRevisionCursor>,
-    pub font_vertical_metrics: Vec<FontVerticalMetricSample>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionFontVerticalMetricCalibration {
-    pub revision: RuntimeRevisionSummary,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub continuation: Option<RuntimeRevisionCursor>,
-    pub calibrated_published_run_count: usize,
-    pub calibrated_unpublished_run_count: usize,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeCancelRevisionRequest {
@@ -395,8 +375,6 @@ pub struct RuntimeRevisionPresentation {
     pub toc_targets: RuntimeTocTargets,
     pub font_families: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub font_vertical_metric_demands: Option<Vec<FontVerticalMetricDemand>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub required_font_faces: Option<RuntimeRequiredFontFaces>,
 }
 
@@ -409,8 +387,6 @@ pub struct RuntimeRevisionBundle {
     pub footnotes: RuntimeFootnotes,
     pub chapter_text_indices: RuntimeChapterTextIndices,
     pub font_families: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub font_vertical_metric_demands: Option<Vec<FontVerticalMetricDemand>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub required_font_faces: Option<RuntimeRequiredFontFaces>,
 }

@@ -366,45 +366,6 @@ describe('Browser reader resource-backed rendering', () => {
     expect(addFont).not.toHaveBeenCalled();
   });
 
-  it('measures exact-size vertical metrics for an active pinned face', async () => {
-    const measureText = vi.fn(() => ({
-      width: 16,
-      fontBoundingBoxAscent: 4.5,
-      fontBoundingBoxDescent: 31.5,
-    }));
-    const state = createState({
-      ctx: Object.assign(fontMetricContext(), { measureText }),
-      pinnedFonts: {
-        policy: undefined,
-        summary: { ...emptyPinnedFontPolicySummary(), faces: [{}] },
-        registry: undefined,
-        faces: new Map(),
-      },
-    });
-    state.revisionBundle = {
-      ...state.revisionBundle,
-      fontVerticalMetricDemands: [
-        {
-          fontFamily: '__RitoPinned_face',
-          fontStyle: 'italic',
-          fontWeight: 700,
-          fontSizePx: 32,
-        },
-      ],
-    };
-
-    await expect(preloadReaderFonts(state)).resolves.toBe(true);
-    await expect(preloadReaderFonts(state)).resolves.toBe(false);
-
-    expect(measureText).toHaveBeenCalledOnce();
-    expect(state.fontMetrics.verticalMetrics).toMatchObject({
-      '["__ritopinned_face","italic",700,32]': {
-        topBaselineAscentPx: 4.5,
-        topBaselineDescentPx: 31.5,
-      },
-    });
-  });
-
   it('retries font registration when the active revision changes during a slow load', async () => {
     const addFont = vi.fn();
     const finishLoads: Array<() => void> = [];
@@ -773,7 +734,6 @@ function createState(overrides: object = {}): BrowserReaderState {
     fontMetrics: {
       genericSerif: { advances: {}, pairAdjustments: {} },
       fontFamilies: {},
-      verticalMetrics: {},
     },
     spreadContentInvalidatedListeners: new Set(),
     disposed: false,

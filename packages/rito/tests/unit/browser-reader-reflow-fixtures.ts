@@ -40,9 +40,6 @@ interface TestWorkerFixture {
   readonly worker: BrowserReaderWorkerClient;
   readonly open: Mock<BrowserReaderWorkerClient['open']>;
   readonly createRevision: Mock<TestCreateRevision>;
-  readonly calibrateRevisionFontVerticalMetrics: Mock<
-    BrowserReaderWorkerClient['calibrateRevisionFontVerticalMetrics']
-  >;
   readonly warmFrameWindow: Mock<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>;
   readonly getPageSemanticsAtRevision: Mock<
     BrowserReaderWorkerClient['getPageSemanticsAtRevision']
@@ -180,22 +177,17 @@ export function createWorker(
   const getFootnoteAtRevision = vi.fn<BrowserReaderWorkerClient['getFootnoteAtRevision']>();
   const resolveSourceLocatorAtRevision =
     vi.fn<BrowserReaderWorkerClient['resolveSourceLocatorAtRevision']>();
-  const calibrateRevisionFontVerticalMetrics =
-    vi.fn<BrowserReaderWorkerClient['calibrateRevisionFontVerticalMetrics']>();
   const worker: BrowserReaderWorkerClient = {
     sessionId,
     open,
     createBoundedRevision: vi.fn<BrowserReaderWorkerClient['createBoundedRevision']>(),
     continueRevision: vi.fn<BrowserReaderWorkerClient['continueRevision']>(),
-    calibrateRevisionFontVerticalMetrics,
     cancelRevision: vi.fn<BrowserReaderWorkerClient['cancelRevision']>(),
     getRevisionSummaryAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionSummaryAtRevision']>(),
     getRevisionBundleAtRevision: vi.fn<BrowserReaderWorkerClient['getRevisionBundleAtRevision']>(),
     getRevisionPresentationAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionPresentationAtRevision']>(),
-    getShapeProvenanceDiagnosticAtRevision:
-      vi.fn<BrowserReaderWorkerClient['getShapeProvenanceDiagnosticAtRevision']>(),
     getRevisionNavigationAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionNavigationAtRevision']>(),
     readFrameBufferAtRevision: vi.fn<BrowserReaderWorkerClient['readFrameBufferAtRevision']>(),
@@ -251,7 +243,6 @@ export function createWorker(
     worker,
     open,
     createRevision,
-    calibrateRevisionFontVerticalMetrics,
     warmFrameWindow,
     getPageSemanticsAtRevision,
     getPageReadingAnchorAtRevision,

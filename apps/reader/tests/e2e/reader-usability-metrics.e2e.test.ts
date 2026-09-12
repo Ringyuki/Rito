@@ -54,7 +54,7 @@ test('arms exact dual response categories only when chapter-local preview is ena
     mainContinuation: true,
     chapterLocalMutation: false,
   });
-  expect(readerWorkerResponseHoldCategory('continueRevisionTowardSourceLocator')).toBe(
+  expect(readerWorkerResponseHoldCategory('continueRevisionAfterTransferRelease')).toBe(
     'mainContinuation',
   );
   expect(readerWorkerResponseHoldCategory('createBoundedChapterLocalRevision')).toBe(

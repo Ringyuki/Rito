@@ -43,7 +43,7 @@ describe('Browser bounded revision commit adapter', () => {
       },
     });
     state.fontMetrics.genericSerif = undefined;
-    const snapshot = withFontMetricDemand(boundedSnapshot('initial', 1, 1, 0), 'Book');
+    const snapshot = withFontFamily(boundedSnapshot('initial', 1, 1, 0), 'Book');
     const candidateOwner = owner(candidate.worker);
     recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
     state.boundedSessions.candidate = candidateOwner;
@@ -53,7 +53,7 @@ describe('Browser bounded revision commit adapter', () => {
         (_revision, _kind, href) => Promise.resolve(fontResource(revisionHandle(snapshot), href)),
       ),
     });
-    const measureText = installVerticalMetricContext(state);
+    const measureText = installFontMetricContext(state);
 
     await expect(
       commitBrowserReaderBoundedSnapshot(state, {
@@ -80,298 +80,10 @@ describe('Browser bounded revision commit adapter', () => {
     state.revisionBundle = {
       ...state.revisionBundle,
       fontFamilies: snapshot.presentation.fontFamilies,
-      fontVerticalMetricDemands: snapshot.presentation.fontVerticalMetricDemands,
     };
 
     await expect(preloadReaderFonts(state)).resolves.toBe(false);
     expect(measureText).toHaveBeenCalledTimes(measurementCount);
-  });
-
-  it('calibrates a pinned alias without waiting for unrelated publication fonts', async () => {
-    vi.stubGlobal('FontFace', ImmediateFontFace);
-    const registry = fontRegistry();
-    const candidate = createWorker(() => undefined, 'pinned-font-geometry');
-    const state = pinnedState(candidate.worker, registry);
-    Object.assign(state.publication, {
-      fontFaces: [{ family: 'Unrelated', href: 'fonts/missing.ttf' }],
-    });
-    const demanded = withFontMetricDemand(
-      withRequiredFonts(boundedSnapshot('initial-pinned', 1, 1, 0), []),
-      '__RitoPinned_test',
-    );
-    const candidateOwner = owner(candidate.worker);
-    recordBrowserReaderAcceptedRevision(candidateOwner, demanded.revision);
-    state.boundedSessions.candidate = candidateOwner;
-    mockAggregates(candidate.worker, demanded);
-    const calibrated = withoutFontMetricDemands(demanded);
-    candidateOwner.controller.calibrateFontVerticalMetrics = vi.fn((samples) => {
-      expect(samples).toHaveLength(1);
-      recordBrowserReaderAcceptedRevision(candidateOwner, calibrated.revision);
-      mockAggregates(candidate.worker, calibrated);
-      return Promise.resolve(calibrated);
-    });
-    const workerFactory = vi.fn(() => {
-      throw new Error('vertical-only calibration must not create a replacement worker');
-    });
-    Object.assign(state, { workerFactory });
-    const readResource = vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(() =>
-      Promise.reject(new Error('unrelated font missing')),
-    );
-    Object.assign(candidate.worker, { readResourceAtRevision: readResource });
-    installVerticalMetricContext(state);
-
-    await expect(
-      commitBrowserReaderBoundedSnapshot(state, {
-        owner: candidateOwner,
-        snapshot: demanded,
-        config: state.config,
-        spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
-        baseCommitGeneration: state.commitGeneration,
-      }),
-    ).resolves.toEqual({ committed: true, committedSnapshot: calibrated });
-
-    expect(readResource).not.toHaveBeenCalled();
-    expect(workerFactory).not.toHaveBeenCalled();
-    expect(state.boundedSessions.current).toBe(candidateOwner);
-    expect(state.revisionBundle.revision).toBe(calibrated.revision);
-  });
-
-  it('keeps calibrating the same owner until its current presentation has no demand', async () => {
-    vi.stubGlobal('FontFace', ImmediateFontFace);
-    const registry = fontRegistry();
-    const candidate = createWorker(() => undefined, 'pinned-font-calibration-loop');
-    const state = pinnedState(candidate.worker, registry);
-    const initial = withFontMetricDemand(
-      withRequiredFonts(boundedSnapshot('calibration-loop', 1, 1, 0), []),
-      '__RitoPinned_test',
-    );
-    const secondDemand = withFontMetricDemand(
-      withoutFontMetricDemands(initial),
-      '__RitoPinned_test',
-      18,
-    );
-    const calibrated = withoutFontMetricDemands(secondDemand);
-    const candidateOwner = owner(candidate.worker);
-    recordBrowserReaderAcceptedRevision(candidateOwner, initial.revision);
-    state.boundedSessions.candidate = candidateOwner;
-    mockAggregates(candidate.worker, initial);
-    installVerticalMetricContext(state);
-    const calibrateFontVerticalMetrics = vi
-      .fn<BrowserReaderBoundedSessionOwner['controller']['calibrateFontVerticalMetrics']>()
-      .mockImplementationOnce(() => {
-        recordBrowserReaderAcceptedRevision(candidateOwner, secondDemand.revision);
-        mockAggregates(candidate.worker, secondDemand);
-        return Promise.resolve(secondDemand);
-      })
-      .mockImplementationOnce(() => {
-        recordBrowserReaderAcceptedRevision(candidateOwner, calibrated.revision);
-        mockAggregates(candidate.worker, calibrated);
-        return Promise.resolve(calibrated);
-      });
-    candidateOwner.controller.calibrateFontVerticalMetrics = calibrateFontVerticalMetrics;
-
-    await expect(
-      commitBrowserReaderBoundedSnapshot(state, {
-        owner: candidateOwner,
-        snapshot: initial,
-        config: state.config,
-        spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
-        baseCommitGeneration: state.commitGeneration,
-      }),
-    ).resolves.toEqual({ committed: true, committedSnapshot: calibrated });
-
-    expect(calibrateFontVerticalMetrics).toHaveBeenCalledTimes(2);
-    expect(state.revisionBundle.fontVerticalMetricDemands).toEqual([]);
-  });
-
-  it('recalibrates the same descriptor after the known page extent grows', async () => {
-    vi.stubGlobal('FontFace', ImmediateFontFace);
-    const registry = fontRegistry();
-    const candidate = createWorker(() => undefined, 'vertical-calibration-growth');
-    const state = pinnedState(candidate.worker, registry);
-    const initial = withFontMetricDemand(
-      withRequiredFonts(boundedSnapshot('vertical-calibration-growth', 1, 1, 0), []),
-      '__RitoPinned_test',
-    );
-    const grown = withFontMetricDemand(
-      withRequiredFonts(boundedSnapshot('vertical-calibration-growth', 2, 2, 0, 4), []),
-      '__RitoPinned_test',
-    );
-    const calibrated = withoutFontMetricDemands(grown);
-    const candidateOwner = owner(candidate.worker);
-    recordBrowserReaderAcceptedRevision(candidateOwner, initial.revision);
-    state.boundedSessions.candidate = candidateOwner;
-    mockAggregates(candidate.worker, initial);
-    installVerticalMetricContext(state);
-    const calibrateFontVerticalMetrics = vi
-      .fn<BrowserReaderBoundedSessionOwner['controller']['calibrateFontVerticalMetrics']>()
-      .mockImplementationOnce(() => {
-        recordBrowserReaderAcceptedRevision(candidateOwner, grown.revision);
-        mockAggregates(candidate.worker, grown);
-        return Promise.resolve(grown);
-      })
-      .mockImplementationOnce(() => {
-        recordBrowserReaderAcceptedRevision(candidateOwner, calibrated.revision);
-        mockAggregates(candidate.worker, calibrated);
-        return Promise.resolve(calibrated);
-      });
-    candidateOwner.controller.calibrateFontVerticalMetrics = calibrateFontVerticalMetrics;
-
-    await expect(
-      commitBrowserReaderBoundedSnapshot(state, {
-        owner: candidateOwner,
-        snapshot: initial,
-        config: state.config,
-        spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
-        baseCommitGeneration: state.commitGeneration,
-      }),
-    ).resolves.toEqual({ committed: true, committedSnapshot: calibrated });
-
-    expect(calibrateFontVerticalMetrics).toHaveBeenCalledTimes(2);
-    expect(state.revisionBundle.revision.knownExtent.pageCount).toBe(2);
-  });
-
-  it('replaces the candidate when vertical calibration repeats the same descriptor', async () => {
-    vi.stubGlobal('FontFace', ImmediateFontFace);
-    const registry = fontRegistry();
-    const candidate = createWorker(() => undefined, 'repeated-vertical-calibration');
-    const state = pinnedState(candidate.worker, registry);
-    const initial = withFontMetricDemand(
-      withRequiredFonts(boundedSnapshot('repeated-vertical-calibration', 1, 1, 0), []),
-      '__RitoPinned_test',
-    );
-    const repeated = withFontMetricDemand(withoutFontMetricDemands(initial), '__RitoPinned_test');
-    const candidateOwner = owner(candidate.worker);
-    recordBrowserReaderAcceptedRevision(candidateOwner, initial.revision);
-    state.boundedSessions.candidate = candidateOwner;
-    mockAggregates(candidate.worker, initial);
-    installVerticalMetricContext(state);
-    const calibrateFontVerticalMetrics = vi
-      .fn<BrowserReaderBoundedSessionOwner['controller']['calibrateFontVerticalMetrics']>()
-      .mockImplementation(() => {
-        recordBrowserReaderAcceptedRevision(candidateOwner, repeated.revision);
-        mockAggregates(candidate.worker, repeated);
-        return Promise.resolve(repeated);
-      });
-    candidateOwner.controller.calibrateFontVerticalMetrics = calibrateFontVerticalMetrics;
-
-    await expect(
-      commitBrowserReaderBoundedSnapshot(state, {
-        owner: candidateOwner,
-        snapshot: initial,
-        config: state.config,
-        spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
-        baseCommitGeneration: state.commitGeneration,
-      }),
-    ).resolves.toEqual({ committed: false, requiresFontGeometryReflow: true });
-
-    expect(calibrateFontVerticalMetrics).toHaveBeenCalledOnce();
-    expect(state.revisionBundle.revision.revisionId).toBe('');
-    expect(state.boundedSessions.current).toBeUndefined();
-    expect(state.boundedSessions.candidate).toBe(candidateOwner);
-  });
-
-  it('publishes when the host cannot measure optional vertical interaction geometry', async () => {
-    vi.stubGlobal('FontFace', ImmediateFontFace);
-    const registry = fontRegistry();
-    const candidate = createWorker(() => undefined, 'unmeasurable-vertical-geometry');
-    const state = pinnedState(candidate.worker, registry);
-    const locator: ReaderLocator = {
-      href: 'Text/Section001.xhtml',
-      sourcePoint: { nodePath: [3, 1], textOffset: 17 },
-      progression: 0.5,
-    };
-    const snapshot = withFontMetricDemand(
-      withRequiredFonts(
-        withResolvedLocator(
-          boundedSnapshot('unmeasurable-vertical-geometry', 4, 4, 3),
-          locator,
-          3,
-          3,
-        ),
-        [],
-      ),
-      '__RitoPinned_test',
-    );
-    const candidateOwner = owner(candidate.worker);
-    const calibrateFontVerticalMetrics =
-      vi.fn<BrowserReaderBoundedSessionOwner['controller']['calibrateFontVerticalMetrics']>();
-    candidateOwner.controller.calibrateFontVerticalMetrics = calibrateFontVerticalMetrics;
-    recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
-    state.boundedSessions.candidate = candidateOwner;
-    mockAggregates(candidate.worker, snapshot);
-    Object.assign(state.ctx, {
-      save: vi.fn(),
-      restore: vi.fn(),
-      measureText: vi.fn(() => ({
-        width: 16,
-        fontBoundingBoxAscent: Number.NaN,
-        fontBoundingBoxDescent: Number.NaN,
-      })),
-      font: '',
-      textBaseline: 'alphabetic',
-    });
-    const workerFactory = vi.fn(() => {
-      throw new Error('optional interaction geometry must not create a replacement worker');
-    });
-    Object.assign(state, { workerFactory });
-
-    await expect(
-      commitBrowserReaderBoundedSnapshot(state, {
-        owner: candidateOwner,
-        snapshot,
-        config: state.config,
-        spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
-        baseCommitGeneration: state.commitGeneration,
-      }),
-    ).resolves.toEqual({ committed: true });
-
-    expect(calibrateFontVerticalMetrics).not.toHaveBeenCalled();
-    expect(workerFactory).not.toHaveBeenCalled();
-    expect(state.boundedSessions.current).toBe(candidateOwner);
-    expect(state.revisionBundle.revision).toBe(snapshot.revision);
-    expect(state.activeSpreadIndex).toBe(3);
-    expect([...state.frames.keys()]).toEqual([3]);
-    expect(state.frames.has(0)).toBe(false);
-  });
-
-  it('does not publish a calibrated snapshot while its owner still accepts the old version', async () => {
-    vi.stubGlobal('FontFace', ImmediateFontFace);
-    const registry = fontRegistry();
-    const candidate = createWorker(() => undefined, 'stale-calibration-owner');
-    const state = pinnedState(candidate.worker, registry);
-    const initial = withFontMetricDemand(
-      withRequiredFonts(boundedSnapshot('stale-calibration', 1, 1, 0), []),
-      '__RitoPinned_test',
-    );
-    const calibrated = withoutFontMetricDemands(initial);
-    const candidateOwner = owner(candidate.worker);
-    recordBrowserReaderAcceptedRevision(candidateOwner, initial.revision);
-    state.boundedSessions.candidate = candidateOwner;
-    mockAggregates(candidate.worker, initial);
-    installVerticalMetricContext(state);
-    candidateOwner.controller.calibrateFontVerticalMetrics = vi.fn(() =>
-      Promise.resolve(calibrated),
-    );
-
-    await expect(
-      commitBrowserReaderBoundedSnapshot(state, {
-        owner: candidateOwner,
-        snapshot: initial,
-        config: state.config,
-        spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
-        baseCommitGeneration: state.commitGeneration,
-      }),
-    ).resolves.toEqual({ committed: false });
-
-    expect(candidateOwner.acceptedRevision?.revisionVersion).toBe(initial.revision.revisionVersion);
-    expect(state.revisionBundle.revision.revisionId).toBe('');
   });
 
   it('atomically publishes an exact candidate without releasing controller-owned revisions', async () => {
@@ -868,7 +580,6 @@ function owner(
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
-      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(),
       cancel: vi.fn(),
       dispose: vi.fn(),
@@ -1053,41 +764,17 @@ function withResolvedLocator(
   };
 }
 
-function withFontMetricDemand(
+function withFontFamily(
   snapshot: BrowserReaderBoundedSnapshot,
   fontFamily: string,
-  fontSizePx = 16,
 ): BrowserReaderBoundedSnapshot {
   return {
     ...snapshot,
-    presentation: {
-      ...snapshot.presentation,
-      fontFamilies: [fontFamily],
-      fontVerticalMetricDemands: [{ fontFamily, fontStyle: 'normal', fontWeight: 400, fontSizePx }],
-    },
+    presentation: { ...snapshot.presentation, fontFamilies: [fontFamily] },
   };
 }
 
-function withoutFontMetricDemands(
-  snapshot: BrowserReaderBoundedSnapshot,
-): BrowserReaderBoundedSnapshot {
-  const revision = {
-    ...snapshot.revision,
-    revisionVersion: snapshot.revision.revisionVersion + 1,
-  };
-  return {
-    ...snapshot,
-    generation: snapshot.generation + 1,
-    revision,
-    presentation: {
-      ...snapshot.presentation,
-      revision,
-      fontVerticalMetricDemands: [],
-    },
-  };
-}
-
-function installVerticalMetricContext(state: BrowserReaderState) {
+function installFontMetricContext(state: BrowserReaderState) {
   const measureText = vi.fn(() => ({
     width: 16,
     fontBoundingBoxAscent: 3,

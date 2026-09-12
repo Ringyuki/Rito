@@ -17,9 +17,6 @@ import {
 
 test('bounded snapshots include exact slim presentation metadata', async () => {
   let presentationCount = 0;
-  const fontVerticalMetricDemands = [
-    { fontFamily: 'serif', fontStyle: 'normal', fontWeight: 400, fontSizePx: 32 },
-  ];
   const client = fixtureClient({
     create: async () => versioned(advance(0, 1, true)),
     presentation: async (value, extent) => {
@@ -28,10 +25,7 @@ test('bounded snapshots include exact slim presentation metadata', async () => {
       const navigation = revisionNavigation(value.revisionId, extent);
       return {
         revision: value,
-        value: {
-          ...revisionPresentation(revision, navigation),
-          fontVerticalMetricDemands,
-        },
+        value: revisionPresentation(revision, navigation),
       };
     },
   });
@@ -43,47 +37,7 @@ test('bounded snapshots include exact slim presentation metadata', async () => {
   assert.equal(snapshot.navigation, snapshot.presentation.navigation);
   assert.equal('footnotes' in snapshot.presentation, false);
   assert.equal('chapterTextIndices' in snapshot.presentation, false);
-  assert.deepEqual(snapshot.presentation.fontVerticalMetricDemands, fontVerticalMetricDemands);
   assert.equal(presentationCount, 1);
-  await session.dispose();
-});
-
-test('vertical calibration advances the owner and refreshes its current target snapshot', async () => {
-  const accepted = [];
-  const requests = [];
-  const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, true)),
-  });
-  const calibrate = client.calibrateRevisionFontVerticalMetrics;
-  client.calibrateRevisionFontVerticalMetrics = async (request) => {
-    requests.push(request);
-    return calibrate(request);
-  };
-  const session = createRitoCoreWasmBoundedReaderSession(client, {
-    onAcceptedRevision: ({ revision }) => accepted.push(revision.revisionVersion),
-  });
-  const initial = await session.start(startRequest(0));
-
-  const calibrated = await session.calibrateFontVerticalMetrics([
-    {
-      fontFamily: 'Book',
-      fontStyle: 'normal',
-      fontWeight: 400,
-      fontSizePx: 16,
-      topBaselineAscentPx: 3,
-      topBaselineDescentPx: 14,
-    },
-  ]);
-
-  assert.equal(initial.revision.revisionVersion, 0);
-  assert.equal(calibrated.revision.revisionVersion, 1);
-  assert.deepEqual(calibrated.target, initial.target);
-  assert.equal(session.currentSnapshot(), calibrated);
-  assert.deepEqual(accepted, [0, 1]);
-  assert.deepEqual(requests[0].continuation, {
-    ...handle(0),
-    cursor: 'cursor-1',
-  });
   await session.dispose();
 });
 

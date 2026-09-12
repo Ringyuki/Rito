@@ -49,16 +49,10 @@ test('bounded startup targets a locator before publishing or warming any spread'
     yieldControl: async () => {},
   });
   let standaloneLocatorRequests = 0;
-  let atomicLocatorContinues = 0;
   const resolveSourceLocator = client.resolveSourceLocatorAtRevision;
-  const continueTowardLocator = client.continueRevisionTowardSourceLocator;
   client.resolveSourceLocatorAtRevision = async (...args) => {
     standaloneLocatorRequests += 1;
     return resolveSourceLocator(...args);
-  };
-  client.continueRevisionTowardSourceLocator = async (...args) => {
-    atomicLocatorContinues += 1;
-    return continueTowardLocator(...args);
   };
 
   const snapshot = await session.start(locatorStartRequest(locator));
@@ -70,8 +64,7 @@ test('bounded startup targets a locator before publishing or warming any spread'
   assert.deepEqual(budgets, [32, 32, 32]);
   assert.deepEqual(warmed, [3]);
   assert.equal(presentationCount, 1);
-  assert.equal(standaloneLocatorRequests, 1);
-  assert.equal(atomicLocatorContinues, 2);
+  assert.equal(standaloneLocatorRequests, 3);
   await session.dispose();
 });
 
@@ -135,14 +128,12 @@ test('313-quantum far locator protocol drops worker requests from 940 to 314', a
     standaloneLocator: growthQuanta + 1,
     directRelease: growthQuanta,
     directContinue: growthQuanta,
-    atomicLocatorContinue: 0,
     total: growthQuanta * 3 + 1,
   });
   assert.deepEqual(atomic, {
-    standaloneLocator: 1,
+    standaloneLocator: growthQuanta + 1,
     directRelease: 0,
     directContinue: 0,
-    atomicLocatorContinue: growthQuanta,
     total: growthQuanta + 1,
   });
 });
@@ -433,12 +424,10 @@ async function farLocatorProtocolCounts(growthQuanta, atomic) {
     standaloneLocator: 0,
     directRelease: 0,
     directContinue: 0,
-    atomicLocatorContinue: 0,
   };
   wrapCount(client, 'resolveSourceLocatorAtRevision', counts, 'standaloneLocator');
   wrapCount(client, 'releaseRevisionTransfersAtRevision', counts, 'directRelease');
   wrapCount(client, 'continueRevision', counts, 'directContinue');
-  wrapCount(client, 'continueRevisionTowardSourceLocator', counts, 'atomicLocatorContinue');
   const session = createRitoCoreWasmBoundedReaderSession(client, { yieldControl: async () => {} });
 
   const snapshot = await session.start(locatorStartRequest(target));

@@ -1,10 +1,9 @@
 use std::{
     collections::{btree_map, BTreeMap},
     num::NonZeroUsize,
-    vec,
 };
 
-use crate::layout::{CleanupProgress, FontVerticalMetricSample, LayoutConfig};
+use crate::layout::{CleanupProgress, LayoutConfig};
 
 use self::shell::LayoutConfigShell;
 
@@ -12,19 +11,16 @@ mod shell;
 
 type AdvanceMapSource = btree_map::IntoIter<String, f64>;
 type FamilyAdvanceMapSource = btree_map::IntoIter<String, BTreeMap<String, f64>>;
-type VerticalMetricsSource = vec::IntoIter<FontVerticalMetricSample>;
 
 /// Releases every unbounded font-measurement map entry under an explicit
 /// structural budget.
 ///
-/// If the two flat maps contain `F` entries total, the nested maps contain `N`
-/// inner entries under `O` outer family keys, and the vertical-metric sample
-/// vector contains `V` entries, this cursor costs exactly `F + N + 2O + 6` units
-/// when `V == 0`, or `F + N + 2O + V + 7` otherwise. Empty optional maps do
-/// not perturb the established cleanup cost. Creating and advancing the
-/// standard-library B-tree
-/// iterators retains logarithmic internal work, so this removes whole-map
-/// destructor stalls without claiming a strict constant-time unit.
+/// If the two flat maps contain `F` entries total and the nested maps contain
+/// `N` inner entries under `O` outer family keys, this cursor costs exactly
+/// `F + N + 2O + 6` units. Empty optional maps do not perturb the established
+/// cleanup cost. Creating and advancing the standard-library B-tree iterators
+/// retains logarithmic internal work, so this removes whole-map destructor
+/// stalls without claiming a strict constant-time unit.
 #[derive(Debug)]
 pub(crate) struct PendingLayoutConfigCleanup {
     owner: Option<LayoutConfig>,
@@ -34,7 +30,6 @@ pub(crate) struct PendingLayoutConfigCleanup {
     generic_serif_pair_adjustments: Option<AdvanceMapSource>,
     font_family_pair_adjustments: Option<FamilyAdvanceMapSource>,
     active_family_pair_adjustments: Option<AdvanceMapSource>,
-    font_vertical_metrics: Option<VerticalMetricsSource>,
     shell: Option<LayoutConfigShell>,
     stage: LayoutConfigCleanupStage,
 }
@@ -46,7 +41,6 @@ enum LayoutConfigCleanupStage {
     FontFamilyAdvances,
     GenericSerifPairAdjustments,
     FontFamilyPairAdjustments,
-    FontVerticalMetrics,
     Owner,
     Complete,
 }
@@ -67,7 +61,6 @@ impl PendingLayoutConfigCleanup {
             generic_serif_pair_adjustments: None,
             font_family_pair_adjustments: None,
             active_family_pair_adjustments: None,
-            font_vertical_metrics: None,
             shell: None,
             stage: LayoutConfigCleanupStage::Source,
         }
@@ -88,7 +81,6 @@ impl PendingLayoutConfigCleanup {
             LayoutConfigCleanupStage::FontFamilyPairAdjustments => {
                 self.advance_font_family_pair_adjustments()
             }
-            LayoutConfigCleanupStage::FontVerticalMetrics => self.advance_font_vertical_metrics(),
             LayoutConfigCleanupStage::Owner => self.release_owner(),
             LayoutConfigCleanupStage::Complete => false,
         }
@@ -142,14 +134,11 @@ impl PendingLayoutConfigCleanup {
             font_family_advances,
             generic_serif_pair_adjustments,
             font_family_pair_adjustments,
-            font_vertical_metrics,
         } = owner;
         self.generic_serif_advances = Some(generic_serif_advances.into_iter());
         self.font_family_advances = Some(font_family_advances.into_iter());
         self.generic_serif_pair_adjustments = Some(generic_serif_pair_adjustments.into_iter());
         self.font_family_pair_adjustments = Some(font_family_pair_adjustments.into_iter());
-        self.font_vertical_metrics =
-            (!font_vertical_metrics.is_empty()).then(|| font_vertical_metrics.into_iter());
         self.shell = Some(LayoutConfigShell {
             viewport_width,
             viewport_height,
@@ -206,17 +195,6 @@ impl PendingLayoutConfigCleanup {
             &mut self.active_family_pair_adjustments,
         ) == SourceProgress::Complete
         {
-            self.stage = if self.font_vertical_metrics.is_some() {
-                LayoutConfigCleanupStage::FontVerticalMetrics
-            } else {
-                LayoutConfigCleanupStage::Owner
-            };
-        }
-        true
-    }
-
-    fn advance_font_vertical_metrics(&mut self) -> bool {
-        if advance_vector_source(&mut self.font_vertical_metrics) == SourceProgress::Complete {
             self.stage = LayoutConfigCleanupStage::Owner;
         }
         true
@@ -228,16 +206,6 @@ impl PendingLayoutConfigCleanup {
         self.stage = LayoutConfigCleanupStage::Complete;
         true
     }
-}
-
-fn advance_vector_source<T>(source: &mut Option<vec::IntoIter<T>>) -> SourceProgress {
-    let entries = source.as_mut().expect("vector source exists");
-    if let Some(entry) = entries.next() {
-        drop(entry);
-        return SourceProgress::Advanced;
-    }
-    *source = None;
-    SourceProgress::Complete
 }
 
 fn advance_flat_source<T>(source: &mut Option<btree_map::IntoIter<String, T>>) -> SourceProgress {

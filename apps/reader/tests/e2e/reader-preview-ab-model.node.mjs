@@ -174,7 +174,6 @@ function reportWithFarToc(transition) {
         operations: [
           { kind: 'continueRevision', durationMs: 3, advancedQuanta: 8 },
           { kind: 'warmFrameWindowAtRevision', durationMs: 11 },
-          { kind: 'continueRevisionTowardSourceLocator', durationMs: 4 },
         ],
       },
     },

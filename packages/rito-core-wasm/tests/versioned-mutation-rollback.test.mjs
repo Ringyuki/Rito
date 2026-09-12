@@ -25,17 +25,6 @@ test('direct mutation facade rolls back committed malformed revisions by exact h
     },
     {
       expected: handle(2),
-      raw: { continueRevisionTowardSourceLocatorJson: () => '{malformed' },
-      invoke: (document) =>
-        document.continueRevisionTowardSourceLocator({
-          ...handle(1),
-          cursor: 'cursor-2',
-          budget: budget(),
-          locator: { href: 'chapter.xhtml' },
-        }),
-    },
-    {
-      expected: handle(2),
       raw: { cancelRevisionJson: () => JSON.stringify(summary(2, 'ready')) },
       invoke: (document) => document.cancelRevision(handle(1)),
     },
@@ -82,75 +71,6 @@ test('worker client rolls back only matched malformed mutation responses', async
         advance: forgedAdvance(2),
         releasedRevision: handle(1),
         releasedTransferCount: 1,
-      },
-    },
-    {
-      expected: handle(2),
-      start: () =>
-        client.continueRevisionTowardSourceLocator({
-          ...handle(1),
-          cursor: 'cursor-2',
-          budget: budget(),
-          locator: { href: 'chapter.xhtml' },
-        }),
-      kind: 'continueRevisionTowardSourceLocator',
-      result: {
-        advance: forgedAdvance(2),
-        releasedRevision: handle(1),
-        releasedTransferCount: 1,
-        request: { href: 'chapter.xhtml' },
-        canonicalRequest: { href: 'chapter.xhtml' },
-        locatorOutcome: {
-          kind: 'failed',
-          code: 'internal-error',
-          message: 'post-continuation invariant failed',
-        },
-      },
-    },
-    {
-      expected: handle(2),
-      start: () =>
-        client.continueRevisionTowardSourceLocator({
-          ...handle(1),
-          cursor: 'cursor-2',
-          budget: budget(),
-          locator: { href: 'chapter.xhtml' },
-        }),
-      kind: 'continueRevisionTowardSourceLocator',
-      result: {
-        advance: advance(2),
-        releasedRevision: handle(1),
-        releasedTransferCount: 1,
-        request: { href: 'chapter.xhtml' },
-        canonicalRequest: { href: 'chapter.xhtml' },
-        locatorOutcome: {
-          kind: 'resolved',
-          resolution: sourceResolution({ href: 'other.xhtml' }),
-        },
-      },
-    },
-    {
-      expected: handle(2),
-      start: () =>
-        client.continueRevisionTowardSourceLocator({
-          ...handle(1),
-          cursor: 'cursor-2',
-          budget: budget(),
-          locator: { href: 'chapter.xhtml' },
-        }),
-      kind: 'continueRevisionTowardSourceLocator',
-      result: {
-        advance: advance(2),
-        releasedRevision: handle(1),
-        releasedTransferCount: 1,
-        request: { href: 'chapter.xhtml' },
-        canonicalRequest: { href: 'chapter.xhtml' },
-        locatorOutcome: {
-          kind: 'failed',
-          code: 'engine-error',
-          message: 'failed revision must be exact',
-          revision: summary(3, 'failed'),
-        },
       },
     },
     {
@@ -312,18 +232,6 @@ function handle(revisionVersion) {
 
 function budget() {
   return { maxTopLevelNodes: 1 };
-}
-
-function sourceResolution(locator) {
-  return {
-    status: 'resolved',
-    revisionId: 'rev-1',
-    locator,
-    spineIdref: 'chapter',
-    pageIndex: 0,
-    spreadIndex: 0,
-    matchedBy: 'href',
-  };
 }
 
 async function openClient(worker) {
