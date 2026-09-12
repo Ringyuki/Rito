@@ -7,11 +7,7 @@ export default defineConfig({
   test: {
     testTimeout: 30_000,
     include: ['tests/**/*.test.ts'],
-    exclude: [
-      ...configDefaults.exclude,
-      'tests/golden-pixel/**',
-      ...(coverageEnabled ? ['tests/unit/kp-real-epub-performance.test.ts'] : []),
-    ],
+    exclude: [...configDefaults.exclude, 'tests/golden-pixel/**'],
     coverage: {
       include: ['src/**/*.ts'],
       reporter: ['text', 'json-summary', 'html'],

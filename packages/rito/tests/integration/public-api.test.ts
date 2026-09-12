@@ -12,25 +12,17 @@ describe('public API surface', () => {
     expect(api.preloadReaderRuntime).toBeDefined();
   });
 
-  it('keeps the controller-integration oracle in the reference core', async () => {
-    const integration = await import('../../src/reference/ts-core/interaction');
-    expect(integration.buildHitMap).toBeDefined();
-    expect(integration.buildLinkMap).toBeDefined();
-    expect(integration.getSelectionRects).toBeDefined();
-    expect(integration.hitTestLink).toBeDefined();
-  });
-
   it('does not export internal APIs from main entry', async () => {
     const api = await import('../../src/index');
-    // Parser internals are reference-only during the Rust migration.
+    // Parser internals never left the engine.
     expect((api as Record<string, unknown>)['NODE_TYPES']).toBeUndefined();
     expect((api as Record<string, unknown>)['parseXhtml']).toBeUndefined();
     expect((api as Record<string, unknown>)['createZipReader']).toBeUndefined();
-    // Style internals are reference-only during the Rust migration.
+    // Style internals never left the engine.
     expect((api as Record<string, unknown>)['DEFAULT_STYLE']).toBeUndefined();
     expect((api as Record<string, unknown>)['resolveStyles']).toBeUndefined();
     expect((api as Record<string, unknown>)['parseCssDeclarations']).toBeUndefined();
-    // Layout internals are reference-only during the Rust migration.
+    // Layout internals never left the engine.
     expect((api as Record<string, unknown>)['layoutBlocks']).toBeUndefined();
     expect((api as Record<string, unknown>)['paginateBlocks']).toBeUndefined();
     // Advanced runtime / render helpers should be kept off the main entry

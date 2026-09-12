@@ -9,22 +9,25 @@ const PACKAGE_JSON = join(PACKAGE_ROOT, 'package.json');
 const WORKSPACE_PACKAGE_JSON = join(WORKSPACE_ROOT, 'package.json');
 
 describe('render diagnostic script', () => {
-  it('loads production and reference reader entries for parity diagnostics', () => {
+  it('drives the production reader entry against the browser XHTML capture', () => {
     const source = read(SCRIPT);
 
     expect(source).toContain("['production', import('/dist/index.mjs')]");
-    expect(source).toContain("['reference', import('/reference-dist/tooling/web.mjs')]");
     expect(source).toContain("process.env.RITO_DIAG_ENGINE || 'production'");
-    expect(source).toContain("value === 'both'");
-    expect(source).toContain('writeParityArtifacts');
+    expect(source).toContain('captureBrowserReference');
+    expect(source).not.toContain('reference-dist');
+    expect(source).not.toContain("value === 'both'");
   });
 
-  it('exposes workspace and package reader-parity commands', () => {
+  it('exposes workspace and package diagnostic commands without a second engine', () => {
     const packageJson = readPackageJson(PACKAGE_JSON);
     const workspaceJson = readPackageJson(WORKSPACE_PACKAGE_JSON);
 
-    expect(packageJson.scripts['diagnose:reader-parity']).toContain('RITO_DIAG_ENGINE=both');
-    expect(workspaceJson.scripts['diagnose:reader-parity']).toContain('RITO_DIAG_ENGINE=both');
+    expect(packageJson.scripts['diagnose:render']).toContain('render-diagnostic-case.mjs');
+    expect(workspaceJson.scripts['diagnose:render']).toContain('render-diagnostic-case.mjs');
+    expect(packageJson.scripts['diagnose:reader-parity']).toBeUndefined();
+    expect(workspaceJson.scripts['diagnose:reader-parity']).toBeUndefined();
+    expect(packageJson.scripts['build:reference']).toBeUndefined();
   });
 });
 

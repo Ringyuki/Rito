@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { createCanvasImageResolver } from '../../src/bindings/browser/image-href-resolver';
-import { buildHrefResolver as buildReferenceHrefResolver } from '../../src/reference/ts-core/utils/resolve-href';
 
 describe('browser image href resolver', () => {
   it('resolves exact, relative, suffix, basename, and percent-encoded hrefs', () => {
@@ -48,7 +47,6 @@ describe('browser image href resolver', () => {
     ]);
 
     expect(createCanvasImageResolver(images)('../Images/cover.jpg')).toBe(exact);
-    expect(buildReferenceHrefResolver(images)('../Images/cover.jpg')).toBe(exact);
   });
 
   it('resolves literal sources against percent-encoded resource keys', () => {
@@ -56,7 +54,6 @@ describe('browser image href resolver', () => {
     const images = new Map([['Images/My%20Pic.jpg', image]]);
 
     expect(createCanvasImageResolver(images)('../Images/My Pic.jpg')).toBe(image);
-    expect(buildReferenceHrefResolver(images)('../Images/My Pic.jpg')).toBe(image);
   });
 
   it('keeps raw precedence and rejects unsafe alias fallbacks', () => {
@@ -67,37 +64,30 @@ describe('browser image href resolver', () => {
       ['Images/My Pic.jpg', literal],
     ]);
 
-    for (const resolve of [
-      createCanvasImageResolver(aliases),
-      buildReferenceHrefResolver(aliases),
-    ]) {
-      expect(resolve('Images/My%20Pic.jpg')).toBe(encoded);
-      expect(resolve('Images/My Pic.jpg')).toBe(literal);
-      expect(resolve('Images/My%20%50ic.jpg')).toBeUndefined();
-    }
+    const resolve = createCanvasImageResolver(aliases);
+    expect(resolve('Images/My%20Pic.jpg')).toBe(encoded);
+    expect(resolve('Images/My Pic.jpg')).toBe(literal);
+    expect(resolve('Images/My%20%50ic.jpg')).toBeUndefined();
 
     const doubleEncoded = new Map([['Images/My%2520Pic.jpg', encoded]]);
     const malformedAlias = new Map([['Images/100%25.jpg', encoded]]);
-    for (const build of [createCanvasImageResolver, buildReferenceHrefResolver]) {
-      expect(build(doubleEncoded)('Images/My%20Pic.jpg')).toBeUndefined();
-      expect(build(malformedAlias)('Images/100%.jpg')).toBeUndefined();
-    }
+    expect(createCanvasImageResolver(doubleEncoded)('Images/My%20Pic.jpg')).toBeUndefined();
+    expect(createCanvasImageResolver(malformedAlias)('Images/100%.jpg')).toBeUndefined();
 
     const shorterFallback = new Map([
       ['A%2Fpic.jpg', encoded],
       ['A/pic.jpg', literal],
       ['pic.jpg', imageBitmap('shorter')],
     ]);
-    for (const build of [createCanvasImageResolver, buildReferenceHrefResolver]) {
-      expect(build(shorterFallback)('A/%70ic.jpg')).toBeUndefined();
-    }
+    expect(createCanvasImageResolver(shorterFallback)('A/%70ic.jpg')).toBeUndefined();
   });
 
   it('resolves query and fragment aliases without hiding collisions', () => {
     const plain = imageBitmap('plain');
     const queried = imageBitmap('queried');
 
-    for (const build of [createCanvasImageResolver, buildReferenceHrefResolver]) {
+    {
+      const build = createCanvasImageResolver;
       const resolvePlain = build(new Map([['Images/My%20Pic.jpg?manifest=%zz', plain]]));
       expect(resolvePlain('../Images/My Pic.jpg?cache=%zz#view')).toBe(plain);
       expect(resolvePlain('../Images/My Pic.jpg#view')).toBe(plain);
@@ -132,7 +122,7 @@ describe('browser image href resolver', () => {
     expect(createCanvasImageResolver(new Map())('anything.jpg')).toBeUndefined();
   });
 
-  it('matches the reference resolver across the compatibility lookup matrix', () => {
+  it('resolves the compatibility lookup matrix', () => {
     const images = new Map([
       ['Images/cover.jpg', imageBitmap('cover')],
       ['Other/Images/cover.jpg', imageBitmap('other-cover')],
@@ -140,23 +130,26 @@ describe('browser image href resolver', () => {
       ['Images/My Pic.jpg', imageBitmap('spaced')],
     ]);
     const production = createCanvasImageResolver(images);
-    const reference = buildReferenceHrefResolver(images);
-    const sources = [
-      'Images/cover.jpg',
-      '../Images/cover.jpg',
-      '../../../OPS/Media/photo.png',
-      'root/OPS/Media/photo.png',
-      'photo.png',
-      'cover.jpg',
-      '../Images/My%20Pic.jpg',
-      'Images/%ZZcover.jpg',
-      './Images/cover.jpg',
-      'Images/cover.jpg?size=2',
-      'Images\\cover.jpg',
-      'missing.png',
+    const expected: readonly (readonly [string, string | undefined])[] = [
+      ['Images/cover.jpg', 'cover'],
+      ['../Images/cover.jpg', 'cover'],
+      ['../../../OPS/Media/photo.png', 'photo'],
+      ['root/OPS/Media/photo.png', 'photo'],
+      ['photo.png', 'photo'],
+      // Two candidates share the basename: ambiguous, so unresolved.
+      ['cover.jpg', undefined],
+      ['../Images/My%20Pic.jpg', 'spaced'],
+      ['Images/%ZZcover.jpg', undefined],
+      ['./Images/cover.jpg', 'cover'],
+      ['Images/cover.jpg?size=2', 'cover'],
+      ['Images\\cover.jpg', undefined],
+      ['missing.png', undefined],
     ];
 
-    for (const source of sources) expect(production(source)).toBe(reference(source));
+    for (const [source, id] of expected) {
+      const resolved = production(source) as { readonly id: string } | undefined;
+      expect(resolved?.id, source).toBe(id);
+    }
   });
 });
 

@@ -1,9 +1,6 @@
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
-import type { RitoCoreWasmFrameCommand } from '@ritojs/core-wasm';
-
-import type { DrawCommand } from '../../src/reference/ts-core/render/display-list';
 
 const SRC = join(import.meta.dirname, '../../src');
 const READER_ROOT = join(SRC, 'reader');
@@ -11,10 +8,8 @@ const BROWSER_READER_BINDING = join(SRC, 'bindings/browser/reader');
 const BROWSER_CORE_CONTRACTS = join(SRC, 'bindings/browser/core-contracts.ts');
 const BROWSER_READER_WASM_MODULE = join(BROWSER_READER_BINDING, 'wasm-module.ts');
 const BROWSER_CANVAS_TEXT = join(SRC, 'bindings/browser/canvas-text');
-const BROWSER_THEME = join(SRC, 'bindings/browser/theme');
 const BROWSER_PRIMITIVE_RENDERER = join(SRC, 'bindings/browser/primitive-renderer.ts');
 const BROWSER_PRIMITIVE_BLITS = join(SRC, 'bindings/browser/primitive-blits.ts');
-const BROWSER_IMAGE_HREF_RESOLVER = join(SRC, 'bindings/browser/image-href-resolver.ts');
 const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
 const BROWSER_REVISION_COMMIT = join(SRC, 'bindings/browser/revision-commit.ts');
 const BROWSER_READER_METHODS = join(BROWSER_READER_BINDING, 'reader-methods.ts');
@@ -122,14 +117,6 @@ function scan(
 }
 
 describe('Browser reader architecture invariant: browser reader binding stays product-facing', () => {
-  it('keeps the reference Canvas contract a subset of decoded frame commands', () => {
-    // The wasm frame contract grew past the frozen reference (vertical
-    // rotate/scale transforms, underline paint); every command the
-    // reference renderer knows must still decode identically, while the
-    // production-only kinds are allowed to extend the union.
-    expectTypeOf<DrawCommand>().toExtend<RitoCoreWasmFrameCommand>();
-  });
-
   it('stays within the counted thin-shell budget', () => {
     expect(BROWSER_READER_BINDING_FILES.length).toBeLessThanOrEqual(
       BROWSER_READER_THIN_SHELL_FILE_BUDGET,
@@ -202,14 +189,14 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('keeps browser reader bindings independent of the legacy TypeScript core', () => {
+  it('keeps browser reader bindings free of engine-level modules', () => {
     const hits = scan(
       BROWSER_READER_BINDING_FILES,
-      /(?:from\s+|import\s*\()\s*['"](?:\.\.\/){3,}(?:reference\/ts-core|layout|render|runtime|parser|style|interaction|dom|utils|model)(?:\/|['"])/g,
+      /(?:from\s+|import\s*\()\s*['"](?:\.\.\/){3,}(?:layout|render|runtime|parser|style|interaction|dom|utils|model)(?:\/|['"])/g,
     );
     expect(
       hits,
-      `Browser reader binding imported legacy TypeScript core modules:\n${JSON.stringify(
+      `Browser reader binding imported engine-level TypeScript modules:\n${JSON.stringify(
         hits,
         null,
         2,
@@ -217,9 +204,8 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('keeps the Canvas renderer adapter independent of reference paint code', () => {
+  it('keeps the Canvas renderer adapter a primitive blitter', () => {
     const source = read(BROWSER_RENDERING);
-    expect(source).not.toContain('reference/ts-core');
     expect(source).not.toContain('drawTextFragment');
     expect(source).not.toContain('drawRubyFragment');
     expect(source).toContain("from './image-href-resolver'");
@@ -228,15 +214,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(source).not.toContain('as unknown as');
   });
 
-  it('keeps production Canvas command helpers independent of the reference core', () => {
-    const helpers = [
-      BROWSER_PRIMITIVE_RENDERER,
-      BROWSER_PRIMITIVE_BLITS,
-      BROWSER_IMAGE_HREF_RESOLVER,
-      ...walkTs(BROWSER_CANVAS_TEXT),
-      ...walkTs(BROWSER_THEME),
-    ];
-    expect(scan(helpers, /reference\/ts-core/g)).toEqual([]);
+  it('keeps production Canvas command helpers wired through the primitive renderer', () => {
     expect(read(BROWSER_PRIMITIVE_RENDERER)).toContain("from './primitive-blits'");
     expect(read(BROWSER_PRIMITIVE_RENDERER)).toContain("from './canvas-text/renderer'");
   });
