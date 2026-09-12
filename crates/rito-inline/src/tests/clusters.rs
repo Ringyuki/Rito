@@ -254,6 +254,7 @@ fn a_spread_ruby_base_keeps_one_origin_per_cluster_after_merging() {
         16.0,
         0.0,
     );
+    let annotation_advance = context.measure_styled_advance(&style, Some(8.0), "Emnetwiht");
     let mut inline = InlineStyleTableV1::new(1);
     let style = inline.intern_for_node(0, style).expect("style interns");
     let text_item = |text: &str| InlineItem::Text {
@@ -305,17 +306,35 @@ fn a_spread_ruby_base_keeps_one_origin_per_cluster_after_merging() {
         .iter()
         .find(|run| run.text_start == 3 && run.text_end == 9)
         .expect("the base 人族 lays out as one fragment");
+    // Chromium's grid arithmetic (the 042 witness: a raw half share put
+    // the annotation 1/64 px left of the browser's and flipped its first
+    // glyph's raster phase): widths on the 1/64 grid, inset S/2 for the
+    // one opportunity, half of it per edge, the rest between the glyphs.
+    let space = layout_unit_ceil(annotation_advance) - 32.0;
     assert!(
-        base.rect.width > 32.0,
-        "the annotation is wider than the base, so the base spreads: {}",
+        space > 0.0,
+        "the annotation is wider than the base: {annotation_advance}"
+    );
+    let inset_full = layout_unit_trunc(space / 2.0);
+    let inset = layout_unit_trunc(inset_full / 2.0);
+    let share = space - inset_full;
+    // Both brackets are 16px text, so each side overhangs by the half
+    // inset (under half the 8px annotation font and half a bracket).
+    assert_eq!(base.ruby_overhang_px, inset);
+    assert_eq!(base.ruby_overhang_right_px, inset);
+    assert_eq!(base.ruby_center_shift_px, 0.0);
+    let expected_width = 32.0 + share + (inset_full - 2.0 * inset);
+    assert!(
+        (base.rect.width - expected_width).abs() < 1e-4,
+        "the column is the annotation minus both overhangs: {} vs {expected_width}",
         base.rect.width
     );
     let origins: Vec<f64> = base.clusters.iter().map(|cluster| cluster.x).collect();
     assert_eq!(origins.len(), 2, "{origins:?}");
     assert_eq!(origins[0], 0.0);
     assert!(
-        origins[1] > 16.0 && (origins[1] - (base.rect.width - 16.0)).abs() < 1e-6,
-        "the second glyph steps by the em plus the spread gap: {origins:?} in {}",
-        base.rect.width
+        (origins[1] - (16.0 + share)).abs() < 1e-4,
+        "the second glyph steps by the em plus the interior share: {origins:?} vs {}",
+        16.0 + share
     );
 }

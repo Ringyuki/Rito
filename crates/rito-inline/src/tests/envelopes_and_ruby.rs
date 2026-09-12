@@ -835,7 +835,14 @@ fn a_wide_ruby_annotation_spreads_its_base_with_interior_gaps() {
         annotation_advance > base_advance + 1.0,
         "fixture must need a spread: annotation {annotation_advance} vs base {base_advance}"
     );
-    let gap = (annotation_advance - base_advance) / 2.0;
+    // Chromium's grid arithmetic: both widths on the 1/64 layout grid,
+    // the slack split into an inset S/(k+1) (k = the one opportunity
+    // between the two ideographs) and one interior share, with half the
+    // inset (truncated again) at each edge.
+    let space = layout_unit_ceil(annotation_advance) - layout_unit_ceil(base_advance);
+    let inset_full = layout_unit_trunc(space / 2.0);
+    let inset = layout_unit_trunc(inset_full / 2.0);
+    let share = space - inset_full;
 
     let mut inline = InlineStyleTableV1::new(1);
     let interned = inline
@@ -900,20 +907,23 @@ fn a_wide_ruby_annotation_spreads_its_base_with_interior_gaps() {
     assert_eq!(runs.len(), 2, "one run per item");
     let (ruby_run, plain_run) = (runs[0], runs[1]);
     assert!(
-        (ruby_run.ruby_gap_px - gap).abs() < 0.1,
-        "ruby run carries the interior gap: {} vs {gap}",
+        (ruby_run.ruby_gap_px - share).abs() < 1e-9,
+        "ruby run carries the interior share: {} vs {share}",
         ruby_run.ruby_gap_px
     );
     assert_eq!(plain_run.ruby_gap_px, 0.0);
-    // The ruby sits at the paragraph start: the left edge share
-    // cannot overhang the flow edge and is absorbed into the column;
-    // the right edge share overhangs the plain neighbour paint-only.
-    let absorbed_left = (annotation_advance - base_advance) / 4.0;
+    // The ruby sits at the paragraph start: the start edge cannot
+    // overhang the flow edge, so its half inset stays in the column and
+    // shifts the base glyphs right; the end edge overhangs the same-size
+    // plain neighbour paint-only.
+    assert_eq!(ruby_run.ruby_overhang_px, 0.0);
+    assert_eq!(ruby_run.ruby_overhang_right_px, inset);
+    assert_eq!(ruby_run.ruby_center_shift_px, inset);
+    let expected_width = base_advance + share + (inset_full - inset);
     assert!(
-        (ruby_run.rect.width - (base_advance + gap + absorbed_left)).abs() < 0.1,
-        "base spreads by one interior gap plus the absorbed flow-edge share (n = 2): width {} vs {}",
-        ruby_run.rect.width,
-        base_advance + gap + absorbed_left
+        (ruby_run.rect.width - expected_width).abs() < 1e-3,
+        "the column keeps the annotation minus the end overhang: width {} vs {expected_width}",
+        ruby_run.rect.width
     );
     assert!(
         (plain_run.rect.width - base_advance).abs() < 0.1,

@@ -1443,74 +1443,24 @@ impl FormattingContext for ParleyInlineContext {
                                     .is_some_and(|resolved| {
                                         !resolved.paint.text_shadows.is_empty()
                                     });
-                                let run_letter_spacing = style_tables
-                                    .and_then(|tables| {
-                                        let item_style = match &tree.node(root).content {
-                                            FormattingNodeContent::InlineFlow { items } => {
-                                                items.get(item_index).map(|item| match item {
-                                                    InlineItem::Text { style, .. }
-                                                    | InlineItem::Image { style, .. }
-                                                    | InlineItem::InlineBlock { style, .. }
-                                                    | InlineItem::EmptyBox { style, .. } => *style,
-                                                })
-                                            }
-                                            _ => None,
-                                        }?;
-                                        tables.inline.style(item_style).ok()
-                                    })
-                                    .map_or(0.0_f64, |resolved| {
-                                        match resolved.text_flow.letter_spacing {
-                                            LengthPercentage::Length(px) => f64::from(px.get()),
-                                            _ => 0.0,
-                                        }
-                                    });
                                 // The browser's pen advances on 16.16
-                                // fixed-point pixels: scale = round(size *
-                                // 65536), px = trunc(units * scale / upem)
-                                // / 65536. A 19.2px 1000-unit ideograph
-                                // advances 19.199997px, not the raw f32
-                                // product 19.200001px — the raw sum
-                                // crosses the next 1/64 cell one cluster
-                                // early and every glyph after it paints
-                                // one device column right of the
-                                // browser's (Range-measured on a
-                                // pinned-Chromium 19.2px contents line:
-                                // cluster 8 lands at 10087/64, the raw
-                                // sum floors to 10088/64).
+                                // fixed-point pixels (see
+                                // `hb_fixed_cluster_advance`); the
+                                // spacing layout folded into a cluster —
+                                // author spacing, a trim, a ruby share —
+                                // is that cluster's own, added outside
+                                // the fixed-point glyph advance (unfolding
+                                // a spread ruby base's shares with the
+                                // FOLLOWING run's author spacing
+                                // round-tripped the shares through font
+                                // units and pushed the run's anchor off
+                                // the grid).
                                 let hb_cluster_advance =
                                     |current: &parley::layout::Cluster<'_, _>| -> f64 {
-                                        use skrifa::raw::TableProvider as _;
-                                        let advance = f64::from(current.advance());
-                                        let run = current.run();
-                                        let font = run.font();
-                                        let Ok(font_ref) = skrifa::FontRef::from_index(
-                                            font.data.as_ref(),
-                                            font.index,
-                                        ) else {
-                                            return advance;
-                                        };
-                                        let Ok(head) = font_ref.head() else {
-                                            return advance;
-                                        };
-                                        let upem = i64::from(head.units_per_em());
-                                        let size = f64::from(run.font_size());
-                                        if upem <= 0 || size <= 0.0 {
-                                            return advance;
-                                        }
-                                        let scale = (size * 65536.0).round() as i64;
-                                        // The author letter-spacing was folded
-                                        // into every cluster advance after
-                                        // shaping; the browser adds spacing
-                                        // OUTSIDE the fixed-point glyph
-                                        // advance (a 16px run spaced 1.333px
-                                        // steps 16.000000 + 1.333 — round-
-                                        // tripping the folded sum through
-                                        // font units pulled every spaced
-                                        // glyph 0.0053px left per cluster
-                                        // across a whole book).
-                                        let bare = advance - run_letter_spacing;
-                                        let units = (bare * upem as f64 / size).round() as i64;
-                                        (units * scale / upem) as f64 / 65536.0 + run_letter_spacing
+                                        hb_fixed_cluster_advance(
+                                            current,
+                                            folded_spacing(spacing_edits, current),
+                                        )
                                     };
                                 let (cjk_kern_splits, cjk_anchor_correction, cjk_hb_total): (
                                     Vec<(usize, f64)>,

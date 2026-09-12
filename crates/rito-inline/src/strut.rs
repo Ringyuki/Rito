@@ -134,6 +134,21 @@ pub fn layout_unit_ceil(value: f64) -> f64 {
     (((value - 1.0 / 1024.0) * 64.0).ceil() / 64.0).max(0.0)
 }
 
+/// Quantizes a CSS length the way Blink's LayoutUnit float constructor
+/// stores it: truncated toward zero onto the 1/64 px grid.
+pub(crate) fn layout_unit_trunc(value: f64) -> f64 {
+    (value * 64.0).trunc() / 64.0
+}
+
+/// A font size as Blink's style reports it to layout: the computed size
+/// rounded to a whole pixel (`FontDescription::ComputedPixelSize`, and
+/// `ComputedStyle::FontSize()` returns that int). Laws that scale a font
+/// size — a ruby overhang's cap at half the annotation font, a font-size
+/// comparison between neighbours — read this, not the float size.
+pub(crate) fn computed_pixel_size(size: f32) -> i32 {
+    (size + 0.5).floor() as i32
+}
+
 /// The used line-box height of a declared line-height, on Blink's grid.
 /// The quantization is TYPE-sensitive (measured, pinned Latin and CJK
 /// faces agree on every case — font metrics never enter): a NUMBER

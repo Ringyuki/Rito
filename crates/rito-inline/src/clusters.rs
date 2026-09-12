@@ -55,22 +55,8 @@ pub(crate) fn piece_clusters(
         if steps.is_empty() {
             font_size = f64::from(current.run().font_size());
         }
-        let folded_in = |edits: &[(std::ops::Range<usize>, f32)]| {
-            edits
-                .iter()
-                .rev()
-                .find(|(edited, _)| edited.contains(&text_range.start))
-                .map_or(0.0, |(_, spacing)| f64::from(*spacing))
-        };
-        // Word spacing rides the space clusters only, the way layout
-        // applied it.
-        let folded = folded_in(&spacing_edits.letter)
-            + if current.is_space_or_nbsp() {
-                folded_in(&spacing_edits.word)
-            } else {
-                0.0
-            };
-        let step = hb_fixed_cluster_advance(&current, folded) + justify_px;
+        let step = hb_fixed_cluster_advance(&current, folded_spacing(spacing_edits, &current))
+            + justify_px;
         let trim = halt_trims
             .iter()
             .find(|(trimmed, _)| *trimmed == text_range)
@@ -110,6 +96,31 @@ pub(crate) fn piece_clusters(
         grid,
         advance,
     }
+}
+
+/// The spacing layout folded into `cluster`'s advance: the letter
+/// spacing its range was last pushed with (author spacing, a trim, a box
+/// gap, a ruby share — the last push wins) plus, on a space cluster
+/// only, its word spacing — what the browser's pen adds OUTSIDE the
+/// fixed-point glyph advance.
+pub(crate) fn folded_spacing<B: parley::style::Brush>(
+    spacing_edits: &SpacingEdits,
+    cluster: &parley::layout::Cluster<'_, B>,
+) -> f64 {
+    let text_range = cluster.text_range();
+    let folded_in = |edits: &[(std::ops::Range<usize>, f32)]| {
+        edits
+            .iter()
+            .rev()
+            .find(|(edited, _)| edited.contains(&text_range.start))
+            .map_or(0.0, |(_, spacing)| f64::from(*spacing))
+    };
+    folded_in(&spacing_edits.letter)
+        + if cluster.is_space_or_nbsp() {
+            folded_in(&spacing_edits.word)
+        } else {
+            0.0
+        }
 }
 
 /// A string shaped on its own in one style — an outside list marker, a

@@ -104,6 +104,9 @@ pub(crate) struct JustifyPlan {
     /// glyph), while the [atom-text] boundary's share shifts the
     /// following run only.
     pub(crate) atom_shares: Vec<(usize, u32)>,
+    /// Every share the slack divides into — the boundary counts plus a
+    /// share deferred into the line's end.
+    pub(crate) total: u32,
 }
 
 impl JustifyPlan {
@@ -286,5 +289,6 @@ pub(crate) fn line_justify_plan(
         counts,
         before_bytes,
         atom_shares,
+        total,
     })
 }

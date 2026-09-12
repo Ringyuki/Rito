@@ -209,24 +209,37 @@ impl ParleyInlineContext {
         }
 
         // `ruby-align: space-around` (the UA initial value): an annotation
-        // wider than its base spreads the base. Measured Blink law: the
-        // excess E = annotation advance − base advance splits into n equal
-        // shares (n = base cluster count); half a share overhangs the
-        // adjacent text on each side, capped at half the annotation font
-        // size, and a full share opens between each pair of base clusters.
-        // The interior gaps ride per-range letter spacing on all but the
-        // last base cluster so line breaking sees the spread advance; the
-        // emitted fragment re-applies them as justify spacing and the
-        // annotation paints over the grown extent plus the overhangs.
-        // Measured here, before the builder takes the font borrow. A
-        // justified paragraph spreads identically (measured: a justified
-        // wide-annotation ruby is bit-identical to the left-aligned one)
-        // — justification then adds NO opportunities inside the spread
-        // base (see `line_justify_plan`), only at its outer boundaries.
+        // wider than its base spreads the base the way Chromium's LayoutNG
+        // does (ruby_utils.cc GetOverhang / ApplyRubyAlign,
+        // justification_utils.cc ApplyJustificationInternal,
+        // line_breaker.cc AddRubyColumnResult / CanApplyStartOverhang /
+        // CommitPendingEndOverhang). Both widths live on the 1/64 layout
+        // grid (the shaped advance ceiled) and the column takes the wider
+        // one; the base justifies inside the column: its slack S splits
+        // into an inset I = S/(k+1) (k = the base's expansion
+        // opportunities; grid integer division) and S − I over the k
+        // opportunities, with I/2 (truncated again) at each edge. The
+        // annotation overhangs an adjacent TEXT neighbour by min(I/2, half
+        // the annotation font size on the grid, half the neighbour's
+        // width) when the neighbour's font is no larger than the ruby's;
+        // a side that cannot overhang keeps its half inset inside the
+        // column (the base shifts right by the start side's, the flow
+        // advance grows by both). Measured on a Latin annotation over a
+        // two-glyph base: the raw half share put the annotation's origin
+        // 1/64 px left of Chromium's and flipped its first glyph's
+        // raster phase.
+        // The interior shares ride per-boundary letter spacing so line
+        // breaking sees the spread advance; the emitted fragment
+        // re-applies them as justify spacing and the annotation paints
+        // over the grown extent plus the overhangs. Measured here, before
+        // the builder takes the font borrow. A justified paragraph
+        // spreads identically (measured: a justified wide-annotation ruby
+        // is bit-identical to the left-aligned one) — justification then
+        // adds NO opportunities inside the spread base (see
+        // `line_justify_plan`), only at its outer boundaries.
         let mut ruby_spreads: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
-        // Per item: the overhang each side of the spread box (edge share,
-        // capped at half the annotation size).
+        // Per item: the overhang each side of the spread box.
         let mut ruby_spread_overhangs: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
         let mut ruby_spread_overhangs_right: std::collections::HashMap<usize, f64> =
@@ -237,8 +250,8 @@ impl ParleyInlineContext {
         let mut ruby_annotation_widths: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
         let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
-        // Per item: the paint-side right shift centering a packed base
-        // under its wide `ruby-align: center` annotation.
+        // Per item: the paint-side right shift of the base glyphs inside
+        // the column (the start inset that could not overhang).
         let mut ruby_center_shifts: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
         for (range, style, item_index) in &runs {
@@ -253,8 +266,7 @@ impl ParleyInlineContext {
                 continue;
             }
             let base_text = &text[range.clone()];
-            let cluster_count = base_text.chars().count();
-            if cluster_count == 0 {
+            if base_text.chars().count() == 0 {
                 continue;
             }
             let annotation_size = style.font.size.get() * annotation.size_ratio;
@@ -262,139 +274,129 @@ impl ParleyInlineContext {
                 self.measure_styled_advance(style, Some(annotation_size), &annotation.text);
             let base_advance = self.measure_styled_advance(style, None, base_text);
             ruby_annotation_widths.insert(*item_index, annotation_advance);
-            let excess = annotation_advance - base_advance;
-            if excess <= 0.01 {
+            let space = layout_unit_ceil(annotation_advance) - layout_unit_ceil(base_advance);
+            if space <= 0.0 {
                 continue;
             }
-            let is_ruby_item = |index: Option<usize>| {
-                index
-                    .and_then(|index| items.get(index))
-                    .is_some_and(|item| {
-                        matches!(
-                            item,
-                            InlineItem::Text {
-                                ruby_annotation: Some(_),
-                                ..
-                            }
-                        )
-                    })
-            };
-            let neighbor_item = |byte: Option<usize>| {
-                byte.and_then(|byte| {
-                    runs.iter()
-                        .find(|(other, _, _)| other.contains(&byte))
-                        .map(|(_, _, other_index)| *other_index)
+            let is_ruby_item = |index: usize| {
+                items.get(index).is_some_and(|item| {
+                    matches!(
+                        item,
+                        InlineItem::Text {
+                            ruby_annotation: Some(_),
+                            ..
+                        }
+                    )
                 })
+            };
+            let neighbor_run = |byte: Option<usize>| {
+                byte.and_then(|byte| runs.iter().find(|(other, _, _)| other.contains(&byte)))
             };
             let prev_byte = text[..range.start]
                 .char_indices()
                 .next_back()
                 .map(|(i, _)| i);
             let next_byte = (range.end < text.len()).then_some(range.end);
-            if style.text_flow.ruby_align == rito_style_contract::RubyAlign::Center {
-                // `ruby-align: center` under a WIDE annotation (measured
-                // matrix, FZWBKS 16px/rt 0.55-0.7-0.4, re-fit 2026-08-20
-                // with justified wrapped lines): the rb box stretches to
-                // the annotation width with the base glyphs packed
-                // CENTERED inside — also on justified lines, where the
-                // column keeps this fixed width and the justify shares
-                // land on the adjacent characters. The annotation
-                // OVERHANGS an adjacent text neighbor per side by
-                // min(floor(annoSize/2), excess/2n) truncated onto the
-                // 1/64 grid (n = base cluster count; the old excess/4
-                // was this formula's n = 2 special case misread as a
-                // constant) — zero against a flow edge or an adjacent
-                // ruby — and the flow column narrows to anno − ovL −
-                // ovR. The remainder rides a trailing carrier; the
-                // painter shifts the packed base right by excess/2 −
-                // ovL, centering it in the stretched rb box.
-                let cap = f64::from(annotation_size / 2.0).floor();
-                let edge_share = excess / (2.0 * cluster_count as f64);
-                let side = |byte: Option<usize>| {
-                    if byte.is_none() || is_ruby_item(neighbor_item(byte)) {
-                        0.0
-                    } else {
-                        (cap.min(edge_share) * 64.0).trunc() / 64.0
-                    }
+            // The base's justification inset: half the per-opportunity
+            // share the base line's justification would leave at each
+            // edge, on the layout grid at every step.
+            let plan = line_justify_plan(base_text, 0..base_text.len(), space, &[], &[]);
+            let count = plan.as_ref().map_or(0, |plan| plan.total);
+            let inset_full = layout_unit_trunc(space / (f64::from(count) + 1.0));
+            let inset = layout_unit_trunc(inset_full / 2.0);
+            let share = if count > 0 {
+                (space - inset_full) / f64::from(count)
+            } else {
+                0.0
+            };
+            // Half the annotation font on Blink's terms: the style's font
+            // size is a whole pixel, halved by integer division (an
+            // 8.8px annotation caps at 4, not 4.4 — measured on a book
+            // whose 0.55em annotations over one-glyph bases moved every
+            // following glyph of the line by the difference).
+            let half_annotation_font = f64::from(computed_pixel_size(annotation_size) / 2);
+            let base_font_size = computed_pixel_size(style.font.size.get());
+            // A side overhangs only a text neighbour — never a ruby, an
+            // atom, or the flow edge — whose font is no larger than the
+            // ruby's, and by no more than half that neighbour's width
+            // (the neighbour's on-line inline size before the ruby, its
+            // whole shaped width after it), measured only when the
+            // neighbour is short enough for the cap to bite.
+            let overhang = |byte: Option<usize>, before: bool| -> f64 {
+                let Some((other_range, other_style, other_index)) = neighbor_run(byte) else {
+                    return 0.0;
                 };
-                let overhang_left = side(prev_byte);
-                let overhang_right = side(next_byte);
-                let delta = (excess - overhang_left - overhang_right).max(0.0);
-                if delta > 0.0 {
-                    let author = match style.text_flow.letter_spacing {
-                        LengthPercentage::Length(px) => px.get(),
-                        _ => 0.0,
+                if is_ruby_item(*other_index)
+                    || computed_pixel_size(other_style.font.size.get()) > base_font_size
+                {
+                    return 0.0;
+                }
+                let mut allowed = inset.min(half_annotation_font);
+                let other_text = &text[other_range.clone()];
+                if other_text.chars().count() <= 2 {
+                    let other_advance = self.measure_styled_advance(other_style, None, other_text);
+                    let other_size = if before {
+                        layout_unit_ceil(other_advance)
+                    } else {
+                        layout_unit_trunc(other_advance)
                     };
-                    let last_cluster_start = base_text
-                        .char_indices()
-                        .next_back()
-                        .map_or(range.start, |(offset, _)| range.start + offset);
+                    allowed = allowed.min(layout_unit_trunc(other_size / 2.0));
+                }
+                allowed
+            };
+            let overhang_left = overhang(prev_byte, true);
+            let overhang_right = overhang(next_byte, false);
+            let author = match style.text_flow.letter_spacing {
+                LengthPercentage::Length(px) => px.get(),
+                _ => 0.0,
+            };
+            let char_starts: Vec<usize> = base_text.char_indices().map(|(i, _)| i).collect();
+            let last_cluster_start = range.start + char_starts.last().copied().unwrap_or(0);
+            if style.text_flow.ruby_align == rito_style_contract::RubyAlign::Center {
+                // `ruby-align: center` under a WIDE annotation: the base
+                // glyphs pack CENTERED in the column (half the slack on
+                // the grid before them), the overhangs follow the same
+                // justification-inset law as space-around, and the
+                // column's flow advance is the annotation minus the two
+                // overhangs — the remainder rides a trailing carrier.
+                let delta = space - overhang_left - overhang_right;
+                if delta > 0.0 {
                     ruby_spread_edits.push((last_cluster_start..range.end, author + delta as f32));
                 }
                 ruby_spreads.insert(*item_index, 0.0);
                 ruby_spread_overhangs.insert(*item_index, overhang_left);
                 ruby_spread_overhangs_right.insert(*item_index, overhang_right);
-                ruby_center_shifts.insert(*item_index, excess / 2.0 - overhang_left);
+                ruby_center_shifts
+                    .insert(*item_index, layout_unit_trunc(space / 2.0) - overhang_left);
                 continue;
             }
-            // `ruby-align: space-around` per-side accounting (measured on
-            // pinned Chromium, pinned faces: 「小(tsuku)月(chan)」 pairs):
-            // the excess splits into n shares, half a share per edge and
-            // one share per interior gap. An edge OVERHANGS its neighbor
-            // (capped at half the annotation size; the cap remainder
-            // folds into the interior gaps — b42's long-annotation law)
-            // only when that neighbor is overhang-eligible; against an
-            // adjacent ruby or the flow edge the half share is ABSORBED
-            // into the column instead — the base shifts right by the
-            // left absorption and the flow advance grows by both (a
-            // lone wide ruby between text keeps column = base width;
-            // an adjacent pair widens each column by its inner half).
-            let edge_share = excess / (2.0 * cluster_count as f64);
-            let cap = f64::from(annotation_size) / 2.0;
-            let eligible =
-                |byte: Option<usize>| byte.is_some() && !is_ruby_item(neighbor_item(byte));
-            let (mut overhang_left, mut fold_left, mut absorbed_left) = (0.0, 0.0, edge_share);
-            if eligible(prev_byte) {
-                overhang_left = edge_share.min(cap);
-                fold_left = edge_share - overhang_left;
-                absorbed_left = 0.0;
+            // Each opportunity's shares open after the boundary's left
+            // character.
+            if let Some(plan) = &plan {
+                for (boundary, shares) in &plan.counts {
+                    let Some(&left) = char_starts.iter().rev().find(|start| **start < *boundary)
+                    else {
+                        continue;
+                    };
+                    ruby_spread_edits.push((
+                        range.start + left..range.start + *boundary,
+                        author + (share * f64::from(*shares)) as f32,
+                    ));
+                }
             }
-            let (mut overhang_right, mut fold_right, mut absorbed_right) = (0.0, 0.0, edge_share);
-            if eligible(next_byte) {
-                overhang_right = edge_share.min(cap);
-                fold_right = edge_share - overhang_right;
-                absorbed_right = 0.0;
-            }
-            let gap = if cluster_count >= 2 {
-                excess / cluster_count as f64
-                    + (fold_left + fold_right) / (cluster_count as f64 - 1.0)
-            } else {
-                // No interior on a single cluster: cap remainders join
-                // the edge absorption instead.
-                absorbed_left += fold_left;
-                absorbed_right += fold_right;
-                0.0
-            };
-            let author = match style.text_flow.letter_spacing {
-                LengthPercentage::Length(px) => px.get(),
-                _ => 0.0,
-            };
-            let last_cluster_start = base_text
-                .char_indices()
-                .next_back()
-                .map_or(range.start, |(offset, _)| range.start + offset);
-            if cluster_count >= 2 && last_cluster_start > range.start && gap > 0.0 {
-                ruby_spread_edits.push((range.start..last_cluster_start, author + gap as f32));
-            }
-            let edge_carrier = absorbed_left + absorbed_right;
+            // The column's flow advance is the annotation minus the two
+            // overhangs: whatever of the inset stayed inside rides the
+            // last cluster.
+            let edge_carrier = inset_full - overhang_left - overhang_right;
             if edge_carrier > 0.0 {
                 ruby_spread_edits
                     .push((last_cluster_start..range.end, author + edge_carrier as f32));
             }
+            let absorbed_left = inset - overhang_left;
             if absorbed_left > 0.0 {
                 ruby_center_shifts.insert(*item_index, absorbed_left);
             }
-            ruby_spreads.insert(*item_index, gap);
+            ruby_spreads.insert(*item_index, share);
             ruby_spread_overhangs.insert(*item_index, overhang_left);
             ruby_spread_overhangs_right.insert(*item_index, overhang_right);
         }
@@ -1362,7 +1364,7 @@ pub(crate) fn paragraph_alignment(value: TextAlign) -> parley::Alignment {
 /// subpixel phase shifted and the whole line lit up as AA diff).
 pub(crate) fn resolved_text_indent(style: &InlineFormattingStyleV1) -> f32 {
     match style.text_flow.text_indent.value {
-        LengthPercentage::Length(px) => ((f64::from(px.get()) * 64.0).trunc() / 64.0) as f32,
+        LengthPercentage::Length(px) => layout_unit_trunc(f64::from(px.get())) as f32,
         _ => 0.0,
     }
 }
