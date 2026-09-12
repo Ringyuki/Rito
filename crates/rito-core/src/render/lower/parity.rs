@@ -179,6 +179,7 @@ fn shape_fixture_clusters(
             x,
             width,
             RubyAlign::SpaceAround,
+            f64::from(size),
         );
         return Some(
             run.clusters

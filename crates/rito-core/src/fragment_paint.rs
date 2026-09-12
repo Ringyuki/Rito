@@ -1342,7 +1342,14 @@ fn append_text_run_command(
         // narrow-annotation base grows through its own extent and the
         // annotation only re-centers over it.
         let rect_x = line_x + run.rect.x - run.ruby_overhang_px;
-        let rect_width = run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px;
+        // The column's extent is its width on the 1/64 layout grid, the
+        // way the browser stores the base line the annotation aligns to
+        // (a four-glyph base whose justified shares sum to 64.268 gives
+        // the annotation 64.28125: DOM-measured, the difference moved a
+        // second Latin word across a quarter-pixel raster bucket).
+        let rect_width = rito_inline::layout_unit_ceil(
+            run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px,
+        );
         // The annotation was shaped whole when the chapter was built;
         // this segment's words are one contiguous slice of it, re-based
         // to their first cluster, and the computed `ruby-align` places
@@ -1383,6 +1390,7 @@ fn append_text_run_command(
             rect_x,
             rect_width,
             annotation.align,
+            annotation_size,
         );
         let annotation_top = annotation_baseline - CANVAS_TOP_ASCENT_RATIO * annotation_size;
         let clusters = natural
@@ -2869,8 +2877,9 @@ mod tests {
             panic!("annotation paints before its base, got {:?}", commands[0]);
         };
         assert_eq!(annotation.text, Value::String("かんじ".to_owned()));
-        // space-around over the 32px base: 8px free splits into one
-        // share per glyph (8/3), half a share at each edge.
+        // space-around over the 32px base: 8px of slack, two
+        // opportunities — an inset of slack/3 on the layout grid, half at
+        // each edge, the rest in the two gaps.
         let origins: Vec<f64> = annotation.clusters.iter().map(|(_, x, _)| *x).collect();
         assert!(
             annotation.clusters.iter().all(|(_, _, y)| *y == 23.0),
@@ -2884,10 +2893,14 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![0, 3, 6]
         );
-        for (origin, expected) in origins
-            .iter()
-            .zip([14.0 + 4.0 / 3.0, 26.0, 36.0 + 2.0 / 3.0])
-        {
+        let inset = (8.0_f64 / 3.0 * 64.0).trunc() / 64.0;
+        let edge = (inset / 2.0 * 64.0).trunc() / 64.0;
+        let gap = (8.0 - inset) / 2.0;
+        for (origin, expected) in origins.iter().zip([
+            14.0 + edge,
+            14.0 + edge + 8.0 + gap,
+            14.0 + edge + 16.0 + 2.0 * gap,
+        ]) {
             assert!((origin - expected).abs() < 1e-9, "{origins:?}");
         }
         // The base anchors at 26.2 (line top 26 + baseline 13 − 0.8 × 16);
@@ -2901,6 +2914,65 @@ mod tests {
         };
         assert_eq!(base.text, Value::String("漢字".to_owned()));
         assert_eq!(base.rect, rect_value(14.0, 26.2, 32.0, 16.0));
+    }
+
+    #[test]
+    fn a_ruby_annotation_distributes_over_the_column_extent_on_the_layout_grid() {
+        let fixture = two_color_flow(|red, _| {
+            vec![InlineItem::Text {
+                text: "漢字".to_owned(),
+                style: red,
+                baseline_shift_px: 0.0,
+                ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                    text: "かん".to_owned(),
+                    size_ratio: 0.5,
+                    align: rito_style_contract::RubyAlign::SpaceAround,
+                }),
+            }]
+        });
+        // The base's laid-out width carries float dust below the grid
+        // point (justified shares summed in single precision); the
+        // browser's column is the width ceiled onto 1/64.
+        let root = boxed_line(vec![text_run(0.0, 31.99, 0, 6)]);
+        let mut ruby_runs = BTreeMap::new();
+        ruby_runs.insert(
+            (0, 0),
+            rito_inline::MeasuredRuby {
+                run: rito_inline::MeasuredRun {
+                    advance: 16.0,
+                    clusters: vec![
+                        rito_fragment::ClusterPosition { byte: 0, x: 0.0 },
+                        rito_fragment::ClusterPosition { byte: 3, x: 8.0 },
+                    ],
+                    grid: false,
+                },
+                over_offset: 16.0,
+                em_ascent: 7.046875,
+            },
+        );
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &fixture.tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                ruby_annotation_runs: Some(&ruby_runs),
+                ..FragmentPaintContext::default()
+            },
+        )
+        .expect("fragments paint");
+        let DisplayCommand::PaintRuby(annotation) = &commands[0] else {
+            panic!("annotation paints before its base, got {:?}", commands[0]);
+        };
+        // Over the 32px column: 16px of slack, one opportunity — an inset
+        // of half the slack, a quarter at each edge, the other half in
+        // the gap. The raw 31.99 would have truncated the inset to
+        // 7.984375 and the edge to 3.984375.
+        let origins: Vec<f64> = annotation.clusters.iter().map(|(_, x, _)| *x).collect();
+        assert_eq!(origins, vec![18.0, 34.0]);
+        assert_eq!(annotation.rect, rect_value(14.0, 16.6, 32.0, 8.0));
     }
 
     fn painted_image_rect(
