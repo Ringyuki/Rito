@@ -1367,7 +1367,7 @@ impl TreeBuilder<'_> {
                         text.clear();
                         collect_text_lenient(&inner.children, &mut text);
                     }
-                    let annotation = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                    let annotation = collapse_annotation_text(&text, collapse);
                     if pending_base.trim().is_empty() && !annotation.is_empty() {
                         self.degrade("ruby annotation without a base dropped".to_owned());
                         continue;
@@ -2674,6 +2674,38 @@ fn inline_items_have_substance(items: &[InlineItem]) -> bool {
         .any(|item| !matches!(item, InlineItem::EmptyBox { .. }))
 }
 
+/// An annotation's text as its own inline formatting context lays it
+/// out: under `white-space-collapse: collapse` every run of collapsible
+/// white space (spaces, tabs, line breaks — CSS Text §4.1, never a
+/// Unicode space separator such as an en space or a no-break space,
+/// which shapes as its own glyph) becomes one space and the line's
+/// leading and trailing spaces are removed; a preserving value keeps the
+/// text as written. Measured on a book whose Latin annotations space
+/// their words with U+2002: Unicode-splitting them to plain spaces
+/// shaped every gap at the book face's space width instead of the en
+/// space's half em the browser falls back to, packing every such
+/// annotation short of the browser's.
+fn collapse_annotation_text(text: &str, collapse: bool) -> String {
+    if !collapse {
+        return text.to_owned();
+    }
+    let collapsible = |ch: char| matches!(ch, ' ' | '\t' | '\n' | '\r' | '\u{000C}');
+    let mut out = String::with_capacity(text.len());
+    let mut pending_space = false;
+    for ch in text.chars() {
+        if collapsible(ch) {
+            pending_space = !out.is_empty();
+            continue;
+        }
+        if pending_space {
+            out.push(' ');
+            pending_space = false;
+        }
+        out.push(ch);
+    }
+    out
+}
+
 /// Accumulates styled text with CSS white-space collapsing across item
 /// boundaries: runs of collapsible white space become one space, and
 /// leading/trailing white space of the whole flow disappears.
@@ -3928,6 +3960,46 @@ p { margin: 8px 0; }\n\
             layout: resolved.layout_style_table,
             inline: resolved.inline_style_table,
         }
+    }
+
+    /// An annotation collapses only CSS white space: runs of spaces and
+    /// line breaks become one space and the edges trim, while a Unicode
+    /// space separator (an en space between a Latin annotation's words)
+    /// stays the glyph it is — the browser shapes it at its own advance.
+    #[test]
+    fn ruby_annotations_collapse_css_white_space_and_keep_space_separators() {
+        let chapter = resolved_chapter_from(
+            "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><title>t</title></head><body>
+  <p><ruby><rb>鲜血的女王</rb><rt>Bloody\u{2002}Regina</rt></ruby>和<ruby><rb>辛</rb><rt>  Call \n sign  </rt></ruby></p>
+</body></html>",
+        );
+        let built = build_chapter_formatting_tree(
+            &chapter.nodes,
+            chapter.body_index,
+            &chapter.layout,
+            &chapter.inline,
+            &no_images(),
+        )
+        .expect("tree builds");
+        let root = built.tree.node(built.tree.root());
+        let FormattingNodeContent::InlineFlow { items } =
+            &built.tree.node(root.children[0]).content
+        else {
+            panic!("the paragraph is an inline flow");
+        };
+        let annotations: Vec<Option<&str>> = items
+            .iter()
+            .map(|item| match item {
+                InlineItem::Text {
+                    ruby_annotation, ..
+                } => ruby_annotation.as_ref().map(|a| a.text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            annotations,
+            vec![Some("Bloody\u{2002}Regina"), None, Some("Call sign")],
+        );
     }
 
     #[test]
