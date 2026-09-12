@@ -45,17 +45,6 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
-    #[wasm_bindgen(js_name = getChapterLocalFrameJson)]
-    pub fn get_chapter_local_frame_json(
-        &mut self,
-        owner_json: &str,
-        local_spread_index: usize,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .get_chapter_local_frame_json(owner_json, local_spread_index)
-            .map_err(error_to_js_value)
-    }
-
     #[wasm_bindgen(js_name = getChapterLocalFrameCommandBufferMetadataJson)]
     pub fn get_chapter_local_frame_command_buffer_metadata_json(
         &mut self,

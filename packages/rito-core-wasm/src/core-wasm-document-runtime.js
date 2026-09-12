@@ -96,10 +96,6 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       );
     }
 
-    getFrame(revisionId, spreadIndex) {
-      return jsonMethod('getFrame', () => this._inner.getFrameJson(revisionId, spreadIndex));
-    }
-
     getFrameCommandBufferMetadata(revisionId, spreadIndex) {
       return jsonMethod('getFrameCommandBufferMetadata', () =>
         this._inner.getFrameCommandBufferMetadataJson(revisionId, spreadIndex),

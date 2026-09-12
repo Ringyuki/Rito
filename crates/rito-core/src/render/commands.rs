@@ -13,7 +13,6 @@ pub(crate) use reader_wire_v1::{
     adapt_reader_display_list_v1, contract, encode_reader_primitive_list_v1,
     ReaderDisplayListWireError, ReaderEncodedDisplayListV1,
 };
-pub use refs::DisplayListResourceRefs;
 pub(crate) use refs::{summarize_display_list_font_families, summarize_display_list_resource_refs};
 use stable_json::hash_json;
 
@@ -225,7 +224,14 @@ pub(crate) struct DisplayTextCommandInput {
     pub clusters: Vec<(u32, f64, f64)>,
 }
 
+/// The commands in the paint-parity instrument's fixture shape; the
+/// browser pen reads what the engine's own painter wrote.
+#[cfg(test)]
 pub(crate) fn display_command_values(commands: &[DisplayCommand]) -> Vec<Value> {
+    commands.iter().map(DisplayCommand::to_value).collect()
+}
+
+fn display_command_values_for_hash(commands: &[DisplayCommand]) -> Vec<Value> {
     commands.iter().map(DisplayCommand::to_value).collect()
 }
 
@@ -238,7 +244,7 @@ pub(crate) fn count_display_commands(commands: &[DisplayCommand]) -> BTreeMap<St
 }
 
 pub(crate) fn hash_display_commands(commands: &[DisplayCommand]) -> String {
-    hash_json(&Value::Array(display_command_values(commands)))
+    hash_json(&Value::Array(display_command_values_for_hash(commands)))
 }
 
 #[cfg(test)]

@@ -73,15 +73,6 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
       const handle = requireFlatRevisionHandle(input, 'cancelRevision');
       return callRitoCoreWasm('cancelRevision', () => runCancelMutation(this, input, handle));
     },
-    getFrameAtRevision(handle, spreadIndex) {
-      return versionedJson(this, 'getFrameAtRevision', handle, (revision) =>
-        this._inner.getFrameAtRevisionJson(
-          revision.revisionId,
-          revision.revisionVersion,
-          spreadIndex,
-        ),
-      );
-    },
     getFrameCommandBufferMetadataAtRevision(handle, spreadIndex) {
       return versionedJson(this, 'getFrameCommandBufferMetadataAtRevision', handle, (revision) =>
         this._inner.getFrameCommandBufferMetadataAtRevisionJson(

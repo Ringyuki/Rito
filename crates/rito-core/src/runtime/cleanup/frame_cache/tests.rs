@@ -4,9 +4,7 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
 };
 
-use serde_json::json;
-
-use super::super::test_support::{cached_frame, frame_cache_owner, packed_only_cached_frame};
+use super::super::test_support::{cached_frame, frame_cache_owner, wide_resource_cached_frame};
 use super::{PendingRuntimeCachedFrameCleanup, PendingRuntimeFrameCacheCleanup};
 use crate::runtime::frame::RuntimeCachedFrame;
 
@@ -17,30 +15,22 @@ type FrameFactory = fn(usize) -> RuntimeCachedFrame;
 #[test]
 fn synthetic_cached_frames_have_exact_q1_costs() {
     for count in [0, 3, WIDE_OWNER_COUNT] {
-        // The command buffer's bytes are one unit whatever their length;
-        // only the materialized JSON commands scale with the count.
-        let materialized_expected = 11 + count;
-        let packed_expected = 6;
+        // The command buffer's bytes are one unit whatever their length,
+        // so a frame with one font family and no resources costs 6.
+        let expected = 6;
 
         assert_eq!(
             drive_cached_q1(
                 &mut PendingRuntimeCachedFrameCleanup::new(cached_frame(0, count)),
-                materialized_expected,
+                expected,
             ),
-            materialized_expected
-        );
-        assert_eq!(
-            drive_cached_q1(
-                &mut PendingRuntimeCachedFrameCleanup::new(packed_only_cached_frame(0, count)),
-                packed_expected,
-            ),
-            packed_expected
+            expected
         );
     }
 }
 
 #[test]
-fn every_resource_font_and_payload_source_contributes_one_unit_per_owner() {
+fn every_resource_and_font_source_contributes_one_unit_per_owner() {
     for (factory, fixed_units) in frame_factories() {
         let expected = WIDE_OWNER_COUNT + fixed_units;
         let mut cleanup = PendingRuntimeCachedFrameCleanup::new(factory(WIDE_OWNER_COUNT));
@@ -94,19 +84,19 @@ fn empty_cache_has_three_exact_units_and_repeated_completion_is_free() {
 fn frame_cache_composes_nested_frame_costs_exactly() {
     let frames = BTreeMap::from([
         (9, cached_frame(9, 0)),
-        (2, packed_only_cached_frame(2, 3)),
-        (5, cached_frame(5, 127)),
+        (2, cached_frame(2, 3)),
+        (5, wide_resource_cached_frame(5, 127)),
     ]);
     let mut cleanup = PendingRuntimeFrameCacheCleanup::new(frame_cache_owner(frames));
 
     // 3 cache-shell units plus one retirement unit after each nested cost:
-    // cached(0) = 11, packed(3) = 6, cached(127) = 138.
-    assert_eq!(drive_cache_q1(&mut cleanup, 161), 161);
+    // frame(0) = 6, frame(3) = 6, wide(127) = 5 + 127 + 1 (its font) = 133.
+    assert_eq!(drive_cache_q1(&mut cleanup, 151), 151);
 }
 
 #[test]
 fn parent_cache_keeps_active_owner_until_nested_completion_and_retires_it_separately() {
-    let frame = stripped_packed_frame(0);
+    let frame = stripped_frame(0);
     let mut cleanup =
         PendingRuntimeFrameCacheCleanup::new(frame_cache_owner(BTreeMap::from([(0, frame)])));
 
@@ -142,7 +132,12 @@ fn parent_cache_keeps_active_owner_until_nested_completion_and_retires_it_separa
 #[test]
 fn parent_cache_budget_stops_inside_a_wide_active_frame() {
     let frames = (0..12)
-        .map(|spread_index| (spread_index, cached_frame(spread_index, WIDE_OWNER_COUNT)))
+        .map(|spread_index| {
+            (
+                spread_index,
+                wide_resource_cached_frame(spread_index, WIDE_OWNER_COUNT),
+            )
+        })
         .collect();
     let mut cleanup = PendingRuntimeFrameCacheCleanup::new(frame_cache_owner(frames));
 
@@ -160,7 +155,7 @@ fn parent_cache_budget_stops_inside_a_wide_active_frame() {
 fn immediate_and_panic_unwind_drops_drain_the_parent_cache() {
     let frames = || {
         (0..12)
-            .map(|spread_index| (spread_index, cached_frame(spread_index, 512)))
+            .map(|spread_index| (spread_index, wide_resource_cached_frame(spread_index, 512)))
             .collect()
     };
     drop(PendingRuntimeFrameCacheCleanup::new(frame_cache_owner(
@@ -179,83 +174,33 @@ fn immediate_and_panic_unwind_drops_drain_the_parent_cache() {
     assert!(result.is_err());
 }
 
-fn frame_factories() -> [(FrameFactory, usize); 5] {
+fn frame_factories() -> [(FrameFactory, usize); 2] {
     [
-        (legacy_commands_frame, 9),
-        (legacy_resource_images_frame, 9),
-        (legacy_font_families_frame, 9),
         (packed_resource_table_frame, 5),
         (packed_font_families_frame, 5),
     ]
 }
 
-fn legacy_commands_frame(count: usize) -> RuntimeCachedFrame {
-    let mut frame = stripped_materialized_frame(0);
-    frame
-        .frame
-        .as_mut()
-        .expect("materialized test frame exists")
-        .commands = (0..count).map(|index| json!({ "index": index })).collect();
-    frame
-}
-
-fn legacy_resource_images_frame(count: usize) -> RuntimeCachedFrame {
-    let mut frame = stripped_materialized_frame(0);
-    frame
-        .frame
-        .as_mut()
-        .expect("materialized test frame exists")
-        .resource_refs
-        .images = strings("legacy-resource", count);
-    frame
-}
-
-fn legacy_font_families_frame(count: usize) -> RuntimeCachedFrame {
-    let mut frame = stripped_materialized_frame(0);
-    frame
-        .frame
-        .as_mut()
-        .expect("materialized test frame exists")
-        .font_families = strings("legacy-font", count);
-    frame
-}
-
 fn packed_resource_table_frame(count: usize) -> RuntimeCachedFrame {
-    let mut frame = stripped_packed_frame(0);
+    let mut frame = stripped_frame(0);
     frame.command_buffer.metadata.resource_table = strings("packed-resource", count);
     frame
 }
 
 fn packed_font_families_frame(count: usize) -> RuntimeCachedFrame {
-    let mut frame = stripped_packed_frame(0);
+    let mut frame = stripped_frame(0);
     frame.command_buffer.metadata.font_families = strings("packed-font", count);
     frame
 }
 
-fn stripped_materialized_frame(spread_index: usize) -> RuntimeCachedFrame {
+/// A frame with empty tables and no bytes: the five fixed units alone.
+fn stripped_frame(spread_index: usize) -> RuntimeCachedFrame {
     let mut frame = cached_frame(spread_index, 0);
-    let legacy = frame
-        .frame
-        .as_mut()
-        .expect("materialized test frame exists");
-    legacy.commands.clear();
-    legacy.resource_refs.images.clear();
-    legacy.font_families.clear();
-    strip_packed_tables(&mut frame);
-    frame
-}
-
-fn stripped_packed_frame(spread_index: usize) -> RuntimeCachedFrame {
-    let mut frame = packed_only_cached_frame(spread_index, 0);
-    strip_packed_tables(&mut frame);
-    frame
-}
-
-fn strip_packed_tables(frame: &mut RuntimeCachedFrame) {
     let metadata = &mut frame.command_buffer.metadata;
     metadata.resource_table.clear();
     metadata.font_families.clear();
     frame.command_buffer.bytes.clear();
+    frame
 }
 
 fn strings(prefix: &str, count: usize) -> Vec<String> {

@@ -147,7 +147,6 @@ test('all versioned direct methods validate and echo the complete handle', () =>
   );
   const document = new RitoCoreWasmDocument(raw);
   const invocations = [
-    () => document.getFrameAtRevision(handle, 0),
     () => document.getFrameCommandBufferMetadataAtRevision(handle, 0),
     () => document.getResourcePayloadAtRevision(handle, 'image', 'cover.png'),
     () => document.prefetchResourcesAtRevision(handle, { resources: [] }),

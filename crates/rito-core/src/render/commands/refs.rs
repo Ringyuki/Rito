@@ -1,16 +1,14 @@
 use std::collections::BTreeSet;
 
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{stable_json::hash_json, DisplayCommand};
+use super::DisplayCommand;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DisplayListResourceRefs {
+/// The images a display list references: every reference in paint order
+/// and the sorted set of distinct hrefs the frame's resource table lists.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DisplayListResourceRefs {
     pub image_refs: usize,
-    pub unique_images: usize,
-    pub image_hash: String,
     pub images: Vec<String>,
 }
 
@@ -29,10 +27,6 @@ pub(crate) fn summarize_display_list_resource_refs(
         .collect::<Vec<_>>();
     DisplayListResourceRefs {
         image_refs: image_refs.len(),
-        unique_images: images.len(),
-        image_hash: hash_json(&Value::Array(
-            images.iter().cloned().map(Value::String).collect(),
-        )),
         images,
     }
 }

@@ -71,7 +71,7 @@ fn revision_access_contract_is_serde_stable_and_reports_focused_errors() {
         .expect("revision exists");
     let current = handle_for(&revision);
     let failed = document
-        .get_frame_at(&current, revision.spread_count)
+        .get_frame_command_buffer_metadata_at(&current, revision.spread_count)
         .expect_err("operation failure is typed");
     assert_eq!(failed.kind, RuntimeRevisionAccessErrorKind::OperationFailed);
     assert!(failed.message.contains("unknown spread index"));
@@ -87,17 +87,13 @@ fn eager_version_zero_supports_all_versioned_read_surfaces() {
     let handle = handle_for(&revision);
     assert_eq!(handle.revision_version, 0);
 
-    let frame = document.get_frame_at(&handle, 0).expect("frame");
+    let frame = document
+        .get_frame_command_buffer_metadata_at(&handle, 0)
+        .expect("command buffer metadata");
     assert_eq!(frame.revision, handle);
-    document
-        .get_frame_summary_at(&handle, 0)
-        .expect("frame summary");
     document
         .get_frame_command_buffer_at(&handle, 0)
         .expect("command buffer");
-    document
-        .get_frame_command_buffer_metadata_at(&handle, 0)
-        .expect("command buffer metadata");
     document
         .read_frame_command_buffer_at(&handle, 0)
         .expect("command buffer bytes");

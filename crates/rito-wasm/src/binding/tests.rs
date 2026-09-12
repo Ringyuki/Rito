@@ -117,7 +117,6 @@ fn chapter_local_wasm_bindings_keep_the_raw_api_contract() {
         "continueChapterLocalRevisionJson",
         "getChapterLocalRevisionSummaryJson",
         "resolveChapterLocalSourceLocatorJson",
-        "getChapterLocalFrameJson",
         "getChapterLocalFrameCommandBufferMetadataJson",
         "readChapterLocalFrameCommandBuffer",
         "getChapterLocalResourcePayloadJson",

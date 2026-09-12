@@ -74,10 +74,6 @@ function versionedRevisionDeclarations() {
     '  getRevisionNavigationAtRevision(',
     '    revision: RitoCoreWasmRevisionHandle,',
     '  ): RitoCoreWasmVersioned<RitoCoreWasmRevisionNavigation>;',
-    '  getFrameAtRevision(',
-    '    revision: RitoCoreWasmRevisionHandle,',
-    '    spreadIndex: number,',
-    '  ): RitoCoreWasmVersioned<RitoCoreWasmFrame>;',
     '  getFrameCommandBufferMetadataAtRevision(',
     '    revision: RitoCoreWasmRevisionHandle,',
     '    spreadIndex: number,',
@@ -180,7 +176,6 @@ function versionedRevisionDeclarations() {
 
 function legacyReadDeclarations() {
   return [
-    '  getFrame(revisionId: string, spreadIndex: number): RitoCoreWasmFrame;',
     '  getFrameCommandBufferMetadata(',
     '    revisionId: string,',
     '    spreadIndex: number,',

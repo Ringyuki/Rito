@@ -67,9 +67,7 @@ fn summarizes_image_refs_from_images_and_block_backgrounds() {
     let refs = summarize_display_list_resource_refs(&commands);
 
     assert_eq!(refs.image_refs, 3);
-    assert_eq!(refs.unique_images, 2);
     assert_eq!(refs.images, vec!["images/bg.png", "images/cover.jpg"]);
-    assert!(!refs.image_hash.is_empty());
 }
 
 #[test]

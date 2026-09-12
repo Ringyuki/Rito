@@ -15,7 +15,7 @@ use crate::{
         SpreadMode,
     },
     runtime::{
-        cleanup::test_support::cached_frame,
+        cleanup::test_support::{cached_frame, wide_resource_cached_frame},
         continuation::RuntimeContinuationRecord,
         frame::{
             RuntimeChapterTextIndexSource, RuntimeFrameCacheOwner, RuntimeRevision,
@@ -24,9 +24,9 @@ use crate::{
     },
 };
 
-const EMPTY_MATERIALIZED_FRAME_UNITS: usize = 11;
+const EMPTY_FRAME_UNITS: usize = 6;
 const LARGE_FRAME_PAYLOAD_COUNT: usize = 16_384;
-const REAL_JOB_FIXTURE_UNITS: usize = 12 + 22 + 4 + (EMPTY_MATERIALIZED_FRAME_UNITS + 1) + 7;
+const REAL_JOB_FIXTURE_UNITS: usize = 12 + 22 + 4 + (EMPTY_FRAME_UNITS + 1) + 7;
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -95,7 +95,7 @@ fn default_quantum_advances_wide_frame_backlog_without_false_retirement() {
     while !queue.is_empty() {
         consumed_units += queue.advance(budget).consumed_units;
     }
-    assert_eq!(consumed_units, 100 * (EMPTY_MATERIALIZED_FRAME_UNITS + 1));
+    assert_eq!(consumed_units, 100 * (EMPTY_FRAME_UNITS + 1));
     assert_eq!(queue.pending_frame_owner_count(), 0);
 }
 
@@ -119,10 +119,9 @@ fn cached_frame_owner_and_queue_retirement_are_distinct() {
     let mut queue = RuntimeCleanupQueue::default();
     queue.enqueue_cached_frame(cached_frame(0, 0));
 
-    let partial = queue.advance(
-        NonZeroUsize::new(EMPTY_MATERIALIZED_FRAME_UNITS - 1).expect("cleanup budget is non-zero"),
-    );
-    assert_eq!(partial.consumed_units, EMPTY_MATERIALIZED_FRAME_UNITS - 1);
+    let partial = queue
+        .advance(NonZeroUsize::new(EMPTY_FRAME_UNITS - 1).expect("cleanup budget is non-zero"));
+    assert_eq!(partial.consumed_units, EMPTY_FRAME_UNITS - 1);
     assert!(!partial.complete);
     assert_eq!(queue.pending_frame_owner_count(), 1);
     assert_eq!(queue.job_count(), 1);
@@ -141,7 +140,7 @@ fn cached_frame_owner_and_queue_retirement_are_distinct() {
 #[test]
 fn large_cached_frame_remains_one_resumable_frame_job() {
     let mut queue = RuntimeCleanupQueue::default();
-    queue.enqueue_cached_frame(cached_frame(0, LARGE_FRAME_PAYLOAD_COUNT));
+    queue.enqueue_cached_frame(wide_resource_cached_frame(0, LARGE_FRAME_PAYLOAD_COUNT));
     let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup budget is non-zero");
 
     let first = queue.advance(budget);
@@ -152,9 +151,9 @@ fn large_cached_frame_remains_one_resumable_frame_job() {
     assert_eq!(queue.job_count(), 1);
 
     let remaining = queue.advance(NonZeroUsize::MAX);
-    // Only the materialized JSON commands scale with the payload count;
-    // the primitive bytes release as one unit.
-    let queue_units = LARGE_FRAME_PAYLOAD_COUNT + EMPTY_MATERIALIZED_FRAME_UNITS + 1;
+    // Only the resource table scales with the payload count; the
+    // primitive bytes release as one unit.
+    let queue_units = LARGE_FRAME_PAYLOAD_COUNT + EMPTY_FRAME_UNITS + 1;
     assert_eq!(
         remaining.consumed_units,
         queue_units - RUNTIME_CLEANUP_QUANTUM
@@ -225,7 +224,7 @@ fn one_fixed_service_makes_progress_without_claiming_frame_backpressure() {
     }
     assert_eq!(
         consumed_units,
-        RUNTIME_CLEANUP_QUANTUM + 1 + FRAME_CACHE_CAPACITY * (EMPTY_MATERIALIZED_FRAME_UNITS + 1)
+        RUNTIME_CLEANUP_QUANTUM + 1 + FRAME_CACHE_CAPACITY * (EMPTY_FRAME_UNITS + 1)
     );
     assert_eq!(queue.pending_frame_owner_count(), 0);
 }

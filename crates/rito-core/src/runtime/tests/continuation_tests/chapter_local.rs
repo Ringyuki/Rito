@@ -94,7 +94,9 @@ fn wire_shape_and_access_layers_keep_local_coordinates_discriminated() {
         .get("localPageCount")
         .is_some());
     assert!(document.get_revision_summary(&owner.revision_id).is_err());
-    assert!(document.get_frame(&owner.revision_id, 0).is_err());
+    assert!(document
+        .get_frame_command_buffer_metadata(&owner.revision_id, 0)
+        .is_err());
     assert!(document
         .get_resource(
             &owner.revision_id,
@@ -155,10 +157,10 @@ fn fragment_target_resolves_to_its_exact_local_spread() {
         "target must not collapse to chapter start"
     );
     let frame = document
-        .get_chapter_local_frame(&owner(&resolved), local_spread_index)
+        .frame_commands_for_tests(&owner(&resolved).revision_id, local_spread_index)
         .expect("resolved local frame");
-    assert_eq!(frame.local_spread_index, local_spread_index);
-    assert!(frame.local_page_indexes.contains(&local_page_index));
+    assert_eq!(frame.spread_index, local_spread_index);
+    assert!(frame.page_indexes.contains(&local_page_index));
     let metadata = document
         .get_chapter_local_frame_command_buffer_metadata(&owner(&resolved), local_spread_index)
         .expect("local packed metadata");
@@ -283,7 +285,7 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
         ))
         .expect("cold chapter-local builds");
     let cold_frame = cold
-        .get_chapter_local_frame(&handle(&advance), 0)
+        .frame_commands_for_tests(&handle(&advance).revision_id, 0)
         .expect("cold frame");
 
     let mut warmed = open_pinned_document(&publication).expect("warmed document");
@@ -300,14 +302,18 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
         ))
         .expect("warmed chapter-local builds");
     let warmed_frame = warmed
-        .get_chapter_local_frame(&handle(&advance), 0)
+        .frame_commands_for_tests(&handle(&advance).revision_id, 0)
         .expect("warmed frame");
 
-    let text_rects = |commands: &[serde_json::Value]| -> Vec<String> {
+    let text_rects = |commands: &[crate::render::DisplayCommand]| -> Vec<String> {
         commands
             .iter()
-            .filter(|command| command["kind"] == "paintText")
-            .map(|command| format!("{} {}", command["text"], command["rect"]))
+            .filter_map(|command| match command {
+                crate::render::DisplayCommand::PaintText(input) => {
+                    Some(format!("{} {}", input.text, input.rect))
+                }
+                _ => None,
+            })
             .collect()
     };
     assert_eq!(
@@ -326,7 +332,7 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
         panic!("chapter-2 did not resolve: {resolution:?}");
     };
     let book_frame = warmed
-        .get_frame(&revision.revision_id, spread_index)
+        .frame_commands_for_tests(&revision.revision_id, spread_index)
         .expect("whole-book frame");
     assert_eq!(
         text_rects(&cold_frame.commands),

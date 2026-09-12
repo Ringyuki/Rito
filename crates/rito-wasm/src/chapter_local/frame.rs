@@ -7,19 +7,6 @@ use super::wire::{
 use crate::{wire::serialize_json, WasmRuntimeDocument, WasmRuntimeError};
 
 impl WasmRuntimeDocument {
-    pub fn get_chapter_local_frame_json(
-        &mut self,
-        owner_json: &str,
-        local_spread_index: usize,
-    ) -> Result<String, WasmRuntimeError> {
-        let owner = parse_owner(owner_json)?;
-        let frame = self
-            .document
-            .get_chapter_local_frame(&owner, local_spread_index)
-            .map_err(WasmRuntimeError::from_chapter_local)?;
-        serialize_json(&frame)
-    }
-
     pub fn get_chapter_local_frame_command_buffer_metadata_json(
         &mut self,
         owner_json: &str,

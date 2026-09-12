@@ -210,7 +210,7 @@ fn full_owner_is_required_by_summary_frame_and_release_boundaries() {
             .get_chapter_local_revision_summary_json(&forged.to_string())
             .expect_err("forged summary owner fails"),
         document
-            .get_chapter_local_frame_json(&forged.to_string(), 0)
+            .get_chapter_local_frame_command_buffer_metadata_json(&forged.to_string(), 0)
             .expect_err("forged frame owner fails"),
         document
             .release_chapter_local_revision_json(&forged.to_string())

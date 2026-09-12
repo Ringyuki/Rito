@@ -29,14 +29,6 @@ fn versioned_raw_reads_return_stamped_envelopes() {
         .read_frame_command_buffer_at_revision(&revision_id, 0, 0)
         .expect("command bytes are returned")
         .is_empty());
-    let frame = parse(
-        document
-            .get_frame_at_revision_json(&revision_id, 0, 0)
-            .expect("frame is returned after packed warmup"),
-    );
-    assert_revision(&frame, &revision_id, 0);
-    assert_eq!(frame["value"]["spreadIndex"], 0);
-
     let search = parse(
         document
             .search_at_revision_json(

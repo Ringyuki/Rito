@@ -1717,12 +1717,12 @@ impl ReaderSessionV1 {
                 publication_navigation(revision, spread_index),
             )
         };
-        let frame = self
+        let page_indexes = self
             .document
-            .get_frame_at(&owner, spread_index)
+            .spread_page_indexes_at(&owner, spread_index)
             .map_err(engine_error)?
             .value;
-        let page_index = frame.page_indexes.first().copied().ok_or_else(|| {
+        let page_index = page_indexes.first().copied().ok_or_else(|| {
             target_not_published("published publication spread contains no pages")
         })?;
         let anchor = self

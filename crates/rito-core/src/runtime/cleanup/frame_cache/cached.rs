@@ -2,29 +2,20 @@ use std::{num::NonZeroUsize, vec};
 
 use crate::runtime::{cleanup::CleanupProgress, frame::RuntimeCachedFrame};
 
-use parts::{
-    CommandBufferParts, JsonCommandSource, LegacyFrameParts, RuntimeFrameCommandBufferShell,
-    RuntimeFrameShell, StringSource,
-};
+use parts::{CommandBufferParts, RuntimeFrameCommandBufferShell, StringSource};
 
 mod parts;
 
-/// Incrementally releases one generated cached frame.
+/// Incrementally releases one cached frame.
 ///
 /// Let the command buffer's resource and font tables contain `R` and `F`
-/// entries. A buffer-only frame costs exactly `5 + R + F` units. If a
-/// compatibility JSON frame is present, with `C` commands, `I` image refs
-/// and `J` font families, it adds `C + I + J + 4` units. The primitive byte
-/// allocation is one explicit unit; scalar metadata and bounded
-/// command-kind maps remain in the final shell. Each JSON command is still
-/// an indivisible nested-value residual.
+/// entries. A frame costs exactly `5 + R + F` units: one to decompose it,
+/// `R + 1` and `F + 1` to drain the two tables, one for the primitive byte
+/// allocation (a single unit whatever its length), and one to retire the
+/// shell of scalar metadata and bounded command-kind maps.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeCachedFrameCleanup {
     owner: Option<RuntimeCachedFrame>,
-    legacy_commands: Option<JsonCommandSource>,
-    legacy_resource_images: Option<StringSource>,
-    legacy_font_families: Option<StringSource>,
-    legacy_shell: Option<RuntimeFrameShell>,
     resource_table: Option<StringSource>,
     font_families: Option<StringSource>,
     bytes: Option<Vec<u8>>,
@@ -35,10 +26,6 @@ pub(in crate::runtime) struct PendingRuntimeCachedFrameCleanup {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RuntimeCachedFrameCleanupStage {
     Source,
-    LegacyCommands,
-    LegacyResourceImages,
-    LegacyFontFamilies,
-    LegacyOwner,
     ResourceTable,
     FontFamilies,
     Bytes,
@@ -50,10 +37,6 @@ impl PendingRuntimeCachedFrameCleanup {
     pub(in crate::runtime) fn new(owner: RuntimeCachedFrame) -> Self {
         Self {
             owner: Some(owner),
-            legacy_commands: None,
-            legacy_resource_images: None,
-            legacy_font_families: None,
-            legacy_shell: None,
             resource_table: None,
             font_families: None,
             bytes: None,
@@ -73,14 +56,6 @@ impl PendingRuntimeCachedFrameCleanup {
     pub(in crate::runtime) fn advance_one(&mut self) -> bool {
         match self.stage {
             RuntimeCachedFrameCleanupStage::Source => self.start_source(),
-            RuntimeCachedFrameCleanupStage::LegacyCommands => self.advance_legacy_commands(),
-            RuntimeCachedFrameCleanupStage::LegacyResourceImages => {
-                self.advance_legacy_resource_images()
-            }
-            RuntimeCachedFrameCleanupStage::LegacyFontFamilies => {
-                self.advance_legacy_font_families()
-            }
-            RuntimeCachedFrameCleanupStage::LegacyOwner => self.release_legacy_owner(),
             RuntimeCachedFrameCleanupStage::ResourceTable => self.advance_resource_table(),
             RuntimeCachedFrameCleanupStage::FontFamilies => self.advance_font_families(),
             RuntimeCachedFrameCleanupStage::Bytes => self.release_bytes(),
@@ -116,10 +91,7 @@ impl PendingRuntimeCachedFrameCleanup {
 
     fn start_source(&mut self) -> bool {
         let owner = self.owner.take().expect("cleanup owns its cached frame");
-        let RuntimeCachedFrame {
-            frame,
-            command_buffer,
-        } = owner;
+        let RuntimeCachedFrame { command_buffer } = owner;
         let CommandBufferParts {
             resource_table,
             font_families,
@@ -130,48 +102,6 @@ impl PendingRuntimeCachedFrameCleanup {
         self.font_families = Some(font_families);
         self.bytes = Some(bytes);
         self.command_buffer_shell = Some(shell);
-        if let Some(frame) = frame {
-            let LegacyFrameParts {
-                commands,
-                resource_images,
-                font_families,
-                shell,
-            } = LegacyFrameParts::new(frame);
-            self.legacy_commands = Some(commands);
-            self.legacy_resource_images = Some(resource_images);
-            self.legacy_font_families = Some(font_families);
-            self.legacy_shell = Some(shell);
-            self.stage = RuntimeCachedFrameCleanupStage::LegacyCommands;
-        } else {
-            self.stage = RuntimeCachedFrameCleanupStage::ResourceTable;
-        }
-        true
-    }
-
-    fn advance_legacy_commands(&mut self) -> bool {
-        if release_one_or_finish_source(&mut self.legacy_commands) {
-            self.stage = RuntimeCachedFrameCleanupStage::LegacyResourceImages;
-        }
-        true
-    }
-
-    fn advance_legacy_resource_images(&mut self) -> bool {
-        if release_one_or_finish_source(&mut self.legacy_resource_images) {
-            self.stage = RuntimeCachedFrameCleanupStage::LegacyFontFamilies;
-        }
-        true
-    }
-
-    fn advance_legacy_font_families(&mut self) -> bool {
-        if release_one_or_finish_source(&mut self.legacy_font_families) {
-            self.stage = RuntimeCachedFrameCleanupStage::LegacyOwner;
-        }
-        true
-    }
-
-    fn release_legacy_owner(&mut self) -> bool {
-        let shell = self.legacy_shell.take().expect("legacy frame shell exists");
-        shell.release();
         self.stage = RuntimeCachedFrameCleanupStage::ResourceTable;
         true
     }

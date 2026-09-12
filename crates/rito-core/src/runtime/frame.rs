@@ -11,15 +11,15 @@ use crate::{
     interaction::{FootnoteEntry, FootnoteTargetSet},
     layout::LayoutConfig,
     render::{
-        count_display_commands, display_command_values, encode_reader_primitive_list_v1,
-        hash_display_commands, lower_display_commands, summarize_display_list_font_families,
+        count_display_commands, encode_reader_primitive_list_v1, hash_display_commands,
+        lower_display_commands, summarize_display_list_font_families,
         summarize_display_list_resource_refs, DisplayCommand, ImageSize,
     },
 };
 
 use super::{
     page_artifact::PageArtifactFrame, resource::find_image_size, RuntimeChapterTextIndex,
-    RuntimeDocument, RuntimeFrame, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
+    RuntimeDocument, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
     RuntimeInitialFrameDecision, RuntimeInitialFrameRequest, RuntimePrefetchRequest,
     RuntimePrefetchResponse, RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeRevisionSummary,
 };
@@ -112,14 +112,7 @@ pub(super) enum RuntimeChapterTextIndexSource {
 
 #[derive(Debug, PartialEq)]
 pub(super) struct RuntimeCachedFrame {
-    pub(super) frame: Option<RuntimeFrame>,
     pub(super) command_buffer: RuntimeFrameCommandBuffer,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RuntimeFrameCachePayload {
-    PackedOnly,
-    IncludeJson,
 }
 
 #[derive(Debug, Default)]
@@ -240,7 +233,6 @@ fn runtime_cached_frame(
     revision_id: &str,
     layout_config: &LayoutConfig,
     frame: PageArtifactFrame,
-    payload: RuntimeFrameCachePayload,
     ratio: f64,
     document: &mut LoadedEpubDocument,
 ) -> EpubResult<RuntimeCachedFrame> {
@@ -250,7 +242,7 @@ fn runtime_cached_frame(
     let command_hash = hash_display_commands(commands);
     let resource_refs = summarize_display_list_resource_refs(commands);
     let font_families = summarize_display_list_font_families(commands);
-    let image_dominated = frame_image_dominated(&command_counts, resource_refs.unique_images > 0);
+    let image_dominated = frame_image_dominated(&command_counts, !resource_refs.images.is_empty());
     let encoded = lower_frame_commands(commands, ratio, document)?;
     let metadata = RuntimeFrameCommandBufferMetadata {
         revision_id: revision_id.to_owned(),
@@ -269,10 +261,7 @@ fn runtime_cached_frame(
         font_families,
         image_dominated,
     };
-    let runtime_frame = (payload == RuntimeFrameCachePayload::IncludeJson)
-        .then(|| runtime_frame_from_commands_with_resource_refs(frame, &metadata, resource_refs));
     Ok(RuntimeCachedFrame {
-        frame: runtime_frame,
         command_buffer: RuntimeFrameCommandBuffer {
             metadata,
             bytes: encoded.bytes,
@@ -372,14 +361,6 @@ impl RuntimeDocument {
         self.document.ensure_frame_image_sizes(commands)
     }
 
-    pub fn get_frame(
-        &mut self,
-        revision_id: &str,
-        spread_index: usize,
-    ) -> EpubResult<RuntimeFrame> {
-        self.get_frame_inner(revision_id, spread_index)
-    }
-
     pub fn get_frame_command_buffer(
         &mut self,
         revision_id: &str,
@@ -457,12 +438,39 @@ impl RuntimeDocument {
         })
     }
 
-    pub fn get_frame_summary(
-        &mut self,
+    /// The typed display commands a spread paints, for tests that assert
+    /// on painted text and geometry; frames reach hosts only as the lowered
+    /// primitive bytes.
+    #[cfg(test)]
+    pub(super) fn frame_commands_for_tests(
+        &self,
         revision_id: &str,
         spread_index: usize,
-    ) -> EpubResult<RuntimeFrame> {
-        self.get_frame_inner(revision_id, spread_index)
+    ) -> EpubResult<PageArtifactFrame> {
+        let revision = self
+            .any_revision(revision_id)
+            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
+        revision
+            .chapter_engine_session()
+            .frame(spread_index, self.render_ratio.get())?
+            .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))
+    }
+
+    /// The page indexes a published spread shows, in reading order,
+    /// without painting it.
+    pub fn spread_page_indexes(
+        &self,
+        revision_id: &str,
+        spread_index: usize,
+    ) -> EpubResult<Vec<usize>> {
+        let revision = self
+            .revisions
+            .get(revision_id)
+            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
+        revision
+            .chapter_engine_session()
+            .spread_pages(spread_index)
+            .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))
     }
 
     pub fn cached_frame_count(&self, revision_id: &str) -> Option<usize> {
@@ -496,51 +504,13 @@ impl RuntimeDocument {
         }))
     }
 
-    fn get_frame_inner(
-        &mut self,
-        revision_id: &str,
-        spread_index: usize,
-    ) -> EpubResult<RuntimeFrame> {
-        Ok(self
-            .ensure_frame_cached_with_payload(
-                revision_id,
-                spread_index,
-                RuntimeFrameCachePayload::IncludeJson,
-            )?
-            .frame
-            .as_ref()
-            .expect("JSON cache request materializes the runtime frame")
-            .clone())
-    }
-
-    pub(super) fn get_chapter_local_frame_inner(
-        &mut self,
-        revision_id: &str,
-        local_spread_index: usize,
-    ) -> EpubResult<RuntimeFrame> {
-        Ok(self
-            .ensure_chapter_local_frame_cached(
-                revision_id,
-                local_spread_index,
-                RuntimeFrameCachePayload::IncludeJson,
-            )?
-            .frame
-            .as_ref()
-            .expect("chapter-local JSON cache request materializes a frame")
-            .clone())
-    }
-
     pub(super) fn get_chapter_local_frame_command_buffer_metadata_inner(
         &mut self,
         revision_id: &str,
         local_spread_index: usize,
     ) -> EpubResult<RuntimeFrameCommandBufferMetadata> {
         Ok(self
-            .ensure_chapter_local_frame_cached(
-                revision_id,
-                local_spread_index,
-                RuntimeFrameCachePayload::PackedOnly,
-            )?
+            .ensure_chapter_local_frame_cached(revision_id, local_spread_index)?
             .command_buffer
             .metadata
             .clone())
@@ -552,11 +522,7 @@ impl RuntimeDocument {
         local_spread_index: usize,
     ) -> EpubResult<Vec<u8>> {
         Ok(self
-            .ensure_chapter_local_frame_cached(
-                revision_id,
-                local_spread_index,
-                RuntimeFrameCachePayload::PackedOnly,
-            )?
+            .ensure_chapter_local_frame_cached(revision_id, local_spread_index)?
             .command_buffer
             .bytes
             .clone())
@@ -568,11 +534,7 @@ impl RuntimeDocument {
         local_spread_index: usize,
     ) -> EpubResult<Vec<String>> {
         Ok(self
-            .ensure_chapter_local_frame_cached(
-                revision_id,
-                local_spread_index,
-                RuntimeFrameCachePayload::PackedOnly,
-            )?
+            .ensure_chapter_local_frame_cached(revision_id, local_spread_index)?
             .command_buffer
             .metadata
             .resource_table
@@ -584,19 +546,6 @@ impl RuntimeDocument {
         revision_id: &str,
         spread_index: usize,
     ) -> EpubResult<&RuntimeCachedFrame> {
-        self.ensure_frame_cached_with_payload(
-            revision_id,
-            spread_index,
-            RuntimeFrameCachePayload::PackedOnly,
-        )
-    }
-
-    fn ensure_frame_cached_with_payload(
-        &mut self,
-        revision_id: &str,
-        spread_index: usize,
-        payload: RuntimeFrameCachePayload,
-    ) -> EpubResult<&RuntimeCachedFrame> {
         let ratio = self.render_ratio.get();
         let document = &mut self.document;
         let result = self
@@ -604,14 +553,7 @@ impl RuntimeDocument {
             .get_mut(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))
             .and_then(|revision| {
-                cache_runtime_frame(
-                    revision,
-                    revision_id,
-                    spread_index,
-                    payload,
-                    ratio,
-                    document,
-                )
+                cache_runtime_frame(revision, revision_id, spread_index, ratio, document)
             });
         match result {
             Ok((replaced, evicted)) => {
@@ -635,7 +577,6 @@ impl RuntimeDocument {
         &mut self,
         revision_id: &str,
         local_spread_index: usize,
-        payload: RuntimeFrameCachePayload,
     ) -> EpubResult<&RuntimeCachedFrame> {
         let ratio = self.render_ratio.get();
         let document = &mut self.document;
@@ -644,14 +585,7 @@ impl RuntimeDocument {
             .get_mut(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown chapter-local revision: {revision_id}")))
             .and_then(|revision| {
-                cache_runtime_frame(
-                    revision,
-                    revision_id,
-                    local_spread_index,
-                    payload,
-                    ratio,
-                    document,
-                )
+                cache_runtime_frame(revision, revision_id, local_spread_index, ratio, document)
             });
         match result {
             Ok((replaced, evicted)) => {
@@ -692,7 +626,6 @@ fn cache_runtime_frame(
     revision: &mut RuntimeRevision,
     revision_id: &str,
     spread_index: usize,
-    payload: RuntimeFrameCachePayload,
     ratio: f64,
     document: &mut LoadedEpubDocument,
 ) -> EpubResult<(Option<RuntimeCachedFrame>, Option<RuntimeCachedFrame>)> {
@@ -702,7 +635,6 @@ fn cache_runtime_frame(
         )));
     }
     if revision.frame_cache.contains_key(&spread_index) {
-        materialize_cached_runtime_frame(revision, spread_index, payload, ratio)?;
         touch_cached_frame(revision, spread_index);
         return Ok((None, None));
     }
@@ -714,7 +646,6 @@ fn cache_runtime_frame(
         revision_id,
         &revision.layout_config,
         frame_commands,
-        payload,
         ratio,
         document,
     )?;
@@ -722,48 +653,6 @@ fn cache_runtime_frame(
     touch_cached_frame(revision, spread_index);
     let evicted = evict_oldest_frame(revision);
     Ok((replaced, evicted))
-}
-
-fn materialize_cached_runtime_frame(
-    revision: &mut RuntimeRevision,
-    spread_index: usize,
-    payload: RuntimeFrameCachePayload,
-    ratio: f64,
-) -> EpubResult<()> {
-    let needs_json = payload == RuntimeFrameCachePayload::IncludeJson
-        && revision
-            .frame_cache
-            .get(&spread_index)
-            .is_some_and(|cached| cached.frame.is_none());
-    if !needs_json {
-        return Ok(());
-    }
-    let frame_commands = revision
-        .chapter_engine_session()
-        .frame(spread_index, ratio)?
-        .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))?;
-    let runtime_frame = {
-        let cached = revision
-            .frame_cache
-            .get(&spread_index)
-            .expect("cached spread still exists");
-        let resource_refs = validate_cached_runtime_frame_source(
-            &frame_commands,
-            &revision.layout_config,
-            &cached.command_buffer.metadata,
-        )?;
-        runtime_frame_from_commands_with_resource_refs(
-            frame_commands,
-            &cached.command_buffer.metadata,
-            resource_refs,
-        )
-    };
-    revision
-        .frame_cache
-        .get_mut(&spread_index)
-        .expect("cached spread still exists")
-        .frame = Some(runtime_frame);
-    Ok(())
 }
 
 fn evict_oldest_frame(revision: &mut RuntimeRevision) -> Option<RuntimeCachedFrame> {
@@ -799,67 +688,6 @@ fn initial_frame_index(spread_count: usize, request: RuntimeInitialFrameRequest)
     }
     let progress = progress.clamp(0.0, 1.0);
     Some(((spread_count - 1) as f64 * progress).round() as usize)
-}
-
-fn runtime_frame_from_commands_with_resource_refs(
-    frame: PageArtifactFrame,
-    metadata: &RuntimeFrameCommandBufferMetadata,
-    resource_refs: crate::render::DisplayListResourceRefs,
-) -> RuntimeFrame {
-    let PageArtifactFrame {
-        spread_index,
-        page_indexes,
-        commands,
-    } = frame;
-    debug_assert_eq!(spread_index, metadata.spread_index);
-    debug_assert_eq!(commands.len(), metadata.command_count);
-    debug_assert_eq!(count_display_commands(&commands), metadata.command_counts);
-    debug_assert_eq!(hash_display_commands(&commands), metadata.command_hash);
-    debug_assert_eq!(resource_refs.image_refs, metadata.resource_ref_count);
-    debug_assert_eq!(resource_refs.images, metadata.resource_table);
-    RuntimeFrame {
-        revision_id: metadata.revision_id.clone(),
-        spread_index,
-        page_indexes,
-        width: metadata.width.clone(),
-        height: metadata.height.clone(),
-        commands: display_command_values(&commands),
-        command_count: metadata.command_count,
-        command_counts: metadata.command_counts.clone(),
-        command_hash: metadata.command_hash.clone(),
-        resource_refs,
-        font_families: metadata.font_families.clone(),
-        image_dominated: metadata.image_dominated,
-    }
-}
-
-fn validate_cached_runtime_frame_source(
-    frame: &PageArtifactFrame,
-    layout_config: &LayoutConfig,
-    metadata: &RuntimeFrameCommandBufferMetadata,
-) -> EpubResult<crate::render::DisplayListResourceRefs> {
-    let command_counts = count_display_commands(&frame.commands);
-    let command_hash = hash_display_commands(&frame.commands);
-    let resource_refs = summarize_display_list_resource_refs(&frame.commands);
-    let font_families = summarize_display_list_font_families(&frame.commands);
-    let image_dominated = frame_image_dominated(&command_counts, resource_refs.unique_images > 0);
-    let matches = frame.spread_index == metadata.spread_index
-        && number_value(layout_config.viewport_width) == metadata.width
-        && number_value(layout_config.viewport_height) == metadata.height
-        && frame.commands.len() == metadata.command_count
-        && command_counts == metadata.command_counts
-        && command_hash == metadata.command_hash
-        && resource_refs.image_refs == metadata.resource_ref_count
-        && resource_refs.images == metadata.resource_table
-        && font_families == metadata.font_families
-        && image_dominated == metadata.image_dominated;
-    if !matches {
-        return Err(EpubError::new(format!(
-            "cached frame projection does not match revision layout: spread {}",
-            frame.spread_index
-        )));
-    }
-    Ok(resource_refs)
 }
 
 fn frame_image_dominated(

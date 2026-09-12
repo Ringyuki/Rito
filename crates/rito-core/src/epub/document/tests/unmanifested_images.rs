@@ -105,13 +105,10 @@ fn transfers_an_unmanifested_image_through_the_runtime_resource_path() {
     let revision = runtime
         .create_revision(&layout())
         .expect("revision is created");
-    let frame = runtime
-        .get_frame(&revision.revision_id, 0)
+    let image_hrefs = runtime
+        .get_frame_image_resource_hrefs(&revision.revision_id, 0)
         .expect("frame is available");
-    assert!(frame
-        .resource_refs
-        .images
-        .contains(&"../Images/Undeclared%20Tile.png".to_owned()));
+    assert!(image_hrefs.contains(&"../Images/Undeclared%20Tile.png".to_owned()));
 
     let resource = runtime
         .get_resource(

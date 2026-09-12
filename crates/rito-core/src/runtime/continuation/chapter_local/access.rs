@@ -1,10 +1,10 @@
 use crate::runtime::{
-    frame::RuntimeRevision, metadata::layout_key, RuntimeChapterLocalFrame,
-    RuntimeChapterLocalRevisionCursor, RuntimeChapterLocalRevisionError,
-    RuntimeChapterLocalRevisionExtent, RuntimeChapterLocalRevisionHandle,
-    RuntimeChapterLocalRevisionSummary, RuntimeChapterLocalSourceLocatorResolution,
-    RuntimeContinuationErrorKind, RuntimeDocument, RuntimeFrameCommandBufferMetadata,
-    RuntimeResource, RuntimeResourceKind, RuntimeRevisionStatus, RuntimeSourceLocator,
+    frame::RuntimeRevision, metadata::layout_key, RuntimeChapterLocalRevisionCursor,
+    RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionExtent,
+    RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalRevisionSummary,
+    RuntimeChapterLocalSourceLocatorResolution, RuntimeContinuationErrorKind, RuntimeDocument,
+    RuntimeFrameCommandBufferMetadata, RuntimeResource, RuntimeResourceKind, RuntimeRevisionStatus,
+    RuntimeSourceLocator,
 };
 
 use super::model::{
@@ -34,31 +34,6 @@ impl RuntimeDocument {
             .resolve_chapter_local_source_locator_inner(&owner.revision_id, locator)
             .map_err(local_error_from_source)?;
         Ok(local_locator_resolution(owner.clone(), resolution))
-    }
-
-    pub fn get_chapter_local_frame(
-        &mut self,
-        owner: &RuntimeChapterLocalRevisionHandle,
-        local_spread_index: usize,
-    ) -> Result<RuntimeChapterLocalFrame, RuntimeChapterLocalRevisionError> {
-        self.require_chapter_local_owner(owner)?;
-        let frame = self
-            .get_chapter_local_frame_inner(&owner.revision_id, local_spread_index)
-            .map_err(local_engine_error)?;
-        Ok(RuntimeChapterLocalFrame {
-            owner: owner.clone(),
-            local_spread_index: frame.spread_index,
-            local_page_indexes: frame.page_indexes,
-            width: frame.width,
-            height: frame.height,
-            commands: frame.commands,
-            command_count: frame.command_count,
-            command_counts: frame.command_counts,
-            command_hash: frame.command_hash,
-            resource_refs: frame.resource_refs,
-            font_families: frame.font_families,
-            image_dominated: frame.image_dominated,
-        })
     }
 
     pub fn release_chapter_local_revision(

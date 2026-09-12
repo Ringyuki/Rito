@@ -190,17 +190,6 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
-    #[wasm_bindgen(js_name = getFrameJson)]
-    pub fn get_frame_json(
-        &mut self,
-        revision_id: &str,
-        spread_index: usize,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .get_frame_json(revision_id, spread_index)
-            .map_err(error_to_js_value)
-    }
-
     #[wasm_bindgen(js_name = getFrameCommandBufferMetadataJson)]
     pub fn get_frame_command_buffer_metadata_json(
         &mut self,

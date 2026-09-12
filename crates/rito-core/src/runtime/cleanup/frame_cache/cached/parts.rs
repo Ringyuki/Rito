@@ -2,64 +2,9 @@ use std::{collections::BTreeMap, vec};
 
 use serde_json::Value;
 
-use crate::{
-    render::DisplayListResourceRefs,
-    runtime::{RuntimeFrame, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata},
-};
+use crate::runtime::{RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata};
 
-pub(super) type JsonCommandSource = vec::IntoIter<Value>;
 pub(super) type StringSource = vec::IntoIter<String>;
-
-pub(super) struct LegacyFrameParts {
-    pub(super) commands: JsonCommandSource,
-    pub(super) resource_images: StringSource,
-    pub(super) font_families: StringSource,
-    pub(super) shell: RuntimeFrameShell,
-}
-
-impl LegacyFrameParts {
-    pub(super) fn new(frame: RuntimeFrame) -> Self {
-        let RuntimeFrame {
-            revision_id,
-            spread_index,
-            page_indexes,
-            width,
-            height,
-            commands,
-            command_count,
-            command_counts,
-            command_hash,
-            resource_refs,
-            font_families,
-            image_dominated,
-        } = frame;
-        let DisplayListResourceRefs {
-            image_refs: resource_image_refs,
-            unique_images: resource_unique_images,
-            image_hash: resource_image_hash,
-            images,
-        } = resource_refs;
-        Self {
-            commands: commands.into_iter(),
-            resource_images: images.into_iter(),
-            font_families: font_families.into_iter(),
-            shell: RuntimeFrameShell {
-                revision_id,
-                spread_index,
-                page_indexes,
-                width,
-                height,
-                command_count,
-                command_counts,
-                command_hash,
-                resource_image_refs,
-                resource_unique_images,
-                resource_image_hash,
-                image_dominated,
-            },
-        }
-    }
-}
 
 pub(super) struct CommandBufferParts {
     pub(super) resource_table: StringSource,
@@ -108,56 +53,6 @@ impl CommandBufferParts {
                 image_dominated,
             },
         }
-    }
-}
-
-/// Remainder of a decomposed compatibility JSON frame.
-#[derive(Debug)]
-pub(super) struct RuntimeFrameShell {
-    revision_id: String,
-    spread_index: usize,
-    page_indexes: Vec<usize>,
-    width: Value,
-    height: Value,
-    command_count: usize,
-    command_counts: BTreeMap<String, usize>,
-    command_hash: String,
-    resource_image_refs: usize,
-    resource_unique_images: usize,
-    resource_image_hash: String,
-    image_dominated: bool,
-}
-
-impl RuntimeFrameShell {
-    pub(super) fn release(self) {
-        let Self {
-            revision_id,
-            spread_index,
-            page_indexes,
-            width,
-            height,
-            command_count,
-            command_counts,
-            command_hash,
-            resource_image_refs,
-            resource_unique_images,
-            resource_image_hash,
-            image_dominated,
-        } = self;
-        let _ = (
-            revision_id,
-            spread_index,
-            page_indexes,
-            width,
-            height,
-            command_count,
-            command_counts,
-            command_hash,
-            resource_image_refs,
-            resource_unique_images,
-            resource_image_hash,
-            image_dominated,
-        );
     }
 }
 

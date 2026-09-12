@@ -1,18 +1,6 @@
 use crate::{wire::serialize_json, WasmRuntimeDocument, WasmRuntimeError};
 
 impl WasmRuntimeDocument {
-    pub fn get_frame_json(
-        &mut self,
-        revision_id: &str,
-        spread_index: usize,
-    ) -> Result<String, WasmRuntimeError> {
-        let frame = self
-            .document
-            .get_frame(revision_id, spread_index)
-            .map_err(WasmRuntimeError::from_engine)?;
-        serialize_json(&frame)
-    }
-
     pub fn get_frame_command_buffer_metadata_json(
         &mut self,
         revision_id: &str,

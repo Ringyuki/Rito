@@ -12,7 +12,6 @@ use crate::{
     epub::{PackageDocument, TocEntry},
     interaction::{FootnoteEntry, FootnoteKind},
     layout::{LayoutConfig, LineBreaking, PaginationFlowChapterRange},
-    render::DisplayListResourceRefs,
     resources::PublicationResources,
     xhtml::ChapterSource,
 };
@@ -479,41 +478,6 @@ pub struct RuntimeFontFaceSummary {
     pub style: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub weight: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeFrame {
-    pub revision_id: String,
-    pub spread_index: usize,
-    pub page_indexes: Vec<usize>,
-    pub width: Value,
-    pub height: Value,
-    pub commands: Vec<Value>,
-    pub command_count: usize,
-    pub command_counts: BTreeMap<String, usize>,
-    pub command_hash: String,
-    pub resource_refs: DisplayListResourceRefs,
-    pub font_families: Vec<String>,
-    pub image_dominated: bool,
-}
-
-/// Paint-ready frame whose indexes are explicitly chapter-local.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalFrame {
-    pub owner: RuntimeChapterLocalRevisionHandle,
-    pub local_spread_index: usize,
-    pub local_page_indexes: Vec<usize>,
-    pub width: Value,
-    pub height: Value,
-    pub commands: Vec<Value>,
-    pub command_count: usize,
-    pub command_counts: BTreeMap<String, usize>,
-    pub command_hash: String,
-    pub resource_refs: DisplayListResourceRefs,
-    pub font_families: Vec<String>,
-    pub image_dominated: bool,
 }
 
 /// Describes one cached frame's bytes: the `RITODL1` primitive list the

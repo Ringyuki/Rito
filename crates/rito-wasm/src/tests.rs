@@ -31,16 +31,18 @@ fn returns_packed_frame_command_buffer_metadata_and_bytes() {
     let bytes = document
         .read_frame_command_buffer(&revision_id, 0)
         .expect("command buffer bytes are returned");
-    let frame = document
-        .get_frame_json(&revision_id, 0)
-        .expect("frame JSON is returned after packed warmup");
-    let frame: Value = serde_json::from_str(&frame).expect("frame JSON parses");
 
     assert_eq!(metadata["revisionId"], revision_id);
     assert_eq!(metadata["spreadIndex"], 0);
-    assert_eq!(metadata["commandCount"], frame["commandCount"]);
-    assert_eq!(metadata["commandHash"], frame["commandHash"]);
-    assert_eq!(metadata["fontFamilies"], frame["fontFamilies"]);
+    assert!(metadata["commandCount"]
+        .as_u64()
+        .is_some_and(|count| count > 0));
+    assert!(metadata["commandHash"]
+        .as_str()
+        .is_some_and(|hash| !hash.is_empty()));
+    assert!(metadata["fontFamilies"]
+        .as_array()
+        .is_some_and(|families| !families.is_empty()));
     assert_eq!(metadata["byteLength"], bytes.len());
     assert_eq!(&bytes[0..7], b"RITODL1");
     assert_eq!(metadata["protocolVersion"], 2);
@@ -518,7 +520,7 @@ fn reports_engine_errors_for_unknown_revision() {
     let _ = revision_id(&mut document);
 
     let error = document
-        .get_frame_json("rev-missing", 0)
+        .get_frame_command_buffer_metadata_json("rev-missing", 0)
         .expect_err("unknown revision fails");
 
     assert_eq!(error.code(), WasmRuntimeErrorCode::EngineError);

@@ -1610,18 +1610,17 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
         .expect("document opens");
         let summary = document.create_revision(&layout).expect("revision");
         let frame = document
-            .get_frame(&summary.revision_id, 0)
+            .frame_commands_for_tests(&summary.revision_id, 0)
             .expect("frame publishes");
         let mut painted: std::collections::BTreeMap<String, Vec<(f64, f64)>> =
             std::collections::BTreeMap::new();
         for command in &frame.commands {
-            let Some(object) = command.as_object() else {
+            let (crate::render::DisplayCommand::PaintText(input)
+            | crate::render::DisplayCommand::PaintRuby(input)) = command
+            else {
                 continue;
             };
-            let (Some(text), Some(rect)) = (
-                object.get("text").and_then(|value| value.as_str()),
-                object.get("rect").and_then(|value| value.as_object()),
-            ) else {
+            let (Some(text), Some(rect)) = (input.text.as_str(), input.rect.as_object()) else {
                 continue;
             };
             let (Some(x), Some(y)) = (

@@ -27,13 +27,16 @@ fn host_and_unshapeable_publication_families_are_removed_from_paint() {
         .family_alias
         .clone();
     let revision = document.create_revision(&font_aware_layout()).unwrap();
-    let frame = document.get_frame(&revision.revision_id, 0).unwrap();
-    let family = frame
-        .commands
-        .iter()
-        .find(|command| command["kind"] == "paintText")
-        .and_then(|command| command["paint"]["font"]["family"].as_str());
+    let frame = document
+        .frame_commands_for_tests(&revision.revision_id, 0)
+        .unwrap();
+    let family = frame.commands.iter().find_map(|command| match command {
+        crate::render::DisplayCommand::PaintText(input) => {
+            Some(input.paint.measure().font.family.clone())
+        }
+        _ => None,
+    });
     let expected = format!("{alias}, serif");
 
-    assert_eq!(family, Some(expected.as_str()));
+    assert_eq!(family.as_deref(), Some(expected.as_str()));
 }

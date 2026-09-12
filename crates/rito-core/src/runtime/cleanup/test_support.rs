@@ -1,56 +1,16 @@
 use std::collections::BTreeMap;
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
-use crate::{
-    render::DisplayListResourceRefs,
-    runtime::{
-        frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner},
-        RuntimeFrame, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
-    },
+use crate::runtime::{
+    frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner},
+    RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
 };
 
+/// A synthetic cached frame whose metadata counts `command_count`
+/// commands and whose primitive bytes are `command_count` long.
 pub(super) fn cached_frame(spread_index: usize, command_count: usize) -> RuntimeCachedFrame {
-    synthetic_cached_frame(spread_index, command_count, true)
-}
-
-pub(super) fn packed_only_cached_frame(
-    spread_index: usize,
-    command_count: usize,
-) -> RuntimeCachedFrame {
-    synthetic_cached_frame(spread_index, command_count, false)
-}
-
-fn synthetic_cached_frame(
-    spread_index: usize,
-    command_count: usize,
-    include_json: bool,
-) -> RuntimeCachedFrame {
     RuntimeCachedFrame {
-        frame: include_json.then(|| {
-            let commands = (0..command_count)
-                .map(|index| json!({ "kind": "paintText", "text": index.to_string() }))
-                .collect();
-            RuntimeFrame {
-                revision_id: "revision".to_owned(),
-                spread_index,
-                page_indexes: vec![spread_index],
-                width: Value::from(320),
-                height: Value::from(120),
-                commands,
-                command_count,
-                command_counts: BTreeMap::from([("paintText".to_owned(), command_count)]),
-                command_hash: "hash".to_owned(),
-                resource_refs: DisplayListResourceRefs {
-                    image_refs: 0,
-                    unique_images: 0,
-                    image_hash: "images".to_owned(),
-                    images: Vec::new(),
-                },
-                font_families: vec!["serif".to_owned()],
-                image_dominated: false,
-            }
-        }),
         command_buffer: RuntimeFrameCommandBuffer {
             metadata: RuntimeFrameCommandBufferMetadata {
                 revision_id: "revision".to_owned(),
@@ -72,6 +32,20 @@ fn synthetic_cached_frame(
             bytes: vec![0; command_count],
         },
     }
+}
+
+/// A cached frame whose resource table lists `resource_count` images, the
+/// one payload whose cleanup cost scales with its size.
+pub(super) fn wide_resource_cached_frame(
+    spread_index: usize,
+    resource_count: usize,
+) -> RuntimeCachedFrame {
+    let mut frame = cached_frame(spread_index, 0);
+    frame.command_buffer.metadata.resource_ref_count = resource_count;
+    frame.command_buffer.metadata.resource_table = (0..resource_count)
+        .map(|index| format!("resource-{index}"))
+        .collect();
+    frame
 }
 
 pub(super) fn frame_cache_owner(
