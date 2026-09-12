@@ -4,6 +4,7 @@ import {
   preloadCurrentReaderFonts,
   preloadReaderFonts,
   unregisterReaderFonts,
+  markSpreadImageResourcesSettled,
 } from '../../src/bindings/browser/resources';
 import {
   renderSpreadToBoundCanvas,
@@ -94,6 +95,36 @@ describe('Browser reader resource-backed rendering', () => {
       expect.objectContaining({ spreadIndex: 0, pending: ['cover.png'] }),
     ]);
 
+    await flushPromises();
+    expect(state.images.has('cover.png')).toBe(true);
+    expect(invalidated).toEqual([0]);
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
+    expect(ctx.drawImage).toHaveBeenCalledOnce();
+  });
+
+  it('repaints a spread whose evicted bitmap returns after an earlier settlement', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(() => Promise.resolve(fakeImageBitmap())),
+    );
+    const invalidated: number[] = [];
+    const state = createState({
+      frames: new Map([[0, frameWithImages('cover.png')]]),
+      spreadContentInvalidatedListeners: new Set([(index: number) => invalidated.push(index)]),
+    });
+    // The spread settled once before (its bitmap decoded on an earlier
+    // visit) and the bitmap was then evicted under the byte budget.
+    const revision = state.revisionHandle;
+    if (!revision) throw new Error('the fixture state carries a revision');
+    expect(markSpreadImageResourcesSettled(state, revision, 0)).toBe(true);
+    state.images.clear();
+    const ctx = fakeCanvasContext();
+
+    // The return visit paints degraded and re-arms the settlement
+    // notice; the bitmap's return invalidates the spread again instead
+    // of leaving it on the blank paint.
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
+    expect(ctx.drawImage).not.toHaveBeenCalled();
     await flushPromises();
     expect(state.images.has('cover.png')).toBe(true);
     expect(invalidated).toEqual([0]);

@@ -147,15 +147,39 @@ export function markSpreadImageResourcesSettled(
   revision: BrowserReaderRevisionHandle,
   spreadIndex: number,
 ): boolean {
-  const key = JSON.stringify([
+  const key = spreadImageSettlementKey(revision, spreadIndex);
+  if (state.settledImageResourceSpreads.has(key)) return false;
+  state.settledImageResourceSpreads.add(key);
+  return true;
+}
+
+/**
+ * Re-arms a spread's settlement notice: a paint that had to skip an
+ * undecoded image (the bitmap evicted under the byte budget after the
+ * spread once settled, then wanted again) needs the next settlement to
+ * invalidate it, and the once-latch set by the earlier settlement would
+ * otherwise keep that repaint quiet forever — the spread stayed on its
+ * degraded paint, an illustration page blank, on every book whose
+ * plates outgrow the budget between a traversal and a return.
+ */
+export function unmarkSpreadImageResourcesSettled(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  spreadIndex: number,
+): void {
+  state.settledImageResourceSpreads.delete(spreadImageSettlementKey(revision, spreadIndex));
+}
+
+function spreadImageSettlementKey(
+  revision: BrowserReaderRevisionHandle,
+  spreadIndex: number,
+): string {
+  return JSON.stringify([
     revision.workerSessionId,
     revision.revisionId,
     revision.revisionVersion,
     spreadIndex,
   ]);
-  if (state.settledImageResourceSpreads.has(key)) return false;
-  state.settledImageResourceSpreads.add(key);
-  return true;
 }
 
 export function frameImageResourcesAreLoadingOrSettled(

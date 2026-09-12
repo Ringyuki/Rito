@@ -4,7 +4,11 @@ import {
   type BrowserReaderDecodedImage,
 } from './decoded-image-cache';
 import { createCanvasImageResolver } from './image-href-resolver';
-import { browserReaderImageResourceFailed, ensureFrameImageResourceLoaded } from './resources';
+import {
+  browserReaderImageResourceFailed,
+  ensureFrameImageResourceLoaded,
+  unmarkSpreadImageResourcesSettled,
+} from './resources';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader-layout';
@@ -144,6 +148,14 @@ function pendingFrameImages(
       // wedged the forward page turn forever on b69's missing 015 plate).
       if (browserReaderImageResourceFailed(state, href)) continue;
       pending.push(href);
+      // A degraded paint re-arms the spread's settlement notice: the
+      // spread may have settled once already (its bitmap decoded during
+      // an earlier visit, then evicted under the byte budget), and the
+      // once-latch from that settlement would keep the repaint that
+      // brings the bitmap back quiet forever.
+      if (state.revisionHandle) {
+        unmarkSpreadImageResourcesSettled(state, state.revisionHandle, index);
+      }
       // Two recovery lanes: the frame window re-warms siblings, and the
       // direct read covers a bitmap the window machinery never delivered
       // (an aborted prefetch, an evicted decode). Without the second lane
