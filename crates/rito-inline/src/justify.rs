@@ -220,27 +220,41 @@ pub(crate) fn line_justify_plan(
         ) {
             continue;
         }
+        // A spread ruby base (its annotation wider than it) is one
+        // justification item, Chromium's kBaseShorterRubyMarker: no
+        // interior expansion (its clusters already sit at the
+        // annotation-dictated spacing — measured: a justified
+        // wide-annotation ruby is bit-identical to the left-aligned one,
+        // while a narrow-annotation base justifies like plain text), no
+        // opportunity of its own before or after (the marker is not an
+        // ideograph: it takes the left neighbour's after-share and the
+        // right neighbour, if CJK, opens a deferred before-share exactly
+        // as after an atomic inline — DOM-measured on a justified line:
+        // the column's box carries no share and the following ideograph
+        // grows by two).
+        let boundary = range.start + offset;
+        let char_end = boundary + character.len_utf8();
+        let left_after = if spread_ranges.iter().any(|spread| spread.end == char_end) {
+            Left::Atom
+        } else {
+            Left::Char(character)
+        };
         if let Some(left) = &previous {
-            // A spread ruby base receives NO interior expansion: its
-            // clusters already sit at the annotation-dictated spacing
-            // (measured: a justified wide-annotation ruby is
-            // bit-identical to the left-aligned one, while a
-            // narrow-annotation base justifies like plain text). Only
-            // its outer boundaries carry shares.
-            let boundary = range.start + offset;
             if spread_ranges
                 .iter()
                 .any(|spread| spread.start < boundary && boundary < spread.end)
             {
                 pending = 0;
-                previous = Some(Left::Char(character));
+                previous = Some(left_after);
                 continue;
             }
             let mut count = pending;
             pending = 0;
             if expands_after(left) {
                 count += 1;
-            } else if is_cjk_justify(character) {
+            } else if is_cjk_justify(character)
+                && !spread_ranges.iter().any(|spread| spread.start == boundary)
+            {
                 pending += 1;
                 before_bytes.push(boundary);
             }
@@ -256,7 +270,7 @@ pub(crate) fn line_justify_plan(
                 total += count;
             }
         }
-        previous = Some(Left::Char(character));
+        previous = Some(left_after);
     }
     // A share deferred into the line's end has nowhere to land, but
     // Blink still counts it in the denominator: a justified line ending

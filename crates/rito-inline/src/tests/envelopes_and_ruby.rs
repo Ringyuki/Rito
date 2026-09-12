@@ -934,3 +934,142 @@ fn a_wide_ruby_annotation_spreads_its_base_with_interior_gaps() {
         "the neighbour starts right after the spread base"
     );
 }
+
+/// A justified line holding a base-shorter ruby (its annotation wider
+/// than the base): the column is one justification item with no
+/// opportunity of its own — the run after it starts at the column's end
+/// with only its deferred before-share (ink), and its item carries two
+/// shares — the way Chromium justifies around kBaseShorterRubyMarker
+/// (DOM-measured on a justified novel line: the column box carried no
+/// share, the following ideograph's box grew by two).
+#[test]
+fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let mut style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    style.text_flow.text_align = TextAlign::Justify;
+    style.text_flow.ruby_align = RubyAlign::Center;
+    let mut inline = InlineStyleTableV1::new(1);
+    let style = inline.intern_for_node(0, style).expect("style interns");
+    let text = |t: &str| InlineItem::Text {
+        text: t.to_owned(),
+        style,
+        baseline_shift_px: 0.0,
+        ruby_annotation: None,
+    };
+    let nodes = vec![FormattingNode {
+        style: rito_style_contract::LayoutStyleId::from_raw(0),
+        content: FormattingNodeContent::InlineFlow {
+            items: vec![
+                text("从前年开始就待在"),
+                InlineItem::Text {
+                    text: "辛".to_owned(),
+                    style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                        text: "送葬者".to_owned(),
+                        size_ratio: 0.55,
+                        align: RubyAlign::Center,
+                    }),
+                },
+                text("和莱登的部队了，我记得他们两个认识也有两年了吧。"),
+            ],
+        },
+        children: Vec::new(),
+    }];
+    let tree = FormattingTree::with_styles(
+        nodes,
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTableV1::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    // 8 + column + 12 ideographs on the first line: 20 × 16 + the
+    // column's 18.40625 (the 26.4 annotation ceiled to the grid minus
+    // an overhang of 4 per side) = 338.40625 natural in 339 available.
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(339.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let Fragment::Box(root) = &outcome.fragments.root else {
+        panic!("inline outcome root is a box fragment");
+    };
+    let Some(Fragment::Line(line)) = root.children.first() else {
+        panic!("outcome has a first line");
+    };
+    let runs: Vec<&TextFragment> = line
+        .children
+        .iter()
+        .filter_map(|child| match child {
+            Fragment::Text(run) => Some(run),
+            _ => None,
+        })
+        .collect();
+    let before = runs
+        .iter()
+        .find(|run| run.text_start == 0)
+        .expect("the run before the ruby");
+    let column = runs
+        .iter()
+        .find(|run| run.text_start == 24)
+        .expect("the ruby base");
+    let after = runs
+        .iter()
+        .find(|run| run.text_start == 27)
+        .expect("the run after the ruby");
+    let share = before.justify_px;
+    assert!(share > 0.0, "the line justifies: {share}");
+    assert_eq!(
+        column.justify_px, 0.0,
+        "the spread base takes no interior share"
+    );
+    assert!(
+        (column.rect.width - 18.40625).abs() < 1e-9,
+        "the column is the annotation minus both overhangs: {}",
+        column.rect.width
+    );
+    // The column's item ends on the layout grid without a share of its
+    // own; the following ideograph's ink sits one deferred share right
+    // of that edge.
+    let column_end = column.rect.x + column.rect.width;
+    assert!(
+        (after.rect.x - (column_end + share)).abs() < 1e-9,
+        "after the column: {} vs {column_end} + {share}",
+        after.rect.x
+    );
+    // The boundary that ideograph leaves behind opens two shares (its
+    // own before-share lands one boundary late) — the ink shift moved
+    // no neighbour — and the line steps one share each from there.
+    let next = runs
+        .iter()
+        .find(|run| run.text_start == 30)
+        .expect("the run after that");
+    assert!(
+        (next.rect.x - (column_end + 16.0 + 2.0 * share)).abs() < 1e-6,
+        "two shares after the first ideograph: {} vs {column_end} + 16 + 2 × {share}",
+        next.rect.x
+    );
+    let steps: Vec<f64> = next.clusters.windows(2).map(|w| w[1].x - w[0].x).collect();
+    assert!(
+        steps
+            .iter()
+            .all(|step| (step - (16.0 + share)).abs() < 1e-4),
+        "one share per boundary after it: {steps:?}"
+    );
+}

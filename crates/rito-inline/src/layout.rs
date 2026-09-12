@@ -1643,8 +1643,10 @@ impl FormattingContext for ParleyInlineContext {
                                             correction = 0.0;
                                             break;
                                         }
-                                        correction += hb_fixed_cluster_advance(&current, 0.0)
-                                            - f64::from(current.advance());
+                                        correction += hb_fixed_cluster_advance(
+                                            &current,
+                                            folded_spacing(spacing_edits, &current),
+                                        ) - f64::from(current.advance());
                                         prefix = current.next_logical();
                                     }
                                     run_x + correction
