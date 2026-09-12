@@ -31,7 +31,6 @@ export type {
   RitoCoreWasmFrameResourceWarmPlan as CoreFrameResourceWarmPlan,
   RitoCoreWasmJsonObject as CoreJsonObject,
   RitoCoreWasmLayoutConfig as CoreLayoutConfig,
-  RitoCoreWasmLineBreaking as CoreLineBreaking,
   RitoCoreWasmFootnote as CoreFootnote,
   RitoCoreWasmPageSemantics as CorePageSemantics,
   RitoCoreWasmPageReadingAnchor as CorePageReadingAnchor,

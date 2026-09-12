@@ -119,8 +119,6 @@ mod tests {
             line_height_force: None,
             font_family_override: None,
             font_family_force: None,
-            pagination_policy: None,
-            text_measurement: None,
         })
     }
 }

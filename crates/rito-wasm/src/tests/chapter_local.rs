@@ -152,7 +152,6 @@ fn create_local(document: &mut WasmRuntimeDocument) -> Value {
             .create_bounded_chapter_local_revision_json(
                 &json!({
                     "layoutConfig": layout(),
-                    "lineBreaking": "greedy",
                     "targetChapterIndex": 0,
                     "targetLocator": { "href": "chapter.xhtml" }
                 })

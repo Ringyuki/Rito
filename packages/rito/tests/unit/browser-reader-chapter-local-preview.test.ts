@@ -336,7 +336,6 @@ function installPaintablePresentation(
     direction: 'forward',
     layoutConfig: state.config,
     spreadMode: state.spreadMode,
-    lineBreaking: state.lineBreaking,
     workerSessionId: state.worker.sessionId,
     tocEntry: undefined,
     transport,

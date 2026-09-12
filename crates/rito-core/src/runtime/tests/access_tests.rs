@@ -3,7 +3,6 @@ use serde_json::json;
 use super::fixture::{fixture_epub, layout, multi_chapter_fixture_epub};
 use crate::{
     interaction::{TextCaretAddress, TextCaretAffinity},
-    layout::LineBreaking,
     runtime::{
         RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimeInitialFrameRequest,
         RuntimeLocatorRequest, RuntimePageTargetKind, RuntimePrefetchRequest, RuntimeResourceKind,
@@ -256,7 +255,6 @@ fn revision_presentation_is_exact_and_omits_heavy_aggregates() {
     let initial = document
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
             layout_config: layout(),
-            line_breaking: LineBreaking::Greedy,
         })
         .expect("bounded revision starts");
     let handle = handle_for(&initial.revision);

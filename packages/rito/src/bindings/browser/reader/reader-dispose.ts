@@ -60,10 +60,6 @@ function releaseRetainedReaderData(state: BrowserReaderState): void {
   state.footnotes = new Map();
   state.chapterTextIndices = new Map();
   state.tocTargets = [];
-  state.fontMetrics.genericSerif = undefined;
-  for (const family of Object.keys(state.fontMetrics.fontFamilies)) {
-    Reflect.deleteProperty(state.fontMetrics.fontFamilies, family);
-  }
   state.reflow.lastError = undefined;
 }
 

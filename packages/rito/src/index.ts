@@ -50,7 +50,6 @@ export type {
   MeasurePaint,
   PackageMetadata,
   Page,
-  PaginationPolicy,
   Reader,
   ReaderExactSourceRange,
   ReaderExactSourceRangeRequest,

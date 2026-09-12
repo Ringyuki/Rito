@@ -1,4 +1,4 @@
-use rito_core::{layout::TextMeasurementMode, runtime::RuntimeResourceKind};
+use rito_core::runtime::RuntimeResourceKind;
 use serde_json::{json, Value};
 
 use super::fixture::{layout, pinned_fixture_wasm_document, revision_id};
@@ -127,14 +127,12 @@ fn versioned_raw_reads_return_stamped_envelopes() {
 #[test]
 fn versioned_revision_presentation_is_slim_and_exact() {
     let mut document = pinned_fixture_wasm_document();
-    let mut config = layout();
-    config.text_measurement = TextMeasurementMode::FontAware;
+    let config = layout();
     let created = parse(
         document
             .create_bounded_revision_json(
                 &json!({
                     "layoutConfig": config,
-                    "lineBreaking": "greedy"
                 })
                 .to_string(),
             )

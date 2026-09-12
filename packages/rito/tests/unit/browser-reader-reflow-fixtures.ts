@@ -1,9 +1,9 @@
 import { vi, type Mock } from 'vitest';
 import type { ReaderOptions } from '../../src/reader';
-import type { CoreLayoutConfig, CoreLineBreaking } from '../../src/bindings/browser/core-contracts';
 import type {
   BrowserReaderRevisionResult,
   BrowserReaderWorkerClient,
+  CoreLayoutConfig,
 } from '../../src/bindings/browser/core-contracts';
 import { frameBuffer } from './browser-reader-reflow-state-fixtures';
 
@@ -31,7 +31,6 @@ interface TestActiveChapterPreview {
 
 type TestCreateRevision = (
   layoutConfig: CoreLayoutConfig,
-  lineBreaking: CoreLineBreaking,
   activeSpreadIndex: number,
   previousRevisionId?: string,
 ) => Promise<BrowserReaderRevisionResult>;

@@ -4,9 +4,7 @@ use rito_stylo::{parse_font_faces_v1, FontFaceStylesheetInputV1};
 
 use crate::resources::hash_bytes;
 
-use super::face::PublicationFontFace;
-
-use super::super::{paths::normalize_href_path, LoadedBinaryResource, LoadedEpubDocument};
+use super::super::{paths::normalize_href_path, LoadedEpubDocument};
 
 #[derive(Debug)]
 pub(crate) struct ResolvedFontFaceSource {
@@ -27,18 +25,6 @@ impl ResolvedFontFaceSource {
     /// Index of the bound font resource in the document's font list.
     pub(crate) fn resource_index(&self) -> usize {
         self.resource_index
-    }
-
-    pub(super) fn measurement_face<'a>(
-        &self,
-        resource: &'a LoadedBinaryResource,
-    ) -> PublicationFontFace<'a> {
-        PublicationFontFace::new(
-            self.family.clone(),
-            self.style.clone(),
-            self.weight,
-            resource.bytes.as_slice(),
-        )
     }
 
     pub(super) fn catalog_fingerprint(&self, bytes: &[u8]) -> String {

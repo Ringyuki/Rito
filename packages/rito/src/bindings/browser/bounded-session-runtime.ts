@@ -22,10 +22,6 @@ import { toCoreLayoutConfig } from './reader-layout';
 import { resumeBrowserReaderSuspendedFrameMisses } from './suspended-frame-misses';
 import { copyReaderLocator } from './reader/interaction-capture';
 import type { BrowserReaderState } from './reader/types';
-import {
-  replaceBrowserReaderFontGeometryMutation,
-  type BrowserReaderBoundedReplacementTarget,
-} from './bounded-font-geometry';
 import { enqueueBrowserReaderCurrentMutation } from './current-mutation-queue';
 import { startBrowserReaderCandidateTarget } from './bounded-candidate-target';
 import {
@@ -38,7 +34,6 @@ export { createBrowserReaderBoundedSessionOwner };
 export interface BrowserReaderBoundedLayoutRequest {
   readonly config: LayoutConfig;
   readonly spreadMode: 'single' | 'double';
-  readonly lineBreaking: 'greedy' | 'optimal';
   readonly targetSpreadIndex: number;
   readonly preserveLocator?: ReaderLocator | undefined;
   /** Initial open may recover an invalid locator to its fallback spread. */
@@ -105,10 +100,7 @@ async function runCandidate(
   baseCommitGeneration: number,
   signal?: AbortSignal,
 ): Promise<BrowserReaderBoundedSnapshot | undefined> {
-  const startRequest = {
-    layoutConfig: toCoreLayoutConfig(request.config, state.fontMetrics),
-    lineBreaking: request.lineBreaking,
-  } as const;
+  const startRequest = { layoutConfig: toCoreLayoutConfig(request.config) } as const;
   let snapshot = await startBrowserReaderCandidateTarget(owner, request, startRequest);
   if (request.complete) snapshot = await owner.controller.complete();
   if (!ownsBrowserReaderBoundedCandidate(state, owner, generation) || signal?.aborted) {
@@ -120,7 +112,6 @@ async function runCandidate(
     snapshot,
     config: request.config,
     spreadMode: request.spreadMode,
-    lineBreaking: request.lineBreaking,
     baseCommitGeneration,
     expectedActiveSpreadIndex: request.expectedActiveSpreadIndex,
     notifyLayoutCommitted: request.notifyLayoutCommitted,
@@ -172,15 +163,8 @@ export function ensureBrowserReaderBoundedLocator(
     state,
     copied,
     signal,
-    (target, replacementTarget, isCurrent, whenSuperseded) =>
-      mutateCurrent(
-        state,
-        target,
-        notifyExactLayoutCommitted,
-        replacementTarget,
-        isCurrent,
-        whenSuperseded,
-      ),
+    (target, isCurrent, whenSuperseded) =>
+      mutateCurrent(state, target, notifyExactLayoutCommitted, isCurrent, whenSuperseded),
   );
   return main.then(
     (resolution) => {
@@ -222,7 +206,6 @@ export function completeBrowserReaderBoundedSession(
         return owner.controller.complete();
       },
       true,
-      () => ({ targetSpreadIndex: state.activeSpreadIndex, complete: true }),
       undefined,
       undefined,
       () => true,
@@ -239,7 +222,6 @@ async function mutateCurrent(
   state: BrowserReaderState,
   target: (owner: BrowserReaderBoundedSessionOwner) => Promise<BrowserReaderBoundedSnapshot>,
   notifyLayoutCommitted: boolean,
-  replacementTarget: () => BrowserReaderBoundedReplacementTarget,
   isCurrent: () => boolean = () => true,
   whenSuperseded?: () => Promise<void>,
   preserveActiveSpread?: () => boolean,
@@ -256,7 +238,6 @@ async function mutateCurrent(
       snapshot,
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       baseCommitGeneration,
       exactReadGate: gate,
       notifyLayoutCommitted,
@@ -265,17 +246,6 @@ async function mutateCurrent(
       preserveActiveSpread: preserveActiveSpread ?? (() => !isCurrent()),
     });
     if (result.committed) return snapshot;
-    if (result.requiresFontGeometryReflow) {
-      const replacement = await replaceBrowserReaderFontGeometryMutation(
-        state,
-        owner,
-        replacementTarget,
-        true, // Font-geometry fallback always replaces the stable-prefix session.
-        startBrowserReaderBoundedCandidate,
-        preserveActiveSpread ?? (() => !isCurrent()),
-      );
-      if (replacement) return replacement;
-    }
     await recoverUncommittedMutation(state, owner, gate);
     return undefined;
   } catch (error) {

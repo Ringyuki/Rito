@@ -1,5 +1,5 @@
 use super::super::pinned_font_policy_fixtures::{
-    content_epub, face, font_aware_layout, policy, shared_supported_character, title_font, xml_text,
+    content_epub, face, layout, policy, shared_supported_character, title_font, xml_text,
 };
 use crate::runtime::{RuntimeDocument, RuntimePinnedFontGenericRole};
 
@@ -26,7 +26,7 @@ fn host_and_unshapeable_publication_families_are_removed_from_paint() {
     let alias = document.pinned_font_policy_summary().faces[0]
         .family_alias
         .clone();
-    let revision = document.create_revision(&font_aware_layout()).unwrap();
+    let revision = document.create_revision(&layout()).unwrap();
     let frame = document
         .frame_commands_for_tests(&revision.revision_id, 0)
         .unwrap();

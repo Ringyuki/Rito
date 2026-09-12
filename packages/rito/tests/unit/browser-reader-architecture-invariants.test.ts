@@ -20,10 +20,6 @@ const BROWSER_READER_WORKER_ENTRY = join(BROWSER_READER_BINDING, 'worker-entry.m
 const BROWSER_READER_REFLOW = join(BROWSER_READER_BINDING, 'pipeline/bounded-reflow.ts');
 const BROWSER_READER_REVISION = join(BROWSER_READER_BINDING, 'revision.ts');
 const BROWSER_BOUNDED_REVISION_COMMIT = join(SRC, 'bindings/browser/bounded-revision-commit.ts');
-const BROWSER_BOUNDED_FONT_GEOMETRY_PUBLICATION = join(
-  SRC,
-  'bindings/browser/bounded-font-geometry-publication.ts',
-);
 const BROWSER_READER_INTERACTION = join(BROWSER_READER_BINDING, 'interaction.ts');
 const BROWSER_READER_INTERACTION_CAPTURE = join(BROWSER_READER_BINDING, 'interaction-capture.ts');
 const BROWSER_READER_SOURCE_RANGE = join(BROWSER_READER_BINDING, 'source-range.ts');
@@ -403,17 +399,12 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
   it('commits only Rust-selected revision bundle frames without browser-side warm fallback', () => {
     const reflowSource = read(BROWSER_READER_REFLOW);
     const boundedCommitSource = read(BROWSER_BOUNDED_REVISION_COMMIT);
-    const fontGeometryPublicationSource = read(BROWSER_BOUNDED_FONT_GEOMETRY_PUBLICATION);
     const revisionCommitSource = read(BROWSER_REVISION_COMMIT);
     expect(reflowSource).not.toContain('warmFrameWindow');
     expect(reflowSource).toContain('startBrowserReaderBoundedCandidate');
     expect(reflowSource).not.toContain('decodeBrowserReaderFrame');
     expect(boundedCommitSource).not.toContain('warmFrameWindow');
-    expect(boundedCommitSource).toContain('prepareBrowserReaderFontGeometryPublication');
-    expect(fontGeometryPublicationSource).not.toContain('warmFrameWindow');
-    expect(fontGeometryPublicationSource).toContain(
-      'prepareControllerOwnedBrowserReaderCommitFrame',
-    );
+    expect(boundedCommitSource).toContain('prepareControllerOwnedBrowserReaderCommitFrame');
     expect(revisionCommitSource).toContain('decodeBrowserReaderFrame');
     expect(revisionCommitSource).toContain('result.selectedFrame');
   });

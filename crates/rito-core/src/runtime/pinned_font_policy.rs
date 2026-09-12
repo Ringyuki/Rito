@@ -9,7 +9,6 @@ use crate::epub::{
 use super::RuntimeDocument;
 
 mod types;
-mod wiring;
 
 pub use types::{
     RuntimePinnedFontFaceInput, RuntimePinnedFontFaceSummary, RuntimePinnedFontGenericRole,

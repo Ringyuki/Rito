@@ -1,12 +1,10 @@
-use std::collections::BTreeMap;
-
 use rito_stylo::{parse_font_faces_v1, FontFaceStylesheetInputV1};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::{
     epub::{EpubError, EpubResult, LoadedEpubDocument},
-    layout::{LayoutConfig, PaginationPolicy, SpreadMode, TextMeasurementMode},
+    layout::{LayoutConfig, SpreadMode},
     resources::{
         binary_summary_from_metadata, sort_publication_resources,
         summarize_loaded_publication_resources, PublicationResources,
@@ -161,18 +159,6 @@ struct LayoutKeyConfig<'a> {
     font_family_override: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     font_family_force: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pagination_policy: Option<&'a PaginationPolicy>,
-    #[serde(skip_serializing_if = "text_measurement_is_default")]
-    text_measurement: TextMeasurementMode,
-    #[serde(skip_serializing_if = "borrowed_map_is_empty")]
-    generic_serif_advances: &'a BTreeMap<String, f64>,
-    #[serde(skip_serializing_if = "borrowed_map_is_empty")]
-    font_family_advances: &'a BTreeMap<String, BTreeMap<String, f64>>,
-    #[serde(skip_serializing_if = "borrowed_map_is_empty")]
-    generic_serif_pair_adjustments: &'a BTreeMap<String, f64>,
-    #[serde(skip_serializing_if = "borrowed_map_is_empty")]
-    font_family_pair_adjustments: &'a BTreeMap<String, BTreeMap<String, f64>>,
 }
 
 impl<'a> From<&'a LayoutConfig> for LayoutKeyConfig<'a> {
@@ -194,22 +180,8 @@ impl<'a> From<&'a LayoutConfig> for LayoutKeyConfig<'a> {
             line_height_force: config.line_height_force,
             font_family_override: config.font_family_override.as_deref(),
             font_family_force: config.font_family_force,
-            pagination_policy: config.pagination_policy.as_ref(),
-            text_measurement: config.text_measurement,
-            generic_serif_advances: &config.generic_serif_advances,
-            font_family_advances: &config.font_family_advances,
-            generic_serif_pair_adjustments: &config.generic_serif_pair_adjustments,
-            font_family_pair_adjustments: &config.font_family_pair_adjustments,
         }
     }
-}
-
-fn text_measurement_is_default(value: &TextMeasurementMode) -> bool {
-    *value == TextMeasurementMode::default()
-}
-
-fn borrowed_map_is_empty<K, V>(value: &&BTreeMap<K, V>) -> bool {
-    value.is_empty()
 }
 
 fn layout_serialization_error(error: serde_json::Error) -> EpubError {
@@ -266,12 +238,7 @@ fn utf16_len(text: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
-    use crate::layout::{
-        create_layout_config, LayoutConfigInput, MarginInput, PaginationPolicy, SpreadMode,
-        TextMeasurementMode,
-    };
+    use crate::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
 
     use super::*;
 
@@ -282,30 +249,8 @@ mod tests {
         rich.line_height_force = Some(true);
         rich.font_family_override = Some("雪 \\\"quoted\\\" \\\\ family".to_owned());
         rich.font_family_force = Some(false);
-        rich.pagination_policy = Some(PaginationPolicy {
-            enabled: Some(true),
-            default_orphans: Some(2),
-            default_widows: Some(3),
-        });
-        rich.text_measurement = TextMeasurementMode::FontAware;
-        rich.generic_serif_advances =
-            BTreeMap::from([("A".to_owned(), -0.0), ("😀".to_owned(), 1.234_567_890_123)]);
-        rich.font_family_advances = BTreeMap::from([(
-            "serif".to_owned(),
-            BTreeMap::from([("雪".to_owned(), 0.875)]),
-        )]);
-        rich.generic_serif_pair_adjustments = BTreeMap::from([("：「".to_owned(), -0.5)]);
-        rich.font_family_pair_adjustments = BTreeMap::from([(
-            "serif".to_owned(),
-            BTreeMap::from([("AV".to_owned(), -0.25)]),
-        )]);
 
-        let mut wide = test_layout();
-        wide.generic_serif_advances = (0..256)
-            .map(|index| (format!("glyph-{index}"), index as f64 / 7.0))
-            .collect();
-
-        for layout_config in [test_layout(), rich, wide] {
+        for layout_config in [test_layout(), rich] {
             for policy_identity in [None, Some(&b""[..]), Some(&b"pinned\0policy\xff"[..])] {
                 assert_eq!(
                     layout_key_from_policy_identity(&layout_config, policy_identity)
@@ -362,8 +307,6 @@ mod tests {
             line_height_force: None,
             font_family_override: None,
             font_family_force: None,
-            pagination_policy: None,
-            text_measurement: None,
         })
     }
 }

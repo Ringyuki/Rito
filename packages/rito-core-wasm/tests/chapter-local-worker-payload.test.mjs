@@ -225,7 +225,6 @@ test('post-take byte validation cleans only still-live later transfers', () => {
 function createRequest() {
   return {
     layoutConfig: { spreadMode: 'single' },
-    lineBreaking: 'greedy',
     targetChapterIndex: 3,
     targetLocator: { href: 'chapter.xhtml' },
   };

@@ -15,7 +15,6 @@ pub fn revision_id(document: &mut WasmRuntimeDocument) -> String {
         .create_bounded_revision_json(
             &serde_json::json!({
                 "layoutConfig": layout(),
-                "lineBreaking": "greedy"
             })
             .to_string(),
         )
@@ -50,8 +49,6 @@ pub fn layout() -> LayoutConfig {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
-        pagination_policy: None,
-        text_measurement: None,
     })
 }
 

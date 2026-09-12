@@ -5,7 +5,7 @@ mod error;
 
 use crate::{
     epub::{EpubError, EpubResult},
-    layout::{LayoutConfig, LineBreaking, TextMeasurementMode},
+    layout::LayoutConfig,
 };
 
 use super::{
@@ -20,79 +20,44 @@ use super::{
 };
 
 impl RuntimeDocument {
+    /// Builds a whole-book revision: style projection runs, then the
+    /// fragment engine paginates every chapter and attaches the page
+    /// table; every query serves from it.
     pub fn create_revision(
         &mut self,
         layout_config: &LayoutConfig,
     ) -> EpubResult<RuntimeRevisionSummary> {
-        self.create_revision_with_line_breaking(layout_config, LineBreaking::Greedy)
-    }
-
-    pub fn create_revision_with_line_breaking(
-        &mut self,
-        layout_config: &LayoutConfig,
-        line_breaking: LineBreaking,
-    ) -> EpubResult<RuntimeRevisionSummary> {
-        self.create_fragment_revision(layout_config.clone(), line_breaking)
-    }
-
-    /// Builds a whole-book revision: style projection runs, then the
-    /// fragment engine paginates every chapter and attaches the page
-    /// table; every query serves from it.
-    fn create_fragment_revision(
-        &mut self,
-        layout_config: LayoutConfig,
-        line_breaking: LineBreaking,
-    ) -> EpubResult<RuntimeRevisionSummary> {
-        // The fragment engine's line breaking is its own; the request's
-        // greedy/optimal switch does not apply.
-        let _ = line_breaking;
+        let layout_config = layout_config.clone();
         let revision_id = self.create_revision_id();
-        let (
-            layout_config,
-            (chapter_style_tables, required_font_face_catalog, interactions, layout_key),
-        ) = self.run_with_owned_layout_config(layout_config, |document, layout_config| {
+        let (chapter_style_tables, required_font_face_catalog, interactions, layout_key) = {
+            let document = &mut *self;
+            let layout_config = &layout_config;
             document.document.ensure_all_chapters_loaded()?;
             document
                 .document
                 .ensure_chapter_image_dimensions_loaded(0, document.document.chapters.len())?;
-            document.ensure_layout_font_resources(layout_config)?;
+            document.ensure_layout_font_resources()?;
             document.ensure_prepared_all();
             let prepared = document
                 .prepared
                 .as_ref()
                 .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
-            let pinned_faces = document
-                .pinned_font_policy
-                .pinned_faces_for_layout(layout_config);
-            let projected = crate::epub::project_prepared_document_styles(
-                &document.document,
+            let chapter_style_tables = crate::epub::project_prepared_document_styles(
                 prepared,
                 layout_config,
-                crate::epub::PreparedRuntimeLayoutOptions {
-                    chapter_start: 0,
-                    chapter_count: prepared.chapters.len(),
-                    pinned_faces,
-                },
+                0,
+                prepared.chapters.len(),
             )?;
-            // The fragment engine shapes with every publication face; the
-            // canvas must register them all too, so the catalog is the
-            // full `@font-face` set rather than the host-measurable one.
-            let _ = projected.shapeable_publication_faces;
-            let catalog_faces = crate::epub::publication_font_face_catalog(
-                &document.document,
-                document.resolved_font_face_sources(),
-            );
-            let required_font_face_catalog =
-                document.required_font_face_catalog_from_faces(catalog_faces);
+            let required_font_face_catalog = document.required_font_face_catalog();
             let layout_key = layout_key(layout_config, &document.pinned_font_policy)?;
             let interactions = runtime_revision_interactions(prepared, true);
-            Ok((
-                chapter_style_table_map(projected.chapter_style_tables),
+            (
+                chapter_style_table_map(chapter_style_tables),
                 required_font_face_catalog,
                 interactions,
                 layout_key,
-            ))
-        })?;
+            )
+        };
         let revision = RuntimeRevision::completed(
             layout_config,
             chapter_style_tables,
@@ -156,14 +121,10 @@ impl RuntimeDocument {
             .is_none());
     }
 
-    pub(super) fn ensure_layout_font_resources(
-        &mut self,
-        layout_config: &LayoutConfig,
-    ) -> EpubResult<()> {
-        if layout_config.text_measurement == TextMeasurementMode::FontAware {
-            self.document.ensure_all_fonts_loaded()?;
-        }
-        Ok(())
+    /// The engine shapes with real font bytes, so every publication face
+    /// loads before the first layout.
+    pub(super) fn ensure_layout_font_resources(&mut self) -> EpubResult<()> {
+        self.document.ensure_all_fonts_loaded()
     }
 
     pub(super) fn prepare_cached_document_window(

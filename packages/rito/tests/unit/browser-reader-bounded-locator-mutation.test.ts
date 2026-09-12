@@ -164,7 +164,6 @@ describe('Browser bounded locator mutation coordinator', () => {
         snapshot,
         config: fixture.state.config,
         spreadMode: fixture.state.spreadMode,
-        lineBreaking: fixture.state.lineBreaking,
         baseCommitGeneration: fixture.state.commitGeneration,
         exactReadGate: gate,
         preserveActiveSpread: () => {
@@ -594,7 +593,6 @@ describe('Browser bounded locator mutation coordinator', () => {
       startBrowserReaderBoundedCandidate(fixture.state, replacementOwner, {
         config: fixture.state.config,
         spreadMode: fixture.state.spreadMode,
-        lineBreaking: fixture.state.lineBreaking,
         targetSpreadIndex: 0,
       }),
     ).resolves.toBe(installedSnapshot);

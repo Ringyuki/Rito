@@ -220,12 +220,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   }
 
   function initialRevisionRequest() {
-    return {
-      layoutConfig: startRequest.layoutConfig,
-      ...(startRequest.lineBreaking !== undefined
-        ? { lineBreaking: startRequest.lineBreaking }
-        : {}),
-    };
+    return { layoutConfig: startRequest.layoutConfig };
   }
 
   async function readRevisionPresentation(handle) {

@@ -173,7 +173,6 @@ export interface ReaderController {
   /** Re-paginate with new viewport dimensions (and optional margin). Also syncs canvas size using renderScale. */
   resize(width: number, height: number, margin?: number): void;
   setSpreadMode(mode: 'single' | 'double'): void;
-  setLineBreaking(lineBreaking: 'greedy' | 'optimal'): boolean;
   setTheme(options: ReaderThemeOptions): void;
   /**
    * Update typography overrides. For each value field:

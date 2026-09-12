@@ -24,7 +24,6 @@ import { disposeBrowserReaderState } from './reader-dispose';
 import { completeBrowserReaderBoundedSession } from '../bounded-session-runtime';
 import { syncBrowserHostLineMetrics } from '../host-line-metrics';
 import { trackBrowserReaderHostTask } from './host-tasks';
-import { createHostFontMetrics } from '../font-metrics';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
 import {
   type BrowserReaderBindingModule,
@@ -160,9 +159,8 @@ async function completeWithHostLineMetrics(
     )
       return;
     const spreadMode = options.spread ?? state.spreadMode;
-    const lineBreaking = options.lineBreaking ?? state.lineBreaking;
     refreshHostLineMetrics = true;
-    if (!(await convergeHostLineMetrics(state, options, spreadMode, lineBreaking))) {
+    if (!(await convergeHostLineMetrics(state, options, spreadMode))) {
       const unmet = await state.worker.takeHostLineMetricRequests().catch(() => []);
       if (unmet.length > 0) {
         state.logger.warn(
@@ -184,7 +182,6 @@ async function convergeHostLineMetrics(
   state: BrowserReaderState,
   options: ReaderOptions,
   spreadMode: BrowserReaderState['spreadMode'],
-  lineBreaking: BrowserReaderState['lineBreaking'],
 ): Promise<boolean> {
   const changed = await syncBrowserHostLineMetrics(state.worker).catch((error: unknown) => {
     state.logger.warn('rito: host line metric sync failed', error);
@@ -193,14 +190,7 @@ async function convergeHostLineMetrics(
   if (!changed || state.disposed) return false;
   state.hostLineMetricsEpoch += 1;
   await new Promise<void>((resolve) => {
-    const scheduled = scheduleBrowserReaderReflow(
-      state,
-      options,
-      spreadMode,
-      lineBreaking,
-      resolve,
-      true,
-    );
+    const scheduled = scheduleBrowserReaderReflow(state, options, spreadMode, resolve, true);
     if (!scheduled) resolve();
   });
   return true;
@@ -249,12 +239,10 @@ function createInitialState(
     pinnedFonts,
     canvas,
     ctx,
-    fontMetrics: createHostFontMetrics(),
     publication: openResult.publication,
     logger: createBrowserHostLogger(options.logLevel ?? 'warn'),
     config: makeBrowserReaderLayoutConfig(options, spreadMode),
     spreadMode,
-    lineBreaking: options.lineBreaking ?? 'greedy',
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor ?? undefined,
     dpr: options.devicePixelRatio ?? fallbackDevicePixelRatio(),
@@ -317,8 +305,7 @@ async function startInitialReflow(
   options: ReaderOptions,
 ): Promise<void> {
   const spreadMode = options.spread ?? 'single';
-  const lineBreaking = options.lineBreaking ?? 'greedy';
-  await startBrowserReaderInitialReflow(state, options, spreadMode, lineBreaking);
+  await startBrowserReaderInitialReflow(state, options, spreadMode);
   // The first layout is what discovers which (family, size, sample) metric
   // keys this book needs, so converge on them before returning: createReader
   // has not resolved yet and the host is still showing its loading state, so
@@ -326,25 +313,18 @@ async function startInitialReflow(
   // the background completion pass instead would repaginate the page under
   // the reader's eyes a second after it appeared. The metric cache is
   // session-wide, so only a book introducing new keys pays this pass.
-  await convergeHostLineMetrics(state, options, spreadMode, lineBreaking);
+  await convergeHostLineMetrics(state, options, spreadMode);
   void trackBrowserReaderHostTask(
     state,
-    warmInitialResources(state)
-      .then((metricsChanged) => {
-        if (metricsChanged) {
-          scheduleBrowserReaderReflow(state, options, spreadMode, lineBreaking, undefined, true);
-        }
-      })
-      .catch((error: unknown) => {
-        state.logger.warn('initial reader resource warm failed', error);
-      }),
+    warmInitialResources(state).catch((error: unknown) => {
+      state.logger.warn('initial reader resource warm failed', error);
+    }),
   );
 }
 
-async function warmInitialResources(state: BrowserReaderState): Promise<boolean> {
-  const metricsChanged = await preloadCurrentReaderFonts(state);
+async function warmInitialResources(state: BrowserReaderState): Promise<void> {
+  await preloadCurrentReaderFonts(state);
   void warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
-  return metricsChanged;
 }
 
 export function defineBrowserReaderAccessors(

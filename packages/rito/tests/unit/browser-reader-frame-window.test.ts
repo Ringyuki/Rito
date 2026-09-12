@@ -187,7 +187,6 @@ describe('Browser reader frame window adapter', () => {
     applyBrowserReaderRevisionState(state, {
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       result: advanced,
       worker: fixture.worker,
       ...frameCache,
@@ -226,7 +225,6 @@ describe('Browser reader frame window adapter', () => {
     applyBrowserReaderRevisionState(state, {
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       result: withRevisionVersion(revisionResult('rev', 1, 1), 1),
       worker: candidate.worker,
     });
@@ -246,7 +244,6 @@ describe('Browser reader frame window adapter', () => {
     applyBrowserReaderRevisionState(state, {
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       result: withRevisionVersion(revisionResult('next', 1, 1), 1),
       worker: fixture.worker,
     });

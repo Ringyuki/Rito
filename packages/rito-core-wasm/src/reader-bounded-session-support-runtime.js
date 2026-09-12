@@ -10,7 +10,6 @@ export function requireBoundedReaderStartRequest(request) {
   const target = boundedReaderStartTarget(request);
   return {
     layoutConfig: request.layoutConfig,
-    ...(request.lineBreaking !== undefined ? { lineBreaking: request.lineBreaking } : {}),
     ...target,
   };
 }

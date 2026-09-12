@@ -34,11 +34,6 @@ export function buildLayoutActions(
       const result = internals.reader.setSpreadMode(mode);
       refreshLayoutWhenChanged(didCommitSynchronously(result), internals, emitter, runtime, anchor);
     },
-    setLineBreaking(lineBreaking): boolean {
-      const anchor = currentPosition(internals);
-      const changed = internals.reader.setLineBreaking(lineBreaking);
-      return refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
-    },
     setTheme(options: ReaderThemeOptions): void {
       internals.reader.setTheme(options);
       runtime.pool.invalidateAllContent();

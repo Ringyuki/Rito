@@ -1,4 +1,4 @@
-import type { RitoCoreWasmLayoutConfig, RitoCoreWasmLineBreaking } from './common';
+import type { RitoCoreWasmLayoutConfig } from './common';
 import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './interaction';
 import type { RitoCoreWasmTocEntry } from './publication';
 
@@ -37,7 +37,6 @@ export interface RitoCoreWasmVersioned<T> {
 
 export interface RitoCoreWasmBoundedRevisionRequest {
   readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
 }
 
 export interface RitoCoreWasmRevisionPageRange {

@@ -1,49 +1,23 @@
 use crate::layout::LayoutConfig;
 
 use super::{chapter_style_tables, ChapterStyleTable};
-use crate::epub::{
-    fonts::shapeable_publication_faces_for_layout, EpubResult, LoadedEpubDocument,
-    PreparedLoadedDocument, PublicationFontFace, ShapeablePublicationFontFace,
-};
-
-pub(crate) struct PreparedRuntimeLayoutOptions<'a> {
-    pub(crate) chapter_start: usize,
-    pub(crate) chapter_count: usize,
-    pub(crate) pinned_faces: Vec<PublicationFontFace<'a>>,
-}
-
-/// Projected style tables plus the shapeable publication faces.
-pub(crate) struct ProjectedDocumentStyles {
-    pub(crate) chapter_style_tables: Vec<ChapterStyleTable>,
-    pub(crate) shapeable_publication_faces: Vec<ShapeablePublicationFontFace>,
-}
+use crate::epub::{EpubResult, PreparedLoadedDocument};
 
 /// Runs style projection for every prepared chapter in the window and
 /// stops there: the fragment engine builds its own page table from these
 /// tables.
-pub(crate) fn project_prepared_document_styles<'a>(
-    document: &'a LoadedEpubDocument,
+pub(crate) fn project_prepared_document_styles(
     prepared: &PreparedLoadedDocument,
     layout_config: &LayoutConfig,
-    options: PreparedRuntimeLayoutOptions<'a>,
-) -> EpubResult<ProjectedDocumentStyles> {
-    let PreparedRuntimeLayoutOptions {
-        chapter_start,
-        chapter_count,
-        pinned_faces,
-    } = options;
-    let shapeable_publication_faces =
-        shapeable_publication_faces_for_layout(document, layout_config, pinned_faces);
+    chapter_start: usize,
+    chapter_count: usize,
+) -> EpubResult<Vec<ChapterStyleTable>> {
     let end = chapter_start
         .saturating_add(chapter_count)
         .min(prepared.chapters.len());
-    let chapter_style_tables = chapter_style_tables(
+    chapter_style_tables(
         &prepared.stylesheet_ledger,
         &prepared.chapters[chapter_start.min(end)..end],
         layout_config,
-    )?;
-    Ok(ProjectedDocumentStyles {
-        chapter_style_tables,
-        shapeable_publication_faces,
-    })
+    )
 }

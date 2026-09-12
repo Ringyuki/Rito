@@ -41,11 +41,9 @@ export function requireBoundedChapterLocalRequest(value, operation) {
     requireSourceLocatorRequest(request.targetLocator, operation),
     operation,
   );
-  const lineBreaking = requireLineBreaking(request.lineBreaking, operation);
   return {
     request: {
       layoutConfig: request.layoutConfig,
-      ...(lineBreaking === undefined ? {} : { lineBreaking }),
       targetChapterIndex,
       targetLocator,
     },
@@ -126,9 +124,4 @@ function requireU32(value, operation) {
     throw new Error(`${operation} must be an unsigned 32-bit integer`);
   }
   return value;
-}
-
-function requireLineBreaking(value, operation) {
-  if (value === undefined || value === 'greedy' || value === 'optimal') return value;
-  throw new Error(`${operation} lineBreaking must be greedy or optimal`);
 }

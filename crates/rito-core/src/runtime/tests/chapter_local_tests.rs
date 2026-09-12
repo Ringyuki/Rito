@@ -1,5 +1,5 @@
 use crate::{
-    layout::{LayoutConfig, LineBreaking},
+    layout::LayoutConfig,
     runtime::{
         tests::fixture::{
             cross_chapter_footnote_fixture_epub, layout, many_chapter_fixture_epub,
@@ -315,7 +315,6 @@ fn local_request(
 ) -> RuntimeBoundedChapterLocalRevisionRequest {
     RuntimeBoundedChapterLocalRevisionRequest {
         layout_config,
-        line_breaking: LineBreaking::Greedy,
         target_chapter_index,
         target_locator,
     }

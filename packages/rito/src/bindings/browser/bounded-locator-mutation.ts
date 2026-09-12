@@ -1,5 +1,4 @@
 import type { ReaderLocator, ReaderLocatorResolution } from '../../reader';
-import type { BrowserReaderBoundedReplacementTarget } from './bounded-font-geometry';
 import type { BrowserReaderBoundedSnapshot } from './core-contracts';
 import { enqueueBrowserReaderCurrentMutation } from './current-mutation-queue';
 import {
@@ -17,7 +16,6 @@ import type { BrowserReaderState } from './reader/types';
 
 type LocatorMutation = (
   target: (owner: BrowserReaderBoundedSessionOwner) => Promise<BrowserReaderBoundedSnapshot>,
-  replacementTarget: () => BrowserReaderBoundedReplacementTarget,
   isCurrent: () => boolean,
   whenSuperseded: () => Promise<void>,
 ) => Promise<BrowserReaderBoundedSnapshot | undefined>;
@@ -167,7 +165,6 @@ async function runLocatorPump(
     try {
       const snapshot = await request.mutate(
         (owner) => targetLatestLocator(coordinator, owner),
-        () => replacementTarget(state, coordinator),
         () => coordinator.current !== undefined && !coordinator.current.settled,
         () => whenCurrentLocatorSettles(coordinator),
       );
@@ -269,18 +266,6 @@ function startTarget(
   } catch (error) {
     coordinator.targetTask = Promise.resolve({ kind: 'error', error });
   }
-}
-
-function replacementTarget(
-  state: BrowserReaderState,
-  coordinator: LocatorCoordinator,
-): BrowserReaderBoundedReplacementTarget {
-  const request = coordinator.current;
-  if (!request) throw new Error('Bounded reader locator mutation lost its replacement target');
-  return {
-    targetSpreadIndex: state.activeSpreadIndex,
-    ...(!request.settled ? { preserveLocator: request.locator } : {}),
-  };
 }
 
 function cancelLocatorRequest(

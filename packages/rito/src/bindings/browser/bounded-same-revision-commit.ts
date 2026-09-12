@@ -47,7 +47,6 @@ export function canCommitBrowserReaderSameRevisionFrame(
     state.worker === input.owner.worker &&
     state.config === input.config &&
     state.spreadMode === input.spreadMode &&
-    state.lineBreaking === input.lineBreaking &&
     published.revisionId === next.revisionId &&
     published.revisionVersion === next.revisionVersion
   );

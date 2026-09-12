@@ -29,7 +29,6 @@ export async function buildBrowserReaderChapterLocalPreview(
 ): Promise<void> {
   const created: unknown = await request.transport.createBoundedChapterLocalRevision({
     layoutConfig: request.layoutConfig,
-    lineBreaking: request.lineBreaking,
     targetChapterIndex: request.targetChapterIndex,
     targetLocator: request.locator,
   });

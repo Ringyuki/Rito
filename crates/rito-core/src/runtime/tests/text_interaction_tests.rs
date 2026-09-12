@@ -1,6 +1,4 @@
-use super::pinned_font_policy_fixtures::{
-    content_epub, face, font_aware_layout, policy, title_font,
-};
+use super::pinned_font_policy_fixtures::{content_epub, face, layout, policy, title_font};
 use crate::{
     interaction::{TextCaretAddress, TextCaretAffinity, TextInteractionUnavailableReason},
     runtime::{
@@ -26,7 +24,7 @@ fn native_search_source_reuses_authoritative_exact_shape_projection() {
     )
     .expect("pinned document opens");
     let revision = document
-        .create_revision(&font_aware_layout())
+        .create_revision(&layout())
         .expect("font-aware revision is created");
     let handle = RuntimeRevisionHandle::from(&revision);
     let search = document
@@ -73,7 +71,7 @@ fn embedded_nested_search_source_projects_non_tail_range_exactly() {
     );
     let mut document = RuntimeDocument::open_pinned_for_tests(&bytes).expect("document opens");
     let revision = document
-        .create_revision(&font_aware_layout())
+        .create_revision(&layout())
         .expect("font-aware revision is created");
     let handle = RuntimeRevisionHandle::from(&revision);
     let search = document
@@ -216,7 +214,7 @@ fn exact_text_reads_reject_stale_versions_and_non_finite_points() {
     let bytes = content_epub("en", "<p>Wi</p>", "", None);
     let mut document = RuntimeDocument::open_pinned_for_tests(&bytes).expect("document opens");
     let revision = document
-        .create_revision(&font_aware_layout())
+        .create_revision(&layout())
         .expect("revision is created");
     let stale = RuntimeRevisionHandle::new(&revision.revision_id, revision.revision_version + 1);
     let request = RuntimeTextPointRequest {
@@ -294,7 +292,7 @@ p { margin: 0 0 12px; }
     )
     .expect("pinned document opens");
     let revision = document
-        .create_revision(&font_aware_layout())
+        .create_revision(&layout())
         .expect("font-aware revision is created");
     let handle = RuntimeRevisionHandle::from(&revision);
     let projected = document

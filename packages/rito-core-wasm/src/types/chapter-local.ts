@@ -1,4 +1,4 @@
-import type { RitoCoreWasmLayoutConfig, RitoCoreWasmLineBreaking } from './common';
+import type { RitoCoreWasmLayoutConfig } from './common';
 import type { RitoFrameCommandBufferMetadata } from './frame';
 import type {
   RitoCoreWasmSourceLocator,
@@ -20,7 +20,6 @@ export interface RitoCoreWasmChapterLocalOwner {
 
 export interface RitoCoreWasmBoundedChapterLocalRevisionRequest {
   readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
   readonly targetChapterIndex: number;
   readonly targetLocator: RitoCoreWasmSourceLocator;
 }

@@ -38,7 +38,7 @@ fn empty_revision_units_include_each_required_font_face() {
                 owner.required_font_face_catalog = has_font_catalog.then(|| vec![font_face()]);
                 let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-                let expected = 20 + usize::from(has_font_catalog);
+                let expected = 13 + usize::from(has_font_catalog);
                 assert_eq!(drive_q1(&mut cleanup, expected), expected);
             }
         }
@@ -72,9 +72,12 @@ fn cache_and_flat_fields_release_in_order() {
 
     assert_one(&mut cleanup);
     assert!(cleanup.frame_cache.is_none());
-    assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::LayoutConfig);
+    assert_eq!(
+        cleanup.stage,
+        RuntimeRevisionCleanupStage::RequiredFontFaceCatalog
+    );
 
-    assert_eq!(drive_q1(&mut cleanup, 17), 17);
+    assert_eq!(drive_q1(&mut cleanup, 10), 10);
 }
 
 #[test]
@@ -83,7 +86,7 @@ fn materialized_interactions_compose_with_revision_retirement() {
     owner.interactions = materialized_interactions(2);
     let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 31), 31);
+    assert_eq!(drive_q1(&mut cleanup, 24), 24);
 }
 
 #[test]
@@ -91,7 +94,7 @@ fn large_font_catalog_is_exact_and_drop_drains_unread_faces() {
     let mut owner = revision();
     owner.required_font_face_catalog = Some(font_faces(LARGE_FONT_FACE_COUNT));
     let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
-    let expected = LARGE_FONT_FACE_COUNT + 20;
+    let expected = LARGE_FONT_FACE_COUNT + 13;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
 
@@ -226,7 +229,5 @@ fn test_layout() -> LayoutConfig {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
-        pagination_policy: None,
-        text_measurement: None,
     })
 }

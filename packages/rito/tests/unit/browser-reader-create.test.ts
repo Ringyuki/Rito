@@ -133,19 +133,8 @@ describe('Browser reader creation', () => {
       dispose: vi.fn(),
     };
     installWorkerFactory(worker);
-    const measureText = vi.fn(() => ({ width: 16 }));
-    const canvas = {
-      getContext: vi.fn(() => ({
-        save: vi.fn(),
-        restore: vi.fn(),
-        font: '',
-        wordSpacing: '',
-        letterSpacing: '',
-        measureText,
-      })),
-    } as unknown as HTMLCanvasElement;
 
-    const readerPromise = createReader(new ArrayBuffer(0), canvas, {
+    const readerPromise = createReader(new ArrayBuffer(0), readerCanvas(), {
       width: 800,
       height: 600,
       pinnedFontPolicy: {
@@ -170,9 +159,6 @@ describe('Browser reader creation', () => {
 
     expect(settled).toBe(true);
     expect(mocks.buildBrowserReaderMethods).toHaveBeenCalledOnce();
-    // Font metrics depend on the actual styles and sizes discovered by Rust,
-    // so all probes remain behind the initial revision.
-    expect(measureText).not.toHaveBeenCalled();
     expect(mocks.warmBrowserReaderFrameWindow).not.toHaveBeenCalled();
 
     fontRegistration.resolve();
@@ -456,9 +442,6 @@ function readerCanvas(): HTMLCanvasElement {
       save: vi.fn(),
       restore: vi.fn(),
       font: '',
-      wordSpacing: '',
-      letterSpacing: '',
-      measureText: vi.fn(() => ({ width: 16 })),
     })),
   } as unknown as HTMLCanvasElement;
 }

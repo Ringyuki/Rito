@@ -134,7 +134,6 @@ function startInitialCandidate(
   return startBrowserReaderBoundedCandidate(state, owner, {
     config: state.config,
     spreadMode: state.spreadMode,
-    lineBreaking: state.lineBreaking,
     targetSpreadIndex: 0,
     preserveLocator: locator,
     fallbackOnLocatorFailure: true,

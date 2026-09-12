@@ -149,7 +149,6 @@ test('release transport rejection disposes the Worker to contain unknown ownersh
 function createRequest(targetLocator) {
   return {
     layoutConfig: { spreadMode: 'single' },
-    lineBreaking: 'greedy',
     targetChapterIndex: 3,
     targetLocator,
   };

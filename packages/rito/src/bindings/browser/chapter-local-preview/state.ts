@@ -65,8 +65,7 @@ export function ownsBrowserReaderChapterLocalPreviewRequest(
     !request.mainSettled &&
     request.id === state.chapterLocalPreview.latestRequestId &&
     request.workerSessionId === state.worker.sessionId &&
-    request.spreadMode === state.spreadMode &&
-    request.lineBreaking === state.lineBreaking
+    request.spreadMode === state.spreadMode
   );
 }
 

@@ -50,7 +50,6 @@ export interface BrowserReaderChapterLocalPreviewRequest {
   readonly direction: 'forward' | 'backward';
   readonly layoutConfig: CoreLayoutConfig;
   readonly spreadMode: 'single' | 'double';
-  readonly lineBreaking: 'greedy' | 'optimal';
   readonly workerSessionId: string;
   readonly tocEntry: TocEntry | undefined;
   readonly transport: BrowserReaderChapterLocalTransport;

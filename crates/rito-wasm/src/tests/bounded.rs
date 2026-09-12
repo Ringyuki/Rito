@@ -1,7 +1,4 @@
-use rito_core::{
-    layout::LineBreaking,
-    runtime::{RuntimeBoundedRevisionRequest, RuntimeRevisionHandle},
-};
+use rito_core::runtime::{RuntimeBoundedRevisionRequest, RuntimeRevisionHandle};
 
 use super::fixture::{layout, pinned_multi_chapter_wasm_document};
 use crate::{WasmRuntimeError, WasmRuntimeErrorCode};
@@ -26,7 +23,6 @@ fn failed_bounded_create_transport_releases_the_revision() {
         .document
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
             layout_config: layout(),
-            line_breaking: LineBreaking::Greedy,
         })
         .expect("bounded candidate is created");
     let revision = RuntimeRevisionHandle::from(&advance.revision);

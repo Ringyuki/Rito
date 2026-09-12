@@ -25,15 +25,14 @@ import { createBrowserReaderBoundedRevisionResult } from './bounded-revision-res
 import { prepareBrowserReaderBoundedFrameCache } from './bounded-frame-cache';
 import { resumeBrowserReaderSuspendedFrameMisses } from './suspended-frame-misses';
 import {
-  prepareBrowserReaderFontGeometryPublication,
-  type PreparedFontGeometryPublication,
-  type PreparedRevisionPublication as PreparedFontGeometryRevisionPublication,
-} from './bounded-font-geometry-publication';
+  prepareControllerOwnedBrowserReaderCommitFrame,
+  type BrowserReaderPreparedCommitFrame,
+} from './revision-commit';
+import { prepareControllerOwnedRevisionFonts } from './required-fonts';
 
 export interface BrowserReaderBoundedCommitInput extends BrowserReaderBoundedSnapshotCommitContract {
   readonly config: LayoutConfig;
   readonly spreadMode: 'single' | 'double';
-  readonly lineBreaking: 'greedy' | 'optimal';
   /** Capture after suspending a current session, or before starting a candidate. */
   readonly baseCommitGeneration: number;
   /** Internal latest-wins guard for a coalesced current-session mutation. */
@@ -52,23 +51,19 @@ export interface BrowserReaderBoundedCommitInput extends BrowserReaderBoundedSna
 
 export interface BrowserReaderBoundedCommitResult {
   readonly committed: boolean;
-  readonly requiresFontGeometryReflow?: boolean | undefined;
   /** The caller must drain this controller before disposing its worker. */
   readonly retiredOwner?: BrowserReaderBoundedSessionOwner | undefined;
 }
 
-interface PreparedBoundedCommitBase {
+interface PreparedRevisionPublication {
+  readonly kind: 'revisionPublication';
   readonly input: BrowserReaderBoundedCommitInput;
   readonly result: BrowserReaderRevisionResult;
   readonly rollbackFonts: () => void;
+  readonly commitFrame: BrowserReaderPreparedCommitFrame;
 }
 
-type PreparedRevisionPublication = PreparedBoundedCommitBase &
-  PreparedFontGeometryRevisionPublication;
-
-type PreparedBoundedCommit =
-  | (PreparedBoundedCommitBase & PreparedFontGeometryPublication)
-  | PreparedSameRevisionFrame;
+type PreparedBoundedCommit = PreparedRevisionPublication | PreparedSameRevisionFrame;
 
 export async function commitBrowserReaderBoundedSnapshot(
   state: BrowserReaderState,
@@ -117,11 +112,31 @@ async function prepareRevisionPublication(
   state: BrowserReaderState,
   input: BrowserReaderBoundedCommitInput,
   result: BrowserReaderRevisionResult,
-): Promise<PreparedBoundedCommit | undefined> {
-  const prepared = await prepareBrowserReaderFontGeometryPublication(state, input, result, () =>
-    isEligibleCommit(state, input),
+): Promise<PreparedRevisionPublication | undefined> {
+  const isEligible = (): boolean => isEligibleCommit(state, input);
+  const rollbackFonts = await prepareControllerOwnedRevisionFonts(
+    state,
+    input.owner.worker,
+    result.bundle,
+    isEligible,
   );
-  return prepared ? { ...prepared, input, result } : undefined;
+  if (!rollbackFonts) return undefined;
+  let commitFrame: BrowserReaderPreparedCommitFrame | undefined;
+  try {
+    commitFrame = await prepareControllerOwnedBrowserReaderCommitFrame(
+      state,
+      result,
+      input.superseded,
+    );
+  } catch (error) {
+    rollbackFonts();
+    throw error;
+  }
+  if (commitFrame && isEligible()) {
+    return { kind: 'revisionPublication', input, result, rollbackFonts, commitFrame };
+  }
+  rollbackFonts();
+  return undefined;
 }
 
 function publishBoundedCommit(
@@ -134,9 +149,6 @@ function publishBoundedCommit(
   }
   if (prepared.kind === 'sameRevisionFrame') {
     return publishBrowserReaderSameRevisionFrame(state, prepared);
-  }
-  if (prepared.kind === 'horizontalFontGeometryReplacement') {
-    return { committed: false, requiresFontGeometryReflow: true };
   }
   const candidate = state.boundedSessions.candidate === input.owner;
   const retiredOwner = candidate ? state.boundedSessions.current : undefined;
@@ -196,11 +208,11 @@ function publishBoundedCommit(
   reopenCurrentExactReads(state, input, candidate);
   notifyBrowserReaderCommitCallback(state, input.onCommitted);
   if (shouldNotifyLayoutCommitted(input)) notifyBrowserReaderLayoutCommitted(state);
-  // A font-geometry replacement can publish a new owner while the retired
-  // owner still holds frame misses recorded behind its exact-read gate. Flush
-  // only after layout listeners have installed the replacement revision so a
-  // deferred Kit navigation retries against the new owner and is not reset by
-  // the layout commit callback.
+  // A candidate can publish a new owner while the retired owner still holds
+  // frame misses recorded behind its exact-read gate. Flush only after layout
+  // listeners have installed the replacement revision so a deferred Kit
+  // navigation retries against the new owner and is not reset by the layout
+  // commit callback.
   if (retiredOwner) resumeBrowserReaderSuspendedFrameMisses(state, retiredOwner);
   return {
     committed: true,
@@ -226,7 +238,6 @@ function applyBoundedRevisionState(
   applyBrowserReaderRevisionState(state, {
     config: input.config,
     spreadMode: input.spreadMode,
-    lineBreaking: input.lineBreaking,
     result,
     worker: input.owner.worker,
     ...frameCache,

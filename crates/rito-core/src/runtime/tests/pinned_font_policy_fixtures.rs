@@ -8,15 +8,13 @@ use sha2::{Digest, Sha256};
 use zip::ZipArchive;
 use zip::{write::FileOptions, ZipWriter};
 
-use crate::{
-    layout::{LayoutConfig, TextMeasurementMode},
-    runtime::{
-        RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag,
-        RuntimePinnedFontPolicyInput,
-    },
+use crate::runtime::{
+    RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag,
+    RuntimePinnedFontPolicyInput,
 };
 
-use super::fixture::{add_file, layout};
+use super::fixture::add_file;
+pub(super) use super::fixture::layout;
 
 pub(super) fn policy(faces: Vec<RuntimePinnedFontFaceInput>) -> RuntimePinnedFontPolicyInput {
     RuntimePinnedFontPolicyInput { faces }
@@ -64,12 +62,6 @@ pub(super) fn illustration_font() -> Vec<u8> {
 
 pub(super) fn variable_title_font() -> Vec<u8> {
     append_sfnt_table(&title_font(), *b"fvar", &minimal_fvar_table())
-}
-
-pub(super) fn font_aware_layout() -> LayoutConfig {
-    let mut config = layout();
-    config.text_measurement = TextMeasurementMode::FontAware;
-    config
 }
 
 pub(super) fn content_epub(

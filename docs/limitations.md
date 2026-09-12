@@ -25,15 +25,18 @@ reason or fails the chapter closed; nothing is silently misplaced.
   shifted punctuation; ruby, markers and inline atoms keep their
   horizontal path
 - no automatic hyphenation (`hyphens: auto` is not implemented)
-- `lineBreaking: 'optimal'` is accepted but behaves like `'greedy'`
+- one line breaker: greedy fill with the browser's break opportunities;
+  there is no paragraph-optimal alternative
 
 ## Typography Overrides
 
 - `setTypography()` is reader-wide and coarse: it overrides root and body
   behaviour and does not rewrite EPUB-authored selectors
-- `fontFamily` / `fontFamilyForce` are accepted but do not change the
-  rendered faces: the pinned faces apply in policy order. Offer font
-  choices by opening the reader with a policy containing the chosen faces.
+- `fontFamily` / `fontFamilyForce` select among the faces the engine can
+  shape with: a publication `@font-face` family name picks that font, while
+  every generic family resolves to the pinned faces in policy order and
+  system font names are unavailable. Offer font choices by opening the
+  reader with a policy containing the chosen faces.
 
 ## Durable Source Locators
 

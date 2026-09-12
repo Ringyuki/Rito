@@ -22,7 +22,7 @@ use crate::{
 
 const EMPTY_FRAME_UNITS: usize = 6;
 const LARGE_FRAME_PAYLOAD_COUNT: usize = 16_384;
-const REAL_JOB_FIXTURE_UNITS: usize = 22 + (EMPTY_FRAME_UNITS + 1) + 7;
+const REAL_JOB_FIXTURE_UNITS: usize = 15 + (EMPTY_FRAME_UNITS + 1);
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -237,33 +237,9 @@ fn repeated_revisions_do_not_accumulate_behind_regular_backlog() {
         queue.advance(budget);
         assert!(
             queue.job_count() <= 3,
-            "one 22-unit arrival per 64-unit service must remain bounded"
+            "one 15-unit arrival per 64-unit service must remain bounded"
         );
     }
-}
-
-#[test]
-fn default_quantum_resumes_a_large_transient_layout_config() {
-    let mut layout_config = test_layout();
-    layout_config.generic_serif_advances = (0..256)
-        .map(|index| (format!("glyph-{index}"), index as f64))
-        .collect();
-    let mut queue = RuntimeCleanupQueue::default();
-    queue.enqueue_layout_config(layout_config);
-    let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup quantum is non-zero");
-
-    let first = queue.advance(budget);
-
-    assert_eq!(first.consumed_units, RUNTIME_CLEANUP_QUANTUM);
-    assert!(!first.complete);
-    assert_eq!(queue.pending_frame_owner_count(), 0);
-    assert_eq!(queue.job_count(), 1);
-
-    let mut consumed_units = first.consumed_units;
-    while !queue.is_empty() {
-        consumed_units += queue.advance(budget).consumed_units;
-    }
-    assert_eq!(consumed_units, 263);
 }
 
 #[test]
@@ -297,7 +273,6 @@ fn unwind_drains_partially_advanced_real_jobs() {
 fn enqueue_real_job_fixtures(queue: &mut RuntimeCleanupQueue) {
     queue.enqueue_revision(empty_revision());
     queue.enqueue_cached_frame(cached_frame(0, 0));
-    queue.enqueue_layout_config(test_layout());
 }
 
 fn empty_revision() -> RuntimeRevision {
@@ -328,8 +303,6 @@ fn test_layout() -> LayoutConfig {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
-        pagination_policy: None,
-        text_measurement: None,
     })
 }
 

@@ -19,12 +19,6 @@ export interface Rect {
   readonly height: number;
 }
 
-export interface PaginationPolicy {
-  readonly enabled?: boolean;
-  readonly defaultOrphans?: number;
-  readonly defaultWidows?: number;
-}
-
 export interface LayoutConfig {
   readonly viewportWidth: number;
   readonly viewportHeight: number;
@@ -42,13 +36,6 @@ export interface LayoutConfig {
   readonly lineHeightForce?: boolean | undefined;
   readonly fontFamilyOverride?: string | undefined;
   readonly fontFamilyForce?: boolean | undefined;
-  readonly paginationPolicy?: PaginationPolicy | undefined;
-  /**
-   * How the engine measures text. Reader layouts measure with real font
-   * glyphs; the legacy estimator exists only for fixture parity and
-   * misplaces real-book line breaks.
-   */
-  readonly textMeasurement?: 'fontAware' | undefined;
 }
 
 export interface LayoutConfigInput {
@@ -71,7 +58,6 @@ export interface LayoutConfigInput {
   readonly lineHeightForce?: boolean;
   readonly fontFamilyOverride?: string;
   readonly fontFamilyForce?: boolean;
-  readonly paginationPolicy?: PaginationPolicy;
 }
 
 export interface Page {

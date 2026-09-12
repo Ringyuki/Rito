@@ -19,7 +19,6 @@ import {
 import { isCurrentRevisionHandle } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import { toCoreLayoutConfig } from '../../src/bindings/browser/reader-layout';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
-import { createFontGeometryReplacementWorker } from './browser-reader-bounded-session-runtime-fixtures';
 import {
   createDeferred,
   createState,
@@ -56,14 +55,12 @@ describe('Browser bounded session runtime', () => {
     const committed = await startBrowserReaderBoundedCandidate(state, candidateOwner, {
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       targetSpreadIndex: 1,
     });
 
     expect(committed).toBe(next);
     expect(start).toHaveBeenCalledWith({
-      layoutConfig: toCoreLayoutConfig(state.config, state.fontMetrics),
-      lineBreaking: 'greedy',
+      layoutConfig: toCoreLayoutConfig(state.config),
       targetSpreadIndex: 1,
     });
     expect(state.boundedSessions.current).toBe(candidateOwner);
@@ -92,7 +89,6 @@ describe('Browser bounded session runtime', () => {
     const task = startBrowserReaderBoundedCandidate(state, candidateOwner, {
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       targetSpreadIndex: 0,
     });
     await waitForCall(previousControllerDispose);
@@ -121,7 +117,6 @@ describe('Browser bounded session runtime', () => {
     const task = startBrowserReaderBoundedCandidate(fixture.state, candidateOwner, {
       config: fixture.state.config,
       spreadMode: fixture.state.spreadMode,
-      lineBreaking: fixture.state.lineBreaking,
       targetSpreadIndex: 0,
       expectedActiveSpreadIndex: 0,
     });
@@ -149,7 +144,6 @@ describe('Browser bounded session runtime', () => {
     await startBrowserReaderBoundedCandidate(fixture.state, candidateOwner, {
       config: fixture.state.config,
       spreadMode: fixture.state.spreadMode,
-      lineBreaking: fixture.state.lineBreaking,
       targetSpreadIndex: 0,
       onCommitted: () => order.push('callback'),
     });
@@ -169,7 +163,6 @@ describe('Browser bounded session runtime', () => {
     const first = startBrowserReaderBoundedCandidate(fixture.state, firstOwner, {
       config: fixture.state.config,
       spreadMode: fixture.state.spreadMode,
-      lineBreaking: fixture.state.lineBreaking,
       targetSpreadIndex: 0,
     });
     await Promise.resolve();
@@ -186,7 +179,6 @@ describe('Browser bounded session runtime', () => {
       startBrowserReaderBoundedCandidate(fixture.state, latestOwner, {
         config: fixture.state.config,
         spreadMode: fixture.state.spreadMode,
-        lineBreaking: fixture.state.lineBreaking,
         targetSpreadIndex: 0,
       }),
     ).resolves.toBe(latestSnapshot);
@@ -229,7 +221,6 @@ describe('Browser bounded session runtime', () => {
       {
         config: fixture.state.config,
         spreadMode: fixture.state.spreadMode,
-        lineBreaking: fixture.state.lineBreaking,
         targetSpreadIndex: 0,
       },
       abort.signal,
@@ -270,7 +261,6 @@ describe('Browser bounded session runtime', () => {
       {
         config: fixture.state.config,
         spreadMode: fixture.state.spreadMode,
-        lineBreaking: fixture.state.lineBreaking,
         targetSpreadIndex: 0,
       },
       abort.signal,
@@ -316,7 +306,6 @@ describe('Browser bounded session runtime', () => {
       {
         config: fixture.state.config,
         spreadMode: fixture.state.spreadMode,
-        lineBreaking: fixture.state.lineBreaking,
         targetSpreadIndex: 0,
       },
       abort.signal,
@@ -385,13 +374,11 @@ describe('Browser bounded session runtime', () => {
     await startBrowserReaderBoundedCandidate(fixture.state, candidateOwner, {
       config: fixture.state.config,
       spreadMode: fixture.state.spreadMode,
-      lineBreaking: fixture.state.lineBreaking,
       targetSpreadIndex: 0,
     });
 
     expect(start).toHaveBeenCalledWith({
-      layoutConfig: toCoreLayoutConfig(fixture.state.config, fixture.state.fontMetrics),
-      lineBreaking: 'greedy',
+      layoutConfig: toCoreLayoutConfig(fixture.state.config),
       targetSpreadIndex: 0,
     });
   });
@@ -405,7 +392,6 @@ describe('Browser bounded session runtime', () => {
       startBrowserReaderBoundedCandidate(fixture.state, duplicate, {
         config: fixture.state.config,
         spreadMode: fixture.state.spreadMode,
-        lineBreaking: fixture.state.lineBreaking,
         targetSpreadIndex: 0,
       }),
     ).rejects.toThrow('independent worker session');
@@ -426,7 +412,6 @@ describe('Browser bounded session runtime', () => {
       startBrowserReaderBoundedCandidate(fixture.state, duplicate, {
         config: fixture.state.config,
         spreadMode: fixture.state.spreadMode,
-        lineBreaking: fixture.state.lineBreaking,
         targetSpreadIndex: 0,
       }),
     ).rejects.toThrow('independent worker sessions');
@@ -444,7 +429,6 @@ describe('Browser bounded session runtime', () => {
     const task = startBrowserReaderBoundedCandidate(fixture.state, candidateOwner, {
       config: fixture.state.config,
       spreadMode: fixture.state.spreadMode,
-      lineBreaking: fixture.state.lineBreaking,
       targetSpreadIndex: 0,
     });
     await waitForCall(start);
@@ -476,36 +460,6 @@ describe('Browser bounded session runtime', () => {
     await expect(task).resolves.toBeUndefined();
     expect(fixture.state.revisionBundle.revision).toBe(next.revision);
     expect(fixture.owner.readsSuspended).toBe(false);
-  });
-
-  it('publishes a layout commit when completion requires a font-geometry replacement', async () => {
-    const fixture = currentFixture();
-    const uncalibrated = boundedSnapshot('current', 0, 2, 'complete', {
-      target: { kind: 'complete' },
-    });
-    fixture.owner.controller.complete = vi.fn(() => {
-      recordBrowserReaderAcceptedRevision(fixture.owner, uncalibrated.revision);
-      return Promise.resolve(uncalibrated);
-    });
-    mockAggregates(fixture.worker, uncalibrated);
-
-    const calibrated = boundedSnapshot('calibrated', 0, 2, 'complete', {
-      revisionVersion: 0,
-      target: { kind: 'complete' },
-    });
-    const candidate = createFontGeometryReplacementWorker(fixture.state, calibrated);
-    const committed = vi.fn();
-    fixture.state.layoutCommittedListeners.add(committed);
-    await expect(
-      completeBrowserReaderBoundedSession(fixture.state, undefined, {
-        refreshHostLineMetrics: true,
-      }),
-    ).resolves.toBe(true);
-
-    expect(fixture.state.boundedSessions.current?.worker).toBe(candidate);
-    expect(fixture.state.revisionBundle.revision.revisionId).toBe('calibrated');
-    expect(committed).toHaveBeenCalledOnce();
-    expect(committed).toHaveBeenCalledWith(0);
   });
 
   it('answers spread availability from the committed table without layout work', async () => {
@@ -660,7 +614,6 @@ describe('Browser bounded session runtime', () => {
     await startBrowserReaderBoundedCandidate(fixture.state, replacementOwner, {
       config: fixture.state.config,
       spreadMode: fixture.state.spreadMode,
-      lineBreaking: fixture.state.lineBreaking,
       targetSpreadIndex: 0,
     });
     completion.reject(new Error('bounded reader session stopped'));

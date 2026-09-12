@@ -34,13 +34,7 @@ export type ReaderProxiesSlice = Pick<
 >;
 export type LayoutActionsSlice = Pick<
   ReaderController,
-  | 'resize'
-  | 'setSpreadMode'
-  | 'setLineBreaking'
-  | 'setTheme'
-  | 'setTypography'
-  | 'setRenderScale'
-  | 'renderScale'
+  'resize' | 'setSpreadMode' | 'setTheme' | 'setTypography' | 'setRenderScale' | 'renderScale'
 >;
 export type SearchActionsSlice = Pick<
   ReaderController,

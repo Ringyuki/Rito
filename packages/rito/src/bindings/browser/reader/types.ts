@@ -4,14 +4,12 @@ import type {
   CoreReaderPrimitive,
   CoreJsonObject,
   CoreLayoutConfig,
-  CoreLineBreaking,
   CorePublicationInfo,
   CoreReaderBindingRuntimeModule,
   normalizeRitoCoreWasmError,
 } from '../core-contracts';
 import type { BrowserReaderWorkerClient } from '../core-contracts';
 import type { BrowserReaderPinnedFonts } from '../pinned-fonts';
-import type { HostFontMetrics } from '../font-metrics';
 import type { CanvasRenderingTarget } from '../rendering';
 import type {
   ChapterTextIndex,
@@ -35,7 +33,7 @@ import type {
 
 export type { BrowserReaderBoundedSessionOwner, BrowserReaderBoundedSessionSlots };
 
-export type { CoreJsonObject, CoreLayoutConfig, CoreLineBreaking, CorePublicationInfo };
+export type { CoreJsonObject, CoreLayoutConfig, CorePublicationInfo };
 
 export interface BrowserReaderFrame {
   readonly revisionId: string;
@@ -106,7 +104,6 @@ export type Logger = BrowserHostLogger;
 export interface BrowserReaderQueuedReflow {
   readonly config: LayoutConfig;
   readonly spreadMode: 'single' | 'double';
-  readonly lineBreaking: CoreLineBreaking;
   readonly token: number;
   readonly onCommitted?: (() => void) | undefined;
 }
@@ -132,12 +129,10 @@ export interface BrowserReaderState {
   readonly pinnedFonts: BrowserReaderPinnedFonts;
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
   readonly ctx: CanvasRenderingTarget;
-  readonly fontMetrics: HostFontMetrics;
   readonly publication: CorePublicationInfo;
   readonly logger: Logger;
   config: LayoutConfig;
   spreadMode: 'single' | 'double';
-  lineBreaking: CoreLineBreaking;
   bgColor: string;
   fgColor: string | undefined;
   dpr: number;

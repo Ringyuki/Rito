@@ -63,7 +63,7 @@ describe('Browser reader resource-backed rendering', () => {
 
     closeExactRevisionReadGate(state);
 
-    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+    await expect(preloadReaderFonts(state)).resolves.toBeUndefined();
     await expect(getImageObjectUrl(state, 'cover.png')).resolves.toBeUndefined();
     await flushPromises();
     expect(readResourceAtRevision).not.toHaveBeenCalled();
@@ -281,7 +281,7 @@ describe('Browser reader resource-backed rendering', () => {
       },
     });
 
-    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+    await expect(preloadReaderFonts(state)).resolves.toBeUndefined();
 
     expect(readResource).not.toHaveBeenCalled();
     expect(state.registeredFontFaces.size).toBe(0);
@@ -360,7 +360,7 @@ describe('Browser reader resource-backed rendering', () => {
       },
     });
 
-    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+    await expect(preloadReaderFonts(state)).resolves.toBeUndefined();
 
     expect(readResource).not.toHaveBeenCalled();
     expect(addFont).not.toHaveBeenCalled();
@@ -730,11 +730,7 @@ function createState(overrides: object = {}): BrowserReaderState {
       registry: undefined,
       faces: new Map(),
     },
-    ctx: fontMetricContext(),
-    fontMetrics: {
-      genericSerif: { advances: {}, pairAdjustments: {} },
-      fontFamilies: {},
-    },
+    ctx: {},
     spreadContentInvalidatedListeners: new Set(),
     disposed: false,
     publication: {
@@ -752,19 +748,6 @@ function useFontFamilies(state: BrowserReaderState, ...fontFamilies: string[]): 
 
 function emptyPinnedFontPolicySummary() {
   return { schemaVersion: 1 as const, policyId: '0'.repeat(64), faces: [] };
-}
-
-function fontMetricContext(): BrowserReaderState['ctx'] {
-  return {
-    font: '',
-    wordSpacing: '',
-    letterSpacing: '',
-    save() {},
-    restore() {},
-    measureText(text: string) {
-      return { width: Array.from(text).length * 16 } as TextMetrics;
-    },
-  } as BrowserReaderState['ctx'];
 }
 
 function createWorker(

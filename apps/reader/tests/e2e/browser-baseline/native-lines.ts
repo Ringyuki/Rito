@@ -39,7 +39,6 @@ export const BASELINE_LAYOUT = {
   spreadMode: 'single',
   viewportHeight: 640,
   viewportWidth: 420,
-  textMeasurement: 'fontAware',
 } as const;
 
 export async function pinnedFontBytes(): Promise<Map<string, Buffer>> {

@@ -13,7 +13,6 @@ export type {
   MeasurePaint,
   PackageMetadata,
   Page,
-  PaginationPolicy,
   Rect,
   ReaderDocumentSourceSpan,
   ReaderDocumentSourceSpanEndpoint,

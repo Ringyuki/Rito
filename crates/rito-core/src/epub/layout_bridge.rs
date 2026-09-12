@@ -7,7 +7,7 @@ mod runtime;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use runtime::{project_prepared_document_styles, PreparedRuntimeLayoutOptions};
+pub(crate) use runtime::project_prepared_document_styles;
 
 use super::{EpubError, EpubResult, ParsedLoadedChapterSource, PreparedLoadedDocument};
 

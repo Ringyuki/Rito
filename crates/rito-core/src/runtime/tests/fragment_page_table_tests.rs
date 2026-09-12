@@ -3,8 +3,8 @@
 //! fragment engine when the cutover lever is on.
 
 use super::{
-    fixture::{fixture_epub_with_chapter_and_stylesheet, multi_chapter_fixture_epub},
-    pinned_font_policy_fixtures::{face, font_aware_layout, policy, serif_text_font},
+    fixture::{fixture_epub_with_chapter_and_stylesheet, layout, multi_chapter_fixture_epub},
+    pinned_font_policy_fixtures::{face, policy, serif_text_font},
 };
 use crate::interaction::TextSelectionMovement;
 use crate::runtime::page_artifact::PageArtifactSemanticRole;
@@ -27,7 +27,7 @@ fn fragment_routed_document() -> (RuntimeDocument, String) {
         )]),
     )
     .expect("multi-chapter document opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -109,7 +109,7 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
         )]),
     )
     .expect("target fixture opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -177,7 +177,7 @@ fn fragment_pages_resolve_pointer_selection() {
         )]),
     )
     .expect("selection fixture opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -293,13 +293,12 @@ fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
         )]),
     )
     .expect("multi-chapter document opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let advance = document
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
             layout_config: layout,
-            line_breaking: crate::layout::LineBreaking::Greedy,
         })
         .expect("bounded revision starts");
     assert!(
@@ -332,7 +331,7 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         )]),
     )
     .expect("movement fixture opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -477,7 +476,7 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         )]),
     )
     .expect("locator fixture opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -550,9 +549,7 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
 
     // A different font size re-paginates the whole book (still fragment);
     // the durable range must land on the same word.
-    let mut reflowed = font_aware_layout();
-    reflowed.font_family_override = Some("serif".to_owned());
-    reflowed.font_family_force = Some(true);
+    let mut reflowed = layout.clone();
     reflowed.root_font_size = 22.0;
     let second = document
         .create_revision(&reflowed)
@@ -601,7 +598,7 @@ fn a_forced_sans_serif_override_changes_the_painted_frame() {
     };
     let frame_for = |family: &str| {
         let mut document = open();
-        let mut layout = font_aware_layout();
+        let mut layout = layout();
         layout.font_family_override = Some(family.to_owned());
         layout.font_family_force = Some(true);
         let summary = document
@@ -655,13 +652,12 @@ fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
             ]),
         )
         .expect("document opens");
-        let mut layout = font_aware_layout();
+        let mut layout = layout();
         layout.font_family_override = Some(family.to_owned());
         layout.font_family_force = Some(true);
         let advance = document
             .create_bounded_revision(RuntimeBoundedRevisionRequest {
                 layout_config: layout,
-                line_breaking: crate::layout::LineBreaking::Greedy,
             })
             .expect("bounded revision starts");
         assert!(
@@ -733,7 +729,7 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
         )]),
     )
     .expect("image fixture opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -800,7 +796,7 @@ fn pointer_selection_document_with_css(
         )]),
     )
     .expect("selection fixture opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -1003,7 +999,7 @@ fn fragment_selection_rects_span_the_injected_font_grid_box() {
                     },
                 );
             }
-            let mut layout = font_aware_layout();
+            let mut layout = layout();
             layout.font_family_override = Some("serif".to_owned());
             layout.font_family_force = Some(true);
             let summary = document
@@ -1073,7 +1069,7 @@ fn pointer_selection_document_cjk(
         ]),
     )
     .expect("selection fixture opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -1152,7 +1148,7 @@ fn painted_commands_carry_link_targets_and_image_alt() {
         )]),
     )
     .expect("interaction fixture opens");
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document

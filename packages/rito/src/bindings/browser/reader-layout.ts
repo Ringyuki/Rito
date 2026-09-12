@@ -11,7 +11,6 @@ import {
   createRitoCoreWasmReaderPages,
   createRitoCoreWasmReaderSpreads,
 } from './core-contracts';
-import { hostFontMetricConfig } from './font-metrics';
 import type { CoreLayoutConfig, BrowserReaderState } from './reader/types';
 
 interface BrowserReaderLayoutViewCache {
@@ -43,21 +42,11 @@ export function makeBrowserReaderLayoutConfig(
     margin: options.margin ?? 40,
     spread: spreadMode,
     spreadGap: options.spreadGap ?? 20,
-    ...(options.paginationPolicy !== undefined
-      ? { paginationPolicy: options.paginationPolicy }
-      : {}),
   });
 }
 
-export function toCoreLayoutConfig(
-  config: LayoutConfig,
-  fontMetrics: BrowserReaderState['fontMetrics'],
-): CoreLayoutConfig {
-  return {
-    ...config,
-    textMeasurement: 'fontAware',
-    ...hostFontMetricConfig(fontMetrics),
-  };
+export function toCoreLayoutConfig(config: LayoutConfig): CoreLayoutConfig {
+  return { ...config };
 }
 
 export function applyLayoutOverrides(

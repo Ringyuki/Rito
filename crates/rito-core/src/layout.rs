@@ -1,8 +1,6 @@
 pub const NAME: &str = "layout";
 pub const OWNS: &str = "Layout configuration and the page ranges a revision publishes per chapter";
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 /// One chapter's page span inside a revision's page table.
@@ -20,38 +18,6 @@ pub struct PaginationFlowChapterRange {
 pub enum SpreadMode {
     Single,
     Double,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum LineBreaking {
-    Greedy,
-    Optimal,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TextMeasurementMode {
-    #[default]
-    FixtureCompatible,
-    FontAware,
-}
-
-impl TextMeasurementMode {
-    fn is_default(value: &Self) -> bool {
-        *value == Self::FixtureCompatible
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaginationPolicy {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_orphans: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_widows: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -77,18 +43,6 @@ pub struct LayoutConfig {
     pub font_family_override: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_family_force: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pagination_policy: Option<PaginationPolicy>,
-    #[serde(default, skip_serializing_if = "TextMeasurementMode::is_default")]
-    pub text_measurement: TextMeasurementMode,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub generic_serif_advances: BTreeMap<String, f64>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub font_family_advances: BTreeMap<String, BTreeMap<String, f64>>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub generic_serif_pair_adjustments: BTreeMap<String, f64>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub font_family_pair_adjustments: BTreeMap<String, BTreeMap<String, f64>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -104,8 +58,6 @@ pub struct LayoutConfigInput {
     pub line_height_force: Option<bool>,
     pub font_family_override: Option<String>,
     pub font_family_force: Option<bool>,
-    pub pagination_policy: Option<PaginationPolicy>,
-    pub text_measurement: Option<TextMeasurementMode>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -162,12 +114,6 @@ pub fn create_layout_config(input: LayoutConfigInput) -> LayoutConfig {
         line_height_force: input.line_height_force,
         font_family_override: input.font_family_override,
         font_family_force: input.font_family_force,
-        pagination_policy: input.pagination_policy,
-        text_measurement: input.text_measurement.unwrap_or_default(),
-        generic_serif_advances: BTreeMap::new(),
-        font_family_advances: BTreeMap::new(),
-        generic_serif_pair_adjustments: BTreeMap::new(),
-        font_family_pair_adjustments: BTreeMap::new(),
     }
 }
 
@@ -209,10 +155,7 @@ fn resolve_margins(input: MarginInput) -> Margins {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode,
-        TextMeasurementMode,
-    };
+    use super::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
 
     #[test]
     fn creates_single_page_layout_config_from_uniform_margin() {
@@ -228,8 +171,6 @@ mod tests {
             line_height_force: None,
             font_family_override: None,
             font_family_force: None,
-            pagination_policy: None,
-            text_measurement: None,
         });
 
         assert_eq!(config.viewport_width, 420.0);
@@ -252,93 +193,11 @@ mod tests {
             line_height_force: None,
             font_family_override: None,
             font_family_force: None,
-            pagination_policy: None,
-            text_measurement: None,
         });
 
         assert_eq!(config.spread_mode, SpreadMode::Single);
         assert_eq!(config.page_width, 600.0);
         assert_eq!(config.margin_left, 40.0);
         assert_eq!(config.margin_top, 30.0);
-    }
-
-    #[test]
-    fn text_measurement_mode_defaults_to_fixture_compatible() {
-        let config: LayoutConfig = serde_json::from_value(serde_json::json!({
-            "viewportWidth": 420.0,
-            "viewportHeight": 640.0,
-            "pageWidth": 420.0,
-            "pageHeight": 640.0,
-            "marginTop": 24.0,
-            "marginRight": 24.0,
-            "marginBottom": 24.0,
-            "marginLeft": 24.0,
-            "spreadMode": "single",
-            "firstPageAlone": true,
-            "spreadGap": 0.0,
-            "rootFontSize": 16.0
-        }))
-        .expect("layout config without text measurement mode deserializes");
-
-        assert_eq!(
-            config.text_measurement,
-            TextMeasurementMode::FixtureCompatible
-        );
-        assert!(config.generic_serif_pair_adjustments.is_empty());
-        assert!(config.font_family_pair_adjustments.is_empty());
-    }
-
-    #[test]
-    fn text_measurement_config_accepts_host_pair_adjustments() {
-        let mut config = create_layout_config(LayoutConfigInput {
-            width: 420.0,
-            height: 640.0,
-            margin: MarginInput::All(24.0),
-            spread: SpreadMode::Single,
-            first_page_alone: true,
-            spread_gap: 0.0,
-            root_font_size: 16.0,
-            line_height_override: None,
-            line_height_force: None,
-            font_family_override: None,
-            font_family_force: None,
-            pagination_policy: None,
-            text_measurement: Some(TextMeasurementMode::FontAware),
-        });
-        config
-            .generic_serif_pair_adjustments
-            .insert("：「".to_owned(), -0.5);
-        config.font_family_pair_adjustments.insert(
-            "title".to_owned(),
-            std::collections::BTreeMap::from([("：「".to_owned(), -0.25)]),
-        );
-
-        let value = serde_json::to_value(&config).expect("layout config serializes");
-        assert_eq!(value["genericSerifPairAdjustments"]["：「"], -0.5);
-        assert_eq!(value["fontFamilyPairAdjustments"]["title"]["：「"], -0.25);
-        let decoded: LayoutConfig =
-            serde_json::from_value(value).expect("layout config pair adjustments deserialize");
-        assert_eq!(decoded, config);
-    }
-
-    #[test]
-    fn text_measurement_mode_accepts_font_aware_config() {
-        let config = create_layout_config(LayoutConfigInput {
-            width: 420.0,
-            height: 640.0,
-            margin: MarginInput::All(24.0),
-            spread: SpreadMode::Single,
-            first_page_alone: true,
-            spread_gap: 0.0,
-            root_font_size: 16.0,
-            line_height_override: None,
-            line_height_force: None,
-            font_family_override: None,
-            font_family_force: None,
-            pagination_policy: None,
-            text_measurement: Some(TextMeasurementMode::FontAware),
-        });
-
-        assert_eq!(config.text_measurement, TextMeasurementMode::FontAware);
     }
 }

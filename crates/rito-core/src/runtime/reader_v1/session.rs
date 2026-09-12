@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    layout::{LayoutConfig, LineBreaking},
+    layout::LayoutConfig,
     runtime::{
         RuntimeBoundedChapterLocalRevisionRequest, RuntimeBoundedRevisionRequest,
         RuntimeChapterLocalRevisionAdvance, RuntimeChapterLocalRevisionHandle,
@@ -1322,7 +1322,6 @@ impl ReaderSessionV1 {
             .document
             .create_bounded_revision(RuntimeBoundedRevisionRequest {
                 layout_config: layout.clone(),
-                line_breaking: LineBreaking::Greedy,
             })
             .map_err(engine_error)?;
         let runtime_revision_id = advance.revision.revision_id.clone();
@@ -1941,7 +1940,6 @@ impl ReaderSessionV1 {
         self.document
             .create_bounded_chapter_local_revision(RuntimeBoundedChapterLocalRevisionRequest {
                 layout_config: layout,
-                line_breaking: LineBreaking::Greedy,
                 target_chapter_index: chapter_index,
                 target_locator: canonical_locator,
             })

@@ -30,7 +30,7 @@ use super::{
     RuntimeSourceRange, RuntimeTextRangeGeometryRequest,
 };
 use crate::interaction::FootnoteKind;
-use crate::layout::{LineBreaking, SpreadMode};
+use crate::layout::SpreadMode;
 fn source_locator(href: &str) -> RuntimeSourceLocator {
     RuntimeSourceLocator {
         href: href.to_owned(),
@@ -572,24 +572,6 @@ fn bounds_and_refreshes_the_revision_frame_cache() {
     assert_eq!(revision_state.frame_cache.len(), FRAME_CACHE_CAPACITY);
     assert!(document.cleanup_queue.is_empty());
     assert_eq!(document.cleanup_queue.pending_frame_owner_count(), 0);
-}
-
-#[test]
-fn creates_optimal_line_breaking_revisions() {
-    let mut document =
-        RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
-
-    let revision = document
-        .create_revision_with_line_breaking(&layout(), LineBreaking::Optimal)
-        .expect("optimal revision is created");
-    let metadata = document
-        .get_frame_command_buffer_metadata(&revision.revision_id, 0)
-        .expect("optimal frame is available");
-
-    assert_eq!(revision.revision_id, "rev-1");
-    assert!(revision.page_count > 0);
-    assert_eq!(metadata.revision_id, revision.revision_id);
-    assert!(metadata.command_count > 0);
 }
 
 #[test]

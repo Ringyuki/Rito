@@ -58,12 +58,7 @@ describe('Browser bounded reflow coordinator', () => {
     state.disposed = true;
 
     expect(
-      scheduleBrowserReaderReflow(
-        state,
-        { ...BASE_READER_OPTIONS, width: 900 },
-        'single',
-        'greedy',
-      ),
+      scheduleBrowserReaderReflow(state, { ...BASE_READER_OPTIONS, width: 900 }, 'single'),
     ).toBe(false);
     expect(state.reflow.queued).toBeUndefined();
     expect(state.reflow.microtaskScheduled).toBe(false);
@@ -74,13 +69,7 @@ describe('Browser bounded reflow coordinator', () => {
     const state = createState(foreground.worker);
     const committed = vi.fn();
 
-    await startBrowserReaderInitialReflow(
-      state,
-      BASE_READER_OPTIONS,
-      'single',
-      'greedy',
-      committed,
-    );
+    await startBrowserReaderInitialReflow(state, BASE_READER_OPTIONS, 'single', committed);
 
     expect(mocks.openWorker).not.toHaveBeenCalled();
     expect(mocks.createOwner).toHaveBeenCalledWith(foreground.worker);
@@ -93,7 +82,6 @@ describe('Browser bounded reflow coordinator', () => {
     expect(request).toMatchObject({
       targetSpreadIndex: 0,
       spreadMode: 'single',
-      lineBreaking: 'greedy',
       onCommitted: committed,
     });
     expect(request).not.toHaveProperty('preserveLocator');
@@ -111,7 +99,6 @@ describe('Browser bounded reflow coordinator', () => {
       state,
       { ...BASE_READER_OPTIONS, initialLocator: locator },
       'single',
-      'greedy',
     );
 
     const request = mocks.startCandidate.mock.calls[0]?.[2];
@@ -124,92 +111,21 @@ describe('Browser bounded reflow coordinator', () => {
     expect(request?.preserveLocator?.sourcePoint?.nodePath).not.toBe(locator.sourcePoint?.nodePath);
   });
 
-  it('retries an initial candidate after exact font geometry grows', async () => {
-    const initial = createWorker(() => undefined, 'initial-font-fallback');
-    const calibrated = createWorker(() => undefined, 'initial-font-calibrated');
+  it('rejects the open when the initial candidate does not commit, without a replacement worker', async () => {
+    const initial = createWorker(() => undefined, 'initial-uncommitted');
     const state = createState(initial.worker);
-    Object.assign(state, { workerFactory: () => calibrated.worker });
-    mocks.startCandidate
-      .mockImplementationOnce((candidateState) => {
-        candidateState.fontMetrics.fontFamilies['body'] = { advances: {}, pairAdjustments: {} };
-        return Promise.resolve(undefined);
-      })
-      .mockResolvedValueOnce(snapshot());
-
-    await startBrowserReaderInitialReflow(state, BASE_READER_OPTIONS, 'single', 'greedy');
-
-    expect(mocks.startCandidate).toHaveBeenCalledTimes(2);
-    expect(mocks.openWorker).toHaveBeenCalledOnce();
-    expect(mocks.openWorker).toHaveBeenCalledWith(
-      calibrated.worker,
-      expect.any(ArrayBuffer),
-      state.pinnedFonts.policy,
-      state.dpr,
-      state.pinnedFonts.summary,
-    );
-    expect(mocks.createOwner.mock.calls.map(([worker]) => worker.sessionId)).toEqual([
-      initial.worker.sessionId,
-      calibrated.worker.sessionId,
-    ]);
-  });
-
-  it('keeps a successfully published initial candidate without a geometry replacement', async () => {
-    const initial = createWorker(() => undefined, 'initial-optional-vertical-fallback');
-    const state = createState(initial.worker);
-    const workerFactory = vi.fn(() => {
-      throw new Error('an unmeasurable optional vertical demand must not replace the worker');
-    });
-    Object.assign(state, { workerFactory });
-    mocks.startCandidate.mockResolvedValueOnce(snapshot());
-
-    await startBrowserReaderInitialReflow(state, BASE_READER_OPTIONS, 'single', 'greedy');
-
-    expect(mocks.startCandidate).toHaveBeenCalledOnce();
-    expect(workerFactory).not.toHaveBeenCalled();
-    expect(mocks.openWorker).not.toHaveBeenCalled();
-  });
-
-  it('allows one fresh worker retry for the same metric set and preserves the locator', async () => {
-    const initial = createWorker(() => undefined, 'initial-same-metrics');
-    const retry = createWorker(() => undefined, 'retry-same-metrics');
-    const state = createState(initial.worker);
-    const locator = sourceLocator('late.xhtml', 18);
-    Object.assign(state, { workerFactory: vi.fn(() => retry.worker) });
-    mocks.startCandidate.mockResolvedValueOnce(undefined).mockResolvedValueOnce(snapshot());
-
-    await startBrowserReaderInitialReflow(
-      state,
-      { ...BASE_READER_OPTIONS, initialLocator: locator },
-      'single',
-      'greedy',
-    );
-
-    expect(mocks.startCandidate).toHaveBeenCalledTimes(2);
-    expect(mocks.openWorker).toHaveBeenCalledOnce();
-    expect(mocks.startCandidate.mock.calls.map((call) => call[2].preserveLocator)).toEqual([
-      locator,
-      locator,
-    ]);
-    expect(mocks.startCandidate.mock.calls.map((call) => call[2].targetSpreadIndex)).toEqual([
-      0, 0,
-    ]);
-  });
-
-  it('stops after one fresh worker retry makes no metric progress', async () => {
-    const initial = createWorker(() => undefined, 'initial-no-progress');
-    const retry = createWorker(() => undefined, 'retry-no-progress');
-    const state = createState(initial.worker);
-    const workerFactory = vi.fn(() => retry.worker);
+    const workerFactory = vi.fn(() => initial.worker);
     Object.assign(state, { workerFactory });
     mocks.startCandidate.mockResolvedValue(undefined);
 
     await expect(
-      startBrowserReaderInitialReflow(state, BASE_READER_OPTIONS, 'single', 'greedy'),
+      startBrowserReaderInitialReflow(state, BASE_READER_OPTIONS, 'single'),
     ).rejects.toThrow('Initial bounded reader candidate was cancelled');
 
-    expect(mocks.startCandidate).toHaveBeenCalledTimes(2);
-    expect(mocks.openWorker).toHaveBeenCalledOnce();
-    expect(workerFactory).toHaveBeenCalledOnce();
+    expect(mocks.startCandidate).toHaveBeenCalledOnce();
+    expect(mocks.openWorker).not.toHaveBeenCalled();
+    expect(workerFactory).not.toHaveBeenCalled();
+    expect(state.reflow.lastError?.message).toContain('Initial bounded reader candidate');
   });
 
   it('opens an independent candidate and carries the exact reading anchor into it', async () => {
@@ -220,12 +136,7 @@ describe('Browser bounded reflow coordinator', () => {
     resolveAnchor(current.worker, 1, locator);
 
     expect(
-      scheduleBrowserReaderReflow(
-        current.state,
-        { ...BASE_READER_OPTIONS, width: 900 },
-        'single',
-        'greedy',
-      ),
+      scheduleBrowserReaderReflow(current.state, { ...BASE_READER_OPTIONS, width: 900 }, 'single'),
     ).toBe(true);
     await waitUntil(
       () =>
@@ -295,7 +206,6 @@ describe('Browser bounded reflow coordinator', () => {
       current.state,
       { ...BASE_READER_OPTIONS, width: 900 },
       'single',
-      'greedy',
       firstCallback,
     );
     await firstStarted.promise;
@@ -303,7 +213,6 @@ describe('Browser bounded reflow coordinator', () => {
       current.state,
       { ...BASE_READER_OPTIONS, width: 1000 },
       'single',
-      'greedy',
       latestCallback,
     );
     await waitUntil(() => mocks.startCandidate.mock.calls.length === 2);
@@ -324,12 +233,7 @@ describe('Browser bounded reflow coordinator', () => {
     const previousBundle = current.state.revisionBundle;
     mocks.startCandidate.mockRejectedValueOnce(new Error('candidate failed'));
 
-    scheduleBrowserReaderReflow(
-      current.state,
-      { ...BASE_READER_OPTIONS, width: 900 },
-      'single',
-      'greedy',
-    );
+    scheduleBrowserReaderReflow(current.state, { ...BASE_READER_OPTIONS, width: 900 }, 'single');
     await waitUntil(() => mocks.startCandidate.mock.calls.length === 1);
     await waitUntil(() => current.state.reflow.active === undefined);
 
@@ -353,12 +257,7 @@ describe('Browser bounded reflow coordinator', () => {
     });
     mocks.startCandidate.mockResolvedValueOnce(snapshot());
 
-    scheduleBrowserReaderReflow(
-      current.state,
-      { ...BASE_READER_OPTIONS, width: 900 },
-      'single',
-      'greedy',
-    );
+    scheduleBrowserReaderReflow(current.state, { ...BASE_READER_OPTIONS, width: 900 }, 'single');
     await waitUntil(() => mocks.startCandidate.mock.calls.length === 2);
 
     expect(mocks.openWorker).toHaveBeenCalledTimes(2);
@@ -393,12 +292,7 @@ describe('Browser bounded reflow coordinator', () => {
       },
     );
 
-    scheduleBrowserReaderReflow(
-      current.state,
-      { ...BASE_READER_OPTIONS, width: 900 },
-      'single',
-      'greedy',
-    );
+    scheduleBrowserReaderReflow(current.state, { ...BASE_READER_OPTIONS, width: 900 }, 'single');
     await started.promise;
     expect(current.state.pendingHostTasks.size).toBe(1);
     current.state.disposed = true;
@@ -412,12 +306,7 @@ describe('Browser bounded reflow coordinator', () => {
 
     const untouched = currentFixture(2, 0);
     Object.assign(untouched.state, { workerFactory: () => candidate.worker });
-    scheduleBrowserReaderReflow(
-      untouched.state,
-      { ...BASE_READER_OPTIONS, width: 900 },
-      'single',
-      'greedy',
-    );
+    scheduleBrowserReaderReflow(untouched.state, { ...BASE_READER_OPTIONS, width: 900 }, 'single');
     cancelBrowserReaderReflow(untouched.state);
     await flushTasks();
     expect(mocks.startCandidate).toHaveBeenCalledTimes(1);

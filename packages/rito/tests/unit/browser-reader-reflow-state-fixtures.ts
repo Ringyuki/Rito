@@ -38,10 +38,6 @@ export function createState(
     },
     canvas: {} as HTMLCanvasElement,
     ctx: {} as BrowserReaderState['ctx'],
-    fontMetrics: {
-      genericSerif: { advances: {}, pairAdjustments: {} },
-      fontFamilies: {},
-    },
     publication: {
       package: {
         metadata: { title: '', language: '', identifier: '' },
@@ -75,7 +71,6 @@ export function createState(
       rootFontSize: 16,
     },
     spreadMode: 'single',
-    lineBreaking: 'greedy',
     bgColor: '#fff',
     fgColor: undefined,
     dpr: 1,

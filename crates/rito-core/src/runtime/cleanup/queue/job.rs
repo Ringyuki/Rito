@@ -1,8 +1,4 @@
-use crate::{
-    layout::LayoutConfig,
-    runtime::cleanup::PendingLayoutConfigCleanup,
-    runtime::frame::{RuntimeCachedFrame, RuntimeRevision},
-};
+use crate::runtime::frame::{RuntimeCachedFrame, RuntimeRevision};
 
 use super::super::{PendingRuntimeCachedFrameCleanup, PendingRuntimeRevisionCleanup};
 #[cfg(test)]
@@ -17,7 +13,6 @@ pub(super) struct RuntimeCleanupJob {
 enum RuntimeCleanupCursor {
     Revision(Box<PendingRuntimeRevisionCleanup>),
     CachedFrame(Box<PendingRuntimeCachedFrameCleanup>),
-    LayoutConfig(Box<PendingLayoutConfigCleanup>),
     #[cfg(test)]
     Probe(RuntimeCleanupProbe),
 }
@@ -32,12 +27,6 @@ impl RuntimeCleanupJob {
     pub(super) fn cached_frame(owner: RuntimeCachedFrame) -> Self {
         Self::new(RuntimeCleanupCursor::CachedFrame(Box::new(
             PendingRuntimeCachedFrameCleanup::new(owner),
-        )))
-    }
-
-    pub(super) fn layout_config(owner: LayoutConfig) -> Self {
-        Self::new(RuntimeCleanupCursor::LayoutConfig(Box::new(
-            PendingLayoutConfigCleanup::new(owner),
         )))
     }
 
@@ -60,7 +49,6 @@ impl RuntimeCleanupJob {
         match self.cursor.as_ref().expect("active cleanup cursor exists") {
             RuntimeCleanupCursor::Revision(cleanup) => cleanup.is_complete(),
             RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.is_complete(),
-            RuntimeCleanupCursor::LayoutConfig(cleanup) => cleanup.is_complete(),
             #[cfg(test)]
             RuntimeCleanupCursor::Probe(cleanup) => cleanup.is_complete(),
         }
@@ -77,7 +65,6 @@ impl RuntimeCleanupJob {
         match self.cursor.as_mut().expect("active cleanup cursor exists") {
             RuntimeCleanupCursor::Revision(cleanup) => cleanup.advance_one(),
             RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.advance_one(),
-            RuntimeCleanupCursor::LayoutConfig(cleanup) => cleanup.advance_one(),
             #[cfg(test)]
             RuntimeCleanupCursor::Probe(cleanup) => cleanup.advance_one(),
         }
@@ -90,7 +77,6 @@ impl RuntimeCleanupJob {
         match cursor {
             RuntimeCleanupCursor::Revision(cleanup) => cleanup.pending_frame_owner_count(),
             RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.pending_frame_owner_count(),
-            RuntimeCleanupCursor::LayoutConfig(_) => 0,
             #[cfg(test)]
             RuntimeCleanupCursor::Probe(cleanup) => cleanup.pending_frame_owner_count,
         }

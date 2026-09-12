@@ -11,7 +11,6 @@ import type { Emitter, RuntimeComponents } from '../src/controller/facade/types'
 
 function createMocks(options?: {
   readonly setTypographyChanged?: boolean;
-  readonly setLineBreakingChanged?: boolean;
   readonly setSpreadModeChanged?: boolean;
   readonly currentSpread?: number;
   readonly totalSpreads?: number;
@@ -20,7 +19,6 @@ function createMocks(options?: {
 }) {
   const getCanvasSize = vi.fn(() => ({ width: 800, height: 600 }));
   const setTypography = vi.fn(() => options?.setTypographyChanged ?? true);
-  const setLineBreaking = vi.fn(() => options?.setLineBreakingChanged ?? true);
   const setSpreadMode = vi.fn(() => options?.setSpreadModeChanged ?? true);
   const setTheme = vi.fn();
   const notifyActiveSpread = vi.fn();
@@ -37,7 +35,6 @@ function createMocks(options?: {
     getCanvasSize,
     getChapterTextIndices: vi.fn(() => new Map()),
     setTypography,
-    setLineBreaking,
     setSpreadMode,
     setTheme,
     notifyActiveSpread,
@@ -156,7 +153,6 @@ function createMocks(options?: {
       emit,
       notifyActiveSpread,
       setTypography,
-      setLineBreaking,
       setTheme,
       setPages,
       resolve,
@@ -324,31 +320,6 @@ describe('buildLayoutActions', () => {
     expect(spies.setSize).not.toHaveBeenCalled();
     expect(spies.invalidateAllContent).not.toHaveBeenCalled();
     expect(spies.compositeNow).not.toHaveBeenCalled();
-    expect(spies.emit).not.toHaveBeenCalled();
-  });
-
-  it('refreshes layout state when line breaking commits synchronously', () => {
-    const { reader, internals, runtime, emitter, spies } = createMocks();
-    const actions = buildLayoutActions(internals, emitter, runtime);
-
-    expect(actions.setLineBreaking('optimal')).toBe(true);
-
-    expect(spies.setLineBreaking).toHaveBeenCalledWith('optimal');
-    expect(spies.emit).toHaveBeenCalledWith('layoutChange', {
-      spreads: reader.spreads,
-      totalSpreads: reader.totalSpreads,
-    });
-  });
-
-  it('does nothing when line breaking waits for an async commit', () => {
-    const { internals, runtime, emitter, spies } = createMocks({
-      setLineBreakingChanged: false,
-    });
-    const actions = buildLayoutActions(internals, emitter, runtime);
-
-    expect(actions.setLineBreaking('greedy')).toBe(false);
-    expect(spies.setSize).not.toHaveBeenCalled();
-    expect(spies.invalidateAllContent).not.toHaveBeenCalled();
     expect(spies.emit).not.toHaveBeenCalled();
   });
 

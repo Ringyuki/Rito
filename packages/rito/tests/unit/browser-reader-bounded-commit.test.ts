@@ -12,7 +12,6 @@ import {
 } from '../../src/bindings/browser/reader-session-host';
 import { isCurrentRevisionHandle } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
-import { preloadReaderFonts } from '../../src/bindings/browser/resources';
 import { ensureFrameLoaded } from '../../src/bindings/browser/reader/frame-cache';
 import {
   createDeferred,
@@ -29,63 +28,6 @@ afterEach(() => {
 });
 
 describe('Browser bounded revision commit adapter', () => {
-  it('captures non-pinned initial font geometry before publishing the candidate', async () => {
-    vi.stubGlobal('FontFace', ImmediateFontFace);
-    const registry = fontRegistry();
-    vi.stubGlobal('fonts', registry);
-    const candidate = createWorker(() => undefined, 'initial-font-geometry');
-    const state = createState(candidate.worker, {
-      fontFaces: [],
-      resources: {
-        stylesheets: [],
-        fonts: [{ href: 'fonts/book.ttf', byteLength: 4 }],
-        images: [],
-      },
-    });
-    state.fontMetrics.genericSerif = undefined;
-    const snapshot = withFontFamily(boundedSnapshot('initial', 1, 1, 0), 'Book');
-    const candidateOwner = owner(candidate.worker);
-    recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
-    state.boundedSessions.candidate = candidateOwner;
-    mockAggregates(candidate.worker, snapshot);
-    Object.assign(candidate.worker, {
-      readResourceAtRevision: vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(
-        (_revision, _kind, href) => Promise.resolve(fontResource(revisionHandle(snapshot), href)),
-      ),
-    });
-    const measureText = installFontMetricContext(state);
-
-    await expect(
-      commitBrowserReaderBoundedSnapshot(state, {
-        owner: candidateOwner,
-        snapshot,
-        config: state.config,
-        spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
-        baseCommitGeneration: state.commitGeneration,
-      }),
-    ).resolves.toEqual({ committed: false, requiresFontGeometryReflow: true });
-
-    expect(state.revisionBundle.revision.revisionId).toBe('');
-    expect(state.registeredFontFaces.size).toBe(1);
-    expect(registry.add).toHaveBeenCalledOnce();
-    expect(measureText.mock.calls.length).toBeGreaterThan(1);
-    expect(registry.add.mock.invocationCallOrder[0]).toBeLessThan(
-      measureText.mock.invocationCallOrder[0] ?? 0,
-    );
-    const measurementCount = measureText.mock.calls.length;
-    state.boundedSessions.current = candidateOwner;
-    state.boundedSessions.candidate = undefined;
-    setRevisionState(state, snapshot.revision, snapshot.navigation);
-    state.revisionBundle = {
-      ...state.revisionBundle,
-      fontFamilies: snapshot.presentation.fontFamilies,
-    };
-
-    await expect(preloadReaderFonts(state)).resolves.toBe(false);
-    expect(measureText).toHaveBeenCalledTimes(measurementCount);
-  });
-
   it('atomically publishes an exact candidate without releasing controller-owned revisions', async () => {
     const previous = createWorker(() => undefined, 'previous-session');
     const candidate = createWorker(() => undefined, 'candidate-session');
@@ -107,7 +49,6 @@ describe('Browser bounded revision commit adapter', () => {
       snapshot,
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       baseCommitGeneration: state.commitGeneration,
     });
 
@@ -156,7 +97,6 @@ describe('Browser bounded revision commit adapter', () => {
         snapshot,
         config: state.config,
         spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
         baseCommitGeneration: state.commitGeneration,
       }),
     ).resolves.toEqual({ committed: true, retiredOwner: previousOwner });
@@ -196,7 +136,6 @@ describe('Browser bounded revision commit adapter', () => {
       snapshot,
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       baseCommitGeneration: state.commitGeneration,
     });
     state.boundedSessions.candidate = undefined;
@@ -235,7 +174,6 @@ describe('Browser bounded revision commit adapter', () => {
         snapshot,
         config: state.config,
         spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
         baseCommitGeneration: state.commitGeneration,
       }),
     ).rejects.toThrow('broken frame');
@@ -282,7 +220,6 @@ describe('Browser bounded revision commit adapter', () => {
       snapshot,
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       baseCommitGeneration: state.commitGeneration,
     });
 
@@ -312,7 +249,6 @@ describe('Browser bounded revision commit adapter', () => {
       snapshot: advanced,
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       baseCommitGeneration: state.commitGeneration,
       exactReadGate: gate,
     });
@@ -344,7 +280,6 @@ describe('Browser bounded revision commit adapter', () => {
       snapshot: advanced,
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       baseCommitGeneration: state.commitGeneration,
       exactReadGate: gate,
       notifyLayoutCommitted: false,
@@ -699,7 +634,6 @@ function commitRequiredFontCandidate(fixture: RequiredFontCandidateFixture) {
     snapshot: fixture.snapshot,
     config: fixture.state.config,
     spreadMode: fixture.state.spreadMode,
-    lineBreaking: fixture.state.lineBreaking,
     baseCommitGeneration: fixture.state.commitGeneration,
   });
 }
@@ -762,32 +696,6 @@ function withResolvedLocator(
       },
     },
   };
-}
-
-function withFontFamily(
-  snapshot: BrowserReaderBoundedSnapshot,
-  fontFamily: string,
-): BrowserReaderBoundedSnapshot {
-  return {
-    ...snapshot,
-    presentation: { ...snapshot.presentation, fontFamilies: [fontFamily] },
-  };
-}
-
-function installFontMetricContext(state: BrowserReaderState) {
-  const measureText = vi.fn(() => ({
-    width: 16,
-    fontBoundingBoxAscent: 3,
-    fontBoundingBoxDescent: 14,
-  }));
-  Object.assign(state.ctx, {
-    save: vi.fn(),
-    restore: vi.fn(),
-    measureText,
-    font: '',
-    textBaseline: 'alphabetic',
-  });
-  return measureText;
 }
 
 function requiredFace(family: string, href: string, sourceOrder: number) {

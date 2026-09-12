@@ -11,7 +11,7 @@ use super::{SearchRuntimeResult, SearchTextPosition};
 use crate::{
     epub::{PackageDocument, TocEntry},
     interaction::{FootnoteEntry, FootnoteKind},
-    layout::{LayoutConfig, LineBreaking, PaginationFlowChapterRange},
+    layout::{LayoutConfig, PaginationFlowChapterRange},
     resources::PublicationResources,
     xhtml::ChapterSource,
 };
@@ -131,8 +131,6 @@ pub enum RuntimeChapterLocalCoordinateKind {
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeBoundedChapterLocalRevisionRequest {
     pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
     pub target_chapter_index: usize,
     pub target_locator: RuntimeSourceLocator,
 }
@@ -222,8 +220,6 @@ pub struct RuntimeChapterLocalRevisionError {
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeBoundedRevisionRequest {
     pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -665,8 +661,4 @@ pub struct RuntimeChapterTextIndex {
 pub struct RuntimeChapterTextIndices {
     pub revision_id: String,
     pub entries: BTreeMap<String, RuntimeChapterTextIndex>,
-}
-
-fn default_revision_line_breaking() -> LineBreaking {
-    LineBreaking::Greedy
 }

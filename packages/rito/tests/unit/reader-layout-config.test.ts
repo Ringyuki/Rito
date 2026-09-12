@@ -24,11 +24,10 @@ describe('reader createLayoutConfig', () => {
       firstPageAlone: true,
       spreadGap: 20,
       rootFontSize: 16,
-      textMeasurement: 'fontAware',
     });
   });
 
-  it('preserves optional typography and pagination overrides only when provided', () => {
+  it('preserves optional typography overrides only when provided', () => {
     const config = createLayoutConfig({
       width: 600,
       height: 900,
@@ -36,7 +35,6 @@ describe('reader createLayoutConfig', () => {
       lineHeightForce: true,
       fontFamilyOverride: 'serif',
       fontFamilyForce: true,
-      paginationPolicy: { enabled: true, defaultOrphans: 2, defaultWidows: 3 },
     });
 
     expect(config.spreadMode).toBe('single');
@@ -44,10 +42,5 @@ describe('reader createLayoutConfig', () => {
     expect(config.lineHeightForce).toBe(true);
     expect(config.fontFamilyOverride).toBe('serif');
     expect(config.fontFamilyForce).toBe(true);
-    expect(config.paginationPolicy).toEqual({
-      enabled: true,
-      defaultOrphans: 2,
-      defaultWidows: 3,
-    });
   });
 });

@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::pinned_font_policy_fixtures::{content_epub, font_aware_layout};
+use super::pinned_font_policy_fixtures::{content_epub, layout};
 use crate::{
     interaction::{
         TextCaretAddress, TextCaretAffinity, TextSelectionBoundary, TextSelectionMovement,
@@ -62,7 +62,7 @@ fn movement_rejects_stale_versions_and_non_finite_preferences() {
     let bytes = content_epub("en", "<p>Wi</p>", "", None);
     let mut document = RuntimeDocument::open_pinned_for_tests(&bytes).expect("document opens");
     let revision = document
-        .create_revision(&font_aware_layout())
+        .create_revision(&layout())
         .expect("revision is created");
     let request = RuntimeTextSelectionMovementRequest {
         anchor: text_address(0),

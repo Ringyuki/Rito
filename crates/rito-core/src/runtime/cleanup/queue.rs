@@ -6,7 +6,7 @@ mod probe;
 #[cfg(test)]
 use probe::RuntimeCleanupProbe;
 
-use crate::{layout::LayoutConfig, runtime::cleanup::CleanupProgress};
+use crate::runtime::cleanup::CleanupProgress;
 
 use super::super::frame::{RuntimeCachedFrame, RuntimeRevision};
 use job::RuntimeCleanupJob;
@@ -49,10 +49,6 @@ impl RuntimeCleanupQueue {
 
     pub(in crate::runtime) fn enqueue_cached_frame(&mut self, owner: RuntimeCachedFrame) {
         self.enqueue(RuntimeCleanupJob::cached_frame(owner));
-    }
-
-    pub(in crate::runtime) fn enqueue_layout_config(&mut self, owner: LayoutConfig) {
-        self.enqueue(RuntimeCleanupJob::layout_config(owner));
     }
 
     pub(in crate::runtime) fn is_empty(&self) -> bool {

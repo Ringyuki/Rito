@@ -222,7 +222,6 @@ function createReaderFixture(activeSpreadIndex: number | 'missing'): {
     notifyActiveSpread,
     resize: vi.fn(),
     setSpreadMode: vi.fn(),
-    setLineBreaking: vi.fn(),
     updateLayout: vi.fn(() => false),
     setTheme: vi.fn(),
     findPage: vi.fn(),

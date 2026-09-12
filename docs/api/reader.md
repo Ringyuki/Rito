@@ -25,25 +25,23 @@ hosts bridge the C ABI (see [Direct FFI integration](../integrations/ffi.md)).
 
 ## `ReaderOptions`
 
-| Option             | Type                     | Default                          | Notes                                  |
-| ------------------ | ------------------------ | -------------------------------- | -------------------------------------- |
-| `width`            | `number`                 | required                         | Viewport width in logical pixels       |
-| `height`           | `number`                 | required                         | Viewport height in logical pixels      |
-| `margin`           | `number`                 | `40`                             | Page margin                            |
-| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
-| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode       |
-| `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
-| `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
-| `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
-| `lineBreaking`     | `'greedy' \| 'optimal'`  | `'greedy'`                       | `'optimal'` currently equals greedy    |
-| `logLevel`         | `LogLevel`               | `'warn'`                         | Diagnostics verbosity                  |
-| `paginationPolicy` | `PaginationPolicy`       | unset                            | Widow/orphan configuration             |
-| `fontSize`         | `number`                 | unset                            | Initial root font-size override        |
-| `lineHeight`       | `number`                 | unset                            | Initial line-height override           |
-| `lineHeightForce`  | `boolean`                | `false`                          | Force line height on every node        |
-| `fontFamily`       | `string`                 | unset                            | Accepted but inert today (see below)   |
-| `fontFamilyForce`  | `boolean`                | `false`                          | Accepted but inert today (see below)   |
-| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | **required**                     | Immutable native/Canvas fallback faces |
+| Option             | Type                     | Default                          | Notes                                   |
+| ------------------ | ------------------------ | -------------------------------- | --------------------------------------- |
+| `width`            | `number`                 | required                         | Viewport width in logical pixels        |
+| `height`           | `number`                 | required                         | Viewport height in logical pixels       |
+| `margin`           | `number`                 | `40`                             | Page margin                             |
+| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                   |
+| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode        |
+| `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white  |
+| `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it  |
+| `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                     |
+| `logLevel`         | `LogLevel`               | `'warn'`                         | Diagnostics verbosity                   |
+| `fontSize`         | `number`                 | unset                            | Initial root font-size override         |
+| `lineHeight`       | `number`                 | unset                            | Initial line-height override            |
+| `lineHeightForce`  | `boolean`                | `false`                          | Force line height on every node         |
+| `fontFamily`       | `string`                 | unset                            | Body `font-family` override (see below) |
+| `fontFamilyForce`  | `boolean`                | `false`                          | Apply the override with `!important`    |
+| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | **required**                     | Immutable native/Canvas fallback faces  |
 
 `pinnedFontPolicy` supplies the same static TTF/OTF bytes to Rust shaping and
 the browser `FontFace` registry. Each face declares a complete SHA-256 digest,
@@ -110,7 +108,6 @@ loads a new Reader.
 | `renderSpreadTo(index, ctx)`                        | Render to a Canvas 2D target                     |
 | `resize(width, height)`                             | Re-paginate for a new viewport                   |
 | `setSpreadMode(mode)`                               | Re-paginate with a new spread mode               |
-| `setLineBreaking(lineBreaking)`                     | Re-paginate with a new line-breaking strategy    |
 | `updateLayout(width, height, spreadMode?, margin?)` | Update viewport and spread settings in one pass  |
 | `getCanvasSize(scale?)`                             | Return CSS canvas size for the current layout    |
 | `getLayoutGeometry()`                               | Return the active `LayoutConfig`                 |
@@ -134,12 +131,14 @@ coarse:
 EPUB element-level rules continue to win in coarse mode. Set
 `lineHeightForce` to apply the line-height override to every element.
 
-> **Known limitation:** `fontFamily` does not change the rendered faces yet.
-> The engine shapes and paints with the pinned font policy's faces applied in
-> policy order, and selecting faces by the override's generic family is not
-> implemented. Hosts that offer a font choice should open the reader with a
-> pinned font policy containing the chosen faces instead (the pattern the
-> Flutter reader uses).
+> **Face selection:** the engine shapes only with the pinned font policy's
+> faces and the publication's `@font-face` fonts; there are no system fonts.
+> Every generic family (`serif`, `sans-serif`, `monospace`, ...) resolves to
+> the pinned faces in policy order, so a generic `fontFamily` override does
+> not pick a different pinned face. A publication `@font-face` family name
+> does select that font. Hosts that offer a font choice open the reader with
+> a pinned font policy containing the chosen faces (the pattern the Flutter
+> reader uses).
 
 For `setTheme()`, omitted fields remain unchanged. Pass `null` to clear a
 foreground override or restore the default white background; this is useful

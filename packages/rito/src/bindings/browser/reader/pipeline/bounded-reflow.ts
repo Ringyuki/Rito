@@ -8,7 +8,6 @@ import { openBrowserReaderWorker } from '../../pinned-fonts';
 import { applyLayoutOverrides, makeBrowserReaderLayoutConfig } from '../../reader-layout';
 import type { BrowserReaderQueuedReflow, BrowserReaderState } from '../types';
 import { trackBrowserReaderHostTask } from '../host-tasks';
-import { createBrowserReaderFontGeometryRetryGuard } from '../../bounded-font-geometry';
 import { captureBrowserReaderReflowAnchor } from './reflow-anchor';
 import { copyReaderLocator } from '../interaction-capture';
 import {
@@ -28,18 +27,16 @@ export function scheduleBrowserReaderReflow(
   state: State,
   options: ReaderOptions,
   spreadMode: 'single' | 'double',
-  lineBreaking: 'greedy' | 'optimal',
   onCommitted?: () => void,
   force = false,
 ): boolean {
   if (state.disposed) return false;
   const config = applyLayoutOverrides(state, makeBrowserReaderLayoutConfig(options, spreadMode));
-  if (isNoOpReflow(state, config, spreadMode, lineBreaking, force)) return false;
+  if (isNoOpReflow(state, config, spreadMode, force)) return false;
   supersedeBrowserReaderChapterLocalPreview(state);
   const request: Request = {
     config,
     spreadMode,
-    lineBreaking,
     onCommitted,
     token: ++state.reflow.token,
   };
@@ -53,7 +50,6 @@ export async function startBrowserReaderInitialReflow(
   state: State,
   options: ReaderOptions,
   spreadMode: 'single' | 'double',
-  lineBreaking: 'greedy' | 'optimal',
   onCommitted?: () => void,
 ): Promise<void> {
   let request: Request;
@@ -62,7 +58,7 @@ export async function startBrowserReaderInitialReflow(
     if (state.boundedSessions.current || state.revisionBundle.revision.revisionId.length > 0) {
       throw new Error('Browser reader initial bounded reflow requires an empty session');
     }
-    request = initialRequest(state, options, spreadMode, lineBreaking, onCommitted);
+    request = initialRequest(state, options, spreadMode, onCommitted);
     owner = createBrowserReaderBoundedSessionOwner(state.worker);
   } catch (error) {
     state.worker.dispose();
@@ -72,12 +68,11 @@ export async function startBrowserReaderInitialReflow(
   state.reflow.active = request;
   activeAborts.set(state, abort);
   try {
-    await runInitialCandidateLoop(
+    await runInitialCandidate(
       state,
       request,
       owner,
       spreadMode,
-      lineBreaking,
       onCommitted,
       options.initialLocator ? copyReaderLocator(options.initialLocator) : undefined,
       abort.signal,
@@ -89,53 +84,30 @@ export async function startBrowserReaderInitialReflow(
   }
 }
 
-async function runInitialCandidateLoop(
+async function runInitialCandidate(
   state: State,
   request: Request,
-  initialOwner: ReturnType<typeof createBrowserReaderBoundedSessionOwner>,
+  owner: ReturnType<typeof createBrowserReaderBoundedSessionOwner>,
   spreadMode: 'single' | 'double',
-  lineBreaking: 'greedy' | 'optimal',
   onCommitted: (() => void) | undefined,
   initialLocator: ReaderLocator | undefined,
   signal: AbortSignal,
 ): Promise<void> {
-  let owner = initialOwner;
-  const canRetryFontGeometry = createBrowserReaderFontGeometryRetryGuard(state);
-  for (;;) {
-    const snapshot = await startBrowserReaderBoundedCandidate(
-      state,
-      owner,
-      {
-        config: request.config,
-        spreadMode,
-        lineBreaking,
-        targetSpreadIndex: 0,
-        onCommitted,
-        ...(initialLocator
-          ? { preserveLocator: initialLocator, fallbackOnLocatorFailure: true }
-          : {}),
-      },
-      signal,
-    );
-    if (snapshot) return;
-    if (state.disposed || signal.aborted || !canRetryFontGeometry()) {
-      throw new Error('Initial bounded reader candidate was cancelled');
-    }
-    const worker = state.workerFactory();
-    try {
-      await openBrowserReaderWorker(
-        worker,
-        state.documentData.slice(0),
-        state.pinnedFonts.policy,
-        state.dpr,
-        state.pinnedFonts.summary,
-      );
-      owner = createBrowserReaderBoundedSessionOwner(worker);
-    } catch (error) {
-      worker.dispose();
-      throw error;
-    }
-  }
+  const snapshot = await startBrowserReaderBoundedCandidate(
+    state,
+    owner,
+    {
+      config: request.config,
+      spreadMode,
+      targetSpreadIndex: 0,
+      onCommitted,
+      ...(initialLocator
+        ? { preserveLocator: initialLocator, fallbackOnLocatorFailure: true }
+        : {}),
+    },
+    signal,
+  );
+  if (!snapshot) throw new Error('Initial bounded reader candidate was cancelled');
 }
 
 export function cancelBrowserReaderReflow(state: State): void {
@@ -149,19 +121,16 @@ function initialRequest(
   state: State,
   options: ReaderOptions,
   spreadMode: 'single' | 'double',
-  lineBreaking: 'greedy' | 'optimal',
   onCommitted: (() => void) | undefined,
 ): Request {
   const request = {
     config: applyLayoutOverrides(state, makeBrowserReaderLayoutConfig(options, spreadMode)),
     spreadMode,
-    lineBreaking,
     onCommitted,
     token: ++state.reflow.token,
   };
   state.config = request.config;
   state.spreadMode = spreadMode;
-  state.lineBreaking = lineBreaking;
   state.reflow.lastError = undefined;
   return request;
 }
@@ -229,7 +198,6 @@ async function createBoundedCandidate(
       {
         config: request.config,
         spreadMode: request.spreadMode,
-        lineBreaking: request.lineBreaking,
         targetSpreadIndex: anchor.activeSpreadIndex,
         expectedActiveSpreadIndex: anchor.activeSpreadIndex,
         onCommitted: request.onCommitted,

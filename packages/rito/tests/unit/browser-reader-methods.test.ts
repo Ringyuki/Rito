@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   disposeBrowserReaderPinnedFonts: vi.fn(),
   ensureFrameLoaded: vi.fn(),
   loadFrame: vi.fn(),
-  preloadReaderFonts: vi.fn(() => Promise.resolve(false)),
+  preloadReaderFonts: vi.fn(() => Promise.resolve()),
   unregisterReaderFonts: vi.fn(),
   resetFrameCache: vi.fn(),
   warmBrowserReaderFrameWindow: vi.fn(),
@@ -79,11 +79,10 @@ describe('Browser reader methods', () => {
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
     expect(methods.updateLayout(900, 700, 'single')).toBe(false);
-    expect(methods.setLineBreaking('optimal')).toBe(false);
     expect(methods.setTypography({ fontSize: 18 })).toBe(false);
     methods.resize(920, 720);
 
-    expect(mocks.scheduleBrowserReaderReflow).toHaveBeenCalledTimes(4);
+    expect(mocks.scheduleBrowserReaderReflow).toHaveBeenCalledTimes(3);
   });
 
   it('clears theme overrides when returning to the default theme', () => {
@@ -379,7 +378,6 @@ describe('Browser reader methods', () => {
     const footnotes = state.footnotes;
     const chapterTextIndices = state.chapterTextIndices;
     const tocTargets = state.tocTargets;
-    state.fontMetrics.fontFamilies['book-face'] = { advances: {}, pairAdjustments: {} };
     const failedImageClose = vi.fn(() => {
       throw new Error('image close failed');
     });
@@ -404,7 +402,6 @@ describe('Browser reader methods', () => {
     expect(state.footnotes).not.toBe(footnotes);
     expect(state.chapterTextIndices).not.toBe(chapterTextIndices);
     expect(state.tocTargets).not.toBe(tocTargets);
-    expect(state.fontMetrics.fontFamilies).toEqual({});
     expect(failedImageClose).toHaveBeenCalledOnce();
     expect(remainingImageClose).toHaveBeenCalledOnce();
     expect(state.images.size).toBe(0);
@@ -668,7 +665,6 @@ function readerOptions(): ReaderOptions {
     height: 600,
     margin: 40,
     spread: 'single',
-    lineBreaking: 'greedy',
   };
 }
 
@@ -681,7 +677,6 @@ async function waitForCall(mock: ReturnType<typeof vi.fn>): Promise<void> {
 
 function createState(): BrowserReaderState {
   return {
-    lineBreaking: 'greedy',
     spreadMode: 'single',
     fontSizeOverride: undefined,
     lineHeightOverride: undefined,

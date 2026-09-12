@@ -13,9 +13,7 @@ use std::io::Read;
 
 use rito_block::BlockFormattingContext;
 use rito_core::fragment_bridge::ChapterFormattingTree;
-use rito_core::layout::{
-    create_layout_config, LayoutConfigInput, MarginInput, SpreadMode, TextMeasurementMode,
-};
+use rito_core::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
 use rito_core::runtime::RuntimeDocument;
 use rito_fragment::{
     CancelFlag, ConstraintSpace, FormattingContext, FormattingNodeContent, Fragment, InlineItem,
@@ -128,8 +126,6 @@ fn main() {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
-        pagination_policy: None,
-        text_measurement: Some(TextMeasurementMode::FontAware),
     });
     let revision = document
         .create_revision(&layout_config)

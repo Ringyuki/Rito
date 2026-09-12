@@ -50,17 +50,15 @@ export function buildBrowserReaderMethods(
   const reflow: Reflow = (next = layoutOptions, force = false) => {
     layoutOptions = next;
     const spreadMode = layoutOptions.spread ?? state.spreadMode;
-    const lineBreaking = layoutOptions.lineBreaking ?? state.lineBreaking;
     scheduleBrowserReaderReflow(
       state,
       layoutOptions,
       spreadMode,
-      lineBreaking,
       () => {
         void trackBrowserReaderHostTask(
           state,
           preloadReaderFonts(state)
-            .then(async (metricsChanged) => {
+            .then(async () => {
               // Host-measured normal line metrics discovered by this
               // layout: measure, inject, and force one reflow so the
               // committed pagination was built with them.
@@ -70,8 +68,10 @@ export function buildBrowserReaderMethods(
                   return false;
                 },
               );
-              if (hostMetricsChanged) state.hostLineMetricsEpoch += 1;
-              if (metricsChanged || hostMetricsChanged) reflow(layoutOptions, true);
+              if (hostMetricsChanged) {
+                state.hostLineMetricsEpoch += 1;
+                reflow(layoutOptions, true);
+              }
               return warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
             })
             .catch((error: unknown) => {
@@ -104,7 +104,7 @@ function layoutMethods(
   reflow: Reflow,
 ): Pick<
   BrowserReaderMethodSurface,
-  'resize' | 'setSpreadMode' | 'setLineBreaking' | 'updateLayout' | 'setTheme' | 'setTypography'
+  'resize' | 'setSpreadMode' | 'updateLayout' | 'setTheme' | 'setTypography'
 > {
   return {
     resize(width, height) {
@@ -112,11 +112,6 @@ function layoutMethods(
     },
     setSpreadMode(mode) {
       reflow({ ...layoutOptions(), spread: mode });
-      return false;
-    },
-    setLineBreaking(lineBreaking) {
-      if ((layoutOptions().lineBreaking ?? state.lineBreaking) === lineBreaking) return false;
-      reflow({ ...layoutOptions(), lineBreaking });
       return false;
     },
     updateLayout(width, height, spreadMode = layoutOptions().spread ?? state.spreadMode, margin) {

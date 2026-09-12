@@ -10,7 +10,6 @@ import type {
   CoreRevisionHandle,
   CoreResourceKind,
 } from './core-contracts';
-import { ensureHostFontFamilyMetrics, ensureHostGenericSerifMetrics } from './font-metrics';
 import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
 import { trackBrowserReaderHostTask } from './reader-host-tasks';
 import { prepareBrowserReaderRevisionFonts } from './publication-fonts';
@@ -51,45 +50,30 @@ export interface BrowserReaderMissingFrameResource {
   readonly message: string;
 }
 
-export async function preloadReaderFonts(state: BrowserReaderState): Promise<boolean> {
-  if (state.pinnedFonts.summary.faces.length > 0) return false;
+export async function preloadReaderFonts(state: BrowserReaderState): Promise<void> {
+  if (state.pinnedFonts.summary.faces.length > 0) return;
   const revision = state.revisionHandle;
-  if (!revision) return false;
+  if (!revision) return;
   const worker = state.worker;
   if (worker.sessionId !== revision.workerSessionId || !isCurrentRevisionHandle(state, revision))
-    return false;
+    return;
   const registeredBefore = state.registeredFontFaces.size;
-  let metricsChanged = ensureHostGenericSerifMetrics(state.fontMetrics, state.ctx);
-  const publicationFontsReady = await prepareBrowserReaderRevisionFonts(
-    state,
-    worker,
-    revision,
-    () => isCurrentRevisionHandle(state, revision),
+  await prepareBrowserReaderRevisionFonts(state, worker, revision, () =>
+    isCurrentRevisionHandle(state, revision),
   );
-  if (!isCurrentRevisionHandle(state, revision)) return false;
-  if (publicationFontsReady) {
-    metricsChanged =
-      ensureHostFontFamilyMetrics(
-        state.fontMetrics,
-        state.ctx,
-        [...state.registeredFontFaces.values()].map((face) => face.family),
-      ) || metricsChanged;
-  }
+  if (!isCurrentRevisionHandle(state, revision)) return;
   if (state.registeredFontFaces.size > registeredBefore) {
     for (const spreadIndex of [...state.frames.keys()])
       notifySpreadContentInvalidated(state, spreadIndex);
   }
-  return metricsChanged;
 }
 
-export async function preloadCurrentReaderFonts(state: BrowserReaderState): Promise<boolean> {
+export async function preloadCurrentReaderFonts(state: BrowserReaderState): Promise<void> {
   let revision: BrowserReaderRevisionHandle | undefined;
-  let metricsChanged = false;
   do {
     revision = state.revisionHandle;
-    metricsChanged = (await preloadReaderFonts(state)) || metricsChanged;
+    await preloadReaderFonts(state);
   } while (!state.disposed && revision !== state.revisionHandle);
-  return metricsChanged;
 }
 
 export async function preloadFrameResourceBytes(

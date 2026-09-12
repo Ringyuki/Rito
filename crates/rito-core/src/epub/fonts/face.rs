@@ -1,104 +1,9 @@
-use ttf_parser::Face as TtfFace;
-
-/// One publication `@font-face` binding with its parsed font program: the
-/// face descriptor the font-fallback policy consults when deciding which
-/// declared families a publication can actually shape.
-#[derive(Clone)]
-pub(crate) struct PublicationFontFace<'a> {
-    pub(crate) family: String,
-    pub(crate) style: Option<String>,
-    pub(crate) weight: Option<u16>,
-    pub(crate) bytes: &'a [u8],
-    ttf_face: Option<TtfFace<'a>>,
-    shape_face: Option<rustybuzz::Face<'a>>,
-    shape_cmap_subtable: Option<u16>,
-}
-
-impl std::fmt::Debug for PublicationFontFace<'_> {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .debug_struct("PublicationFontFace")
-            .field("family", &self.family)
-            .field("style", &self.style)
-            .field("weight", &self.weight)
-            .field("bytes_len", &self.bytes.len())
-            .finish()
-    }
-}
-
-impl<'a> PublicationFontFace<'a> {
-    pub(crate) fn new(
-        family: String,
-        style: Option<String>,
-        weight: Option<u16>,
-        bytes: &'a [u8],
-    ) -> Self {
-        let ttf_face = TtfFace::parse(bytes, 0).ok();
-        let shape_cmap_subtable = ttf_face.as_ref().and_then(preferred_shape_cmap_subtable);
-        Self {
-            family,
-            style,
-            weight,
-            bytes,
-            ttf_face,
-            shape_face: rustybuzz::Face::from_slice(bytes, 0),
-            shape_cmap_subtable,
-        }
-    }
-
-    pub(crate) fn is_shapeable(&self) -> bool {
-        self.ttf_face.is_some() && self.shape_face.is_some() && self.shape_cmap_subtable.is_some()
-    }
-
-    pub(crate) fn is_static_shapeable(&self) -> bool {
-        self.is_shapeable()
-            && self
-                .ttf_face
-                .as_ref()
-                .is_some_and(|face| face.variation_axes().is_empty())
-    }
-
-    pub(crate) fn normalized_style(&self) -> &'static str {
-        normalized_font_style(self.style.as_deref())
-    }
-
-    pub(crate) fn normalized_weight(&self) -> u16 {
-        normalized_font_weight(self.weight)
-    }
-}
-
-fn preferred_shape_cmap_subtable(face: &TtfFace<'_>) -> Option<u16> {
-    use ttf_parser::PlatformId::{Macintosh, Unicode, Windows};
-
-    [
-        (Windows, 0),
-        (Windows, 10),
-        (Unicode, 6),
-        (Unicode, 4),
-        (Windows, 1),
-        (Unicode, 3),
-        (Unicode, 2),
-        (Unicode, 1),
-        (Unicode, 0),
-        (Macintosh, 0),
-    ]
-    .into_iter()
-    .find_map(|(platform_id, encoding_id)| {
-        face.tables()
-            .cmap?
-            .subtables
-            .into_iter()
-            .position(|subtable| {
-                subtable.platform_id == platform_id && subtable.encoding_id == encoding_id
-            })
-            .map(|index| index as u16)
-    })
-}
+//! `@font-face` descriptor normalization and `font-family` list parsing.
 
 const INITIAL_FONT_STYLE: &str = "normal";
 const INITIAL_FONT_WEIGHT: u16 = 400;
 
-fn normalized_font_style(value: Option<&str>) -> &'static str {
+pub(super) fn normalized_font_style(value: Option<&str>) -> &'static str {
     let keyword = value
         .unwrap_or(INITIAL_FONT_STYLE)
         .split_ascii_whitespace()
@@ -113,7 +18,7 @@ fn normalized_font_style(value: Option<&str>) -> &'static str {
     }
 }
 
-fn normalized_font_weight(value: Option<u16>) -> u16 {
+pub(super) fn normalized_font_weight(value: Option<u16>) -> u16 {
     value
         .filter(|weight| (1..=1000).contains(weight))
         .unwrap_or(INITIAL_FONT_WEIGHT)

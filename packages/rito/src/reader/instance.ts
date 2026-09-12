@@ -6,7 +6,6 @@ import type {
   LogLevel,
   PackageMetadata,
   Page,
-  PaginationPolicy,
   ReaderDocumentSourceSpan,
   ReaderLocator,
   ReaderLocatorResolution,
@@ -204,9 +203,7 @@ export interface ReaderOptions {
   readonly backgroundColor?: string | null;
   readonly foregroundColor?: string | null;
   readonly devicePixelRatio?: number;
-  readonly lineBreaking?: 'greedy' | 'optimal';
   readonly logLevel?: LogLevel;
-  readonly paginationPolicy?: PaginationPolicy;
   readonly fontSize?: number;
   readonly lineHeight?: number;
   readonly lineHeightForce?: boolean;
@@ -253,7 +250,6 @@ export interface Reader {
   notifyActiveSpread(index: number): void;
   resize(width: number, height: number): void;
   setSpreadMode(mode: 'single' | 'double'): boolean;
-  setLineBreaking(lineBreaking: 'greedy' | 'optimal'): boolean;
   updateLayout(
     width: number,
     height: number,

@@ -67,7 +67,6 @@ async function run() {
     : resolve(caseDir, 'book.epub');
   const bookBytes = await readFile(bookPath);
   const profile = resolveProfile(caseConfig);
-  const lineBreaking = resolveLineBreaking(caseConfig);
   const spreadIndex = resolveSpreadIndex(caseConfig);
   const engines = resolveDiagnosticEngines();
 
@@ -96,14 +95,12 @@ async function run() {
         engine,
         bookBytes,
         profile,
-        lineBreaking,
         spreadIndex,
       });
       engineResults[engine.id] = await writeEngineArtifacts(engineDir, {
         caseId,
         bookPath,
         profile,
-        lineBreaking,
         spreadIndex,
         engine,
         result,
@@ -123,7 +120,6 @@ async function run() {
     const comparison = await writeComparisonArtifacts(comparisonDir, artifactsDir, {
       caseId,
       profile,
-      lineBreaking,
       spreadIndex,
       actualPng: primaryEngine.png,
       actualLabel: primaryEngine.engine.label,
@@ -166,11 +162,10 @@ async function renderRitoSpread(page, origin, input) {
   await waitForRenderApi(page, diagnostics);
 
   const result = await page.evaluate(
-    async ({ bookBase64, engine, lineBreaking, profile, spreadIndex }) => {
+    async ({ bookBase64, engine, profile, spreadIndex }) => {
       return window.renderRitoDiagnostic({
         bookBase64,
         engine,
-        lineBreaking,
         profile,
         spreadIndex,
       });
@@ -178,7 +173,6 @@ async function renderRitoSpread(page, origin, input) {
     {
       bookBase64: input.bookBytes.toString('base64'),
       engine: input.engine.id,
-      lineBreaking: input.lineBreaking,
       profile: input.profile,
       spreadIndex: input.spreadIndex,
     },
@@ -203,7 +197,6 @@ async function writeEngineArtifacts(engineDir, input) {
     bookPath: input.bookPath,
     engine: input.engine,
     profile: input.profile,
-    lineBreaking: input.lineBreaking,
     spreadIndex: input.spreadIndex,
     totalSpreads: input.result.totalSpreads,
     spread: input.result.spread,
@@ -217,7 +210,6 @@ async function writeEngineArtifacts(engineDir, input) {
   const frameSummary = {
     engine: input.engine.id,
     profile: input.profile.id,
-    lineBreaking: input.lineBreaking,
     spreadIndex: input.spreadIndex,
     totalSpreads: input.result.totalSpreads,
     canvas: input.result.canvas,
@@ -517,7 +509,6 @@ async function writeComparisonReport(comparisonDir, input, result) {
     '',
     `- Case: \`${input.caseId}\``,
     `- Profile: \`${input.profile.id}\``,
-    `- Line breaking: \`${input.lineBreaking}\``,
     `- Spread index: \`${String(input.spreadIndex)}\``,
     '',
     '## Artifacts',
@@ -787,13 +778,6 @@ function resolveProfile(caseConfig) {
   return { ...base, devicePixelRatio: dpr };
 }
 
-function resolveLineBreaking(caseConfig) {
-  const value =
-    process.env.RITO_DIAG_LINE_BREAKING || readOptionalString(caseConfig.lineBreaking) || 'greedy';
-  if (value === 'greedy' || value === 'optimal') return value;
-  throw new Error(`Invalid lineBreaking: ${value}`);
-}
-
 function resolveSpreadIndex(caseConfig) {
   const location = readRecord(caseConfig.location);
   const value = process.env.RITO_DIAG_SPREAD ?? location?.spreadIndex ?? 0;
@@ -850,7 +834,6 @@ Inputs:
 Optional environment:
   RITO_DIAG_EPUB=/absolute/path/book.epub
   RITO_DIAG_PROFILE=single-default|single-narrow|single-wide|double-default
-  RITO_DIAG_LINE_BREAKING=greedy|optimal
   RITO_DIAG_SPREAD=0
   RITO_DIAG_DPR=1
   PLAYWRIGHT_BROWSER_CHANNEL=msedge
@@ -901,7 +884,7 @@ function renderHtml() {
   }))
     .then(() => {
       window.renderRitoDiagnosticReady = 'ready';
-      window.renderRitoDiagnostic = async ({ bookBase64, engine, profile, lineBreaking, spreadIndex }) => {
+      window.renderRitoDiagnostic = async ({ bookBase64, engine, profile, spreadIndex }) => {
         const module = readerModules.get(engine);
         if (!module || typeof module.createReader !== 'function') {
           throw new Error(\`Unknown diagnostic reader engine: \${engine}\`);
@@ -915,7 +898,6 @@ function renderHtml() {
           margin: profile.margin,
           spread: profile.spread,
           spreadGap: profile.spreadGap,
-          lineBreaking,
           devicePixelRatio: profile.devicePixelRatio,
           backgroundColor: '#ffffff',
           logLevel: 'silent',

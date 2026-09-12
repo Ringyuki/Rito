@@ -33,17 +33,13 @@ pub(super) fn initialize_chapter_local_fragment(
 ) -> Result<InitializedChapterLocalFragment, RuntimeChapterLocalRevisionError> {
     let RuntimeBoundedChapterLocalRevisionRequest {
         layout_config,
-        line_breaking: _,
         target_chapter_index,
         target_locator,
     } = request;
     let (coordinate, target_locator) =
         document.validate_chapter_local_target(target_chapter_index, target_locator)?;
     let layout_config = into_chapter_window_layout_config(layout_config);
-    let (layout_config, preflight) = document.run_with_owned_layout_config(
-        layout_config,
-        RuntimeDocument::preflight_chapter_local_revision,
-    )?;
+    let preflight = document.preflight_chapter_local_revision(&layout_config)?;
     let ChapterLocalPreflight {
         revision_id,
         layout_key,
@@ -130,9 +126,9 @@ impl RuntimeDocument {
         let revision_id = self.create_revision_id();
         let layout_key =
             layout_key(layout_config, &self.pinned_font_policy).map_err(local_engine_error)?;
-        self.ensure_layout_font_resources(layout_config)
+        self.ensure_layout_font_resources()
             .map_err(local_engine_error)?;
-        let required_font_face_catalog = self.required_font_face_catalog_for_layout(layout_config);
+        let required_font_face_catalog = self.required_font_face_catalog();
         Ok(ChapterLocalPreflight {
             revision_id,
             layout_key,

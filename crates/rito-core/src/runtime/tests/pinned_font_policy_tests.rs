@@ -2,7 +2,6 @@ use super::fixture::{fixture_epub, layout, multi_chapter_fixture_epub};
 use super::pinned_font_policy_fixtures::{face, illustration_font, policy, sha256_hex, title_font};
 use crate::{
     epub::open_runtime_document,
-    layout::LineBreaking,
     runtime::{
         RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimePinnedFontGenericRole,
         RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
@@ -105,7 +104,6 @@ fn pinned_policy_changes_layout_identity_and_is_stable_across_runtime_paths() {
     let advance = bounded
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
             layout_config: layout(),
-            line_breaking: LineBreaking::Greedy,
         })
         .expect("bounded revision starts");
     assert_eq!(advance.revision.layout_key, title_revision.layout_key);

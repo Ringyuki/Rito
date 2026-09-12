@@ -15,7 +15,7 @@ impl RuntimeDocument {
         request: RuntimeBoundedRevisionRequest,
     ) -> Result<RuntimeRevisionAdvance, RuntimeRevisionError> {
         let summary = self
-            .create_revision_with_line_breaking(&request.layout_config, request.line_breaking)
+            .create_revision(&request.layout_config)
             .map_err(|error| {
                 revision_error(
                     RuntimeRevisionErrorKind::EngineFailure,

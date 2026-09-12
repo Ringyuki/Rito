@@ -41,7 +41,6 @@ describe('public API surface', () => {
     expect((api as Record<string, unknown>)['disposeAssets']).toBeUndefined();
     expect((api as Record<string, unknown>)['createLazyImageLoader']).toBeUndefined();
     expect((api as Record<string, unknown>)['canvasDisplayListRenderer']).toBeUndefined();
-    expect((api as Record<string, unknown>)['canvasTextMeasurementBackend']).toBeUndefined();
     expect((api as Record<string, unknown>)['paginateInWorker']).toBeUndefined();
     expect((api as Record<string, unknown>)['createRustWorkerClient']).toBeUndefined();
     expect((api as Record<string, unknown>)['createBrowserRustWorkerClient']).toBeUndefined();
