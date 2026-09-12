@@ -58,7 +58,8 @@ commit, diff that directory (and `render/commands/reader_wire_v1/` on
 the Rust side) against your bridge.
 
 `RITODL1` is written at format version 2 only: the device-resolved
-primitive list the engine lowers every frame to. The header carries the
+primitive list the engine lowers every frame to (the byte layout is in
+[Wire Format](../development/wire-format.md)). The header carries the
 render ratio (u32 format version, f64 ratio, u32 primitive count), every
 coordinate is a device pixel on the grid the host rasterizes, and the
 opcodes are state, transforms, clips, fills, strokes, shadows and images
@@ -132,6 +133,3 @@ Wire changes landed with the chapter-local one-pass cutover
 - Run paints gained a tail: one optional pair of f64 inline-box
   offsets (top, bottom — relative to the run rect top), then two bool
   bytes (`boxStart`, `boxEnd`).
-- Border edges inside `paintBlock.border` carry a `width` field in the
-  legacy JSON form; the V1 typed wire still transports widths in
-  `borderBox`.

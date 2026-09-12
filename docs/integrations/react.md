@@ -142,8 +142,6 @@ between books.
 - Use `@ritojs/react` if you want fast app integration and React state bindings.
 - Use `@ritojs/kit` directly if you want non-React UI or a custom state layer.
 - Use `@ritojs/core` if you only need the core reader without React state wiring.
-- Use source-level diagnostics inside this repository when you intentionally
-  need the old TypeScript reference implementation.
 
 ## Related Docs
 

@@ -1,89 +1,95 @@
 # Capabilities
 
-This page describes what Rito is designed to support today.
+What the engine parses, lays out and paints today. Every item below is
+implemented in the Rust engine and reaches every host the same way; the
+pixel walk against pinned Chromium is the acceptance bar for the layout
+and paint items.
 
 ## EPUB
 
-- EPUB 3 container metadata, manifest, and spine parsing
-- NAV and NCX table of contents parsing
-- lazy chapter loading inside the runtime (chapters parse on demand)
-- embedded stylesheet, font, image, and SVG cover extraction
+- EPUB 3 container, package document, manifest and spine
+- NAV and NCX tables of contents
+- chapters parsed on demand inside the runtime
+- embedded stylesheets, `@font-face` fonts, images and SVG covers
 
-## XHTML Parsing
+## XHTML
 
-- block and inline node parsing
-- text nodes with source references
-- images
-- tables and lists
-- chapter-level body attributes and linked stylesheet discovery
+- an immutable source tree with source spans on every node, addressed by
+  index by every later stage
+- chapter body attributes and linked stylesheet discovery
+- footnote asides and note anchors resolved before layout
 
-## CSS / Style Resolution
+## CSS and Style
 
-- element, class, id, compound, descendant, child, adjacent-sibling (`+`), and
-  general-sibling (`~`) selectors
-- attribute selectors
-- `:first-child` and `:last-child`
-- `::before` and `::after` with string `content`
-- specificity and cascade resolution
-- inheritance
-- `@font-face`
-- `@media` queries (evaluated against the real device)
-- `rem`
-- `calc()`
-- `box-sizing`, `border-radius`, and `opacity`
-- `box-shadow`, `text-shadow`, and 2D `transform`
-- `object-fit` for images
-- chapter-scoped body styles
+Style is resolved by Stylo, the same cascade Servo and Firefox use, then
+projected into typed tables the layout crates read:
 
-## Layout / Pagination
+- the full selector grammar Stylo supports, specificity, inheritance and
+  inline styles
+- `@font-face`, `@media` queries evaluated against the reader's viewport
+- `rem`, `em`, `calc()`
+- presentational hints (`bgcolor`, `width`, `align` and friends)
+- a reading-system UA stylesheet: `img { object-fit: contain }`, images
+  never exceed one page, `hr` renders as the browser's inset bevel
+- `box-sizing`, `border-radius` (uniform, per-corner and percentage),
+  `box-shadow`, `text-shadow`, `transform: rotate()`, `object-fit`
+- colours as 8-bit sRGB; `currentColor` resolved at the source
 
-- block layout
-- greedy line breaking
-- floats
-- inline images and inline atoms
-- `display: inline-block`
-- tables
-- lists
-- `margin: auto`
-- `overflow: hidden`
-- `vertical-align`
-- page-break controls
-- widow/orphan handling
-- chapter-start-aware spread building
-- single-page and double-page spread modes
+## Layout
 
-## Rendering
+- block flow with CSS margin collapsing, fixed widths and heights,
+  `margin: auto` centering, `max-width`
+- pagination into pages of the requested size, resuming split blocks and
+  paragraphs across pages
+- floats with `clear`
+- inline flows shaped and broken by Parley: Chromium's line-break
+  tailoring, CJK punctuation compression (`text-spacing-trim`), greedy
+  breaking, justification, letter and word spacing, `text-indent`,
+  `white-space` preservation
+- inline boxes with backgrounds, padding, borders and margins; `super`
+  and `sub` baseline shifts
+- inline-block atoms
+- images with intrinsic sizing, EXIF orientation, `object-fit: contain`
+  letterboxing and SVG `viewBox` placement
+- tables with row groups, collapsed borders and CSS column sizing
+- lists with outside markers shaped by the engine
+- `hr` rules including the inset bevel pair
+- ruby with `ruby-align`, mono-ruby pairing and annotation growth
+- `writing-mode: vertical-rl` as upright glyph columns with rotated and
+  shifted punctuation
+- single-page and double-page spreads with chapter-start-aware pairing
 
-- platform-neutral page and spread display-list construction
-- default Web Canvas backend for page and spread rendering
-- injectable display-list backend contracts for custom runtimes
-- theme-aware background and foreground overrides
-- WCAG-aware foreground replacement in dark mode scenarios
-- paint-ready layout/render boundary
+## Paint
 
-## Interaction Primitives
+- every page lowered in the engine to device-pixel primitives: fills,
+  paths, strokes with dash cadences, shadows, images with tiling, text
+  and ruby runs carrying the origin of every glyph cluster
+- box edges and border widths snapped to whole CSS pixels, glyph
+  baselines snapped on the device grid, the way the browser rasters
+- `RITODL1` format 2 as the only wire; hosts blit and never interpret
+- theme background and foreground overrides without re-pagination
+- pinned fonts shared by layout and paint on every host
 
-- hit maps
-- link maps
-- text selection
-- full-text search
-- source-anchored annotations (stored ranges re-project via
-  `resolveExactSourceRange`)
-- reading position tracking (page-index persistence; exact source-anchored
-  restore is a known limitation under the fragment engine)
-- semantic tree generation
-- accessibility mirror helpers
+## Interaction
 
-## Reader Surface / Controller Layer
+- page targets: links, note anchors with their footnote key, images
+- text carets from points, exact document-order ranges, selection
+  movement by character, word, line, paragraph and chapter edge
+- full-text search with revision-scoped results
+- durable source-anchored ranges re-projected through
+  `resolveExactSourceRange`
+- footnotes as sanitized HTML fragments
+- page semantics for an accessibility mirror
+- reading anchors for position persistence
 
-Through `@ritojs/kit` and `@ritojs/react`, the ecosystem also supports:
+## Hosts
 
-- animated page transitions
-- overlay rendering for selection, search, and annotations
-- pointer, touch, and keyboard wiring
-- local-storage backed reading position and annotations
-- React hooks and mount components
+- web: the engine as WASM in a Worker, a Canvas presenter, `@ritojs/kit`
+  and `@ritojs/react` on top
+- Flutter: `rito_flutter` over the C ABI with a `CustomPainter` pen
+- any native host: the C ABI in `crates/rito-ffi`
 
 ## Related Docs
 
 - [Limitations](./limitations.md)
+- [Engine Pipeline](./development/engine-pipeline.md)

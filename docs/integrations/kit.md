@@ -34,8 +34,7 @@ Supporting exports:
 - `createLocalStoragePositionAdapter`
 - `PositionStorageAdapter`
 
-Interaction data tools (moved here from the retired `@ritojs/core`
-subpaths — this is their production home):
+Interaction data tools (their production home):
 
 - `buildHitMap(page)` — hit map for a production `reader.pages` page
 - `resolveAnnotations(records, context)`
@@ -163,12 +162,11 @@ than using interpolated geometry.
 Skip `@ritojs/kit` when:
 
 - you only need the core reader without controller orchestration
-- you are doing source-level diagnostics against the old TypeScript reference implementation
 - you already have a controller/orchestration layer
 - you want a very custom interaction model and only need core primitives
 
 ## Related Docs
 
 - [Reader API](../api/reader.md)
-- [Specialized Subpaths](../api/subpaths.md)
+- [Public Entry](../api/subpaths.md)
 - [Using `@ritojs/react`](./react.md)

@@ -1,16 +1,22 @@
 # Rito
 
-A Rust-backed EPUB reader core with TypeScript package bindings.
+A Rust EPUB reader engine with web, Flutter and C ABI hosts.
 
-Rito is an EPUB-focused reader engine. It opens EPUB archives, resolves a
-book-oriented CSS subset, creates layout revisions, builds paint-ready frames,
-and renders pages or spreads through the browser package facade.
+Rito opens EPUB archives, resolves CSS through Stylo, lays chapters out
+with its own fragment engine (Parley-backed inline text, block flow and
+pagination) and lowers every page to a device-resolved display list that
+hosts blit without interpreting. Layout and paint are measured against
+pinned Chromium page by page; the target is pixel identity.
 
-The repository also includes:
+The repository ships:
 
-- `@ritojs/core` — the Rust-backed core reader package
-- `@ritojs/kit` — a framework-agnostic controller layer with transitions and overlays
-- `@ritojs/react` — React hooks and components on top of the core packages
+- `@ritojs/core` — the browser reader: the engine as WASM in a Worker plus
+  a Canvas presenter
+- `@ritojs/kit` — a framework-agnostic controller with transitions,
+  overlays, selection, search, annotations, keyboard and storage
+- `@ritojs/react` — React hooks and a mount component over core and kit
+- `rito_flutter` — the Flutter adapter over the engine's C ABI (pub.dev)
+- `crates/rito-ffi` — the C ABI for other native hosts
 
 ## Install
 
@@ -48,26 +54,25 @@ reader.dispose();
 - [Documentation Index](./docs/README.md)
 - [Getting Started](./docs/getting-started.md)
 - [Reader API](./docs/api/reader.md)
-- [Reference Primitives](./docs/api/primitives.md)
-- [Advanced Entry](./docs/api/advanced.md)
-- [Specialized Subpaths](./docs/api/subpaths.md)
 - [Capabilities](./docs/capabilities.md)
 - [Limitations](./docs/limitations.md)
 - [Using `@ritojs/kit`](./docs/integrations/kit.md)
 - [Using `@ritojs/react`](./docs/integrations/react.md)
+- [Direct FFI integration](./docs/integrations/ffi.md)
 - [Development Docs](./docs/development/README.md)
 
-## Release Scope
+## Scope
 
 Rito is optimized for EPUB book layout, not browser-equivalent web layout.
 
-- EPUB-first rendering model
-- small, stable reader API on the main `@ritojs/core` entry
-- source-only TypeScript reference implementation for golden and parity work
-- optional higher-level integration packages for controllers and React
-- deliberate CSS/layout subset focused on book pagination
+- EPUB-first rendering model with a reading-system UA stylesheet
+- one engine for every host: the same page on web, Flutter and native
+- a small, stable reader API on the main `@ritojs/core` entry
+- a deliberate CSS and layout subset focused on paginated books; what the
+  engine cannot honour is degraded with a recorded reason or fails closed
 
-See the detailed scope in [Capabilities](./docs/capabilities.md) and [Limitations](./docs/limitations.md).
+See [Capabilities](./docs/capabilities.md) and
+[Limitations](./docs/limitations.md).
 
 ## Development
 

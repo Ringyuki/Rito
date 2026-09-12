@@ -1,12 +1,12 @@
 # @ritojs/core
 
-Rust-backed EPUB reader core with a browser package facade.
+The Rito browser reader: a Rust EPUB engine compiled to WASM, run in a
+Worker, with a Canvas presenter.
 
-`@ritojs/core` is the core package in the Rito monorepo. It opens EPUB archives,
-creates layout revisions, builds paint-ready reader frames, and exposes the
-browser reader through the root package entry. The legacy TypeScript core is
-kept in source for diagnostics, golden comparison, and Rust parity work; it is
-not a public package surface.
+`@ritojs/core` opens EPUB archives, resolves CSS through Stylo, paginates
+chapters with the engine's fragment layout and paints device-resolved
+display lists on a Canvas. The same engine renders the same page in the
+Flutter adapter and through the C ABI.
 
 ## Install
 
@@ -42,16 +42,18 @@ reader.renderSpread(0);
 
 ## Package Scope
 
-- root `@ritojs/core` reader entry: `createReader()`, `preloadReaderRuntime()`, `Reader`, and `ReaderOptions`
-- browser binding internals for WASM loading, worker setup, resource transfer, and Canvas presentation
-- no legacy TypeScript subpath exports; source-only reference code lives under `src/reference/**`
+- the root entry only: `createReader()`, `preloadReaderRuntime()`,
+  `createLayoutConfig()`, the `Reader` facade and its types
+- `openBrowserReaderV1()` and `createBrowserReaderV1CanvasPresenter()` for
+  hosts that drive the artifact protocol directly
+- browser binding internals for WASM loading, the Worker, resource
+  transfer, font registration, image decoding and Canvas blitting
 
 ## Documentation
 
 - [Repository README](https://github.com/Ringyuki/Rito/blob/master/README.md)
 - [Getting Started](https://github.com/Ringyuki/Rito/blob/master/docs/getting-started.md)
 - [Reader API](https://github.com/Ringyuki/Rito/blob/master/docs/api/reader.md)
-- [Reference Primitives](https://github.com/Ringyuki/Rito/blob/master/docs/api/primitives.md)
 - [Capabilities](https://github.com/Ringyuki/Rito/blob/master/docs/capabilities.md)
 - [Limitations](https://github.com/Ringyuki/Rito/blob/master/docs/limitations.md)
 
@@ -59,3 +61,4 @@ reader.renderSpread(0);
 
 - [`@ritojs/kit`](https://github.com/Ringyuki/Rito/tree/master/packages/kit) for transitions, overlays, and controller orchestration
 - [`@ritojs/react`](https://github.com/Ringyuki/Rito/tree/master/packages/react) for React hooks and components
+- [`rito_flutter`](https://pub.dev/packages/rito_flutter) for Flutter

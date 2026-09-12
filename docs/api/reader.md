@@ -19,13 +19,9 @@ It performs the standard reader pipeline:
 4. build spread frames and resource schedules
 5. bind rendering to the provided Canvas target
 
-Use this when you want the normal app-facing API instead of assembling the pipeline manually.
-For non-Web runtimes, target the Rust runtime contract behind the root package
-instead of the legacy TypeScript Canvas helper path.
-
-The older TypeScript Canvas reader is retained only as source reference code
-inside this repository. New app-facing reader code should depend on the root
-package entry.
+Use this when you want the normal app-facing API instead of driving the
+artifact protocol yourself. Flutter apps use `rito_flutter`; other native
+hosts bridge the C ABI (see [Direct FFI integration](../integrations/ffi.md)).
 
 ## `ReaderOptions`
 
@@ -60,8 +56,7 @@ reader to replace it.
 
 A missing or empty policy makes `createReader` **throw**: the WASM engine
 shapes text with exactly these bytes and cannot start without them (there
-is no reachable system font inside the runtime, and no legacy fallback
-pipeline anymore).
+is no reachable system font inside the runtime).
 
 The core intentionally does not bundle, download, or choose fallback assets.
 The application owns their licensing, distribution, locale policy, and offline
@@ -251,11 +246,15 @@ Reader implementations may return `void`, which is also safe to `await`.
 - you want one object that handles loading, pagination, and rendering
 - you do not need custom orchestration between parse/layout/render stages
 
-### Prefer source-only reference tooling when
+### Prefer `openBrowserReaderV1()` when
 
-- you are doing diagnostics, parity work, or migration tooling
-- you intentionally need the legacy TypeScript parser/layout/render primitives
-- you understand that this is not the production reader path
+- your host drives the artifact protocol itself: it opens a session,
+  prepares each candidate's resources, adopts it with a compare-and-swap
+  on the visible artifact, advances background pagination one quantum at
+  a time and keeps a replaced artifact alive through its own page-turn
+  animation
+- you want the same protocol the Flutter adapter and the C ABI expose,
+  with `createBrowserReaderV1CanvasPresenter()` as the Canvas pen
 
 ### Prefer `@ritojs/kit` / `@ritojs/react` when
 
@@ -264,6 +263,6 @@ Reader implementations may return `void`, which is also safe to `await`.
 
 ## Related Docs
 
-- [Reference Primitives](./primitives.md)
-- [Advanced Internals](./advanced.md)
-- [Specialized Subpaths](./subpaths.md)
+- [Public Entry](./subpaths.md)
+- [Using `@ritojs/kit`](../integrations/kit.md)
+- [Direct FFI integration](../integrations/ffi.md)
