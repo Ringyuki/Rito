@@ -23,7 +23,7 @@ const int ritoNativeStatusStaleRequestV1 = 5;
 const int ritoNativeStatusTargetNotPublishedV1 = 6;
 const int ritoNativeStatusUnsupportedProfileV1 = 7;
 const int ritoNativeStatusBusyV1 = 8;
-const int ritoNativeStatusExactSeekPendingV1 = 9;
+// Status value 9 is retired and is never reassigned.
 const int ritoNativeStatusAdjacentPendingV1 = 10;
 const int ritoNativeStatusSessionTerminatedV1 = 11;
 const int ritoNativeStatusPanicV1 = 255;
@@ -583,11 +583,11 @@ final class RitoNativeBindings {
     required Uint8List requestBytes,
   }) {
     _validateId(sessionId, 'session id');
-    if (requestBytes.length != 60) {
+    if (requestBytes.length != 48) {
       throw ArgumentError.value(
         requestBytes.length,
         'request byte length',
-        'RITONAV1 must be exactly 60 bytes',
+        'RITONAV1 must be exactly 48 bytes',
       );
     }
     final request = _copyInput(requestBytes);
@@ -656,11 +656,11 @@ final class RitoNativeBindings {
     required Uint8List requestBytes,
   }) {
     _validateId(sessionId, 'session id');
-    if (requestBytes.length != 60) {
+    if (requestBytes.length != 48) {
       throw ArgumentError.value(
         requestBytes.length,
         'request byte length',
-        'RITONAV1 must be exactly 60 bytes',
+        'RITONAV1 must be exactly 48 bytes',
       );
     }
     final request = _copyInput(requestBytes);

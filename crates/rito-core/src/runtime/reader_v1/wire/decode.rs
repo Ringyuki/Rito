@@ -19,8 +19,7 @@ use crate::runtime::reader_v1::{
     ReaderPublicationV1, ReaderRectV1, ReaderResourceV1, ReaderSearchRequestV1,
     ReaderSearchResponseV1, ReaderSearchResultV1, ReaderSourcePointV1, ReaderSourceRangeV1,
     ReaderSpreadModeV1, ReaderTextPositionV1, ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1,
-    ReaderTextRectV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
-    READER_PUBLICATION_WIRE_BYTES_MAX_V1,
+    ReaderTextRectV1, ReaderTextRenderingProfileV1, READER_PUBLICATION_WIRE_BYTES_MAX_V1,
 };
 
 pub(super) fn artifact(bytes: &[u8]) -> Result<ReaderArtifactV1, ReaderErrorV1> {
@@ -37,7 +36,6 @@ pub(super) fn request(bytes: &[u8]) -> Result<ReaderArtifactRequestV1, ReaderErr
         request_id: external_id(reader.u64()?, "requestId")?,
         layout: layout(&mut reader)?,
         locator: locator(&mut reader)?,
-        work: work_budget(&mut reader)?,
         text_profile: text_profile(reader.u32()?)?,
     };
     reader.finish("request wire message")?;
@@ -55,11 +53,6 @@ pub(super) fn adjacent_request(bytes: &[u8]) -> Result<ReaderAdjacentRequestV1, 
         request_id: external_id(reader.u64()?, "requestId")?,
         from_artifact_id: external_id(reader.u64()?, "fromArtifactId")?,
         direction: adjacent_direction(reader.u32()?)?,
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: reader.u32()?,
-            max_foreground_quanta: reader.u32()?,
-            local_page_cap: reader.u32()?,
-        },
     };
     reader.finish("adjacent request wire message")?;
     Ok(request)
@@ -396,16 +389,6 @@ fn source_range(reader: &mut Reader<'_>) -> Result<ReaderSourceRangeV1, ReaderEr
         Ok(ReaderSourceRangeV1 {
             start: source_point(reader)?,
             end: source_point(reader)?,
-        })
-    })
-}
-
-fn work_budget(reader: &mut Reader<'_>) -> Result<ReaderWorkBudgetV1, ReaderErrorV1> {
-    reader.record("work budget", |reader| {
-        Ok(ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: reader.u32()?,
-            max_foreground_quanta: reader.u32()?,
-            local_page_cap: reader.u32()?,
         })
     })
 }

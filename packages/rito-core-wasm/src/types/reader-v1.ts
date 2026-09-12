@@ -85,16 +85,9 @@ export interface RitoReaderLayoutV1 {
   readonly fontFamilyOverride?: string | undefined;
 }
 
-export interface RitoReaderWorkBudgetV1 {
-  readonly maxTopLevelNodesPerQuantum: number;
-  readonly maxForegroundQuanta: number;
-  readonly localPageCap: number;
-}
-
 export interface RitoReaderArtifactRequestInputV1 {
   readonly layout: RitoReaderLayoutV1;
   readonly locator: RitoReaderLocatorV1;
-  readonly work: RitoReaderWorkBudgetV1;
   readonly textProfile: RitoReaderTextProfileV1;
 }
 
@@ -108,7 +101,6 @@ export interface RitoReaderAdjacentRequestV1 {
   readonly requestId: bigint;
   readonly fromArtifactId: bigint;
   readonly direction: RitoReaderAdjacentDirectionV1;
-  readonly work: RitoReaderWorkBudgetV1;
 }
 
 export interface RitoReaderForegroundHandoffV1 {

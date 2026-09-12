@@ -12,7 +12,6 @@ import { defaultYieldControl } from './reader-bounded-session-support-runtime.js
 
 const PROTOCOL = 'rito-reader-v1';
 const MAX_PENDING_MESSAGES = 8;
-const MAX_EXACT_CONTINUATION_QUANTA = 4_096;
 const MAX_ADJACENT_CONTINUATION_QUANTA = 4_096;
 const DISPOSE_TIMEOUT_MS = 1_000;
 const ERROR_CODES = new Set([
@@ -45,9 +44,6 @@ export class RitoReaderErrorV1 extends Error {
 export function createRitoCoreWasmReaderV1WorkerClient(worker, options = {}) {
   const sessionId = allocateSessionId();
   const yieldControl = options.yieldControl ?? defaultYieldControl;
-  const exactContinuationLimit = requireExactContinuationLimit(
-    options.maxExactContinuationQuanta ?? MAX_EXACT_CONTINUATION_QUANTA,
-  );
   const adjacentContinuationLimit = requireAdjacentContinuationLimit(
     options.maxAdjacentContinuationQuanta ?? MAX_ADJACENT_CONTINUATION_QUANTA,
   );
@@ -128,23 +124,13 @@ export function createRitoCoreWasmReaderV1WorkerClient(worker, options = {}) {
       throw new TypeError('Reader publication must be a dedicated ArrayBuffer');
     }
     phase = 'opening';
-    const attemptLimit = exactContinuationLimit;
-    let attempts = 1;
-    let fullRequest = nextExactRequest(request);
+    const fullRequest = withRequestIdentity(request, sessionId, nextRequestId());
     try {
-      let payload = await send(
+      const payload = await send(
         'open',
         { publication, sessionId, request: fullRequest, pinnedFontPolicy },
         [publication],
       );
-      while (isPendingExactPayload(payload, fullRequest)) {
-        if (attempts >= attemptLimit) throw exactContinuationLimitError(attemptLimit);
-        await yieldControl();
-        if (phase !== 'opening') throw sessionDisposedError();
-        fullRequest = nextExactRequest(request);
-        attempts += 1;
-        payload = await send('request-artifact', { request: fullRequest });
-      }
       const artifact = decodeArtifactPayload(payload, fullRequest);
       liveArtifacts.add(artifact.artifactId);
       foregroundCandidate = foregroundCandidateIdentity(artifact, request);
@@ -155,16 +141,6 @@ export function createRitoCoreWasmReaderV1WorkerClient(worker, options = {}) {
       throw error;
     }
   };
-
-  const nextExactRequest = (request) =>
-    withRequestIdentity(
-      {
-        ...request,
-        work: { ...request.work, maxForegroundQuanta: 1 },
-      },
-      sessionId,
-      nextRequestId(),
-    );
 
   const nextForegroundIntent = () => {
     foregroundGeneration += 1;
@@ -200,12 +176,11 @@ export function createRitoCoreWasmReaderV1WorkerClient(worker, options = {}) {
     }
   };
 
-  const requestAdjacent = async (fromArtifactId, direction, work = requestTemplate?.work) => {
+  const requestAdjacent = async (fromArtifactId, direction) => {
     requireOpen();
     if (!liveArtifacts.has(fromArtifactId)) {
       throw new RitoReaderErrorV1('unknown-artifact', 'Adjacent source artifact is not live');
     }
-    if (!work) throw new RitoReaderErrorV1('invalid-request', 'Adjacent work budget is required');
     const intentId = nextForegroundIntent();
     supersedeSeeks();
     try {
@@ -221,7 +196,6 @@ export function createRitoCoreWasmReaderV1WorkerClient(worker, options = {}) {
             requestId: nextRequestId(),
             fromArtifactId,
             direction,
-            work: { ...work, maxForegroundQuanta: 1 },
           };
           const payload = await send('request-adjacent', { request });
           if (isPendingAdjacentPayload(payload, request)) {
@@ -290,37 +264,25 @@ export function createRitoCoreWasmReaderV1WorkerClient(worker, options = {}) {
     let staleArtifact;
     try {
       await runInForegroundLane(async () => {
-        const attemptLimit = exactContinuationLimit;
-        let attempts = 0;
-        while (
-          phase === 'open' &&
-          !operation.superseded &&
-          operation.intentId === foregroundGeneration
+        // A seek superseded or disposed before it owns the lane has
+        // already had its promise rejected; it sends nothing.
+        if (
+          phase !== 'open' ||
+          operation.superseded ||
+          operation.intentId !== foregroundGeneration
         ) {
-          if (attempts >= attemptLimit) {
-            const error = exactContinuationLimitError(attemptLimit);
-            operation.deferred.reject(error);
-            await dispose().catch(() => undefined);
-            return;
-          }
-          attempts += 1;
-          const request = nextExactRequest(operation.request);
-          const payload = await send('request-artifact', { request });
-          if (isPendingExactPayload(payload, request)) {
-            if (operation.superseded || phase !== 'open') break;
-            await yieldControl();
-            continue;
-          }
-          const artifact = decodeArtifactPayload(payload, request);
-          liveArtifacts.add(artifact.artifactId);
-          if (operation.superseded || phase !== 'open') {
-            staleArtifact = artifact;
-            await releaseInternal(artifact.artifactId);
-          } else {
-            foregroundCandidate = foregroundCandidateIdentity(artifact, operation.request);
-            operation.deferred.resolve(artifact);
-          }
-          break;
+          return;
+        }
+        const request = withRequestIdentity(operation.request, sessionId, nextRequestId());
+        const payload = await send('request-artifact', { request });
+        const artifact = decodeArtifactPayload(payload, request);
+        liveArtifacts.add(artifact.artifactId);
+        if (operation.superseded || phase !== 'open') {
+          staleArtifact = artifact;
+          await releaseInternal(artifact.artifactId);
+        } else {
+          foregroundCandidate = foregroundCandidateIdentity(artifact, operation.request);
+          operation.deferred.resolve(artifact);
         }
       });
     } catch (error) {
@@ -349,7 +311,6 @@ export function createRitoCoreWasmReaderV1WorkerClient(worker, options = {}) {
     return requestArtifact({
       layout: overrides.layout ?? requestTemplate.layout,
       locator,
-      work: overrides.work ?? requestTemplate.work,
       textProfile: overrides.textProfile ?? requestTemplate.textProfile,
     });
   };
@@ -749,15 +710,6 @@ function validArtifactIdentity(value) {
   );
 }
 
-function requireExactContinuationLimit(value) {
-  if (!Number.isSafeInteger(value) || value <= 0 || value > MAX_EXACT_CONTINUATION_QUANTA) {
-    throw new RangeError(
-      `maxExactContinuationQuanta must be within 1..${String(MAX_EXACT_CONTINUATION_QUANTA)}`,
-    );
-  }
-  return value;
-}
-
 function requireAdjacentContinuationLimit(value) {
   if (!Number.isSafeInteger(value) || value <= 0 || value > MAX_ADJACENT_CONTINUATION_QUANTA) {
     throw new RangeError(
@@ -765,13 +717,6 @@ function requireAdjacentContinuationLimit(value) {
     );
   }
   return value;
-}
-
-function exactContinuationLimitError(limit) {
-  return new RitoReaderErrorV1(
-    'target-not-published',
-    `Exact seek did not become ready within ${String(limit)} continuation quanta`,
-  );
 }
 
 function adjacentContinuationLimitError(limit) {
@@ -791,17 +736,6 @@ function isFatalSessionError(error) {
 
 function foregroundCandidateIdentity(artifact, requestTemplate) {
   return { artifactId: artifact.artifactId, requestId: artifact.requestId, requestTemplate };
-}
-
-function isPendingExactPayload(payload, request) {
-  if (payload?.kind !== 'pending-exact') return false;
-  if (payload.sessionId !== request.sessionId || payload.requestId !== request.requestId) {
-    throw new RitoReaderErrorV1(
-      'invalid-wire',
-      'Pending exact-seek identity does not match its request',
-    );
-  }
-  return true;
 }
 
 function isPendingAdjacentPayload(payload, request) {

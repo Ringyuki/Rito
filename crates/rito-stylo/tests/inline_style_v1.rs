@@ -7,8 +7,8 @@ use rito_style_contract::{
     RESOLVED_URL_BYTE_LIMIT_V1,
 };
 use rito_stylo::{
-    InlineStyleDispositionV1, InlineStyleFieldV1, InlineStyleProjectionReasonV1, StyleDocument,
-    StylesheetInput, Viewport,
+    InlineStyleDispositionV1, InlineStyleFieldV1, InlineStyleProjectionReasonV1,
+    InlineStyleProjectionV1, StyleDocument, StylesheetInput, Viewport,
 };
 
 #[path = "support/inline_style_v1_assertions.rs"]
@@ -21,13 +21,22 @@ fn source(xhtml: &str) -> Arc<SourceArena> {
 }
 
 fn document(source: Arc<SourceArena>, css: &str) -> StyleDocument {
-    StyleDocument::from_source(
+    StyleDocument::from_source_with_root_font_size(
         source,
         URL,
         Viewport::default(),
+        16.0,
         &[StylesheetInput::author(css, URL)],
     )
     .expect("fixture style document builds")
+}
+
+fn inline_projection(document: &mut StyleDocument) -> InlineStyleProjectionV1 {
+    document
+        .resolve_production_slice_v1()
+        .expect("production projection")
+        .into_parts()
+        .0
 }
 
 fn target_source() -> Arc<SourceArena> {
@@ -87,7 +96,7 @@ fn direct_projection_preserves_represented_computed_distinctions() {
         "#,
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     let style = projection.table().style_for_node(target.index()).unwrap();
     assert!(projection.is_contract_slice_complete());
     assertions::assert_direct_style(style);
@@ -102,7 +111,7 @@ fn font_family_projection_retains_quoted_and_identifier_syntax() {
         r#"#target { font-family: ztitle, "Book Face", "serif", serif; }"#,
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     let families = projection
         .table()
         .style_for_node(target.index())
@@ -137,7 +146,7 @@ fn opaque_calc_fails_closed_and_leaves_the_node_slot_empty() {
         "#target { margin-left: calc(1px + 2%) }",
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     assert!(!projection.is_contract_slice_complete());
     assert_eq!(projection.table().node_style_ids()[target.index()], None);
     assert!(projection
@@ -153,10 +162,11 @@ fn opaque_calc_fails_closed_and_leaves_the_node_slot_empty() {
 fn background_url_uses_stylesheet_base_and_projects_coupled_paint() {
     let source = target_source();
     let target = source.find_element_by_id("target").unwrap();
-    let mut document = StyleDocument::from_source(
+    let mut document = StyleDocument::from_source_with_root_font_size(
         Arc::clone(&source),
         URL,
         Viewport::default(),
+        16.0,
         &[StylesheetInput::author(
             r#"
             #target {
@@ -171,7 +181,7 @@ fn background_url_uses_stylesheet_base_and_projects_coupled_paint() {
     )
     .unwrap();
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     let image = projection
         .table()
         .style_for_node(target.index())
@@ -199,7 +209,7 @@ fn background_url_preserves_the_initial_repeat_value() {
         "#target { background-image: url(background.jpg) }",
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     let image = projection
         .table()
         .style_for_node(target.index())
@@ -235,7 +245,7 @@ fn background_url_supports_auto_contain_and_px_percentage_positions() {
         "#,
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     let auto_image = projection
         .table()
         .style_for_node(auto.index())
@@ -278,7 +288,7 @@ fn background_none_bypasses_irrelevant_layer_lists() {
         "#,
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     assert_eq!(
         projection
             .table()
@@ -375,7 +385,7 @@ fn rotate_and_rotate_z_project_as_equivalent_ordered_2d_operations() {
         "#,
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     assert_close(
         transform_radians(&projection, rotate)[0],
         std::f32::consts::FRAC_PI_2,
@@ -463,7 +473,7 @@ fn decoration_is_own_computed_value_not_a_source_ancestor_stack() {
         "#parent { text-decoration: underline dashed red }",
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     let parent_style = projection.table().style_for_node(parent.index()).unwrap();
     let child_style = projection.table().style_for_node(child.index()).unwrap();
     assert!(parent_style.paint.text_decoration.lines.underline);
@@ -480,7 +490,7 @@ fn language_is_case_canonicalized_with_xml_precedence_and_empty_reset() {
     let precedence = source.find_element_by_id("precedence").unwrap();
     let mut document = document(Arc::clone(&source), "");
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     assert_eq!(language(&projection, inherited), Some("en-us"));
     assert_eq!(language(&projection, reset), None);
     assert_eq!(language(&projection, precedence), Some("fr"));
@@ -499,7 +509,7 @@ fn ruby_align_cascades_through_the_registered_custom_property() {
         "#ruby { ruby-align: center } rt { ruby-align: inter-character }",
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     assert_eq!(ruby_align(&projection, ruby), RubyAlign::Center);
     // The invalid rt declaration drops at parse time like the browser
     // drops it; rt keeps the inherited value from its ruby container.
@@ -543,7 +553,7 @@ fn assert_declarations_rejected(
     let source = target_source();
     let target = source.find_element_by_id("target").unwrap();
     let mut document = document(source, &format!("#target {{ {declarations} }}"));
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     assert!(projection
         .dispositions()
         .contains(&InlineStyleDispositionV1::ContractRejected {
@@ -601,7 +611,7 @@ fn disposition_ledger_exactly_accounts_for_the_dense_source_arena() {
         Arc::clone(&source),
         "#target { margin-left: calc(1px + 2%) }",
     );
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     let element_ids = source
         .iter()
         .filter_map(|(id, node)| matches!(node.kind, SourceNodeKind::Element(_)).then_some(id))

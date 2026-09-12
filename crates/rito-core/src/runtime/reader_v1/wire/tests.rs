@@ -9,7 +9,7 @@ use crate::runtime::reader_v1::{
     ReaderPublicationTocTargetV1, ReaderPublicationV1, ReaderRectV1, ReaderResourceKindV1,
     ReaderResourceRefV1, ReaderResourceV1, ReaderSemanticNodeV1, ReaderSemanticRoleV1,
     ReaderSourcePointV1, ReaderSourceRangeV1, ReaderSpreadModeV1, ReaderTextRenderingProfileV1,
-    ReaderTextRunOffsetV1, ReaderWorkBudgetV1, READER_CAPABILITY_PROFILE_STRING_TEXT_V1,
+    ReaderTextRunOffsetV1, READER_CAPABILITY_PROFILE_STRING_TEXT_V1,
     READER_DISPLAY_LIST_VERSION_V1, READER_EXTERNAL_ID_MAX_V1, READER_IMAGE_RESOURCE_BYTES_MAX_V1,
     READER_PROTOCOL_VERSION_V1,
 };
@@ -620,11 +620,6 @@ fn request_fixture() -> ReaderArtifactRequestV1 {
             font_family_override: Some("Noto Serif CJK JP".into()),
         },
         locator: locator_fixture(),
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 8,
-            max_foreground_quanta: 4,
-            local_page_cap: 16,
-        },
         text_profile: ReaderTextRenderingProfileV1::PositionedGlyphRuns,
     }
 }
@@ -635,11 +630,6 @@ fn adjacent_request_fixture() -> ReaderAdjacentRequestV1 {
         request_id: (1u64 << 55) + 2,
         from_artifact_id: (1u64 << 56) + 3,
         direction: ReaderAdjacentDirectionV1::Next,
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 8,
-            max_foreground_quanta: 4,
-            local_page_cap: 16,
-        },
     }
 }
 

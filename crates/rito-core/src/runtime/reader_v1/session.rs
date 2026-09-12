@@ -119,9 +119,8 @@ pub struct ReaderSessionV1 {
     peeked_artifacts: BTreeSet<u64>,
     visible_intent: Option<ReaderVisibleIntentV1>,
     foreground_candidate: Option<ReaderForegroundCandidateV1>,
-    // At most one unpublished owner survives a bounded exact seek. It never
-    // receives reader revision/artifact identities until the target resolves.
-    // Adjacent retries have their own typed intent identity.
+    // At most one adjacent turn stays retained after `TargetNotPublished`;
+    // a newer request with the same source artifact and direction resumes it.
     pending_adjacent: Option<ReaderPendingAdjacentV1>,
     /// Device pixels per CSS pixel the host rasterizes artifacts at; paint
     /// snaps land on that grid. Pagination never reads it.
@@ -187,15 +186,6 @@ impl ReaderSessionV1 {
 
     pub const fn publication_v1(&self) -> &ReaderPublicationV1 {
         &self.publication
-    }
-
-    /// True only while this session owns one resumable, unpublished exact
-    /// locator continuation. Adapters use this to distinguish cooperative
-    /// foreground suspension from terminal `TargetNotPublished` failures.
-    pub const fn has_pending_exact_seek_v1(&self) -> bool {
-        // Chapter-local revisions publish complete in one pass; a
-        // foreground exact seek can no longer be left pending.
-        false
     }
 
     /// True only while a newer adjacent request with the same source and
@@ -328,8 +318,8 @@ impl ReaderSessionV1 {
     /// layout already exists, without any foreground side effect.
     ///
     /// Unlike [`Self::request_adjacent`] this never begins a foreground
-    /// intent, never installs a candidate, and never touches pending
-    /// exact-seek or adjacent continuations — the visible artifact and
+    /// intent, never installs a candidate, and never touches a retained
+    /// adjacent continuation — the visible artifact and
     /// every in-flight navigation stay exactly as they were. A neighbor
     /// in another chapter is paginated on demand (next peeks the
     /// following chapter's first spread, previous the preceding

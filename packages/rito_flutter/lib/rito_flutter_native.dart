@@ -9,7 +9,6 @@ export 'src/native/bindings.dart'
         ritoNativeStatusAlreadyExistsV1,
         ritoNativeStatusBusyV1,
         ritoNativeStatusEngineErrorV1,
-        ritoNativeStatusExactSeekPendingV1,
         ritoNativeStatusInvalidArgumentV1,
         ritoNativeStatusNotFoundV1,
         ritoNativeStatusPanicV1,

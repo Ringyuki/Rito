@@ -80,18 +80,6 @@ final class RitoLayoutRequest {
   final String? fontFamilyOverride;
 }
 
-final class RitoWorkBudget {
-  const RitoWorkBudget({
-    required this.maxTopLevelNodesPerQuantum,
-    required this.maxForegroundQuanta,
-    required this.localPageCap,
-  });
-
-  final int maxTopLevelNodesPerQuantum;
-  final int maxForegroundQuanta;
-  final int localPageCap;
-}
-
 final class RitoAdjacentDirection {
   const RitoAdjacentDirection._(this.name);
 
@@ -109,14 +97,12 @@ final class RitoAdjacentRequest {
     required this.requestId,
     required this.fromArtifactId,
     required this.direction,
-    required this.work,
   });
 
   final int sessionId;
   final int requestId;
   final int fromArtifactId;
   final RitoAdjacentDirection direction;
-  final RitoWorkBudget work;
 }
 
 final class RitoArtifactRequest {
@@ -125,7 +111,6 @@ final class RitoArtifactRequest {
     required this.requestId,
     required this.layout,
     required this.locator,
-    required this.work,
     this.textProfile = RitoTextProfile.platformStringRuns,
   });
 
@@ -133,7 +118,7 @@ final class RitoArtifactRequest {
   final int requestId;
   final RitoLayoutRequest layout;
   final RitoLocator locator;
-  final RitoWorkBudget work;
+  final RitoTextProfile textProfile;
 
   /// This request with [layout] in place of its own.
   RitoArtifactRequest withLayout(RitoLayoutRequest layout) =>
@@ -142,8 +127,15 @@ final class RitoArtifactRequest {
         requestId: requestId,
         layout: layout,
         locator: locator,
-        work: work,
         textProfile: textProfile,
       );
-  final RitoTextProfile textProfile;
+
+  /// This request under [requestId] in place of its own.
+  RitoArtifactRequest withRequestId(int requestId) => RitoArtifactRequest(
+    sessionId: sessionId,
+    requestId: requestId,
+    layout: layout,
+    locator: locator,
+    textProfile: textProfile,
+  );
 }

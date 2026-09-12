@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use rito_source::SourceArena;
 
+use super::InlineStyleProjectionV1;
 use crate::{StyleDocument, StylesheetInput, Viewport};
 
 const URL: &str = "https://example.test/book/chapter.xhtml";
@@ -22,7 +23,7 @@ fn shared_payload_operation_counts_are_linear_in_unique_lists() {
         format!("#root {{ text-shadow: {shadows} }} #root > span {{ box-shadow: {shadows} }}");
     let mut document = document(source, &css);
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     assert!(projection.metrics.base_style_projection_count >= span_count);
     assert_eq!(projection.metrics.language_tag_normalization_count, 1);
     assert_eq!(projection.metrics.text_shadow_payload_projection_count, 2);
@@ -56,7 +57,7 @@ fn deep_language_inheritance_normalizes_only_the_declaration() {
     let deepest = source.find_element_by_id("deepest").unwrap();
     let mut document = document(Arc::clone(&source), "");
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     let language = projection
         .table
         .style_for_node(deepest.index())
@@ -84,7 +85,7 @@ fn repeated_resolved_background_url_projects_once_across_unique_styles() {
         "#root > span { background-image: url(Images/shared.jpg); background-repeat: no-repeat }",
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     assert_eq!(projection.metrics.background_image_url_projection_count, 1);
 }
 
@@ -103,7 +104,7 @@ fn shared_transform_storage_projects_once_across_unique_foregrounds() {
         "#root > span { transform: rotate(12deg) rotateZ(0.25rad) }",
     );
 
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     assert_eq!(projection.metrics.transform_payload_projection_count, 2);
     assert_eq!(projection.metrics.transform_operation_projection_count, 2);
 }
@@ -120,11 +121,20 @@ fn source(xhtml: &str) -> Arc<SourceArena> {
 }
 
 fn document(source: Arc<SourceArena>, css: &str) -> StyleDocument {
-    StyleDocument::from_source(
+    StyleDocument::from_source_with_root_font_size(
         source,
         URL,
         Viewport::default(),
+        16.0,
         &[StylesheetInput::author(css, URL)],
     )
     .expect("fixture style document builds")
+}
+
+fn inline_projection(document: &mut StyleDocument) -> InlineStyleProjectionV1 {
+    document
+        .resolve_production_slice_v1()
+        .expect("production projection")
+        .into_parts()
+        .0
 }

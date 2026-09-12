@@ -81,14 +81,6 @@ impl RitoReaderSessionV1 {
             .map_err(ReaderProjectionErrorV1::into_js_value)
     }
 
-    /// Reports whether Core retained an exact-seek continuation after the
-    /// previous single-quantum request. Hosts must use this explicit flag;
-    /// error strings are never part of the retry protocol.
-    #[wasm_bindgen(js_name = hasPendingExactSeekV1)]
-    pub fn has_pending_exact_seek_v1(&self) -> bool {
-        self.inner.has_pending_exact_seek()
-    }
-
     /// Reports whether Core retained cooperative work for the previous
     /// adjacent request. Hosts must pair this typed query with
     /// `TargetNotPublished`; terminal boundaries never retry by message text.
@@ -194,12 +186,6 @@ struct ReaderSessionProjectionV1 {
 }
 
 impl ReaderSessionProjectionV1 {
-    fn has_pending_exact_seek(&self) -> bool {
-        self.session
-            .as_ref()
-            .is_some_and(ReaderSessionV1::has_pending_exact_seek_v1)
-    }
-
     fn has_pending_adjacent(&self) -> bool {
         self.session
             .as_ref()

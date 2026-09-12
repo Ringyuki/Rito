@@ -69,7 +69,10 @@ final class RitoPendingAdjacentDriver {
         Error.throwWithStackTrace(failure, stackTrace);
       }
       requestId += 1;
-      final continuation = oneQuantumAdjacentRequest(initialRequest, requestId);
+      final continuation = adjacentContinuationRequest(
+        initialRequest,
+        requestId,
+      );
       try {
         final artifact = await requestOneQuantum(continuation);
         _requireCurrent(
@@ -107,7 +110,8 @@ final class RitoPendingAdjacentDriver {
   }
 }
 
-RitoAdjacentRequest oneQuantumAdjacentRequest(
+/// [request] re-issued under [requestId] for one more continuation call.
+RitoAdjacentRequest adjacentContinuationRequest(
   RitoAdjacentRequest request,
   int requestId,
 ) {
@@ -116,11 +120,6 @@ RitoAdjacentRequest oneQuantumAdjacentRequest(
     requestId: requestId,
     fromArtifactId: request.fromArtifactId,
     direction: request.direction,
-    work: RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: request.work.maxTopLevelNodesPerQuantum,
-      maxForegroundQuanta: 1,
-      localPageCap: request.work.localPageCap,
-    ),
   );
 }
 

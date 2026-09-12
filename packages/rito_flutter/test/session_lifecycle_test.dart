@@ -31,7 +31,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
       );
       expect(next.artifactId, 7002);
       await session.releaseArtifact(session.firstArtifact);
@@ -118,7 +117,6 @@ void main() {
       from: session.firstArtifact,
       requestId: 13,
       direction: RitoAdjacentDirection.next,
-      work: testWorkBudget,
     );
 
     expect(gateway.foregroundHandoffs, hasLength(2));
@@ -154,7 +152,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
       ),
       throwsA(isA<RitoNativeException>()),
     );
@@ -202,7 +199,6 @@ void main() {
           from: adjacentSession.firstArtifact,
           requestId: 13,
           direction: RitoAdjacentDirection.next,
-          work: testWorkBudget,
         ),
         throwsA(same(invalidation)),
       );
@@ -235,7 +231,6 @@ void main() {
           from: session.firstArtifact,
           requestId: 13,
           direction: RitoAdjacentDirection.next,
-          work: testWorkBudget,
         ),
         throwsA(same(invalidation)),
       );
@@ -308,7 +303,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
       );
 
       await expectLater(
@@ -405,6 +399,27 @@ void main() {
       ByteData.sublistView(bytes, 12, 20).getUint64(0, Endian.little),
       bytes.length,
     );
+    // Body: session id, request id, layout record, locator record, text
+    // profile — and nothing after the text profile.
+    var offset = 20 + 8 + 8;
+    for (var record = 0; record < 2; record += 1) {
+      final length = ByteData.sublistView(
+        bytes,
+        offset,
+        offset + 8,
+      ).getUint64(0, Endian.little);
+      offset += 8 + length;
+    }
+    expect(
+      ByteData.sublistView(
+        bytes,
+        offset,
+        offset + 4,
+      ).getUint32(0, Endian.little),
+      0,
+      reason: 'platform string runs is text profile tag 0',
+    );
+    expect(offset + 4, bytes.length);
   });
 
   test('RITONAV1 is exact fixed-width little-endian and validates IDs', () {
@@ -415,13 +430,12 @@ void main() {
         requestId: 13,
         fromArtifactId: 7001,
         direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
       ),
     );
-    expect(bytes.length, 60);
+    expect(bytes.length, 48);
     expect(String.fromCharCodes(bytes.take(8)), 'RITONAV1');
     expect(ByteData.sublistView(bytes, 8, 12).getUint32(0, Endian.little), 1);
-    expect(ByteData.sublistView(bytes, 12, 20).getUint64(0, Endian.little), 60);
+    expect(ByteData.sublistView(bytes, 12, 20).getUint64(0, Endian.little), 48);
     expect(ByteData.sublistView(bytes, 20, 28).getUint64(0, Endian.little), 91);
     expect(ByteData.sublistView(bytes, 28, 36).getUint64(0, Endian.little), 13);
     expect(
@@ -437,7 +451,6 @@ void main() {
           requestId: 13,
           fromArtifactId: 7001,
           direction: RitoAdjacentDirection.next,
-          work: testWorkBudget,
         ),
       ),
       throwsA(isA<FormatException>()),
@@ -449,7 +462,6 @@ void main() {
           requestId: 13,
           fromArtifactId: 7001,
           direction: RitoAdjacentDirection.next,
-          work: testWorkBudget,
         ),
       ),
       throwsA(isA<FormatException>()),
@@ -474,7 +486,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
       );
       await session.releaseArtifact(session.firstArtifact);
       await expectLater(
@@ -482,7 +493,6 @@ void main() {
           from: session.firstArtifact,
           requestId: 14,
           direction: RitoAdjacentDirection.next,
-          work: testWorkBudget,
         ),
         throwsA(isA<ArgumentError>()),
       );
@@ -495,7 +505,6 @@ void main() {
             requestId: 14,
             fromArtifactId: 7001,
             direction: RitoAdjacentDirection.previous,
-            work: testWorkBudget,
           ),
         ),
         throwsA(isA<StateError>()),
@@ -528,7 +537,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
       ),
       throwsA(isA<StateError>()),
     );
@@ -630,7 +638,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
       );
 
       expect(turned.requestId, 16);
@@ -667,7 +674,6 @@ void main() {
           from: session.firstArtifact,
           requestId: 13,
           direction: RitoAdjacentDirection.next,
-          work: testWorkBudget,
         ),
         throwsA(
           isA<RitoNativeException>().having(
@@ -699,7 +705,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
       );
       await expectLater(
         session.advanceBackground(maxTopLevelNodesPerQuantum: 8),
@@ -727,7 +732,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: testWorkBudget,
       ),
       throwsA(
         isA<RitoNativeException>()
@@ -764,12 +768,6 @@ void main() {
   });
 }
 
-const RitoWorkBudget testWorkBudget = RitoWorkBudget(
-  maxTopLevelNodesPerQuantum: 8,
-  maxForegroundQuanta: 2,
-  localPageCap: 16,
-);
-
 RitoArtifactFontCache _fontCache() {
   return RitoArtifactFontCache(registrar: const _NoopFontRegistrar());
 }
@@ -801,7 +799,6 @@ RitoArtifactRequest _request(int requestId) {
       href: 'chapter-4.xhtml',
       sourcePoint: RitoSourcePoint(nodePath: <int>[1, 9, 2], textOffset: 47),
     ),
-    work: testWorkBudget,
   );
 }
 
@@ -1145,7 +1142,6 @@ final class _ResumableAdjacentGateway extends _MockGateway
     return request.requestId == 13 &&
         request.fromArtifactId == 7001 &&
         request.direction == RitoAdjacentDirection.next &&
-        request.work.localPageCap == testWorkBudget.localPageCap &&
         artifact.requestId == 16;
   }
 
@@ -1153,8 +1149,7 @@ final class _ResumableAdjacentGateway extends _MockGateway
   int? latestRequestIdForAdjacent({required RitoAdjacentRequest request}) {
     if (request.requestId != 13 ||
         request.fromArtifactId != 7001 ||
-        request.direction != RitoAdjacentDirection.next ||
-        request.work.localPageCap != testWorkBudget.localPageCap) {
+        request.direction != RitoAdjacentDirection.next) {
       return null;
     }
     return terminal ? 15 : 16;

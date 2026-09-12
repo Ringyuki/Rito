@@ -44,7 +44,7 @@ fn complex_current_color_shadow_fails_closed() {
         Arc::clone(&source),
         "#target { text-shadow: 0 0 color-mix(in srgb, currentcolor, red) }",
     );
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
 
     assert!(projection
         .dispositions()
@@ -64,7 +64,7 @@ fn hostile_shadow_list_hits_the_budget_before_projection() {
         Arc::clone(&source),
         &format!("#target {{ text-shadow: {shadows} }}"),
     );
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
 
     assert!(projection
         .dispositions()
@@ -107,7 +107,7 @@ fn shared_shadow_projection(
     let css =
         format!("#root {{ text-shadow: {shadows} }} #root > span {{ box-shadow: {shadows} }}");
     let mut document = document(Arc::clone(&source), &css);
-    let projection = document.resolve_inline_styles_v1().unwrap();
+    let projection = inline_projection(&mut document);
     (source, projection)
 }
 
@@ -129,11 +129,20 @@ fn source(xhtml: &str) -> Arc<SourceArena> {
 }
 
 fn document(source: Arc<SourceArena>, css: &str) -> StyleDocument {
-    StyleDocument::from_source(
+    StyleDocument::from_source_with_root_font_size(
         source,
         URL,
         Viewport::default(),
+        16.0,
         &[StylesheetInput::author(css, URL)],
     )
     .expect("fixture style document builds")
+}
+
+fn inline_projection(document: &mut StyleDocument) -> rito_stylo::InlineStyleProjectionV1 {
+    document
+        .resolve_production_slice_v1()
+        .expect("production projection")
+        .into_parts()
+        .0
 }

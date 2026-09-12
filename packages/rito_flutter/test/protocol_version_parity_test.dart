@@ -138,11 +138,6 @@ void main() {
               rootFontSize: 16,
             ),
             locator: RitoLocator(href: 'OEBPS/Text/Section011.xhtml'),
-            work: RitoWorkBudget(
-              maxTopLevelNodesPerQuantum: 32,
-              maxForegroundQuanta: 64,
-              localPageCap: 16,
-            ),
           ),
         ),
       );

@@ -84,7 +84,7 @@ fn publication_metadata_is_binary_bounded_and_fifo() {
 }
 
 #[test]
-fn exact_seek_pending_status_requires_core_owned_resumable_state() {
+fn open_is_one_pass_and_adjacent_pending_requires_core_owned_state() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let actor =
         fs::read_to_string(manifest.join("src/actor.rs")).expect("actor source is readable");
@@ -92,30 +92,16 @@ fn exact_seek_pending_status_requires_core_owned_resumable_state() {
         fs::read_to_string(manifest.join("src/registry.rs")).expect("registry source is readable");
     let header =
         fs::read_to_string(manifest.join("include/rito_ffi.h")).expect("public header is readable");
-    let production_actor = actor
-        .split("#[cfg(test)]")
-        .next()
-        .expect("actor has production source");
 
     assert!(actor.contains("error.status == RITO_STATUS_TARGET_NOT_PUBLISHED_V1"));
-    assert!(actor.contains("error.status = RITO_STATUS_EXACT_SEEK_PENDING_V1"));
     assert!(actor.contains("error.status = RITO_STATUS_ADJACENT_PENDING_V1"));
-    assert!(actor.contains("reader.has_pending_exact_seek_v1()"));
     assert!(actor.contains("session.has_pending_adjacent_v1()"));
-    assert_eq!(
-        production_actor
-            .matches("classify_exact_seek_result(")
-            .count(),
-        2
-    );
-    assert!(actor.contains("InitialArtifactReply::Ready(initial)"));
+    assert!(actor.contains("InitialArtifactReply::Ready(artifact)"));
     assert!(actor.contains("InitialArtifactReply::Failed(error)"));
-    assert!(registry.contains("InitialArtifactReply::Ready(result)"));
+    assert!(registry.contains("InitialArtifactReply::Ready(artifact)"));
     assert!(registry.contains("InitialArtifactReply::Failed(error)"));
-    assert!(header.contains("RITO_STATUS_EXACT_SEEK_PENDING_V1"));
     assert!(header.contains("RITO_STATUS_ADJACENT_PENDING_V1"));
     assert!(header.contains("paginated whole in\n * this one call"));
-    assert!(header.contains("never\n * returned by the current core"));
     assert!(header.contains("without\n * a pinned font policy fails closed"));
     assert!(header.contains("RITO_STATUS_TARGET_NOT_PUBLISHED_V1 is terminal"));
 }

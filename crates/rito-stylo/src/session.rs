@@ -25,12 +25,8 @@ use crate::{
     config::initialize_global_preferences,
     device::make_device,
     dom::DomStorage,
-    projection::{
-        self, InlineStyleProjectionV1, ProductionStyleProjectionV1, ResolvedStylesV0,
-        ResolvedStylesV1, ResolvedStylesV2,
-    },
+    projection::{self, ProductionStyleProjectionV1},
     traversal,
-    ua::EPUB_UA_STYLESHEET,
 };
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -96,16 +92,15 @@ impl StylesheetInput {
     }
 }
 
-/// A retained, sequential Stylo document.
+/// A retained, sequential Stylo document over one parsed chapter.
 ///
-/// The facade intentionally exposes only Rito-owned input and projection
-/// types. The `Rc` marker prevents callers from moving this session across
-/// threads while its DOM sidecar relies on exclusive sequential traversal.
+/// Only Rito-owned input and projection types cross this boundary. The `Rc`
+/// marker keeps the session on one thread: its DOM sidecar relies on
+/// exclusive sequential traversal.
 pub struct StyleDocument {
     stylist: Stylist,
     animations: DocumentAnimationSet,
     snapshots: SnapshotMap,
-    last_animation_time_seconds: Option<f64>,
     _not_send_or_sync: PhantomData<Rc<()>>,
     // Keep the pinned DOM last so state containing opaque node identities is
     // destroyed before the address-owning arena.
@@ -113,38 +108,14 @@ pub struct StyleDocument {
 }
 
 impl StyleDocument {
-    /// Creates a style session with Rito's EPUB user-agent policy prepended.
+    /// Creates a style session over a parsed chapter.
     ///
-    /// The policy is an ordinary UA-origin stylesheet over `SourceArena`; it
-    /// does not require a browser DOM and author/user sheets retain their
-    /// normal cascade precedence.
-    pub fn from_epub_source(
-        source: StdArc<SourceArena>,
-        document_url: &str,
-        viewport: Viewport,
-        stylesheets: &[StylesheetInput],
-    ) -> Result<Self, StyleError> {
-        let mut inputs = Vec::with_capacity(stylesheets.len() + 1);
-        inputs.push(StylesheetInput::new(
-            EPUB_UA_STYLESHEET,
-            document_url,
-            StyleOrigin::UserAgent,
-        ));
-        inputs.extend_from_slice(stylesheets);
-        Self::from_source(source, document_url, viewport, &inputs)
-    }
-
-    pub fn from_source(
-        source: StdArc<SourceArena>,
-        document_url: &str,
-        viewport: Viewport,
-        stylesheets: &[StylesheetInput],
-    ) -> Result<Self, StyleError> {
-        Self::from_source_with_root_font_size(source, document_url, viewport, 16.0, stylesheets)
-    }
-
-    /// Creates a style session whose CSS initial/root font-size is supplied
-    /// by the embedding reader rather than Stylo's fixed 16px default.
+    /// `root_font_size` is the CSS initial font size configured by the
+    /// embedding reader; it replaces Stylo's fixed 16px default so `rem`
+    /// values and the root element's own `em` values follow the reader
+    /// setting. Stylesheets cascade in the given order under their declared
+    /// origins; the caller supplies the user-agent sheet
+    /// ([`crate::epub_ua_stylesheet`]) like any other input.
     pub fn from_source_with_root_font_size(
         source: StdArc<SourceArena>,
         document_url: &str,
@@ -179,117 +150,25 @@ impl StyleDocument {
             stylist,
             animations: DocumentAnimationSet::default(),
             snapshots: SnapshotMap::new(),
-            last_animation_time_seconds: None,
             _not_send_or_sync: PhantomData,
             dom,
         })
     }
 
-    pub fn resolve(&mut self) -> Result<ResolvedStylesV0, StyleError> {
-        self.resolve_at(self.last_animation_time_seconds.unwrap_or(0.0))
-    }
-
-    pub fn resolve_v1(&mut self) -> Result<ResolvedStylesV1, StyleError> {
-        self.resolve_v1_at(self.last_animation_time_seconds.unwrap_or(0.0))
-    }
-
-    pub fn resolve_v2(&mut self) -> Result<ResolvedStylesV2, StyleError> {
-        self.resolve_v2_at(self.last_animation_time_seconds.unwrap_or(0.0))
-    }
-
-    /// Resolves and projects the engine-neutral inline-formatting V1 slice.
-    pub fn resolve_inline_styles_v1(&mut self) -> Result<InlineStyleProjectionV1, StyleError> {
-        self.resolve_inline_styles_v1_at(self.last_animation_time_seconds.unwrap_or(0.0))
-    }
-
-    /// Resolves Stylo once and projects both production migration slices.
+    /// Runs the cascade once and projects both production style tables from
+    /// the retained computed styles.
     pub fn resolve_production_slice_v1(
         &mut self,
     ) -> Result<ProductionStyleProjectionV1, StyleError> {
-        self.resolve_production_slice_v1_at(self.last_animation_time_seconds.unwrap_or(0.0))
-    }
-
-    pub fn resolve_at(
-        &mut self,
-        animation_time_seconds: f64,
-    ) -> Result<ResolvedStylesV0, StyleError> {
-        self.resolve_style_data(animation_time_seconds)?;
-        Ok(projection::project(&self.dom))
-    }
-
-    pub fn resolve_v1_at(
-        &mut self,
-        animation_time_seconds: f64,
-    ) -> Result<ResolvedStylesV1, StyleError> {
-        self.resolve_style_data(animation_time_seconds)?;
-        Ok(projection::project_v1(&self.dom))
-    }
-
-    pub fn resolve_v2_at(
-        &mut self,
-        animation_time_seconds: f64,
-    ) -> Result<ResolvedStylesV2, StyleError> {
-        self.resolve_style_data(animation_time_seconds)?;
-        Ok(projection::project_v2(&self.dom))
-    }
-
-    /// Resolves the V1 contract slice at a monotonic animation timeline time.
-    pub fn resolve_inline_styles_v1_at(
-        &mut self,
-        animation_time_seconds: f64,
-    ) -> Result<InlineStyleProjectionV1, StyleError> {
-        self.resolve_style_data(animation_time_seconds)?;
-        projection::project_inline_v1(&self.dom).map_err(StyleError::from)
-    }
-
-    /// Resolves both V1 slices at one monotonic animation timeline time.
-    ///
-    /// The cascade traversal runs exactly once. The two owned, engine-neutral
-    /// tables are then projected from the retained computed-style slots.
-    pub fn resolve_production_slice_v1_at(
-        &mut self,
-        animation_time_seconds: f64,
-    ) -> Result<ProductionStyleProjectionV1, StyleError> {
-        self.resolve_style_data(animation_time_seconds)?;
-        let inline = projection::project_inline_v1(&self.dom)?;
-        let layout = projection::project_layout_v1(&self.dom)?;
-        Ok(ProductionStyleProjectionV1::new(inline, layout))
-    }
-
-    fn resolve_style_data(&mut self, animation_time_seconds: f64) -> Result<(), StyleError> {
-        if !animation_time_seconds.is_finite() || animation_time_seconds < 0.0 {
-            return Err(StyleError::InvalidAnimationTime);
-        }
-        if self
-            .last_animation_time_seconds
-            .is_some_and(|previous| animation_time_seconds < previous)
-        {
-            return Err(StyleError::NonMonotonicAnimationTime);
-        }
         traversal::resolve(
             &self.dom,
             &mut self.stylist,
             &self.animations,
             &mut self.snapshots,
-            animation_time_seconds,
         );
-        self.last_animation_time_seconds = Some(animation_time_seconds);
-        Ok(())
-    }
-
-    pub fn has_active_animations(&self) -> bool {
-        self.animations
-            .sets
-            .read()
-            .values()
-            .any(|set| set.needs_animation_ticks())
-    }
-
-    /// Forces the next resolve to recascade the complete document tree.
-    /// This is primarily used by isolated benchmark and differential-test
-    /// harnesses; retained production sessions should use targeted invalidation.
-    pub fn force_full_restyle(&mut self) {
-        self.dom.mark_full_restyle();
+        let inline = projection::project_inline_v1(&self.dom)?;
+        let layout = projection::project_layout_v1(&self.dom)?;
+        Ok(ProductionStyleProjectionV1::new(inline, layout))
     }
 }
 
@@ -369,8 +248,6 @@ pub enum StyleError {
     Source(SourceError),
     StyleTable(StyleTableError),
     LayoutStyleTable(LayoutStyleTableError),
-    InvalidAnimationTime,
-    NonMonotonicAnimationTime,
     InvalidUrl {
         kind: &'static str,
         value: String,
@@ -390,12 +267,6 @@ impl fmt::Display for StyleError {
             Self::Source(error) => error.fmt(formatter),
             Self::StyleTable(error) => error.fmt(formatter),
             Self::LayoutStyleTable(error) => error.fmt(formatter),
-            Self::InvalidAnimationTime => {
-                formatter.write_str("animation time must be finite and non-negative")
-            }
-            Self::NonMonotonicAnimationTime => {
-                formatter.write_str("animation time must not move backwards")
-            }
             Self::InvalidUrl {
                 kind,
                 value,
@@ -441,13 +312,12 @@ mod tests {
     use std::sync::Arc;
 
     use rito_source::SourceArena;
+    use rito_style_contract::{
+        AbsoluteColorSpace, InlineFormattingStyleV1, LayoutDisplayInsideV1, LayoutDisplayOutsideV1,
+        LayoutFormattingStyleV1, LineHeight,
+    };
 
-    use super::{
-        canonicalize_font_family_value, StyleDocument, StyleError, StylesheetInput, Viewport,
-    };
-    use crate::{
-        ComputedDisplayV1, ComputedLineHeightV1, DisplayCategory, DisplayInsideV1, DisplayOutsideV1,
-    };
+    use super::{canonicalize_font_family_value, StyleDocument, StylesheetInput, Viewport};
 
     const URL: &str = "https://example.test/book/chapter.xhtml";
 
@@ -457,45 +327,55 @@ mod tests {
         Arc::new(SourceArena::from_xhtml(xhtml).unwrap())
     }
 
-    #[test]
-    fn resolves_author_and_inline_style_without_blitz_dom() {
-        let mut document = StyleDocument::from_source(
-            source(
-                r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target" style="font-size: 27px">text</p></body></html>"#,
-            ),
+    /// Resolves the document through the production path and returns the
+    /// projected styles of the element with `id="target"`.
+    fn target_styles(
+        source: &Arc<SourceArena>,
+        root_font_size: f32,
+        css: &str,
+    ) -> (InlineFormattingStyleV1, LayoutFormattingStyleV1) {
+        let target = source.find_element_by_id("target").unwrap();
+        let mut document = StyleDocument::from_source_with_root_font_size(
+            Arc::clone(source),
             URL,
             Viewport::default(),
-            &[StylesheetInput::author(
-                "p { display: block; font-size: 21px }",
-                URL,
-            )],
+            root_font_size,
+            &[StylesheetInput::author(css, URL)],
         )
         .unwrap();
+        let (inline, layout) = document.resolve_production_slice_v1().unwrap().into_parts();
+        let inline_style = inline
+            .table()
+            .style_for_node(target.index())
+            .unwrap()
+            .clone();
+        let layout_style = *layout.table().style_for_node(target.index()).unwrap();
+        (inline_style, layout_style)
+    }
 
-        let resolved = document.resolve().unwrap();
-        let target = resolved.element_by_id("target").unwrap();
-        assert_eq!(target.display, DisplayCategory::Block);
-        assert_eq!(target.font_size_px, 27.0);
+    #[test]
+    fn resolves_author_and_inline_style_declarations() {
+        let source = source(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target" style="font-size: 27px">text</p></body></html>"#,
+        );
+        let (inline, layout) =
+            target_styles(&source, 16.0, "p { display: block; font-size: 21px }");
+        assert_eq!(layout.display.outside, LayoutDisplayOutsideV1::Block);
+        assert_eq!(layout.display.inside, LayoutDisplayInsideV1::Flow);
+        assert_eq!(inline.font.size.get(), 27.0);
     }
 
     #[test]
     fn configured_root_font_size_drives_root_relative_cascade() {
-        let mut document = StyleDocument::from_source_with_root_font_size(
-            source(
-                r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">text</p></body></html>"#,
-            ),
-            URL,
-            Viewport::default(),
+        let source = source(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">text</p></body></html>"#,
+        );
+        let (inline, _) = target_styles(
+            &source,
             22.0,
-            &[StylesheetInput::author(
-                "html { font-size: 2em } #target { font-size: 1rem }",
-                URL,
-            )],
-        )
-        .unwrap();
-
-        let resolved = document.resolve().unwrap();
-        assert_eq!(resolved.element_by_id("target").unwrap().font_size_px, 44.0);
+            "html { font-size: 2em } #target { font-size: 1rem }",
+        );
+        assert_eq!(inline.font.size.get(), 44.0);
     }
 
     #[test]
@@ -511,131 +391,43 @@ mod tests {
     }
 
     #[test]
-    fn v1_projection_preserves_computed_field_distinctions() {
-        let mut document = StyleDocument::from_source(
-            source(
-                r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">text</p></body></html>"#,
-            ),
-            URL,
-            Viewport::default(),
-            &[StylesheetInput::author(
-                "#target { display: inline-block; font-size: 24px; font-weight: 650; line-height: 1.5; color: rgba(255, 0, 128, .25) }",
-                URL,
-            )],
-        )
-        .unwrap();
-
-        let resolved = document.resolve_v1().unwrap();
-        let target = resolved.element_by_id("target").unwrap();
-        assert_eq!(target.font_size_px, 24.0);
-        assert_eq!(target.font_weight, 650.0);
-        assert_eq!(target.line_height, ComputedLineHeightV1::Number(1.5));
-        assert_eq!(
-            target.display,
-            ComputedDisplayV1 {
-                outside: DisplayOutsideV1::Inline,
-                inside: DisplayInsideV1::FlowRoot,
-                is_list_item: false,
-            }
+    fn projection_preserves_computed_field_distinctions() {
+        let source = source(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">text</p></body></html>"#,
         );
-        assert!((target.color.red - 1.0).abs() < 0.0001);
-        assert!((target.color.green - 0.0).abs() < 0.0001);
-        assert!((target.color.blue - 128.0 / 255.0).abs() < 0.0001);
-        assert!((target.color.alpha - 0.25).abs() < 0.0001);
+        let (inline, layout) = target_styles(
+            &source,
+            16.0,
+            "#target { display: inline-block; font-size: 24px; font-weight: 650; line-height: 1.5; color: rgba(255, 0, 128, .25) }",
+        );
+        assert_eq!(inline.font.size.get(), 24.0);
+        assert_eq!(inline.font.weight.get(), 650.0);
+        assert!(matches!(
+            inline.font.line_height,
+            LineHeight::Number(value) if value.get() == 1.5
+        ));
+        assert_eq!(layout.display.outside, LayoutDisplayOutsideV1::Inline);
+        assert_eq!(layout.display.inside, LayoutDisplayInsideV1::FlowRoot);
+        assert!(!layout.display.is_list_item);
+        let color = inline.paint.foreground;
+        assert_eq!(color.space(), AbsoluteColorSpace::Srgb);
+        let [red, green, blue] = color.components();
+        assert!((red.get() - 1.0).abs() < 0.0001);
+        assert!((green.get() - 0.0).abs() < 0.0001);
+        assert!((blue.get() - 128.0 / 255.0).abs() < 0.0001);
+        assert!((color.alpha().get() - 0.25).abs() < 0.0001);
     }
 
     #[test]
     fn resolves_namespace_attribute_and_language_selectors() {
-        let mut document = StyleDocument::from_source(
-            source(
-                r#"<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body xml:lang="ja-JP"><p id="target" epub:type="note">text</p></body></html>"#,
-            ),
-            URL,
-            Viewport::default(),
-            &[StylesheetInput::author(
-                r#"@namespace epub "http://www.idpf.org/2007/ops"; [epub|type="note"]:lang(ja) { font-size: 31px }"#,
-                URL,
-            )],
-        )
-        .unwrap();
-
-        let target = document
-            .resolve()
-            .unwrap()
-            .element_by_id("target")
-            .unwrap()
-            .clone();
-        assert_eq!(target.font_size_px, 31.0);
-    }
-
-    #[test]
-    fn retains_and_ticks_css_animations() {
-        let mut document = StyleDocument::from_source(
-            source(
-                r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">text</p></body></html>"#,
-            ),
-            URL,
-            Viewport::default(),
-            &[StylesheetInput::author(
-                "@keyframes grow { from { font-size: 10px } to { font-size: 30px } } #target { font-size: 10px; animation: grow 10s linear both }",
-                URL,
-            )],
-        )
-        .unwrap();
-
-        document.resolve_at(0.0).unwrap();
-        assert!(document.has_active_animations());
-        let resolved = document.resolve_at(5.0).unwrap();
-        let font_size = resolved.element_by_id("target").unwrap().font_size_px;
-        assert!((font_size - 20.0).abs() < 0.01, "got {font_size}px");
-    }
-
-    #[test]
-    fn advances_multiple_animation_iterations_and_rejects_time_reversal() {
-        let mut document = StyleDocument::from_source(
-            source(
-                r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">text</p></body></html>"#,
-            ),
-            URL,
-            Viewport::default(),
-            &[StylesheetInput::author(
-                "@keyframes pulse { from { font-size: 10px } to { font-size: 30px } } #target { font-size: 10px; animation: pulse 1s linear 4 alternate both }",
-                URL,
-            )],
-        )
-        .unwrap();
-
-        document.resolve_at(0.0).unwrap();
-        let resolved = document.resolve_at(2.25).unwrap();
-        let font_size = resolved.element_by_id("target").unwrap().font_size_px;
-        assert!((font_size - 15.0).abs() < 0.01, "got {font_size}px");
-        assert_eq!(
-            document.resolve_at(2.0).unwrap_err(),
-            StyleError::NonMonotonicAnimationTime
+        let source = source(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body xml:lang="ja-JP"><p id="target" epub:type="note">text</p></body></html>"#,
         );
-        let same_time = document.resolve().unwrap();
-        assert!((same_time.element_by_id("target").unwrap().font_size_px - 15.0).abs() < 0.01);
-    }
-
-    #[test]
-    fn repeated_exclusive_restyle_keeps_sidecar_borrows_non_overlapping() {
-        let mut document = StyleDocument::from_source(
-            source(
-                r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">text</p></body></html>"#,
-            ),
-            URL,
-            Viewport::default(),
-            &[StylesheetInput::author(
-                "#target { font-size: 20px; animation: none }",
-                URL,
-            )],
-        )
-        .unwrap();
-
-        for step in 0..1_000 {
-            document.force_full_restyle();
-            let resolved = document.resolve_at(f64::from(step) / 1_000.0).unwrap();
-            assert_eq!(resolved.element_by_id("target").unwrap().font_size_px, 20.0);
-        }
+        let (inline, _) = target_styles(
+            &source,
+            16.0,
+            r#"@namespace epub "http://www.idpf.org/2007/ops"; [epub|type="note"]:lang(ja) { font-size: 31px }"#,
+        );
+        assert_eq!(inline.font.size.get(), 31.0);
     }
 }

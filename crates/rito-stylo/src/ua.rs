@@ -1,4 +1,4 @@
-/// Rito's EPUB support-profile user-agent stylesheet.
+/// Rito's EPUB user-agent stylesheet.
 ///
 /// This is deliberately a document policy rather than browser chrome. It
 /// supplies the HTML box-generation defaults needed by publication content,
@@ -6,13 +6,11 @@
 /// widgets to hosts. It is not a complete browser HTML UA stylesheet.
 /// Keeping it as CSS lets Stylo apply normal cascade/origin rules over the
 /// DOM-independent `rito-source` arena.
-pub const EPUB_UA_PROFILE_ID: &str = "rito-epub-support-profile-v2";
-
 pub fn epub_ua_stylesheet() -> &'static str {
     EPUB_UA_STYLESHEET
 }
 
-pub(crate) const EPUB_UA_STYLESHEET: &str = r#"
+const EPUB_UA_STYLESHEET: &str = r#"
 @namespace url(http://www.w3.org/1999/xhtml);
 
 html, body,

@@ -36,11 +36,6 @@ final session = await RitoReaderSession.open(
       rootFontSize: 16,
     ),
     locator: const RitoLocator(href: 'chapter1.xhtml', progression: 0),
-    work: const RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 8,
-      maxForegroundQuanta: 2,
-      localPageCap: 16,
-    ),
   ),
   imageCache: RitoArtifactImageCache(),
   imagePixelRatio: MediaQuery.devicePixelRatioOf(context),
@@ -54,11 +49,6 @@ final next = await session.turn(
   from: session.firstArtifact,
   requestId: session.nextRequestId,
   direction: RitoAdjacentDirection.next,
-  work: const RitoWorkBudget(
-    maxTopLevelNodesPerQuantum: 8,
-    maxForegroundQuanta: 2,
-    localPageCap: 16,
-  ),
 );
 
 // Release the old page once the turn animation finishes.
@@ -80,8 +70,8 @@ else, so an unprepared page can never reach the screen.
 | member                                                                                                      | contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `open(gateway:, publicationBytes:, request:, fontCache:, imageCache:, imagePixelRatio:, resourcePreparer:)` | Opens the publication and prepares the first artifact. `imagePixelRatio` scales decoded image budgets; pass the device pixel ratio.                                                                                                                                                                                                                                                                                                                                     |
-| `peek(from:, requestId:, direction:, work:)`                                                                | Read-only neighbor fetch: returns the adjacent page as a fully prepared artifact **without changing the visible state**. The engine paginates toward the neighbor within the work budget — in-chapter, across window rollovers, and across chapter boundaries alike; null only when it is still out of reach (terminal book boundary or budget exhausted; UI falls back to fade-in). The artifact counts against the live budget and must be released.                  |
-| `turn(from:, requestId:, direction:, work:)`                                                                | Adjacent-page navigation via the fixed 60-byte `RITONAV1` request. Never re-runs locator seek or layout.                                                                                                                                                                                                                                                                                                                                                                |
+| `peek(from:, requestId:, direction:)`                                                                       | Read-only neighbor fetch: returns the adjacent page as a fully prepared artifact **without changing the visible state**. A neighbor in another chapter is paginated on demand; null only at the book's terminal boundary (UI falls back to fade-in). The artifact counts against the live budget and must be released.                                                                                                                                                  |
+| `turn(from:, requestId:, direction:)`                                                                       | Adjacent-page navigation via the fixed 48-byte `RITONAV1` request. Never re-runs locator seek or layout.                                                                                                                                                                                                                                                                                                                                                                |
 | `requestArtifact(request)`                                                                                  | Explicit seek or reflow (viewport change, font-size change, locator jump).                                                                                                                                                                                                                                                                                                                                                                                              |
 | `readPublication()`                                                                                         | Typed publication metadata (spine, TOC).                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `page.hits[].bounds`, `page.semantics[].bounds`                                                             | Rects in the artifact's **display-list space** — the coordinates `displayList` paints in, spread page offset and page margins included. Hit-test pointer positions on the painted surface directly; do not subtract margins.                                                                                                                                                                                                                                            |
@@ -219,10 +209,6 @@ paints unmodified.
   optional `anchorId`, `sourcePoint`, `sourceRange`, or `progression`.
   The artifact reports which match kind was honored
   (`RitoLocatorMatch`).
-- `RitoWorkBudget`: cooperative scheduling knobs
-  (`maxTopLevelNodesPerQuantum`, `maxForegroundQuanta`,
-  `localPageCap`). Larger budgets lower latency per call but block the
-  worker isolate longer per quantum.
 - `RitoTextProfile.platformStringRuns` is the only profile the painter
   accepts in v1.
 

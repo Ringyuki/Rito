@@ -29,9 +29,8 @@ use rito_core::runtime::{
     ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderBackgroundStateV1,
     ReaderErrorKindV1, ReaderErrorV1, ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1,
     ReaderResourceKindV1, ReaderSessionV1, ReaderSpreadModeV1, ReaderTextRenderingProfileV1,
-    ReaderWorkBudgetV1, READER_BACKGROUND_HANDOFF_WIRE_BYTES_V1,
-    READER_BACKGROUND_REQUEST_WIRE_BYTES_V1, READER_FOREGROUND_HANDOFF_WIRE_BYTES_V1,
-    READER_WIRE_HEADER_BYTES_V1,
+    READER_BACKGROUND_HANDOFF_WIRE_BYTES_V1, READER_BACKGROUND_REQUEST_WIRE_BYTES_V1,
+    READER_FOREGROUND_HANDOFF_WIRE_BYTES_V1, READER_WIRE_HEADER_BYTES_V1,
 };
 use zip::{write::FileOptions, ZipWriter};
 
@@ -67,59 +66,23 @@ fn wasm_error_codes_match_actionable_core_reader_kinds() {
 }
 
 #[test]
-fn wasm_pending_query_projects_the_retained_exact_seek_without_message_parsing() {
-    let mut projection =
-        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
-    let mut request =
-        decode_reader_artifact_request_v1(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-47"))
-            .expect("request decodes");
-    request.work.max_top_level_nodes_per_quantum = 1;
-    request.work.max_foreground_quanta = 1;
-    let wire = encode_reader_artifact_request_v1(&request).expect("single quantum request encodes");
-
-    // One-pass: the deep exact locator resolves inside this single call
-    // regardless of the request's budget, and no pending continuation is
-    // ever retained.
-    let artifact_wire = projection
-        .request_artifact(&wire)
-        .expect("deep exact locator resolves in one request");
-    let artifact = decode_reader_artifact_v1(&artifact_wire).expect("artifact decodes");
-    assert_eq!(artifact.locator.anchor_id.as_deref(), Some("point-47"));
-    assert!(!projection.has_pending_exact_seek());
-
-    let wasm = RitoReaderSessionV1 { inner: projection };
-    assert!(!wasm.has_pending_exact_seek_v1());
-}
-
-#[test]
 fn wasm_pending_query_projects_retained_adjacent_without_message_parsing() {
     let mut projection =
         open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
-    let mut initial =
-        decode_reader_artifact_request_v1(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-0"))
-            .expect("initial request decodes");
-    initial.work.max_top_level_nodes_per_quantum = 1;
-    initial.work.max_foreground_quanta = 1;
     // One-pass: the open resolves immediately, and an adjacent turn on a
     // whole-chapter revision publishes without retained cooperative work.
-    let initial_wire = encode_reader_artifact_request_v1(&initial).expect("initial encodes");
     let artifact_wire = projection
-        .request_artifact(&initial_wire)
+        .request_artifact(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-0"))
         .expect("exact locator resolves in one request");
     let artifact = decode_reader_artifact_v1(&artifact_wire).expect("artifact decodes");
 
-    let mut adjacent = decode_reader_adjacent_request_v1(&adjacent_wire(
-        SESSION_ID,
-        2,
-        artifact.artifact_id,
-        ReaderAdjacentDirectionV1::Next,
-    ))
-    .expect("adjacent request decodes");
-    adjacent.work.max_top_level_nodes_per_quantum = 1;
-    adjacent.work.max_foreground_quanta = 1;
-    let adjacent_wire = encode_reader_adjacent_request_v1(&adjacent).expect("adjacent encodes");
     projection
-        .request_adjacent(&adjacent_wire)
+        .request_adjacent(&adjacent_wire(
+            SESSION_ID,
+            2,
+            artifact.artifact_id,
+            ReaderAdjacentDirectionV1::Next,
+        ))
         .expect("the adjacent page publishes in one request");
     assert!(!projection.has_pending_adjacent());
 
@@ -998,11 +961,6 @@ fn request_wire(session_id: u64, request_id: u64, href: &str) -> Vec<u8> {
             source_range: None,
             progression: None,
         },
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 32,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
-        },
         text_profile: ReaderTextRenderingProfileV1::PlatformStringRuns,
     })
     .expect("request encodes")
@@ -1019,11 +977,6 @@ fn adjacent_wire(
         request_id,
         from_artifact_id,
         direction,
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 32,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
-        },
     })
     .expect("adjacent request encodes")
 }

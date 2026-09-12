@@ -25,7 +25,6 @@ export type {
   BrowserReaderTextProfileV1,
   BrowserReaderV1OpenOptions,
   BrowserReaderV1Session,
-  BrowserReaderWorkBudgetV1,
 } from './bindings/browser/reader-v1';
 export type {
   BrowserReaderImageLoadOutcome,

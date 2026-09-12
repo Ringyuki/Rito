@@ -17,7 +17,7 @@ use rito_core::runtime::{
     ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderBackgroundStateV1,
     ReaderErrorKindV1, ReaderErrorV1, ReaderForegroundHandoffV1, ReaderLayoutV1, ReaderLocatorV1,
     ReaderResourceKindV1, ReaderSearchRequestV1, ReaderSpreadModeV1, ReaderTextPositionV1,
-    ReaderTextRangeRequestV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
+    ReaderTextRangeRequestV1, ReaderTextRenderingProfileV1,
     READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES_V1, READER_FOREGROUND_HANDOFF_WIRE_BYTES_V1,
     READER_WIRE_HEADER_BYTES_V1,
 };
@@ -32,10 +32,9 @@ use crate::{
     RitoPinnedFontFaceV1, RITO_ACTOR_MAX_IN_FLIGHT_V1, RITO_PINNED_FONT_ROLE_SERIF_V1,
     RITO_PUBLICATION_WIRE_BYTES_MAX_V1, RITO_RESOURCE_KIND_IMAGE_V1,
     RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_ALREADY_EXISTS_V1, RITO_STATUS_BUSY_V1,
-    RITO_STATUS_EXACT_SEEK_PENDING_V1, RITO_STATUS_INVALID_ARGUMENT_V1, RITO_STATUS_NOT_FOUND_V1,
-    RITO_STATUS_OK_V1, RITO_STATUS_QUEUE_FULL_V1, RITO_STATUS_SESSION_TERMINATED_V1,
-    RITO_STATUS_STALE_REQUEST_V1, RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
-    RITO_STATUS_UNSUPPORTED_PROFILE_V1,
+    RITO_STATUS_INVALID_ARGUMENT_V1, RITO_STATUS_NOT_FOUND_V1, RITO_STATUS_OK_V1,
+    RITO_STATUS_QUEUE_FULL_V1, RITO_STATUS_SESSION_TERMINATED_V1, RITO_STATUS_STALE_REQUEST_V1,
+    RITO_STATUS_TARGET_NOT_PUBLISHED_V1, RITO_STATUS_UNSUPPORTED_PROFILE_V1,
 };
 
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(10_000);
@@ -66,7 +65,6 @@ fn ffi_status_mapping_keeps_actionable_reader_failures_distinct() {
     let busy = FfiError::busy("actor admission cap reached");
     assert_eq!(busy.status, RITO_STATUS_BUSY_V1);
     assert_eq!(RITO_STATUS_QUEUE_FULL_V1, RITO_STATUS_BUSY_V1);
-    assert_eq!(RITO_STATUS_EXACT_SEEK_PENDING_V1, 9);
     assert_eq!(RITO_STATUS_ADJACENT_PENDING_V1, 10);
     assert_eq!(RITO_STATUS_SESSION_TERMINATED_V1, 11);
     assert_eq!(RITO_ACTOR_MAX_IN_FLIGHT_V1, 8);
@@ -351,17 +349,16 @@ fn an_open_without_pinned_fonts_fails_closed() {
 }
 
 #[test]
-fn open_resolves_a_deep_target_in_one_call_regardless_of_budget() {
+fn open_resolves_a_deep_target_in_one_call() {
     let session_id = next_session_id();
     let publication = publication();
-    let initial = pending_open_request(session_id, 10);
+    let initial = deep_open_request(session_id, 10);
     let initial_wire =
-        encode_reader_artifact_request_v1(&initial).expect("pending open request encodes");
+        encode_reader_artifact_request_v1(&initial).expect("deep open request encodes");
     let opened = call_open(&publication, &initial_wire);
 
     // One-pass: the deep progression target resolves in this single
-    // call regardless of the request's budget — no pending status, no
-    // resume loop.
+    // call — no pending status, no resume loop.
     assert_eq!(opened.status, RITO_STATUS_OK_V1, "{}", opened.error);
     let artifact = decode_reader_artifact_v1(&opened.artifact).expect("open artifact decodes");
     assert_eq!(artifact.session_id, session_id);
@@ -391,8 +388,6 @@ fn open_resolves_a_deep_target_in_one_call_regardless_of_budget() {
 
     let mut reseek = initial;
     reseek.request_id = 12;
-    reseek.work.max_top_level_nodes_per_quantum = 32;
-    reseek.work.max_foreground_quanta = 512;
     let reseek_wire = encode_reader_artifact_request_v1(&reseek).expect("reseek request encodes");
     let result = call_request_artifact(session_id, &reseek_wire);
     assert_eq!(result.status, RITO_STATUS_OK_V1, "{}", result.error);
@@ -412,9 +407,9 @@ fn open_resolves_a_deep_target_in_one_call_regardless_of_budget() {
 fn disposing_an_open_session_releases_it_for_reuse() {
     let session_id = next_session_id();
     let publication = publication();
-    let initial = pending_open_request(session_id, 1);
+    let initial = deep_open_request(session_id, 1);
     let initial_wire =
-        encode_reader_artifact_request_v1(&initial).expect("pending open request encodes");
+        encode_reader_artifact_request_v1(&initial).expect("deep open request encodes");
     assert_eq!(
         call_open(&publication, &initial_wire).status,
         RITO_STATUS_OK_V1,
@@ -634,7 +629,7 @@ fn ffi_statuses_distinguish_terminal_and_unsupported_profile() {
     assert_eq!(
         call_read_publication(unsupported_session_id).status,
         RITO_STATUS_NOT_FOUND_V1,
-        "a non-pending open failure must not register an actor"
+        "a failed open must not register an actor"
     );
     let valid_wire = encode_reader_artifact_request_v1(&request(unsupported_session_id))
         .expect("valid replacement open encodes");
@@ -985,25 +980,17 @@ fn request(session_id: u64) -> ReaderArtifactRequestV1 {
             source_range: None,
             progression: None,
         },
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 32,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
-        },
         text_profile: ReaderTextRenderingProfileV1::PlatformStringRuns,
     }
 }
 
-fn pending_open_request(session_id: u64, request_id: u64) -> ReaderArtifactRequestV1 {
+/// A locator deep inside a long chapter, so the open must paginate
+/// past many pages before it can publish.
+fn deep_open_request(session_id: u64, request_id: u64) -> ReaderArtifactRequestV1 {
     let mut request = request(session_id);
     request.request_id = request_id;
     request.locator.href = "OEBPS/Text/Section013.xhtml".to_owned();
     request.locator.progression = Some(0.95);
-    request.work = ReaderWorkBudgetV1 {
-        max_top_level_nodes_per_quantum: 1,
-        max_foreground_quanta: 1,
-        local_page_cap: 4,
-    };
     request
 }
 
@@ -1013,11 +1000,6 @@ fn adjacent_wire(session_id: u64, request_id: u64, from_artifact_id: u64) -> Vec
         request_id,
         from_artifact_id,
         direction: ReaderAdjacentDirectionV1::Next,
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 32,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
-        },
     })
     .expect("adjacent request encodes")
 }
@@ -1109,7 +1091,6 @@ fn peek_and_commit_round_trip_without_foreground_side_effects() {
         request_id: 2,
         from_artifact_id: first.artifact_id,
         direction: ReaderAdjacentDirectionV1::Next,
-        work: request(session_id).work,
     })
     .expect("adjacent encodes");
     let next = call_request_adjacent(session_id, &next_wire);
@@ -1135,7 +1116,6 @@ fn peek_and_commit_round_trip_without_foreground_side_effects() {
         request_id: 3,
         from_artifact_id: next.artifact_id,
         direction: ReaderAdjacentDirectionV1::Previous,
-        work: request(session_id).work,
     })
     .expect("peek encodes");
     let mut artifact_out = RitoOwnedBufferV1::EMPTY;
@@ -1212,7 +1192,6 @@ fn footnote_hits_read_back_through_the_abi() {
             request_id,
             from_artifact_id: current.artifact_id,
             direction: ReaderAdjacentDirectionV1::Next,
-            work: request(session_id).work,
         })
         .expect("adjacent encodes");
         let next = call_request_adjacent(session_id, &wire);
@@ -1258,7 +1237,6 @@ fn text_range_geometry_crosses_the_abi_in_display_list_space() {
             request_id,
             from_artifact_id: artifact.artifact_id,
             direction: ReaderAdjacentDirectionV1::Next,
-            work: request(session_id).work,
         })
         .expect("adjacent encodes");
         let next = call_request_adjacent(session_id, &wire);

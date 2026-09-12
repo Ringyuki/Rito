@@ -18,7 +18,7 @@ use crate::runtime::reader_v1::{
     ReaderPublicationV1, ReaderResourceV1, ReaderSearchRequestV1, ReaderSearchResponseV1,
     ReaderSourcePointV1, ReaderSourceRangeV1, ReaderSpreadModeV1, ReaderTextPositionV1,
     ReaderTextRangeGeometryV1, ReaderTextRangeRequestV1, ReaderTextRenderingProfileV1,
-    ReaderWorkBudgetV1, READER_PROTOCOL_VERSION_V1, READER_PUBLICATION_WIRE_BYTES_MAX_V1,
+    READER_PROTOCOL_VERSION_V1, READER_PUBLICATION_WIRE_BYTES_MAX_V1,
 };
 
 pub(super) fn artifact(value: &ReaderArtifactV1) -> Result<Vec<u8>, ReaderErrorV1> {
@@ -41,7 +41,6 @@ pub(super) fn request(value: &ReaderArtifactRequestV1) -> Result<Vec<u8>, Reader
     writer.u64(value.request_id);
     layout(&mut writer, &value.layout)?;
     locator(&mut writer, &value.locator)?;
-    work_budget(&mut writer, value.work)?;
     writer.u32(text_profile(value.text_profile));
     writer.finish_message()
 }
@@ -58,9 +57,6 @@ pub(super) fn adjacent_request(value: &ReaderAdjacentRequestV1) -> Result<Vec<u8
     writer.u64(value.request_id);
     writer.u64(value.from_artifact_id);
     writer.u32(adjacent_direction(value.direction));
-    writer.u32(value.work.max_top_level_nodes_per_quantum);
-    writer.u32(value.work.max_foreground_quanta);
-    writer.u32(value.work.local_page_cap);
     writer.finish_message()
 }
 
@@ -382,15 +378,6 @@ fn source_range(writer: &mut Writer, value: &ReaderSourceRangeV1) -> Result<(), 
     writer.record(|writer| {
         source_point(writer, &value.start)?;
         source_point(writer, &value.end)
-    })
-}
-
-fn work_budget(writer: &mut Writer, value: ReaderWorkBudgetV1) -> Result<(), ReaderErrorV1> {
-    writer.record(|writer| {
-        writer.u32(value.max_top_level_nodes_per_quantum);
-        writer.u32(value.max_foreground_quanta);
-        writer.u32(value.local_page_cap);
-        Ok(())
     })
 }
 

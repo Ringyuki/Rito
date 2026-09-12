@@ -16,7 +16,6 @@ import {
   type RitoReaderSeekOverridesV1,
   type RitoReaderTextProfileV1,
   type RitoReaderV1WorkerLike,
-  type RitoReaderWorkBudgetV1,
   RitoReaderErrorV1,
 } from '@ritojs/core-wasm/decoder';
 
@@ -32,7 +31,6 @@ export type BrowserReaderLayoutV1 = RitoReaderLayoutV1;
 export type BrowserReaderLocatorV1 = RitoReaderLocatorV1;
 export type BrowserReaderPublicationV1 = RitoReaderPublicationV1;
 export type BrowserReaderResourceV1 = RitoReaderResourceV1;
-export type BrowserReaderWorkBudgetV1 = RitoReaderWorkBudgetV1;
 export type BrowserReaderAdjacentDirectionV1 = RitoReaderAdjacentDirectionV1;
 export type BrowserReaderResourceKindV1 = RitoReaderResourceKindV1;
 export type BrowserReaderTextProfileV1 = RitoReaderTextProfileV1;
@@ -41,7 +39,6 @@ export type BrowserReaderSeekOverridesV1 = RitoReaderSeekOverridesV1;
 export interface BrowserReaderV1OpenOptions {
   readonly initialLocator: BrowserReaderLocatorV1;
   readonly layout: BrowserReaderLayoutV1;
-  readonly work: BrowserReaderWorkBudgetV1;
   readonly textProfile?: BrowserReaderTextProfileV1 | undefined;
   /**
    * Pinned fallback faces. Chapter-local pagination shapes with pinned
@@ -70,7 +67,6 @@ export interface BrowserReaderV1Session {
   requestAdjacent(
     fromArtifactId: bigint,
     direction: BrowserReaderAdjacentDirectionV1,
-    work?: BrowserReaderWorkBudgetV1,
   ): Promise<BrowserReaderArtifactV1>;
   /** Returns an unadopted latest-wins candidate sharing the adjacent foreground lane. */
   requestArtifact(request: BrowserReaderArtifactRequestV1): Promise<BrowserReaderArtifactV1>;
@@ -127,7 +123,6 @@ export async function openBrowserReaderV1WithWorker(
       renderRatio: options.layout.renderRatio ?? defaultRenderRatio(),
     },
     locator: options.initialLocator,
-    work: options.work,
     textProfile: options.textProfile ?? 'platform-string-runs',
   };
   try {

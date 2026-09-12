@@ -32,19 +32,13 @@ const layout = {
   spreadGap: 24,
   rootFontSize: 16,
 };
-const work = {
-  maxTopLevelNodesPerQuantum: 64,
-  maxForegroundQuanta: 8,
-  localPageCap: 16,
-};
 
-test('foreground continuations reuse the shared host-turn primitive without a timer retry loop', () => {
+test('adjacent continuations reuse the shared host-turn primitive without a timer retry loop', () => {
   const source = readFileSync(
     new URL('../src/reader-v1-worker-client-runtime.js', import.meta.url),
     'utf8',
   );
   assert.match(source, /defaultYieldControl/);
-  assert.match(source, /MAX_EXACT_CONTINUATION_QUANTA\s*=\s*4_096/);
   assert.match(source, /MAX_ADJACENT_CONTINUATION_QUANTA\s*=\s*4_096/);
   assert.doesNotMatch(source, /setTimeout\(\s*resolve\s*,\s*0/);
   assert.doesNotMatch(source, /function\s+.*yield.*setTimeout/i);
@@ -134,7 +128,6 @@ test('worker open sends the initial locator as Core first and only artifact requ
       requestId: 1n,
       layout,
       locator: { href: 'Text/Section040.xhtml', progression: 0.75 },
-      work,
       textProfile: 'platform-string-runs',
     },
   });
@@ -478,11 +471,7 @@ test('unadopted reflow candidate does not change the next seek request template'
   await adoptClientForeground(worker, client, undefined, initial);
 
   const rejectedLayout = { ...layout, rootFontSize: 27 };
-  const rejectedWork = { ...work, maxTopLevelNodesPerQuantum: 3, localPageCap: 5 };
-  const reflowing = client.seek(
-    { href: 'Text/unprepared.xhtml' },
-    { layout: rejectedLayout, work: rejectedWork },
-  );
+  const reflowing = client.seek({ href: 'Text/unprepared.xhtml' }, { layout: rejectedLayout });
   await settle();
   const reflowMessage = worker.take('request-artifact');
   worker.respondArtifact(reflowMessage, 2n, 'Text/unprepared.xhtml');
@@ -507,11 +496,6 @@ test('unadopted reflow candidate does not change the next seek request template'
   await settle();
   const nextMessage = worker.take('request-artifact');
   assert.equal(nextMessage.request.layout.rootFontSize, layout.rootFontSize);
-  assert.equal(
-    nextMessage.request.work.maxTopLevelNodesPerQuantum,
-    work.maxTopLevelNodesPerQuantum,
-  );
-  assert.equal(nextMessage.request.work.localPageCap, work.localPageCap);
   worker.respondError(nextMessage, 'target-not-published', 'terminal target');
   await assert.rejects(next, (error) => error.code === 'target-not-published');
 
@@ -520,86 +504,7 @@ test('unadopted reflow candidate does not change the next seek request template'
   await disposing;
 });
 
-test('worker retains explicit exact-seek pending state until the exact artifact is ready', async () => {
-  const scope = workerScope();
-  const requests = [];
-  class RawSession {
-    constructor(_publication, sessionId) {
-      this.sessionId = sessionId;
-      this.pending = false;
-    }
-
-    hasPendingExactSeekV1() {
-      return this.pending;
-    }
-
-    requestArtifactV1(requestBytes) {
-      requests.push(requestBytes.slice());
-      if (requests.length < 3) {
-        this.pending = true;
-        const error = new Error('opaque typed Core error');
-        error.code = 'target-not-published';
-        throw error;
-      }
-      this.pending = false;
-      const identity = requestIdentity(requestBytes);
-      return artifactWire(identity.sessionId, identity.requestId, 71n, 'Text/exact.xhtml');
-    }
-
-    disposeV1() {
-      return true;
-    }
-  }
-  createRitoCoreWasmReaderV1WorkerHandler(scope, {
-    initRitoCoreWasm: async () => undefined,
-    RitoReaderSessionV1: RawSession,
-  });
-  const requestFor = (requestId) => ({
-    sessionId: 31n,
-    requestId,
-    ...request('Text/exact.xhtml'),
-  });
-
-  scope.dispatch({
-    protocol: 'rito-reader-v1',
-    id: 1,
-    kind: 'open',
-    publication: new ArrayBuffer(1),
-    sessionId: 31n,
-    request: requestFor(1n),
-  });
-  await settle();
-  assert.deepEqual(scope.responses.at(-1).message.payload, {
-    kind: 'pending-exact',
-    sessionId: 31n,
-    requestId: 1n,
-  });
-
-  for (let id = 2; id <= 3; id += 1) {
-    scope.dispatch({
-      protocol: 'rito-reader-v1',
-      id,
-      kind: 'request-artifact',
-      request: requestFor(BigInt(id)),
-    });
-    await settle();
-  }
-
-  assert.deepEqual(
-    requests.map((bytes) => requestIdentity(bytes).requestId),
-    [1n, 2n, 3n],
-  );
-  assert.deepEqual(
-    requests.map((bytes) => requestWorkBudget(bytes).maxForegroundQuanta),
-    [1, 1, 1],
-  );
-  assert.equal(scope.responses[1].message.payload.kind, 'pending-exact');
-  assert.equal(scope.responses[2].message.payload.identity.requestId, 3n);
-  assert.equal(scope.responses[2].message.payload.identity.revisionId, 1n);
-  assert.equal(scope.responses[2].message.payload.identity.revisionVersion, 1);
-});
-
-test('worker retries adjacent only from typed Core pending state and forces one quantum', async () => {
+test('worker retries adjacent only from typed Core pending state', async () => {
   const scope = workerScope();
   const requests = [];
   let pending = false;
@@ -674,7 +579,6 @@ test('worker retries adjacent only from typed Core pending state and forces one 
         requestId: BigInt(id),
         fromArtifactId: 1n,
         direction: 'next',
-        work,
       },
     });
     await settle();
@@ -687,10 +591,6 @@ test('worker retries adjacent only from typed Core pending state and forces one 
     requests.map((requestValue) => requestValue.requestId),
     [2n, 3n, 4n],
   );
-  assert.deepEqual(
-    requests.map((requestValue) => requestValue.work.maxForegroundQuanta),
-    [1, 1, 1],
-  );
 
   scope.dispatch({
     protocol: 'rito-reader-v1',
@@ -701,7 +601,6 @@ test('worker retries adjacent only from typed Core pending state and forces one 
       requestId: 5n,
       fromArtifactId: 1n,
       direction: 'next',
-      work,
     },
   });
   await settle();
@@ -716,24 +615,18 @@ test('worker retries adjacent only from typed Core pending state and forces one 
 test('worker keeps a ready session after a terminal seek and fails closed on engine failure', async () => {
   const scope = workerScope();
   let calls = 0;
-  let pending = false;
   let disposals = 0;
   class RawSession {
-    hasPendingExactSeekV1() {
-      return pending;
-    }
-
     requestArtifactV1(requestBytes) {
       calls += 1;
       const identity = requestIdentity(requestBytes);
       if (calls === 2) {
-        const error = new Error('pending text must not control retry');
+        const error = new Error('terminal target');
         error.code = 'target-not-published';
         throw error;
       }
       if (calls === 4) {
-        pending = true;
-        const error = new Error('typed engine failure while query remains true');
+        const error = new Error('typed engine failure');
         error.code = 'engine-failure';
         throw error;
       }
@@ -796,7 +689,7 @@ test('worker keeps a ready session after a terminal seek and fails closed on eng
   });
   await settle();
   assert.equal(scope.responses.at(-1).message.error.code, 'engine-failure');
-  assert.equal(disposals, 1, 'query=true must not swallow a typed engine failure');
+  assert.equal(disposals, 1, 'a typed engine failure disposes the session');
 });
 
 test('worker disposes a terminal initial open instead of retaining an unusable session', async () => {
@@ -804,10 +697,6 @@ test('worker disposes a terminal initial open instead of retaining an unusable s
   let disposals = 0;
   let frees = 0;
   class RawSession {
-    hasPendingExactSeekV1() {
-      return false;
-    }
-
     requestArtifactV1() {
       const error = new Error('terminal initial locator');
       error.code = 'invalid-locator';
@@ -896,63 +785,6 @@ test('client immediately fails closed after a fatal exact engine failure', async
   assert.equal(worker.terminateCount, 1);
 });
 
-test('client yields once per explicit pending response and caps exact continuation attempts', async () => {
-  const worker = fakeWorker();
-  let yields = 0;
-  const client = createRitoCoreWasmReaderV1WorkerClient(worker, {
-    yieldControl: async () => {
-      yields += 1;
-    },
-  });
-  const opening = client.open(new ArrayBuffer(4), request('Text/exact.xhtml'));
-  const first = worker.take('open');
-  worker.respond(first, pendingExactPayload(first.request));
-  await settle();
-  const second = worker.take('request-artifact');
-  worker.respond(second, pendingExactPayload(second.request));
-  await settle();
-  const third = worker.take('request-artifact');
-  worker.respondArtifact(third, 81n, 'Text/exact.xhtml');
-  const artifact = await opening;
-
-  assert.equal(yields, 2);
-  assert.deepEqual(
-    [first, second, third].map((message) => message.request.requestId),
-    [first.request.requestId, first.request.requestId + 1n, first.request.requestId + 2n],
-  );
-  assert.deepEqual(
-    [first, second, third].map((message) => message.request.work.maxForegroundQuanta),
-    [1, 1, 1],
-  );
-  assert.equal(artifact.revisionId, 1n);
-  assert.equal(artifact.revisionVersion, 1);
-
-  const disposing = client.dispose();
-  worker.respond(worker.take('dispose'), { kind: 'dispose', releasedArtifacts: 1 });
-  await disposing;
-
-  const cappedWorker = fakeWorker();
-  const capped = createRitoCoreWasmReaderV1WorkerClient(cappedWorker, {
-    yieldControl: async () => undefined,
-    maxExactContinuationQuanta: 2,
-  });
-  const cappedRequest = request('Text/never-ready.xhtml');
-  const cappedOpening = capped.open(new ArrayBuffer(4), cappedRequest);
-  const cappedFirst = cappedWorker.take('open');
-  cappedWorker.respond(cappedFirst, pendingExactPayload(cappedFirst.request));
-  await settle();
-  const cappedSecond = cappedWorker.take('request-artifact');
-  cappedWorker.respond(cappedSecond, pendingExactPayload(cappedSecond.request));
-  await settle();
-  const cappedDispose = cappedWorker.take('dispose');
-  cappedWorker.respond(cappedDispose, { kind: 'dispose', releasedArtifacts: 0 });
-  await assert.rejects(
-    cappedOpening,
-    (error) => error.code === 'target-not-published' && /continuation quanta/.test(error.message),
-  );
-  assert.equal(cappedWorker.count('request-artifact'), 0);
-});
-
 test('client yields once per adjacent quantum with strict request ids and an explicit cap', async () => {
   const worker = fakeWorker();
   let yields = 0;
@@ -983,10 +815,6 @@ test('client yields once per adjacent quantum with strict request ids and an exp
   assert.deepEqual(
     [first, second, third].map((message) => message.request.requestId),
     [first.request.requestId, first.request.requestId + 1n, first.request.requestId + 2n],
-  );
-  assert.deepEqual(
-    [first, second, third].map((message) => message.request.work.maxForegroundQuanta),
-    [1, 1, 1],
   );
   assert.deepEqual(
     [first, second, third].map((message) => message.request.fromArtifactId),
@@ -1127,91 +955,6 @@ test('latest-wins seek keeps one active + one replaceable request and releases s
   const latest = await third;
   assert.equal(latest.artifactId, 3n);
   assert.equal(initial.artifactId, 1n, 'visible source remains live until the host releases it');
-});
-
-test('pending seek and adjacent navigation share one latest-wins foreground lane', async () => {
-  const worker = fakeWorker();
-  let resumeYield;
-  const client = createRitoCoreWasmReaderV1WorkerClient(worker, {
-    yieldControl: () =>
-      new Promise((resolve) => {
-        resumeYield = resolve;
-      }),
-  });
-  const opening = client.open(new ArrayBuffer(4), request('Text/start.xhtml'));
-  const openMessage = worker.take('open');
-  worker.respondArtifact(openMessage, 1n, 'Text/start.xhtml', 'open');
-  const initial = await opening;
-  await adoptClientForeground(worker, client, undefined, initial);
-
-  const pendingSeek = client.seek({ href: 'Text/old.xhtml' });
-  await settle();
-  const oldMessage = worker.take('request-artifact');
-  worker.respond(oldMessage, pendingExactPayload(oldMessage.request));
-  await settle();
-  await assert.rejects(
-    client.advanceBackgroundOnce(initial.artifactId, 1),
-    (error) => error.code === 'request-busy',
-  );
-  assert.equal(worker.count('advance-background-once'), 0);
-
-  const adjacent = client.requestAdjacent(initial.artifactId, 'next');
-  await assert.rejects(pendingSeek, (error) => error.code === 'stale-request');
-  assert.equal(worker.count('request-adjacent'), 0, 'adjacent waits for the old lane owner');
-  resumeYield();
-  await settle();
-
-  const adjacentMessage = worker.take('request-adjacent');
-  const latest = client.seek({ href: 'Text/latest.xhtml' });
-  worker.respondArtifact(adjacentMessage, 2n, 'Text/adjacent.xhtml');
-  await settle();
-  const staleRelease = worker.take('release');
-  assert.equal(staleRelease.artifactId, 2n);
-  worker.respond(staleRelease, { kind: 'release', released: true });
-  await assert.rejects(adjacent, (error) => error.code === 'stale-request');
-  await settle();
-
-  const latestMessage = worker.take('request-artifact');
-  assert.equal(latestMessage.request.requestId, adjacentMessage.request.requestId + 1n);
-  assert.equal(latestMessage.request.locator.href, 'Text/latest.xhtml');
-  worker.respondArtifact(latestMessage, 3n, 'Text/latest.xhtml');
-  assert.equal((await latest).artifactId, 3n);
-
-  const disposing = client.dispose();
-  worker.respond(worker.take('dispose'), { kind: 'dispose', releasedArtifacts: 2 });
-  await disposing;
-});
-
-test('dispose stops a pending exact retry before another host turn can send it', async () => {
-  const worker = fakeWorker();
-  let resumeYield;
-  const client = createRitoCoreWasmReaderV1WorkerClient(worker, {
-    yieldControl: () =>
-      new Promise((resolve) => {
-        resumeYield = resolve;
-      }),
-  });
-  const opening = client.open(new ArrayBuffer(4), request('Text/start.xhtml'));
-  const openMessage = worker.take('open');
-  worker.respondArtifact(openMessage, 1n, 'Text/start.xhtml', 'open');
-  const initial = await opening;
-  await adoptClientForeground(worker, client, undefined, initial);
-
-  const seeking = client.seek({ href: 'Text/pending.xhtml' });
-  await settle();
-  const seekMessage = worker.take('request-artifact');
-  worker.respond(seekMessage, pendingExactPayload(seekMessage.request));
-  await settle();
-
-  const disposing = client.dispose();
-  const disposeMessage = worker.take('dispose');
-  worker.respond(disposeMessage, { kind: 'dispose', releasedArtifacts: 1 });
-  await disposing;
-  resumeYield();
-  await settle();
-
-  await assert.rejects(seeking);
-  assert.equal(worker.count('request-artifact'), 0);
 });
 
 test('worker bounds live artifact ownership and reopens capacity only after release', async () => {
@@ -1565,7 +1308,6 @@ test('worker fail-closes when an adjacent artifact identity is lost during wire 
       requestId: 2n,
       fromArtifactId: 1n,
       direction: 'next',
-      work,
     },
   });
   await settle();
@@ -1787,14 +1529,6 @@ test('resource decoder rejects a kind-specific oversized blob before slicing it'
   );
 });
 
-function pendingExactPayload(requestValue) {
-  return {
-    kind: 'pending-exact',
-    sessionId: requestValue.sessionId,
-    requestId: requestValue.requestId,
-  };
-}
-
 function pendingAdjacentPayload(requestValue) {
   return {
     kind: 'pending-adjacent',
@@ -1826,7 +1560,7 @@ async function adoptClientForeground(worker, client, expectedVisibleArtifactId, 
 }
 
 function request(href) {
-  return { layout, locator: { href }, work, textProfile: 'platform-string-runs' };
+  return { layout, locator: { href }, textProfile: 'platform-string-runs' };
 }
 
 function artifactWire(sessionId, requestId, artifactId, href, options = {}) {
@@ -1967,24 +1701,9 @@ function requestIdentity(bytes) {
   return { sessionId: reader.externalId('session'), requestId: reader.externalId('request') };
 }
 
-function requestWorkBudget(bytes) {
-  const reader = new ReaderWireReaderV1(bytes);
-  reader.expectMagic('RITOREQ1', 'magic');
-  reader.u32('version');
-  reader.u64('length');
-  reader.externalId('session');
-  reader.externalId('request');
-  reader.record('layout');
-  reader.record('locator');
-  const work = reader.record('work');
-  return {
-    maxTopLevelNodesPerQuantum: work.u32('top-level nodes'),
-    maxForegroundQuanta: work.u32('foreground quanta'),
-    localPageCap: work.u32('local page cap'),
-  };
-}
-
 function adjacentRequestValue(bytes) {
+  // RITONAV1 is fixed-width: header, three identities, one direction tag.
+  assert.equal(bytes.byteLength, 48);
   const reader = new ReaderWireReaderV1(bytes);
   reader.expectMagic('RITONAV1', 'magic');
   reader.u32('version');
@@ -1993,19 +1712,12 @@ function adjacentRequestValue(bytes) {
   const requestId = reader.externalId('request');
   const fromArtifactId = reader.externalId('source');
   const directionTag = reader.u32('direction');
-  // RITONAV1 is fixed-width: the work budget is three raw u32 fields.
-  const requestWork = {
-    maxTopLevelNodesPerQuantum: reader.u32('top-level nodes'),
-    maxForegroundQuanta: reader.u32('foreground quanta'),
-    localPageCap: reader.u32('local page cap'),
-  };
   reader.finish('adjacent request');
   return {
     sessionId,
     requestId,
     fromArtifactId,
     direction: directionTag === 0 ? 'previous' : 'next',
-    work: requestWork,
   };
 }
 
@@ -2054,6 +1766,10 @@ function requestLocator(bytes) {
   locator.option('point', () => assert.fail('unexpected point'));
   locator.option('range', () => assert.fail('unexpected range'));
   const progression = locator.option('progression', () => locator.f64('progression'));
+  locator.finish('locator');
+  // The text profile is the last field: RITOREQ1 carries nothing after it.
+  reader.u32('text profile');
+  reader.finish('request');
   return { href, progression };
 }
 

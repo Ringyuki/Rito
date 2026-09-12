@@ -125,7 +125,9 @@ fn receive_initial(
     initial_artifact: Receiver<InitialArtifactReply>,
 ) -> Result<Vec<u8>, FfiError> {
     match initial_artifact.recv() {
-        Ok(InitialArtifactReply::Ready(result)) if mark_ready(session_id, generation) => result,
+        Ok(InitialArtifactReply::Ready(artifact)) if mark_ready(session_id, generation) => {
+            Ok(artifact)
+        }
         Ok(InitialArtifactReply::Ready(_)) => {
             join_failed(session_id, generation);
             Err(FfiError::not_found(format!(

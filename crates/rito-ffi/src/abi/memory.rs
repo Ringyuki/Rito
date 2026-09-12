@@ -135,9 +135,8 @@ fn free_buffer(target: *mut RitoOwnedBufferV1) {
 #[no_mangle]
 /// Opens a reader and requests its exact initial artifact.
 ///
-/// `RITO_STATUS_EXACT_SEEK_PENDING_V1` means the actor remains registered and a
-/// newer RITOREQ1 request for the same target resumes bounded work. A terminal
-/// `RITO_STATUS_TARGET_NOT_PUBLISHED_V1` leaves no session.
+/// The target chapter is paginated whole in this call. Every failure,
+/// including `RITO_STATUS_TARGET_NOT_PUBLISHED_V1`, leaves no session.
 pub extern "C" fn rito_open_v1(
     publication_data: *const u8,
     publication_len: u64,
@@ -252,7 +251,7 @@ pub extern "C" fn rito_request_adjacent_v1(
                 "RITONAV1 session_id does not match the ABI session_id",
             ));
         }
-        // RITONAV1 is a fixed 60-byte message. Validate its identity before
+        // RITONAV1 is a fixed 48-byte message. Validate its identity before
         // reserving actor capacity so a mismatched ABI/session pair is always
         // rejected as malformed instead of leaking registry membership.
         let admission = registry::try_admit(session_id)?;
@@ -264,11 +263,8 @@ pub extern "C" fn rito_request_adjacent_v1(
 #[no_mangle]
 /// Publishes the adjacent spread as a read-only artifact without any
 /// foreground side effect. The visible artifact and all pending
-/// navigation stay untouched. Pagination may advance within the
-/// request's work budget to reach the neighbor — in-chapter, across
-/// window rollovers, and across chapter boundaries alike; targets
-/// still out of reach (terminal book boundary, or budget exhausted)
-/// return
+/// navigation stay untouched. A neighbor in another chapter is
+/// paginated on demand; the publication's terminal boundary returns
 /// `RITO_STATUS_TARGET_NOT_PUBLISHED_V1` (hosts surface this as "not
 /// peekable"), never retaining a continuation. The peeked artifact
 /// occupies one live slot and must be released by the caller.

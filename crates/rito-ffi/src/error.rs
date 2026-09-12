@@ -10,7 +10,7 @@ pub const RITO_STATUS_TARGET_NOT_PUBLISHED_V1: u32 = 6;
 pub const RITO_STATUS_UNSUPPORTED_PROFILE_V1: u32 = 7;
 pub const RITO_STATUS_BUSY_V1: u32 = 8;
 pub const RITO_STATUS_QUEUE_FULL_V1: u32 = RITO_STATUS_BUSY_V1;
-pub const RITO_STATUS_EXACT_SEEK_PENDING_V1: u32 = 9;
+// Status value 9 is retired and is never reassigned.
 pub const RITO_STATUS_ADJACENT_PENDING_V1: u32 = 10;
 pub const RITO_STATUS_SESSION_TERMINATED_V1: u32 = 11;
 pub const RITO_STATUS_PANIC_V1: u32 = 255;

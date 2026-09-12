@@ -1,25 +1,33 @@
 //! Lays whole EPUB chapters out through the fragment engine for the
 //! browser oracle.
 //!
-//! Reads a JSON request on stdin: an EPUB path, registered font files, a
-//! content width, and chapter idrefs. Each chapter goes through the full
-//! production pipeline — parse, Stylo projection, reader-filtered fragment
-//! tree — and is laid out in continuous space by the Parley-backed block
-//! engine. The response carries every line's text and ink geometry so a
-//! Node harness can diff them against pinned Chromium rendering the same
-//! chapters with the same font bytes at the same content width.
+//! Usage: `chapter-fragment-probe < request.json`, where the request
+//! carries an EPUB path, font files, a content width, and chapter idrefs
+//! (fields below). Each chapter goes through the full production
+//! pipeline — parse, Stylo projection, reader-filtered fragment tree — and
+//! is laid out in continuous space (or page by page when
+//! `fragmentainerSize` is set) by the Parley-backed block engine, shaping
+//! with every listed font file. The JSON response on stdout carries every
+//! line's text and ink geometry so a Node harness can diff them against
+//! pinned Chromium rendering the same chapters with the same font bytes at
+//! the same content width. Callers: `tools/corpus-oracle/corpus-ab.mjs`
+//! and `apps/reader/tests/e2e/browser-fragment-baseline.e2e.test.ts`.
 
 use std::io::Read;
 
 use rito_block::BlockFormattingContext;
 use rito_core::fragment_bridge::ChapterFormattingTree;
 use rito_core::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
-use rito_core::runtime::RuntimeDocument;
+use rito_core::runtime::{
+    RuntimeDocument, RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole,
+    RuntimePinnedFontPolicyInput,
+};
 use rito_fragment::{
     CancelFlag, ConstraintSpace, FormattingContext, FormattingNodeContent, Fragment, InlineItem,
 };
 use rito_inline::ParleyInlineContext;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,6 +37,10 @@ struct ProbeRequest {
     /// report each page's lines separately (page index in `page`).
     #[serde(default)]
     fragmentainer_size: Option<f64>,
+    /// Font files the probe shapes with, in fallback order. The first one
+    /// is also pinned as the runtime document's serif face: the runtime
+    /// paginates with pinned faces only, and the chapter style tables the
+    /// probe lays out from exist only on a paginated revision.
     font_paths: Vec<String>,
     /// Book-embedded faces bound to their `@font-face` declared family
     /// names, exactly as the browser page loads them.
@@ -113,7 +125,25 @@ fn main() {
     let request: ProbeRequest = serde_json::from_str(&input).expect("probe request parses");
 
     let epub_bytes = std::fs::read(&request.epub_path).expect("epub reads");
-    let mut document = RuntimeDocument::open(&epub_bytes).expect("document opens");
+    let font_blobs: Vec<Vec<u8>> = request
+        .font_paths
+        .iter()
+        .map(|path| std::fs::read(path).expect("font file reads"))
+        .collect();
+    let pinned_serif = font_blobs
+        .first()
+        .cloned()
+        .expect("probe request lists at least one font path");
+    let policy = RuntimePinnedFontPolicyInput {
+        faces: vec![RuntimePinnedFontFaceInput {
+            expected_sha256: format!("{:x}", Sha256::digest(&pinned_serif)),
+            bytes: pinned_serif,
+            generic_role: RuntimePinnedFontGenericRole::Serif,
+            language: None,
+        }],
+    };
+    let mut document =
+        RuntimeDocument::open_with_pinned_font_policy(&epub_bytes, policy).expect("document opens");
     let layout_config = create_layout_config(LayoutConfigInput {
         width: 420.0,
         height: 640.0,
@@ -131,11 +161,6 @@ fn main() {
         .create_revision(&layout_config)
         .expect("revision builds");
 
-    let font_blobs = request
-        .font_paths
-        .iter()
-        .map(|path| std::fs::read(path).expect("font file reads"))
-        .collect();
     let mut inline_context = ParleyInlineContext::new(font_blobs).expect("fonts register");
     for named in &request.named_fonts {
         let bytes = std::fs::read(&named.path).expect("named font file reads");

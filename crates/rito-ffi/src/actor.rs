@@ -18,8 +18,7 @@ use rito_core::runtime::{
 };
 
 use crate::error::{
-    FfiError, RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_EXACT_SEEK_PENDING_V1,
-    RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
+    FfiError, RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
 };
 
 pub const RITO_ACTOR_MAX_IN_FLIGHT_V1: u32 = 8;
@@ -295,9 +294,8 @@ pub(crate) struct SpawnedActor {
 pub(crate) type ActorExitCallback = Box<dyn FnOnce() + Send + 'static>;
 
 pub(crate) enum InitialArtifactReply {
-    /// The actor owns a usable session. The result is either the first
-    /// artifact or `RITO_STATUS_EXACT_SEEK_PENDING_V1`.
-    Ready(Result<Vec<u8>, FfiError>),
+    /// The actor owns a usable session; this is its encoded first artifact.
+    Ready(Vec<u8>),
     /// No usable session survived initial request processing.
     Failed(FfiError),
 }
@@ -407,48 +405,20 @@ fn run(
         .request_artifact(request)
         .map_err(FfiError::from)
         .and_then(|artifact| encode_reader_artifact_v1(&artifact).map_err(FfiError::from));
-    let initial = classify_exact_seek_result(initial, reader.has_pending_exact_seek_v1());
-    let session_is_ready = initial_session_is_ready(&initial);
-    if session_is_ready {
-        if initial_reply
-            .send(InitialArtifactReply::Ready(initial))
-            .is_err()
-        {
-            return reader.dispose().map(|_| ()).map_err(FfiError::from);
-        }
-        run_commands(reader, commands, client)
-    } else {
-        let error = initial.expect_err("a non-ready initial result cannot contain an artifact");
-        if initial_reply
-            .send(InitialArtifactReply::Failed(error))
-            .is_err()
-        {
-            return reader.dispose().map(|_| ()).map_err(FfiError::from);
-        }
-        reader.dispose().map(|_| ()).map_err(FfiError::from)
-    }
-}
-
-fn initial_session_is_ready(initial: &Result<Vec<u8>, FfiError>) -> bool {
     match initial {
-        Ok(_) => true,
-        Err(error) => error.status == RITO_STATUS_EXACT_SEEK_PENDING_V1,
-    }
-}
-
-fn classify_exact_seek_result<T>(
-    result: Result<T, FfiError>,
-    has_pending_exact_seek: bool,
-) -> Result<T, FfiError> {
-    match result {
-        Err(mut error)
-            if error.status == RITO_STATUS_TARGET_NOT_PUBLISHED_V1 && has_pending_exact_seek =>
-        {
-            error.status = RITO_STATUS_EXACT_SEEK_PENDING_V1;
-            Err(error)
+        Ok(artifact) => {
+            if initial_reply
+                .send(InitialArtifactReply::Ready(artifact))
+                .is_ok()
+            {
+                return run_commands(reader, commands, client);
+            }
         }
-        result => result,
+        Err(error) => {
+            let _ = initial_reply.send(InitialArtifactReply::Failed(error));
+        }
     }
+    reader.dispose().map(|_| ()).map_err(FfiError::from)
 }
 
 fn classify_adjacent_result<T>(
@@ -522,8 +492,6 @@ fn run_commands(
                     session.request_artifact(navigation.request),
                     encode_reader_artifact_v1,
                 );
-                let result =
-                    classify_exact_seek_result(result, session.has_pending_exact_seek_v1());
                 if terminate {
                     let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
                     let _ = navigation.reply.send(result);
@@ -876,7 +844,7 @@ mod tests {
 
     use rito_core::runtime::{
         ReaderAdjacentDirectionV1, ReaderErrorKindV1, ReaderLayoutV1, ReaderLocatorV1,
-        ReaderSpreadModeV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
+        ReaderSpreadModeV1, ReaderTextRenderingProfileV1,
     };
 
     use super::*;
@@ -884,51 +852,6 @@ mod tests {
         RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_BUSY_V1, RITO_STATUS_ENGINE_ERROR_V1,
         RITO_STATUS_NOT_FOUND_V1, RITO_STATUS_SESSION_TERMINATED_V1, RITO_STATUS_STALE_REQUEST_V1,
     };
-
-    #[test]
-    fn pending_exact_seek_becomes_terminal_when_core_owner_is_gone() {
-        let target_error = || FfiError {
-            status: RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
-            message: "terminal target".to_owned(),
-        };
-        let pending: Result<Vec<u8>, FfiError> =
-            classify_exact_seek_result(Err(target_error()), true);
-        assert_eq!(
-            pending
-                .as_ref()
-                .expect_err("pending remains an error")
-                .status,
-            RITO_STATUS_EXACT_SEEK_PENDING_V1
-        );
-        assert!(initial_session_is_ready(&pending));
-
-        let terminal: Result<Vec<u8>, FfiError> =
-            classify_exact_seek_result(Err(target_error()), false);
-        assert_eq!(
-            terminal
-                .as_ref()
-                .expect_err("completed unresolved seek is terminal")
-                .status,
-            RITO_STATUS_TARGET_NOT_PUBLISHED_V1
-        );
-        assert!(!initial_session_is_ready(&terminal));
-
-        assert!(initial_session_is_ready(&Ok(vec![1])));
-    }
-
-    #[test]
-    fn pending_query_cannot_reclassify_an_engine_failure() {
-        let engine: Result<Vec<u8>, FfiError> =
-            classify_exact_seek_result(Err(FfiError::engine("not pending")), true);
-        assert_eq!(
-            engine
-                .as_ref()
-                .expect_err("engine failure remains typed")
-                .status,
-            RITO_STATUS_ENGINE_ERROR_V1
-        );
-        assert!(!initial_session_is_ready(&engine));
-    }
 
     #[test]
     fn adjacent_pending_requires_a_core_retained_owner() {
@@ -1356,7 +1279,6 @@ mod tests {
                 request_id,
                 from_artifact_id: 1,
                 direction: ReaderAdjacentDirectionV1::Next,
-                work: work_budget(),
             },
             reply,
         })
@@ -1455,16 +1377,7 @@ mod tests {
                 source_range: None,
                 progression: None,
             },
-            work: work_budget(),
             text_profile: ReaderTextRenderingProfileV1::PlatformStringRuns,
-        }
-    }
-
-    fn work_budget() -> ReaderWorkBudgetV1 {
-        ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 32,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
         }
     }
 

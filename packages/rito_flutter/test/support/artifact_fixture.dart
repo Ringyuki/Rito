@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:rito_flutter/rito_flutter_native.dart' show RitoArtifactDecoder;
+
 import 'display_fixture.dart';
 import 'wire_writer.dart';
 
@@ -21,7 +23,7 @@ Uint8List artifactFixture({
   final display = primitiveFixture();
   final writer = TestWireWriter.message('RITOART1');
   writer
-    ..uint32(3)
+    ..uint32(RitoArtifactDecoder.protocolVersion)
     ..uint32(1)
     ..uint64(sessionId)
     ..uint64(requestId)

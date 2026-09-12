@@ -184,12 +184,6 @@ Future<RitoReaderSession> _open(
   );
 }
 
-const _work = RitoWorkBudget(
-  maxTopLevelNodesPerQuantum: 8,
-  maxForegroundQuanta: 2,
-  localPageCap: 16,
-);
-
 RitoArtifactRequest _request(int requestId) {
   return RitoArtifactRequest(
     sessionId: 91,
@@ -207,7 +201,6 @@ RitoArtifactRequest _request(int requestId) {
       rootFontSize: 16,
     ),
     locator: RitoLocator(href: 'chapter-$requestId.xhtml'),
-    work: _work,
   );
 }
 

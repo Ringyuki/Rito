@@ -425,21 +425,19 @@ fn terminal_foreground_request_preserves_visible_and_allocates_no_candidate() {
 fn chapter_boundary_previous_resolves_the_tail_in_one_request() {
     // The fragment engine paginates the whole previous chapter in one
     // pass, so a backward chapter turn lands on its final page without
-    // any cooperative-retry loop, and leaves no pending seek behind.
+    // any cooperative-retry loop.
     let mut session =
         open_test_session(49, retained_adjacent_fixture_epub()).expect("reader session opens");
     let visible = session
         .request_artifact(request(49, 1, "chapter-1.xhtml"))
         .expect("source chapter resolves");
     adopt_initial(&mut session, 49, visible.artifact_id);
-    let mut adjacent = adjacent(
+    let adjacent = adjacent(
         49,
         2,
         visible.artifact_id,
         ReaderAdjacentDirectionV1::Previous,
     );
-    adjacent.work.max_top_level_nodes_per_quantum = 1;
-    adjacent.work.max_foreground_quanta = 1;
 
     let resolved = session
         .request_adjacent(adjacent)
@@ -457,7 +455,6 @@ fn chapter_boundary_previous_resolves_the_tail_in_one_request() {
         "the tail artifact shows the chapter's final page"
     );
     assert!(!session.has_pending_adjacent_v1());
-    assert!(!session.has_pending_exact_seek_v1());
 }
 
 #[test]
@@ -626,10 +623,8 @@ fn failed_revision_retirement_restores_artifact_ownership() {
 fn three_published_flips_reuse_revision_without_reflow() {
     let mut session =
         open_test_session(61, long_chapter_window_fixture_epub()).expect("reader session opens");
-    let mut initial_request = request(61, 1, "chapter.xhtml#window-point-0");
-    initial_request.work.max_top_level_nodes_per_quantum = 64;
     let first = session
-        .request_artifact(initial_request)
+        .request_artifact(request(61, 1, "chapter.xhtml#window-point-0"))
         .expect("first spread resolves");
     let mut artifacts = vec![first];
 
@@ -739,7 +734,6 @@ fn adjacent_identity_boundaries_and_terminal_are_fail_closed() {
         ))
         .expect_err("publication end is explicit");
     assert_eq!(terminal.kind, ReaderErrorKindV1::TargetNotPublished);
-    assert!(!session.has_pending_exact_seek_v1());
     assert!(!session.has_pending_adjacent_v1());
 }
 
@@ -1080,11 +1074,6 @@ fn request(session_id: u64, request_id: u64, href: &str) -> ReaderArtifactReques
             source_range: None,
             progression: None,
         },
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 32,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
-        },
         text_profile: ReaderTextRenderingProfileV1::PlatformStringRuns,
     }
 }
@@ -1100,11 +1089,6 @@ fn adjacent(
         request_id,
         from_artifact_id,
         direction,
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 8,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
-        },
     }
 }
 
@@ -1252,7 +1236,6 @@ fn peek_publishes_known_neighbors_without_foreground_side_effects() {
     // No foreground side effects: visible unchanged, nothing pending.
     assert_eq!(session.visible_artifact_id(), Some(next.artifact_id));
     assert!(!session.has_pending_adjacent_v1());
-    assert!(!session.has_pending_exact_seek_v1());
 
     // Peeked artifacts are live and releasable like any other artifact.
     assert!(session.has_live_artifact(peeked_previous.artifact_id));
@@ -1289,7 +1272,6 @@ fn peek_declines_at_the_terminal_publication_boundary() {
         .expect_err("boundary peek declines");
     assert_eq!(boundary.kind, ReaderErrorKindV1::TargetNotPublished);
     assert!(!session.has_pending_adjacent_v1());
-    assert!(!session.has_pending_exact_seek_v1());
     assert_eq!(session.visible_artifact_id(), Some(visible.artifact_id));
 }
 
@@ -1399,7 +1381,6 @@ fn peek_crosses_single_page_chapter_boundaries_in_both_directions() {
         request_id += 1;
         assert_eq!(peeked.locator.href, format!("chapter-{chapter}.xhtml"));
         assert_eq!(session.visible_artifact_id(), Some(current.artifact_id));
-        assert!(!session.has_pending_exact_seek_v1());
         assert!(!session.has_pending_adjacent_v1());
         session
             .commit_peeked_artifact(ReaderForegroundHandoffV1 {
@@ -1425,7 +1406,6 @@ fn peek_crosses_single_page_chapter_boundaries_in_both_directions() {
             .unwrap_or_else(|error| panic!("chapter {chapter} peeks previous: {error:?}"));
         request_id += 1;
         assert_eq!(peeked.locator.href, format!("chapter-{chapter}.xhtml"));
-        assert!(!session.has_pending_exact_seek_v1());
         session
             .commit_peeked_artifact(ReaderForegroundHandoffV1 {
                 session_id: 123,
@@ -1449,7 +1429,6 @@ fn peek_crosses_single_page_chapter_boundaries_in_both_directions() {
         ))
         .expect_err("terminal boundary peek declines");
     assert_eq!(boundary.kind, ReaderErrorKindV1::TargetNotPublished);
-    assert!(!session.has_pending_exact_seek_v1());
     assert_eq!(session.visible_artifact_id(), Some(current.artifact_id));
 }
 

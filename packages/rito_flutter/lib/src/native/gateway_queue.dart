@@ -12,11 +12,12 @@ final class RitoNativeGatewayQueue {
   bool _closing = false;
   Future<void>? _closeFuture;
 
+  /// A failed open registers no native session, so ownership is recorded
+  /// only when [operation] succeeds.
   Future<T> open<T>({
     required int sessionId,
     required int requestId,
     required Future<T> Function() operation,
-    required bool Function(Object error) nativeSessionMayExistOnError,
     Future<void> Function(T result)? onSupersededResult,
     Future<void> Function(Object error, StackTrace stackTrace)?
     disposeAfterCleanupFailure,
@@ -29,16 +30,9 @@ final class RitoNativeGatewayQueue {
     return lane.scheduleNavigation<T>(
       requestId: requestId,
       operation: () async {
-        try {
-          final result = await operation();
-          _nativeSessions.add(sessionId);
-          return result;
-        } on Object catch (error) {
-          if (nativeSessionMayExistOnError(error)) {
-            _nativeSessions.add(sessionId);
-          }
-          rethrow;
-        }
+        final result = await operation();
+        _nativeSessions.add(sessionId);
+        return result;
       },
       onSupersededResult: onSupersededResult,
       onSupersededCleanupFailure: disposeAfterCleanupFailure == null

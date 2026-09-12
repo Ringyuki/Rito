@@ -15,7 +15,6 @@ final class RitoRequestEncoder {
     writer.externalId(request.requestId, 'request id');
     writer.record((writer) => _layout(writer, request.layout));
     writer.record((writer) => _locator(writer, request.locator));
-    writer.record((writer) => _work(writer, request.work));
     writer.uint32(_textProfileTag(request.textProfile), 'text profile');
     return writer.finish();
   }
@@ -29,15 +28,9 @@ final class RitoRequestEncoder {
       request.direction == RitoAdjacentDirection.previous ? 0 : 1,
       'adjacent direction',
     );
-    writer.uint32(
-      request.work.maxTopLevelNodesPerQuantum,
-      'max top-level nodes per quantum',
-    );
-    writer.uint32(request.work.maxForegroundQuanta, 'max foreground quanta');
-    writer.uint32(request.work.localPageCap, 'local page cap');
     final bytes = writer.finish();
-    if (bytes.length != 60) {
-      throw StateError('RITONAV1 must be exactly 60 bytes.');
+    if (bytes.length != 48) {
+      throw StateError('RITONAV1 must be exactly 48 bytes.');
     }
     return bytes;
   }
@@ -88,15 +81,6 @@ final class RitoRequestEncoder {
       }
       writer.uint64(value.textOffset, 'source text offset');
     });
-  }
-
-  void _work(_Writer writer, RitoWorkBudget value) {
-    writer.uint32(
-      value.maxTopLevelNodesPerQuantum,
-      'max top-level nodes per quantum',
-    );
-    writer.uint32(value.maxForegroundQuanta, 'max foreground quanta');
-    writer.uint32(value.localPageCap, 'local page cap');
   }
 
   int _spreadModeTag(RitoSpreadMode value) {

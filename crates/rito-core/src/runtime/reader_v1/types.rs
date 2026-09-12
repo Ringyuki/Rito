@@ -145,30 +145,19 @@ pub struct ReaderLayoutV1 {
     pub render_ratio: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ReaderWorkBudgetV1 {
-    pub max_top_level_nodes_per_quantum: u32,
-    pub max_foreground_quanta: u32,
-    pub local_page_cap: u32,
-}
-
 /// Foreground request for an exact paint-ready artifact.
 ///
-/// A successful request returns a live candidate; it does not change the
-/// visible intent until `ReaderForegroundHandoffV1` is accepted.
-///
-/// If bounded work ends before the exact locator is published, Core returns
-/// `TargetNotPublished` without producing a fallback artifact and retains one
-/// unpublished continuation. A newer request for the same canonical locator,
-/// layout, and local page cap resumes that continuation; any different valid
-/// foreground seek supersedes it.
+/// The target chapter is parsed, styled and paginated whole inside this one
+/// call, so the exact locator either publishes here or fails with a terminal
+/// error; nothing is retained for a later request. A successful request
+/// returns a live candidate; it does not change the visible intent until
+/// `ReaderForegroundHandoffV1` is accepted.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReaderArtifactRequestV1 {
     pub session_id: u64,
     pub request_id: u64,
     pub layout: ReaderLayoutV1,
     pub locator: ReaderLocatorV1,
-    pub work: ReaderWorkBudgetV1,
     pub text_profile: ReaderTextRenderingProfileV1,
 }
 
@@ -182,19 +171,19 @@ pub enum ReaderAdjacentDirectionV1 {
 /// Owned request for one artifact adjacent to an already-published artifact.
 ///
 /// `from_artifact_id` is the stable navigation token. Runtime cursor strings
-/// and platform-sized indexes never cross the protocol boundary. A successful
-/// result remains invisible until an explicit foreground handoff. If bounded
-/// work cannot yet publish the target, Core retains progress only for a newer
-/// request with the same source artifact, direction, and local page cap;
-/// adapters distinguish that suspension from a terminal boundary through
-/// `ReaderSessionV1::has_pending_adjacent_v1`.
+/// and platform-sized indexes never cross the protocol boundary. A turn that
+/// crosses a chapter boundary paginates the whole neighbor chapter in this
+/// one call. A successful result remains invisible until an explicit
+/// foreground handoff. When the target cannot be published yet, Core retains
+/// progress only for a newer request with the same source artifact and
+/// direction; adapters distinguish that suspension from a terminal boundary
+/// through `ReaderSessionV1::has_pending_adjacent_v1`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReaderAdjacentRequestV1 {
     pub session_id: u64,
     pub request_id: u64,
     pub from_artifact_id: u64,
     pub direction: ReaderAdjacentDirectionV1,
-    pub work: ReaderWorkBudgetV1,
 }
 
 /// Host acknowledgement that atomically makes one foreground artifact

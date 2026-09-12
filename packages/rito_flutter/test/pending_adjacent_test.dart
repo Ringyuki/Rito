@@ -44,18 +44,6 @@ void main() {
         requests.map((request) => request.direction),
         everyElement(RitoAdjacentDirection.next),
       );
-      expect(
-        requests.map((request) => request.work.maxForegroundQuanta),
-        everyElement(1),
-      );
-      expect(
-        requests.map((request) => request.work.maxTopLevelNodesPerQuantum),
-        everyElement(8),
-      );
-      expect(
-        requests.map((request) => request.work.localPageCap),
-        everyElement(16),
-      );
       expect(hostYields, 3);
       expect(terminalCalls, 0);
       expect(artifact.requestId, 15);
@@ -209,11 +197,6 @@ RitoAdjacentRequest _request(int requestId) {
     requestId: requestId,
     fromArtifactId: 7001,
     direction: RitoAdjacentDirection.next,
-    work: const RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 8,
-      maxForegroundQuanta: 9,
-      localPageCap: 16,
-    ),
   );
 }
 

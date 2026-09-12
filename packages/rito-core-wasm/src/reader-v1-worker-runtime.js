@@ -97,19 +97,15 @@ async function handleMessage(state, deps, message) {
     case 'request-artifact':
       state.foregroundArtifactRequests.clear();
       requireArtifactCapacity(state);
-      return exactArtifactAttemptResponse(state, message.request, () =>
-        state.session.requestArtifactV1(
-          encodeRitoReaderArtifactRequestV1(singleQuantumExactRequest(message.request)),
-        ),
+      return exactArtifactResponse(state, message.request, () =>
+        state.session.requestArtifactV1(encodeRitoReaderArtifactRequestV1(message.request)),
       );
     case 'request-adjacent':
       state.foregroundArtifactRequests.clear();
       requireArtifactCapacity(state);
       requireOwnedArtifact(state, message.request.fromArtifactId);
-      return adjacentArtifactAttemptResponse(
-        state,
-        singleQuantumAdjacentRequest(message.request),
-        (request) => state.session.requestAdjacentV1(encodeRitoReaderAdjacentRequestV1(request)),
+      return adjacentArtifactAttemptResponse(state, message.request, (request) =>
+        state.session.requestAdjacentV1(encodeRitoReaderAdjacentRequestV1(request)),
       );
     case 'adopt-foreground-candidate':
       requireOwnedArtifact(state, message.request.candidateArtifactId);
@@ -191,13 +187,10 @@ async function openSession(state, deps, message) {
       : new deps.RitoReaderSessionV1(publication, message.sessionId);
     state.sessionId = message.sessionId;
     state.phase = 'open';
-    return exactArtifactAttemptResponse(
+    return exactArtifactResponse(
       state,
       message.request,
-      () =>
-        state.session.requestArtifactV1(
-          encodeRitoReaderArtifactRequestV1(singleQuantumExactRequest(message.request)),
-        ),
+      () => state.session.requestArtifactV1(encodeRitoReaderArtifactRequestV1(message.request)),
       'open',
     );
   } catch (error) {
@@ -225,19 +218,13 @@ async function openSessionWithColdDiagnostic(state, deps, message) {
   state.sessionId = message.sessionId;
   state.phase = 'open';
   const [requestWire, requestWireEncodeMs] = measureDiagnostic(() =>
-    encodeRitoReaderArtifactRequestV1(singleQuantumExactRequest(message.request)),
+    encodeRitoReaderArtifactRequestV1(message.request),
   );
   segments.requestWireEncodeMs = requestWireEncodeMs;
   const [raw, requestArtifactMs] = measureDiagnostic(() =>
     state.session.requestArtifactV1(requestWire),
   );
   segments.requestArtifactStyleLayoutPaginationDisplayListWireMs = requestArtifactMs;
-  if (hasPendingExactSeek(state)) {
-    throw readerWorkerError(
-      'invalid-wire',
-      'Cold-open attribution requires one exact Ready Core attempt',
-    );
-  }
   const [response, artifactWireCopyIdentityMs] = measureDiagnostic(() =>
     artifactResponse(state, message.request, raw, 'open'),
   );
@@ -251,7 +238,6 @@ async function openSessionWithColdDiagnostic(state, deps, message) {
       ...response.payload,
       diagnostics: {
         protocol: COLD_OPEN_DIAGNOSTIC,
-        singleCoreAttemptRequired: true,
         workerOpenHandlerStartedEpochMs,
         workerOpenHandlerFinishedEpochMs,
         workerOpenHandlerMs,
@@ -282,24 +268,16 @@ function diagnosticEpochNow() {
   return globalThis.performance.timeOrigin + globalThis.performance.now();
 }
 
-function exactArtifactAttemptResponse(state, request, attempt, kind = 'artifact') {
+// An exact open or seek resolves in one Core call: the target chapter is
+// paginated whole, so the result is either an artifact or a terminal error.
+function exactArtifactResponse(state, request, produce, kind = 'artifact') {
   let raw;
   try {
-    raw = attempt();
+    raw = produce();
   } catch (error) {
     const normalized = normalizeWorkerError(error);
-    if (normalized.code === 'target-not-published' && hasPendingExactSeek(state)) {
-      return pendingExactResponse(request);
-    }
     if (kind === 'open' || isFatalExactError(normalized.code)) disposeTerminalSession(state);
     throw error;
-  }
-  if (hasPendingExactSeek(state)) {
-    disposeTerminalSession(state);
-    throw readerWorkerError(
-      'invalid-wire',
-      'Core returned an artifact while an exact seek was still pending',
-    );
   }
   try {
     return artifactResponse(state, request, raw, kind);
@@ -341,30 +319,6 @@ function isFatalExactError(code) {
   return !NON_FATAL_EXACT_TERMINAL_CODES.has(code);
 }
 
-function singleQuantumExactRequest(request) {
-  return {
-    ...request,
-    work: { ...request.work, maxForegroundQuanta: 1 },
-  };
-}
-
-function singleQuantumAdjacentRequest(request) {
-  return {
-    ...request,
-    work: { ...request.work, maxForegroundQuanta: 1 },
-  };
-}
-
-function pendingExactResponse(request) {
-  return {
-    payload: {
-      kind: 'pending-exact',
-      sessionId: request.sessionId,
-      requestId: request.requestId,
-    },
-  };
-}
-
 function pendingAdjacentResponse(request) {
   return {
     payload: {
@@ -375,11 +329,6 @@ function pendingAdjacentResponse(request) {
       direction: request.direction,
     },
   };
-}
-
-function hasPendingExactSeek(state) {
-  const query = state.session?.hasPendingExactSeekV1;
-  return typeof query === 'function' && query.call(state.session) === true;
 }
 
 function hasPendingAdjacent(state) {

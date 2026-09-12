@@ -49,8 +49,6 @@ _Static_assert(RITO_STATUS_UNSUPPORTED_PROFILE_V1 == 7, "stable profile status")
 _Static_assert(RITO_STATUS_BUSY_V1 == 8, "stable busy status");
 _Static_assert(RITO_STATUS_QUEUE_FULL_V1 == RITO_STATUS_BUSY_V1,
                "queue full aliases busy");
-_Static_assert(RITO_STATUS_EXACT_SEEK_PENDING_V1 == 9,
-               "stable exact-seek pending status");
 _Static_assert(RITO_STATUS_ADJACENT_PENDING_V1 == 10,
                "stable adjacent pending status");
 _Static_assert(RITO_ACTOR_MAX_IN_FLIGHT_V1 == 8, "stable actor owner cap");

@@ -6,7 +6,7 @@ use rito_style_contract::{
     NonNegativeLengthPercentage, Percentage, PreferredSizeV1,
 };
 use rito_stylo::{
-    supports_body_bgcolor_presentational_hint, StyleDocument, StyleError, StylesheetInput, Viewport,
+    epub_ua_stylesheet, StyleDocument, StyleError, StyleOrigin, StylesheetInput, Viewport,
 };
 
 const URL: &str = "https://example.test/book/chapter.xhtml";
@@ -19,7 +19,6 @@ fn body_bgcolor_is_an_exact_pres_hints_background_declaration() {
         ("ReD", srgb(1.0, 0.0, 0.0)),
         ("chucknorris", srgb(192.0 / 255.0, 0.0, 0.0)),
     ] {
-        assert!(supports_body_bgcolor_presentational_hint(value));
         assert_eq!(projected_body_background(value, ""), expected, "{value:?}");
     }
 }
@@ -35,12 +34,11 @@ fn author_background_overrides_the_zero_specificity_presentational_hint() {
 #[test]
 fn invalid_legacy_colour_values_fail_closed_before_traversal() {
     for value in ["", "   ", "transparent", " TRANSPARENT\t"] {
-        assert!(!supports_body_bgcolor_presentational_hint(value));
         let source = source(&format!(
             r#"<html xmlns="http://www.w3.org/1999/xhtml"><body id="body" bgcolor="{value}"/></html>"#
         ));
         assert!(matches!(
-            StyleDocument::from_epub_source(source, URL, Viewport::default(), &[]),
+            epub_document(&source, ""),
             Err(StyleError::UnsupportedPresentationalHint {
                 name: "body@bgcolor",
                 ..
@@ -55,13 +53,14 @@ fn bgcolor_on_non_body_elements_is_not_a_body_hint() {
         r##"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target" bgcolor="#fff">text</p></body></html>"##,
     );
     let target = source.find_element_by_id("target").expect("target node");
-    let mut document =
-        StyleDocument::from_epub_source(Arc::clone(&source), URL, Viewport::default(), &[])
-            .expect("style document");
-    let projection = document.resolve_inline_styles_v1().expect("projection");
+    let (inline, _) = epub_document(&source, "")
+        .expect("style document")
+        .resolve_production_slice_v1()
+        .expect("projection")
+        .into_parts();
 
     assert_eq!(
-        projection
+        inline
             .table()
             .style_for_node(target.index())
             .expect("target style")
@@ -107,12 +106,12 @@ fn svg_geometry_attributes_outside_the_svg_namespace_are_not_hints() {
         r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target" width="100%">text</p></body></html>"#,
     );
     let target = source.find_element_by_id("target").expect("target node");
-    let mut document =
-        StyleDocument::from_epub_source(Arc::clone(&source), URL, Viewport::default(), &[])
-            .expect("style document");
-    let projection = document.resolve_production_slice_v1().expect("projection");
-    let style = projection
-        .layout()
+    let (_, layout) = epub_document(&source, "")
+        .expect("style document")
+        .resolve_production_slice_v1()
+        .expect("projection")
+        .into_parts();
+    let style = layout
         .table()
         .style_for_node(target.index())
         .expect("target layout style");
@@ -124,17 +123,12 @@ fn projected_svg_size(attributes: &str, css: &str) -> (PreferredSizeV1, Preferre
         r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><figure><svg xmlns="http://www.w3.org/2000/svg" id="target" {attributes} viewBox="0 0 1000 1500"/></figure></body></html>"#
     ));
     let target = source.find_element_by_id("target").expect("svg node");
-    let stylesheets = [StylesheetInput::author(css, URL)];
-    let mut document = StyleDocument::from_epub_source(
-        Arc::clone(&source),
-        URL,
-        Viewport::default(),
-        &stylesheets,
-    )
-    .expect("style document");
-    let projection = document.resolve_production_slice_v1().expect("projection");
-    let style = projection
-        .layout()
+    let (_, layout) = epub_document(&source, css)
+        .expect("style document")
+        .resolve_production_slice_v1()
+        .expect("projection")
+        .into_parts();
+    let style = layout
         .table()
         .style_for_node(target.index())
         .expect("svg layout style");
@@ -158,21 +152,32 @@ fn projected_body_background(value: &str, css: &str) -> ComputedColorV1 {
         r#"<html xmlns="http://www.w3.org/1999/xhtml"><body id="body" bgcolor="{value}"/></html>"#
     ));
     let body = source.find_element_by_id("body").expect("body node");
-    let stylesheets = [StylesheetInput::author(css, URL)];
-    let mut document = StyleDocument::from_epub_source(
-        Arc::clone(&source),
-        URL,
-        Viewport::default(),
-        &stylesheets,
-    )
-    .expect("style document");
-    let projection = document.resolve_inline_styles_v1().expect("projection");
-    projection
+    let (inline, _) = epub_document(&source, css)
+        .expect("style document")
+        .resolve_production_slice_v1()
+        .expect("projection")
+        .into_parts();
+    inline
         .table()
         .style_for_node(body.index())
         .expect("body style")
         .paint
         .background
+}
+
+/// Builds a document the way production does: the EPUB user-agent stylesheet
+/// first, then the author stylesheet.
+fn epub_document(source: &Arc<SourceArena>, css: &str) -> Result<StyleDocument, StyleError> {
+    StyleDocument::from_source_with_root_font_size(
+        Arc::clone(source),
+        URL,
+        Viewport::default(),
+        16.0,
+        &[
+            StylesheetInput::new(epub_ua_stylesheet(), URL, StyleOrigin::UserAgent),
+            StylesheetInput::author(css, URL),
+        ],
+    )
 }
 
 fn source(xhtml: &str) -> Arc<SourceArena> {

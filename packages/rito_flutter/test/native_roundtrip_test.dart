@@ -27,11 +27,6 @@ void main() {
       '../rito/tests/fixtures/books/book-10.epub',
     ).readAsBytesSync();
     const sessionId = 9001;
-    const work = RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 32,
-      maxForegroundQuanta: 64,
-      localPageCap: 16,
-    );
     const request = RitoArtifactRequest(
       sessionId: sessionId,
       requestId: 1,
@@ -48,7 +43,6 @@ void main() {
         rootFontSize: 16,
       ),
       locator: RitoLocator(href: 'OEBPS/Text/Section011.xhtml'),
-      work: work,
     );
     const encoder = RitoRequestEncoder();
     const foregroundEncoder = RitoForegroundEncoder();
@@ -89,7 +83,6 @@ void main() {
             requestId: 2,
             fromArtifactId: first.artifactId,
             direction: RitoAdjacentDirection.next,
-            work: work,
           ),
         ),
       );
@@ -152,11 +145,6 @@ void main() {
         rootFontSize: 16,
       ),
       locator: RitoLocator(href: 'OEBPS/Text/Section001.xhtml'),
-      work: RitoWorkBudget(
-        maxTopLevelNodesPerQuantum: 32,
-        maxForegroundQuanta: 64,
-        localPageCap: 16,
-      ),
     );
     final bindings = RitoNativeBindings();
     RitoArtifact? artifact;
@@ -202,11 +190,6 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9003;
-      const work = RitoWorkBudget(
-        maxTopLevelNodesPerQuantum: 32,
-        maxForegroundQuanta: 64,
-        localPageCap: 16,
-      );
       final gateway = RitoIsolateGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
@@ -227,7 +210,6 @@ void main() {
             rootFontSize: 16,
           ),
           locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
-          work: work,
         ),
         pinnedFontPolicy: _testPinnedPolicy(),
       );
@@ -237,7 +219,6 @@ void main() {
           from: first,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.next,
-          work: work,
         );
 
         // Peek the previous neighbor: no visible change, fully prepared.
@@ -245,7 +226,6 @@ void main() {
           from: second,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.previous,
-          work: work,
         );
         expect(peeked, isNotNull);
         expect(session.visibleArtifactId, second.artifactId);
@@ -256,7 +236,6 @@ void main() {
           from: second,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.previous,
-          work: work,
         );
         expect(committed.artifactId, peeked.artifactId);
         expect(session.visibleArtifactId, peeked.artifactId);
@@ -266,7 +245,6 @@ void main() {
           from: committed,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.previous,
-          work: work,
         );
         if (far != null) {
           await session.releaseArtifact(far);
@@ -287,11 +265,6 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9004;
-      const work = RitoWorkBudget(
-        maxTopLevelNodesPerQuantum: 32,
-        maxForegroundQuanta: 8,
-        localPageCap: 16,
-      );
       final gateway = RitoIsolateGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
@@ -312,7 +285,6 @@ void main() {
             rootFontSize: 16,
           ),
           locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
-          work: work,
         ),
         pinnedFontPolicy: _testPinnedPolicy(),
       );
@@ -342,14 +314,12 @@ void main() {
           from: candidate!,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.next,
-          work: work,
         );
         await session.releaseArtifact(candidate);
         final peeked = await session.peek(
           from: inBody,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.next,
-          work: work,
         );
         expect(peeked, isNotNull, reason: 'in-book peek must hit');
         expect(session.visibleArtifactId, inBody.artifactId);
@@ -363,7 +333,6 @@ void main() {
           from: inBody,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.next,
-          work: work,
         );
         expect(committed.artifactId, peeked.artifactId);
         expect(session.visibleArtifactId, peeked.artifactId);
@@ -386,11 +355,6 @@ void main() {
         '../rito/tests/fixtures/books/book-01.epub',
       ).readAsBytesSync();
       const sessionId = 9005;
-      const work = RitoWorkBudget(
-        maxTopLevelNodesPerQuantum: 32,
-        maxForegroundQuanta: 64,
-        localPageCap: 16,
-      );
       final gateway = RitoIsolateGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
@@ -411,7 +375,6 @@ void main() {
             rootFontSize: 16,
           ),
           locator: RitoLocator(href: 'OEBPS/Text/Section002.xhtml'),
-          work: work,
         ),
         pinnedFontPolicy: _testPinnedPolicy(),
       );
@@ -443,7 +406,6 @@ void main() {
               from: current,
               requestId: session.nextRequestId,
               direction: RitoAdjacentDirection.next,
-              work: work,
             );
           } on Object {
             break;
@@ -480,11 +442,6 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9006;
-      const work = RitoWorkBudget(
-        maxTopLevelNodesPerQuantum: 32,
-        maxForegroundQuanta: 64,
-        localPageCap: 16,
-      );
       final gateway = RitoIsolateGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
@@ -505,7 +462,6 @@ void main() {
             rootFontSize: 16,
           ),
           locator: RitoLocator(href: 'OEBPS/Text/Section011.xhtml'),
-          work: work,
         ),
         pinnedFontPolicy: _testPinnedPolicy(),
       );
@@ -558,11 +514,6 @@ void main() {
       '../rito/tests/fixtures/books/book-01.epub',
     ).readAsBytesSync();
     const sessionId = 9007;
-    const work = RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 32,
-      maxForegroundQuanta: 64,
-      localPageCap: 16,
-    );
     final gateway = RitoIsolateGateway();
     final session = await RitoReaderSession.open(
       gateway: gateway,
@@ -583,7 +534,6 @@ void main() {
           rootFontSize: 16,
         ),
         locator: RitoLocator(href: 'OEBPS/Text/Section002.xhtml'),
-        work: work,
       ),
       pinnedFontPolicy: _testPinnedPolicy(),
     );
@@ -660,11 +610,6 @@ void main() {
       '../rito/tests/fixtures/books/book-10.epub',
     ).readAsBytesSync();
     const sessionId = 9008;
-    const work = RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 32,
-      maxForegroundQuanta: 64,
-      localPageCap: 16,
-    );
     final gateway = RitoIsolateGateway();
     final session = await RitoReaderSession.open(
       gateway: gateway,
@@ -685,7 +630,6 @@ void main() {
           rootFontSize: 16,
         ),
         locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
-        work: work,
       ),
       pinnedFontPolicy: _testPinnedPolicy(),
     );
@@ -733,7 +677,6 @@ void main() {
         from: prepared,
         requestId: session.nextRequestId,
         direction: RitoAdjacentDirection.next,
-        work: work,
       );
       await session.releaseArtifact(prepared);
       await expectLater(

@@ -88,7 +88,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: _work,
       );
 
       expect(registrar.calls, 1);
@@ -122,7 +121,6 @@ void main() {
         from: session.firstArtifact,
         requestId: 13,
         direction: RitoAdjacentDirection.next,
-        work: _work,
       ),
       throwsA(isA<StateError>()),
     );
@@ -157,7 +155,6 @@ void main() {
           from: session.firstArtifact,
           requestId: 13,
           direction: RitoAdjacentDirection.next,
-          work: _work,
         ),
         throwsA(isA<RitoNativeSessionInvalidatedException>()),
       );
@@ -379,12 +376,6 @@ void main() {
   });
 }
 
-const _work = RitoWorkBudget(
-  maxTopLevelNodesPerQuantum: 8,
-  maxForegroundQuanta: 2,
-  localPageCap: 16,
-);
-
 RitoArtifactRequest _request(int requestId) {
   return RitoArtifactRequest(
     sessionId: 91,
@@ -402,7 +393,6 @@ RitoArtifactRequest _request(int requestId) {
       rootFontSize: 16,
     ),
     locator: const RitoLocator(href: 'chapter-4.xhtml'),
-    work: _work,
   );
 }
 

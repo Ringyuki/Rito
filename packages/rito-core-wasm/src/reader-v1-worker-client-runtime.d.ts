@@ -13,7 +13,6 @@ export declare function createRitoCoreWasmReaderV1WorkerClient(
   worker: RitoReaderV1WorkerLike,
   options?: {
     readonly yieldControl?: (() => Promise<void>) | undefined;
-    readonly maxExactContinuationQuanta?: number | undefined;
     readonly maxAdjacentContinuationQuanta?: number | undefined;
   },
 ): RitoCoreWasmReaderV1WorkerClient;

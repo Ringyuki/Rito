@@ -579,11 +579,6 @@ fn artifact_request(session_id: u64, request_id: u64, href: &str) -> ReaderArtif
             source_range: None,
             progression: None,
         },
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 64,
-            max_foreground_quanta: 128,
-            local_page_cap: 16,
-        },
         text_profile: ReaderTextRenderingProfileV1::PlatformStringRuns,
     }
 }
@@ -599,11 +594,6 @@ fn adjacent_request(
         request_id,
         from_artifact_id,
         direction,
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 8,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
-        },
     }
 }
 
@@ -722,11 +712,6 @@ fn plate_adjacent(
         request_id,
         from_artifact_id,
         direction,
-        work: ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 8,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
-        },
     }
 }
 

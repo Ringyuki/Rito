@@ -29,36 +29,17 @@ void main() {
   });
 
   test(
-    'exact initial open is cooperative, bounded, and never UI-synchronous',
+    'exact open and seek are one native call each and never UI-synchronous',
     () {
       final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
-      final pending = File(
-        'lib/src/native/pending_open.dart',
-      ).readAsStringSync();
-      final bindings = File('lib/src/native/bindings.dart').readAsStringSync();
       final worker = File('lib/src/native/worker.dart').readAsStringSync();
 
-      expect(gateway, contains('Future<void>.delayed(Duration.zero)'));
-      expect(gateway, contains('_pendingExactSeek.resume('));
+      expect(gateway, contains('RitoResumableExactSeekGateway'));
       expect(
-        '_oneQuantumRequestWithId(request, intent.requestId)'.allMatches(
-          gateway,
-        ),
+        'request.withRequestId(intent.requestId)'.allMatches(gateway),
         hasLength(2),
       );
-      expect(gateway, contains('maxForegroundQuanta: 1'));
-      expect(gateway, contains('RitoResumableExactSeekGateway'));
-      expect(gateway, isNot(contains('RitoResumableOpenGateway')));
-      expect(
-        gateway,
-        contains('initialOperation: () => _requestArtifactOnce(nativeRequest)'),
-      );
-      expect(gateway, contains('return _requestArtifactOnce(continuation)'));
-      expect(pending, contains('maxForegroundQuanta: 1'));
-      expect(pending, contains('quantum < maxContinuationQuanta'));
-      expect(pending, contains('RitoPendingExactSeekLimitException('));
-      expect(bindings, contains('ritoNativeStatusExactSeekPendingV1 = 9'));
-      expect(pending, isNot(contains('.message')));
+      expect(gateway, contains('return await _requestArtifactNative('));
       expect(worker, contains('liveSessions.add(operation.sessionId)'));
       expect(worker, isNot(contains('Future<void>.delayed')));
     },
@@ -72,11 +53,11 @@ void main() {
     final bindings = File('lib/src/native/bindings.dart').readAsStringSync();
     final session = File('lib/src/reader_session.dart').readAsStringSync();
 
+    expect(gateway, contains('Future<void>.delayed(Duration.zero)'));
     expect(gateway, contains('_pendingAdjacent.resume('));
-    expect(gateway, contains('oneQuantumAdjacentRequest('));
+    expect(gateway, contains('adjacentContinuationRequest('));
     expect(gateway, contains('RitoResumableAdjacentGateway'));
     expect(gateway, contains('_adjacentIntentKey(request)'));
-    expect(pending, contains('maxForegroundQuanta: 1'));
     expect(pending, contains('quantum < maxContinuationQuanta'));
     expect(pending, contains('RitoPendingAdjacentLimitException('));
     expect(pending, contains('ritoPendingAdjacentContinuationCapV1 = 4096'));

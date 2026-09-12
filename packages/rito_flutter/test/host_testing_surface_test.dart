@@ -56,11 +56,6 @@ void main() {
     final publication = File(
       '../rito/tests/fixtures/books/book-10.epub',
     ).readAsBytesSync();
-    const work = RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 32,
-      maxForegroundQuanta: 64,
-      localPageCap: 16,
-    );
     RitoArtifact open(int sessionId, {double? lineHeight, String? family}) {
       final bindings = RitoNativeBindings();
       try {
@@ -86,7 +81,6 @@ void main() {
                 fontFamilyOverride: family,
               ),
               locator: const RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
-              work: work,
             ),
           ),
         );

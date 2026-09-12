@@ -24,10 +24,11 @@ fn target_source() -> Arc<SourceArena> {
 }
 
 fn document(source: Arc<SourceArena>, css: &str) -> StyleDocument {
-    StyleDocument::from_source(
+    StyleDocument::from_source_with_root_font_size(
         source,
         URL,
         Viewport::default(),
+        16.0,
         &[StylesheetInput::author(css, URL)],
     )
     .expect("fixture style document builds")

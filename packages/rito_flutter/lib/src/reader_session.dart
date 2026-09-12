@@ -168,8 +168,9 @@ final class RitoReaderSession {
 
   int get sessionId => _sessionId;
 
-  /// Highest request ID consumed by this session, including cooperative
-  /// continuation needed to publish an exact open, seek, or adjacent turn.
+  /// Highest request ID consumed by this session, including the
+  /// continuation calls needed to publish an adjacent turn and any
+  /// substituted ID the gateway sent an open or seek under.
   int get latestRequestId => _latestRequestId;
 
   /// Native artifact currently committed as publication-visible.
@@ -399,31 +400,21 @@ final class RitoReaderSession {
     }
   }
 
-  /// Turns from an already-published artifact without re-seeking or rebuilding
-  /// the current revision through `RITOREQ1`.
-  ///
-  /// The source remains live so callers can animate both artifacts. Release it
-  /// explicitly only after the page-turn animation no longer paints it.
   /// Publishes the neighboring page as a fully prepared read-only
   /// artifact without changing the visible state — the peek/turn
   /// counterpart to [turn].
   ///
-  /// The engine paginates toward the neighbor within [work]'s budget —
-  /// in-chapter, across window rollovers, and across chapter
-  /// boundaries alike — so peeks normally succeed even under lazy
-  /// pagination. Returns null when the neighbor is still out of reach
-  /// (the book's terminal boundary, or the budget ran out; the UI falls
-  /// back to its
-  /// fade-in path). A returned artifact is live, has fonts and images
-  /// prepared, counts against the session's live-artifact budget, and
-  /// must be freed with [releaseArtifact]. A later [turn] in the same
-  /// direction from the same page commits the peeked artifact directly
-  /// (zero layout, pure visible swap).
+  /// A neighbor in another chapter is paginated on demand, so peeks
+  /// normally succeed. Returns null at the book's terminal boundary
+  /// (the UI falls back to its fade-in path). A returned artifact is
+  /// live, has fonts and images prepared, counts against the session's
+  /// live-artifact budget, and must be freed with [releaseArtifact]. A
+  /// later [turn] in the same direction from the same page commits the
+  /// peeked artifact directly (zero layout, pure visible swap).
   Future<RitoPreparedArtifact?> peek({
     required RitoPreparedArtifact from,
     required int requestId,
     required RitoAdjacentDirection direction,
-    required RitoWorkBudget work,
   }) async {
     _requireOpen();
     if (from.sessionId != sessionId) {
@@ -438,7 +429,6 @@ final class RitoReaderSession {
         requestId: requestId,
         fromArtifactId: from.artifactId,
         direction: direction,
-        work: work,
       ),
     );
     _recordConsumedRequestId(requestId);
@@ -458,11 +448,15 @@ final class RitoReaderSession {
     return prepared;
   }
 
+  /// Turns from an already-published artifact without re-seeking or rebuilding
+  /// the current revision through `RITOREQ1`.
+  ///
+  /// The source remains live so callers can animate both artifacts. Release it
+  /// explicitly only after the page-turn animation no longer paints it.
   Future<RitoPreparedArtifact> turn({
     required RitoPreparedArtifact from,
     required int requestId,
     required RitoAdjacentDirection direction,
-    required RitoWorkBudget work,
   }) async {
     if (from.sessionId != sessionId) {
       throw ArgumentError('Adjacent source belongs to another Rito session.');
@@ -485,7 +479,6 @@ final class RitoReaderSession {
         requestId: requestId,
         fromArtifactId: from.artifactId,
         direction: direction,
-        work: work,
       ),
     );
   }

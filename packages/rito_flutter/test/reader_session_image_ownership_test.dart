@@ -50,7 +50,6 @@ void main() {
       from: session.firstArtifact,
       requestId: 13,
       direction: RitoAdjacentDirection.next,
-      work: _work,
     );
 
     expect(session.firstArtifact.hasPreparedImages, isTrue);
@@ -121,7 +120,6 @@ void main() {
           from: session.firstArtifact,
           requestId: 13,
           direction: RitoAdjacentDirection.next,
-          work: _work,
         );
       } finally {
         FlutterError.onError = priorOnError;
@@ -136,12 +134,6 @@ void main() {
     },
   );
 }
-
-const _work = RitoWorkBudget(
-  maxTopLevelNodesPerQuantum: 1,
-  maxForegroundQuanta: 1,
-  localPageCap: 2,
-);
 
 RitoArtifactRequest _request(int requestId) {
   return RitoArtifactRequest(
@@ -160,7 +152,6 @@ RitoArtifactRequest _request(int requestId) {
       rootFontSize: 16,
     ),
     locator: const RitoLocator(href: 'chapter.xhtml'),
-    work: _work,
   );
 }
 

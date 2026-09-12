@@ -6,7 +6,6 @@ export function encodeRitoReaderArtifactRequestV1(request) {
   writer.externalId(request.requestId, 'request id');
   writer.record((record) => writeLayout(record, request.layout));
   writer.record((record) => writeLocator(record, request.locator));
-  writer.record((record) => writeWork(record, request.work));
   writer.u32(textProfile(request.textProfile), 'text profile');
   return writer.finish();
 }
@@ -17,9 +16,8 @@ export function encodeRitoReaderAdjacentRequestV1(request) {
   writer.externalId(request.requestId, 'request id');
   writer.externalId(request.fromArtifactId, 'from artifact id');
   writer.u32(adjacentDirection(request.direction), 'adjacent direction');
-  writeWork(writer, request.work);
   const bytes = writer.finish();
-  if (bytes.byteLength !== 60) throw new Error('RITONAV1 must be exactly 60 bytes');
+  if (bytes.byteLength !== 48) throw new Error('RITONAV1 must be exactly 48 bytes');
   return bytes;
 }
 
@@ -73,14 +71,6 @@ function writeSourcePointRecord(writer, value) {
     for (const part of value.nodePath) record.u32(part, 'source path part');
     record.u64(value.textOffset, 'source text offset');
   });
-}
-
-function writeWork(writer, value) {
-  if (value === null || typeof value !== 'object')
-    throw new TypeError('Reader work budget is required');
-  writer.u32(value.maxTopLevelNodesPerQuantum, 'max top-level nodes per quantum');
-  writer.u32(value.maxForegroundQuanta, 'max foreground quanta');
-  writer.u32(value.localPageCap, 'local page cap');
 }
 
 function requireDouble(value) {

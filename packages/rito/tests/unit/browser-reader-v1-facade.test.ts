@@ -49,11 +49,6 @@ const options = {
     spreadGap: 24,
     rootFontSize: 16,
   },
-  work: {
-    maxTopLevelNodesPerQuantum: 64,
-    maxForegroundQuanta: 8,
-    localPageCap: 16,
-  },
 };
 
 describe('Browser Reader v1 facade', () => {
@@ -73,7 +68,6 @@ describe('Browser Reader v1 facade', () => {
       // (1 under the test DOM).
       layout: { ...options.layout, renderRatio: 1 },
       locator: options.initialLocator,
-      work: options.work,
       textProfile: 'platform-string-runs',
     });
     expect(session.initialArtifact).toBe(artifact);

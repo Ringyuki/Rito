@@ -35,11 +35,7 @@ extension _RitoDisplayPaintReader on RitoBinaryReader {
     for (var index = 0; index < shadowCount; index += 1) {
       shadows.add(readTextShadow());
     }
-    return RitoRunPaint(
-      font: font,
-      color: color,
-      textShadows: shadows,
-    );
+    return RitoRunPaint(font: font, color: color, textShadows: shadows);
   }
 
   RitoTextShadow readTextShadow() {

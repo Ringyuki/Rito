@@ -11,7 +11,6 @@ import type {
   RitoReaderResourceKindV1,
   RitoReaderResourceV1,
   RitoReaderTextProfileV1,
-  RitoReaderWorkBudgetV1,
 } from './reader-v1';
 
 export type RitoReaderErrorCodeV1 =
@@ -33,7 +32,6 @@ export type RitoReaderErrorCodeV1 =
 
 export interface RitoReaderSeekOverridesV1 {
   readonly layout?: RitoReaderLayoutV1 | undefined;
-  readonly work?: RitoReaderWorkBudgetV1 | undefined;
   readonly textProfile?: RitoReaderTextProfileV1 | undefined;
 }
 
@@ -62,7 +60,6 @@ export interface RitoCoreWasmReaderV1WorkerClient {
   requestAdjacent(
     fromArtifactId: bigint,
     direction: RitoReaderAdjacentDirectionV1,
-    work?: RitoReaderWorkBudgetV1,
   ): Promise<RitoReaderArtifactV1>;
   /** Returns an unadopted latest-wins candidate; only one foreground RPC advances. */
   requestArtifact(request: RitoReaderArtifactRequestInputV1): Promise<RitoReaderArtifactV1>;
@@ -115,7 +112,6 @@ export interface RitoReaderV1WorkerScope {
 
 export interface RitoReaderV1RawSession {
   publicationV1(): Uint8Array;
-  hasPendingExactSeekV1(): boolean;
   hasPendingAdjacentV1(): boolean;
   requestArtifactV1(request: Uint8Array): Uint8Array;
   requestAdjacentV1(request: Uint8Array): Uint8Array;
