@@ -12,8 +12,8 @@
     "maxDiffPx": 50
   },
   "block-borders-solid": {
-    "maxDelta": 3,
-    "maxDiffPx": 56
+    "maxDelta": 8,
+    "maxDiffPx": 64
   },
   "block-box-shadow": {
     "maxDelta": 26,

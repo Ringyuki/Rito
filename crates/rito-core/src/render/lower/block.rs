@@ -10,8 +10,10 @@ use super::super::commands::contract::{
     ReaderRunBorderV1,
 };
 use super::{
-    border::{stroke_edge, stroke_outline, Edge, BLACK},
-    path::{corner_rounded_rect, inner_elliptical_rect, overlap_scale, rounded_rect, triangle},
+    border::{band_thickness, stroke_edge, stroke_outline, Edge, BLACK},
+    path::{
+        corner_rounded_rect, inner_elliptical_rect, overlap_scale, polygon, rounded_rect, triangle,
+    },
     DevicePath, DevicePoint, DeviceRect, FillRule, Ground, ImageSize, Primitive, TilePlan,
 };
 
@@ -451,37 +453,161 @@ const ZERO_EDGE: Edge = Edge {
 };
 
 /// The browser paints a straight border box's edges top, bottom, left,
-/// right; where bands meet at a corner the later edge wins.
+/// right, and a corner belongs to whichever edge overdraws it: an edge
+/// whose neighbour paints later with a style that fills its band leaves
+/// the corner to that neighbour, while an edge painted after a neighbour
+/// of another colour or style keeps only its miter — the quad from its
+/// outer corners to the inner corners, antialiased — so the two colours
+/// meet on the diagonal (an inset rule's dark top and light right edge
+/// share the corner pixel half and half, at every ratio).
 fn straight_borders(snapped: DeviceRect, edges: &Edges, out: &mut Vec<Primitive>) {
+    #[derive(Clone, Copy, PartialEq)]
+    enum Side {
+        Top,
+        Bottom,
+        Left,
+        Right,
+    }
+    let edge_of = |side: Side| match side {
+        Side::Top => edges.top,
+        Side::Bottom => edges.bottom,
+        Side::Left => edges.left,
+        Side::Right => edges.right,
+    };
+    let thickness = |side: Side| {
+        let edge = edge_of(side);
+        if edge.width > 0.0 {
+            band_thickness(edge.width)
+        } else {
+            0.0
+        }
+    };
+    let fills_band = |style: ReaderBorderStyleV1| {
+        !matches!(
+            style,
+            ReaderBorderStyleV1::Dotted | ReaderBorderStyleV1::Dashed | ReaderBorderStyleV1::Double
+        )
+    };
     let (left, top, right, bottom) = (snapped.x, snapped.y, snapped.right(), snapped.bottom());
-    let center = top + edges.top.width / 2.0;
-    stroke_edge(
-        edges.top,
-        DevicePoint::new(left, center),
-        DevicePoint::new(right, center),
-        out,
+    let (t_top, t_bottom, t_left, t_right) = (
+        thickness(Side::Top),
+        thickness(Side::Bottom),
+        thickness(Side::Left),
+        thickness(Side::Right),
     );
-    let center = bottom - edges.bottom.width / 2.0;
-    stroke_edge(
-        edges.bottom,
-        DevicePoint::new(left, center),
-        DevicePoint::new(right, center),
-        out,
-    );
-    let center = left + edges.left.width / 2.0;
-    stroke_edge(
-        edges.left,
-        DevicePoint::new(center, top),
-        DevicePoint::new(center, bottom),
-        out,
-    );
-    let center = right - edges.right.width / 2.0;
-    stroke_edge(
-        edges.right,
-        DevicePoint::new(center, top),
-        DevicePoint::new(center, bottom),
-        out,
-    );
+    let mut painted = [false; 4];
+    let index = |side: Side| side as usize;
+    for side in [Side::Top, Side::Bottom, Side::Left, Side::Right] {
+        let edge = edge_of(side);
+        if edge.width <= 0.0 {
+            painted[index(side)] = true;
+            continue;
+        }
+        let (from, to, neighbours) = match side {
+            Side::Top => {
+                let center = top + edge.width / 2.0;
+                let points = (
+                    DevicePoint::new(left, center),
+                    DevicePoint::new(right, center),
+                );
+                (points.0, points.1, [Side::Left, Side::Right])
+            }
+            Side::Bottom => {
+                let center = bottom - edge.width / 2.0;
+                let points = (
+                    DevicePoint::new(left, center),
+                    DevicePoint::new(right, center),
+                );
+                (points.0, points.1, [Side::Left, Side::Right])
+            }
+            Side::Left => {
+                let center = left + edge.width / 2.0;
+                let points = (
+                    DevicePoint::new(center, top),
+                    DevicePoint::new(center, bottom),
+                );
+                (points.0, points.1, [Side::Top, Side::Bottom])
+            }
+            Side::Right => {
+                let center = right - edge.width / 2.0;
+                let points = (
+                    DevicePoint::new(center, top),
+                    DevicePoint::new(center, bottom),
+                );
+                (points.0, points.1, [Side::Top, Side::Bottom])
+            }
+        };
+        let miter = |neighbour: Side| {
+            let other = edge_of(neighbour);
+            other.width > 0.0
+                && (other.color != edge.color || other.style != edge.style)
+                && (painted[index(neighbour)] || !fills_band(other.style))
+        };
+        let [miter_a, miter_b] = neighbours.map(miter);
+        if miter_a || miter_b {
+            let corner = |x: f64, y: f64| DevicePoint::new(x, y);
+            let quad = match side {
+                Side::Top => [
+                    corner(left, top),
+                    corner(if miter_a { left + t_left } else { left }, top + t_top),
+                    corner(if miter_b { right - t_right } else { right }, top + t_top),
+                    corner(right, top),
+                ],
+                Side::Bottom => [
+                    corner(left, bottom),
+                    corner(
+                        if miter_a { left + t_left } else { left },
+                        bottom - t_bottom,
+                    ),
+                    corner(
+                        if miter_b { right - t_right } else { right },
+                        bottom - t_bottom,
+                    ),
+                    corner(right, bottom),
+                ],
+                Side::Left => [
+                    corner(left, top),
+                    corner(left + t_left, if miter_a { top + t_top } else { top }),
+                    corner(
+                        left + t_left,
+                        if miter_b { bottom - t_bottom } else { bottom },
+                    ),
+                    corner(left, bottom),
+                ],
+                Side::Right => [
+                    corner(right, top),
+                    corner(right - t_right, if miter_a { top + t_top } else { top }),
+                    corner(
+                        right - t_right,
+                        if miter_b { bottom - t_bottom } else { bottom },
+                    ),
+                    corner(right, bottom),
+                ],
+            };
+            if fills_band(edge.style) {
+                // The mitered band is the quad itself (its inner edge
+                // is the band's inner row), filled as a path so the
+                // miter antialiases on every host — a clip does not
+                // antialias on every canvas the reader runs in.
+                out.push(Primitive::FillPath {
+                    path: polygon(&quad),
+                    rule: FillRule::NonZero,
+                    color: edge.color,
+                    ground: Ground::None,
+                });
+            } else {
+                out.push(Primitive::PushState);
+                out.push(Primitive::ClipPath {
+                    path: polygon(&quad),
+                });
+                stroke_edge(edge, from, to, out);
+                out.push(Primitive::PopState);
+            }
+        } else {
+            stroke_edge(edge, from, to, out);
+        }
+        painted[index(side)] = true;
+    }
 }
 
 /// A rounded border box rasters on whole pixels like a straight one (a 1px

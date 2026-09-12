@@ -64,6 +64,20 @@ pub(super) fn inner_elliptical_rect(rect: DeviceRect, corners: [(f64, f64); 4]) 
     )
 }
 
+/// A closed polygon through `points`, in order.
+pub(super) fn polygon(points: &[DevicePoint]) -> DevicePath {
+    let mut ops = Vec::with_capacity(points.len() + 1);
+    for (index, point) in points.iter().enumerate() {
+        ops.push(if index == 0 {
+            PathOp::MoveTo(*point)
+        } else {
+            PathOp::LineTo(*point)
+        });
+    }
+    ops.push(PathOp::Close);
+    DevicePath { ops }
+}
+
 /// The wedge a border side owns on a rounded box: the box centre and the
 /// side's two corners.
 pub(super) fn triangle(a: DevicePoint, b: DevicePoint, c: DevicePoint) -> DevicePath {

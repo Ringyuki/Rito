@@ -209,7 +209,7 @@ impl Span {
     }
 }
 
-fn band_thickness(width: f64) -> f64 {
+pub(super) fn band_thickness(width: f64) -> f64 {
     width.floor().max(1.0)
 }
 

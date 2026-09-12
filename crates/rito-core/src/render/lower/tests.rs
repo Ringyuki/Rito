@@ -751,6 +751,79 @@ fn unequal_solid_rounded_edges_of_one_colour_fill_a_crescent() {
     ));
 }
 
+/// Straight edges of two colours meet on the miter: an edge painted after
+/// a neighbour of another colour is clipped to the quad from its outer
+/// corners to the inner corners, while an edge whose neighbour paints
+/// later (and fills its band) leaves the corner to that neighbour.
+#[test]
+fn straight_edges_of_two_colours_meet_on_the_miter() {
+    let side = |color| {
+        Some(ReaderBorderEdgePaintV1 {
+            color,
+            style: ReaderBorderStyleV1::Solid,
+        })
+    };
+    // An inset rule's box: dark top and left, light bottom and right.
+    let primitives = lowered(
+        vec![block(
+            rect(0.0, 0.0, 100.0, 2.0),
+            block_paint(
+                None,
+                Some(ReaderBlockBorderV1 {
+                    top: side(INK),
+                    right: side(TRANSLUCENT),
+                    bottom: side(TRANSLUCENT),
+                    left: side(INK),
+                }),
+            ),
+            Some(widths(1.0, 1.0, 1.0, 1.0)),
+        )],
+        1.0,
+    );
+    // Top and bottom paint first with square corners (their neighbours
+    // paint later); the left edge meets the light bottom on a miter and
+    // shares the dark top without one; the right edge meets the dark top
+    // on a miter and shares the light bottom. A mitered solid band is
+    // its quad, filled.
+    assert_eq!(primitives.len(), 4, "{primitives:#?}");
+    assert!(matches!(primitives[0], Primitive::FillRect { .. }));
+    assert!(matches!(primitives[1], Primitive::FillRect { .. }));
+    assert_eq!(
+        primitives[2],
+        Primitive::FillPath {
+            path: DevicePath {
+                ops: vec![
+                    PathOp::MoveTo(DevicePoint::new(0.0, 0.0)),
+                    PathOp::LineTo(DevicePoint::new(1.0, 0.0)),
+                    PathOp::LineTo(DevicePoint::new(1.0, 1.0)),
+                    PathOp::LineTo(DevicePoint::new(0.0, 2.0)),
+                    PathOp::Close,
+                ],
+            },
+            rule: FillRule::NonZero,
+            color: INK,
+            ground: Ground::None,
+        }
+    );
+    assert_eq!(
+        primitives[3],
+        Primitive::FillPath {
+            path: DevicePath {
+                ops: vec![
+                    PathOp::MoveTo(DevicePoint::new(100.0, 0.0)),
+                    PathOp::LineTo(DevicePoint::new(99.0, 1.0)),
+                    PathOp::LineTo(DevicePoint::new(99.0, 2.0)),
+                    PathOp::LineTo(DevicePoint::new(100.0, 2.0)),
+                    PathOp::Close,
+                ],
+            },
+            rule: FillRule::NonZero,
+            color: TRANSLUCENT,
+            ground: Ground::None,
+        }
+    );
+}
+
 #[test]
 fn disagreeing_rounded_edges_each_paint_inside_their_wedge() {
     let side = |color| {

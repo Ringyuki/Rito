@@ -275,48 +275,35 @@ fn append_fragment_display_commands_inner(
                         // rides at the box top where the border lives. A
                         // thin inset rule is Chromium's fixed 3D bevel:
                         // a #9A9A9A top stroke and an #EEEEEE bottom
-                        // stroke, whatever the border color (measured).
+                        // stroke, whatever the border color (measured),
+                        // closed at the sides by a dark left and a light
+                        // right edge — a border box of two colours, whose
+                        // corners the border lowering miters where the
+                        // colours meet.
                         let thickness = thickness.min(fragment.rect.height);
                         if style == &"inset" {
-                            commands.push(DisplayCommand::paint_horizontal_rule(
+                            let edge = |color: &str| serde_json::json!({ "color": color, "style": "solid" });
+                            commands.push(DisplayCommand::paint_block(
                                 rect_value(
                                     origin_x + fragment.rect.x,
                                     origin_y + fragment.rect.y,
                                     fragment.rect.width,
-                                    thickness,
-                                ),
-                                serde_json::json!({ "color": "#9a9a9a", "style": "solid" }),
-                            ));
-                            commands.push(DisplayCommand::paint_horizontal_rule(
-                                rect_value(
-                                    origin_x + fragment.rect.x,
-                                    origin_y + fragment.rect.y + fragment.rect.height - thickness,
-                                    fragment.rect.width,
-                                    thickness,
-                                ),
-                                serde_json::json!({ "color": "#eeeeee", "style": "solid" }),
-                            ));
-                            // The bevel closes at the sides too: a dark
-                            // left edge and a light right edge over the
-                            // full box height (taller-than-wide rects
-                            // stroke vertically).
-                            commands.push(DisplayCommand::paint_horizontal_rule(
-                                rect_value(
-                                    origin_x + fragment.rect.x,
-                                    origin_y + fragment.rect.y,
-                                    thickness,
                                     fragment.rect.height,
                                 ),
-                                serde_json::json!({ "color": "#9a9a9a", "style": "solid" }),
-                            ));
-                            commands.push(DisplayCommand::paint_horizontal_rule(
-                                rect_value(
-                                    origin_x + fragment.rect.x + fragment.rect.width - thickness,
-                                    origin_y + fragment.rect.y,
-                                    thickness,
-                                    fragment.rect.height,
-                                ),
-                                serde_json::json!({ "color": "#eeeeee", "style": "solid" }),
+                                serde_json::json!({
+                                    "border": {
+                                        "top": edge("#9a9a9a"),
+                                        "right": edge("#eeeeee"),
+                                        "bottom": edge("#eeeeee"),
+                                        "left": edge("#9a9a9a"),
+                                    },
+                                }),
+                                Some(serde_json::json!({
+                                    "topWidth": number_value(thickness),
+                                    "rightWidth": number_value(thickness),
+                                    "bottomWidth": number_value(thickness),
+                                    "leftWidth": number_value(thickness),
+                                })),
                             ));
                         } else {
                             commands.push(DisplayCommand::paint_horizontal_rule(
@@ -2665,6 +2652,81 @@ mod tests {
         assert_eq!(*rect, rect_value(13.0, 27.0, 90.0, 2.0));
         assert_eq!(paint["color"], "#445566");
         assert_eq!(paint["style"], "solid");
+    }
+
+    /// An inset rule is the browser's fixed two-tone bevel closed on all
+    /// four sides: it paints as one border box — dark top and left, light
+    /// bottom and right — so the border lowering miters the corners where
+    /// the tones meet.
+    #[test]
+    fn an_inset_rule_paints_as_a_two_tone_border_box() {
+        let fixture = two_color_flow(|red, _| vec![text_item("x", red, 0.0)]);
+        let rule = Fragment::Box(BoxFragment {
+            source: FormattingNodeId(0),
+            rect: FragmentRect {
+                x: 3.0,
+                y: 7.0,
+                width: 90.0,
+                height: 2.0,
+            },
+            children: Vec::new(),
+        });
+        let root = Fragment::Box(BoxFragment {
+            source: FormattingNodeId(0),
+            rect: FragmentRect {
+                x: 10.0,
+                y: 20.0,
+                width: 100.0,
+                height: 30.0,
+            },
+            children: vec![rule],
+        });
+        let mut paints = std::collections::BTreeMap::new();
+        paints.insert(
+            0u32,
+            NodePaint::Rule {
+                color: "#808080".to_owned(),
+                style: "inset",
+                thickness: 1.0,
+            },
+        );
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &fixture.tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                node_paints: Some(&paints),
+                ..FragmentPaintContext::default()
+            },
+        )
+        .expect("rule paints");
+        // Both boxes share source node 0 in this fixture, so the outer box
+        // paints first; the rule is the second command.
+        let DisplayCommand::PaintBlock {
+            rect,
+            paint,
+            border_box,
+        } = &commands[1]
+        else {
+            panic!("expected a block command, got {:?}", commands[1]);
+        };
+        assert_eq!(*rect, rect_value(13.0, 27.0, 90.0, 2.0));
+        for (side, color) in [
+            ("top", "#9a9a9a"),
+            ("left", "#9a9a9a"),
+            ("bottom", "#eeeeee"),
+            ("right", "#eeeeee"),
+        ] {
+            assert_eq!(paint["border"][side]["color"], color, "{side}");
+            assert_eq!(paint["border"][side]["style"], "solid", "{side}");
+        }
+        let widths = border_box.as_ref().expect("border widths");
+        for key in ["topWidth", "rightWidth", "bottomWidth", "leftWidth"] {
+            assert_eq!(widths[key].as_f64(), Some(1.0), "{key}");
+        }
     }
 
     #[test]
