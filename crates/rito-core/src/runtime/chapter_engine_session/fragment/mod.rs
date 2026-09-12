@@ -25,12 +25,15 @@ use super::super::page_artifact::{
     PageArtifactTextSelectionMovement, PageArtifactTextSelectionMovementTarget,
 };
 use crate::layout::SpreadMode;
-use crate::render::DisplayCommand;
+use crate::render::{
+    contract::{ReaderBlockPaintV1, ReaderColorV1},
+    display_number, display_rect, DisplayCommand,
+};
 use crate::runtime::spread::build_spread_slots;
 
 use super::super::{
     fragment_backend::FragmentBuiltLayout,
-    fragment_frame::{number_value, paint_rect_command, rect_value},
+    fragment_frame::paint_rect_command,
     page_artifact::{
         FragmentPageArtifact, FragmentRunRecord, PageArtifact, PageArtifactChapterRange,
         PageArtifactExactSourceRangeQuery, PageArtifactExactTextRange,
@@ -117,7 +120,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
             0.0,
             config.viewport_width,
             config.viewport_height,
-            "#ffffff",
+            ReaderColorV1::WHITE,
         ));
         let dual = page_indexes.len() == 2;
         for (slot, page_index) in page_indexes.iter().enumerate() {
@@ -126,11 +129,11 @@ impl<'a> FragmentChapterEngineSession<'a> {
             };
             let metadata = page.artifact.metadata();
             let offset_x = slot as f64 * (config.page_width + config.spread_gap);
-            commands.push(DisplayCommand::push_state());
-            commands.push(DisplayCommand::translate(
-                number_value(offset_x),
-                number_value(0.0),
-            ));
+            commands.push(DisplayCommand::PushState);
+            commands.push(DisplayCommand::Translate {
+                dx: display_number(offset_x),
+                dy: display_number(0.0),
+            });
             // The spread gap belongs to the sheet, not the backdrop: each
             // page's background wash extends to the middle of the gap so a
             // full-bleed chapter reads as one continuous spread instead of
@@ -151,7 +154,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 0.0,
                 wash_width,
                 metadata.height,
-                chapter.page_background.as_deref().unwrap_or("#ffffff"),
+                chapter.page_background.unwrap_or(ReaderColorV1::WHITE),
             ));
             if let Some(paint) = &chapter.page_background_image {
                 // The body's box is the page CONTENT box: percentage
@@ -159,18 +162,21 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 // against it, not the page canvas (Blink anchors the
                 // propagated image to the body box; the margins stay
                 // outside the positioning area).
-                commands.push(DisplayCommand::paint_block(
-                    rect_value(
+                commands.push(DisplayCommand::PaintBlock {
+                    rect: display_rect(
                         config.margin_left,
                         config.margin_top,
                         metadata.width - config.margin_left - config.margin_right,
                         metadata.height - config.margin_top - config.margin_bottom,
                     ),
-                    paint.clone(),
-                    None,
-                ));
+                    paint: ReaderBlockPaintV1 {
+                        background: Some(paint.clone()),
+                        ..ReaderBlockPaintV1::default()
+                    },
+                    border_box: None,
+                });
             }
-            commands.push(DisplayCommand::push_state());
+            commands.push(DisplayCommand::PushState);
             // The fragmentainer clips BLOCK-axis ink overflow: content
             // above the page content box (a flex-centered cover taller
             // than its box) or below it (a force-placed taller-than-page
@@ -182,18 +188,18 @@ impl<'a> FragmentChapterEngineSession<'a> {
             // b9 regression that a fold-guard bug actually caused). The
             // inline END keeps the page-wide clip for the right bleed,
             // ruby overhang and glyph AA.
-            commands.push(DisplayCommand::clip_rect(
-                rect_value(
+            commands.push(DisplayCommand::ClipRect {
+                rect: display_rect(
                     config.margin_left,
                     config.margin_top,
                     metadata.width - config.margin_left,
                     metadata.height - config.margin_top - config.margin_bottom,
                 ),
-                None,
-            ));
+                radius: None,
+            });
             commands.extend(page.commands_for(ratio, &chapter.paint)?.iter().cloned());
-            commands.push(DisplayCommand::pop_state());
-            commands.push(DisplayCommand::pop_state());
+            commands.push(DisplayCommand::PopState);
+            commands.push(DisplayCommand::PopState);
         }
         Ok(Some(PageArtifactFrame {
             spread_index: spread.index,

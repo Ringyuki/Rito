@@ -153,7 +153,6 @@ mod tests {
         MaximumSizeV1, MinimumHeightV1, NonNegativeLengthPercentage, OverflowV1, PageBreakV1,
         PhysicalSides, PositionV1, PreferredSizeV1,
     };
-    use serde_json::Value;
 
     fn plain_block_layout_style() -> LayoutFormattingStyleV1 {
         let zero = LengthPercentageOrAuto::Value(LengthPercentage::Length(
@@ -276,9 +275,7 @@ mod tests {
         for commands in painted {
             for command in commands {
                 if let DisplayCommand::PaintText(input) = command {
-                    if let Value::String(run) = &input.text {
-                        text.push_str(run);
-                    }
+                    text.push_str(&input.text);
                 }
             }
         }
@@ -332,11 +329,7 @@ mod tests {
         let DisplayCommand::PaintText(input) = &painted[0][0] else {
             panic!("expected a text command, got {:?}", painted[0][0]);
         };
-        let Value::Object(rect) = &input.rect else {
-            panic!("rect is an object");
-        };
-        let x = rect["x"].as_f64().expect("x is a number");
-        let y = rect["y"].as_f64().expect("y is a number");
+        let (x, y) = (input.rect.x, input.rect.y);
         assert!(x >= 24.0, "content starts at the x origin, got {x}");
         assert!(y >= 32.0, "content starts below the y origin, got {y}");
     }

@@ -2,17 +2,17 @@ pub const NAME: &str = "style";
 pub const OWNS: &str = "Stylesheet selection, the Stylo cascade, and the typed style projection";
 
 mod backend;
+mod paint_values;
 mod stylo_sources;
-mod wire_values;
 
 #[cfg(test)]
 pub(crate) use backend::style_backend_metrics;
 #[cfg(test)]
 pub(crate) use backend::StyleBackendError;
 pub(crate) use backend::{resolve_prepared_chapter_style, PreparedStyleChapterInput};
-pub(crate) use wire_values::{
-    absolute_color, background_position_axis_wire, background_publication_href,
-    background_repeat_wire, background_size_wire, serialize_font_families,
+pub(crate) use paint_values::{
+    background_position_axis, background_publication_href, background_repeat, background_size,
+    paint_color, serialize_font_families,
 };
 
 /// The CSS viewport a chapter cascades against: one page's content box, in

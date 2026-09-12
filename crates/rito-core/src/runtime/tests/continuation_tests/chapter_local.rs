@@ -310,7 +310,7 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
             .iter()
             .filter_map(|command| match command {
                 crate::render::DisplayCommand::PaintText(input) => {
-                    Some(format!("{} {}", input.text, input.rect))
+                    Some(format!("{} {:?}", input.text, input.rect))
                 }
                 _ => None,
             })

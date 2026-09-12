@@ -11,9 +11,9 @@ use crate::{
     interaction::{FootnoteEntry, FootnoteTargetSet},
     layout::LayoutConfig,
     render::{
-        count_display_commands, encode_reader_primitive_list_v1, hash_display_commands,
-        lower_display_commands, summarize_display_list_font_families,
-        summarize_display_list_resource_refs, DisplayCommand, ImageSize,
+        count_display_commands, encode_reader_primitive_list_v1, hash_display_commands, lower,
+        summarize_display_list_font_families, summarize_display_list_resource_refs, DisplayCommand,
+        ImageSize,
     },
 };
 
@@ -279,8 +279,8 @@ fn lower_frame_commands(
 ) -> EpubResult<crate::render::ReaderEncodedDisplayListV1> {
     document.ensure_frame_image_sizes(commands)?;
     let images = |href: &str| find_image_size(&document.images, href);
-    let lowered = lower_display_commands(commands, ratio, &images)
-        .map_err(|error| EpubError::new(error.to_string()))?;
+    let lowered =
+        lower(commands, ratio, &images).map_err(|error| EpubError::new(error.to_string()))?;
     encode_reader_primitive_list_v1(&lowered).map_err(|error| EpubError::new(error.to_string()))
 }
 

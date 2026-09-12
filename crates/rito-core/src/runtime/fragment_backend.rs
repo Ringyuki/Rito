@@ -17,7 +17,10 @@ use rito_fragment::CancelFlag;
 use super::spread::build_spread_slots;
 use crate::fragment_pagination::{paginate_chapter, paint_chapter_page};
 use crate::fragment_paint::{FragmentPaintContext, PaintFamilyPolicy};
-use crate::render::DisplayCommand;
+use crate::render::{
+    contract::{ReaderBackgroundPaintV1, ReaderColorV1},
+    DisplayCommand,
+};
 
 use super::frame::RuntimeRevisionCoordinateSpace;
 use super::page_artifact::FragmentPageArtifact;
@@ -37,9 +40,9 @@ pub(super) struct FragmentBackendChapter {
     pub(super) block_count: usize,
     /// The chapter body's background color, painted as this chapter's
     /// page wash.
-    pub(super) page_background: Option<String>,
+    pub(super) page_background: Option<ReaderColorV1>,
     /// The body's background image painted across the full page.
-    pub(super) page_background_image: Option<serde_json::Value>,
+    pub(super) page_background_image: Option<ReaderBackgroundPaintV1>,
     pub(super) pages: Vec<FragmentBackendPage>,
 }
 
@@ -443,7 +446,7 @@ impl RuntimeDocument {
         Ok(FragmentBackendChapter {
             idref: idref.to_owned(),
             block_count,
-            page_background: built.page_background.clone(),
+            page_background: built.page_background,
             page_background_image: built.page_background_image.clone(),
             pages: backend_pages,
             paint: ChapterPaintSource {

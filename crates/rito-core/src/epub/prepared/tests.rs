@@ -11,7 +11,7 @@ use crate::{
         LoadedChapter, LoadedEpubDocument, LoadedTextResource, PackageDocument, PackageMetadata,
     },
     style::{
-        absolute_color, resolve_prepared_chapter_style, serialize_font_families,
+        paint_color, resolve_prepared_chapter_style, serialize_font_families,
         style_backend_metrics, ChapterStyleOptions, CssViewport, PreparedStyleChapterInput,
         StyleBackendError,
     },
@@ -270,12 +270,12 @@ fn background_url_cluster_resolves_against_the_stylesheet_base() {
         Ok("Images/paper.png")
     );
     assert_eq!(
-        crate::style::background_repeat_wire(image.repeat),
-        "no-repeat"
+        crate::style::background_repeat(image.repeat),
+        crate::render::contract::ReaderBackgroundRepeatV1::NoRepeat
     );
     assert_eq!(
-        crate::style::background_size_wire(image.size),
-        serde_json::json!("cover")
+        crate::style::background_size(image.size),
+        crate::render::contract::ReaderBackgroundSizeV1::Cover
     );
     let LengthPercentage::Percentage(x) = image.position.x else {
         panic!("`center` keeps its percentage: {:?}", image.position.x);
@@ -566,7 +566,7 @@ fn node_index_for_tag(chapter: &ParsedLoadedChapterSource, tag: &str) -> usize {
 }
 
 fn color(value: rito_style_contract::AbsoluteColor) -> String {
-    absolute_color(value).expect("an sRGB colour")
+    crate::render::test_support::color_css(paint_color(value).expect("an sRGB colour"))
 }
 
 fn is_transparent(value: ComputedColorV1, style: &InlineFormattingStyleV1) -> bool {

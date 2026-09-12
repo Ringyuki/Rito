@@ -1,8 +1,6 @@
-//! Owned, renderer-neutral command contract encoded by `RITODL1`.
-//!
-//! These types deliberately contain no JSON values and no CSS token strings.
-//! The legacy display-list provider is converted at the adapter boundary
-//! before the primary wire encoder sees a command.
+//! Owned, renderer-neutral value types shared by the display list and the
+//! `RITODL1` encoder. They contain no JSON values and no CSS token
+//! strings: colours, lengths and keywords are typed at the source.
 
 mod geometry;
 mod paint;
@@ -21,54 +19,6 @@ pub(crate) use paint::{
     ReaderSpacingV1, ReaderTextRunPaintV1, ReaderTextShadowV1,
 };
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ReaderDisplayListV1 {
-    pub commands: Vec<ReaderDisplayCommandV1>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum ReaderDisplayCommandV1 {
-    PushState,
-    PopState,
-    Translate {
-        dx: f64,
-        dy: f64,
-    },
-    Opacity {
-        value: f64,
-    },
-    Transform {
-        origin: ReaderPointV1,
-        box_size: ReaderSizeV1,
-        transforms: Vec<ReaderTransformV1>,
-    },
-    ClipRect {
-        rect: ReaderRectV1,
-        radius: Option<ReaderCornerRadiusV1>,
-    },
-    PaintPage {
-        rect: ReaderRectV1,
-        paint: ReaderPagePaintV1,
-    },
-    PaintBlock {
-        rect: ReaderRectV1,
-        paint: ReaderBlockPaintV1,
-        border_box: Option<ReaderBorderBoxV1>,
-    },
-    PaintText(ReaderTextCommandV1),
-    PaintRuby(ReaderTextCommandV1),
-    PaintImage {
-        src: String,
-        rect: ReaderRectV1,
-        alt: Option<String>,
-        href: Option<String>,
-        source_rect: Option<ReaderRectV1>,
-    },
-    PaintHorizontalRule {
-        rect: ReaderRectV1,
-        paint: ReaderHorizontalRulePaintV1,
-    },
-}
 /// Where one cluster of a run paints: the origin of the cluster starting
 /// at `byte` of the run's text, in CSS pixels. Spacing and justification
 /// are already in it.
@@ -79,20 +29,6 @@ pub(crate) struct ReaderClusterV1 {
     /// The cluster's paint anchor: the alphabetic baseline of a text run,
     /// the em-box top of an annotation.
     pub y: f64,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ReaderTextCommandV1 {
-    pub text: String,
-    pub rect: ReaderRectV1,
-    pub paint: ReaderRunPaintV1,
-    pub line_height_px: Option<f64>,
-    pub href: Option<String>,
-    pub source_text: Option<String>,
-    pub source_text_offset: Option<u64>,
-    /// The origin of every cluster, in text order; empty only for a run
-    /// the renderer still places itself.
-    pub clusters: Vec<ReaderClusterV1>,
 }
 
 /// The text run the wire carries (opcodes 12 and 13): the run stripped to

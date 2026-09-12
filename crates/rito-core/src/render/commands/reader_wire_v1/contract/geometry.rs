@@ -29,6 +29,10 @@ pub(crate) enum ReaderLengthV1 {
     Px(f64),
     Percent(f64),
 }
+#[allow(
+    dead_code,
+    reason = "RITODL1 freezes the transform tags before the style projection emits every operation"
+)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum ReaderTransformV1 {
     Rotate {

@@ -1620,16 +1620,10 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
             else {
                 continue;
             };
-            let (Some(text), Some(rect)) = (input.text.as_str(), input.rect.as_object()) else {
-                continue;
-            };
-            let (Some(x), Some(y)) = (
-                rect.get("x").and_then(serde_json::Value::as_f64),
-                rect.get("y").and_then(serde_json::Value::as_f64),
-            ) else {
-                continue;
-            };
-            painted.entry(text.to_owned()).or_default().push((x, y));
+            painted
+                .entry(input.text.clone())
+                .or_default()
+                .push((input.rect.x, input.rect.y));
         }
         assert!(!painted.is_empty(), "{label}: fixture must paint text");
 

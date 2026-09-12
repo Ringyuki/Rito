@@ -1,24 +1,28 @@
-use serde_json::json;
 use sha2::{Digest, Sha256};
 
-use crate::{
-    render::RunPaint,
-    render::{
-        lower::{
-            lower_display_commands, DashPattern, DevicePath, DevicePoint, DeviceRect,
-            DeviceTransform, FillRule, Ground, ImageSize, LowerError, PathOp, Primitive,
-            PrimitiveList, StrokeCap, TilePlan,
-        },
-        DisplayTextCommandInput,
+use crate::render::{
+    lower::{
+        lower, DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground,
+        ImageSize, PathOp, Primitive, PrimitiveList, StrokeCap, TilePlan,
     },
+    test_support::css_color,
+    DisplayCommand, DisplayTextCommand, RunPaint,
 };
 
 use super::{
-    adapt_reader_display_list_v1,
-    contract::{ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1},
+    contract::{
+        ReaderBackgroundPaintV1, ReaderBackgroundPositionV1, ReaderBackgroundRepeatV1,
+        ReaderBackgroundSizeV1, ReaderBlockBorderV1, ReaderBlockPaintV1, ReaderBlockRadiusV1,
+        ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderBorderStyleV1, ReaderBoxShadowV1,
+        ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1, ReaderCornerRadiusV1,
+        ReaderFontPaintV1, ReaderFontStyleV1, ReaderHorizontalRulePaintV1, ReaderLengthV1,
+        ReaderPagePaintV1, ReaderPointV1, ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunBorderV1,
+        ReaderRunDecorationKindV1, ReaderRunDecorationV1, ReaderRunPaintV1, ReaderSizeV1,
+        ReaderSpacingV1, ReaderTextShadowV1, ReaderTransformV1,
+    },
     decode::{validate, DecodeError},
     encode::checked_length,
-    encode_reader_primitive_list_v1, DisplayCommand, ReaderDisplayListWireError,
+    encode_reader_primitive_list_v1, ReaderDisplayListWireError,
     READER_PRIMITIVE_LIST_FORMAT_VERSION,
 };
 
@@ -179,8 +183,7 @@ fn every_color_space_tag_is_valid_and_tag_16_is_rejected() {
 
 #[test]
 fn lowered_display_commands_encode_as_format_2() {
-    let lowered = lower_display_commands(&representative_commands(), 2.0, &fixture_image_size)
-        .expect("lower");
+    let lowered = lower(&representative_commands(), 2.0, &fixture_image_size).expect("lower");
     let encoded = encode_reader_primitive_list_v1(&lowered).expect("encode");
     assert_eq!(encoded.format_version, 2);
     assert_eq!(validate(&encoded.bytes), Ok(encoded.command_count));
@@ -193,8 +196,7 @@ fn lowered_display_commands_encode_as_format_2() {
 
 #[test]
 fn every_command_shape_lowers_and_encodes() {
-    let lowered =
-        lower_display_commands(&all_command_shapes(), 1.0, &fixture_image_size).expect("lower");
+    let lowered = lower(&all_command_shapes(), 1.0, &fixture_image_size).expect("lower");
     let encoded = encode_reader_primitive_list_v1(&lowered).expect("encode");
     assert_eq!(validate(&encoded.bytes), Ok(encoded.command_count));
     assert_eq!(encoded.image_hrefs, vec!["image.png"]);
@@ -210,11 +212,13 @@ fn checked_lengths_reject_values_above_u32() {
 
 #[test]
 fn primary_encoder_and_contract_have_no_json_value_path() {
-    let lowered = lower_display_commands(
-        &[DisplayCommand::paint_page(
-            rect(),
-            json!({ "backgroundColor": "#112233" }),
-        )],
+    let lowered = lower(
+        &[DisplayCommand::PaintPage {
+            rect: rect(),
+            paint: ReaderPagePaintV1 {
+                background_color: Some(css_color("#112233")),
+            },
+        }],
         1.0,
         &fixture_image_size,
     )
@@ -238,50 +242,18 @@ fn primary_encoder_and_contract_have_no_json_value_path() {
 }
 
 #[test]
-fn legacy_adapter_fails_closed_for_unknown_or_untyped_payloads() {
-    let unknown =
-        DisplayCommand::paint_block(rect(), json!({ "futurePaint": { "sentinel": true } }), None);
-    assert_eq!(
-        adapt_reader_display_list_v1(&[unknown]).expect_err("unknown paint fails"),
-        ReaderDisplayListWireError::UnsupportedLegacyValue("paintBlock.paint")
-    );
-
-    let summary_text = DisplayCommand::paint_text(DisplayTextCommandInput {
-        text: json!({ "hash": "not-runtime-text", "length": 4 }),
-        rect: rect(),
-        paint: RunPaint::default(),
-        line_height_px: None,
-        href: None,
-        source_text: None,
-        source_text_offset: None,
-        clusters: Vec::new(),
-    });
-    assert_eq!(
-        adapt_reader_display_list_v1(&[summary_text]).expect_err("summary text fails"),
-        ReaderDisplayListWireError::InvalidLegacyField("text.text")
-    );
-
-    let unresolved_current_color =
-        DisplayCommand::paint_page(rect(), json!({ "backgroundColor": "currentColor" }));
-    assert_eq!(
-        adapt_reader_display_list_v1(&[unresolved_current_color])
-            .expect_err("unresolved colour fails"),
-        ReaderDisplayListWireError::UnsupportedLegacyValue("color.currentColor")
-    );
-}
-
-#[test]
 fn rejects_non_finite_command_numbers() {
-    // The adapter refuses the number before the lowering sees it, and the
-    // encoder refuses a primitive carrying one.
+    // The encoder refuses a primitive carrying a non-finite number, so a
+    // NaN in a command never reaches the wire.
+    let lowered = lower(
+        &[DisplayCommand::opacity(f64::NAN)],
+        1.0,
+        &fixture_image_size,
+    )
+    .expect("lowering carries the value to the encoder");
     assert_eq!(
-        lower_display_commands(
-            &[DisplayCommand::opacity(f64::NAN)],
-            1.0,
-            &fixture_image_size,
-        )
-        .expect_err("NaN never reaches the wire"),
-        LowerError::Adapt(ReaderDisplayListWireError::NonFiniteNumber)
+        encode_reader_primitive_list_v1(&lowered),
+        Err(ReaderDisplayListWireError::NonFiniteNumber)
     );
     assert_eq!(
         encode_reader_primitive_list_v1(&PrimitiveList {
@@ -298,76 +270,101 @@ fn rejects_non_finite_command_numbers() {
 /// image.
 fn representative_commands() -> Vec<DisplayCommand> {
     vec![
-        DisplayCommand::push_state(),
-        DisplayCommand::paint_block(
-            rect(),
-            json!({
-                "background": {
-                    "color": "#112233",
-                    "image": "images/background.png",
-                    "size": "cover",
-                    "repeat": "no-repeat",
-                    "position": {
-                        "x": { "unit": "percent", "value": 50 },
-                        "y": { "unit": "px", "value": 0 }
-                    }
-                },
-                "border": {
-                    "top": { "color": "#445566", "style": "solid" }
-                },
-                "radius": { "px": 3 },
-                "boxShadow": [{
-                    "offsetX": 1,
-                    "offsetY": 2,
-                    "blur": 3,
-                    "spread": 0,
-                    "color": "rgba(0, 0, 0, .5)",
-                    "inset": false
-                }]
-            }),
-            Some(json!({
-                "topWidth": 1,
-                "rightWidth": 0,
-                "bottomWidth": 0,
-                "leftWidth": 0
-            })),
-        ),
-        DisplayCommand::paint_text(DisplayTextCommandInput {
-            text: json!("text"),
+        DisplayCommand::PushState,
+        DisplayCommand::PaintBlock {
             rect: rect(),
-            paint: RunPaint::from_test_wire_value(json!({
-                "color": "#000000",
-                "font": {
-                    "family": "Rito Serif",
-                    "sizePx": 16,
-                    "style": "italic",
-                    "weight": 700
+            paint: ReaderBlockPaintV1 {
+                background: Some(ReaderBackgroundPaintV1 {
+                    color: Some(css_color("#112233")),
+                    image: Some("images/background.png".to_owned()),
+                    size: Some(ReaderBackgroundSizeV1::Cover),
+                    repeat: Some(ReaderBackgroundRepeatV1::NoRepeat),
+                    position: Some(ReaderBackgroundPositionV1 {
+                        x: ReaderLengthV1::Percent(50.0),
+                        y: ReaderLengthV1::Px(0.0),
+                    }),
+                }),
+                border: Some(ReaderBlockBorderV1 {
+                    top: Some(ReaderBorderEdgePaintV1 {
+                        color: css_color("#445566"),
+                        style: ReaderBorderStyleV1::Solid,
+                    }),
+                    ..ReaderBlockBorderV1::default()
+                }),
+                radius: Some(ReaderBlockRadiusV1::Px(3.0)),
+                box_shadows: vec![ReaderBoxShadowV1 {
+                    offset_x: 1.0,
+                    offset_y: 2.0,
+                    blur: 3.0,
+                    spread: 0.0,
+                    color: css_color("rgba(0, 0, 0, .5)"),
+                    inset: false,
+                }],
+            },
+            border_box: Some(ReaderBorderBoxV1 {
+                top_width: 1.0,
+                right_width: 0.0,
+                bottom_width: 0.0,
+                left_width: 0.0,
+            }),
+        },
+        DisplayCommand::PaintText(DisplayTextCommand {
+            text: "text".to_owned(),
+            rect: rect(),
+            paint: RunPaint::new(ReaderRunPaintV1 {
+                font: ReaderFontPaintV1 {
+                    family: "Rito Serif".to_owned(),
+                    size_px: 16.0,
+                    weight: 700.0,
+                    style: ReaderFontStyleV1::Italic,
                 },
-                "wordSpacingPx": 1,
-                "letterSpacingPx": 0.5,
-                "backgroundColor": "color(display-p3 0.4 0.5 0.6 / 0.5)",
-                "backgroundRadius": 2,
-                "textShadow": [
-                    { "offsetX": 1, "offsetY": 2, "blur": 3, "color": "#445566" }
-                ],
-                "decoration": {
-                    "kind": "line-through",
-                    "y": 18,
-                    "thickness": 1,
-                    "color": "#000000"
-                },
-                "padding": { "top": 1, "right": 2, "bottom": 3, "left": 4 },
-                "border": {
-                    "top": { "widthPx": 1, "paint": { "color": "#000000", "style": "solid" } },
-                    "start": { "widthPx": 2, "paint": { "color": "#000000", "style": "dotted" } }
-                },
-                "box": { "topPx": -2, "bottomPx": 22 },
-                "boxStart": false,
-                "boxEnd": true
-            })),
-            line_height_px: Some(json!(18.5)),
+                color: css_color("#000000"),
+                word_spacing_px: Some(1.0),
+                letter_spacing_px: Some(0.5),
+                background_color: Some(css_color("color(display-p3 0.4 0.5 0.6 / 0.5)")),
+                background_radius: Some(2.0),
+                text_shadows: vec![ReaderTextShadowV1 {
+                    offset_x: 1.0,
+                    offset_y: 2.0,
+                    blur: 3.0,
+                    color: css_color("#445566"),
+                }],
+                decoration: Some(ReaderRunDecorationV1 {
+                    kind: ReaderRunDecorationKindV1::LineThrough,
+                    y: 18.0,
+                    thickness: 1.0,
+                    color: css_color("#000000"),
+                }),
+                padding: Some(ReaderSpacingV1 {
+                    top: 1.0,
+                    right: 2.0,
+                    bottom: 3.0,
+                    left: 4.0,
+                }),
+                border: Some(ReaderRunBorderV1 {
+                    top: Some(ReaderRunBorderEdgeV1 {
+                        width_px: 1.0,
+                        paint: ReaderBorderEdgePaintV1 {
+                            color: css_color("#000000"),
+                            style: ReaderBorderStyleV1::Solid,
+                        },
+                    }),
+                    start: Some(ReaderRunBorderEdgeV1 {
+                        width_px: 2.0,
+                        paint: ReaderBorderEdgePaintV1 {
+                            color: css_color("#000000"),
+                            style: ReaderBorderStyleV1::Dotted,
+                        },
+                    }),
+                    ..ReaderRunBorderV1::default()
+                }),
+                box_offsets: Some((-2.0, 22.0)),
+                box_start: false,
+                box_end: true,
+            }),
+            line_height_px: Some(18.5),
             href: Some("#note".to_owned()),
-            source_text: Some(json!("source")),
+            source_text: Some("source".to_owned()),
             source_text_offset: Some(9),
             clusters: vec![
                 (0, 0.0, 12.5),
@@ -386,8 +383,8 @@ fn representative_commands() -> Vec<DisplayCommand> {
 }
 
 fn all_command_shapes() -> Vec<DisplayCommand> {
-    let text = || DisplayTextCommandInput {
-        text: json!("text"),
+    let text = || DisplayTextCommand {
+        text: "text".to_owned(),
         rect: rect(),
         paint: RunPaint::default(),
         line_height_px: None,
@@ -397,42 +394,66 @@ fn all_command_shapes() -> Vec<DisplayCommand> {
         clusters: Vec::new(),
     };
     vec![
-        DisplayCommand::push_state(),
-        DisplayCommand::pop_state(),
-        DisplayCommand::translate(json!(1), json!(2)),
+        DisplayCommand::PushState,
+        DisplayCommand::PopState,
+        DisplayCommand::Translate { dx: 1.0, dy: 2.0 },
         DisplayCommand::opacity(0.5),
-        DisplayCommand::transform(
-            json!({ "x": 10, "y": 20 }),
-            json!({ "width": 30, "height": 40 }),
-            json!([
-                { "kind": "rotate", "rad": 0.5 },
-                { "kind": "scale", "sx": 2, "sy": 3 },
-                {
-                    "kind": "translate",
-                    "x": { "unit": "px", "value": 4 },
-                    "y": { "unit": "percent", "value": 5 }
-                }
-            ]),
-        ),
-        DisplayCommand::clip_rect(rect(), Some(json!({ "rx": 2, "ry": 2 }))),
-        DisplayCommand::paint_page(rect(), json!({ "backgroundColor": "#ffffff" })),
-        DisplayCommand::paint_block(
-            rect(),
-            json!({ "background": { "color": "#ffffff" } }),
-            None,
-        ),
-        DisplayCommand::paint_text(text()),
-        DisplayCommand::paint_ruby(text()),
+        DisplayCommand::Transform {
+            origin: ReaderPointV1 { x: 10.0, y: 20.0 },
+            box_size: ReaderSizeV1 {
+                width: 30.0,
+                height: 40.0,
+            },
+            transforms: vec![
+                ReaderTransformV1::Rotate { radians: 0.5 },
+                ReaderTransformV1::Scale { sx: 2.0, sy: 3.0 },
+                ReaderTransformV1::Translate {
+                    x: ReaderLengthV1::Px(4.0),
+                    y: ReaderLengthV1::Percent(5.0),
+                },
+            ],
+        },
+        DisplayCommand::ClipRect {
+            rect: rect(),
+            radius: Some(ReaderCornerRadiusV1 { rx: 2.0, ry: 2.0 }),
+        },
+        DisplayCommand::PaintPage {
+            rect: rect(),
+            paint: ReaderPagePaintV1 {
+                background_color: Some(css_color("#ffffff")),
+            },
+        },
+        DisplayCommand::PaintBlock {
+            rect: rect(),
+            paint: ReaderBlockPaintV1 {
+                background: Some(ReaderBackgroundPaintV1 {
+                    color: Some(css_color("#ffffff")),
+                    ..ReaderBackgroundPaintV1::default()
+                }),
+                ..ReaderBlockPaintV1::default()
+            },
+            border_box: None,
+        },
+        DisplayCommand::PaintText(text()),
+        DisplayCommand::PaintRuby(text()),
         DisplayCommand::paint_image("image.png".to_owned(), rect(), None, None),
-        DisplayCommand::paint_horizontal_rule(
-            rect(),
-            json!({ "color": "#000000", "style": "solid" }),
-        ),
+        DisplayCommand::PaintHorizontalRule {
+            rect: rect(),
+            paint: ReaderHorizontalRulePaintV1 {
+                color: css_color("#000000"),
+                style: ReaderBorderStyleV1::Solid,
+            },
+        },
     ]
 }
 
-fn rect() -> serde_json::Value {
-    json!({ "x": 0, "y": 0, "width": 20, "height": 30 })
+fn rect() -> ReaderRectV1 {
+    ReaderRectV1 {
+        x: 0.0,
+        y: 0.0,
+        width: 20.0,
+        height: 30.0,
+    }
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -442,8 +463,7 @@ fn hex(bytes: &[u8]) -> String {
 /// One of every primitive. The lowered representative commands supply the
 /// text, ruby and cover image; the resolved shapes are built here.
 fn all_primitive_shapes() -> PrimitiveList {
-    let lowered = lower_display_commands(&representative_commands(), 2.0, &fixture_image_size)
-        .expect("lower");
+    let lowered = lower(&representative_commands(), 2.0, &fixture_image_size).expect("lower");
     let text = lowered
         .commands
         .iter()

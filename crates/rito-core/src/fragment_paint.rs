@@ -10,25 +10,26 @@
 //! property — the same doctrine as the tree builder's whitelist — so a
 //! chapter never reaches the screen with silently dropped ink.
 
-use std::sync::Arc;
-
 use rito_fragment::{
     FormattingNodeContent, FormattingTree, Fragment, ImageFragment, InlineItem, LineFragment,
     TextFragment,
 };
 use rito_style_contract::{AbsoluteColor, FontSlant, InlineFormattingStyleV1, LengthPercentage};
-use serde_json::Value;
 
 use std::collections::BTreeMap;
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::{FlowItemSource, NodePaint};
-use crate::render::{DisplayCommand, DisplayTextCommandInput};
-use crate::render::{
-    FontPaint, FontPaintStyle, MeasurePaint, RunDecoration, RunDecorationKind, RunPaint,
-    RunPaintData, TextShadowPaint,
+use crate::render::contract::{
+    ReaderBackgroundPaintV1, ReaderBlockBorderV1, ReaderBlockPaintV1, ReaderBlockRadiusV1,
+    ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderBorderStyleV1, ReaderColorV1,
+    ReaderFontPaintV1, ReaderFontStyleV1, ReaderHorizontalRulePaintV1, ReaderLengthV1,
+    ReaderPointV1, ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunBorderV1,
+    ReaderRunDecorationKindV1, ReaderRunDecorationV1, ReaderRunPaintV1, ReaderSizeV1,
+    ReaderSpacingV1, ReaderTextShadowV1, ReaderTransformV1,
 };
-use crate::style::{absolute_color, serialize_font_families};
+use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint};
+use crate::style::{paint_color, serialize_font_families};
 
 /// How painted family stacks reach the canvas when the reader pins fonts.
 ///
@@ -55,39 +56,6 @@ pub(crate) struct PaintFamilyPolicy {
 /// pipeline positions baselines with, and the browser pixel oracle owns
 /// calibrating it.
 const CANVAS_TOP_ASCENT_RATIO: f64 = 0.8;
-
-/// Wire-precision JSON number: six decimal places, integral values as
-/// integers — the rounding every display-command producer shares.
-///
-/// Three decimals proved too coarse for text positions: a run x of
-/// 840.65625 shipped as 840.656, pulling every glyph 0.00025px below its
-/// LayoutUnit position — invisible everywhere except characters whose
-/// position lands exactly on a quarter-pixel raster tie (fraction 1/8,
-/// 3/8, 5/8, 7/8), where the browser rounds the exact value UP and the
-/// depressed value rounded DOWN, flipping the glyph one raster bucket
-/// left on a ~125px page lattice (measured: restoring the lost 0.00025
-/// made the engine's canvas replay bit-identical to the browser's page).
-/// Six decimals encode every 1/64 LayoutUnit position exactly.
-pub(crate) fn number_value(value: f64) -> Value {
-    let rounded = (value * 1e6).round() / 1e6;
-    if rounded.fract().abs() < f64::EPSILON {
-        Value::Number(serde_json::Number::from(rounded as i64))
-    } else {
-        Value::Number(
-            serde_json::Number::from_f64(rounded).unwrap_or_else(|| serde_json::Number::from(0)),
-        )
-    }
-}
-
-/// Wire rectangle in the shared `{x, y, width, height}` shape.
-pub(crate) fn rect_value(x: f64, y: f64, width: f64, height: f64) -> Value {
-    serde_json::json!({
-        "x": number_value(x),
-        "y": number_value(y),
-        "width": number_value(width),
-        "height": number_value(height),
-    })
-}
 
 /// Everything the paint walk needs besides the fragments themselves.
 #[derive(Clone, Copy)]
@@ -225,7 +193,7 @@ fn append_fragment_display_commands_inner(
                 ..
             }) = node_paint
             {
-                commands.push(DisplayCommand::push_state());
+                commands.push(DisplayCommand::PushState);
                 // The browser snaps a transformed subtree's LAYER to whole
                 // CSS pixels: a rotated card at a fractional block offset
                 // renders bit-identically to the same card at the rounded
@@ -239,27 +207,24 @@ fn append_fragment_display_commands_inner(
                 let ops = if snap_dx == 0.0 && snap_dy == 0.0 {
                     transforms.clone()
                 } else {
-                    let mut ops = vec![serde_json::json!({
-                        "kind": "translate",
-                        "x": { "unit": "px", "value": number_value(snap_dx) },
-                        "y": { "unit": "px", "value": number_value(snap_dy) },
-                    })];
-                    if let serde_json::Value::Array(entries) = transforms {
-                        ops.extend(entries.iter().cloned());
-                    }
-                    serde_json::Value::Array(ops)
+                    let mut ops = vec![ReaderTransformV1::Translate {
+                        x: ReaderLengthV1::Px(display_number(snap_dx)),
+                        y: ReaderLengthV1::Px(display_number(snap_dy)),
+                    }];
+                    ops.extend(transforms.iter().copied());
+                    ops
                 };
-                commands.push(DisplayCommand::transform(
-                    serde_json::json!({
-                        "x": number_value(box_x + fragment.rect.width / 2.0),
-                        "y": number_value(box_y + fragment.rect.height / 2.0),
-                    }),
-                    serde_json::json!({
-                        "width": number_value(fragment.rect.width),
-                        "height": number_value(fragment.rect.height),
-                    }),
-                    ops,
-                ));
+                commands.push(DisplayCommand::Transform {
+                    origin: ReaderPointV1 {
+                        x: display_number(box_x + fragment.rect.width / 2.0),
+                        y: display_number(box_y + fragment.rect.height / 2.0),
+                    },
+                    box_size: ReaderSizeV1 {
+                        width: display_number(fragment.rect.width),
+                        height: display_number(fragment.rect.height),
+                    },
+                    transforms: ops,
+                });
             }
             if let Some(paint) = node_paint {
                 match paint {
@@ -281,40 +246,52 @@ fn append_fragment_display_commands_inner(
                         // corners the border lowering miters where the
                         // colours meet.
                         let thickness = thickness.min(fragment.rect.height);
-                        if style == &"inset" {
-                            let edge = |color: &str| serde_json::json!({ "color": color, "style": "solid" });
-                            commands.push(DisplayCommand::paint_block(
-                                rect_value(
+                        if *style == ReaderBorderStyleV1::Inset {
+                            let edge = |color: ReaderColorV1| {
+                                Some(ReaderBorderEdgePaintV1 {
+                                    color,
+                                    style: ReaderBorderStyleV1::Solid,
+                                })
+                            };
+                            let dark = ReaderColorV1::srgb8(0x9a, 0x9a, 0x9a, 1.0);
+                            let light = ReaderColorV1::srgb8(0xee, 0xee, 0xee, 1.0);
+                            let width = display_number(thickness);
+                            commands.push(DisplayCommand::PaintBlock {
+                                rect: display_rect(
                                     origin_x + fragment.rect.x,
                                     origin_y + fragment.rect.y,
                                     fragment.rect.width,
                                     fragment.rect.height,
                                 ),
-                                serde_json::json!({
-                                    "border": {
-                                        "top": edge("#9a9a9a"),
-                                        "right": edge("#eeeeee"),
-                                        "bottom": edge("#eeeeee"),
-                                        "left": edge("#9a9a9a"),
-                                    },
+                                paint: ReaderBlockPaintV1 {
+                                    border: Some(ReaderBlockBorderV1 {
+                                        top: edge(dark),
+                                        right: edge(light),
+                                        bottom: edge(light),
+                                        left: edge(dark),
+                                    }),
+                                    ..ReaderBlockPaintV1::default()
+                                },
+                                border_box: Some(ReaderBorderBoxV1 {
+                                    top_width: width,
+                                    right_width: width,
+                                    bottom_width: width,
+                                    left_width: width,
                                 }),
-                                Some(serde_json::json!({
-                                    "topWidth": number_value(thickness),
-                                    "rightWidth": number_value(thickness),
-                                    "bottomWidth": number_value(thickness),
-                                    "leftWidth": number_value(thickness),
-                                })),
-                            ));
+                            });
                         } else {
-                            commands.push(DisplayCommand::paint_horizontal_rule(
-                                rect_value(
+                            commands.push(DisplayCommand::PaintHorizontalRule {
+                                rect: display_rect(
                                     origin_x + fragment.rect.x,
                                     origin_y + fragment.rect.y,
                                     fragment.rect.width,
                                     thickness,
                                 ),
-                                serde_json::json!({ "color": color, "style": style }),
-                            ));
+                                paint: ReaderHorizontalRulePaintV1 {
+                                    color: *color,
+                                    style: *style,
+                                },
+                            });
                         }
                     }
                     NodePaint::Box {
@@ -333,7 +310,7 @@ fn append_fragment_display_commands_inner(
                         // such an edge from the block paint and emit one
                         // rule per cell segment instead.
                         let mut paint = paint.clone();
-                        let mut border_box = border_box.clone();
+                        let mut border_box = *border_box;
                         if *segment_horizontal_edges {
                             let segmented = split_collapsed_horizontal_edges(
                                 &mut paint,
@@ -346,21 +323,23 @@ fn append_fragment_display_commands_inner(
                         }
                         let paint = &paint;
                         let border_box = &border_box;
-                        // A transform-only box carries an empty paint
-                        // object; there is nothing to stroke or fill.
-                        let has_decoration =
-                            paint.as_object().is_none_or(|object| !object.is_empty());
+                        // A transform-only box carries an empty paint;
+                        // there is nothing to stroke or fill.
+                        let has_decoration = paint.background.is_some()
+                            || paint.border.is_some()
+                            || paint.radius.is_some()
+                            || !paint.box_shadows.is_empty();
                         if has_decoration {
-                            commands.push(DisplayCommand::paint_block(
-                                rect_value(
+                            commands.push(DisplayCommand::PaintBlock {
+                                rect: display_rect(
                                     origin_x + fragment.rect.x,
                                     origin_y + fragment.rect.y,
                                     fragment.rect.width,
                                     fragment.rect.height,
                                 ),
-                                paint.clone(),
-                                border_box.clone(),
-                            ));
+                                paint: paint.clone(),
+                                border_box: *border_box,
+                            });
                             // Ridge/groove inner halves: the border entry
                             // stroked the edge's outer tone full-width, so
                             // each bevel lays the opposite tone over the
@@ -369,18 +348,15 @@ fn append_fragment_display_commands_inner(
                             // square stop approximates Blink's diagonal
                             // miter to within the corner's own pixels.
                             for (edge_index, inner_color) in bevels {
-                                let side = |key: &str| {
-                                    border_box
-                                        .as_ref()
-                                        .and_then(|widths| widths[key].as_f64())
-                                        .unwrap_or(0.0)
-                                };
-                                let (top, right, bottom, left) = (
-                                    side("topWidth"),
-                                    side("rightWidth"),
-                                    side("bottomWidth"),
-                                    side("leftWidth"),
-                                );
+                                let (top, right, bottom, left) =
+                                    border_box.map_or((0.0, 0.0, 0.0, 0.0), |widths| {
+                                        (
+                                            widths.top_width,
+                                            widths.right_width,
+                                            widths.bottom_width,
+                                            widths.left_width,
+                                        )
+                                    });
                                 // The strips ride the same whole-pixel
                                 // edges the border strokes snap to.
                                 let left_edge = snap_css(origin_x + fragment.rect.x);
@@ -411,13 +387,17 @@ fn append_fragment_display_commands_inner(
                                     }
                                 };
                                 if strip.2 > 0.0 && strip.3 > 0.0 {
-                                    commands.push(DisplayCommand::paint_block(
-                                        rect_value(strip.0, strip.1, strip.2, strip.3),
-                                        serde_json::json!({
-                                            "background": { "color": inner_color }
-                                        }),
-                                        None,
-                                    ));
+                                    commands.push(DisplayCommand::PaintBlock {
+                                        rect: display_rect(strip.0, strip.1, strip.2, strip.3),
+                                        paint: ReaderBlockPaintV1 {
+                                            background: Some(ReaderBackgroundPaintV1 {
+                                                color: Some(*inner_color),
+                                                ..ReaderBackgroundPaintV1::default()
+                                            }),
+                                            ..ReaderBlockPaintV1::default()
+                                        },
+                                        border_box: None,
+                                    });
                                 }
                             }
                         }
@@ -488,9 +468,9 @@ fn append_fragment_display_commands_inner(
                             )
                         })
                         .collect();
-                    commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
-                        text: Value::String(marker.painted_text()),
-                        rect: rect_value(
+                    commands.push(DisplayCommand::PaintText(DisplayTextCommand {
+                        text: marker.painted_text(),
+                        rect: display_rect(
                             left,
                             baseline - CANVAS_TOP_ASCENT_RATIO * font_size,
                             run.advance,
@@ -540,7 +520,7 @@ fn append_fragment_display_commands_inner(
                 )?;
             }
             if transformed {
-                commands.push(DisplayCommand::pop_state());
+                commands.push(DisplayCommand::PopState);
             }
             Ok(())
         }
@@ -572,8 +552,8 @@ fn append_fragment_display_commands_inner(
 /// the block paint; solid edges stay, since a continuous band has no
 /// phase to restart.
 fn split_collapsed_horizontal_edges(
-    paint: &mut Value,
-    border_box: &mut Option<Value>,
+    paint: &mut ReaderBlockPaintV1,
+    border_box: &mut Option<ReaderBorderBoxV1>,
     fragment: &rito_fragment::BoxFragment,
     origin_x: f64,
     origin_y: f64,
@@ -587,28 +567,28 @@ fn split_collapsed_horizontal_edges(
             _ => None,
         })
         .collect();
-    for (edge, width_key) in [("top", "topWidth"), ("bottom", "bottomWidth")] {
+    for top in [true, false] {
         let Some(side) = paint
-            .get("border")
-            .and_then(|border| border.get(edge))
-            .cloned()
+            .border
+            .and_then(|border| if top { border.top } else { border.bottom })
         else {
             continue;
         };
-        let style = side.get("style").and_then(Value::as_str).unwrap_or("solid");
-        if style != "dotted" && style != "dashed" {
+        if side.style != ReaderBorderStyleV1::Dotted && side.style != ReaderBorderStyleV1::Dashed {
             continue;
         }
-        let width = side.get("width").and_then(Value::as_f64).unwrap_or(0.0);
+        let width = border_box.map_or(0.0, |widths| {
+            if top {
+                widths.top_width
+            } else {
+                widths.bottom_width
+            }
+        });
         // Skips NaN widths too: only a strictly positive width paints.
         if width.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
             continue;
         }
-        let row = if edge == "top" {
-            rows.first()
-        } else {
-            rows.last()
-        };
+        let row = if top { rows.first() } else { rows.last() };
         let Some(row) = row else { continue };
         let mut cuts: Vec<f64> = row
             .children
@@ -626,12 +606,7 @@ fn split_collapsed_horizontal_edges(
         // The last cell's edge yields to the table's border-box edge so
         // the final segment reaches the border corner.
         cuts.pop();
-        let color = side
-            .get("color")
-            .and_then(Value::as_str)
-            .unwrap_or("#000000")
-            .to_owned();
-        let y = if edge == "top" {
+        let y = if top {
             origin_y + fragment.rect.y
         } else {
             origin_y + fragment.rect.y + fragment.rect.height - width
@@ -640,32 +615,44 @@ fn split_collapsed_horizontal_edges(
         let end = origin_x + fragment.rect.x + fragment.rect.width;
         for cut in cuts.into_iter().chain(std::iter::once(end)) {
             if cut > start {
-                segments.push(DisplayCommand::paint_horizontal_rule(
-                    rect_value(start, y, cut - start, width),
-                    serde_json::json!({ "color": color, "style": style }),
-                ));
+                segments.push(DisplayCommand::PaintHorizontalRule {
+                    rect: display_rect(start, y, cut - start, width),
+                    paint: ReaderHorizontalRulePaintV1 {
+                        color: side.color,
+                        style: side.style,
+                    },
+                });
                 start = cut;
             }
         }
-        if let Some(border) = paint.get_mut("border").and_then(Value::as_object_mut) {
-            border.remove(edge);
+        if let Some(border) = paint.border.as_mut() {
+            if top {
+                border.top = None;
+            } else {
+                border.bottom = None;
+            }
         }
-        if let Some(widths) = border_box.as_mut().and_then(Value::as_object_mut) {
-            widths.insert(width_key.to_owned(), serde_json::json!(0.0));
+        if let Some(widths) = border_box.as_mut() {
+            if top {
+                widths.top_width = 0.0;
+            } else {
+                widths.bottom_width = 0.0;
+            }
         }
     }
-    let border_empty = paint
-        .get("border")
-        .and_then(Value::as_object)
-        .is_some_and(serde_json::Map::is_empty);
+    let border_empty = paint.border.is_some_and(|border| {
+        border.top.is_none()
+            && border.right.is_none()
+            && border.bottom.is_none()
+            && border.left.is_none()
+    });
     if border_empty {
-        if let Some(object) = paint.as_object_mut() {
-            object.remove("border");
-        }
-        let all_zero = border_box.as_ref().is_some_and(|widths| {
-            ["topWidth", "rightWidth", "bottomWidth", "leftWidth"]
-                .iter()
-                .all(|key| widths.get(*key).and_then(Value::as_f64).unwrap_or(0.0) == 0.0)
+        paint.border = None;
+        let all_zero = border_box.is_some_and(|widths| {
+            widths.top_width == 0.0
+                && widths.right_width == 0.0
+                && widths.bottom_width == 0.0
+                && widths.left_width == 0.0
         });
         if all_zero {
             *border_box = None;
@@ -696,10 +683,10 @@ fn append_vertical_run_commands(
     top: f64,
     href: Option<String>,
 ) {
-    let step = font_size + paint.measure().letter_spacing_px.unwrap_or(0.0);
-    let run = |text: String, rect: Value, clusters: Vec<(u32, f64, f64)>| {
-        DisplayCommand::paint_text(DisplayTextCommandInput {
-            text: Value::String(text),
+    let step = font_size + paint.letter_spacing_px.unwrap_or(0.0);
+    let run = |text: String, rect: ReaderRectV1, clusters: Vec<(u32, f64, f64)>| {
+        DisplayCommand::PaintText(DisplayTextCommand {
+            text,
             rect,
             paint: paint.clone(),
             line_height_px: None,
@@ -724,7 +711,7 @@ fn append_vertical_run_commands(
         let length = segment.len() as f64 * step;
         commands.push(run(
             text[start..end].to_owned(),
-            rect_value(glyph_x, segment_top, font_size, length),
+            display_rect(glyph_x, segment_top, font_size, length),
             std::mem::take(segment),
         ));
     };
@@ -735,21 +722,26 @@ fn append_vertical_run_commands(
             flush(commands, &mut segment, segment_start, byte, segment_top);
             let center_x = glyph_x + font_size / 2.0;
             let center_y = pen_y - 0.3 * font_size;
-            commands.push(DisplayCommand::push_state());
-            commands.push(DisplayCommand::transform(
-                serde_json::json!({ "x": number_value(center_x), "y": number_value(center_y) }),
-                serde_json::json!({
-                    "width": number_value(font_size),
-                    "height": number_value(font_size),
-                }),
-                serde_json::json!([{ "kind": "rotate", "rad": std::f64::consts::FRAC_PI_2 }]),
-            ));
+            commands.push(DisplayCommand::PushState);
+            commands.push(DisplayCommand::Transform {
+                origin: ReaderPointV1 {
+                    x: display_number(center_x),
+                    y: display_number(center_y),
+                },
+                box_size: ReaderSizeV1 {
+                    width: display_number(font_size),
+                    height: display_number(font_size),
+                },
+                transforms: vec![ReaderTransformV1::Rotate {
+                    radians: std::f64::consts::FRAC_PI_2,
+                }],
+            });
             commands.push(run(
                 glyph.to_string(),
-                rect_value(glyph_x, glyph_top, font_size, font_size),
+                display_rect(glyph_x, glyph_top, font_size, font_size),
                 vec![(0, glyph_x, pen_y)],
             ));
-            commands.push(DisplayCommand::pop_state());
+            commands.push(DisplayCommand::PopState);
             segment_start = byte + glyph.len_utf8();
             segment_end = segment_start;
             continue;
@@ -827,7 +819,7 @@ fn append_vertical_line_commands(
                 item_sources.and_then(|sources| sources.get(image.item_index as usize));
             commands.push(DisplayCommand::paint_image(
                 src.clone(),
-                rect_value(
+                display_rect(
                     column_x,
                     column_top + image.rect.x,
                     image.rect.height,
@@ -952,9 +944,9 @@ fn append_vertical_line_commands(
                             )
                         })
                         .collect();
-                    commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
-                        text: Value::String(allocated),
-                        rect: rect_value(annotation_x, span_top, annotation_size, span),
+                    commands.push(DisplayCommand::PaintRuby(DisplayTextCommand {
+                        text: allocated,
+                        rect: display_rect(annotation_x, span_top, annotation_size, span),
                         paint: ruby_paint,
                         line_height_px: None,
                         href: None,
@@ -1018,20 +1010,24 @@ fn append_line_commands(
             .and_then(|style| styles.inline.style(style).ok())
             .map(|style| css_color(style.paint.foreground))
             .transpose()?
-            .unwrap_or_else(|| "#000000".to_owned());
-        commands.push(DisplayCommand::paint_block(
-            rect_value(
+            .unwrap_or(ReaderColorV1::BLACK);
+        commands.push(DisplayCommand::PaintBlock {
+            rect: display_rect(
                 line_x + marker.x,
                 line_y + marker.y,
                 marker.diameter,
                 marker.diameter,
             ),
-            serde_json::json!({
-                "background": { "color": color },
-                "radius": { "px": marker.diameter / 2.0 },
-            }),
-            None,
-        ));
+            paint: ReaderBlockPaintV1 {
+                background: Some(ReaderBackgroundPaintV1 {
+                    color: Some(color),
+                    ..ReaderBackgroundPaintV1::default()
+                }),
+                radius: Some(ReaderBlockRadiusV1::Px(marker.diameter / 2.0)),
+                ..ReaderBlockPaintV1::default()
+            },
+            border_box: None,
+        });
     }
     // Each item's extent on this line. The browser lays an item's line
     // fragment out at LayoutUnit precision — its right edge, where the
@@ -1398,9 +1394,9 @@ fn append_text_run_command(
             .zip(origins)
             .map(|(cluster, x)| (cluster.byte, x, annotation_baseline))
             .collect();
-        commands.push(DisplayCommand::paint_ruby(DisplayTextCommandInput {
-            text: Value::String(text.to_owned()),
-            rect: rect_value(rect_x, annotation_top, rect_width, annotation_size),
+        commands.push(DisplayCommand::PaintRuby(DisplayTextCommand {
+            text: text.to_owned(),
+            rect: display_rect(rect_x, annotation_top, rect_width, annotation_size),
             paint: paint.for_ruby(annotation_size),
             line_height_px: None,
             href: None,
@@ -1428,22 +1424,22 @@ fn append_text_run_command(
             )
         })
         .collect();
-    commands.push(DisplayCommand::paint_text(DisplayTextCommandInput {
-        text: Value::String(full_text[start..end].to_owned()),
+    commands.push(DisplayCommand::PaintText(DisplayTextCommand {
+        text: full_text[start..end].to_owned(),
         // A halt-trimmed opener was laid at half width, but the painter
         // draws the untrimmed glyph whose outline sits one blank half
         // further right — shift the draw origin left by the removed half
         // so the ink lands where Blink's halt variant puts it (measured
         // at 64px: full-width 「 inks at box+41, the halt variant at
         // box+9 — the outline itself moves left by the trimmed half).
-        rect: rect_value(
+        rect: display_rect(
             run_origin_x,
             em_top,
             rect_width + run.opener_trim_px,
             font_size,
         ),
         paint,
-        line_height_px: Some(number_value(line.rect.height)),
+        line_height_px: Some(display_number(line.rect.height)),
         // The nearest enclosing link rides the painted run so a host
         // resolves taps against the display list alone.
         href: item_sources
@@ -1495,16 +1491,16 @@ fn append_image_command(
         widths,
     )) = image_border_paints.and_then(|paints| paints.get(source))
     {
-        commands.push(DisplayCommand::paint_block(
-            rect_value(
+        commands.push(DisplayCommand::PaintBlock {
+            rect: display_rect(
                 line_x + image.rect.x - widths[3],
                 line_y + image.rect.y - widths[0],
                 image.rect.width + widths[3] + widths[1],
                 image.rect.height + widths[0] + widths[2],
             ),
-            paint.clone(),
-            border_box.clone(),
-        ));
+            paint: paint.clone(),
+            border_box: *border_box,
+        });
     }
     // A folded SVG viewport keeps its resolved box, and the content
     // letterboxes inside it preserving the intrinsic ratio (SVG 2 §8.6,
@@ -1620,8 +1616,8 @@ fn append_image_command(
                 }
                 commands.push(DisplayCommand::paint_image_slice(
                     src.clone(),
-                    rect_value(dest_x, line_y + raster.y, dest_w, raster.height),
-                    rect_value(src_x, 0.0, 1.0, *intrinsic_height),
+                    display_rect(dest_x, line_y + raster.y, dest_w, raster.height),
+                    display_rect(src_x, 0.0, 1.0, *intrinsic_height),
                 ));
             }
         }
@@ -1639,8 +1635,8 @@ fn append_image_command(
                 }
                 commands.push(DisplayCommand::paint_image_slice(
                     src.clone(),
-                    rect_value(line_x + raster.x, dest_y, raster.width, dest_h),
-                    rect_value(0.0, src_y, *intrinsic_width, 1.0),
+                    display_rect(line_x + raster.x, dest_y, raster.width, dest_h),
+                    display_rect(0.0, src_y, *intrinsic_width, 1.0),
                 ));
             }
         }
@@ -1650,7 +1646,7 @@ fn append_image_command(
     // taps (and a decode-failure fallback) against the display list alone.
     commands.push(DisplayCommand::paint_image(
         src.clone(),
-        rect_value(line_x + draw.x, line_y + draw.y, draw.width, draw.height),
+        display_rect(line_x + draw.x, line_y + draw.y, draw.width, draw.height),
         item_source.and_then(|source| source.image_alt.clone()),
         item_source.and_then(|source| source.href.clone()),
     ));
@@ -1681,7 +1677,7 @@ fn run_paint(
         .text_shadows
         .iter()
         .map(|shadow| {
-            Ok(TextShadowPaint {
+            Ok(ReaderTextShadowV1 {
                 offset_x: f64::from(shadow.offset_x.get()),
                 offset_y: f64::from(shadow.offset_y.get()),
                 blur: f64::from(shadow.blur_radius.get()),
@@ -1689,30 +1685,28 @@ fn run_paint(
             })
         })
         .collect::<EpubResult<Vec<_>>>()?;
-    Ok(RunPaint::new(RunPaintData {
-        measure: MeasurePaint {
-            font: FontPaint {
-                // The protocol expresses upright and slanted only; oblique
-                // paints as italic, exactly as the canvas font string would
-                // coerce it.
-                style: match style.font.slant {
-                    FontSlant::Normal => FontPaintStyle::NORMAL,
-                    FontSlant::Italic | FontSlant::Oblique(_) => FontPaintStyle::ITALIC,
-                },
-                weight: f64::from(style.font.weight.get()),
-                size_px: font_size,
-                family: paint_family_stack(style, family_policy)?,
-            },
-            word_spacing_px: spacing_px(style.text_flow.word_spacing)?,
-            // Justification spacing rides the same painter knob as author
-            // letter-spacing: the canvas spreads clusters exactly like the
-            // DOM's justified shaping does (measured bit-identical).
-            letter_spacing_px: match (spacing_px(style.text_flow.letter_spacing)?, justify_px) {
-                (author, 0.0) => author,
-                (author, justify) => Some(author.unwrap_or(0.0) + justify),
+    Ok(RunPaint::new(ReaderRunPaintV1 {
+        font: ReaderFontPaintV1 {
+            family: paint_family_stack(style, family_policy)?,
+            size_px: font_size,
+            weight: f64::from(style.font.weight.get()),
+            // The wire expresses upright and slanted only; oblique paints
+            // as italic, exactly as the canvas font string would coerce
+            // it.
+            style: match style.font.slant {
+                FontSlant::Normal => ReaderFontStyleV1::Normal,
+                FontSlant::Italic | FontSlant::Oblique(_) => ReaderFontStyleV1::Italic,
             },
         },
         color,
+        word_spacing_px: spacing_px(style.text_flow.word_spacing)?,
+        // Justification spacing rides the same painter knob as author
+        // letter-spacing: the canvas spreads clusters exactly like the
+        // DOM's justified shaping does (measured bit-identical).
+        letter_spacing_px: match (spacing_px(style.text_flow.letter_spacing)?, justify_px) {
+            (author, 0.0) => author,
+            (author, justify) => Some(author.unwrap_or(0.0) + justify),
+        },
         background_color,
         // One uniform radius slot, first-shorthand-component convention
         // (same contract as the block materializer): the pen's overlap
@@ -1725,12 +1719,13 @@ fn run_paint(
             }
             _ => None,
         },
-        text_shadows: Arc::from(text_shadows),
+        text_shadows,
         decoration: run_decoration(style, font_size)?,
         padding: run_box_padding(style, box_start, box_end),
         border: run_box_border(style, box_start, box_end)?,
         box_offsets: None,
-        box_edges: (box_start, box_end),
+        box_start,
+        box_end,
     }))
 }
 
@@ -1741,13 +1736,13 @@ fn run_box_padding(
     style: &InlineFormattingStyleV1,
     box_start: bool,
     box_end: bool,
-) -> Option<crate::render::RunSpacing> {
+) -> Option<ReaderSpacingV1> {
     let side = |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
         LengthPercentage::Length(px) => f64::from(px.get()),
         _ => 0.0,
     };
     let padding = &style.fragment.padding;
-    let spacing = crate::render::RunSpacing {
+    let spacing = ReaderSpacingV1 {
         top: side(&padding.top),
         right: if box_end { side(&padding.right) } else { 0.0 },
         bottom: side(&padding.bottom),
@@ -1763,29 +1758,29 @@ fn run_box_border(
     style: &InlineFormattingStyleV1,
     box_start: bool,
     box_end: bool,
-) -> EpubResult<Option<crate::render::RunBorder>> {
-    use crate::render::{BorderEdgePaint, BorderLineStyle, RunBorder, RunBorderEdge};
+) -> EpubResult<Option<ReaderRunBorderV1>> {
     use rito_style_contract::BorderStyle;
-    let edge = |edge: &rito_style_contract::BorderEdge| -> EpubResult<Option<RunBorderEdge>> {
-        let width = f64::from(edge.resolved_width.get());
-        if width <= 0.0 || matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
-            return Ok(None);
-        }
-        let line = match edge.style {
-            BorderStyle::Dotted => BorderLineStyle::DOTTED,
-            BorderStyle::Dashed => BorderLineStyle::DASHED,
-            _ => BorderLineStyle::SOLID,
+    let edge =
+        |edge: &rito_style_contract::BorderEdge| -> EpubResult<Option<ReaderRunBorderEdgeV1>> {
+            let width = f64::from(edge.resolved_width.get());
+            if width <= 0.0 || matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
+                return Ok(None);
+            }
+            let line = match edge.style {
+                BorderStyle::Dotted => ReaderBorderStyleV1::Dotted,
+                BorderStyle::Dashed => ReaderBorderStyleV1::Dashed,
+                _ => ReaderBorderStyleV1::Solid,
+            };
+            Ok(Some(ReaderRunBorderEdgeV1 {
+                width_px: width,
+                paint: ReaderBorderEdgePaintV1 {
+                    color: css_color(edge.color.resolve(style.paint.foreground))?,
+                    style: line,
+                },
+            }))
         };
-        Ok(Some(RunBorderEdge {
-            width_px: width,
-            paint: BorderEdgePaint {
-                color: css_color(edge.color.resolve(style.paint.foreground))?,
-                style: line,
-            },
-        }))
-    };
     let border = &style.fragment.border;
-    let run = RunBorder {
+    let run = ReaderRunBorderV1 {
         top: edge(&border.top)?,
         bottom: edge(&border.bottom)?,
         start: if box_start { edge(&border.left)? } else { None },
@@ -1801,7 +1796,7 @@ fn run_box_border(
 fn run_decoration(
     style: &InlineFormattingStyleV1,
     font_size: f64,
-) -> EpubResult<Option<RunDecoration>> {
+) -> EpubResult<Option<ReaderRunDecorationV1>> {
     let decoration = &style.paint.text_decoration;
     let lines = decoration.lines;
     if lines.is_empty() {
@@ -1825,14 +1820,14 @@ fn run_decoration(
         let thickness = (font_size / 10.0).floor().max(1.0);
         let top_offset = (font_size / 16.0).round();
         (
-            RunDecorationKind::UNDERLINE,
+            ReaderRunDecorationKindV1::Underline,
             CANVAS_TOP_ASCENT_RATIO * font_size + top_offset + thickness / 2.0,
             thickness,
         )
     } else {
-        (RunDecorationKind::LINE_THROUGH, font_size * 0.5, 1.0)
+        (ReaderRunDecorationKindV1::LineThrough, font_size * 0.5, 1.0)
     };
-    Ok(Some(RunDecoration {
+    Ok(Some(ReaderRunDecorationV1 {
         kind,
         y,
         thickness,
@@ -1981,8 +1976,8 @@ fn paint_family_stack(
     Ok(parts.join(", "))
 }
 
-fn css_color(color: AbsoluteColor) -> EpubResult<String> {
-    absolute_color(color).map_err(|error| not_paintable(&format!("color: {error:?}")))
+fn css_color(color: AbsoluteColor) -> EpubResult<ReaderColorV1> {
+    paint_color(color).map_err(|error| not_paintable(&format!("color: {error:?}")))
 }
 
 fn not_paintable(what: &str) -> EpubError {
@@ -1992,6 +1987,7 @@ fn not_paintable(what: &str) -> EpubError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::render::test_support::css_color;
 
     use rito_fragment::{
         BoxFragment, FormattingNode, FormattingNodeId, FormattingTreeStyles, FragmentRect,
@@ -2136,9 +2132,9 @@ mod tests {
         node_paints.insert(
             0,
             NodePaint::Box {
-                paint: Value::Object(serde_json::Map::new()),
+                paint: ReaderBlockPaintV1::default(),
                 border_box: None,
-                transform: Some(serde_json::json!([{ "kind": "rotate", "rad": 0.05 }])),
+                transform: Some(vec![ReaderTransformV1::Rotate { radians: 0.05 }]),
                 bevels: Vec::new(),
                 segment_horizontal_edges: false,
             },
@@ -2170,10 +2166,10 @@ mod tests {
             panic!("expected a transform command, got {:?}", commands.get(1));
         };
         // Box rect is (10, 20, 100, 20): center (60, 30).
-        assert_eq!(origin, &serde_json::json!({ "x": 60, "y": 30 }));
+        assert_eq!(origin, &ReaderPointV1 { x: 60.0, y: 30.0 });
         assert_eq!(
             transforms,
-            &serde_json::json!([{ "kind": "rotate", "rad": 0.05 }])
+            &vec![ReaderTransformV1::Rotate { radians: 0.05 }]
         );
         assert!(matches!(commands.last(), Some(DisplayCommand::PopState)));
         // The empty paint object strokes nothing: no paintBlock between.
@@ -2244,7 +2240,7 @@ mod tests {
             },
         )
         .expect("fragments paint");
-        let texts: Vec<&DisplayTextCommandInput> = commands
+        let texts: Vec<&DisplayTextCommand> = commands
             .iter()
             .filter_map(|command| match command {
                 DisplayCommand::PaintText(input) => Some(input),
@@ -2254,20 +2250,19 @@ mod tests {
         assert_eq!(texts.len(), 2, "the marker and the item's text");
         let marker = texts[0];
         assert_eq!(
-            marker.text,
-            Value::String("3. ".to_owned()),
+            marker.text, "3. ",
             "the marker paints before the item, with its trailing space"
         );
         // The item box starts at x = 10: the 16px marker box ends there.
-        assert_eq!(marker.rect["x"].as_f64(), Some(-6.0));
-        assert_eq!(marker.rect["width"].as_f64(), Some(16.0));
+        assert_eq!(marker.rect.x, -6.0);
+        assert_eq!(marker.rect.width, 16.0);
         // The item's painted baseline: line top 26 plus baseline 13.
         assert_eq!(
             marker.clusters,
             vec![(0, -6.0, 39.0), (1, 2.0, 39.0), (2, 6.0, 39.0)]
         );
         assert!(
-            !marker.paint.has_box_paint() && marker.paint.decoration().is_none(),
+            !marker.paint.has_box_paint() && marker.paint.decoration.is_none(),
             "the item's background band stays off the marker"
         );
         assert!(
@@ -2410,7 +2405,7 @@ mod tests {
             "width": 240,
             "height": 320,
             "background": "#ffffff",
-            "commands": crate::render::display_command_values(&commands),
+            "commands": crate::render::test_support::display_command_values(&commands),
         });
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -2431,7 +2426,7 @@ mod tests {
     #[test]
     fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
         let commands = vertical_column_commands();
-        let texts: Vec<&DisplayTextCommandInput> = commands
+        let texts: Vec<&DisplayTextCommand> = commands
             .iter()
             .filter_map(|command| match command {
                 DisplayCommand::PaintText(input) => Some(input),
@@ -2458,7 +2453,7 @@ mod tests {
         // The first column's glyphs sit at x 196 (frame right 220 minus
         // the 24px line thickness), stepping 16px from the column top 20
         // with baselines 0.8 em below each glyph top.
-        assert_eq!(texts[0].text, Value::String("「".to_owned()));
+        assert_eq!(texts[0].text, "「");
         origins(&texts[0].clusters, &[(0, 196.0, 32.8)]);
         let DisplayCommand::Transform {
             origin, transforms, ..
@@ -2469,17 +2464,16 @@ mod tests {
                 commands[1]
             );
         };
-        assert_eq!(
-            (origin["x"].as_f64(), origin["y"].as_f64()),
-            (Some(204.0), Some(28.0))
-        );
+        assert_eq!((origin.x, origin.y), (204.0, 28.0));
         assert_eq!(
             transforms,
-            &serde_json::json!([{ "kind": "rotate", "rad": std::f64::consts::FRAC_PI_2 }])
+            &vec![ReaderTransformV1::Rotate {
+                radians: std::f64::consts::FRAC_PI_2
+            }]
         );
-        assert_eq!(texts[1].text, Value::String("春日".to_owned()));
+        assert_eq!(texts[1].text, "春日");
         origins(&texts[1].clusters, &[(0, 196.0, 48.8), (3, 196.0, 64.8)]);
-        assert_eq!(texts[3].text, Value::String("、剧场。".to_owned()));
+        assert_eq!(texts[3].text, "、剧场。");
         // 、 and 。 ride the em's top-right corner; 剧场 stay upright.
         origins(
             &texts[3].clusters,
@@ -2491,7 +2485,7 @@ mod tests {
             ],
         );
         // The letter-spaced second column steps 18px.
-        assert_eq!(texts[7].text, Value::String("ab".to_owned()));
+        assert_eq!(texts[7].text, "ab");
         origins(&texts[7].clusters, &[(0, 170.0, 68.8), (1, 170.0, 86.8)]);
         let annotation = commands
             .iter()
@@ -2536,7 +2530,7 @@ mod tests {
         let widths: Vec<f64> = commands
             .iter()
             .filter_map(|command| match command {
-                DisplayCommand::PaintText(input) => input.rect["width"].as_f64(),
+                DisplayCommand::PaintText(input) => Some(input.rect.width),
                 _ => None,
             })
             .collect();
@@ -2558,19 +2552,19 @@ mod tests {
         let DisplayCommand::PaintText(first) = &commands[0] else {
             panic!("expected a text command, got {:?}", commands[0]);
         };
-        assert_eq!(first.text, Value::String("Red ".to_owned()));
-        assert_eq!(first.paint.color(), "#ff0000");
-        assert_eq!(first.paint.measure().font.family, "Tinos");
+        assert_eq!(first.text, "Red ");
+        assert_eq!(first.paint.color, css_color("#ff0000"));
+        assert_eq!(first.paint.font.family, "Tinos");
         // Line top is 20 + 6 = 26; the paint rect starts one canvas-'top'
         // ascent (0.8 × 16px) above the 13px baseline.
-        assert_eq!(first.rect, rect_value(14.0, 26.2, 30.0, 16.0));
-        assert_eq!(first.line_height_px, Some(number_value(20.0)));
+        assert_eq!(first.rect, display_rect(14.0, 26.2, 30.0, 16.0));
+        assert_eq!(first.line_height_px, Some(display_number(20.0)));
         let DisplayCommand::PaintText(second) = &commands[1] else {
             panic!("expected a text command, got {:?}", commands[1]);
         };
-        assert_eq!(second.text, Value::String("black.".to_owned()));
-        assert_eq!(second.paint.color(), "#000000");
-        assert_eq!(second.rect, rect_value(44.0, 26.2, 40.0, 16.0));
+        assert_eq!(second.text, "black.");
+        assert_eq!(second.paint.color, css_color("#000000"));
+        assert_eq!(second.rect, display_rect(44.0, 26.2, 40.0, 16.0));
     }
 
     #[test]
@@ -2581,7 +2575,7 @@ mod tests {
         let DisplayCommand::PaintText(command) = &commands[0] else {
             panic!("expected a text command, got {:?}", commands[0]);
         };
-        assert_eq!(command.rect, rect_value(14.0, 22.2, 8.0, 16.0));
+        assert_eq!(command.rect, display_rect(14.0, 22.2, 8.0, 16.0));
     }
 
     #[test]
@@ -2635,7 +2629,7 @@ mod tests {
             let DisplayCommand::PaintText(command) = &commands[0] else {
                 panic!("expected a text command, got {:?}", commands[0]);
             };
-            let painted = command.rect["y"].as_f64().expect("rect y") + 0.8 * 16.0;
+            let painted = command.rect.y + 0.8 * 16.0;
             let expected = ((line_top.round() + within_line) * 2.0).round() / 2.0;
             assert!(
                 (painted - expected).abs() < 1e-9,
@@ -2677,8 +2671,8 @@ mod tests {
         paints.insert(
             0u32,
             NodePaint::Rule {
-                color: "#445566".to_owned(),
-                style: "solid",
+                color: css_color("#445566"),
+                style: ReaderBorderStyleV1::Solid,
                 thickness: 2.0,
             },
         );
@@ -2706,9 +2700,9 @@ mod tests {
         let DisplayCommand::PaintHorizontalRule { rect, paint } = &commands[1] else {
             panic!("expected a rule command, got {:?}", commands[1]);
         };
-        assert_eq!(*rect, rect_value(13.0, 27.0, 90.0, 2.0));
-        assert_eq!(paint["color"], "#445566");
-        assert_eq!(paint["style"], "solid");
+        assert_eq!(*rect, display_rect(13.0, 27.0, 90.0, 2.0));
+        assert_eq!(paint.color, css_color("#445566"));
+        assert_eq!(paint.style, ReaderBorderStyleV1::Solid);
     }
 
     /// An inset rule is the browser's fixed two-tone bevel closed on all
@@ -2742,8 +2736,8 @@ mod tests {
         paints.insert(
             0u32,
             NodePaint::Rule {
-                color: "#808080".to_owned(),
-                style: "inset",
+                color: css_color("#808080"),
+                style: ReaderBorderStyleV1::Inset,
                 thickness: 1.0,
             },
         );
@@ -2770,19 +2764,26 @@ mod tests {
         else {
             panic!("expected a block command, got {:?}", commands[1]);
         };
-        assert_eq!(*rect, rect_value(13.0, 27.0, 90.0, 2.0));
-        for (side, color) in [
-            ("top", "#9a9a9a"),
-            ("left", "#9a9a9a"),
-            ("bottom", "#eeeeee"),
-            ("right", "#eeeeee"),
+        assert_eq!(*rect, display_rect(13.0, 27.0, 90.0, 2.0));
+        let border = paint.border.expect("the bevel is a border box");
+        for (side, edge, color) in [
+            ("top", border.top, "#9a9a9a"),
+            ("left", border.left, "#9a9a9a"),
+            ("bottom", border.bottom, "#eeeeee"),
+            ("right", border.right, "#eeeeee"),
         ] {
-            assert_eq!(paint["border"][side]["color"], color, "{side}");
-            assert_eq!(paint["border"][side]["style"], "solid", "{side}");
+            let edge = edge.unwrap_or_else(|| panic!("{side} edge paints"));
+            assert_eq!(edge.color, css_color(color), "{side}");
+            assert_eq!(edge.style, ReaderBorderStyleV1::Solid, "{side}");
         }
-        let widths = border_box.as_ref().expect("border widths");
-        for key in ["topWidth", "rightWidth", "bottomWidth", "leftWidth"] {
-            assert_eq!(widths[key].as_f64(), Some(1.0), "{key}");
+        let widths = border_box.expect("border widths");
+        for (key, width) in [
+            ("top", widths.top_width),
+            ("right", widths.right_width),
+            ("bottom", widths.bottom_width),
+            ("left", widths.left_width),
+        ] {
+            assert_eq!(width, 1.0, "{key}");
         }
     }
 
@@ -2819,10 +2820,7 @@ mod tests {
         // The fixture stack is just "Tinos" with no generic, so the alias
         // lands after it and the injected generic closes the stack; a
         // host-only family would have been dropped.
-        assert_eq!(
-            command.paint.measure().font.family,
-            "Tinos, __RitoPinned_test, serif"
-        );
+        assert_eq!(command.paint.font.family, "Tinos, __RitoPinned_test, serif");
     }
 
     #[test]
@@ -2876,7 +2874,7 @@ mod tests {
         let DisplayCommand::PaintRuby(annotation) = &commands[0] else {
             panic!("annotation paints before its base, got {:?}", commands[0]);
         };
-        assert_eq!(annotation.text, Value::String("かんじ".to_owned()));
+        assert_eq!(annotation.text, "かんじ");
         // space-around over the 32px base: 8px of slack, two
         // opportunities — an inset of slack/3 on the layout grid, half at
         // each edge, the rest in the two gaps.
@@ -2906,14 +2904,14 @@ mod tests {
         // The base anchors at 26.2 (line top 26 + baseline 13 − 0.8 × 16);
         // the 8px annotation's rect starts 0.8 em above its baseline and
         // spans the base run's extent.
-        assert_eq!(annotation.rect, rect_value(14.0, 16.6, 32.0, 8.0));
-        assert_eq!(annotation.paint.measure().font.size_px, 8.0);
-        assert_eq!(annotation.paint.color(), "#ff0000");
+        assert_eq!(annotation.rect, display_rect(14.0, 16.6, 32.0, 8.0));
+        assert_eq!(annotation.paint.font.size_px, 8.0);
+        assert_eq!(annotation.paint.color, css_color("#ff0000"));
         let DisplayCommand::PaintText(base) = &commands[1] else {
             panic!("expected the base text command, got {:?}", commands[1]);
         };
-        assert_eq!(base.text, Value::String("漢字".to_owned()));
-        assert_eq!(base.rect, rect_value(14.0, 26.2, 32.0, 16.0));
+        assert_eq!(base.text, "漢字");
+        assert_eq!(base.rect, display_rect(14.0, 26.2, 32.0, 16.0));
     }
 
     #[test]
@@ -2972,14 +2970,14 @@ mod tests {
         // 7.984375 and the edge to 3.984375.
         let origins: Vec<f64> = annotation.clusters.iter().map(|(_, x, _)| *x).collect();
         assert_eq!(origins, vec![18.0, 34.0]);
-        assert_eq!(annotation.rect, rect_value(14.0, 16.6, 32.0, 8.0));
+        assert_eq!(annotation.rect, display_rect(14.0, 16.6, 32.0, 8.0));
     }
 
     fn painted_image_rect(
         intrinsic_width: f64,
         intrinsic_height: f64,
         object_fit: rito_style_contract::ObjectFitV1,
-    ) -> Value {
+    ) -> ReaderRectV1 {
         use rito_style_contract::{
             AlignItemsV1, BoxSizingV1, ClearV1, CssPx, FloatV1, JustifyContentV1,
             LayoutDisplayInsideV1, LayoutDisplayOutsideV1, LayoutDisplayV1,
@@ -3084,7 +3082,7 @@ mod tests {
             panic!("expected an image command, got {:?}", commands[0]);
         };
         assert_eq!(src, "images/portrait.png");
-        rect.clone()
+        *rect
     }
 
     #[test]
@@ -3092,7 +3090,7 @@ mod tests {
         use rito_style_contract::ObjectFitV1;
         assert_eq!(
             painted_image_rect(40.0, 30.0, ObjectFitV1::Fill),
-            rect_value(19.0, 28.0, 40.0, 30.0)
+            display_rect(19.0, 28.0, 40.0, 30.0)
         );
     }
 
@@ -3103,7 +3101,7 @@ mod tests {
         // the raster ratio, bit for bit.
         assert_eq!(
             painted_image_rect(40.0, 30.0, ObjectFitV1::Contain),
-            rect_value(19.0, 28.0, 40.0, 30.0)
+            display_rect(19.0, 28.0, 40.0, 30.0)
         );
     }
 
@@ -3115,7 +3113,7 @@ mod tests {
         // its border and background) keeps the author's rect.
         assert_eq!(
             painted_image_rect(30.0, 40.0, ObjectFitV1::Contain),
-            rect_value(27.75, 28.0, 22.5, 30.0)
+            display_rect(27.75, 28.0, 22.5, 30.0)
         );
     }
 

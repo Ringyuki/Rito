@@ -112,7 +112,7 @@ fn creates_revisions_and_caches_frames() {
     assert!(!frame.commands.is_empty());
     assert_eq!(metadata.command_count, frame.commands.len());
     assert!(frame.commands.iter().any(|command| {
-        matches!(command, crate::render::DisplayCommand::PaintText(input) if input.text.is_string())
+        matches!(command, crate::render::DisplayCommand::PaintText(input) if !input.text.is_empty())
     }));
     assert_eq!(metadata, cached_again);
     assert_eq!(document.cached_frame_count(&revision.revision_id), Some(1));

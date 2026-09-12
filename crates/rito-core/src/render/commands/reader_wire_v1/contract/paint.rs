@@ -92,6 +92,43 @@ pub(crate) struct ReaderColorV1 {
     pub none: ReaderColorNoneFlagsV1,
 }
 
+impl ReaderColorV1 {
+    pub(crate) const BLACK: Self = Self::srgb8(0, 0, 0, 1.0);
+    pub(crate) const WHITE: Self = Self::srgb8(0xff, 0xff, 0xff, 1.0);
+
+    /// An sRGB colour from 8-bit channels, the way a browser stores a
+    /// legacy `#rrggbb` / `rgba()` value.
+    pub(crate) const fn srgb8(red: u8, green: u8, blue: u8, alpha: f32) -> Self {
+        Self {
+            space: ReaderColorSpaceV1::Srgb,
+            components: [
+                red as f32 / 255.0,
+                green as f32 / 255.0,
+                blue as f32 / 255.0,
+            ],
+            alpha,
+            none: ReaderColorNoneFlagsV1 {
+                component_0: false,
+                component_1: false,
+                component_2: false,
+                alpha: false,
+            },
+        }
+    }
+
+    /// The 8-bit sRGB channels of an opaque sRGB colour, `None` for a
+    /// translucent one or another colour space.
+    pub(crate) fn opaque_srgb8(self) -> Option<[u8; 3]> {
+        if self.space != ReaderColorSpaceV1::Srgb || self.alpha != 1.0 || self.none.alpha {
+            return None;
+        }
+        Some(
+            self.components
+                .map(|component| (component.clamp(0.0, 1.0) * 255.0).round() as u8),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ReaderFontStyleV1 {
     Normal,
@@ -115,6 +152,10 @@ impl ReaderFontStyleV1 {
     }
 }
 
+#[allow(
+    dead_code,
+    reason = "RITODL1 freezes the border-style tags before the painter emits every style"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ReaderBorderStyleV1 {
     None,
@@ -142,6 +183,10 @@ pub(crate) enum ReaderBackgroundSizeV1 {
         y: Option<ReaderLengthV1>,
     },
 }
+#[allow(
+    dead_code,
+    reason = "RITODL1 freezes the background-repeat tags before the style projection emits every value"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ReaderBackgroundRepeatV1 {
     Repeat,
@@ -163,7 +208,7 @@ pub(crate) struct ReaderBackgroundPositionV1 {
     pub y: ReaderLengthV1,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct ReaderBackgroundPaintV1 {
     pub color: Option<ReaderColorV1>,
     pub image: Option<String>,
@@ -204,7 +249,7 @@ pub(crate) struct ReaderBoxShadowV1 {
     pub inset: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct ReaderBlockPaintV1 {
     pub background: Option<ReaderBackgroundPaintV1>,
     pub border: Option<ReaderBlockBorderV1>,
@@ -292,6 +337,32 @@ pub(crate) struct ReaderRunPaintV1 {
     /// apply only where the box actually opens or closes.
     pub box_start: bool,
     pub box_end: bool,
+}
+
+impl Default for ReaderRunPaintV1 {
+    /// Black 16px upright regular text in the UA serif, no box paint.
+    fn default() -> Self {
+        Self {
+            font: ReaderFontPaintV1 {
+                family: "serif".to_owned(),
+                size_px: 16.0,
+                weight: 400.0,
+                style: ReaderFontStyleV1::Normal,
+            },
+            color: ReaderColorV1::BLACK,
+            word_spacing_px: None,
+            letter_spacing_px: None,
+            background_color: None,
+            background_radius: None,
+            text_shadows: Vec::new(),
+            decoration: None,
+            padding: None,
+            border: None,
+            box_offsets: None,
+            box_start: true,
+            box_end: true,
+        }
+    }
 }
 
 /// The paint a text run carries onto the wire: what a renderer needs to

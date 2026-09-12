@@ -1,17 +1,22 @@
-use super::super::{
-    contract::{ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1},
-    ReaderDisplayListWireError,
-};
+//! CSS colour text as the fixtures spell it: `#rrggbb`, `rgba()`, named
+//! keywords and `color()` functions, parsed to the typed colour and
+//! written back.
 
-pub(super) fn adapt_color(
+use super::super::contract::{ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1};
+use super::FixtureError;
+
+/// A typed colour from fixture text; panics on text no fixture spells.
+pub(crate) fn css_color(source: &str) -> ReaderColorV1 {
+    parse_color(source, "test colour").unwrap_or_else(|error| panic!("{source}: {error:?}"))
+}
+
+pub(crate) fn parse_color(
     source: &str,
     context: &'static str,
-) -> Result<ReaderColorV1, ReaderDisplayListWireError> {
+) -> Result<ReaderColorV1, FixtureError> {
     let source = source.trim();
     if source.eq_ignore_ascii_case("currentcolor") {
-        return Err(ReaderDisplayListWireError::UnsupportedLegacyValue(
-            "color.currentColor",
-        ));
+        return Err(FixtureError::UnsupportedValue("color.currentColor"));
     }
     if source.eq_ignore_ascii_case("transparent") {
         return absolute(ReaderColorSpaceV1::Srgb, [0.0; 3], 0.0);
@@ -20,7 +25,7 @@ pub(super) fn adapt_color(
         return Ok(color);
     }
     if let Some(hex) = source.strip_prefix('#') {
-        return parse_hex(hex).ok_or(ReaderDisplayListWireError::InvalidLegacyColor(context));
+        return parse_hex(hex).ok_or(FixtureError::InvalidColor(context));
     }
     if let Some(body) = function_body(source, "rgb").or_else(|| function_body(source, "rgba")) {
         return parse_rgb(body, context);
@@ -28,7 +33,39 @@ pub(super) fn adapt_color(
     if let Some(body) = function_body(source, "color") {
         return parse_color_function(body, context);
     }
-    Err(ReaderDisplayListWireError::InvalidLegacyColor(context))
+    Err(FixtureError::InvalidColor(context))
+}
+
+/// The fixture text for a typed colour: `#rrggbb` for an opaque sRGB
+/// colour, `rgba()` for a translucent one, `color()` elsewhere.
+pub(crate) fn color_css(color: ReaderColorV1) -> String {
+    if let Some([red, green, blue]) = color.opaque_srgb8() {
+        return format!("#{red:02x}{green:02x}{blue:02x}");
+    }
+    let none = color.none;
+    if color.space == ReaderColorSpaceV1::Srgb
+        && !(none.component_0 || none.component_1 || none.component_2 || none.alpha)
+    {
+        let [red, green, blue] = color
+            .components
+            .map(|component| (component.clamp(0.0, 1.0) * 255.0).round() as u8);
+        return format!("rgba({red}, {green}, {blue}, {})", color.alpha);
+    }
+    let component = |value: f32, is_none: bool| {
+        if is_none {
+            "none".to_owned()
+        } else {
+            value.to_string()
+        }
+    };
+    format!(
+        "color({} {} {} {} / {})",
+        color.space.tag_name(),
+        component(color.components[0], none.component_0),
+        component(color.components[1], none.component_1),
+        component(color.components[2], none.component_2),
+        component(color.alpha, none.alpha),
+    )
 }
 
 fn parse_hex(source: &str) -> Option<ReaderColorV1> {
@@ -59,21 +96,13 @@ fn parse_hex(source: &str) -> Option<ReaderColorV1> {
         ),
         _ => return None,
     };
-    absolute(
-        ReaderColorSpaceV1::Srgb,
-        [channel(red), channel(green), channel(blue)],
-        channel(alpha),
-    )
-    .ok()
+    Some(ReaderColorV1::srgb8(red, green, blue, channel(alpha)))
 }
 
-fn parse_rgb(
-    body: &str,
-    context: &'static str,
-) -> Result<ReaderColorV1, ReaderDisplayListWireError> {
+fn parse_rgb(body: &str, context: &'static str) -> Result<ReaderColorV1, FixtureError> {
     let parts = components(body);
     if !(3..=4).contains(&parts.len()) {
-        return Err(ReaderDisplayListWireError::InvalidLegacyColor(context));
+        return Err(FixtureError::InvalidColor(context));
     }
     let components = [
         rgb_component(&parts[0], context)?,
@@ -88,13 +117,10 @@ fn parse_rgb(
     absolute(ReaderColorSpaceV1::Srgb, components, alpha)
 }
 
-fn parse_color_function(
-    body: &str,
-    context: &'static str,
-) -> Result<ReaderColorV1, ReaderDisplayListWireError> {
+fn parse_color_function(body: &str, context: &'static str) -> Result<ReaderColorV1, FixtureError> {
     let parts = components(body);
     if !(4..=5).contains(&parts.len()) {
-        return Err(ReaderDisplayListWireError::InvalidLegacyColor(context));
+        return Err(FixtureError::InvalidColor(context));
     }
     let space = match parts[0].to_ascii_lowercase().as_str() {
         "srgb" => ReaderColorSpaceV1::Srgb,
@@ -106,11 +132,7 @@ fn parse_color_function(
         "rec2020" => ReaderColorSpaceV1::Rec2020,
         "xyz-d50" => ReaderColorSpaceV1::XyzD50,
         "xyz" | "xyz-d65" => ReaderColorSpaceV1::XyzD65,
-        _ => {
-            return Err(ReaderDisplayListWireError::UnsupportedLegacyValue(
-                "color.space",
-            ))
-        }
+        _ => return Err(FixtureError::UnsupportedValue("color.space")),
     };
     let mut none = ReaderColorNoneFlagsV1::default();
     let values = [
@@ -135,7 +157,7 @@ fn typed_absolute(
     alpha: f32,
     none: ReaderColorNoneFlagsV1,
     context: &'static str,
-) -> Result<ReaderColorV1, ReaderDisplayListWireError> {
+) -> Result<ReaderColorV1, FixtureError> {
     if components.iter().all(|value| value.is_finite()) && alpha.is_finite() {
         Ok(ReaderColorV1 {
             space,
@@ -144,7 +166,7 @@ fn typed_absolute(
             none,
         })
     } else {
-        Err(ReaderDisplayListWireError::InvalidLegacyColor(context))
+        Err(FixtureError::InvalidColor(context))
     }
 }
 
@@ -152,7 +174,7 @@ fn absolute(
     space: ReaderColorSpaceV1,
     components: [f32; 3],
     alpha: f32,
-) -> Result<ReaderColorV1, ReaderDisplayListWireError> {
+) -> Result<ReaderColorV1, FixtureError> {
     typed_absolute(
         space,
         components,
@@ -184,16 +206,12 @@ fn named_color(source: &str) -> Option<ReaderColorV1> {
         "rebeccapurple" => 0x663399ff,
         _ => return None,
     };
-    absolute(
-        ReaderColorSpaceV1::Srgb,
-        [
-            channel((rgba >> 24) as u8),
-            channel((rgba >> 16) as u8),
-            channel((rgba >> 8) as u8),
-        ],
+    Some(ReaderColorV1::srgb8(
+        (rgba >> 24) as u8,
+        (rgba >> 16) as u8,
+        (rgba >> 8) as u8,
         channel(rgba as u8),
-    )
-    .ok()
+    ))
 }
 
 fn function_body<'a>(source: &'a str, name: &str) -> Option<&'a str> {
@@ -211,7 +229,7 @@ fn components(body: &str) -> Vec<String> {
         .collect()
 }
 
-fn rgb_component(source: &str, context: &'static str) -> Result<f32, ReaderDisplayListWireError> {
+fn rgb_component(source: &str, context: &'static str) -> Result<f32, FixtureError> {
     if let Some(percent) = source.strip_suffix('%') {
         return scalar(percent, context).map(|value| (value / 100.0).clamp(0.0, 1.0));
     }
@@ -222,7 +240,7 @@ fn color_component(
     source: &str,
     none: &mut bool,
     context: &'static str,
-) -> Result<f32, ReaderDisplayListWireError> {
+) -> Result<f32, FixtureError> {
     if source.eq_ignore_ascii_case("none") {
         *none = true;
         return Ok(0.0);
@@ -233,19 +251,19 @@ fn color_component(
     scalar(source, context)
 }
 
-fn alpha_component(source: &str, context: &'static str) -> Result<f32, ReaderDisplayListWireError> {
+fn alpha_component(source: &str, context: &'static str) -> Result<f32, FixtureError> {
     if let Some(percent) = source.strip_suffix('%') {
         return scalar(percent, context).map(|value| (value / 100.0).clamp(0.0, 1.0));
     }
     scalar(source, context).map(|value| value.clamp(0.0, 1.0))
 }
 
-fn scalar(source: &str, context: &'static str) -> Result<f32, ReaderDisplayListWireError> {
+fn scalar(source: &str, context: &'static str) -> Result<f32, FixtureError> {
     source
         .parse::<f32>()
         .ok()
         .filter(|value| value.is_finite())
-        .ok_or(ReaderDisplayListWireError::InvalidLegacyColor(context))
+        .ok_or(FixtureError::InvalidColor(context))
 }
 
 fn duplicate_nibble(source: &str, index: usize) -> Option<u8> {

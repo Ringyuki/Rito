@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::{
     epub::parse_font_family_list,
     layout::LayoutConfig,
-    render::{encode_reader_primitive_list_v1, lower_display_commands},
+    render::{encode_reader_primitive_list_v1, lower},
     runtime::{
         page_artifact::{
             PageArtifact, PageArtifactFrame, PageArtifactRect, PageArtifactSemanticNode,
@@ -134,7 +134,7 @@ fn build_reader_artifact_from_revision(
     // The display list the artifact carries is the frame lowered to the
     // host's device grid: every raster decision resolved here, the host
     // only blits.
-    let lowered = lower_display_commands(&frame.commands, render_ratio, &|href| {
+    let lowered = lower(&frame.commands, render_ratio, &|href| {
         document.image_size(href)
     })
     .map_err(engine_error)?;

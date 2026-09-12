@@ -787,10 +787,7 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
             let crate::render::DisplayCommand::PaintImage { rect, .. } = command else {
                 return None;
             };
-            Some((
-                rect.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                rect.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            ))
+            Some((rect.width, rect.height))
         })
         .collect()
 }
@@ -1273,9 +1270,7 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
             .commands
             .iter()
             .find_map(|command| match command {
-                crate::render::DisplayCommand::PaintText(input) => {
-                    input.rect.get("y").and_then(serde_json::Value::as_f64)
-                }
+                crate::render::DisplayCommand::PaintText(input) => Some(input.rect.y),
                 _ => None,
             })
             .expect("a text command")

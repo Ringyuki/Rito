@@ -31,9 +31,7 @@ fn host_and_unshapeable_publication_families_are_removed_from_paint() {
         .frame_commands_for_tests(&revision.revision_id, 0)
         .unwrap();
     let family = frame.commands.iter().find_map(|command| match command {
-        crate::render::DisplayCommand::PaintText(input) => {
-            Some(input.paint.measure().font.family.clone())
-        }
+        crate::render::DisplayCommand::PaintText(input) => Some(input.paint.font.family.clone()),
         _ => None,
     });
     let expected = format!("{alias}, serif");

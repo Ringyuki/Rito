@@ -6,13 +6,13 @@
 //! publication's `@font-face` bindings), the paint family policy, and the
 //! frame-skeleton helpers the fragment session shares.
 
-use serde_json::Value;
-
 use rito_block::BlockFormattingContext;
 use rito_inline::ParleyInlineContext;
 
 use crate::fragment_paint::PaintFamilyPolicy;
-use crate::render::DisplayCommand;
+use crate::render::{
+    contract::ReaderColorV1, contract::ReaderPagePaintV1, display_rect, DisplayCommand,
+};
 
 use super::{RuntimeDocument, RuntimeRevision};
 
@@ -142,23 +142,18 @@ impl RuntimeDocument {
     }
 }
 
+/// A page wash: the rect filled with `color` as the page ground.
 pub(super) fn paint_rect_command(
     x: f64,
     y: f64,
     width: f64,
     height: f64,
-    color: &str,
+    color: ReaderColorV1,
 ) -> DisplayCommand {
-    DisplayCommand::paint_page(
-        rect_value(x, y, width, height),
-        serde_json::json!({ "backgroundColor": color }),
-    )
-}
-
-pub(super) fn number_value(value: f64) -> Value {
-    crate::fragment_paint::number_value(value)
-}
-
-pub(super) fn rect_value(x: f64, y: f64, width: f64, height: f64) -> Value {
-    crate::fragment_paint::rect_value(x, y, width, height)
+    DisplayCommand::PaintPage {
+        rect: display_rect(x, y, width, height),
+        paint: ReaderPagePaintV1 {
+            background_color: Some(color),
+        },
+    }
 }

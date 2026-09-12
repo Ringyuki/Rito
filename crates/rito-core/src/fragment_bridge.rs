@@ -29,9 +29,12 @@ use rito_style_contract::{
 
 use std::collections::BTreeMap;
 
-use serde_json::Value;
-
 use crate::epub::{EpubError, EpubResult};
+use crate::render::contract::{
+    ReaderBackgroundPaintV1, ReaderBackgroundPositionV1, ReaderBlockBorderV1, ReaderBlockPaintV1,
+    ReaderBlockRadiusV1, ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderBorderStyleV1,
+    ReaderBoxShadowV1, ReaderColorV1, ReaderLengthV1, ReaderTransformV1,
+};
 use crate::xhtml::{DocumentNode, ElementNode, ImageNode};
 
 /// One chapter's formatting tree plus the mapping back to source nodes.
@@ -45,22 +48,22 @@ pub struct ChapterFormattingTree {
     /// (keyed by node id). Every entry is layout-inert: it colors a box the
     /// engine already sized, and a painter that does not understand an
     /// entry must fail closed rather than skip it.
-    pub node_paints: BTreeMap<u32, NodePaint>,
+    pub(crate) node_paints: BTreeMap<u32, NodePaint>,
     /// Flank border strokes for inline images, keyed by the `<img>`
     /// element's SOURCE index (images have no formatting node). The
     /// widths are the absorbed border widths (top, right, bottom, left);
     /// layout reserved them as padding, the painter strokes them around
     /// the raster rect.
-    pub image_border_paints: BTreeMap<u32, (NodePaint, [f64; 4])>,
+    pub(crate) image_border_paints: BTreeMap<u32, (NodePaint, [f64; 4])>,
     /// The chapter body's own background color, when it has one. This is
     /// the page background — the frame producer washes each page with it
     /// — matching how the retained pipeline hoists a body background onto
     /// the page rather than painting a content-box rectangle.
-    pub page_background: Option<String>,
+    pub(crate) page_background: Option<ReaderColorV1>,
     /// The chapter body's background image, painted across the full page
-    /// like the CSS body-background canvas propagation. The `paintBlock`
-    /// paint object, color stripped (the wash owns it).
-    pub page_background_image: Option<Value>,
+    /// like the CSS body-background canvas propagation. The block
+    /// background paint, colour stripped (the wash owns it).
+    pub(crate) page_background_image: Option<ReaderBackgroundPaintV1>,
     /// Per inline-flow node: each item's interaction source, index-aligned
     /// with the flow's `InlineItem` list. Page artifacts join laid-out
     /// runs back to links, images, and source nodes through this table.
@@ -204,38 +207,42 @@ pub struct SourceSegment {
 }
 
 /// One node's layout-inert paint requirement.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "rules are rare beside decorated boxes and the map holds a few entries per chapter"
+)]
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodePaint {
+pub(crate) enum NodePaint {
     /// A horizontal rule's stroke across the node's box.
     Rule {
-        /// CSS color of the stroke.
-        color: String,
-        /// Stroke pattern understood by the render protocol.
-        style: &'static str,
+        /// Colour of the stroke.
+        color: ReaderColorV1,
+        /// Stroke pattern the lowering understands.
+        style: ReaderBorderStyleV1,
         /// Stroke thickness. The node's box can be taller (an author
         /// `height` plus both borders flows as the box size, like a
         /// browser's `<hr>`), while the visible stroke keeps the border
         /// width and rides at the box top.
         thickness: f64,
     },
-    /// Block-box decoration: the `paintBlock` command's `paint` object
-    /// and optional `borderBox` widths, exactly as the render protocol
-    /// consumes them. Border widths are already lowered into the node's
-    /// layout padding, so the fragment rect is the CSS border box and the
-    /// renderer strokes edges inside it.
+    /// Block-box decoration: the block command's paint and optional
+    /// border-box widths, exactly as the lowering consumes them. Border
+    /// widths are already lowered into the node's layout padding, so the
+    /// fragment rect is the CSS border box and the renderer strokes edges
+    /// inside it.
     Box {
-        paint: Value,
-        border_box: Option<Value>,
-        /// The box's computed transform list in wire order, painted as a
+        paint: ReaderBlockPaintV1,
+        border_box: Option<ReaderBorderBoxV1>,
+        /// The box's computed transform list in paint order, painted as a
         /// stacking wrapper around the box and its whole subtree (origin =
         /// border-box center, CSS transform-origin default).
-        transform: Option<Value>,
+        transform: Option<Vec<ReaderTransformV1>>,
         /// Ridge/groove edges paint two-tone: the border entry strokes
         /// the edge's OUTER half color across the full width and each
         /// entry here overlays the INNER half (the strip adjacent to the
         /// content) with the opposite tone. Keyed by edge index in
         /// border-box order (0 top, 1 right, 2 bottom, 3 left).
-        bevels: Vec<(usize, String)>,
+        bevels: Vec<(usize, ReaderColorV1)>,
         /// A collapsed table's dashed/dotted horizontal edges paint per
         /// CELL segment (the collapsed border belongs to the cells and
         /// the dash phase restarts at each cell edge); the painter
@@ -316,13 +323,12 @@ pub fn build_chapter_formatting_tree(
                 return None;
             };
             let background = paint
-                .as_object()
-                .and_then(|paint| paint.get("background"))
-                .and_then(Value::as_object)
-                .filter(|background| background.contains_key("image"))?;
-            let mut background = background.clone();
-            background.remove("color");
-            Some(serde_json::json!({ "background": background }))
+                .background
+                .filter(|background| background.image.is_some())?;
+            Some(ReaderBackgroundPaintV1 {
+                color: None,
+                ..background
+            })
         });
     let TreeBuilder {
         nodes: mut formatting_nodes,
@@ -1262,14 +1268,14 @@ impl TreeBuilder<'_> {
             && !matches!(border.style, BorderStyle::None | BorderStyle::Hidden);
         let (thickness, stroke, color) = if use_border {
             let stroke = match border.style {
-                BorderStyle::Dotted => "dotted",
-                BorderStyle::Dashed => "dashed",
+                BorderStyle::Dotted => ReaderBorderStyleV1::Dotted,
+                BorderStyle::Dashed => ReaderBorderStyleV1::Dashed,
                 // A thin inset rule paints Chromium's fixed 3D bevel pair
                 // (top #9A9A9A, bottom #EEEEEE, border-color ignored —
                 // measured identical for gray, red and slate); the paint
                 // walk expands it into two solid strokes.
-                BorderStyle::Inset | BorderStyle::Groove => "inset",
-                _ => "solid",
+                BorderStyle::Inset | BorderStyle::Groove => ReaderBorderStyleV1::Inset,
+                _ => ReaderBorderStyleV1::Solid,
             };
             let color = border.color.resolve(resolved.paint.foreground);
             (f64::from(border.resolved_width.get()), stroke, color)
@@ -1278,7 +1284,7 @@ impl TreeBuilder<'_> {
             // the rule is Chromium's bevel pair over a two-pixel box
             // (b52 profile pages: every block below a bare <hr> sat one
             // pixel high under the old one-pixel model).
-            (1.0, "inset", resolved.paint.foreground)
+            (1.0, ReaderBorderStyleV1::Inset, resolved.paint.foreground)
         };
         // The box the rule occupies in flow follows the CSS box model: an
         // author `height` is the content height, and both horizontal
@@ -1311,7 +1317,7 @@ impl TreeBuilder<'_> {
         } else {
             thickness * 2.0
         };
-        let color = crate::style::absolute_color(color)
+        let color = crate::style::paint_color(color)
             .map_err(|error| EpubError::new(format!("hr stroke color: {error:?}")))?;
         let id = self.push_node(
             FormattingNode {
@@ -1790,7 +1796,10 @@ impl TreeBuilder<'_> {
     /// The chapter body's background color for the page wash, `None`
     /// when transparent. Body decoration beyond a plain background color
     /// still fails closed like any other box.
-    fn chapter_body_background(&mut self, source_index: usize) -> EpubResult<Option<String>> {
+    fn chapter_body_background(
+        &mut self,
+        source_index: usize,
+    ) -> EpubResult<Option<ReaderColorV1>> {
         let style = self.inline_style_id(source_index, "chapter body");
         let (background, bordered, decoration) = {
             let resolved = self
@@ -1801,10 +1810,10 @@ impl TreeBuilder<'_> {
                 rito_style_contract::ComputedColorV1::Absolute(color)
                     if color.alpha().get() > 0.0 =>
                 {
-                    crate::style::absolute_color(color).ok()
+                    crate::style::paint_color(color).ok()
                 }
                 rito_style_contract::ComputedColorV1::CurrentColor => {
-                    crate::style::absolute_color(resolved.paint.foreground).ok()
+                    crate::style::paint_color(resolved.paint.foreground).ok()
                 }
                 _ => None,
             };
@@ -2147,29 +2156,28 @@ fn block_box_paint(
     let mut degradations = Vec::new();
     let mut box_shadows = Vec::new();
     for shadow in style.paint.box_shadows.iter() {
-        let Ok(color) = crate::style::absolute_color(shadow.color.resolve(style.paint.foreground))
+        let Ok(color) = crate::style::paint_color(shadow.color.resolve(style.paint.foreground))
         else {
             degradations.push("box-shadow color unresolvable, shadow skipped".to_owned());
             continue;
         };
-        box_shadows.push(serde_json::json!({
-            "offsetX": f64::from(shadow.offset_x.get()),
-            "offsetY": f64::from(shadow.offset_y.get()),
-            "blur": f64::from(shadow.blur_radius.get()),
-            "spread": f64::from(shadow.spread_radius.get()),
-            "color": color,
-            "inset": shadow.inset,
-        }));
+        box_shadows.push(ReaderBoxShadowV1 {
+            offset_x: f64::from(shadow.offset_x.get()),
+            offset_y: f64::from(shadow.offset_y.get()),
+            blur: f64::from(shadow.blur_radius.get()),
+            spread: f64::from(shadow.spread_radius.get()),
+            color,
+            inset: shadow.inset,
+        });
     }
     let background = match style.paint.background {
         c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => None,
-        c::ComputedColorV1::Absolute(color) => crate::style::absolute_color(color).ok(),
-        c::ComputedColorV1::CurrentColor => {
-            crate::style::absolute_color(style.paint.foreground).ok()
-        }
+        c::ComputedColorV1::Absolute(color) => crate::style::paint_color(color).ok(),
+        c::ComputedColorV1::CurrentColor => crate::style::paint_color(style.paint.foreground).ok(),
     };
     let mut widths = [0.0; 4];
-    let mut border = serde_json::Map::new();
+    let mut border = ReaderBlockBorderV1::default();
+    let mut has_border = false;
     let mut bevels = Vec::new();
     for (index, (edge, name)) in [
         (&style.fragment.border.top, "top"),
@@ -2184,25 +2192,25 @@ fn block_box_paint(
         if width <= 0.0 || matches!(edge.style, c::BorderStyle::None | c::BorderStyle::Hidden) {
             continue;
         }
-        let Ok(color) = crate::style::absolute_color(edge.color.resolve(style.paint.foreground))
+        let Ok(color) = crate::style::paint_color(edge.color.resolve(style.paint.foreground))
         else {
             degradations.push(format!("border-{name} color unresolvable, edge skipped"));
             continue;
         };
         let mut color = color;
         let stroke = match edge.style {
-            c::BorderStyle::Solid => "solid",
-            c::BorderStyle::Dashed => "dashed",
-            c::BorderStyle::Dotted => "dotted",
-            c::BorderStyle::Double => "double",
+            c::BorderStyle::Solid => ReaderBorderStyleV1::Solid,
+            c::BorderStyle::Dashed => ReaderBorderStyleV1::Dashed,
+            c::BorderStyle::Dotted => ReaderBorderStyleV1::Dotted,
+            c::BorderStyle::Double => ReaderBorderStyleV1::Double,
             c::BorderStyle::Ridge | c::BorderStyle::Groove
-                if two_tone_halves(&color, edge.style, index).is_some() =>
+                if two_tone_halves(color, edge.style, index).is_some() =>
             {
                 let (outer, inner) =
-                    two_tone_halves(&color, edge.style, index).expect("guard checked");
+                    two_tone_halves(color, edge.style, index).expect("guard checked");
                 color = outer;
                 bevels.push((index, inner));
-                "solid"
+                ReaderBorderStyleV1::Solid
             }
             c::BorderStyle::Inset | c::BorderStyle::Outset => {
                 // Blink's legacy 3D shading (probed matrix, 2026-08-20):
@@ -2215,38 +2223,43 @@ fn block_box_paint(
                 // (gray hr rules paint 154/238, red currentColor ones
                 // identically).
                 let base = if matches!(edge.color, c::ComputedColorV1::CurrentColor) {
-                    "#eeeeee".to_owned()
+                    ReaderColorV1::srgb8(0xee, 0xee, 0xee, 1.0)
                 } else {
-                    color.clone()
+                    color
                 };
                 let darken = matches!(index, 0 | 3) == matches!(edge.style, c::BorderStyle::Inset);
-                color = inset_outset_shade(&base, darken).unwrap_or(base);
-                "solid"
+                color = inset_outset_shade(base, darken).unwrap_or(base);
+                ReaderBorderStyleV1::Solid
             }
             other => {
                 degradations.push(format!("border-{name} style {other:?} drawn solid"));
-                "solid"
+                ReaderBorderStyleV1::Solid
             }
         };
         widths[index] = width;
-        border.insert(
-            name.to_owned(),
-            serde_json::json!({ "width": width, "color": color, "style": stroke }),
-        );
+        has_border = true;
+        let paint = ReaderBorderEdgePaintV1 {
+            color,
+            style: stroke,
+        };
+        match index {
+            0 => border.top = Some(paint),
+            1 => border.right = Some(paint),
+            2 => border.bottom = Some(paint),
+            _ => border.left = Some(paint),
+        }
     }
-    // The frame-buffer protocol requires all four widths whenever a
-    // border box is present, zero-filled for unpainted edges.
-    let border_box = (!border.is_empty()).then(|| {
-        serde_json::json!({
-            "topWidth": widths[0],
-            "rightWidth": widths[1],
-            "bottomWidth": widths[2],
-            "leftWidth": widths[3],
-        })
+    // The lowering requires all four widths whenever a border box is
+    // present, zero-filled for unpainted edges.
+    let border_box = has_border.then(|| ReaderBorderBoxV1 {
+        top_width: widths[0],
+        right_width: widths[1],
+        bottom_width: widths[2],
+        left_width: widths[3],
     });
-    // The background-image cluster travels exactly as the render protocol
-    // consumes it; the canvas side implements cover/contain, tiling, and
-    // percentage positioning in full.
+    // The background-image cluster travels exactly as the lowering
+    // consumes it: cover/contain, tiling and percentage positioning
+    // resolve there.
     let background_image = style.paint.background_image.as_ref().and_then(|image| {
         let href = match crate::style::background_publication_href(image.url.as_str()) {
             Ok(href) => href.to_owned(),
@@ -2255,7 +2268,7 @@ fn block_box_paint(
                 return None;
             }
         };
-        let position_axis = |axis| crate::style::background_position_axis_wire(axis).ok();
+        let position_axis = |axis| crate::style::background_position_axis(axis).ok();
         let (x, y) = (
             position_axis(image.position.x),
             position_axis(image.position.y),
@@ -2263,21 +2276,21 @@ fn block_box_paint(
         if x.is_none() || y.is_none() {
             degradations.push("background-position calc() treated as 0".to_owned());
         }
-        Some(serde_json::json!({
-            "image": href,
-            "size": crate::style::background_size_wire(image.size),
-            "repeat": crate::style::background_repeat_wire(image.repeat),
-            "position": {
-                "x": x.unwrap_or(serde_json::json!({ "unit": "percent", "value": 0.0 })),
-                "y": y.unwrap_or(serde_json::json!({ "unit": "percent", "value": 0.0 })),
+        Some((
+            href,
+            crate::style::background_size(image.size),
+            crate::style::background_repeat(image.repeat),
+            ReaderBackgroundPositionV1 {
+                x: x.unwrap_or(ReaderLengthV1::Percent(0.0)),
+                y: y.unwrap_or(ReaderLengthV1::Percent(0.0)),
             },
-        }))
+        ))
     });
     // Corner radii round the background, the border stroke, and the clip
-    // the box paints inside. A uniform box rides the protocol's single
-    // radius; corners that disagree ship as four circular radii in CSS
-    // order (a chat bubble rounds one edge only: 0 20px 20px 0), taking
-    // each corner's horizontal length. Elliptical or percentage corners
+    // the box paints inside. A uniform box rides the single radius;
+    // corners that disagree ship as four circular radii in CSS order (a
+    // chat bubble rounds one edge only: 0 20px 20px 0), taking each
+    // corner's horizontal length. Elliptical or percentage corners
     // inside a non-uniform set flatten to that length and say so.
     let radii = style.fragment.border_radii;
     let corners = [
@@ -2292,94 +2305,89 @@ fn block_box_paint(
     let radius = if uniform {
         match radii.top_left.horizontal.value() {
             c::LengthPercentage::Length(px) if px.get() > 0.0 => {
-                Some(serde_json::json!({ "px": f64::from(px.get()) }))
+                Some(ReaderBlockRadiusV1::Px(f64::from(px.get())))
             }
             c::LengthPercentage::Percentage(ratio) if ratio.percent() > 0.0 => {
-                Some(serde_json::json!({ "pct": f64::from(ratio.percent()) }))
+                Some(ReaderBlockRadiusV1::Percent(f64::from(ratio.percent())))
             }
             c::LengthPercentage::Linear { length, .. } => {
                 degradations.push("calc() border-radius: percentage component dropped".to_owned());
-                Some(serde_json::json!({ "px": f64::from(length.get()) }))
+                Some(ReaderBlockRadiusV1::Px(f64::from(length.get())))
             }
             _ => None,
         }
     } else {
         let mut lossy = false;
-        let px_corners: Vec<f64> = corners
-            .iter()
-            .map(|corner| {
-                if corner.horizontal != corner.vertical {
+        let mut px_corners = [0.0_f64; 4];
+        for (slot, corner) in px_corners.iter_mut().zip(&corners) {
+            if corner.horizontal != corner.vertical {
+                lossy = true;
+            }
+            *slot = match corner.horizontal.value() {
+                c::LengthPercentage::Length(px) => f64::from(px.get()),
+                c::LengthPercentage::Percentage(_) => {
                     lossy = true;
+                    0.0
                 }
-                match corner.horizontal.value() {
-                    c::LengthPercentage::Length(px) => f64::from(px.get()),
-                    c::LengthPercentage::Percentage(_) => {
-                        lossy = true;
-                        0.0
-                    }
-                    c::LengthPercentage::Linear { length, .. } => {
-                        lossy = true;
-                        f64::from(length.get())
-                    }
+                c::LengthPercentage::Linear { length, .. } => {
+                    lossy = true;
+                    f64::from(length.get())
                 }
-            })
-            .collect();
+            };
+        }
         if lossy {
             degradations.push(
                 "border-radius: elliptical or percentage corner flattened to its length".to_owned(),
             );
         }
-        (px_corners.iter().any(|px| *px > 0.0))
-            .then(|| serde_json::json!({ "corners": px_corners }))
+        (px_corners.iter().any(|px| *px > 0.0)).then_some(ReaderBlockRadiusV1::Corners(px_corners))
     };
     let transform = (!style.paint.transform.is_none()).then(|| {
-        Value::Array(
-            style
-                .paint
-                .transform
-                .as_slice()
-                .iter()
-                .map(|operation| match operation {
-                    c::TransformOperationV1::Rotate { radians } => serde_json::json!({
-                        "kind": "rotate",
-                        "rad": f64::from(radians.get()),
-                    }),
-                })
-                .collect(),
-        )
+        style
+            .paint
+            .transform
+            .as_slice()
+            .iter()
+            .map(|operation| match operation {
+                c::TransformOperationV1::Rotate { radians } => ReaderTransformV1::Rotate {
+                    radians: f64::from(radians.get()),
+                },
+            })
+            .collect::<Vec<_>>()
     });
     if background.is_none()
         && background_image.is_none()
-        && border.is_empty()
+        && !has_border
         && transform.is_none()
         && box_shadows.is_empty()
     {
         return (None, degradations);
     }
-    let mut paint = serde_json::Map::new();
-    if background.is_some() || background_image.is_some() {
-        let mut object = serde_json::Map::new();
-        if let Some(color) = background {
-            object.insert("color".to_owned(), Value::String(color));
+    let background = (background.is_some() || background_image.is_some()).then(|| {
+        let (image, size, repeat, position) = match background_image {
+            Some((href, size, repeat, position)) => {
+                (Some(href), Some(size), Some(repeat), Some(position))
+            }
+            None => (None, None, None, None),
+        };
+        ReaderBackgroundPaintV1 {
+            color: background,
+            image,
+            size,
+            repeat,
+            position,
         }
-        if let Some(Value::Object(image)) = background_image {
-            object.extend(image);
-        }
-        paint.insert("background".to_owned(), Value::Object(object));
-    }
-    if !border.is_empty() {
-        paint.insert("border".to_owned(), Value::Object(border));
-    }
-    if let Some(radius) = radius {
-        paint.insert("radius".to_owned(), radius);
-    }
-    if !box_shadows.is_empty() {
-        paint.insert("boxShadow".to_owned(), Value::Array(box_shadows));
-    }
+    });
+    let paint = ReaderBlockPaintV1 {
+        background,
+        border: has_border.then_some(border),
+        radius,
+        box_shadows,
+    };
     (
         Some((
             NodePaint::Box {
-                paint: Value::Object(paint),
+                paint,
                 border_box,
                 transform,
                 bevels,
@@ -2395,14 +2403,9 @@ fn block_box_paint(
 /// the base color for the lit sides unless it lacks 1.75:1 contrast
 /// against its own dark shade (then `Light()`: channels scaled by
 /// min(1, V + 0.33)/V, black lightening to #545454). Returns `None`
-/// for colors the 6-digit-hex parser cannot read (they stay base).
-fn inset_outset_shade(base: &str, darken: bool) -> Option<String> {
-    let hex = base.strip_prefix('#')?;
-    if hex.len() != 6 {
-        return None;
-    }
-    let channel = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).ok();
-    let channels = [channel(0)?, channel(2)?, channel(4)?];
+/// for a translucent colour (it stays base).
+fn inset_outset_shade(base: ReaderColorV1, darken: bool) -> Option<ReaderColorV1> {
+    let channels = base.opaque_srgb8()?;
     let value = f64::from(*channels.iter().max().expect("three channels")) / 255.0;
     let dark_scale = if value > 0.0 {
         ((value - 0.33) / value).max(0.0)
@@ -2410,9 +2413,9 @@ fn inset_outset_shade(base: &str, darken: bool) -> Option<String> {
         0.0
     };
     let dark = channels.map(|component| (f64::from(component) * dark_scale).round() as u8);
-    let format = |[red, green, blue]: [u8; 3]| format!("#{red:02x}{green:02x}{blue:02x}");
+    let color = |[red, green, blue]: [u8; 3]| ReaderColorV1::srgb8(red, green, blue, 1.0);
     if darken {
-        return Some(format(dark));
+        return Some(color(dark));
     }
     let linear = |component: u8| {
         let srgb = f64::from(component) / 255.0;
@@ -2432,13 +2435,13 @@ fn inset_outset_shade(base: &str, darken: bool) -> Option<String> {
         (dark_luminance, base_luminance)
     };
     if (high + 0.05) / (low + 0.05) >= 1.75 {
-        return Some(format(channels));
+        return Some(color(channels));
     }
     if value == 0.0 {
-        return Some("#545454".to_owned());
+        return Some(ReaderColorV1::srgb8(0x54, 0x54, 0x54, 1.0));
     }
     let light_scale = (value + 0.33).min(1.0) / value;
-    Some(format(channels.map(|component| {
+    Some(color(channels.map(|component| {
         (f64::from(component) * light_scale).round().min(255.0) as u8
     })))
 }
@@ -2450,20 +2453,14 @@ fn inset_outset_shade(base: &str, darken: bool) -> Option<String> {
 /// both probed channel-exact). Ridge raises the box: top/left edges keep
 /// the base tone outside and darken inside; bottom/right mirror. Groove
 /// is ridge inverted. Returns `(outer, inner)` in border-box edge order,
-/// or `None` for colors the split cannot parse (translucent borders
-/// serialize as `rgba(...)` and degrade to solid instead).
+/// or `None` for a translucent border, which degrades to solid instead.
 fn two_tone_halves(
-    base: &str,
+    base: ReaderColorV1,
     style: rito_style_contract::BorderStyle,
     edge_index: usize,
-) -> Option<(String, String)> {
+) -> Option<(ReaderColorV1, ReaderColorV1)> {
     use rito_style_contract::BorderStyle;
-    let hex = base.strip_prefix('#')?;
-    if hex.len() != 6 {
-        return None;
-    }
-    let channel = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).ok();
-    let channels = [channel(0)?, channel(2)?, channel(4)?];
+    let channels = base.opaque_srgb8()?;
     let value = f64::from(*channels.iter().max().expect("three channels")) / 255.0;
     let scale = if value > 0.0 {
         ((value - 0.33) / value).max(0.0)
@@ -2471,8 +2468,7 @@ fn two_tone_halves(
         0.0
     };
     let [red, green, blue] = channels.map(|component| (f64::from(component) * scale).round() as u8);
-    let dark = format!("#{red:02x}{green:02x}{blue:02x}");
-    let base = base.to_owned();
+    let dark = ReaderColorV1::srgb8(red, green, blue, 1.0);
     // Edge indices: 0 top, 1 right, 2 bottom, 3 left.
     let raised_outside = matches!(edge_index, 0 | 3) == matches!(style, BorderStyle::Ridge);
     Some(if raised_outside {
@@ -3801,6 +3797,7 @@ fn anonymous_block_style() -> LayoutFormattingStyleV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::render::test_support::css_color;
     use crate::{
         epub::{
             parsed_loaded_chapter_source, prepare_loaded_document_base, LoadedChapter,
@@ -4325,8 +4322,8 @@ p { margin: 8px 0; }\n\
         assert_eq!(
             built.node_paints.get(&root.children[0].0),
             Some(&NodePaint::Rule {
-                color: "#336699".to_owned(),
-                style: "dashed",
+                color: css_color("#336699"),
+                style: ReaderBorderStyleV1::Dashed,
                 thickness: 2.0,
             }),
         );
@@ -4344,8 +4341,8 @@ p { margin: 8px 0; }\n\
         assert_eq!(
             built.node_paints.get(&root.children[1].0),
             Some(&NodePaint::Rule {
-                color: "#223344".to_owned(),
-                style: "inset",
+                color: css_color("#223344"),
+                style: ReaderBorderStyleV1::Inset,
                 thickness: 1.0,
             }),
         );
@@ -4399,14 +4396,22 @@ p { margin: 8px 0; }\n\
                 built.node_paints.get(&card_id.0)
             );
         };
-        assert_eq!(paint["background"]["color"], "#112233");
-        assert_eq!(paint["border"]["top"]["width"], 2.0);
-        assert_eq!(paint["border"]["top"]["style"], "solid");
-        assert_eq!(paint["border"]["left"]["color"], "#445566");
+        let background = paint
+            .background
+            .as_ref()
+            .expect("the card fills its background");
+        assert_eq!(background.color, Some(css_color("#112233")));
+        let border = paint.border.expect("the card strokes its border");
         assert_eq!(
-            border_box.as_ref().expect("borders carry a border box")["topWidth"],
-            2.0
+            border.top.map(|edge| edge.style),
+            Some(ReaderBorderStyleV1::Solid)
         );
+        assert_eq!(
+            border.left.map(|edge| edge.color),
+            Some(css_color("#445566"))
+        );
+        let widths = border_box.expect("borders carry a border box");
+        assert_eq!(widths.top_width, 2.0);
     }
 
     /// An over-constrained table's used column widths sit on the
@@ -4618,7 +4623,13 @@ p { margin: 8px 0; }\n\
         let Some(NodePaint::Box { paint, .. }) = built.node_paints.get(&root.children[0].0) else {
             panic!("the frame still paints its border");
         };
-        assert_eq!(paint["border"]["top"]["style"], "double");
+        assert_eq!(
+            paint
+                .border
+                .and_then(|border| border.top)
+                .map(|edge| edge.style),
+            Some(ReaderBorderStyleV1::Double)
+        );
         assert!(
             !built
                 .degradations
@@ -4653,12 +4664,22 @@ p { margin: 8px 0; }\n\
         // Ridge top: outer keeps steelblue, inner darkens (V - 0.33
         // scaling, probed #254560). Groove right inverts: outer stays
         // base, the dark half hugs the content.
-        assert_eq!(paint["border"]["top"]["style"], "solid");
-        assert_eq!(paint["border"]["top"]["color"], "#4682b4");
-        assert_eq!(paint["border"]["right"]["color"], "#4682b4");
+        let border = paint.border.expect("the frame strokes its border");
+        assert_eq!(
+            border.top.map(|edge| edge.style),
+            Some(ReaderBorderStyleV1::Solid)
+        );
+        assert_eq!(
+            border.top.map(|edge| edge.color),
+            Some(css_color("#4682b4"))
+        );
+        assert_eq!(
+            border.right.map(|edge| edge.color),
+            Some(css_color("#4682b4"))
+        );
         assert_eq!(
             bevels.as_slice(),
-            &[(0, "#254560".to_owned()), (1, "#254560".to_owned()),]
+            &[(0, css_color("#254560")), (1, css_color("#254560"))]
         );
         assert!(
             !built

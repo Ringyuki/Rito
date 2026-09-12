@@ -9,10 +9,9 @@ use std::{env, fs, path::Path};
 
 use serde_json::{json, Value};
 
-use super::super::{lower_display_commands, ImageSize};
-use crate::render::RunPaint;
+use super::super::{lower, ImageSize};
 use crate::render::{
-    commands::encode_reader_primitive_list_v1, DisplayCommand, DisplayTextCommandInput,
+    commands::encode_reader_primitive_list_v1, test_support::parse_display_command, DisplayCommand,
 };
 use rito_inline::{plain_paragraph_style, ParleyInlineContext};
 use rito_style_contract::{
@@ -78,7 +77,7 @@ fn lower_paint_parity_fixtures() {
                     .unwrap_or_else(|| panic!("{name}: command not expressible: {command}"))
             })
             .collect();
-        let lowered = lower_display_commands(&commands, ratio, &synthetic_image_size)
+        let lowered = lower(&commands, ratio, &synthetic_image_size)
             .unwrap_or_else(|error| panic!("{name}: {error}"));
         let encoded = encode_reader_primitive_list_v1(&lowered)
             .unwrap_or_else(|error| panic!("{name}: {error}"));
@@ -207,80 +206,21 @@ fn shape_fixture_clusters(
     )
 }
 
-/// The browser pen's command JSON is the engine's own display-command
-/// shape, so every field passes through to the JSON-shaped provider; a
-/// shape this cannot express fails the fixture instead of dropping it.
-/// A text or ruby run written without cluster origins is shaped by the
-/// engine on the way in.
+/// The browser pen's command JSON is the fixture shape of the engine's
+/// own display list; a shape it cannot express fails the fixture instead
+/// of dropping it. A text or ruby run written without cluster origins is
+/// shaped by the engine on the way in.
 fn parse_command(
     shaper: &ParleyInlineContext,
     ratio: f64,
     value: &Value,
 ) -> Option<DisplayCommand> {
-    let kind = value.get("kind")?.as_str()?;
-    let field = |key: &str| value.get(key).cloned();
-    let string = |key: &str| value.get(key).and_then(Value::as_str).map(str::to_owned);
-    Some(match kind {
-        "pushState" => DisplayCommand::push_state(),
-        "popState" => DisplayCommand::pop_state(),
-        "translate" => DisplayCommand::translate(field("dx")?, field("dy")?),
-        "opacity" => DisplayCommand::opacity(value.get("value")?.as_f64()?),
-        "transform" => {
-            DisplayCommand::transform(field("origin")?, field("box")?, field("transforms")?)
+    let mut command = parse_display_command(value).ok()?;
+    if let DisplayCommand::PaintText(text) | DisplayCommand::PaintRuby(text) = &mut command {
+        if text.clusters.is_empty() {
+            let kind = value.get("kind")?.as_str()?;
+            text.clusters = shape_fixture_clusters(shaper, ratio, kind, value)?;
         }
-        "clipRect" => DisplayCommand::clip_rect(field("rect")?, field("radius")),
-        "paintPage" => DisplayCommand::paint_page(field("rect")?, field("paint")?),
-        "paintBlock" => {
-            DisplayCommand::paint_block(field("rect")?, field("paint")?, field("borderBox"))
-        }
-        "paintText" | "paintRuby" => {
-            let input = DisplayTextCommandInput {
-                text: field("text")?,
-                rect: field("rect")?,
-                paint: RunPaint::from_test_wire_value(field("paint")?),
-                line_height_px: field("lineHeightPx"),
-                href: string("href"),
-                source_text: field("sourceText"),
-                source_text_offset: value
-                    .get("sourceTextOffset")
-                    .and_then(Value::as_u64)
-                    .map(|offset| offset as usize),
-                clusters: match value.get("clusters") {
-                    None => shape_fixture_clusters(shaper, ratio, kind, value)?,
-                    Some(clusters) => clusters
-                        .as_array()?
-                        .iter()
-                        .map(|cluster| {
-                            let pair = cluster.as_array()?;
-                            Some((
-                                pair.first()?.as_u64()? as u32,
-                                pair.get(1)?.as_f64()?,
-                                pair.get(2)?.as_f64()?,
-                            ))
-                        })
-                        .collect::<Option<Vec<_>>>()?,
-                },
-            };
-            if kind == "paintText" {
-                DisplayCommand::paint_text(input)
-            } else {
-                DisplayCommand::paint_ruby(input)
-            }
-        }
-        "paintImage" => {
-            let src = string("src")?;
-            match field("sourceRect") {
-                Some(source_rect) => {
-                    DisplayCommand::paint_image_slice(src, field("rect")?, source_rect)
-                }
-                None => {
-                    DisplayCommand::paint_image(src, field("rect")?, string("alt"), string("href"))
-                }
-            }
-        }
-        "paintHorizontalRule" => {
-            DisplayCommand::paint_horizontal_rule(field("rect")?, field("paint")?)
-        }
-        _ => return None,
-    })
+    }
+    Some(command)
 }

@@ -19,13 +19,16 @@
 //! abut at a fractional x composite to 79% on the shared pixel — so a
 //! run continuing its box extends the line of the run before it.
 
-use super::super::commands::contract::{
-    ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunDecorationV1, ReaderSpacingV1,
-    ReaderTextCommandV1, ReaderTextRunPaintV1, ReaderTextRunV1,
+use super::super::commands::{
+    contract::{
+        ReaderClusterV1, ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunDecorationV1,
+        ReaderSpacingV1, ReaderTextRunPaintV1, ReaderTextRunV1,
+    },
+    DisplayTextCommand,
 };
 use super::{block, DeviceRect, Ground, Primitive};
 
-pub(super) fn lower_text(text: &ReaderTextCommandV1, out: &mut Vec<Primitive>) {
+pub(super) fn lower_text(text: &DisplayTextCommand, out: &mut Vec<Primitive>) {
     if let Some(rect) = inline_box(text) {
         let paint = &text.paint;
         block::lower_inline_box(
@@ -88,7 +91,7 @@ fn extend_previous_line(out: &mut [Primitive], line: &Primitive) -> bool {
 }
 
 /// An annotation paints only its glyphs.
-pub(super) fn lower_ruby(text: &ReaderTextCommandV1, out: &mut Vec<Primitive>) {
+pub(super) fn lower_ruby(text: &DisplayTextCommand, out: &mut Vec<Primitive>) {
     out.push(Primitive::Ruby(text_run(text)));
 }
 
@@ -97,7 +100,7 @@ pub(super) fn lower_ruby(text: &ReaderTextCommandV1, out: &mut Vec<Primitive>) {
 /// em box grown by padding and borders when no metric reached it, and the
 /// run's advance grown by the padding and border widths of its closed
 /// ends (an open end carries none).
-fn inline_box(text: &ReaderTextCommandV1) -> Option<DeviceRect> {
+fn inline_box(text: &DisplayTextCommand) -> Option<DeviceRect> {
     let paint = &text.paint;
     if paint.background_color.is_none() && paint.padding.is_none() && paint.border.is_none() {
         return None;
@@ -153,7 +156,7 @@ fn decoration_line(rect: &ReaderRectV1, decoration: ReaderRunDecorationV1) -> Pr
     }
 }
 
-fn text_run(text: &ReaderTextCommandV1) -> ReaderTextRunV1 {
+fn text_run(text: &DisplayTextCommand) -> ReaderTextRunV1 {
     let paint = &text.paint;
     ReaderTextRunV1 {
         text: text.text.clone(),
@@ -167,6 +170,10 @@ fn text_run(text: &ReaderTextCommandV1) -> ReaderTextRunV1 {
         href: text.href.clone(),
         source_text: text.source_text.clone(),
         source_text_offset: text.source_text_offset,
-        clusters: text.clusters.clone(),
+        clusters: text
+            .clusters
+            .iter()
+            .map(|&(byte, x, y)| ReaderClusterV1 { byte, x, y })
+            .collect(),
     }
 }

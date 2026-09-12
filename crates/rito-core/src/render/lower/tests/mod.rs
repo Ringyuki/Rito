@@ -9,21 +9,21 @@ use super::super::commands::{
         ReaderBackgroundPaintV1, ReaderBackgroundPositionV1, ReaderBackgroundRepeatV1,
         ReaderBackgroundSizeV1, ReaderBlockBorderV1, ReaderBlockPaintV1, ReaderBlockRadiusV1,
         ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderBorderStyleV1, ReaderBoxShadowV1,
-        ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1, ReaderCornerRadiusV1,
-        ReaderDisplayCommandV1, ReaderDisplayListV1, ReaderFontPaintV1, ReaderFontStyleV1,
-        ReaderHorizontalRulePaintV1, ReaderLengthV1, ReaderPagePaintV1, ReaderPointV1,
-        ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunBorderV1, ReaderRunDecorationKindV1,
-        ReaderRunDecorationV1, ReaderRunPaintV1, ReaderSizeV1, ReaderSpacingV1,
-        ReaderTextCommandV1, ReaderTextRunPaintV1, ReaderTextRunV1, ReaderTextShadowV1,
+        ReaderClusterV1, ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1,
+        ReaderCornerRadiusV1, ReaderFontPaintV1, ReaderFontStyleV1, ReaderHorizontalRulePaintV1,
+        ReaderLengthV1, ReaderPagePaintV1, ReaderPointV1, ReaderRectV1, ReaderRunBorderEdgeV1,
+        ReaderRunBorderV1, ReaderRunDecorationKindV1, ReaderRunDecorationV1, ReaderRunPaintV1,
+        ReaderSizeV1, ReaderSpacingV1, ReaderTextRunPaintV1, ReaderTextRunV1, ReaderTextShadowV1,
         ReaderTransformV1,
     },
-    DisplayCommand, ReaderDisplayListWireError,
+    DisplayCommand, DisplayTextCommand,
 };
 use super::{
-    json::primitive_list_value, lower, lower_display_commands, path::corner_rounded_rect,
-    DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, ImageSize,
-    LowerError, PathOp, Primitive, StrokeCap, TilePlan,
+    json::primitive_list_value, lower, path::corner_rounded_rect, DashPattern, DevicePath,
+    DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, ImageSize, LowerError, PathOp,
+    Primitive, StrokeCap, TilePlan,
 };
+use crate::render::RunPaint;
 
 const INK: ReaderColorV1 = ReaderColorV1 {
     space: ReaderColorSpaceV1::Srgb,
@@ -41,7 +41,7 @@ const TRANSLUCENT: ReaderColorV1 = ReaderColorV1 { alpha: 0.5, ..INK };
 
 #[test]
 fn rejects_a_ratio_that_is_not_finite_and_positive() {
-    let empty = ReaderDisplayListV1 { commands: vec![] };
+    let empty: Vec<DisplayCommand> = vec![];
     for ratio in [0.0, -1.0, f64::NAN, f64::INFINITY] {
         assert_eq!(
             lower(&empty, ratio, &no_images),
@@ -56,10 +56,10 @@ fn rejects_a_ratio_that_is_not_finite_and_positive() {
 fn state_commands_scale_their_offsets_to_device_pixels() {
     let primitives = lowered(
         vec![
-            ReaderDisplayCommandV1::PushState,
-            ReaderDisplayCommandV1::Translate { dx: 1.5, dy: 2.0 },
-            ReaderDisplayCommandV1::Opacity { value: 0.5 },
-            ReaderDisplayCommandV1::PopState,
+            DisplayCommand::PushState,
+            DisplayCommand::Translate { dx: 1.5, dy: 2.0 },
+            DisplayCommand::Opacity { value: 0.5 },
+            DisplayCommand::PopState,
         ],
         2.0,
     );
@@ -77,7 +77,7 @@ fn state_commands_scale_their_offsets_to_device_pixels() {
 #[test]
 fn transform_resolves_translate_percentages_against_the_device_box() {
     let primitives = lowered(
-        vec![ReaderDisplayCommandV1::Transform {
+        vec![DisplayCommand::Transform {
             origin: ReaderPointV1 { x: 10.0, y: 20.0 },
             box_size: ReaderSizeV1 {
                 width: 30.0,
@@ -110,7 +110,7 @@ fn transform_resolves_translate_percentages_against_the_device_box() {
 #[test]
 fn clip_without_a_radius_is_a_rect_path() {
     let primitives = lowered(
-        vec![ReaderDisplayCommandV1::ClipRect {
+        vec![DisplayCommand::ClipRect {
             rect: rect(1.0, 2.0, 20.0, 30.0),
             radius: Some(ReaderCornerRadiusV1 { rx: 0.0, ry: 0.0 }),
         }],
@@ -131,7 +131,7 @@ fn clip_with_a_radius_traces_the_rounded_outline_overlap_scaled() {
     // Radius 20 on a 20 by 30 box: both axes shrink by the same 20/40
     // factor to 10, a stadium, not a per-axis clamp of 10 by 15.
     let primitives = lowered(
-        vec![ReaderDisplayCommandV1::ClipRect {
+        vec![DisplayCommand::ClipRect {
             rect: rect(0.0, 0.0, 20.0, 30.0),
             radius: Some(ReaderCornerRadiusV1 { rx: 20.0, ry: 20.0 }),
         }],
@@ -167,7 +167,7 @@ fn clip_with_a_radius_traces_the_rounded_outline_overlap_scaled() {
 
 #[test]
 fn page_fill_declares_the_page_ground_and_stays_unsnapped() {
-    let page = |background_color| ReaderDisplayCommandV1::PaintPage {
+    let page = |background_color| DisplayCommand::PaintPage {
         rect: rect(0.5, 0.0, 20.0, 30.0),
         paint: ReaderPagePaintV1 { background_color },
     };
@@ -479,7 +479,7 @@ fn thick_dotted_edges_are_round_dots_at_the_measured_pitch() {
 
 #[test]
 fn horizontal_rules_raster_as_border_edges() {
-    let rule = |rect, style| ReaderDisplayCommandV1::PaintHorizontalRule {
+    let rule = |rect, style| DisplayCommand::PaintHorizontalRule {
         rect,
         paint: ReaderHorizontalRulePaintV1 { color: INK, style },
     };
@@ -1110,7 +1110,7 @@ fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
 fn a_text_run_lowers_to_its_inline_box_the_run_and_its_decoration_line() {
     // The band and the border edges paint before the run, the decoration
     // line after it; the run itself carries only glyph paint.
-    let primitives = lowered(vec![ReaderDisplayCommandV1::PaintText(text())], 1.0);
+    let primitives = lowered(vec![DisplayCommand::PaintText(text())], 1.0);
     let kinds: Vec<&str> = primitives
         .iter()
         .map(|primitive| match primitive {
@@ -1170,23 +1170,23 @@ fn a_bare_text_run_passes_through_in_css_pixels_at_any_ratio() {
     // The renderer draws a run under scale(ratio): synthetic bold widens
     // with the CSS size it is asked for, so the device size on the device
     // grid rasters different ink than the browser's.
-    let bare = ReaderTextCommandV1 {
-        paint: ReaderRunPaintV1 {
+    let bare = DisplayTextCommand {
+        paint: RunPaint::new(ReaderRunPaintV1 {
             background_color: None,
             background_radius: None,
             decoration: None,
             padding: None,
             border: None,
             box_offsets: None,
-            ..text().paint
-        },
+            ..(*text().paint).clone()
+        }),
         ..text()
     };
     for ratio in [1.0, 2.0] {
         let primitives = lowered(
             vec![
-                ReaderDisplayCommandV1::PaintText(bare.clone()),
-                ReaderDisplayCommandV1::PaintRuby(text()),
+                DisplayCommand::PaintText(bare.clone()),
+                DisplayCommand::PaintRuby(text()),
             ],
             ratio,
         );
@@ -1201,17 +1201,17 @@ fn a_bare_text_run_passes_through_in_css_pixels_at_any_ratio() {
 #[test]
 fn a_background_band_snaps_each_edge_and_declares_the_ground() {
     let band = |box_offsets, padding| {
-        ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+        DisplayCommand::PaintText(DisplayTextCommand {
             rect: rect(10.4, 20.0, 50.2, 16.0),
-            paint: ReaderRunPaintV1 {
+            paint: RunPaint::new(ReaderRunPaintV1 {
                 background_color: Some(INK),
                 background_radius: None,
                 decoration: None,
                 padding,
                 border: None,
                 box_offsets,
-                ..text().paint
-            },
+                ..(*text().paint).clone()
+            }),
             ..text()
         })
     };
@@ -1264,9 +1264,9 @@ fn a_background_band_snaps_each_edge_and_declares_the_ground() {
 #[test]
 fn a_split_inline_box_squares_its_open_end() {
     let primitives = lowered(
-        vec![ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+        vec![DisplayCommand::PaintText(DisplayTextCommand {
             rect: rect(10.0, 20.0, 40.0, 16.0),
-            paint: ReaderRunPaintV1 {
+            paint: RunPaint::new(ReaderRunPaintV1 {
                 background_color: Some(INK),
                 background_radius: Some(3.0),
                 decoration: None,
@@ -1275,8 +1275,8 @@ fn a_split_inline_box_squares_its_open_end() {
                 box_offsets: Some((0.0, 16.0)),
                 box_start: false,
                 box_end: true,
-                ..text().paint
-            },
+                ..(*text().paint).clone()
+            }),
             ..text()
         })],
         1.0,
@@ -1298,9 +1298,9 @@ fn a_split_inline_box_squares_its_open_end() {
 #[test]
 fn the_decoration_line_rounds_its_top_and_floors_its_thickness() {
     let primitives = lowered(
-        vec![ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+        vec![DisplayCommand::PaintText(DisplayTextCommand {
             rect: rect(10.0, 20.3, 40.0, 16.0),
-            paint: ReaderRunPaintV1 {
+            paint: RunPaint::new(ReaderRunPaintV1 {
                 background_color: None,
                 background_radius: None,
                 decoration: Some(ReaderRunDecorationV1 {
@@ -1312,8 +1312,8 @@ fn the_decoration_line_rounds_its_top_and_floors_its_thickness() {
                 padding: None,
                 border: None,
                 box_offsets: None,
-                ..text().paint
-            },
+                ..(*text().paint).clone()
+            }),
             ..text()
         })],
         1.0,
@@ -1334,9 +1334,9 @@ fn one_inline_box_draws_one_decoration_line_across_its_runs() {
     // CJK) underlines as one rect: the browser draws no seam where the
     // fonts change, and two fills abutting at a fractional x would.
     let run = |x: f64, width: f64, start: bool, end: bool| {
-        ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
+        DisplayCommand::PaintText(DisplayTextCommand {
             rect: rect(x, 20.3, width, 16.0),
-            paint: ReaderRunPaintV1 {
+            paint: RunPaint::new(ReaderRunPaintV1 {
                 background_color: None,
                 background_radius: None,
                 decoration: Some(ReaderRunDecorationV1 {
@@ -1350,8 +1350,8 @@ fn one_inline_box_draws_one_decoration_line_across_its_runs() {
                 box_offsets: None,
                 box_start: start,
                 box_end: end,
-                ..text().paint
-            },
+                ..(*text().paint).clone()
+            }),
             ..text()
         })
     };
@@ -1400,7 +1400,7 @@ fn one_inline_box_draws_one_decoration_line_across_its_runs() {
 #[test]
 fn images_draw_at_the_scaled_destination_with_the_source_rect_untouched() {
     let primitives = lowered(
-        vec![ReaderDisplayCommandV1::PaintImage {
+        vec![DisplayCommand::PaintImage {
             src: "images/plate.png".to_owned(),
             rect: rect(1.5, 2.0, 10.0, 20.0),
             alt: Some("plate".to_owned()),
@@ -1421,57 +1421,50 @@ fn images_draw_at_the_scaled_destination_with_the_source_rect_untouched() {
 }
 
 #[test]
-fn lowering_display_commands_adapts_them_first() {
-    let commands = [DisplayCommand::paint_page(
-        json!({ "x": 0, "y": 0, "width": 20, "height": 30 }),
-        json!({ "backgroundColor": "#123456" }),
-    )];
-    let list = lower_display_commands(&commands, 2.0, &no_images).expect("lower");
+fn page_fills_scale_to_the_device_grid() {
+    let commands = [DisplayCommand::PaintPage {
+        rect: rect(0.0, 0.0, 20.0, 30.0),
+        paint: ReaderPagePaintV1 {
+            background_color: Some(INK),
+        },
+    }];
+    let list = lower(&commands, 2.0, &no_images).expect("lower");
     assert_eq!(list.ratio, 2.0);
     let [Primitive::FillRect { rect, ground, .. }] = list.commands.as_slice() else {
         panic!("page fill, got {:?}", list.commands);
     };
     assert_eq!(*rect, DeviceRect::new(0.0, 0.0, 40.0, 60.0));
     assert_eq!(*ground, Ground::Page);
-
-    assert_eq!(
-        lower_display_commands(&[DisplayCommand::opacity(f64::NAN)], 1.0, &no_images),
-        Err(LowerError::Adapt(
-            ReaderDisplayListWireError::NonFiniteNumber
-        ))
-    );
 }
 
 #[test]
 fn json_form_mirrors_the_decoded_wire_shape() {
     let list = lower(
-        &ReaderDisplayListV1 {
-            commands: vec![
-                ReaderDisplayCommandV1::ClipRect {
-                    rect: rect(0.0, 0.0, 20.0, 30.0),
-                    radius: None,
-                },
-                block(
-                    rect(0.0, 0.0, 10.0, 20.0),
-                    block_paint(Some(INK), None),
-                    None,
-                ),
-                // A bare run: the inline box and decoration lower to
-                // their own primitives, covered by their own tests.
-                ReaderDisplayCommandV1::PaintText(ReaderTextCommandV1 {
-                    paint: ReaderRunPaintV1 {
-                        background_color: None,
-                        background_radius: None,
-                        decoration: None,
-                        padding: None,
-                        border: None,
-                        box_offsets: None,
-                        ..text().paint
-                    },
-                    ..text()
+        &[
+            DisplayCommand::ClipRect {
+                rect: rect(0.0, 0.0, 20.0, 30.0),
+                radius: None,
+            },
+            block(
+                rect(0.0, 0.0, 10.0, 20.0),
+                block_paint(Some(INK), None),
+                None,
+            ),
+            // A bare run: the inline box and decoration lower to
+            // their own primitives, covered by their own tests.
+            DisplayCommand::PaintText(DisplayTextCommand {
+                paint: RunPaint::new(ReaderRunPaintV1 {
+                    background_color: None,
+                    background_radius: None,
+                    decoration: None,
+                    padding: None,
+                    border: None,
+                    box_offsets: None,
+                    ..(*text().paint).clone()
                 }),
-            ],
-        },
+                ..text()
+            }),
+        ],
         1.0,
         &no_images,
     )
@@ -1536,18 +1529,16 @@ fn lowering_sources_are_typed_only() {
     assert!(!sources.contains("Value::"));
 }
 
-fn lowered(commands: Vec<ReaderDisplayCommandV1>, ratio: f64) -> Vec<Primitive> {
+fn lowered(commands: Vec<DisplayCommand>, ratio: f64) -> Vec<Primitive> {
     lowered_with(commands, ratio, &no_images)
 }
 
 fn lowered_with(
-    commands: Vec<ReaderDisplayCommandV1>,
+    commands: Vec<DisplayCommand>,
     ratio: f64,
     images: &dyn Fn(&str) -> Option<ImageSize>,
 ) -> Vec<Primitive> {
-    lower(&ReaderDisplayListV1 { commands }, ratio, images)
-        .expect("lower")
-        .commands
+    lower(&commands, ratio, images).expect("lower").commands
 }
 
 fn no_images(_: &str) -> Option<ImageSize> {
@@ -1631,8 +1622,8 @@ fn block(
     rect: ReaderRectV1,
     paint: ReaderBlockPaintV1,
     border_box: Option<ReaderBorderBoxV1>,
-) -> ReaderDisplayCommandV1 {
-    ReaderDisplayCommandV1::PaintBlock {
+) -> DisplayCommand {
+    DisplayCommand::PaintBlock {
         rect,
         paint,
         border_box,
@@ -1646,23 +1637,27 @@ fn text_run() -> ReaderTextRunV1 {
         text: text.text,
         rect: text.rect,
         paint: ReaderTextRunPaintV1 {
-            font: text.paint.font,
+            font: text.paint.font.clone(),
             color: text.paint.color,
-            text_shadows: text.paint.text_shadows,
+            text_shadows: text.paint.text_shadows.clone(),
         },
         line_height_px: text.line_height_px,
         href: text.href,
         source_text: text.source_text,
         source_text_offset: text.source_text_offset,
-        clusters: text.clusters,
+        clusters: text
+            .clusters
+            .iter()
+            .map(|&(byte, x, y)| ReaderClusterV1 { byte, x, y })
+            .collect(),
     }
 }
 
-fn text() -> ReaderTextCommandV1 {
-    ReaderTextCommandV1 {
+fn text() -> DisplayTextCommand {
+    DisplayTextCommand {
         text: "run".to_owned(),
         rect: rect(5.5, 2.0, 10.0, 20.0),
-        paint: ReaderRunPaintV1 {
+        paint: RunPaint::new(ReaderRunPaintV1 {
             font: ReaderFontPaintV1 {
                 family: "Rito Serif".to_owned(),
                 size_px: 16.0,
@@ -1707,7 +1702,7 @@ fn text() -> ReaderTextCommandV1 {
             box_offsets: Some((-2.0, 22.0)),
             box_start: true,
             box_end: false,
-        },
+        }),
         line_height_px: Some(24.0),
         href: Some("#note".to_owned()),
         source_text: Some("source".to_owned()),
