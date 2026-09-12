@@ -126,9 +126,6 @@ impl RuntimeDocument {
                     caret: Box::new(runtime_text_caret(&self.document, revision, caret)?),
                 }
             }
-            PageArtifactTextCaretResolution::Unavailable(reason) => {
-                RuntimeTextCaretResolution::Unavailable { reason }
-            }
             PageArtifactTextCaretResolution::Miss => RuntimeTextCaretResolution::Miss,
         };
         Ok(RuntimeTextCaretResponse {

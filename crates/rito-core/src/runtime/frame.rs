@@ -9,7 +9,7 @@ use serde_json::{Number, Value};
 use crate::{
     epub::{EpubError, EpubResult, LoadedEpubDocument},
     interaction::{FootnoteEntry, FootnoteTargetSet},
-    layout::{BuiltLayout, LayoutConfig},
+    layout::LayoutConfig,
     render::{
         count_display_commands, display_command_values, encode_reader_primitive_list_v1,
         hash_display_commands, lower_display_commands, summarize_display_list_font_families,
@@ -50,7 +50,6 @@ pub(super) struct RuntimeRevision {
     pub(super) status: RuntimeRevisionStatus,
     pub(super) known_extent: RuntimeRevisionExtent,
     pub(super) final_extent: Option<RuntimeRevisionExtent>,
-    pub(super) layout: BuiltLayout,
     pub(super) layout_config: LayoutConfig,
     /// Typed style tables per resolved chapter idref. Populated
     /// whole-revision on eager builds and per chapter as continuations
@@ -61,9 +60,10 @@ pub(super) struct RuntimeRevision {
     pub(super) interactions: RuntimeRevisionInteractions,
     pub(super) frame_cache: BTreeMap<usize, RuntimeCachedFrame>,
     pub(super) frame_cache_order: VecDeque<usize>,
-    /// Whole-book fragment page table. `Some` makes the fragment engine
-    /// this revision's pagination authority and idles the bridge above.
-    pub(super) fragment_layout: Option<super::fragment_backend::FragmentBuiltLayout>,
+    /// The revision's page table: empty while a bounded or chapter-local
+    /// revision is still warming, the book's (or the chapter's) pages once
+    /// the fragment engine has paginated it.
+    pub(super) fragment_layout: super::fragment_backend::FragmentBuiltLayout,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,32 +140,32 @@ impl RuntimeRevision {
     }
 
     pub(super) fn completed(
-        layout: BuiltLayout,
         layout_config: LayoutConfig,
         chapter_style_tables: BTreeMap<String, RuntimeChapterStyleTables>,
         required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
         interactions: RuntimeRevisionInteractions,
     ) -> Self {
-        let extent = revision_extent(&layout);
+        let extent = RuntimeRevisionExtent {
+            page_count: 0,
+            spread_count: 0,
+        };
         Self {
             coordinate_space: RuntimeRevisionCoordinateSpace::Absolute,
             revision_version: 0,
             status: RuntimeRevisionStatus::Complete,
             known_extent: extent,
             final_extent: Some(extent),
-            layout,
             layout_config,
             chapter_style_tables,
             required_font_face_catalog,
             interactions,
             frame_cache: BTreeMap::new(),
             frame_cache_order: VecDeque::new(),
-            fragment_layout: None,
+            fragment_layout: super::fragment_backend::FragmentBuiltLayout::empty(),
         }
     }
 
     pub(super) fn warming(
-        layout: BuiltLayout,
         layout_config: LayoutConfig,
         required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
         interactions: RuntimeRevisionInteractions,
@@ -179,31 +179,24 @@ impl RuntimeRevision {
                 spread_count: 0,
             },
             final_extent: None,
-            layout,
             layout_config,
             chapter_style_tables: BTreeMap::new(),
             required_font_face_catalog,
             interactions,
             frame_cache: BTreeMap::new(),
             frame_cache_order: VecDeque::new(),
-            fragment_layout: None,
+            fragment_layout: super::fragment_backend::FragmentBuiltLayout::empty(),
         }
     }
 
     pub(super) fn warming_chapter_local(
-        layout: BuiltLayout,
         layout_config: LayoutConfig,
         required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
         interactions: RuntimeRevisionInteractions,
         chapter_index: usize,
         local_page_cap: usize,
     ) -> Self {
-        let mut revision = Self::warming(
-            layout,
-            layout_config,
-            required_font_face_catalog,
-            interactions,
-        );
+        let mut revision = Self::warming(layout_config, required_font_face_catalog, interactions);
         revision.coordinate_space = RuntimeRevisionCoordinateSpace::ChapterLocal {
             chapter_index,
             local_page_cap,
@@ -235,17 +228,6 @@ pub(super) fn revision_summary(
         final_extent: revision.final_extent,
         page_count: known_extent.page_count,
         spread_count: known_extent.spread_count,
-    }
-}
-
-fn revision_extent(layout: &BuiltLayout) -> RuntimeRevisionExtent {
-    RuntimeRevisionExtent {
-        page_count: layout.summary.pagination_flow.page_count,
-        spread_count: layout
-            .summary
-            .pagination_flow
-            .display_list_flow
-            .spread_count,
     }
 }
 

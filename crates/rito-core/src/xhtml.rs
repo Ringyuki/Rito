@@ -11,13 +11,9 @@ use rito_source::{NodeId, SourceArena};
 
 pub(crate) use footnote_scan::{scan_epub_type_attribute_hints, EpubTypeAttributeHint};
 pub use parser::parse_xhtml;
-#[cfg(any(
-    feature = "bench-internals",
-    all(test, feature = "legacy-css-diagnostics")
-))]
+#[cfg(all(test, feature = "legacy-css-diagnostics"))]
 pub(crate) use parser::parse_xhtml_from_source;
 pub(crate) use parser::parse_xhtml_with_source;
-pub(crate) use parser::summarize_parsed_chapters;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,45 +24,6 @@ pub struct ChapterSource {
     pub linear: bool,
     pub text_length: usize,
     pub text_hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct XhtmlSummary {
-    pub chapter_count: usize,
-    pub chapters: Vec<XhtmlChapterSummary>,
-    pub full_detail_hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct XhtmlChapterSummary {
-    pub idref: String,
-    pub href: String,
-    pub attribute_counts: BTreeMap<String, usize>,
-    pub body_attributes: Option<ElementAttributes>,
-    pub counts: XhtmlNodeCounts,
-    pub first_text: String,
-    pub image_sources: Vec<String>,
-    pub last_text: String,
-    pub max_depth: usize,
-    pub stylesheet_hrefs: Option<Vec<String>>,
-    pub embedded_stylesheets: Option<Vec<String>>,
-    pub tag_counts: BTreeMap<String, usize>,
-    pub text_hash: String,
-    pub top_level_count: usize,
-    pub warning_count: usize,
-    pub warnings_hash: String,
-    pub detail_hash: String,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct XhtmlNodeCounts {
-    pub block: usize,
-    pub image: usize,
-    pub inline: usize,
-    pub text: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

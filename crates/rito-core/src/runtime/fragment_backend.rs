@@ -127,6 +127,12 @@ pub(super) struct FragmentBuiltLayout {
 }
 
 impl FragmentBuiltLayout {
+    /// A page table with no pages: what a revision holds before the
+    /// fragment engine paginates it.
+    pub(super) fn empty() -> Self {
+        Self::new(Vec::new())
+    }
+
     pub(super) fn new(chapters: Vec<FragmentBackendChapter>) -> Self {
         let mut chapter_starts = Vec::with_capacity(chapters.len());
         let mut chapter_start_pages = BTreeSet::new();
@@ -211,7 +217,7 @@ impl RuntimeDocument {
             &revision.layout_config,
         )
         .len();
-        revision.fragment_layout = Some(layout);
+        revision.fragment_layout = layout;
         // The revision's advertised extent must be the fragment page
         // table's: hosts navigate by these numbers.
         revision.known_extent = RuntimeRevisionExtent {
@@ -319,32 +325,9 @@ impl RuntimeDocument {
         interactions.pending_footnote_keys =
             crate::interaction::FootnoteTargetSet::new(pending_footnote_keys);
         interactions.footnote_index_complete = footnote_index_complete;
-        let font_fallbacks = {
-            let mut font_fallbacks = self
-                .pinned_font_policy
-                .family_fallbacks_for_layout(&config, &self.document.package.metadata.language);
-            if let Some(policy) = font_fallbacks.as_mut() {
-                let pinned_faces = self
-                    .pinned_font_policy
-                    .measurement_faces_for_layout(&config);
-                let available_families =
-                    crate::epub::shapeable_publication_families_for_layout_with_sources(
-                        &self.document,
-                        self.resolved_font_face_sources(),
-                        &config,
-                        &pinned_faces,
-                    );
-                policy.set_available_publication_families(available_families);
-            }
-            font_fallbacks
-        };
-        let chapter = crate::epub::prepare_runtime_layout_chapter(
-            &prepared,
-            &config,
-            font_fallbacks.as_ref(),
-        )
-        .map_err(|error| format!("chapter style resolution: {}", error.message()))?
-        .ok_or_else(|| "prepared runtime chapter is unavailable".to_owned())?;
+        let chapter = crate::epub::prepare_runtime_layout_chapter(&prepared, &config)
+            .map_err(|error| format!("chapter style resolution: {}", error.message()))?
+            .ok_or_else(|| "prepared runtime chapter is unavailable".to_owned())?;
         let idref = chapter.idref.clone();
         let tables = super::frame::RuntimeChapterStyleTables {
             layout: chapter.layout_style_table,

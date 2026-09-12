@@ -401,15 +401,6 @@ fn element_style(
     }
     let layout_mode =
         layout_materialization_mode(source, inline, layout, semantic, element, layout_style)?;
-    #[cfg(feature = "bench-internals")]
-    if layout_mode == LayoutMaterializationMode::SingleImageCenteredFlex
-        && std::env::var_os("RITO_STYLO_FALLBACK_DIAGNOSTICS").is_some()
-    {
-        eprintln!(
-            "rito Stylo bounded layout [single-image-centered-flex]: node_id={}",
-            node_id.index()
-        );
-    }
     Ok(Some(materialize_style(
         inline_style,
         layout_style,

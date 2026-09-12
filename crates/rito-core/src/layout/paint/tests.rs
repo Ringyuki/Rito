@@ -112,7 +112,7 @@ fn edge(width_px: f64, color: &str, style: &str) -> RunBorderEdge {
         width_px,
         paint: BorderEdgePaint {
             color: color.to_owned(),
-            style: BorderLineStyle::from_legacy(style).expect("valid border style"),
+            style: BorderLineStyle::from_keyword(style).expect("valid border style"),
         },
     }
 }

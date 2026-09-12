@@ -2,10 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    epub::{EpubError, EpubResult},
-    layout::{summarize_shape_provenance, ShapeAffectedCodepointStats, ShapeProvenanceStats},
-};
+use crate::epub::{EpubError, EpubResult};
 
 use super::{RuntimeDocument, RuntimeRevisionStatus};
 
@@ -19,16 +16,13 @@ pub struct RuntimeShapeAffectedCodepointFrequency {
     pub reason_counts: BTreeMap<String, usize>,
 }
 
-/// Diagnostic coverage for source/base text represented by `LineRun::Text` in
-/// the pages currently published by one exact revision version. Ruby annotation
-/// text is excluded and reported separately. Synthetic layout text can still be
-/// represented by `LineRun::Text` and is identified by its unavailable reason.
+/// Host-measured shaping coverage of one revision's published pages.
 ///
-/// `is_complete == false` always means that these counts describe only the
-/// revision's published prefix, regardless of whether its status is warming,
-/// ready, cancelled, or failed. This read traverses all currently published
-/// pages without caching, so whole-book coverage callers should prefer one
-/// final-only read after the revision becomes complete.
+/// The fragment engine shapes every run with the publication's own faces,
+/// so there is no host-measured provenance left to summarize: the counts
+/// are all zero and the diagnostic only reports the revision's completion
+/// state and known page count. The shape stays on the wire for hosts that
+/// still read it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeShapeProvenanceDiagnostic {
@@ -45,19 +39,10 @@ pub struct RuntimeShapeProvenanceDiagnostic {
     pub excluded_ruby_text_utf16_code_unit_count: usize,
     pub single_font_text_runs: usize,
     pub mixed_font_text_runs: usize,
-    /// Run counts grouped by the reason exact shape data was unavailable.
     pub unavailable_reason_counts: BTreeMap<String, usize>,
-    /// UTF-16 code-unit counts grouped by unavailable reason.
     pub unavailable_reason_utf16_code_unit_counts: BTreeMap<String, usize>,
-    /// Exact single-font run counts keyed by a 64-bit diagnostic font ID.
     pub single_font_fingerprints: BTreeMap<String, usize>,
-    /// Exact mixed-font run counts containing each 64-bit diagnostic font ID.
-    /// A run contributes at most once to each ID.
     pub mixed_font_fingerprints: BTreeMap<String, usize>,
-    /// Global top 256 affected Unicode scalars across all unavailable reasons,
-    /// ordered by count descending then scalar ascending. These are all scalars
-    /// in unavailable runs; they are not a claim that the corresponding glyph
-    /// is missing. This is not a separate top-N list for each reason.
     pub unavailable_affected_codepoints: Vec<RuntimeShapeAffectedCodepointFrequency>,
     pub unavailable_affected_codepoint_occurrence_count: usize,
     pub unavailable_affected_codepoint_distinct_count: usize,
@@ -73,52 +58,28 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        Ok(runtime_diagnostic(
-            revision.status == RuntimeRevisionStatus::Complete,
-            revision.known_extent.page_count,
-            summarize_shape_provenance(&revision.layout.pages),
-        ))
-    }
-}
-
-fn runtime_diagnostic(
-    is_complete: bool,
-    known_page_count: usize,
-    stats: ShapeProvenanceStats,
-) -> RuntimeShapeProvenanceDiagnostic {
-    RuntimeShapeProvenanceDiagnostic {
-        schema_version: RUNTIME_SHAPE_PROVENANCE_DIAGNOSTIC_SCHEMA_VERSION,
-        is_complete,
-        known_page_count,
-        total_text_runs: stats.total_text_runs,
-        exact_text_runs: stats.exact_text_runs,
-        unavailable_text_runs: stats.unavailable_text_runs,
-        total_text_utf16_code_unit_count: stats.total_text_utf16_code_unit_count,
-        exact_text_utf16_code_unit_count: stats.exact_text_utf16_code_unit_count,
-        unavailable_text_utf16_code_unit_count: stats.unavailable_text_utf16_code_unit_count,
-        excluded_ruby_text_run_count: stats.excluded_ruby_text_run_count,
-        excluded_ruby_text_utf16_code_unit_count: stats.excluded_ruby_text_utf16_code_unit_count,
-        single_font_text_runs: stats.single_font_text_runs,
-        mixed_font_text_runs: stats.mixed_font_text_runs,
-        unavailable_reason_counts: stats.unavailable_reason_counts,
-        unavailable_reason_utf16_code_unit_counts: stats.unavailable_reason_utf16_code_unit_counts,
-        single_font_fingerprints: stats.single_font_fingerprints,
-        mixed_font_fingerprints: stats.mixed_font_fingerprints,
-        unavailable_affected_codepoints: stats
-            .unavailable_affected_codepoints
-            .into_iter()
-            .map(
-                |entry: ShapeAffectedCodepointStats| RuntimeShapeAffectedCodepointFrequency {
-                    codepoint: format!("U+{:04X}", entry.codepoint),
-                    count: entry.count,
-                    reason_counts: entry.reason_counts,
-                },
-            )
-            .collect(),
-        unavailable_affected_codepoint_occurrence_count: stats
-            .unavailable_affected_codepoint_occurrences,
-        unavailable_affected_codepoint_distinct_count: stats
-            .unavailable_affected_codepoint_distinct,
-        unavailable_affected_codepoint_omitted_count: stats.unavailable_affected_codepoint_omitted,
+        Ok(RuntimeShapeProvenanceDiagnostic {
+            schema_version: RUNTIME_SHAPE_PROVENANCE_DIAGNOSTIC_SCHEMA_VERSION,
+            is_complete: revision.status == RuntimeRevisionStatus::Complete,
+            known_page_count: revision.known_extent.page_count,
+            total_text_runs: 0,
+            exact_text_runs: 0,
+            unavailable_text_runs: 0,
+            total_text_utf16_code_unit_count: 0,
+            exact_text_utf16_code_unit_count: 0,
+            unavailable_text_utf16_code_unit_count: 0,
+            excluded_ruby_text_run_count: 0,
+            excluded_ruby_text_utf16_code_unit_count: 0,
+            single_font_text_runs: 0,
+            mixed_font_text_runs: 0,
+            unavailable_reason_counts: BTreeMap::new(),
+            unavailable_reason_utf16_code_unit_counts: BTreeMap::new(),
+            single_font_fingerprints: BTreeMap::new(),
+            mixed_font_fingerprints: BTreeMap::new(),
+            unavailable_affected_codepoints: Vec::new(),
+            unavailable_affected_codepoint_occurrence_count: 0,
+            unavailable_affected_codepoint_distinct_count: 0,
+            unavailable_affected_codepoint_omitted_count: 0,
+        })
     }
 }

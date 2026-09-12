@@ -102,32 +102,6 @@ impl StyleCapabilityReport {
     pub(crate) fn mark_incomplete(&mut self) {
         self.complete = false;
     }
-
-    /// Merges another chapter's observations into a publication-wide record.
-    pub(crate) fn absorb(&mut self, other: Self) {
-        self.complete &= other.complete;
-        for note in other.notes {
-            if let Err(position) = self.notes.binary_search(&note) {
-                self.notes.insert(position, note);
-            }
-        }
-    }
-
-    /// Projects the publication-facing summary.
-    pub(crate) fn summary(&self) -> crate::epub::StyleCapabilitySummary {
-        let subjects = |impact| {
-            self.notes
-                .iter()
-                .filter(|note| note.impact == impact)
-                .map(|note| note.subject.clone())
-                .collect::<Vec<_>>()
-        };
-        crate::epub::StyleCapabilitySummary {
-            ignored: subjects(StyleCapabilityImpact::Ignored),
-            degraded: subjects(StyleCapabilityImpact::Degraded),
-            complete: self.complete,
-        }
-    }
 }
 
 impl Ord for StyleCapabilityNote {
@@ -320,14 +294,6 @@ fn inventory_selected_css(
         capabilities.mark_incomplete();
         return Ok(());
     }
-    #[cfg(feature = "bench-internals")]
-    if std::env::var_os("RITO_STYLO_FALLBACK_DIAGNOSTICS").is_some() {
-        eprintln!(
-            "rito Stylo source gate rejected {label:?}; prefix={:?}",
-            css.chars().take(96).collect::<String>()
-        );
-    }
-    #[cfg(not(feature = "bench-internals"))]
     let _ = label;
     Err(failure.with_source_index(source_index))
 }

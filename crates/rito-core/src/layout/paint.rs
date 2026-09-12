@@ -107,7 +107,8 @@ impl FontPaintStyle {
     pub(crate) const NORMAL: Self = Self("normal");
     pub(crate) const ITALIC: Self = Self("italic");
 
-    pub(crate) fn from_legacy(value: &str) -> Self {
+    #[cfg(test)]
+    pub(crate) fn from_keyword(value: &str) -> Self {
         let value = value.trim();
         if value.eq_ignore_ascii_case("italic") || value.eq_ignore_ascii_case("oblique") {
             Self::ITALIC
@@ -144,7 +145,8 @@ impl BorderLineStyle {
     pub(crate) const DOTTED: Self = Self("dotted");
     pub(crate) const DASHED: Self = Self("dashed");
 
-    pub(crate) fn from_legacy(value: &str) -> Option<Self> {
+    #[cfg(test)]
+    pub(crate) fn from_keyword(value: &str) -> Option<Self> {
         let value = value.trim();
         if value.eq_ignore_ascii_case("solid") {
             Some(Self::SOLID)
@@ -221,25 +223,13 @@ impl RunPaint {
         self.data.box_edges
     }
 
-    pub(crate) fn add_word_spacing(&mut self, delta: f64) {
-        if delta != 0.0 {
-            let data = Arc::make_mut(&mut self.data);
-            data.measure.word_spacing_px =
-                Some(data.measure.word_spacing_px.unwrap_or(0.0) + delta);
-        }
-    }
-
+    #[cfg(test)]
     pub(crate) fn add_letter_spacing(&mut self, delta: f64) {
         if delta != 0.0 {
             let data = Arc::make_mut(&mut self.data);
             data.measure.letter_spacing_px =
                 Some(data.measure.letter_spacing_px.unwrap_or(0.0) + delta);
         }
-    }
-
-    pub(crate) fn set_end_border(&mut self, edge: RunBorderEdge) {
-        let data = Arc::make_mut(&mut self.data);
-        data.border.get_or_insert_with(RunBorder::default).end = Some(edge);
     }
 
     pub(crate) fn set_box_offsets(&mut self, top: f64, bottom: f64) {

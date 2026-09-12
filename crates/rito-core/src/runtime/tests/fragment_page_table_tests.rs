@@ -44,10 +44,7 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
         .revisions
         .get(&revision_id)
         .expect("revision is retained");
-    let layout = revision
-        .fragment_layout
-        .as_ref()
-        .expect("the fragment page table attaches");
+    let layout = &revision.fragment_layout;
 
     // The advertised extent is the fragment page table's.
     assert!(layout.page_count() > 0);
@@ -124,7 +121,7 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
         .get(&summary.revision_id)
         .expect("revision is retained");
     assert!(
-        revision.fragment_layout.is_some(),
+        revision.fragment_layout.page_count() > 0,
         "the fixture book routes to the fragment engine: {:?}",
         document.fragment_page_table_rejection_reason(&summary.revision_id),
     );
@@ -193,7 +190,7 @@ fn fragment_pages_resolve_pointer_selection() {
         .get(&summary.revision_id)
         .expect("revision is retained");
     assert!(
-        revision.fragment_layout.is_some(),
+        revision.fragment_layout.page_count() > 0,
         "the fixture routes to the fragment engine: {:?}",
         document.fragment_page_table_rejection_reason(&summary.revision_id),
     );
@@ -331,10 +328,7 @@ fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
         .revisions
         .get(&advance.revision.revision_id)
         .expect("revision is retained");
-    let table = revision
-        .fragment_layout
-        .as_ref()
-        .expect("the fragment page table attached");
+    let table = &revision.fragment_layout;
     assert_eq!(advance.revision.page_count, table.page_count());
     assert!(revision.frame_cache.is_empty(), "stale frames were dropped");
 }
@@ -634,7 +628,7 @@ fn a_forced_sans_serif_override_changes_the_painted_frame() {
             .get(&summary.revision_id)
             .expect("revision is retained");
         assert!(
-            revision.fragment_layout.is_some(),
+            revision.fragment_layout.page_count() > 0,
             "fragment page table attaches for the {family} override"
         );
         let frame = revision
@@ -733,7 +727,7 @@ fn search_finds_text_after_the_fragment_page_table_attaches() {
         .revisions
         .get(&revision_id)
         .expect("revision is retained");
-    assert!(revision.fragment_layout.is_some());
+    assert!(revision.fragment_layout.page_count() > 0);
     let handle = RuntimeRevisionHandle {
         revision_id: revision_id.clone(),
         revision_version: revision.revision_version,
@@ -780,7 +774,7 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
         .revisions
         .get(&summary.revision_id)
         .expect("revision is retained");
-    assert!(revision.fragment_layout.is_some());
+    assert!(revision.fragment_layout.page_count() > 0);
     let session = revision.chapter_engine_session();
     let frame = session
         .frame(0, 1.0)
@@ -854,7 +848,8 @@ fn pointer_selection_document_with_css(
             .get(&revision_id)
             .expect("revision is retained")
             .fragment_layout
-            .is_some(),
+            .page_count()
+            > 0,
         "the fixture routes to the fragment engine",
     );
     (document, handle, revision_id)
@@ -1202,7 +1197,7 @@ fn painted_commands_carry_link_targets_and_image_alt() {
         .get(&summary.revision_id)
         .expect("revision is retained");
     assert!(
-        revision.fragment_layout.is_some(),
+        revision.fragment_layout.page_count() > 0,
         "the fixture routes to the fragment engine",
     );
     let session = revision.chapter_engine_session();
@@ -1316,11 +1311,7 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
         "a repainted ratio is served from the page's paint cache"
     );
     assert_eq!(
-        revision
-            .fragment_layout
-            .as_ref()
-            .expect("fragment")
-            .page_count(),
+        revision.fragment_layout.page_count(),
         1,
         "the ratio never re-paginates"
     );

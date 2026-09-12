@@ -1,8 +1,5 @@
 use crate::{
-    layout::{
-        calibrate_layout_font_vertical_metrics, merge_font_vertical_metric_samples,
-        normalize_font_vertical_metric_samples,
-    },
+    layout::{merge_font_vertical_metric_samples, normalize_font_vertical_metric_samples},
     runtime::{
         frame::revision_summary, metadata::layout_key,
         RuntimeCalibrateRevisionFontVerticalMetricsRequest, RuntimeContinuationError,
@@ -32,10 +29,15 @@ impl RuntimeDocument {
                 .map_err(super::error::engine_error)?
         };
         let mut continuation = self.take_calibration_continuation(&request, next_version);
-        let calibrated_unpublished_run_count = continuation
-            .as_mut()
-            .map(|continuation| calibrate_continuation(continuation, &samples))
-            .unwrap_or(0);
+        if let Some(continuation) = continuation.as_mut() {
+            merge_font_vertical_metric_samples(
+                &mut continuation.layout_config.font_vertical_metrics,
+                &samples,
+            );
+        }
+        // Fragment pages never carry host-calibrated runs, published or
+        // pending; the samples only join the layout configuration.
+        let calibrated_unpublished_run_count = 0;
         let (revision, calibrated_published_run_count) = {
             let revision = self
                 .revisions
@@ -45,8 +47,7 @@ impl RuntimeDocument {
                 &mut revision.layout_config.font_vertical_metrics,
                 &samples,
             );
-            let calibrated =
-                calibrate_layout_font_vertical_metrics(&mut revision.layout.pages, &samples);
+            let calibrated = 0;
             revision.revision_version = next_version;
             (
                 revision_summary(&request.revision_id, &layout_identity, revision),
@@ -185,21 +186,4 @@ fn validated_samples(
             "fontVerticalMetrics contains an invalid sample",
         )
     })
-}
-
-fn calibrate_continuation(
-    continuation: &mut RuntimeContinuationRecord,
-    samples: &[crate::layout::FontVerticalMetricSample],
-) -> usize {
-    merge_font_vertical_metric_samples(
-        &mut continuation.layout_config.font_vertical_metrics,
-        samples,
-    );
-    continuation
-        .current
-        .as_mut()
-        .map(|current| {
-            calibrate_layout_font_vertical_metrics(&mut current.unpublished_pages, samples)
-        })
-        .unwrap_or(0)
 }

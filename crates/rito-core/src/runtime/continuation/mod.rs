@@ -1,30 +1,21 @@
-use crate::runtime::frame::revision_summary;
+use crate::runtime::frame::{revision_summary, RuntimeRevision};
 
 use super::{
     metadata::layout_key, RuntimeBoundedRevisionRequest, RuntimeCancelRevisionRequest,
     RuntimeContinuationError, RuntimeContinuationErrorKind, RuntimeContinueRevisionRequest,
-    RuntimeDocument, RuntimeRevisionAdvance, RuntimeRevisionStatus, RuntimeRevisionSummary,
+    RuntimeDocument, RuntimeRevisionAdvance, RuntimeRevisionCursor, RuntimeRevisionExtent,
+    RuntimeRevisionStatus, RuntimeRevisionSummary,
 };
 
 mod chapter_local;
 mod cleanup;
 mod error;
 mod font_vertical_metrics;
-mod publish;
 mod state;
-mod work;
 
-pub(in crate::runtime) use cleanup::{
-    PendingRuntimeChapterContinuationCleanup, PendingRuntimeContinuationRecordCleanup,
-    PendingRuntimeContinuationWorkCleanup,
-};
-use error::{
-    checked_budget, continuation_error, engine_error, engine_error_with_revision, unknown_revision,
-};
-pub(in crate::runtime) use state::{
-    RuntimeChapterContinuation, RuntimeContinuationRecord, RuntimeContinuationStore,
-    RuntimeContinuationWork,
-};
+pub(in crate::runtime) use cleanup::PendingRuntimeContinuationRecordCleanup;
+use error::{checked_budget, continuation_error, engine_error, unknown_revision};
+pub(in crate::runtime) use state::{RuntimeContinuationRecord, RuntimeContinuationStore};
 
 impl RuntimeDocument {
     /// Starts the experimental core-only bounded revision path.
@@ -73,33 +64,54 @@ impl RuntimeDocument {
         })
     }
 
+    /// Every revision now paginates in one step, so no cursor can ever be
+    /// live; the request is still validated so a host learns exactly why
+    /// its cursor is spent.
     pub fn continue_revision(
         &mut self,
         request: RuntimeContinueRevisionRequest,
     ) -> Result<RuntimeRevisionAdvance, RuntimeContinuationError> {
-        let budget = checked_budget(request.budget)?;
-        let previous_extent =
-            self.require_continuable_revision(&request.revision_id, request.revision_version)?;
-        let mut continuation = self.take_continuation(&request)?;
-        let next_version = continuation.revision_version;
-        let layout_key = continuation.layout_key.clone();
-        let work = match self.advance_record(&mut continuation, budget) {
-            Ok(work) => work,
-            Err(error) => {
-                self.cleanup_queue.enqueue_continuation(continuation);
-                let revision =
-                    self.mark_revision_failed(&request.revision_id, next_version, &layout_key);
-                self.service_cleanup_queue();
-                return Err(engine_error_with_revision(error, revision));
-            }
+        checked_budget(request.budget)?;
+        self.require_continuable_revision(&request.revision_id, request.revision_version)?;
+        let continuation = self.take_continuation(&request)?;
+        self.cleanup_queue.enqueue_continuation(continuation);
+        self.service_cleanup_queue();
+        Err(continuation_error(
+            RuntimeContinuationErrorKind::RevisionNotContinuable,
+            "the revision paginated in one step; there is nothing to continue",
+        ))
+    }
+
+    pub(super) fn store_continuation(
+        &mut self,
+        continuation: RuntimeContinuationRecord,
+    ) -> RuntimeRevisionCursor {
+        let cursor = format!("cursor-{}", self.next_continuation_index);
+        let Some(next_continuation_index) = self.next_continuation_index.checked_add(1) else {
+            PendingRuntimeContinuationRecordCleanup::new(continuation).drain();
+            panic!("runtime continuation id space is exhausted");
         };
-        self.apply_work(
-            continuation,
-            work,
-            previous_extent,
-            next_version,
-            &layout_key,
-        )
+        self.next_continuation_index = next_continuation_index;
+        let handle = RuntimeRevisionCursor {
+            revision_id: continuation.revision_id.clone(),
+            revision_version: continuation.revision_version,
+            cursor: cursor.clone(),
+        };
+        self.continuations.insert_new(cursor, continuation);
+        handle
+    }
+    pub(super) fn require_continuable_revision(
+        &self,
+        revision_id: &str,
+        revision_version: u32,
+    ) -> Result<RuntimeRevisionExtent, RuntimeContinuationError> {
+        let revision = self
+            .revisions
+            .get(revision_id)
+            .ok_or_else(|| unknown_revision(revision_id))?;
+        require_revision_version(revision, revision_version)?;
+        require_active_status(revision)?;
+        Ok(revision.known_extent)
     }
 
     fn take_continuation(
@@ -191,4 +203,33 @@ impl RuntimeDocument {
             layout_key(&revision.layout_config, &self.pinned_font_policy).map_err(engine_error)?;
         Ok(revision_summary(revision_id, &key, revision))
     }
+}
+
+fn require_revision_version(
+    revision: &RuntimeRevision,
+    revision_version: u32,
+) -> Result<(), RuntimeContinuationError> {
+    if revision.revision_version == revision_version {
+        return Ok(());
+    }
+    Err(continuation_error(
+        RuntimeContinuationErrorKind::StaleRevisionVersion,
+        format!(
+            "stale revision version: expected {}, got {revision_version}",
+            revision.revision_version
+        ),
+    ))
+}
+
+fn require_active_status(revision: &RuntimeRevision) -> Result<(), RuntimeContinuationError> {
+    if matches!(
+        revision.status,
+        RuntimeRevisionStatus::Warming | RuntimeRevisionStatus::Ready
+    ) {
+        return Ok(());
+    }
+    Err(continuation_error(
+        RuntimeContinuationErrorKind::RevisionNotContinuable,
+        format!("revision is not continuable: {:?}", revision.status),
+    ))
 }

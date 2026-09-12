@@ -51,7 +51,7 @@ fn test_measure(object: &Map<String, Value>) -> MeasurePaint {
         font: FontPaint {
             style: font
                 .and_then(|value| string_field(value, "style"))
-                .map(|value| FontPaintStyle::from_legacy(&value))
+                .map(|value| FontPaintStyle::from_keyword(&value))
                 .unwrap_or(defaults.style),
             weight: font
                 .and_then(|value| number_field(value, "weight"))
@@ -125,7 +125,7 @@ fn test_border_edge(value: &Value) -> Option<RunBorderEdge> {
         width_px: number_field(object, "widthPx")?,
         paint: BorderEdgePaint {
             color: string_field(paint, "color")?,
-            style: BorderLineStyle::from_legacy(&string_field(paint, "style")?)?,
+            style: BorderLineStyle::from_keyword(&string_field(paint, "style")?)?,
         },
     })
 }

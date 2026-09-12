@@ -9,9 +9,7 @@ use probe::RuntimeCleanupProbe;
 use crate::layout::{CleanupProgress, LayoutConfig};
 
 use super::super::{
-    continuation::{
-        RuntimeChapterContinuation, RuntimeContinuationRecord, RuntimeContinuationWork,
-    },
+    continuation::RuntimeContinuationRecord,
     frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner, RuntimeRevision},
 };
 use job::RuntimeCleanupJob;
@@ -52,22 +50,8 @@ impl RuntimeCleanupQueue {
         self.enqueue(RuntimeCleanupJob::continuation(owner));
     }
 
-    pub(in crate::runtime) fn enqueue_completed_chapter(
-        &mut self,
-        owner: RuntimeChapterContinuation,
-    ) {
-        self.enqueue(RuntimeCleanupJob::completed_chapter(owner));
-    }
-
     pub(in crate::runtime) fn enqueue_revision(&mut self, owner: RuntimeRevision) {
         self.enqueue(RuntimeCleanupJob::revision(owner));
-    }
-
-    pub(in crate::runtime) fn enqueue_continuation_work(&mut self, owner: RuntimeContinuationWork) {
-        if !owner.has_cleanup_owners() {
-            return;
-        }
-        self.enqueue(RuntimeCleanupJob::continuation_work(owner));
     }
 
     pub(in crate::runtime) fn enqueue_frame_cache(&mut self, owner: RuntimeFrameCacheOwner) {

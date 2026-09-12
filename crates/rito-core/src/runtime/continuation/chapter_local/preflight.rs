@@ -1,18 +1,15 @@
-use crate::{
-    layout::create_empty_runtime_layout,
-    runtime::{
-        frame::{into_chapter_window_layout_config, RuntimeRevision},
-        metadata::layout_key,
-        RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalCoordinate,
-        RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionHandle,
-        RuntimeContinuationErrorKind, RuntimeContinueChapterLocalRevisionRequest,
-        RuntimeContinueRevisionRequest, RuntimeDocument, RuntimeRevisionWorkBudget,
-        RuntimeRolloverChapterLocalRevisionRequest, RuntimeSourceLocator,
-    },
+use crate::runtime::{
+    frame::{into_chapter_window_layout_config, RuntimeRevision},
+    metadata::layout_key,
+    RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalCoordinate,
+    RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionHandle,
+    RuntimeContinuationErrorKind, RuntimeContinueChapterLocalRevisionRequest,
+    RuntimeContinueRevisionRequest, RuntimeDocument, RuntimeRevisionWorkBudget,
+    RuntimeRolloverChapterLocalRevisionRequest, RuntimeSourceLocator,
 };
 
 use super::{
-    super::{publish::initial_revision_interactions, RuntimeContinuationRecord},
+    super::RuntimeContinuationRecord,
     model::{
         chapter_local_coordinate, checked_local_budget, checked_local_quanta, local_engine_error,
         local_error, local_error_from_continuation, local_error_from_source,
@@ -111,9 +108,7 @@ pub(super) fn initialize_chapter_local_rollover(
     debug_assert!(record.reached_local_page_cap());
     let revision_id = document.create_revision_id();
     record.rollover_chapter_local_window(revision_id.clone());
-    let layout = create_empty_runtime_layout(1, &layout_config);
     let revision = RuntimeRevision::warming_chapter_local(
-        layout,
         layout_config,
         required_font_face_catalog,
         interactions,
@@ -198,9 +193,7 @@ fn insert_chapter_local_revision(
     required_font_face_catalog: Option<Vec<crate::runtime::RuntimeRequiredFontFace>>,
     footnotes: std::collections::BTreeMap<String, crate::interaction::FootnoteEntry>,
 ) {
-    let layout = create_empty_runtime_layout(1, layout_config);
     let revision = RuntimeRevision::warming_chapter_local(
-        layout,
         layout_config.clone(),
         required_font_face_catalog,
         initial_revision_interactions(footnotes),
@@ -266,5 +259,23 @@ impl RuntimeDocument {
             required_font_face_catalog,
             footnotes: std::collections::BTreeMap::new(),
         })
+    }
+}
+
+/// The interaction state a chapter-local revision starts with: its own
+/// footnote overlay, no publication index yet, materialized (empty)
+/// chapter text indices.
+fn initial_revision_interactions(
+    footnotes: std::collections::BTreeMap<String, crate::interaction::FootnoteEntry>,
+) -> crate::runtime::frame::RuntimeRevisionInteractions {
+    crate::runtime::frame::RuntimeRevisionInteractions {
+        publication_footnotes: None,
+        footnotes,
+        pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
+        footnote_index_complete: false,
+        chapter_text_indices: crate::runtime::frame::RuntimeChapterTextIndexSource::Materialized(
+            std::collections::BTreeMap::new(),
+        ),
+        completed_chapter_idrefs: std::collections::BTreeSet::new(),
     }
 }

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     epub::{parsed_loaded_chapter_source, LoadedChapter, LoadedEpubDocument},
-    layout::{search_runtime_pages, SearchRuntimeMatch, SearchSourcePoint},
+    layout::{SearchRuntimeMatch, SearchSourcePoint},
 };
 
 use super::{
@@ -23,29 +23,17 @@ pub(super) fn search_revision(
         return runtime_search_response(revision_id, request, Vec::new());
     }
 
-    // A fragment page table is the pagination authority; its artifacts
-    // carry the page text and run table the retained walk would have
-    // derived from `layout.pages` (which stays empty once the handover
-    // clears the retained frames — searching it found nothing).
-    let matches = if revision.fragment_layout.is_some() {
-        let session = revision.chapter_engine_session();
-        let index = session.search_page_index();
-        crate::layout::search_prebuilt_runtime_pages(
-            &index,
-            &request.query,
-            request.case_sensitive,
-            request.whole_word,
-            request.limit,
-        )
-    } else {
-        search_runtime_pages(
-            &revision.layout.pages,
-            &request.query,
-            request.case_sensitive,
-            request.whole_word,
-            request.limit,
-        )
-    };
+    // The page artifacts carry the page text and run table the search
+    // walks.
+    let session = revision.chapter_engine_session();
+    let index = session.search_page_index();
+    let matches = crate::layout::search_prebuilt_runtime_pages(
+        &index,
+        &request.query,
+        request.case_sensitive,
+        request.whole_word,
+        request.limit,
+    );
     let mut source_indices = BTreeMap::new();
     let results = matches
         .into_iter()

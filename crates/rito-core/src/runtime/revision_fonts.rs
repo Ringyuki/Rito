@@ -31,7 +31,6 @@ impl RuntimeDocument {
             &self.document,
             self.resolved_font_face_sources(),
             layout_config,
-            self.text_measurement_cache.clone(),
             pinned_faces,
         );
         self.required_font_face_catalog_from_faces(assembly.shapeable_publication_faces)

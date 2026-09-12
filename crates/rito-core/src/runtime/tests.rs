@@ -171,8 +171,9 @@ fn revision_statuses_use_stable_camel_case_wire_values() {
 #[test]
 fn creates_revision_when_chapter_xhtml_is_malformed() {
     let bytes = malformed_chapter_fixture_epub();
-    let publication = crate::epub::load_publication_with_layout(&bytes, &layout())
+    let loaded = crate::epub::open_document(&bytes)
         .expect("formal parsing preserves malformed XHTML as a warning");
+    let prepared = crate::epub::prepare_loaded_document(&loaded);
     let mut document = RuntimeDocument::open_pinned_for_tests(&bytes).expect("document opens");
 
     let revision = document
@@ -181,9 +182,8 @@ fn creates_revision_when_chapter_xhtml_is_malformed() {
 
     // The unclosed <p> closes implicitly under tag-pairing recovery —
     // the chapter lays with its content instead of degrading.
-    assert_eq!(publication.xhtml.chapters[0].warning_count, 0);
-    assert_eq!(publication.xhtml.chapters[0].top_level_count, 1);
-    assert!(publication.xhtml.chapters[0].image_sources.is_empty());
+    assert!(prepared.chapters[0].parsed.warnings.is_empty());
+    assert_eq!(prepared.chapters[0].parsed.nodes.len(), 1);
     assert_eq!(revision.revision_id, "rev-1");
     assert!(document.has_revision(&revision.revision_id));
 }

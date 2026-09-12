@@ -1,151 +1,41 @@
 pub const NAME: &str = "layout";
 pub const OWNS: &str = "Block layout, inline layout, line breaking, pagination, pages, and spreads";
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
-#[cfg(any(test, feature = "bench-internals"))]
-pub(crate) mod bounded_work_probe;
 mod cleanup;
-mod content;
-mod continuous_flex;
-mod continuous_float;
-mod continuous_image;
-mod continuous_layout;
-mod continuous_list;
-mod continuous_summary;
-mod continuous_table;
-mod continuous_table_model;
-mod continuous_table_rows;
-mod display_list;
-mod display_list_flow;
-mod font_summary;
 mod font_vertical_metrics;
-mod hit_map;
-mod hit_target;
-mod hyphenation;
-pub(crate) mod image_size;
-mod inline_atoms;
-mod inline_content;
-mod inline_ruby;
-mod inline_segment;
-mod inline_summary;
-mod line;
-mod line_align;
-mod line_break;
-mod line_break_input;
-mod line_finalize;
-mod line_layout;
-mod line_metrics;
-mod line_mode;
-mod line_optimal;
-mod line_prefix;
-mod line_ruby;
-mod link_map;
-mod locator;
-mod page;
-mod pagination_flow;
-pub(crate) mod pagination_session;
 mod paint;
-pub(crate) mod runtime_session;
 mod search_flow;
-mod segment_details;
-mod segments;
-mod semantic_tree;
-mod shape_provenance_diagnostic;
 mod spread;
-mod spread_flow;
-mod style_values;
-mod summary_json;
-mod summary_types;
-mod text_geometry;
-mod text_grapheme;
-mod text_mapping;
 mod text_measure;
-mod text_position;
-mod text_shape;
-mod text_work;
-#[cfg(test)]
-mod text_work_trace;
-mod visual_geometry;
 
 use serde::{Deserialize, Serialize};
 
-pub(crate) use cleanup::{CleanupProgress, PendingBuiltLayoutCleanup, PendingLayoutConfigCleanup};
-pub(crate) use content::{RuntimeBlock, RuntimeChild};
-pub(crate) use display_list::{build_display_list_frame_commands, DisplayListFrameCommands};
-pub use display_list_flow::{DisplayListFlowSpreadDigest, DisplayListFlowSummary};
-pub(crate) use font_summary::{
-    summarize_layout_font_families, summarize_layout_font_vertical_metric_demands,
-};
+pub(crate) use cleanup::{CleanupProgress, PendingLayoutConfigCleanup};
 pub(crate) use font_vertical_metrics::{
-    calibrate_layout_font_vertical_metrics, merge_font_vertical_metric_samples,
-    normalize_font_vertical_metric_samples,
-};
-pub use hit_map::{HitMapFlowCounts, HitMapFlowPageDigest, HitMapFlowSummary};
-pub(crate) use hit_target::{build_hit_targets, LayoutHitTarget};
-#[cfg(test)]
-pub(crate) use line::TextRunInteractionGeometry;
-pub(crate) use line::{LineBox, LineRun, TextRunBox};
-pub use link_map::{LinkMapFlowPageDigest, LinkMapFlowSummary, LinkMapFlowTotals};
-pub(crate) use locator::{collect_anchor_pages, collect_source_run_starts, LayoutSourceRunStart};
-pub(crate) use page::{PendingRuntimePageAccumulatorCleanup, PendingRuntimePageVectorCleanup};
-pub use pagination_flow::{
-    PaginationFlowChapterRange, PaginationFlowCounts, PaginationFlowPageDigest,
-    PaginationFlowSummary,
+    merge_font_vertical_metric_samples, normalize_font_vertical_metric_samples,
 };
 pub(crate) use paint::TextShadowPaint;
 pub(crate) use paint::{BorderEdgePaint, FontPaint, FontPaintStyle, MeasurePaint, RunBorder};
 pub(crate) use paint::{BorderLineStyle, RunSpacing};
 pub(crate) use paint::{RunBorderEdge, RunDecoration, RunDecorationKind, RunPaint, RunPaintData};
-#[rustfmt::skip]
-pub(crate) use search_flow::{search_prebuilt_runtime_pages, search_runtime_pages, SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource, SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange};
-pub use search_flow::{
-    SearchFlowQuerySummary, SearchFlowSummary, SearchRuntimeResult, SearchTextPosition,
+pub(crate) use search_flow::{
+    search_prebuilt_runtime_pages, SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource,
+    SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
 };
-pub(crate) use segments::{
-    append_runtime_chapter_pages, build_inline_segments, build_inline_segments_runtime,
-    create_empty_runtime_layout, InlineSegmentChapterInput,
-};
-pub(crate) use semantic_tree::{build_page_semantic_tree, LayoutSemanticNode, LayoutSemanticRole};
-pub(crate) use shape_provenance_diagnostic::{
-    summarize_shape_provenance, ShapeAffectedCodepointStats, ShapeProvenanceStats,
-};
+pub use search_flow::{SearchRuntimeResult, SearchTextPosition};
 pub(crate) use spread::build_spread_slots;
-pub use spread_flow::SpreadFlowSummary;
-pub use summary_types::{
-    ContinuousBlockChapterSummary, ContinuousBlockSummary, InlineSegmentBlockSample,
-    InlineSegmentBlockSummary, InlineSegmentChapterSummary, InlineSegmentSummary, LayoutSummary,
-    LineBoxBlockSample, LineBoxBlockSummary, LineBoxChapterSummary, LineBoxSummary,
-    LineBreakInputBlockSample, LineBreakInputBlockSummary, LineBreakInputChapterSummary,
-    LineBreakInputSummary,
-};
-pub(crate) use text_geometry::build_text_range_geometry;
-pub use text_geometry::{TextRangeGeometry, TextRangeRect};
-#[cfg(test)]
-pub(crate) use text_mapping::fixture_logical_text_flow;
-pub(crate) use text_mapping::{LogicalTextFlow, LogicalTextSource, RunTextMapping, TextFlowSlice};
-pub(crate) use text_measure::{
-    parse_font_family_list, TextMeasurementCache, TextMeasurementFontFace, TextMeasurementFonts,
-};
-pub(crate) use text_position::build_text_position_page;
-pub use text_position::{
-    RuntimeTextPositionPage, TextPositionFlowPageDigest, TextPositionFlowSummary,
-    TextPositionFlowTotals, TextRunOffset,
-};
-pub(crate) use text_shape::{ExactRunShape, RunShape, RunShapeCaretAffinity, RunShapeCaretStop};
-#[cfg(test)]
-pub(crate) use text_shape::{
-    RunShapeCluster, RunShapeDirection, RunShapeProvenance, RunShapeUnavailableReason,
-};
-pub(crate) use visual_geometry::{VisualGeometry, VisualRect};
+pub(crate) use text_measure::{parse_font_family_list, TextMeasurementFontFace};
 
-pub(crate) type LayoutRuntimePage = page::RuntimePage<content::RuntimeBlock<line::LineBox>>;
-
-#[derive(Debug, Clone)]
-pub(crate) struct BuiltLayout {
-    pub(crate) summary: LayoutSummary,
-    pub(crate) pages: Vec<LayoutRuntimePage>,
-    pub(crate) chapter_start_pages: BTreeSet<usize>,
+/// One chapter's page span inside a revision's page table.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginationFlowChapterRange {
+    pub start_page: usize,
+    pub end_page: usize,
+    pub page_count: usize,
+    pub block_count: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

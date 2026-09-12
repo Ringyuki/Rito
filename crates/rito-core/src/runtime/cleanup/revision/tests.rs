@@ -4,16 +4,10 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
 };
 
-use serde_json::json;
-
 use super::{PendingRuntimeRevisionCleanup, RuntimeRevisionCleanupStage};
 use crate::{
     interaction::{FootnoteEntry, FootnoteKind},
-    layout::{
-        create_empty_runtime_layout, create_layout_config, LayoutConfig, LayoutConfigInput,
-        LayoutRuntimePage, LineBox, MarginInput, PaginationFlowChapterRange, RuntimeBlock,
-        RuntimeChild, SpreadMode,
-    },
+    layout::{create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode},
     runtime::{
         frame::{RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionInteractions},
         RuntimeChapterTextIndex, RuntimeChapterTextSpan, RuntimeRequiredFontFace,
@@ -23,9 +17,7 @@ use crate::{
 
 use super::super::test_support::cached_frame;
 
-const DEEP_BLOCK_COUNT: usize = 16_384;
 const LARGE_FONT_FACE_COUNT: usize = 16_384;
-const LARGE_SUMMARY_CHAPTER_COUNT: usize = 4_096;
 
 #[test]
 fn empty_revision_units_include_each_required_font_face() {
@@ -38,7 +30,7 @@ fn empty_revision_units_include_each_required_font_face() {
     ] {
         for has_final_extent in [false, true] {
             for has_font_catalog in [false, true] {
-                let mut owner = revision(empty_layout());
+                let mut owner = revision();
                 owner.revision_version = u32::MAX;
                 owner.status = status;
                 owner.known_extent = RuntimeRevisionExtent {
@@ -49,7 +41,7 @@ fn empty_revision_units_include_each_required_font_face() {
                 owner.required_font_face_catalog = has_font_catalog.then(|| vec![font_face()]);
                 let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-                let expected = 30 + usize::from(has_font_catalog);
+                let expected = 20 + usize::from(has_font_catalog);
                 assert_eq!(drive_q1(&mut cleanup, expected), expected);
             }
         }
@@ -57,8 +49,8 @@ fn empty_revision_units_include_each_required_font_face() {
 }
 
 #[test]
-fn cache_layout_and_flat_fields_release_in_order() {
-    let mut owner = revision(empty_layout());
+fn cache_and_flat_fields_release_in_order() {
+    let mut owner = revision();
     owner.frame_cache.insert(9, cached_frame(9, 3));
     owner.frame_cache.insert(2, cached_frame(2, 0));
     owner.frame_cache_order.extend([9, 2]);
@@ -80,18 +72,17 @@ fn cache_layout_and_flat_fields_release_in_order() {
         .frame_cache
         .as_ref()
         .is_some_and(|cache| cache.is_complete()));
-    assert!(cleanup.layout.is_some());
 
     assert_one(&mut cleanup);
     assert!(cleanup.frame_cache.is_none());
-    assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::Layout);
+    assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::LayoutConfig);
 
-    assert_eq!(drive_q1(&mut cleanup, 27), 27);
+    assert_eq!(drive_q1(&mut cleanup, 17), 17);
 }
 
 #[test]
 fn detached_cache_owner_is_immediately_invisible_to_the_revision() {
-    let mut owner = revision(empty_layout());
+    let mut owner = revision();
     owner.frame_cache.insert(9, cached_frame(9, 3));
     owner.frame_cache.insert(2, cached_frame(2, 0));
     owner.frame_cache_order.extend([9, 2]);
@@ -107,98 +98,29 @@ fn detached_cache_owner_is_immediately_invisible_to_the_revision() {
 }
 
 #[test]
-fn layout_retirement_is_separate_from_its_nested_completion() {
-    let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(empty_layout()));
-
-    for _ in 0..14 {
-        assert_one(&mut cleanup);
-    }
-    assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::Layout);
-    assert!(cleanup
-        .layout
-        .as_ref()
-        .is_some_and(|layout| layout.is_complete()));
-
-    assert_one(&mut cleanup);
-    assert!(cleanup.layout.is_none());
-    assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::LayoutConfig);
-    assert_eq!(drive_q1(&mut cleanup, 15), 15);
-}
-
-#[test]
-fn one_empty_page_composes_built_layout_exactly() {
-    let mut layout = empty_layout();
-    layout
-        .pages
-        .push(LayoutRuntimePage::new(0, 320.0, 120.0, None, Vec::new()));
-    let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(layout));
-
-    assert_eq!(drive_q1(&mut cleanup, 35), 35);
-}
-
-#[test]
 fn materialized_interactions_compose_with_revision_retirement() {
-    let mut owner = revision(empty_layout());
+    let mut owner = revision();
     owner.interactions = materialized_interactions(2);
     let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 41), 41);
-}
-
-#[test]
-fn summary_chapter_map_composes_with_revision_retirement() {
-    let mut layout = empty_layout();
-    add_summary_chapters(&mut layout, LARGE_SUMMARY_CHAPTER_COUNT);
-    let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(layout));
-
-    assert_eq!(
-        drive_q1(&mut cleanup, LARGE_SUMMARY_CHAPTER_COUNT + 30),
-        LARGE_SUMMARY_CHAPTER_COUNT + 30
-    );
-}
-
-#[test]
-fn deep_revision_is_exact_and_immediate_drop_is_stack_safe() {
-    let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(deep_layout()));
-    let expected = DEEP_BLOCK_COUNT * 2 + 36;
-
-    assert_eq!(drive_q1(&mut cleanup, expected), expected);
-    drop(PendingRuntimeRevisionCleanup::new(revision(deep_layout())));
-}
-
-#[test]
-fn source_boundary_and_partial_panic_unwind_drain_the_deep_owner() {
-    let mut source_boundary = PendingRuntimeRevisionCleanup::new(revision(deep_layout()));
-    assert_one(&mut source_boundary);
-    drop(source_boundary);
-
-    let result = catch_unwind(AssertUnwindSafe(|| {
-        let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(deep_layout()));
-        let progress =
-            cleanup.advance(NonZeroUsize::new(128).expect("test cleanup budget is non-zero"));
-        assert_eq!(progress.consumed_units, 128);
-        assert!(!progress.complete);
-        panic!("force runtime-revision cleanup during unwind");
-    }));
-
-    assert!(result.is_err());
+    assert_eq!(drive_q1(&mut cleanup, 31), 31);
 }
 
 #[test]
 fn large_font_catalog_is_exact_and_drop_drains_unread_faces() {
-    let mut owner = revision(empty_layout());
+    let mut owner = revision();
     owner.required_font_face_catalog = Some(font_faces(LARGE_FONT_FACE_COUNT));
     let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
-    let expected = LARGE_FONT_FACE_COUNT + 30;
+    let expected = LARGE_FONT_FACE_COUNT + 20;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
 
-    let mut immediate = revision(empty_layout());
+    let mut immediate = revision();
     immediate.required_font_face_catalog = Some(font_faces(LARGE_FONT_FACE_COUNT));
     drop(PendingRuntimeRevisionCleanup::new(immediate));
 
     let result = catch_unwind(AssertUnwindSafe(|| {
-        let mut partial = revision(empty_layout());
+        let mut partial = revision();
         partial.required_font_face_catalog = Some(font_faces(LARGE_FONT_FACE_COUNT));
         let mut cleanup = PendingRuntimeRevisionCleanup::new(partial);
         let progress =
@@ -212,8 +134,8 @@ fn large_font_catalog_is_exact_and_drop_drains_unread_faces() {
 }
 
 #[test]
-fn outer_drop_finishes_a_deep_layout_after_partial_full_cache_cleanup() {
-    let mut owner = revision(deep_layout());
+fn outer_drop_finishes_after_partial_full_cache_cleanup() {
+    let mut owner = revision();
     for spread_index in 0..12 {
         owner
             .frame_cache
@@ -245,65 +167,8 @@ fn assert_one(cleanup: &mut PendingRuntimeRevisionCleanup) {
     assert_eq!(progress.consumed_units, 1);
 }
 
-fn revision(layout: crate::layout::BuiltLayout) -> RuntimeRevision {
-    RuntimeRevision::warming(layout, test_layout(), None, interactions())
-}
-
-fn empty_layout() -> crate::layout::BuiltLayout {
-    create_empty_runtime_layout(1, &test_layout())
-}
-
-fn add_summary_chapters(owner: &mut crate::layout::BuiltLayout, count: usize) {
-    for chapter_index in 0..count {
-        owner.summary.pagination_flow.chapter_map.insert(
-            format!("chapter-{chapter_index}"),
-            PaginationFlowChapterRange {
-                start_page: chapter_index,
-                end_page: chapter_index,
-                page_count: 1,
-                block_count: 1,
-            },
-        );
-    }
-}
-
-fn deep_layout() -> crate::layout::BuiltLayout {
-    let mut layout = empty_layout();
-    layout.pages.push(LayoutRuntimePage::new(
-        0,
-        320.0,
-        120.0,
-        Some(json!({ "backgroundColor": "#fff" })),
-        vec![deep_block(DEEP_BLOCK_COUNT)],
-    ));
-    layout
-}
-
-fn deep_block(count: usize) -> RuntimeBlock<LineBox> {
-    assert!(count > 0);
-    let mut root = block(Vec::new());
-    for _ in 1..count {
-        root = block(vec![RuntimeChild::Block(Box::new(root))]);
-    }
-    root
-}
-
-fn block(children: Vec<RuntimeChild<LineBox>>) -> RuntimeBlock<LineBox> {
-    RuntimeBlock {
-        x: 0.0,
-        y: 0.0,
-        width: 100.0,
-        height: 20.0,
-        semantic_tag: Some("p".to_owned()),
-        anchor_id: None,
-        paint: Some(json!({ "color": "#000" })),
-        border_box: None,
-        page_break_before: false,
-        page_break_after: false,
-        orphans: None,
-        widows: None,
-        children,
-    }
+fn revision() -> RuntimeRevision {
+    RuntimeRevision::warming(test_layout(), None, interactions())
 }
 
 fn interactions() -> RuntimeRevisionInteractions {

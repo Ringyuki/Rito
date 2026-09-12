@@ -1,110 +1,30 @@
-use serde_json::Value;
-
-use super::{
-    build_prepared_loaded_document_with_layout_and_line_breaking,
-    default_publication_layout_config, PublicationDiagnosticsMode,
-};
+use super::prepare_runtime_layout_chapter;
 use crate::{
     epub::{
         prepare_loaded_document, LoadedChapter, LoadedEpubDocument, LoadedTextResource,
         PackageDocument, PackageMetadata,
     },
-    layout::LineBreaking,
+    layout::{create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode},
 };
 
 #[test]
-fn production_publication_omits_compatibility_diagnostics() {
-    let document = supported_document();
-    let prepared = prepare_loaded_document(&document);
-    let layout = default_publication_layout_config();
-
-    let production = build_prepared_loaded_document_with_layout_and_line_breaking(
-        &document,
-        &prepared,
-        &layout,
-        LineBreaking::Greedy,
-        PublicationDiagnosticsMode::None,
-    )
-    .expect("production publication");
-
-    assert!(production.publication.css.is_none());
-    assert!(production.publication.style.is_none());
-    assert!(prepared
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-    let serialized = serde_json::to_value(&production.publication).expect("serialize publication");
-    assert_eq!(serialized.get("css"), Some(&Value::Null));
-    assert_eq!(serialized.get("style"), Some(&Value::Null));
-
-    #[cfg(feature = "legacy-css-diagnostics")]
-    {
-        let diagnostic = build_prepared_loaded_document_with_layout_and_line_breaking(
-            &document,
-            &prepared,
-            &layout,
-            LineBreaking::Greedy,
-            PublicationDiagnosticsMode::Compatibility,
-        )
-        .expect("diagnostic publication");
-
-        assert!(diagnostic.publication.css.is_some());
-        assert!(diagnostic.publication.style.is_some());
-        assert!(prepared
-            .stylesheet_ledger
-            .legacy_artifacts_if_initialized()
-            .is_some());
-        assert_eq!(production.publication.layout, diagnostic.publication.layout);
-        assert_eq!(
-            production.publication.interaction,
-            diagnostic.publication.interaction
-        );
-    }
-}
-
-#[test]
-fn production_renders_unrepresentable_css_without_initializing_legacy_artifacts() {
+fn unrepresentable_css_does_not_refuse_the_chapter() {
     let mut document = supported_document();
     // `border-image` is real CSS this engine's typed contract cannot carry.
     // CSS drops what an engine cannot represent and applies the rest, so the
-    // publication must still open with its supported declarations intact.
+    // chapter must still resolve with its supported declarations intact.
     document.stylesheets[0].text = "p { color: red; border-image: none; }".to_owned();
     let prepared = prepare_loaded_document(&document);
-    let layout = default_publication_layout_config();
 
-    build_prepared_loaded_document_with_layout_and_line_breaking(
-        &document,
-        &prepared,
-        &layout,
-        LineBreaking::Greedy,
-        PublicationDiagnosticsMode::None,
-    )
-    .expect("unrepresentable CSS must not refuse the publication");
+    let chapter = prepare_runtime_layout_chapter(&prepared, &layout())
+        .expect("unrepresentable CSS must not refuse the chapter")
+        .expect("the chapter resolves");
 
-    assert!(prepared
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-
-    #[cfg(feature = "legacy-css-diagnostics")]
-    {
-        build_prepared_loaded_document_with_layout_and_line_breaking(
-            &document,
-            &prepared,
-            &layout,
-            LineBreaking::Greedy,
-            PublicationDiagnosticsMode::Compatibility,
-        )
-        .expect("explicit compatibility diagnostics may use the legacy parser");
-        assert!(prepared
-            .stylesheet_ledger
-            .legacy_artifacts_if_initialized()
-            .is_some());
-    }
+    assert_eq!(chapter.idref, "chapter-1");
 }
 
 #[test]
-fn undeclared_entity_chapter_renders_literally_without_legacy_css() {
+fn undeclared_entity_chapter_renders_literally() {
     let mut document = supported_document();
     document.chapters[0].xhtml_source =
         "<html><body><p>&not-a-declared-entity;</p></body></html>".to_owned();
@@ -117,21 +37,11 @@ fn undeclared_entity_chapter_renders_literally_without_legacy_css() {
     assert!(!chapter.parsed.nodes.is_empty());
     assert!(chapter.parsed.warnings.is_empty());
 
-    let production = build_prepared_loaded_document_with_layout_and_line_breaking(
-        &document,
-        &prepared,
-        &default_publication_layout_config(),
-        LineBreaking::Greedy,
-        PublicationDiagnosticsMode::None,
-    )
-    .expect("repaired chapter builds");
+    let resolved = prepare_runtime_layout_chapter(&prepared, &layout())
+        .expect("repaired chapter resolves")
+        .expect("the chapter resolves");
 
-    assert_eq!(production.publication.xhtml.chapters[0].warning_count, 0);
-    assert_eq!(production.publication.xhtml.chapters[0].top_level_count, 1);
-    assert!(prepared
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    assert_eq!(resolved.idref, "chapter-1");
 }
 
 #[test]
@@ -141,13 +51,7 @@ fn non_empty_chapter_without_source_arena_keeps_typed_error() {
     assert!(!prepared.chapters[0].parsed.nodes.is_empty());
     prepared.chapters[0].source_arena = None;
 
-    let error = match build_prepared_loaded_document_with_layout_and_line_breaking(
-        &document,
-        &prepared,
-        &default_publication_layout_config(),
-        LineBreaking::Greedy,
-        PublicationDiagnosticsMode::None,
-    ) {
+    let error = match prepare_runtime_layout_chapter(&prepared, &layout()) {
         Ok(_) => panic!("non-empty topology without its source arena must fail"),
         Err(error) => error,
     };
@@ -156,10 +60,24 @@ fn non_empty_chapter_without_source_arena_keeps_typed_error() {
     assert!(error
         .message()
         .contains("canonical source arena is missing"));
-    assert!(prepared
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+}
+
+fn layout() -> LayoutConfig {
+    create_layout_config(LayoutConfigInput {
+        width: 420.0,
+        height: 640.0,
+        margin: MarginInput::All(24.0),
+        spread: SpreadMode::Single,
+        first_page_alone: true,
+        spread_gap: 0.0,
+        root_font_size: 16.0,
+        line_height_override: None,
+        line_height_force: None,
+        font_family_override: None,
+        font_family_force: None,
+        pagination_policy: None,
+        text_measurement: None,
+    })
 }
 
 fn supported_document() -> LoadedEpubDocument {

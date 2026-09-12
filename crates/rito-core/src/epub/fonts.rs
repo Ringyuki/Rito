@@ -1,23 +1,15 @@
-use crate::layout::{
-    LayoutConfig, TextMeasurementCache, TextMeasurementFontFace, TextMeasurementFonts,
-    TextMeasurementMode,
-};
+use crate::layout::{LayoutConfig, TextMeasurementFontFace, TextMeasurementMode};
 use std::collections::BTreeSet;
 
-use self::layout_profile::{
-    font_family_advances, font_family_pair_adjustments, generic_serif_advances,
-    generic_serif_pair_adjustments,
-};
 use super::LoadedEpubDocument;
 
-mod layout_profile;
 mod sources;
 
 pub(crate) use sources::{resolve_font_face_sources, ResolvedFontFaceSource};
 
-pub(crate) struct TextMeasurementFontAssembly<'a> {
-    pub(crate) fonts: TextMeasurementFonts<'a>,
-    pub(crate) shapeable_publication_families: BTreeSet<String>,
+/// The publication faces a pinned layout can shape, as the required-face
+/// catalog reports them to the host.
+pub(crate) struct TextMeasurementFontAssembly {
     pub(crate) shapeable_publication_faces: Vec<ShapeablePublicationFontFace>,
 }
 
@@ -32,37 +24,16 @@ pub(crate) struct ShapeablePublicationFontFace {
     pub(crate) source_order: usize,
 }
 
-#[derive(Clone, Copy)]
-enum PublicationFontMetadata {
-    None,
-    Families,
-    Catalog,
-}
-
-struct SelectedPublicationFonts<'a> {
-    faces: Vec<TextMeasurementFontFace<'a>>,
-    families: BTreeSet<String>,
-    catalog: Vec<ShapeablePublicationFontFace>,
-}
-
 pub(crate) fn text_measurement_font_assembly_for_layout<'a>(
     document: &'a LoadedEpubDocument,
     layout_config: &LayoutConfig,
-    cache: Option<TextMeasurementCache>,
     pinned_faces: Vec<TextMeasurementFontFace<'a>>,
-) -> TextMeasurementFontAssembly<'a> {
+) -> TextMeasurementFontAssembly {
     match layout_config.text_measurement {
         TextMeasurementMode::FixtureCompatible => empty_font_assembly(),
         TextMeasurementMode::FontAware => {
             let sources = resolve_font_face_sources(document);
-            text_measurement_font_assembly_with_cache(
-                document,
-                &sources,
-                layout_config,
-                cache.unwrap_or_default(),
-                pinned_faces,
-                PublicationFontMetadata::Catalog,
-            )
+            text_measurement_font_assembly(document, &sources, pinned_faces)
         }
     }
 }
@@ -71,87 +42,23 @@ pub(crate) fn text_measurement_font_assembly_for_layout_with_sources<'a>(
     document: &'a LoadedEpubDocument,
     sources: &[ResolvedFontFaceSource],
     layout_config: &LayoutConfig,
-    cache: TextMeasurementCache,
     pinned_faces: Vec<TextMeasurementFontFace<'a>>,
-) -> TextMeasurementFontAssembly<'a> {
+) -> TextMeasurementFontAssembly {
     match layout_config.text_measurement {
         TextMeasurementMode::FixtureCompatible => empty_font_assembly(),
-        TextMeasurementMode::FontAware => text_measurement_font_assembly_with_cache(
-            document,
-            sources,
-            layout_config,
-            cache,
-            pinned_faces,
-            PublicationFontMetadata::Catalog,
-        ),
-    }
-}
-
-pub(crate) fn text_measurement_fonts_for_layout_with_sources<'a>(
-    document: &'a LoadedEpubDocument,
-    sources: &[ResolvedFontFaceSource],
-    layout_config: &LayoutConfig,
-    cache: TextMeasurementCache,
-    pinned_faces: Vec<TextMeasurementFontFace<'a>>,
-) -> TextMeasurementFonts<'a> {
-    match layout_config.text_measurement {
-        TextMeasurementMode::FixtureCompatible => TextMeasurementFonts::empty(),
         TextMeasurementMode::FontAware => {
-            text_measurement_font_assembly_with_cache(
-                document,
-                sources,
-                layout_config,
-                cache,
-                pinned_faces,
-                PublicationFontMetadata::None,
-            )
-            .fonts
+            text_measurement_font_assembly(document, sources, pinned_faces)
         }
     }
 }
 
-pub(crate) fn shapeable_publication_families_for_layout_with_sources<'a>(
+fn text_measurement_font_assembly<'a>(
     document: &'a LoadedEpubDocument,
     sources: &[ResolvedFontFaceSource],
-    layout_config: &LayoutConfig,
-    pinned_faces: &[TextMeasurementFontFace<'a>],
-) -> BTreeSet<String> {
-    match layout_config.text_measurement {
-        TextMeasurementMode::FixtureCompatible => BTreeSet::new(),
-        TextMeasurementMode::FontAware => {
-            select_publication_fonts(
-                document,
-                sources,
-                pinned_faces,
-                PublicationFontMetadata::Families,
-            )
-            .families
-        }
-    }
-}
-
-fn text_measurement_font_assembly_with_cache<'a>(
-    document: &'a LoadedEpubDocument,
-    sources: &[ResolvedFontFaceSource],
-    layout_config: &LayoutConfig,
-    cache: TextMeasurementCache,
     pinned_faces: Vec<TextMeasurementFontFace<'a>>,
-    metadata: PublicationFontMetadata,
-) -> TextMeasurementFontAssembly<'a> {
-    let mut selected = select_publication_fonts(document, sources, &pinned_faces, metadata);
-    selected.faces.extend(pinned_faces);
+) -> TextMeasurementFontAssembly {
     TextMeasurementFontAssembly {
-        fonts: TextMeasurementFonts::new_with_cache_and_vertical_metrics(
-            selected.faces,
-            cache,
-            generic_serif_advances(layout_config),
-            font_family_advances(layout_config),
-            generic_serif_pair_adjustments(layout_config),
-            font_family_pair_adjustments(layout_config),
-            layout_config.font_vertical_metrics.clone(),
-        ),
-        shapeable_publication_families: selected.families,
-        shapeable_publication_faces: selected.catalog,
+        shapeable_publication_faces: select_publication_fonts(document, sources, &pinned_faces),
     }
 }
 
@@ -159,61 +66,42 @@ fn select_publication_fonts<'a>(
     document: &'a LoadedEpubDocument,
     sources: &[ResolvedFontFaceSource],
     pinned_faces: &[TextMeasurementFontFace<'a>],
-    metadata: PublicationFontMetadata,
-) -> SelectedPublicationFonts<'a> {
+) -> Vec<ShapeablePublicationFontFace> {
     let pinned_active = !pinned_faces.is_empty();
+    if !pinned_active {
+        return Vec::new();
+    }
     let pinned_aliases = pinned_faces
         .iter()
         .map(|face| normalize_family_name(&face.family))
         .collect::<BTreeSet<_>>();
-    let mut faces = Vec::new();
-    let mut families = BTreeSet::new();
-    let mut catalog = Vec::new();
-    for source in sources {
-        let Some((resource, face, family)) =
-            selectable_publication_face(document, source, pinned_active, &pinned_aliases)
-        else {
-            continue;
-        };
-        if face.is_shapeable() {
-            if matches!(
-                metadata,
-                PublicationFontMetadata::Families | PublicationFontMetadata::Catalog
-            ) {
-                families.insert(family);
-            }
-            if pinned_active && matches!(metadata, PublicationFontMetadata::Catalog) {
-                catalog.push(shapeable_catalog_face(source, resource, &face));
-            }
-        } else if pinned_active {
-            continue;
-        }
-        faces.push(face);
-    }
-    SelectedPublicationFonts {
-        faces,
-        families,
-        catalog,
-    }
+    sources
+        .iter()
+        .filter_map(|source| {
+            let (resource, face) = selectable_publication_face(document, source, &pinned_aliases)?;
+            face.is_shapeable()
+                .then(|| shapeable_catalog_face(source, resource, &face))
+        })
+        .collect()
 }
 
+/// A publication face the pinned policy admits: not aliased by a pinned
+/// face, and statically shapeable.
 fn selectable_publication_face<'a>(
     document: &'a LoadedEpubDocument,
     source: &ResolvedFontFaceSource,
-    pinned_active: bool,
     pinned_aliases: &BTreeSet<String>,
 ) -> Option<(
     &'a crate::epub::LoadedBinaryResource,
     TextMeasurementFontFace<'a>,
-    String,
 )> {
     let resource = document.fonts.get(source.resource_index)?;
     let face = source.measurement_face(resource);
     let family = normalize_family_name(&face.family);
-    if pinned_active && (pinned_aliases.contains(&family) || !face.is_static_shapeable()) {
+    if pinned_aliases.contains(&family) || !face.is_static_shapeable() {
         return None;
     }
-    Some((resource, face, family))
+    Some((resource, face))
 }
 
 /// Every `@font-face` bound face in the publication, regardless of host
@@ -249,10 +137,8 @@ fn shapeable_catalog_face(
     }
 }
 
-fn empty_font_assembly<'a>() -> TextMeasurementFontAssembly<'a> {
+fn empty_font_assembly() -> TextMeasurementFontAssembly {
     TextMeasurementFontAssembly {
-        fonts: TextMeasurementFonts::empty(),
-        shapeable_publication_families: BTreeSet::new(),
         shapeable_publication_faces: Vec::new(),
     }
 }

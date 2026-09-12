@@ -12,13 +12,40 @@ use crate::{
     interaction::{FootnoteEntry, FootnoteKind},
     layout::{
         FontVerticalMetricDemand, FontVerticalMetricSample, LayoutConfig, LineBreaking,
-        PaginationFlowChapterRange, SearchRuntimeResult, SearchTextPosition, TextRangeRect,
-        TextRunOffset,
+        PaginationFlowChapterRange, SearchRuntimeResult, SearchTextPosition,
     },
     render::DisplayListResourceRefs,
     resources::PublicationResources,
     xhtml::ChapterSource,
 };
+
+/// One painted rectangle of a text range on a page, addressed by the
+/// run it belongs to and the run-local UTF-16 offsets it covers.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextRangeRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub block_index: usize,
+    pub line_index: usize,
+    pub run_index: usize,
+    pub start_char_index: usize,
+    pub end_char_index: usize,
+}
+
+/// One text run's span inside a page's concatenated text, in UTF-16
+/// offsets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextRunOffset {
+    pub start: usize,
+    pub end: usize,
+    pub block_index: usize,
+    pub line_index: usize,
+    pub run_index: usize,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

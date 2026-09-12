@@ -12,14 +12,6 @@ mod toc;
 
 use std::{error::Error, fmt};
 
-use crate::{
-    css::CssSummary,
-    interaction::InteractionSummary,
-    layout::LayoutSummary,
-    resources::PublicationResources,
-    style::StyleSummary,
-    xhtml::{ChapterSource, XhtmlSummary},
-};
 use serde::{Deserialize, Serialize};
 
 pub(crate) use document::ChapterSourceScanSession;
@@ -29,30 +21,21 @@ pub use document::{
 };
 pub(crate) use fonts::{
     publication_font_face_catalog, resolve_font_face_sources,
-    shapeable_publication_families_for_layout_with_sources,
-    text_measurement_font_assembly_for_layout_with_sources,
-    text_measurement_fonts_for_layout_with_sources, ResolvedFontFaceSource,
+    text_measurement_font_assembly_for_layout_with_sources, ResolvedFontFaceSource,
     ShapeablePublicationFontFace,
-};
-#[cfg(feature = "legacy-css-diagnostics")]
-pub use layout_bridge::{
-    analyze_loaded_document_with_layout_and_line_breaking,
-    analyze_publication_with_layout_and_line_breaking,
-};
-pub use layout_bridge::{
-    load_publication, load_publication_with_layout, load_publication_with_layout_and_line_breaking,
-    summarize_loaded_document_with_layout, summarize_loaded_document_with_layout_and_line_breaking,
 };
 pub(crate) use layout_bridge::{
     prepare_runtime_layout_chapter, project_prepared_document_styles, ChapterStyleTable,
-    PreparedRuntimeLayoutChapter, PreparedRuntimeLayoutOptions,
+    PreparedRuntimeLayoutOptions,
 };
 pub(crate) use paths::{is_external_href, join_epub_href, join_zip_path, opf_dir};
+#[cfg(test)]
+pub(crate) use prepared::prepare_loaded_document;
 pub(crate) use prepared::{
-    loaded_document_resources, parsed_loaded_chapter_source, prepare_loaded_document,
-    prepare_loaded_document_base, prepare_loaded_document_with_base,
-    prepare_loaded_document_with_base_and_footnote_targets, ParsedLoadedChapterSource,
-    PreparedLoadedDocument, PreparedLoadedDocumentBase, StylesheetSourceLedger,
+    loaded_document_resources, parsed_loaded_chapter_source, prepare_loaded_document_base,
+    prepare_loaded_document_with_base, prepare_loaded_document_with_base_and_footnote_targets,
+    ParsedLoadedChapterSource, PreparedLoadedDocument, PreparedLoadedDocumentBase,
+    StylesheetSourceLedger,
 };
 
 pub const CONTAINER_PATH: &str = "META-INF/container.xml";
@@ -139,47 +122,3 @@ impl fmt::Display for EpubError {
 impl Error for EpubError {}
 
 pub type EpubResult<T> = Result<T, EpubError>;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EpubPublication {
-    pub package: PackageDocument,
-    pub resources: PublicationResources,
-    pub chapters: Vec<ChapterSource>,
-    pub xhtml: XhtmlSummary,
-    /// Compatibility parser diagnostics, populated only by an explicit
-    /// `analyze_*` entry point. Normal production loading leaves this `None`.
-    #[serde(default)]
-    pub css: Option<CssSummary>,
-    /// Compatibility cascade diagnostics, populated only by an explicit
-    /// `analyze_*` entry point. Normal production loading leaves this `None`.
-    #[serde(default)]
-    pub style: Option<StyleSummary>,
-    pub layout: LayoutSummary,
-    pub interaction: InteractionSummary,
-    /// What this publication's CSS asked for that the engine could not
-    /// represent. Empty means the supported profile covered every declaration
-    /// the stylesheets used.
-    #[serde(default)]
-    pub style_capabilities: StyleCapabilitySummary,
-}
-
-/// Publication-level record of CSS this engine could not represent.
-///
-/// CSS drops content an engine does not understand and applies the rest, so
-/// divergence is normal and must be described rather than treated as failure.
-/// Consumers use this to explain reduced fidelity; the project uses it to
-/// prioritize real capability work from real books.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StyleCapabilitySummary {
-    /// Declarations that cannot change this engine's layout or paint, so
-    /// dropping them renders what a supporting engine would render.
-    pub ignored: Vec<String>,
-    /// Declarations that would have changed rendering. Output stays readable
-    /// and self-consistent but is not what the author specified.
-    pub degraded: Vec<String>,
-    /// Whether every selected stylesheet was fully inventoried. When false the
-    /// lists above may under-report; Stylo remains the rendering authority.
-    pub complete: bool,
-}

@@ -1,8 +1,4 @@
 use crate::epub::{EpubError, EpubResult};
-use crate::layout::{
-    summarize_layout_font_families, summarize_layout_font_vertical_metric_demands,
-    TextMeasurementMode,
-};
 
 use super::revision_fonts::required_font_faces_for_revision;
 use super::{
@@ -69,27 +65,21 @@ impl RuntimeDocument {
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
         // Fragment pagination keeps every registered publication face in
-        // its paint stacks, so the canvas must load them all; the
-        // retained backend reports only the families its pages used.
-        let font_families = if revision_record.fragment_layout.is_some() {
-            revision_record
-                .required_font_face_catalog
-                .as_deref()
-                .map(|catalog| {
-                    let mut families: Vec<String> =
-                        catalog.iter().map(|face| face.family.clone()).collect();
-                    families.sort();
-                    families.dedup();
-                    families
-                })
-                .unwrap_or_default()
-        } else {
-            summarize_layout_font_families(&revision_record.layout.pages)
-        };
-        let font_vertical_metric_demands = (revision_record.layout_config.text_measurement
-            == TextMeasurementMode::FontAware)
-            .then(|| summarize_layout_font_vertical_metric_demands(&revision_record.layout.pages))
-            .filter(|demands| !demands.is_empty());
+        // its paint stacks, so the canvas must load them all.
+        let font_families = revision_record
+            .required_font_face_catalog
+            .as_deref()
+            .map(|catalog| {
+                let mut families: Vec<String> =
+                    catalog.iter().map(|face| face.family.clone()).collect();
+                families.sort();
+                families.dedup();
+                families
+            })
+            .unwrap_or_default();
+        // The fragment engine shapes with its own faces and never asks the
+        // host for vertical-metric samples.
+        let font_vertical_metric_demands = None;
         let required_font_faces = revision_record
             .required_font_face_catalog
             .as_deref()

@@ -4,7 +4,6 @@ use super::{
     paint_number_value, BorderEdgePaint, FontPaint, RunBorder, RunBorderEdge, RunDecoration,
     RunPaint, RunSpacing, TextShadowPaint,
 };
-use crate::layout::summary_json::number_value as rounded_number_value;
 
 impl RunPaint {
     pub(crate) fn to_wire_value(&self) -> Value {
@@ -177,5 +176,17 @@ fn insert_optional_string(output: &mut Map<String, Value>, key: &str, value: Opt
 fn insert_optional_value(output: &mut Map<String, Value>, key: &str, value: Option<Value>) {
     if let Some(value) = value {
         output.insert(key.to_owned(), value);
+    }
+}
+
+/// A number rounded to three decimals, integral values emitted as integers.
+fn rounded_number_value(value: f64) -> Value {
+    let rounded = (value * 1000.0).round() / 1000.0;
+    if rounded.fract().abs() < f64::EPSILON {
+        Value::Number(serde_json::Number::from(rounded as i64))
+    } else {
+        Value::Number(
+            serde_json::Number::from_f64(rounded).unwrap_or_else(|| serde_json::Number::from(0)),
+        )
     }
 }

@@ -32,7 +32,7 @@ use super::{
     },
     stylo_sources::{
         select_stylo_sources, validate_stylo_source_arena, StyleCapabilityImpact,
-        StyleCapabilityReport, StyloSourceRejection,
+        StyloSourceRejection,
     },
     ChapterStyleOptions,
 };
@@ -51,8 +51,26 @@ pub(crate) struct PreparedStyleChapterInput<'a> {
 }
 
 pub(crate) struct ResolvedPreparedChapterStyle {
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "the JSON style materialization retires next; only the typed tables have a consumer"
+        )
+    )]
     pub(crate) styled_nodes: Vec<super::StyledNode>,
+    #[expect(
+        dead_code,
+        reason = "the JSON style materialization retires next; only the typed tables have a consumer"
+    )]
     pub(crate) pagination_styled_nodes: Option<Vec<super::StyledNode>>,
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "the JSON style materialization retires next; only the typed tables have a consumer"
+        )
+    )]
     pub(crate) page_paint: Option<serde_json::Value>,
     /// The typed layout styles this chapter's nodes resolved to, retained
     /// past materialization so typed consumers never re-derive styles from
@@ -60,10 +78,6 @@ pub(crate) struct ResolvedPreparedChapterStyle {
     pub(crate) layout_style_table: rito_style_contract::LayoutStyleTableV1,
     /// The typed inline styles, retained for the same consumers.
     pub(crate) inline_style_table: rito_style_contract::InlineStyleTableV1,
-    /// What this chapter's CSS asked for that the engine could not represent.
-    /// Consumers use it to describe reduced fidelity instead of discovering it
-    /// as a missing feature.
-    pub(crate) capabilities: StyleCapabilityReport,
 }
 
 #[cfg(feature = "legacy-css-diagnostics")]
@@ -148,7 +162,7 @@ impl fmt::Display for StyleBackendError {
 
 impl std::error::Error for StyleBackendError {}
 
-#[cfg(any(test, feature = "bench-internals"))]
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) struct StyleBackendMetrics {
     pub(crate) stylo_successes: u64,
@@ -177,7 +191,7 @@ static STYLO_ENGINE_FALLBACKS: AtomicU64 = AtomicU64::new(0);
 #[cfg(feature = "legacy-css-diagnostics")]
 static MATERIALIZATION_FALLBACKS: AtomicU64 = AtomicU64::new(0);
 
-#[cfg(any(test, feature = "bench-internals"))]
+#[cfg(test)]
 pub(crate) fn style_backend_metrics() -> StyleBackendMetrics {
     let [legacy_fallbacks, source_topology_fallbacks, unsupported_configuration_fallbacks, source_gate_fallbacks, invalid_viewport_fallbacks, stylo_engine_fallbacks, materialization_fallbacks] =
         legacy_fallback_metrics();
@@ -193,7 +207,7 @@ pub(crate) fn style_backend_metrics() -> StyleBackendMetrics {
     }
 }
 
-#[cfg(any(test, feature = "bench-internals"))]
+#[cfg(test)]
 fn legacy_fallback_metrics() -> [u64; 7] {
     #[cfg(feature = "legacy-css-diagnostics")]
     {
@@ -323,7 +337,6 @@ fn try_resolve_with_stylo(
         page_paint: resolved.page_paint,
         layout_style_table: layout.into_table(),
         inline_style_table: inline.into_table(),
-        capabilities,
     })
 }
 
@@ -398,11 +411,6 @@ fn configured_line_height(value: f64) -> Result<f32, StyleBackendError> {
 }
 
 fn log_stylo_failure(action: &str, error: &StyleBackendError) {
-    #[cfg(feature = "bench-internals")]
-    if std::env::var_os("RITO_STYLO_FALLBACK_DIAGNOSTICS").is_some() {
-        eprintln!("rito Stylo {action}: {error}");
-    }
-    #[cfg(not(feature = "bench-internals"))]
     let _ = (action, error);
 }
 
@@ -482,6 +490,5 @@ fn resolve_with_legacy_compatibility(
         // capability report; diagnostics-only.
         layout_style_table: rito_style_contract::LayoutStyleTableV1::new(0),
         inline_style_table: rito_style_contract::InlineStyleTableV1::new(0),
-        capabilities: StyleCapabilityReport::default(),
     }
 }

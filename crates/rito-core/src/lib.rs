@@ -1,8 +1,8 @@
 //! Production Rust engine for Rito.
 //!
-//! This crate owns EPUB parsing, style resolution, layout, display commands,
-//! interaction geometry, resources, and the revision/frame runtime. The
-//! quarantined TypeScript core remains a parity and diagnostics oracle only.
+//! This crate owns EPUB parsing, style resolution, the fragment layout
+//! pipeline's bridge and paint lowering, display commands, interaction
+//! geometry, resources, and the revision/frame runtime.
 
 pub mod css;
 pub mod epub;
@@ -16,9 +16,6 @@ pub mod resources;
 pub mod runtime;
 pub mod style;
 pub mod xhtml;
-
-#[cfg(feature = "bench-internals")]
-pub mod bench;
 
 pub const ENGINE_NAME: &str = "rito-core";
 

@@ -28,16 +28,6 @@ name = "bounded-float-probe"
 path = "examples/bounded_float_probe.rs"
 
 [[example]]
-name = "bounded-pagination-probe"
-path = "examples/bounded_pagination_probe.rs"
-required-features = ["bench-internals"]
-
-[[example]]
-name = "stylo-production-probe"
-path = "examples/stylo_production_probe.rs"
-required-features = ["bench-internals"]
-
-[[example]]
 name = "reader-v1-turn-probe"
 path = "examples/reader_v1_turn_probe.rs"
 
@@ -53,19 +43,8 @@ path = "examples/anchor_roundtrip_probe.rs"
 name = "layout-engine-bench"
 path = "examples/layout_engine_bench.rs"
 
-[[example]]
-name = "reader-v1-stage-probe"
-path = "examples/reader_v1_stage_probe.rs"
-required-features = ["bench-internals"]
-
 [features]
-bench-internals = ["legacy-css-diagnostics"]
 legacy-css-diagnostics = []
-
-[[test]]
-name = "rust_fixture_package"
-path = "tests/rust_fixture_package.rs"
-required-features = ["legacy-css-diagnostics"]
 
 [dependencies]
 rito-block = { path = "../rito-block" }
@@ -80,9 +59,6 @@ serde_json = { version = "1.0", features = ["float_roundtrip"] }
 sha2 = "0.10"
 rustybuzz = "0.20"
 ttf-parser = "0.25"
-unicode-linebreak = "0.1"
-unicode-bidi = "0.3"
-unicode-segmentation = "1.12"
 icu_segmenter = "2.2.0"
 icu_locale_core = "2.2.0"
 zip = { version = "2", default-features = false, features = ["deflate"] }

@@ -40,13 +40,7 @@ impl CssViewport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CssColorScheme {
     Light,
-    #[cfg_attr(
-        not(feature = "bench-internals"),
-        expect(
-            dead_code,
-            reason = "production viewport construction is light-only; benchmark parity can supply dark"
-        )
-    )]
+    #[expect(dead_code, reason = "production viewport construction is light-only")]
     Dark,
 }
 

@@ -32,7 +32,7 @@ impl RuntimeDocument {
             &revision.layout_config,
         )
         .len();
-        revision.fragment_layout = Some(layout);
+        revision.fragment_layout = layout;
         let extent = crate::runtime::RuntimeRevisionExtent {
             page_count,
             spread_count,

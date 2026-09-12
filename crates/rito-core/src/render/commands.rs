@@ -109,6 +109,13 @@ impl DisplayCommand {
         Self::Translate { dx, dy }
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "opacity lowers to the wire and both pens paint it, but fragment paint does not emit it yet"
+        )
+    )]
     pub(crate) fn opacity(value: f64) -> Self {
         Self::Opacity { value }
     }

@@ -1,10 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::{
-    layout::{
-        runtime_session::RuntimeChapterLayoutSession, LayoutConfig, LayoutRuntimePage, LineBreaking,
-    },
-    runtime::frame::RuntimeRevisionInteractions,
+    layout::{LayoutConfig, LineBreaking},
     runtime::RuntimeSourceLocator,
 };
 
@@ -121,8 +118,9 @@ impl RuntimeContinuationStore {
     }
 }
 
-/// Experimental core-only continuation state. Each chapter is prepared against
-/// the immutable publication footnote target index before any page is sealed.
+/// The cursor state of a chapter-local revision window: which chapter it
+/// paginates, how many pages it has published against its cap, and the
+/// exact target it was opened toward.
 #[derive(Debug)]
 pub(in crate::runtime) struct RuntimeContinuationRecord {
     pub(in crate::runtime) revision_id: String,
@@ -132,7 +130,6 @@ pub(in crate::runtime) struct RuntimeContinuationRecord {
     pub(super) line_breaking: LineBreaking,
     pub(super) next_chapter_index: usize,
     pub(super) chapter_count: usize,
-    pub(super) current: Option<RuntimeChapterContinuation>,
     pub(super) published_page_count: usize,
     pub(super) local_page_cap: Option<usize>,
     pub(super) chapter_local_target: Option<RuntimeSourceLocator>,
@@ -155,26 +152,15 @@ impl RuntimeContinuationRecord {
             line_breaking,
             next_chapter_index: 0,
             chapter_count,
-            current: None,
             published_page_count: 0,
             local_page_cap: None,
             chapter_local_target: None,
         }
     }
 
-    pub(super) fn is_complete(&self) -> bool {
-        self.current.is_none() && self.next_chapter_index == self.chapter_count
-    }
-
     pub(super) fn reached_local_page_cap(&self) -> bool {
         self.local_page_cap
             .is_some_and(|cap| self.published_page_count >= cap)
-    }
-
-    pub(super) fn remaining_page_capacity(&self) -> usize {
-        self.local_page_cap.map_or(usize::MAX, |cap| {
-            cap.saturating_sub(self.published_page_count)
-        })
     }
 
     pub(super) fn rollover_chapter_local_window(&mut self, revision_id: String) {
@@ -183,70 +169,5 @@ impl RuntimeContinuationRecord {
         self.revision_id = revision_id;
         self.revision_version = 0;
         self.published_page_count = 0;
-    }
-}
-
-#[derive(Debug)]
-pub(in crate::runtime) struct RuntimeChapterContinuation {
-    pub(super) idref: String,
-    pub(super) session: RuntimeChapterLayoutSession,
-    pub(super) completed_chapter_idrefs: BTreeSet<String>,
-    pub(super) unpublished_pages: Vec<LayoutRuntimePage>,
-    pub(super) has_published_pages: bool,
-    pub(super) chapter_complete: bool,
-    pub(super) total_block_count: usize,
-    /// This chapter's typed style tables, held until the chapter first
-    /// contributes to published work, then moved into the revision.
-    pub(super) pending_style_table: Option<crate::runtime::frame::RuntimeChapterStyleTables>,
-}
-
-impl RuntimeChapterContinuation {
-    pub(in crate::runtime) fn new(
-        idref: String,
-        session: RuntimeChapterLayoutSession,
-        completed_chapter_idrefs: BTreeSet<String>,
-        unpublished_pages: Vec<LayoutRuntimePage>,
-        has_published_pages: bool,
-        pending_style_table: Option<crate::runtime::frame::RuntimeChapterStyleTables>,
-    ) -> Self {
-        Self {
-            idref,
-            session,
-            completed_chapter_idrefs,
-            unpublished_pages,
-            has_published_pages,
-            chapter_complete: false,
-            total_block_count: 0,
-            pending_style_table,
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub(in crate::runtime) struct RuntimeContinuationWork {
-    pub(super) batches: Vec<RuntimeChapterPageBatch>,
-    /// Typed style tables for chapters whose work is published by this
-    /// advance, keyed by idref. Applied to the revision atomically with
-    /// the page batches; retired work drops them with the batches.
-    pub(super) chapter_style_tables:
-        Vec<(String, crate::runtime::frame::RuntimeChapterStyleTables)>,
-    pub(super) available_interactions: Vec<RuntimeRevisionInteractions>,
-    pub(super) completed_chapter_idrefs: BTreeSet<String>,
-    pub(super) processed_top_level_nodes: usize,
-    pub(super) complete: bool,
-}
-
-#[derive(Debug)]
-pub(super) struct RuntimeChapterPageBatch {
-    pub(super) idref: String,
-    pub(super) block_count: usize,
-    pub(super) pages: Vec<LayoutRuntimePage>,
-}
-
-impl RuntimeContinuationWork {
-    pub(in crate::runtime) fn has_cleanup_owners(&self) -> bool {
-        !self.batches.is_empty()
-            || !self.available_interactions.is_empty()
-            || !self.completed_chapter_idrefs.is_empty()
     }
 }

@@ -32,29 +32,21 @@ impl RuntimeDocument {
         self.create_fragment_revision(layout_config.clone(), line_breaking)
     }
 
-    /// Builds a whole-book revision paginated by the fragment engine
-    /// alone: style projection runs, the retained layout engine does not.
-    /// The revision keeps an empty retained scaffold only because the
-    /// storage type still requires one; every query serves from the
-    /// fragment page table.
+    /// Builds a whole-book revision: style projection runs, then the
+    /// fragment engine paginates every chapter and attaches the page
+    /// table; every query serves from it.
     fn create_fragment_revision(
         &mut self,
         layout_config: LayoutConfig,
         line_breaking: LineBreaking,
     ) -> EpubResult<RuntimeRevisionSummary> {
-        // The fragment engine's line breaking is its own; the retained
-        // engine's greedy/optimal switch does not apply.
+        // The fragment engine's line breaking is its own; the request's
+        // greedy/optimal switch does not apply.
         let _ = line_breaking;
         let revision_id = self.create_revision_id();
         let (
             layout_config,
-            (
-                chapter_count,
-                chapter_style_tables,
-                required_font_face_catalog,
-                interactions,
-                layout_key,
-            ),
+            (chapter_style_tables, required_font_face_catalog, interactions, layout_key),
         ) = self.run_with_owned_layout_config(layout_config, |document, layout_config| {
             document.document.ensure_all_chapters_loaded()?;
             document
@@ -69,10 +61,6 @@ impl RuntimeDocument {
             let pinned_faces = document
                 .pinned_font_policy
                 .measurement_faces_for_layout(layout_config);
-            let font_fallbacks = document.pinned_font_policy.family_fallbacks_for_layout(
-                layout_config,
-                &document.document.package.metadata.language,
-            );
             let projected = crate::epub::project_prepared_document_styles(
                 &document.document,
                 prepared,
@@ -80,10 +68,7 @@ impl RuntimeDocument {
                 crate::epub::PreparedRuntimeLayoutOptions {
                     chapter_start: 0,
                     chapter_count: prepared.chapters.len(),
-                    line_breaking: LineBreaking::Greedy,
-                    text_measurement_cache: Some(document.text_measurement_cache.clone()),
                     pinned_faces,
-                    font_fallbacks,
                 },
             )?;
             // The fragment engine shapes with every publication face; the
@@ -99,7 +84,6 @@ impl RuntimeDocument {
             let layout_key = layout_key(layout_config, &document.pinned_font_policy)?;
             let interactions = runtime_revision_interactions(prepared, true);
             Ok((
-                prepared.chapters.len(),
                 chapter_style_table_map(projected.chapter_style_tables),
                 required_font_face_catalog,
                 interactions,
@@ -107,7 +91,6 @@ impl RuntimeDocument {
             ))
         })?;
         let revision = RuntimeRevision::completed(
-            crate::layout::create_empty_runtime_layout(chapter_count, &layout_config),
             layout_config,
             chapter_style_tables,
             required_font_face_catalog,
@@ -118,7 +101,7 @@ impl RuntimeDocument {
         let revision = self
             .any_revision(&revision_id)
             .expect("the revision was just inserted");
-        if revision.fragment_layout.is_none() {
+        if revision.fragment_layout.page_count() == 0 {
             let reason = self
                 .fragment_page_table_rejection_reason(&revision_id)
                 .unwrap_or_else(|| "unknown".to_owned());
@@ -226,13 +209,10 @@ impl RuntimeDocument {
             .chapters
             .get(index)
             .ok_or_else(|| EpubError::new(format!("chapter index out of range: {index}")))?;
-        Ok(self.parsed_chapters.entry(index).or_insert_with(|| {
-            #[cfg(any(test, feature = "bench-internals"))]
-            let _probe_timer = crate::layout::bounded_work_probe::start_timing(
-                crate::layout::bounded_work_probe::ContinuationTimingStage::ChapterParse,
-            );
-            crate::epub::parsed_loaded_chapter_source(chapter)
-        }))
+        Ok(self
+            .parsed_chapters
+            .entry(index)
+            .or_insert_with(|| crate::epub::parsed_loaded_chapter_source(chapter)))
     }
 
     fn prepared_base(&mut self) -> &mut crate::epub::PreparedLoadedDocumentBase {

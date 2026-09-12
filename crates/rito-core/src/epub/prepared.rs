@@ -13,7 +13,7 @@ use crate::{
         FootnoteTargetSet, InteractionSummary,
     },
     resources::PublicationResources,
-    xhtml::{parse_xhtml_with_source, ChapterSource, ParseResult, XhtmlSummary},
+    xhtml::{parse_xhtml_with_source, ChapterSource, ParseResult},
 };
 
 use super::{LoadedChapter, LoadedEpubDocument};
@@ -26,11 +26,9 @@ pub(crate) struct PreparedLoadedDocumentBase {
 
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedLoadedDocument {
-    pub(crate) resources: PublicationResources,
     pub(crate) stylesheet_ledger: StylesheetSourceLedger,
     pub(crate) chapters: Vec<ParsedLoadedChapterSource>,
     pub(crate) filtered_footnote_nodes: BTreeMap<String, Vec<crate::xhtml::DocumentNode>>,
-    pub(crate) xhtml: XhtmlSummary,
     pub(crate) interaction: InteractionSummary,
 }
 
@@ -145,10 +143,16 @@ pub(crate) struct ParsedLoadedChapterSource {
     pub(crate) parsed: ParseResult,
 }
 
+#[cfg(test)]
 pub(crate) fn prepare_loaded_document(document: &LoadedEpubDocument) -> PreparedLoadedDocument {
-    prepare_loaded_document_with_chapters(
-        document,
-        parsed_loaded_chapter_sources_from_document(document),
+    let base = prepare_loaded_document_base(document);
+    prepare_loaded_document_with_base(
+        &base,
+        document
+            .chapters
+            .iter()
+            .map(parse_loaded_chapter_source)
+            .collect(),
     )
 }
 
@@ -195,23 +199,14 @@ pub(crate) fn prepare_loaded_document_with_base_and_footnote_targets(
             .find(|chapter| chapter.source.idref == *idref)
             .is_some_and(|chapter| chapter.parsed.nodes != *nodes)
     });
-    let xhtml = crate::xhtml::summarize_parsed_chapters(chapters.iter().map(|chapter| {
-        (
-            chapter.source.idref.clone(),
-            chapter.source.href.clone(),
-            chapter.parsed.clone(),
-        )
-    }));
     let interaction = crate::interaction::summarize_interaction_with_footnotes(
         chapters.iter().map(|chapter| chapter.source.idref.clone()),
         extraction.footnotes,
     );
     PreparedLoadedDocument {
-        resources: base.resources.clone(),
         stylesheet_ledger: base.stylesheet_ledger.clone(),
         chapters,
         filtered_footnote_nodes,
-        xhtml,
         interaction,
     }
 }
@@ -227,22 +222,8 @@ fn footnote_inputs(chapters: &[ParsedLoadedChapterSource]) -> Vec<FootnoteFilter
         .collect()
 }
 
-pub(crate) fn parsed_loaded_chapter_sources_from_document(
-    document: &LoadedEpubDocument,
-) -> Vec<ParsedLoadedChapterSource> {
-    parsed_loaded_chapter_sources(document.chapters.iter())
-}
-
 pub(crate) fn parsed_loaded_chapter_source(chapter: &LoadedChapter) -> ParsedLoadedChapterSource {
     parse_loaded_chapter_source(chapter)
-}
-
-fn prepare_loaded_document_with_chapters(
-    document: &LoadedEpubDocument,
-    chapters: Vec<ParsedLoadedChapterSource>,
-) -> PreparedLoadedDocument {
-    let base = prepare_loaded_document_base(document);
-    prepare_loaded_document_with_base(&base, chapters)
 }
 
 pub(crate) fn loaded_document_resources(document: &LoadedEpubDocument) -> PublicationResources {
@@ -282,15 +263,6 @@ pub(crate) fn loaded_document_resources(document: &LoadedEpubDocument) -> Public
         .collect();
     crate::resources::sort_publication_resources(&mut resources);
     resources
-}
-
-fn parsed_loaded_chapter_sources<'a>(
-    chapters: impl IntoIterator<Item = &'a LoadedChapter>,
-) -> Vec<ParsedLoadedChapterSource> {
-    chapters
-        .into_iter()
-        .map(parse_loaded_chapter_source)
-        .collect()
 }
 
 fn parse_loaded_chapter_source(chapter: &LoadedChapter) -> ParsedLoadedChapterSource {

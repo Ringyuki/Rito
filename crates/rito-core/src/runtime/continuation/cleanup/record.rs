@@ -5,9 +5,7 @@ use crate::{
     runtime::RuntimeSourceLocator,
 };
 
-use super::{
-    super::state::RuntimeContinuationRecord, chapter::PendingRuntimeChapterContinuationCleanup,
-};
+use super::super::state::RuntimeContinuationRecord;
 
 /// Copy-only remainder of a decomposed continuation record.
 #[derive(Debug)]
@@ -20,20 +18,20 @@ struct ContinuationRecordShell {
     local_page_cap: Option<usize>,
 }
 
-/// Releases an active chapter before the record's flat ownership fields.
+/// Releases a continuation record's owned fields one budgeted unit at a
+/// time.
 ///
-/// If layout-configuration cleanup costs `LC`, a record without an active
-/// chapter costs exactly `LC + 5` units. An active chapter adds its nested
-/// cleanup units plus one retirement boundary, so a populated record costs
-/// exactly `CC + LC + 6` units.
-/// A chapter-local record adds one unit for its exact canonical target.
+/// If layout-configuration cleanup costs `LC`, a record costs exactly
+/// `LC + 4` units: one to decompose it, `LC` for the configuration, one
+/// each for the layout key and the revision id, and one to retire the
+/// copy-only shell. A chapter-local record adds one unit for its exact
+/// canonical target.
 ///
 /// The layout configuration's unbounded font-measurement maps are delegated to
 /// their own budgeted cursor.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeContinuationRecordCleanup {
     owner: Option<RuntimeContinuationRecord>,
-    current: Option<PendingRuntimeChapterContinuationCleanup>,
     chapter_local_target: Option<RuntimeSourceLocator>,
     layout_config: Option<PendingLayoutConfigCleanup>,
     layout_key: Option<String>,
@@ -44,8 +42,7 @@ pub(in crate::runtime) struct PendingRuntimeContinuationRecordCleanup {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ContinuationRecordCleanupStage {
-    CurrentSource,
-    Current,
+    Decompose,
     ChapterLocalTarget,
     LayoutConfig,
     LayoutKey,
@@ -58,13 +55,12 @@ impl PendingRuntimeContinuationRecordCleanup {
     pub(in crate::runtime) fn new(owner: RuntimeContinuationRecord) -> Self {
         Self {
             owner: Some(owner),
-            current: None,
             chapter_local_target: None,
             layout_config: None,
             layout_key: None,
             revision_id: None,
             shell: None,
-            stage: ContinuationRecordCleanupStage::CurrentSource,
+            stage: ContinuationRecordCleanupStage::Decompose,
         }
     }
 
@@ -74,8 +70,7 @@ impl PendingRuntimeContinuationRecordCleanup {
 
     pub(in crate::runtime) fn advance_one(&mut self) -> bool {
         match self.stage {
-            ContinuationRecordCleanupStage::CurrentSource => self.start_current(),
-            ContinuationRecordCleanupStage::Current => self.advance_current(),
+            ContinuationRecordCleanupStage::Decompose => self.decompose(),
             ContinuationRecordCleanupStage::ChapterLocalTarget => {
                 self.release_chapter_local_target()
             }
@@ -110,7 +105,7 @@ impl PendingRuntimeContinuationRecordCleanup {
         }
     }
 
-    fn start_current(&mut self) -> bool {
+    fn decompose(&mut self) -> bool {
         let owner = self
             .owner
             .take()
@@ -123,12 +118,10 @@ impl PendingRuntimeContinuationRecordCleanup {
             line_breaking,
             next_chapter_index,
             chapter_count,
-            current,
             published_page_count,
             local_page_cap,
             chapter_local_target,
         } = owner;
-        self.current = current.map(PendingRuntimeChapterContinuationCleanup::new);
         self.chapter_local_target = chapter_local_target;
         self.layout_config = Some(PendingLayoutConfigCleanup::new(layout_config));
         self.layout_key = Some(layout_key);
@@ -141,35 +134,12 @@ impl PendingRuntimeContinuationRecordCleanup {
             published_page_count,
             local_page_cap,
         });
-        self.stage = if self.current.is_some() {
-            ContinuationRecordCleanupStage::Current
-        } else {
-            self.stage_after_current()
-        };
-        true
-    }
-
-    fn advance_current(&mut self) -> bool {
-        let current = self
-            .current
-            .as_mut()
-            .expect("active-chapter cleanup exists");
-        if current.is_complete() {
-            self.current = None;
-            self.stage = self.stage_after_current();
-            return true;
-        }
-        let advanced = current.advance_one();
-        debug_assert!(advanced, "incomplete active-chapter cleanup has work");
-        true
-    }
-
-    fn stage_after_current(&self) -> ContinuationRecordCleanupStage {
-        if self.chapter_local_target.is_some() {
+        self.stage = if self.chapter_local_target.is_some() {
             ContinuationRecordCleanupStage::ChapterLocalTarget
         } else {
             ContinuationRecordCleanupStage::LayoutConfig
-        }
+        };
+        true
     }
 
     fn release_chapter_local_target(&mut self) -> bool {

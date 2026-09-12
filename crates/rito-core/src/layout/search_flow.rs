@@ -1,50 +1,14 @@
-use std::{collections::BTreeMap, sync::Arc};
-
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-
-use super::{
-    content::{RuntimeBlock, RuntimeChild},
-    line::{LineBox, LineRun},
-    page::RuntimePage,
-    summary_json::{hash_json, hash_text},
-    text_mapping::{LogicalTextFlow, RunTextMapping},
-};
-
-type SearchPage = RuntimePage<RuntimeBlock<LineBox>>;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchFlowSummary {
-    pub query_count: usize,
-    pub result_count: usize,
-    pub queries: Vec<SearchFlowQuerySummary>,
-    pub full_detail_hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchFlowQuerySummary {
-    pub id: String,
-    pub query: String,
-    pub case_sensitive: bool,
-    pub whole_word: bool,
-    pub result_count: usize,
-    pub page_indexes: Vec<usize>,
-    pub context_hash: String,
-    pub range_hash: String,
-    pub samples: Vec<Value>,
-    pub detail_hash: String,
-}
 
 #[derive(Debug, Clone, Copy)]
-struct SearchFlowQuerySpec<'a> {
-    id: &'a str,
+struct SearchQuerySpec<'a> {
     query: &'a str,
     case_sensitive: bool,
     whole_word: bool,
 }
 
+/// One page's searchable text with its run table, in page-text UTF-16
+/// offsets, as the fragment backend serves it.
 #[derive(Debug, Clone)]
 pub(crate) struct SearchPageText {
     page_index: usize,
@@ -53,9 +17,6 @@ pub(crate) struct SearchPageText {
 }
 
 impl SearchPageText {
-    /// Index one page from prebuilt parts (the fragment backend serves
-    /// its page text and run table directly; the retained walk above
-    /// derives them from the layout tree).
     pub(crate) fn from_parts(
         page_index: usize,
         text: String,
@@ -72,15 +33,14 @@ impl SearchPageText {
                     block_index: run.block_index,
                     line_index: run.line_index,
                     run_index: run.run_index,
-                    source: None,
-                    direct: run.source,
+                    source: run.source,
                 })
                 .collect(),
         }
     }
 }
 
-/// One text run of a prebuilt search page, in page-text UTF-16 offsets.
+/// One text run of a search page, in page-text UTF-16 offsets.
 #[derive(Debug, Clone)]
 pub(crate) struct SearchPrebuiltRun {
     pub(crate) start: usize,
@@ -93,9 +53,9 @@ pub(crate) struct SearchPrebuiltRun {
     pub(crate) source: Option<SearchPrebuiltRunSource>,
 }
 
-/// Direct source mapping of a prebuilt run: the source node path and the
-/// run's piecewise-linear text mapping, `(run_start, source_start, len)`
-/// in run-local UTF-16 (the fragment artifact's own record).
+/// Source mapping of a run: the source node path and the run's
+/// piecewise-linear text mapping, `(run_start, source_start, len)` in
+/// run-local UTF-16 (the fragment artifact's own record).
 #[derive(Debug, Clone)]
 pub(crate) struct SearchPrebuiltRunSource {
     pub(crate) node_path: Vec<usize>,
@@ -129,26 +89,7 @@ struct SearchRunOffset {
     block_index: usize,
     line_index: usize,
     run_index: usize,
-    source: Option<SearchRunSource>,
-    /// Direct source mapping for prebuilt fragment runs, which carry
-    /// their node path and text mapping instead of a logical flow.
-    direct: Option<SearchPrebuiltRunSource>,
-}
-
-#[derive(Debug, Clone)]
-struct SearchRunSource {
-    flow: Arc<LogicalTextFlow>,
-    logical_start: u32,
-    logical_end: u32,
-    node_path: Vec<usize>,
-    source_start: usize,
-    source_length: usize,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct SearchOffsetState {
-    offset: usize,
-    has_text: bool,
+    source: Option<SearchPrebuiltRunSource>,
 }
 
 #[derive(Debug, Clone)]
@@ -220,49 +161,6 @@ pub(crate) struct SearchSourcePoint {
     pub(crate) text_offset: usize,
 }
 
-const SEARCH_FLOW_QUERY_SPECS: &[SearchFlowQuerySpec<'static>] = &[
-    SearchFlowQuerySpec {
-        id: "heroine-name",
-        query: "八奈见",
-        case_sensitive: false,
-        whole_word: false,
-    },
-    SearchFlowQuerySpec {
-        id: "protagonist-name",
-        query: "温水",
-        case_sensitive: false,
-        whole_word: false,
-    },
-    SearchFlowQuerySpec {
-        id: "reader-name",
-        query: "EbookReader",
-        case_sensitive: true,
-        whole_word: false,
-    },
-    SearchFlowQuerySpec {
-        id: "missing-ascii",
-        query: "RITO_NATIVE_NO_MATCH",
-        case_sensitive: false,
-        whole_word: false,
-    },
-];
-
-pub(crate) fn summarize_search_flow(pages: &[SearchPage]) -> SearchFlowSummary {
-    let index = pages.iter().map(search_page_text).collect::<Vec<_>>();
-    let queries = SEARCH_FLOW_QUERY_SPECS
-        .iter()
-        .map(|spec| summarize_search_query(&index, spec))
-        .collect::<Vec<_>>();
-    SearchFlowSummary {
-        query_count: queries.len(),
-        result_count: queries.iter().map(|query| query.result_count).sum(),
-        full_detail_hash: hash_json(
-            &serde_json::to_value(&queries).expect("search flow summaries serialize"),
-        ),
-        queries,
-    }
-}
-
 pub(crate) fn search_prebuilt_runtime_pages(
     index: &[SearchPageText],
     query: &str,
@@ -270,8 +168,7 @@ pub(crate) fn search_prebuilt_runtime_pages(
     whole_word: bool,
     limit: Option<usize>,
 ) -> Vec<SearchRuntimeMatch> {
-    let spec = SearchFlowQuerySpec {
-        id: "runtime",
+    let spec = SearchQuerySpec {
         query,
         case_sensitive,
         whole_word,
@@ -285,71 +182,7 @@ pub(crate) fn search_prebuilt_runtime_pages(
     }
 }
 
-pub(crate) fn search_runtime_pages(
-    pages: &[SearchPage],
-    query: &str,
-    case_sensitive: bool,
-    whole_word: bool,
-    limit: Option<usize>,
-) -> Vec<SearchRuntimeMatch> {
-    let spec = SearchFlowQuerySpec {
-        id: "runtime",
-        query,
-        case_sensitive,
-        whole_word,
-    };
-    let index = pages.iter().map(search_page_text).collect::<Vec<_>>();
-    let results = search_index(&index, &spec)
-        .into_iter()
-        .map(SearchRuntimeMatch::from_detail);
-    match limit {
-        Some(limit) => results.take(limit).collect(),
-        None => results.collect(),
-    }
-}
-
-fn summarize_search_query(
-    index: &[SearchPageText],
-    spec: &SearchFlowQuerySpec<'_>,
-) -> SearchFlowQuerySummary {
-    let results = search_index(index, spec)
-        .iter()
-        .map(search_result_value)
-        .collect::<Vec<_>>();
-    let page_indexes = results
-        .iter()
-        .filter_map(|result| result.get("pageIndex").and_then(Value::as_u64))
-        .map(|index| (index as usize, ()))
-        .collect::<BTreeMap<_, _>>()
-        .into_keys()
-        .collect::<Vec<_>>();
-    let contexts = results
-        .iter()
-        .filter_map(|result| result.get("context").cloned())
-        .collect::<Vec<_>>();
-    let ranges = results
-        .iter()
-        .map(search_result_range_value)
-        .collect::<Vec<_>>();
-
-    SearchFlowQuerySummary {
-        id: spec.id.to_owned(),
-        query: spec.query.to_owned(),
-        case_sensitive: spec.case_sensitive,
-        whole_word: spec.whole_word,
-        result_count: results.len(),
-        page_indexes,
-        context_hash: hash_json(&Value::Array(contexts)),
-        range_hash: hash_json(&Value::Array(ranges)),
-        samples: results.iter().take(6).cloned().collect(),
-        detail_hash: hash_json(&Value::Array(results)),
-    }
-}
-
-fn search_index(
-    index: &[SearchPageText],
-    spec: &SearchFlowQuerySpec<'_>,
-) -> Vec<SearchResultDetail> {
+fn search_index(index: &[SearchPageText], spec: &SearchQuerySpec<'_>) -> Vec<SearchResultDetail> {
     if spec.query.is_empty() {
         return Vec::new();
     }
@@ -374,7 +207,7 @@ impl SearchRuntimeMatch {
     }
 }
 
-fn search_page(page: &SearchPageText, spec: &SearchFlowQuerySpec<'_>) -> Vec<SearchResultDetail> {
+fn search_page(page: &SearchPageText, spec: &SearchQuerySpec<'_>) -> Vec<SearchResultDetail> {
     let haystack = fold_search_text(&page.text, spec.case_sensitive);
     let needle = fold_query_text(spec.query, spec.case_sensitive);
     let mut results = Vec::new();
@@ -487,85 +320,6 @@ fn folded_byte_to_original_utf16(
         .unwrap_or(0)
 }
 
-fn search_page_text(page: &SearchPage) -> SearchPageText {
-    let mut text = String::new();
-    let mut offsets = Vec::new();
-    let mut state = SearchOffsetState {
-        offset: 0,
-        has_text: false,
-    };
-    for (block_index, block) in page.content.iter().enumerate() {
-        let mut line_index = 0usize;
-        collect_search_text_offsets(
-            block,
-            block_index,
-            &mut line_index,
-            &mut state,
-            &mut offsets,
-            &mut text,
-        );
-    }
-    SearchPageText {
-        page_index: page.index,
-        text,
-        offsets,
-    }
-}
-
-fn collect_search_text_offsets(
-    block: &RuntimeBlock<LineBox>,
-    block_index: usize,
-    line_index: &mut usize,
-    state: &mut SearchOffsetState,
-    offsets: &mut Vec<SearchRunOffset>,
-    text: &mut String,
-) {
-    for child in &block.children {
-        match child {
-            RuntimeChild::Line(line) => {
-                collect_search_line_offsets(line, block_index, *line_index, state, offsets, text);
-                *line_index += 1;
-            }
-            RuntimeChild::Block(block) => {
-                collect_search_text_offsets(block, block_index, line_index, state, offsets, text);
-            }
-            RuntimeChild::Image(_) | RuntimeChild::Hr(_) => {}
-        }
-    }
-}
-
-fn collect_search_line_offsets(
-    line: &LineBox,
-    block_index: usize,
-    line_index: usize,
-    state: &mut SearchOffsetState,
-    offsets: &mut Vec<SearchRunOffset>,
-    text: &mut String,
-) {
-    let has_line_text = line.runs.iter().any(|run| matches!(run, LineRun::Text(_)));
-    if has_line_text && state.has_text {
-        text.push('\n');
-        state.offset += 1;
-    }
-    for (run_index, run) in line.runs.iter().enumerate() {
-        if let LineRun::Text(run) = run {
-            let length = utf16_len(&run.text);
-            offsets.push(SearchRunOffset {
-                start: state.offset,
-                end: state.offset + length,
-                block_index,
-                line_index,
-                run_index,
-                source: search_run_source(&run.text_mapping),
-                direct: None,
-            });
-            text.push_str(&run.text);
-            state.offset += length;
-            state.has_text = true;
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 enum SearchBias {
     Start,
@@ -603,43 +357,24 @@ fn search_offset_to_position(
     None
 }
 
-fn search_run_source(mapping: &RunTextMapping) -> Option<SearchRunSource> {
-    let RunTextMapping::Exact(slice) = mapping else {
-        return None;
-    };
-    let source = mapping.exact_source_slice()?;
-    Some(SearchRunSource {
-        flow: Arc::clone(&slice.flow),
-        logical_start: slice.logical_start,
-        logical_end: slice.logical_end,
-        node_path: source.node_path,
-        source_start: source.source_start,
-        source_length: source.source_length,
-    })
-}
-
 fn search_source_range(
     offsets: &[SearchRunOffset],
     start: usize,
     end: usize,
 ) -> Option<SearchSourceRange> {
     // Walk the match, collecting the runs that carry source identity
-    // into contiguous segments. A run without a source, a gap, or a
-    // jump to another flow ends the current segment rather than
-    // discarding the match: the longest surviving segment is a weaker
-    // anchor than the whole range, but it beats none at all.
+    // into contiguous segments. A run without a source or a gap ends
+    // the current segment rather than discarding the match: the longest
+    // surviving segment is a weaker anchor than the whole range, but it
+    // beats none at all.
     let mut segments: Vec<SearchSourceRange> = Vec::new();
     let mut current: Option<SearchSourceRange> = None;
     let mut cursor = start;
-    let mut previous_flow: Option<(Arc<LogicalTextFlow>, u32)> = None;
 
-    let close = |current: &mut Option<SearchSourceRange>,
-                 previous_flow: &mut Option<(Arc<LogicalTextFlow>, u32)>,
-                 segments: &mut Vec<SearchSourceRange>| {
+    let close = |current: &mut Option<SearchSourceRange>, segments: &mut Vec<SearchSourceRange>| {
         if let Some(segment) = current.take() {
             segments.push(segment);
         }
-        *previous_flow = None;
     };
 
     for entry in offsets
@@ -649,121 +384,58 @@ fn search_source_range(
         let part_start = start.max(entry.start);
         let part_end = end.min(entry.end);
         if part_start != cursor {
-            close(&mut current, &mut previous_flow, &mut segments);
+            close(&mut current, &mut segments);
         }
         cursor = part_end;
-        if let Some(direct) = entry.direct.as_ref() {
-            // A prebuilt fragment run maps its own text to source offsets
-            // directly. Consecutive runs of the same source node with
-            // contiguous offsets extend one segment — a match that font
-            // fallback split across two runs must keep its full anchor,
-            // not shrink to the longest run's slice.
-            previous_flow = None;
-            let head = u32::try_from(part_start - entry.start)
-                .ok()
-                .and_then(|offset| direct.source_offset(offset));
-            let tail = u32::try_from(part_end - entry.start)
-                .ok()
-                .and_then(|offset| direct.source_offset(offset));
-            let (Some(head), Some(tail)) = (head, tail) else {
-                close(&mut current, &mut previous_flow, &mut segments);
-                continue;
-            };
-            let continues = current.as_ref().is_some_and(|segment| {
-                segment.end.node_path == direct.node_path
-                    && segment.end.text_offset == head as usize
-                    && segment.covered_end == part_start
-            });
-            let tail_point = SearchSourcePoint {
-                node_path: direct.node_path.clone(),
-                text_offset: tail as usize,
-            };
-            if continues {
-                let segment = current.as_mut().expect("continuity checked");
-                segment.end = tail_point;
-                segment.covered_end = part_end;
-            } else {
-                close(&mut current, &mut previous_flow, &mut segments);
-                current = Some(SearchSourceRange {
-                    start: SearchSourcePoint {
-                        node_path: direct.node_path.clone(),
-                        text_offset: head as usize,
-                    },
-                    end: tail_point,
-                    covered_start: part_start,
-                    covered_end: part_end,
-                });
-            }
-            continue;
-        }
         let Some(source) = entry.source.as_ref() else {
-            close(&mut current, &mut previous_flow, &mut segments);
+            close(&mut current, &mut segments);
             continue;
         };
-        // A segment opened by a direct run never extends through the
-        // flow arm: flow contiguity is tracked by `previous_flow` alone.
-        if previous_flow.is_none() {
-            close(&mut current, &mut previous_flow, &mut segments);
-        }
-        let local_start = part_start - entry.start;
-        let local_end = part_end - entry.start;
-        let (Some(logical_start), Some(logical_end)) = (
-            local_start
-                .try_into()
-                .ok()
-                .and_then(|offset: u32| source.logical_start.checked_add(offset)),
-            local_end
-                .try_into()
-                .ok()
-                .and_then(|offset: u32| source.logical_start.checked_add(offset)),
-        ) else {
-            close(&mut current, &mut previous_flow, &mut segments);
+        // A run maps its own text to source offsets directly. Consecutive
+        // runs of the same source node with contiguous offsets extend one
+        // segment — a match that font fallback split across two runs must
+        // keep its full anchor, not shrink to the longest run's slice.
+        let head = u32::try_from(part_start - entry.start)
+            .ok()
+            .and_then(|offset| source.source_offset(offset));
+        let tail = u32::try_from(part_end - entry.start)
+            .ok()
+            .and_then(|offset| source.source_offset(offset));
+        let (Some(head), Some(tail)) = (head, tail) else {
+            close(&mut current, &mut segments);
             continue;
         };
-        if logical_end > source.logical_end || local_end > source.source_length {
-            close(&mut current, &mut previous_flow, &mut segments);
-            continue;
-        }
-        if let Some((flow, previous_end)) = &previous_flow {
-            if !Arc::ptr_eq(flow, &source.flow) || *previous_end != logical_start {
-                close(&mut current, &mut previous_flow, &mut segments);
-            }
-        }
-        let (Some(head), Some(tail)) = (
-            source_point(source, local_start),
-            source_point(source, local_end),
-        ) else {
-            close(&mut current, &mut previous_flow, &mut segments);
-            continue;
+        let continues = current.as_ref().is_some_and(|segment| {
+            segment.end.node_path == source.node_path
+                && segment.end.text_offset == head as usize
+                && segment.covered_end == part_start
+        });
+        let tail_point = SearchSourcePoint {
+            node_path: source.node_path.clone(),
+            text_offset: tail as usize,
         };
-        match current.as_mut() {
-            Some(segment) => {
-                segment.end = tail;
-                segment.covered_end = part_end;
-            }
-            None => {
-                current = Some(SearchSourceRange {
-                    start: head,
-                    end: tail,
-                    covered_start: part_start,
-                    covered_end: part_end,
-                });
-            }
+        if continues {
+            let segment = current.as_mut().expect("continuity checked");
+            segment.end = tail_point;
+            segment.covered_end = part_end;
+        } else {
+            close(&mut current, &mut segments);
+            current = Some(SearchSourceRange {
+                start: SearchSourcePoint {
+                    node_path: source.node_path.clone(),
+                    text_offset: head as usize,
+                },
+                end: tail_point,
+                covered_start: part_start,
+                covered_end: part_end,
+            });
         }
-        previous_flow = Some((Arc::clone(&source.flow), logical_end));
     }
-    close(&mut current, &mut previous_flow, &mut segments);
+    close(&mut current, &mut segments);
 
     segments
         .into_iter()
         .max_by_key(|segment| segment.covered_end - segment.covered_start)
-}
-
-fn source_point(source: &SearchRunSource, local_offset: usize) -> Option<SearchSourcePoint> {
-    Some(SearchSourcePoint {
-        node_path: source.node_path.clone(),
-        text_offset: source.source_start.checked_add(local_offset)?,
-    })
 }
 
 fn is_search_word_boundary(text: &str, start: usize, end: usize) -> bool {
@@ -823,36 +495,6 @@ fn byte_index_for_utf16_offset(text: &str, target: usize) -> usize {
         offset += ch.len_utf16();
     }
     text.len()
-}
-
-fn search_result_value(result: &SearchResultDetail) -> Value {
-    json!({
-        "pageIndex": result.page_index,
-        "range": {
-            "start": search_text_position_value(result.start),
-            "end": search_text_position_value(result.end),
-        },
-        "context": {
-            "length": utf16_len(&result.context),
-            "hash": hash_text(&result.context),
-        },
-    })
-}
-
-fn search_result_range_value(result: &Value) -> Value {
-    json!({
-        "pageIndex": result.get("pageIndex").cloned().unwrap_or(Value::Null),
-        "range": result.get("range").cloned().unwrap_or(Value::Null),
-    })
-}
-
-fn search_text_position_value(position: SearchTextPosition) -> Value {
-    json!({
-        "blockIndex": position.block_index,
-        "lineIndex": position.line_index,
-        "runIndex": position.run_index,
-        "charIndex": position.char_index,
-    })
 }
 
 fn utf16_len(text: &str) -> usize {

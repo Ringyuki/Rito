@@ -55,16 +55,6 @@ impl FootnoteTargetSet {
     pub(crate) fn iter(&self) -> impl Iterator<Item = &String> {
         self.0.iter()
     }
-
-    pub(crate) fn union(&self, other: &Self) -> Self {
-        if self.0.is_empty() {
-            return other.clone();
-        }
-        if other.0.is_empty() {
-            return self.clone();
-        }
-        Self::new(self.0.union(&other.0).cloned().collect())
-    }
 }
 
 pub(crate) struct FootnoteTargetDiscovery {

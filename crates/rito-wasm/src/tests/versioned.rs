@@ -491,28 +491,6 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
         .contains("invalid exact source range request JSON"));
 }
 
-fn collapsed_range_request() -> Value {
-    let address = json!({
-        "pageIndex": 0,
-        "blockIndex": 0,
-        "lineIndex": 0,
-        "runIndex": 0,
-        "charIndex": 0,
-        "affinity": "downstream",
-    });
-    json!({ "anchor": address, "focus": address })
-}
-
-fn exact_source_range_request() -> Value {
-    json!({
-        "href": "chapter.xhtml",
-        "sourceRange": {
-            "start": { "nodePath": [0], "textOffset": 0 },
-            "end": { "nodePath": [0], "textOffset": 1 },
-        },
-    })
-}
-
 #[test]
 fn style_table_summary_is_versioned_and_deterministic() {
     let mut document = pinned_fixture_wasm_document();

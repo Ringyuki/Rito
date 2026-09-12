@@ -2,7 +2,6 @@ pub const NAME: &str = "style";
 pub const OWNS: &str = "Cascade, inheritance, computed style, and paint-ready style aggregates";
 
 mod backend;
-mod font_fallback;
 mod inheritance;
 mod stylo_materialize;
 pub(crate) use stylo_materialize::{
@@ -36,15 +35,10 @@ use crate::{
 #[cfg(feature = "legacy-css-diagnostics")]
 pub(crate) use backend::resolve_prepared_chapter_style_with_legacy_compatibility;
 #[cfg(test)]
+pub(crate) use backend::style_backend_metrics;
+#[cfg(test)]
 pub(crate) use backend::StyleBackendError;
 pub(crate) use backend::{resolve_prepared_chapter_style, PreparedStyleChapterInput};
-#[cfg(any(test, feature = "bench-internals"))]
-pub(crate) use backend::{style_backend_metrics, StyleBackendMetrics};
-pub(crate) use font_fallback::{
-    rewrite_font_families, FontFallbackFace, FontFallbackPolicy, FontGenericRole,
-};
-pub(crate) use inheritance::inheritable_style;
-pub(crate) use stylo_sources::StyleCapabilityReport;
 pub use tree::{StyledNode, StyledNodeKind};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -116,39 +110,6 @@ pub(crate) struct ChapterStyleOptions<'a> {
     pub font_family_override: Option<&'a str>,
     pub font_family_force: bool,
 }
-
-// Only the `bench-internals` feature reads this copy; the reference
-// pipeline keeps its own variant (without `li { display: list-item }`)
-// in the legacy module below.
-#[cfg_attr(not(feature = "bench-internals"), allow(dead_code))]
-pub(crate) const DEFAULT_UA_STYLESHEET: &str = r#"
-h1 { font-size: 2em; font-weight: bold; margin-top: 0.67em; margin-bottom: 0.67em; }
-h2 { font-size: 1.5em; font-weight: bold; margin-top: 0.83em; margin-bottom: 0.83em; }
-h3 { font-size: 1.17em; font-weight: bold; margin-top: 1em; margin-bottom: 1em; }
-h4 { font-size: 1em; font-weight: bold; margin-top: 1.33em; margin-bottom: 1.33em; }
-h5 { font-size: 0.83em; font-weight: bold; margin-top: 1.67em; margin-bottom: 1.67em; }
-h6 { font-size: 0.67em; font-weight: bold; margin-top: 2.33em; margin-bottom: 2.33em; }
-
-p { margin-top: 1em; margin-bottom: 1em; }
-blockquote { margin-top: 1em; margin-bottom: 1em; margin-left: 40px; margin-right: 40px; }
-pre { font-family: monospace; white-space: pre; margin-top: 1em; margin-bottom: 1em; }
-code { font-family: monospace; }
-em, i { font-style: italic; }
-strong, b { font-weight: bold; }
-center { text-align: center; }
-
-ul { margin-top: 1em; margin-bottom: 1em; padding-left: 40px; list-style-type: disc; }
-ol { margin-top: 1em; margin-bottom: 1em; padding-left: 40px; list-style-type: decimal; }
-li { display: list-item; margin-top: 0; margin-bottom: 0; }
-dl { margin-top: 1em; margin-bottom: 1em; }
-dt { font-weight: bold; }
-dd { margin-left: 40px; }
-
-hr { margin-top: 0.5em; margin-bottom: 0.5em; }
-th { font-weight: bold; }
-sup { vertical-align: super; font-size: smaller; }
-sub { vertical-align: sub; font-size: smaller; }
-"#;
 
 #[cfg(feature = "legacy-css-diagnostics")]
 mod legacy {
@@ -2065,8 +2026,6 @@ sub { vertical-align: sub; font-size: smaller; }
     }
 }
 
-#[cfg(feature = "bench-internals")]
-pub(crate) use legacy::find_matching_stylesheet_keys;
 #[cfg(feature = "legacy-css-diagnostics")]
 pub(crate) use legacy::{
     build_chapter_rules, resolve_chapter_style_nodes, stylesheet_rules_from_texts,
