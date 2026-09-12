@@ -110,34 +110,10 @@ impl RuntimeContinuationStore {
             "continuation forward and reverse indexes must have equal lengths"
         );
     }
-
-    #[cfg(test)]
-    pub(in crate::runtime) fn assert_consistent(&self) {
-        self.assert_matching_lengths();
-        for (cursor, continuation) in &self.by_cursor {
-            assert_eq!(
-                self.active_cursor_by_revision
-                    .get(&continuation.revision_id),
-                Some(cursor)
-            );
-        }
-    }
-
-    #[cfg(test)]
-    pub(in crate::runtime) fn len(&self) -> usize {
-        self.by_cursor.len()
-    }
-
     #[cfg(test)]
     pub(in crate::runtime) fn is_empty(&self) -> bool {
         self.by_cursor.is_empty()
     }
-
-    #[cfg(test)]
-    pub(in crate::runtime) fn contains_cursor(&self, cursor: &str) -> bool {
-        self.by_cursor.contains_key(cursor)
-    }
-
     pub(in crate::runtime) fn cursor_for_revision(&self, revision_id: &str) -> Option<&str> {
         self.active_cursor_by_revision
             .get(revision_id)
@@ -163,6 +139,7 @@ pub(in crate::runtime) struct RuntimeContinuationRecord {
 }
 
 impl RuntimeContinuationRecord {
+    #[cfg(test)]
     pub(in crate::runtime) fn new(
         revision_id: String,
         layout_key: String,

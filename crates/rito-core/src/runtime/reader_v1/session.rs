@@ -194,15 +194,7 @@ impl ReaderSessionV1 {
         Self::from_document(session_id, document)
     }
 
-    fn from_document(
-        session_id: u64,
-        mut document: RuntimeDocument,
-    ) -> Result<Self, ReaderErrorV1> {
-        // The fragment engine is the session's only pagination authority:
-        // chapter-local revisions build their own single-chapter tables,
-        // and publication (book-wide) revisions route through the
-        // fragment page table as well.
-        document.set_fragment_page_table_enabled(true);
+    fn from_document(session_id: u64, document: RuntimeDocument) -> Result<Self, ReaderErrorV1> {
         let publication = build_reader_publication_v1(session_id, &document)?;
         Ok(Self {
             session_id,

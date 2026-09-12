@@ -112,8 +112,6 @@ pub(crate) use shape_provenance_diagnostic::{
 };
 pub(crate) use spread::build_spread_slots;
 pub use spread_flow::SpreadFlowSummary;
-#[cfg(test)]
-pub(crate) use style_values::round_json_value;
 pub use summary_types::{
     ContinuousBlockChapterSummary, ContinuousBlockSummary, InlineSegmentBlockSample,
     InlineSegmentBlockSummary, InlineSegmentChapterSummary, InlineSegmentSummary, LayoutSummary,

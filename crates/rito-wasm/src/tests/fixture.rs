@@ -12,36 +12,20 @@ use crate::WasmRuntimeDocument;
 
 pub fn revision_id(document: &mut WasmRuntimeDocument) -> String {
     let json = document
-        .create_full_revision_bundle_json(
+        .create_bounded_revision_json(
             &serde_json::json!({
                 "layoutConfig": layout(),
-                "activeSpreadIndex": 0
+                "lineBreaking": "greedy",
+                "budget": { "maxTopLevelNodes": 64 }
             })
             .to_string(),
         )
         .expect("revision is created");
     let value: Value = serde_json::from_str(&json).expect("revision JSON parses");
-    release_initial_frame_payloads(document, &value);
-    value["bundle"]["revision"]["revisionId"]
+    value["revision"]["revisionId"]
         .as_str()
         .expect("revision id is present")
         .to_owned()
-}
-
-fn release_initial_frame_payloads(document: &mut WasmRuntimeDocument, value: &Value) {
-    let Some(spreads) = value["initialFrameWindow"]["spreads"].as_array() else {
-        return;
-    };
-    for spread in spreads {
-        let Some(payloads) = spread["payloads"].as_array() else {
-            continue;
-        };
-        for payload in payloads {
-            if let Some(transfer_id) = payload["transferId"].as_str() {
-                document.release_resource_transfer(transfer_id);
-            }
-        }
-    }
 }
 
 pub fn resource_payload(
@@ -222,8 +206,20 @@ pub fn pinned_test_policy_input() -> rito_core::runtime::RuntimePinnedFontPolicy
     }
 }
 
+/// A wasm document over the multi-chapter fixture with the pinned test
+/// policy attached (the fragment engine shapes with pinned faces only).
+pub fn pinned_multi_chapter_wasm_document() -> crate::WasmRuntimeDocument {
+    let document =
+        rito_core::runtime::RuntimeDocument::from_loaded_document_with_pinned_font_policy(
+            multi_chapter_document(),
+            pinned_test_policy_input(),
+        )
+        .expect("pinned multi-chapter document builds");
+    crate::WasmRuntimeDocument::from_runtime_document(document)
+}
+
 /// A wasm document over the in-memory fixture with the pinned test
-/// policy attached (chapter-local builds require pinned faces).
+/// policy attached (the fragment engine shapes with pinned faces only).
 pub fn pinned_fixture_wasm_document() -> crate::WasmRuntimeDocument {
     let document =
         rito_core::runtime::RuntimeDocument::from_loaded_document_with_pinned_font_policy(

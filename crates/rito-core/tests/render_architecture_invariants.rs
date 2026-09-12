@@ -148,6 +148,14 @@ fn collect_rust_sources(directory: &Path, paths: &mut Vec<PathBuf>) {
 
     for entry in entries {
         let path = entry.path();
+        // Test modules are instruments, not the render boundary: a fixture
+        // writer may read the style contract and traverse JSON.
+        let is_test_module = path
+            .file_name()
+            .is_some_and(|name| name == "tests" || name == "tests.rs");
+        if is_test_module {
+            continue;
+        }
         if path.is_dir() {
             collect_rust_sources(&path, paths);
         } else if path.extension().is_some_and(|extension| extension == "rs") {

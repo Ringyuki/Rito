@@ -16,7 +16,6 @@ mod resource;
 mod revision;
 mod versioned;
 mod wire;
-mod wire_metrics;
 
 pub use binding::RitoWasmDocument;
 pub use document::WasmRuntimeDocument;

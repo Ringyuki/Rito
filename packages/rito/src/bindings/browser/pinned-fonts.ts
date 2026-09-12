@@ -58,9 +58,8 @@ export async function openBrowserReaderWorker(
   policy: BrowserReaderOwnedPinnedFontPolicy | undefined,
   renderRatio: number,
   expectedSummary?: CorePinnedFontPolicySummary,
-  fragmentPageTable?: boolean,
 ): Promise<BrowserReaderOpenResult> {
-  const options = workerOpenOptions(policy, fragmentPageTable);
+  const options = workerOpenOptions(policy);
   const result = options === undefined ? await worker.open(data) : await worker.open(data, options);
   await worker.setRenderRatio(renderRatio);
   if (expectedSummary !== undefined)
@@ -115,19 +114,13 @@ export function disposeBrowserReaderPinnedFonts(pinned: BrowserReaderPinnedFonts
 
 function workerOpenOptions(
   policy: BrowserReaderOwnedPinnedFontPolicy | undefined,
-  fragmentPageTable?: boolean,
 ): BrowserReaderWorkerOpenOptions | undefined {
-  if (policy === undefined && !fragmentPageTable) return undefined;
+  if (policy === undefined) return undefined;
   return {
-    ...(fragmentPageTable ? { fragmentPageTable: true } : {}),
-    ...(policy === undefined
-      ? {}
-      : {
-          pinnedFontPolicy: {
-            schemaVersion: policy.schemaVersion,
-            faces: policy.faces.map((face) => ({ ...face, bytes: face.bytes.slice(0) })),
-          },
-        }),
+    pinnedFontPolicy: {
+      schemaVersion: policy.schemaVersion,
+      faces: policy.faces.map((face) => ({ ...face, bytes: face.bytes.slice(0) })),
+    },
   };
 }
 

@@ -28,7 +28,6 @@ fn fragment_routed_document() -> (RuntimeDocument, String) {
         )]),
     )
     .expect("multi-chapter document opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -100,30 +99,6 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
 }
 
 #[test]
-fn the_page_table_stays_retained_without_the_lever() {
-    let mut document = RuntimeDocument::open_with_pinned_font_policy(
-        &multi_chapter_fixture_epub(),
-        policy(vec![face(
-            serif_text_font(),
-            RuntimePinnedFontGenericRole::Serif,
-            Some("en"),
-        )]),
-    )
-    .expect("multi-chapter document opens");
-    let mut layout = font_aware_layout();
-    layout.font_family_override = Some("serif".to_owned());
-    layout.font_family_force = Some(true);
-    let summary = document
-        .create_revision(&layout)
-        .expect("revision is created");
-    let revision = document
-        .revisions
-        .get(&summary.revision_id)
-        .expect("revision is retained");
-    assert!(revision.fragment_layout.is_none());
-}
-
-#[test]
 fn fragment_pages_serve_targets_semantics_and_anchors() {
     let epub = fixture_epub_with_chapter_and_stylesheet(
         br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><h2 id="start">Title Here</h2><p>Read <a href="https://example.com/next">the next part</a> now.</p></body></html>"#,
@@ -138,7 +113,6 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
         )]),
     )
     .expect("target fixture opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -207,7 +181,6 @@ fn fragment_pages_resolve_pointer_selection() {
         )]),
     )
     .expect("selection fixture opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -324,7 +297,6 @@ fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
         )]),
     )
     .expect("multi-chapter document opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -337,13 +309,7 @@ fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
             },
         })
         .expect("bounded revision starts");
-    // Progressive publication stays retained until the book completes.
     while let Some(cursor) = advance.continuation.clone() {
-        assert_eq!(
-            advance.revision.pagination_backend.as_deref(),
-            Some("retained"),
-            "an incomplete bounded revision stays retained"
-        );
         advance = document
             .continue_revision(RuntimeContinueRevisionRequest {
                 revision_id: cursor.revision_id,
@@ -355,11 +321,11 @@ fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
             })
             .expect("bounded revision advances");
     }
-    assert_eq!(
-        advance.revision.pagination_backend.as_deref(),
-        Some("fragment"),
-        "the completed bounded session hands over; rejection: {:?}",
-        document.fragment_page_table_rejection_reason(&advance.revision.revision_id),
+    assert!(
+        document
+            .fragment_page_table_rejection_reason(&advance.revision.revision_id)
+            .is_none(),
+        "the completed bounded session hands over"
     );
     let revision = document
         .revisions
@@ -388,7 +354,6 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         )]),
     )
     .expect("movement fixture opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -396,12 +361,9 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         .create_revision(&layout)
         .expect("revision is created");
     let handle = RuntimeRevisionHandle::from(&summary);
-    assert_eq!(
-        document.revision_pagination_backend(&summary.revision_id),
-        Some("fragment"),
-        "rejection: {:?}",
-        document.fragment_page_table_rejection_reason(&summary.revision_id),
-    );
+    assert!(document
+        .fragment_page_table_rejection_reason(&summary.revision_id)
+        .is_none());
 
     // Select the word "quick" to obtain a live anchor/focus pair.
     let revision = document
@@ -537,7 +499,6 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         )]),
     )
     .expect("locator fixture opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -545,10 +506,9 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         .create_revision(&layout)
         .expect("revision is created");
     let handle = RuntimeRevisionHandle::from(&summary);
-    assert_eq!(
-        document.revision_pagination_backend(&summary.revision_id),
-        Some("fragment"),
-    );
+    assert!(document
+        .fragment_page_table_rejection_reason(&summary.revision_id)
+        .is_none());
 
     // Select "quick" and capture its durable source range.
     let revision = document
@@ -620,10 +580,9 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         .create_revision(&reflowed)
         .expect("reflowed revision is created");
     let second_handle = RuntimeRevisionHandle::from(&second);
-    assert_eq!(
-        document.revision_pagination_backend(&second.revision_id),
-        Some("fragment"),
-    );
+    assert!(document
+        .fragment_page_table_rejection_reason(&second.revision_id)
+        .is_none());
     let projected = document
         .resolve_exact_source_range_at(
             &second_handle,
@@ -664,7 +623,6 @@ fn a_forced_sans_serif_override_changes_the_painted_frame() {
     };
     let frame_for = |family: &str| {
         let mut document = open();
-        document.set_fragment_page_table_enabled(true);
         let mut layout = font_aware_layout();
         layout.font_family_override = Some(family.to_owned());
         layout.font_family_force = Some(true);
@@ -719,7 +677,6 @@ fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
             ]),
         )
         .expect("document opens");
-        document.set_fragment_page_table_enabled(true);
         let mut layout = font_aware_layout();
         layout.font_family_override = Some(family.to_owned());
         layout.font_family_force = Some(true);
@@ -744,9 +701,10 @@ fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
                 })
                 .expect("bounded revision advances");
         }
-        assert_eq!(
-            advance.revision.pagination_backend.as_deref(),
-            Some("fragment"),
+        assert!(
+            document
+                .fragment_page_table_rejection_reason(&advance.revision.revision_id)
+                .is_none(),
             "the completed bounded session hands over for the {family} override"
         );
         let revision = document
@@ -812,7 +770,6 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
         )]),
     )
     .expect("image fixture opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -883,7 +840,6 @@ fn pointer_selection_document_with_css(
         )]),
     )
     .expect("selection fixture opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -1072,7 +1028,6 @@ fn fragment_selection_rects_span_the_injected_font_grid_box() {
                 )]),
             )
             .expect("selection fixture opens");
-            document.set_fragment_page_table_enabled(true);
             for (family, size, sample) in &known {
                 document.set_host_line_metric(
                     family,
@@ -1157,7 +1112,6 @@ fn pointer_selection_document_cjk(
         ]),
     )
     .expect("selection fixture opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -1237,7 +1191,6 @@ fn painted_commands_carry_link_targets_and_image_alt() {
         )]),
     )
     .expect("interaction fixture opens");
-    document.set_fragment_page_table_enabled(true);
     let mut layout = font_aware_layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);

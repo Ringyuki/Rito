@@ -96,7 +96,8 @@ fn resolves_literal_content_href_to_percent_encoded_manifest_resource() {
         Some(minimal_png())
     );
 
-    let mut runtime = RuntimeDocument::open(&bytes).expect("runtime opens encoded manifest");
+    let mut runtime =
+        RuntimeDocument::open_pinned_for_tests(&bytes).expect("runtime opens encoded manifest");
     let revision = runtime
         .create_revision(&layout())
         .expect("revision resolves literal image source");
@@ -149,7 +150,8 @@ fn resolves_query_and_fragment_hrefs_for_lazy_image_loading() {
 #[test]
 fn transfers_query_and_fragment_image_refs_through_the_runtime() {
     let bytes = query_fragment_fixture_epub();
-    let mut runtime = RuntimeDocument::open(&bytes).expect("runtime opens query href fixture");
+    let mut runtime =
+        RuntimeDocument::open_pinned_for_tests(&bytes).expect("runtime opens query href fixture");
     let revision = runtime
         .create_revision(&layout())
         .expect("revision resolves query image source");

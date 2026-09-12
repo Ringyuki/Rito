@@ -12,12 +12,6 @@ export function createRitoCoreWasmStatus(npmWasmArtifact: boolean): RitoCoreWasm
     rustFacade: {
       publicationJson: true,
       pinnedFontPolicyJson: true,
-      createFullRevisionBundleJson: true,
-      createInitialPreviewRevisionBundleJson: true,
-      createActiveChapterPreviewRevisionBundleJson: true,
-      createPreviewRevisionBundleJson: true,
-      createViewRevisionBundleJson: true,
-      createViewRevisionBundleBytes: true,
       runtimeBundleRitorb1: true,
       frameJson: true,
       packedFrameCommandBuffer: true,

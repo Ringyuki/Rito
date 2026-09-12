@@ -30,7 +30,6 @@ export function createState(
       resourceTable: [],
     })),
     documentData: new ArrayBuffer(0),
-    fragmentPagination: false,
     pinnedFonts: {
       policy: undefined,
       summary: emptyPinnedFontPolicySummary(),

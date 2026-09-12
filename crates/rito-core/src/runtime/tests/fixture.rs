@@ -8,7 +8,7 @@ use crate::layout::{
 
 mod footnotes;
 
-pub use footnotes::{cross_chapter_footnote_fixture_epub, missing_future_chapter_fixture_epub};
+pub use footnotes::cross_chapter_footnote_fixture_epub;
 
 pub fn layout() -> LayoutConfig {
     create_layout_config(LayoutConfigInput {
@@ -101,19 +101,6 @@ pub fn long_chapter_window_fixture_epub() -> Vec<u8> {
     );
     fixture_epub_with_chapter(chapter.as_bytes())
 }
-
-pub fn nested_transparent_container_fixture_epub() -> Vec<u8> {
-    let paragraphs = (0..96)
-        .map(|index| {
-            format!("<p>Nested container paragraph {index} carries stable runtime content.</p>")
-        })
-        .collect::<String>();
-    let chapter = format!(
-        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><section><div>{paragraphs}</div></section></body></html>"#
-    );
-    fixture_epub_with_chapter(chapter.as_bytes())
-}
-
 pub fn image_only_fixture_epub() -> Vec<u8> {
     fixture_epub_with_chapter(
         br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><img src="Images/cover.png" alt="cover"/></body></html>"#,
@@ -439,13 +426,6 @@ pub fn many_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
         chapter_fixture_xhtml(&format!("chapter {index}"))
     })
 }
-
-pub fn many_empty_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
-    many_chapter_fixture_epub_with(chapter_count, |_| {
-        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body></body></html>"#.to_owned()
-    })
-}
-
 pub fn retained_adjacent_fixture_epub() -> Vec<u8> {
     many_chapter_fixture_epub_with(2, |index| {
         if index == 0 {

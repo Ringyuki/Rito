@@ -1,4 +1,4 @@
-use super::{bounded_request, budget};
+use super::budget;
 use crate::{
     layout::{LayoutConfig, LineBreaking},
     runtime::{
@@ -6,10 +6,10 @@ use crate::{
             cross_chapter_footnote_fixture_epub, double_layout, layout, many_chapter_fixture_epub,
             source_locator_fixture_epub,
         },
-        RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalCoordinateKind,
-        RuntimeChapterLocalRevisionAdvance, RuntimeChapterLocalRevisionHandle,
-        RuntimeChapterLocalSourceLocatorResolution, RuntimeContinuationErrorKind, RuntimeDocument,
-        RuntimeResourceKind, RuntimeSourceLocator, RuntimeSourceLocatorErrorKind,
+        RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionAdvance,
+        RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalSourceLocatorResolution,
+        RuntimeContinuationErrorKind, RuntimeDocument, RuntimeResourceKind, RuntimeSourceLocator,
+        RuntimeSourceLocatorErrorKind,
     },
 };
 
@@ -67,54 +67,6 @@ fn exact_revision_copies_only_targets_referenced_by_its_chapter() {
     assert_eq!(stored.len(), 1);
     assert!(stored.contains_key("chapter-2.xhtml#forward"));
     assert!(!stored.contains_key("chapter-1.xhtml#back"));
-}
-
-#[test]
-fn far_target_starts_at_target_without_materializing_preceding_chapters_or_main_state() {
-    let mut document = open_pinned_document(&many_chapter_fixture_epub(128)).expect("document");
-    let main = document
-        .create_bounded_revision(bounded_request(layout(), 1))
-        .expect("main prefix starts");
-    let main_cursor = main.continuation.clone().expect("main remains active");
-    let main_summary = main.revision.clone();
-    let main_pages = document.revisions[&main.revision.revision_id]
-        .layout
-        .pages
-        .clone();
-
-    let local = document
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            127,
-            locator("chapter-127.xhtml"),
-            4,
-            32,
-        ))
-        .expect("far local target starts");
-
-    assert_eq!(
-        local.revision.coordinate.kind,
-        RuntimeChapterLocalCoordinateKind::ChapterLocal
-    );
-    assert_eq!(local.revision.coordinate.chapter_index, 127);
-    // The whole-publication footnote index loads (unzips and scans)
-    // every chapter source once; only the target chapters parse a DOM.
-    assert_eq!(parsed_chapter_indexes(&document), vec![0, 127]);
-    assert_eq!(
-        document
-            .get_revision_summary(&main.revision.revision_id)
-            .unwrap(),
-        main_summary
-    );
-    assert_eq!(
-        document.revisions[&main.revision.revision_id].layout.pages,
-        main_pages
-    );
-    assert!(document.continuations.contains_cursor(&main_cursor.cursor));
-    // Foreground creation completes the publication footnote index (a
-    // light per-chapter source scan) so aside filtering matches the
-    // whole-book table; target DOM parsing stays scoped above.
-    assert!(document.publication_footnote_index_is_complete());
 }
 
 #[test]
@@ -335,7 +287,6 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
         .expect("cold frame");
 
     let mut warmed = open_pinned_document(&publication).expect("warmed document");
-    warmed.set_fragment_page_table_enabled(true);
     let revision = warmed
         .create_revision(&layout())
         .expect("whole-book layout");

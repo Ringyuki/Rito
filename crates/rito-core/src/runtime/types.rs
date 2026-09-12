@@ -20,9 +20,6 @@ use crate::{
     xhtml::ChapterSource,
 };
 
-pub const DEFAULT_INITIAL_PREVIEW_CHAPTER_LIMIT: usize = 8;
-pub const DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS: u64 = 1000;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum RuntimeResourceKind {
@@ -88,11 +85,6 @@ pub struct RuntimeRevisionSummary {
     pub page_count: usize,
     /// Backward-compatible alias for `known_extent.spread_count`.
     pub spread_count: usize,
-    /// Which engine owns this revision's pagination. Hosts must drop
-    /// every cached frame when this changes on one revision: the same
-    /// page numbers now describe different pages.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pagination_backend: Option<String>,
 }
 
 /// Maximum top-level source nodes that one continuation quantum may accept.
@@ -368,128 +360,6 @@ pub struct RuntimeContinuationError {
     pub revision: Option<Box<RuntimeRevisionSummary>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub(super) struct RuntimeRevisionRequest {
-    pub layout_config: LayoutConfig,
-    pub line_breaking: LineBreaking,
-    pub preview_chapter_limit: Option<usize>,
-    pub preview_chapter_index: Option<usize>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeInitialPreviewRevisionRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeFullRevisionBundleRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-    pub active_spread_index: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeActiveChapterPreviewRevisionRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-    pub previous_revision_id: String,
-    pub active_spread_index: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimePreviewRevisionBundleRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_revision_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub active_spread_index: Option<usize>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RuntimeViewRevisionMode {
-    Preview,
-    Full,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeViewRevisionRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-    pub active_spread_index: usize,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_revision_id: Option<String>,
-    /// Durable source identity to project before publishing the replacement view.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preserve_locator: Option<RuntimeSourceLocator>,
-    pub mode: RuntimeViewRevisionMode,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RuntimeViewRevisionKind {
-    Preview,
-    Full,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RuntimeViewRevisionDisplay {
-    Revision,
-    VisualPreview,
-}
-
-#[doc(hidden)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RuntimeViewRevisionMetadata {
-    Complete,
-    OmitFullChapterTextIndices,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeCreatedViewRevision {
-    pub kind: RuntimeViewRevisionKind,
-    pub display: RuntimeViewRevisionDisplay,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub follow_up: Option<RuntimeViewRevisionFollowUp>,
-    pub revision: RuntimeCreatedRevisionBundle,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeViewRevisionFollowUp {
-    pub delay_ms: u64,
-    pub request: RuntimeViewRevisionRequest,
-}
-
-impl RuntimeRevisionRequest {
-    pub fn is_preview(&self) -> bool {
-        self.preview_chapter_limit.is_some() || self.preview_chapter_index.is_some()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeCreatedRevisionBundle {
-    pub bundle: RuntimeRevisionBundle,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub initial_frame: Option<RuntimeInitialFrameDecision>,
-    pub preview: bool,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionPresentation {
@@ -559,13 +429,6 @@ pub struct RuntimeSpreadNavigation {
     pub left_page_index: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub right_page_index: Option<usize>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeActiveChapterPreview {
-    pub chapter_index: usize,
-    pub progress: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

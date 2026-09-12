@@ -183,26 +183,12 @@ impl FragmentBuiltLayout {
 }
 
 impl RuntimeDocument {
-    /// Which backend owns a revision's pagination: `"fragment"` when the
-    /// fragment page table attached, `"retained"` otherwise, `None` for
-    /// an unknown revision. Diagnostic surface for probes and hosts.
-    pub fn revision_pagination_backend(&self, revision_id: &str) -> Option<&'static str> {
-        let revision = self.any_revision(revision_id)?;
-        Some(match revision.fragment_layout {
-            Some(_) => "fragment",
-            None => "retained",
-        })
-    }
-
     /// Makes the fragment engine the pagination authority for a freshly
     /// completed whole-book revision, when it can represent every
     /// chapter. All-or-nothing: any chapter that fails to build or
     /// paginate leaves the retained page table (and the spread-frame
     /// bridge) in charge, so there is never a mixed page table.
     pub(super) fn try_attach_fragment_page_table(&mut self, revision_id: &str) {
-        if !self.fragment_page_table_enabled {
-            return;
-        }
         // The bounded pipeline consumes its prepared chapters quantum by
         // quantum and leaves no whole-book preparation behind; rebuilding
         // the page table needs every chapter's arena.
@@ -247,9 +233,6 @@ impl RuntimeDocument {
     }
 
     fn build_fragment_page_table(&self, revision_id: &str) -> Result<FragmentBuiltLayout, String> {
-        if !self.fragment_page_table_enabled {
-            return Err("the fragment page table lever is off".to_owned());
-        }
         let revision = self
             .any_revision(revision_id)
             .ok_or_else(|| format!("unknown revision: {revision_id}"))?;

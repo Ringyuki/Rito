@@ -6,16 +6,12 @@ use rito_core::{
     },
 };
 
-use crate::{
-    chapter_local::WasmChapterLocalTransferStore, wire::serialize_json,
-    wire_metrics::ViewRevisionWireMeasurement, WasmRuntimeError,
-};
+use crate::{chapter_local::WasmChapterLocalTransferStore, wire::serialize_json, WasmRuntimeError};
 
 pub struct WasmRuntimeDocument {
     pub(crate) document: RuntimeDocument,
     pub(crate) transfers: RuntimeResourceTransferStore,
     pub(crate) chapter_local_transfers: WasmChapterLocalTransferStore,
-    pub(crate) view_revision_wire_measurement: ViewRevisionWireMeasurement,
 }
 
 impl WasmRuntimeDocument {
@@ -68,7 +64,6 @@ impl WasmRuntimeDocument {
             document,
             transfers: RuntimeResourceTransferStore::new(),
             chapter_local_transfers: WasmChapterLocalTransferStore::default(),
-            view_revision_wire_measurement: ViewRevisionWireMeasurement::default(),
         }
     }
 }

@@ -1,3 +1,5 @@
+mod parity;
+
 use std::f64::consts::{FRAC_PI_2, PI};
 
 use serde_json::json;
@@ -1522,13 +1524,13 @@ fn json_form_mirrors_the_decoded_wire_shape() {
 #[test]
 fn lowering_sources_are_typed_only() {
     let sources = concat!(
-        include_str!("../lower.rs"),
-        include_str!("primitive.rs"),
-        include_str!("path.rs"),
-        include_str!("border.rs"),
-        include_str!("block.rs"),
-        include_str!("scale.rs"),
-        include_str!("text.rs"),
+        include_str!("../../lower.rs"),
+        include_str!("../primitive.rs"),
+        include_str!("../path.rs"),
+        include_str!("../border.rs"),
+        include_str!("../block.rs"),
+        include_str!("../scale.rs"),
+        include_str!("../text.rs"),
     );
     assert!(!sources.contains("serde_json"));
     assert!(!sources.contains("Value::"));

@@ -27,11 +27,6 @@ pub use document::{
     open_document, open_runtime_document, open_runtime_document_owned, LoadedBinaryResource,
     LoadedChapter, LoadedEpubDocument, LoadedTextResource,
 };
-#[cfg(test)]
-pub(crate) use fonts::{
-    font_face_source_cache_metrics, reset_font_face_source_cache_metrics,
-    FontFaceSourceCacheMetrics,
-};
 pub(crate) use fonts::{
     publication_font_face_catalog, resolve_font_face_sources,
     shapeable_publication_families_for_layout_with_sources,
@@ -44,14 +39,13 @@ pub use layout_bridge::{
     analyze_loaded_document_with_layout_and_line_breaking,
     analyze_publication_with_layout_and_line_breaking,
 };
-pub(crate) use layout_bridge::{
-    build_prepared_loaded_document_runtime_layout, prepare_runtime_layout_chapter,
-    project_prepared_document_styles, ChapterStyleTable, PreparedRuntimeLayoutChapter,
-    PreparedRuntimeLayoutOptions,
-};
 pub use layout_bridge::{
     load_publication, load_publication_with_layout, load_publication_with_layout_and_line_breaking,
     summarize_loaded_document_with_layout, summarize_loaded_document_with_layout_and_line_breaking,
+};
+pub(crate) use layout_bridge::{
+    prepare_runtime_layout_chapter, project_prepared_document_styles, ChapterStyleTable,
+    PreparedRuntimeLayoutChapter, PreparedRuntimeLayoutOptions,
 };
 pub(crate) use paths::{is_external_href, join_epub_href, join_zip_path, opf_dir};
 pub(crate) use prepared::{

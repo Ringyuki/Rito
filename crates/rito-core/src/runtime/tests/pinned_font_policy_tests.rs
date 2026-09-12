@@ -1,17 +1,11 @@
 use super::fixture::{fixture_epub, layout, multi_chapter_fixture_epub};
-use super::pinned_font_policy_fixtures::{
-    face, illustration_font, policy, sha256_hex, short_sha256, title_font,
-};
+use super::pinned_font_policy_fixtures::{face, illustration_font, policy, sha256_hex, title_font};
 use crate::{
-    epub::{
-        font_face_source_cache_metrics, open_runtime_document,
-        reset_font_face_source_cache_metrics, FontFaceSourceCacheMetrics,
-    },
+    epub::open_runtime_document,
     layout::LineBreaking,
     runtime::{
-        frame::chapter_window_layout_config, RuntimeBoundedRevisionRequest, RuntimeDocument,
-        RuntimePinnedFontGenericRole, RuntimeRevisionWorkBudget,
-        RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
+        RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimePinnedFontGenericRole,
+        RuntimeRevisionWorkBudget, RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
     },
 };
 
@@ -80,80 +74,6 @@ fn pinned_font_policy_summary_is_bytes_free_canonical_and_publication_neutral() 
 }
 
 #[test]
-fn empty_policy_preserves_legacy_layout_identity() {
-    let config = layout();
-    let expected = short_sha256(&serde_json::to_vec(&config).expect("layout serializes"));
-    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
-    let revision = document
-        .create_revision(&config)
-        .expect("revision completes");
-    let policy = document.pinned_font_policy_summary();
-
-    assert_eq!(revision.layout_key, expected);
-    assert_eq!(
-        policy.schema_version,
-        RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION
-    );
-    assert!(policy.faces.is_empty());
-}
-
-#[test]
-fn fixture_compatible_bounded_layout_never_initializes_font_sources() {
-    let bytes = fixture_epub();
-    let mut baseline = RuntimeDocument::open(&bytes).expect("baseline opens");
-    reset_font_face_source_cache_metrics();
-    let baseline_advance = baseline
-        .create_bounded_revision(RuntimeBoundedRevisionRequest {
-            layout_config: layout(),
-            line_breaking: LineBreaking::Greedy,
-            budget: RuntimeRevisionWorkBudget {
-                max_top_level_nodes: 1,
-            },
-        })
-        .expect("baseline bounded revision starts");
-    assert_eq!(
-        font_face_source_cache_metrics(),
-        FontFaceSourceCacheMetrics::default()
-    );
-    assert!(baseline
-        .revision_bundle(&baseline_advance.revision.revision_id, false)
-        .unwrap()
-        .required_font_faces
-        .is_none());
-
-    let mut pinned = RuntimeDocument::open_with_pinned_font_policy(
-        &bytes,
-        policy(vec![face(
-            title_font(),
-            RuntimePinnedFontGenericRole::Serif,
-            Some("en"),
-        )]),
-    )
-    .expect("pinned document opens");
-    reset_font_face_source_cache_metrics();
-    let pinned_advance = pinned
-        .create_bounded_revision(RuntimeBoundedRevisionRequest {
-            layout_config: layout(),
-            line_breaking: LineBreaking::Greedy,
-            budget: RuntimeRevisionWorkBudget {
-                max_top_level_nodes: 1,
-            },
-        })
-        .expect("pinned bounded revision starts");
-    assert_eq!(
-        font_face_source_cache_metrics(),
-        FontFaceSourceCacheMetrics::default()
-    );
-    assert!(pinned
-        .revision_bundle(&pinned_advance.revision.revision_id, false)
-        .unwrap()
-        .required_font_faces
-        .expect("pinned fixture-compatible revision keeps its empty catalog")
-        .faces
-        .is_empty());
-}
-
-#[test]
 fn pinned_policy_changes_layout_identity_and_is_stable_across_runtime_paths() {
     let bytes = multi_chapter_fixture_epub();
     let title_policy = policy(vec![face(
@@ -199,28 +119,6 @@ fn pinned_policy_changes_layout_identity_and_is_stable_across_runtime_paths() {
             .layout_key,
         title_revision.layout_key
     );
-}
-
-#[test]
-fn window_and_eager_revision_use_the_same_document_policy_identity() {
-    let bytes = multi_chapter_fixture_epub();
-    let input = policy(vec![face(
-        title_font(),
-        RuntimePinnedFontGenericRole::Serif,
-        Some("zh-hant"),
-    )]);
-    let mut eager = RuntimeDocument::open_with_pinned_font_policy(&bytes, input.clone())
-        .expect("eager document opens");
-    let mut window = RuntimeDocument::open_with_pinned_font_policy(&bytes, input)
-        .expect("window document opens");
-    let eager_revision = eager
-        .create_revision(&chapter_window_layout_config(&layout()))
-        .expect("eager revision completes");
-    let window_revision = window
-        .create_revision_window_with_line_breaking(&layout(), LineBreaking::Greedy, 0, 1)
-        .expect("window revision completes");
-
-    assert_eq!(window_revision.layout_key, eager_revision.layout_key);
 }
 
 #[test]

@@ -10,4 +10,3 @@ export interface DecodedRitoRuntimeBundle {
 }
 
 export type RitoCoreWasmRuntimeBundlePayload = RitoCoreWasmJsonValue;
-export type RitoCoreWasmReaderRuntimeWire = 'json' | 'ritorb1';

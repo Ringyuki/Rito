@@ -62,7 +62,6 @@ fn run() -> Result<(), String> {
     // is the fragment engine's own whole-book cost.
     let mut document = RuntimeDocument::open_with_pinned_font_policy(&bytes, policy())
         .map_err(|e| format!("open: {e:?}"))?;
-    document.set_fragment_page_table_enabled(true);
     let started = Instant::now();
     let revision = document
         .create_revision(&layout)

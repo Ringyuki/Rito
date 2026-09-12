@@ -9,7 +9,6 @@ const OPEN_REQUEST_KEYS = new Set([
   'id',
   'kind',
   'data',
-  'fragmentPageTable',
   'pinnedFontPolicyMetadata',
   'pinnedFontFaceBuffers',
 ]);
@@ -26,7 +25,6 @@ export function prepareReaderWorkerOpen(data, options) {
     request: {
       kind: 'open',
       data,
-      ...(options?.fragmentPageTable === true ? { fragmentPageTable: true } : {}),
       ...(pinned === undefined
         ? {}
         : {
@@ -47,9 +45,8 @@ export function decodeReaderWorkerOpenRequest(request) {
   if (hasMetadata !== hasBuffers) {
     badRequest('reader worker pinned font metadata and buffers must be supplied together');
   }
-  const lever = request.fragmentPageTable === true ? { fragmentPageTable: true } : undefined;
   if (!hasMetadata) {
-    return { data: request.data, options: lever, expectedFaces: [] };
+    return { data: request.data, options: undefined, expectedFaces: [] };
   }
   const metadata = requireMetadata(request.pinnedFontPolicyMetadata);
   const faceBuffers = request.pinnedFontFaceBuffers;
@@ -70,7 +67,6 @@ export function decodeReaderWorkerOpenRequest(request) {
   return {
     data: request.data,
     options: {
-      ...lever,
       pinnedFontPolicy: {
         schemaVersion: 1,
         faces: pinned.metadata.faces.map((face, index) => ({

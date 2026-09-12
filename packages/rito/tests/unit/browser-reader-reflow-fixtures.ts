@@ -1,13 +1,8 @@
 import { vi, type Mock } from 'vitest';
 import type { ReaderOptions } from '../../src/reader';
-import type {
-  CoreLayoutConfig,
-  CoreLineBreaking,
-  CoreViewRevisionRequest,
-} from '../../src/bindings/browser/core-contracts';
+import type { CoreLayoutConfig, CoreLineBreaking } from '../../src/bindings/browser/core-contracts';
 import type {
   BrowserReaderRevisionResult,
-  BrowserReaderViewRevisionResult,
   BrowserReaderWorkerClient,
 } from '../../src/bindings/browser/core-contracts';
 import { frameBuffer } from './browser-reader-reflow-state-fixtures';
@@ -45,7 +40,6 @@ interface TestWorkerFixture {
   readonly worker: BrowserReaderWorkerClient;
   readonly open: Mock<BrowserReaderWorkerClient['open']>;
   readonly createRevision: Mock<TestCreateRevision>;
-  readonly createViewRevision: Mock<BrowserReaderWorkerClient['createViewRevision']>;
   readonly calibrateRevisionFontVerticalMetrics: Mock<
     BrowserReaderWorkerClient['calibrateRevisionFontVerticalMetrics']
   >;
@@ -186,9 +180,6 @@ export function createWorker(
   const getFootnoteAtRevision = vi.fn<BrowserReaderWorkerClient['getFootnoteAtRevision']>();
   const resolveSourceLocatorAtRevision =
     vi.fn<BrowserReaderWorkerClient['resolveSourceLocatorAtRevision']>();
-  const createViewRevision = vi.fn((request: CoreViewRevisionRequest) =>
-    createViewRevisionResult(request, createRevision, activeChapterPreview),
-  );
   const calibrateRevisionFontVerticalMetrics =
     vi.fn<BrowserReaderWorkerClient['calibrateRevisionFontVerticalMetrics']>();
   const worker: BrowserReaderWorkerClient = {
@@ -230,7 +221,6 @@ export function createWorker(
     resolveSourceLocatorAtRevision,
     releaseRevisionTransfersAtRevision: releaseRevisionTransfers,
     releaseRevisionAtRevision,
-    createViewRevision,
     readResource: vi.fn(),
     warmFrameWindow: vi.fn<BrowserReaderWorkerClient['warmFrameWindow']>(),
     resolveLocator: vi.fn(),
@@ -261,7 +251,6 @@ export function createWorker(
     worker,
     open,
     createRevision,
-    createViewRevision,
     calibrateRevisionFontVerticalMetrics,
     warmFrameWindow,
     getPageSemanticsAtRevision,
@@ -283,55 +272,6 @@ export function createWorker(
     dispose,
     whenDisposed,
     activeChapterPreview,
-  };
-}
-
-async function createViewRevisionResult(
-  request: CoreViewRevisionRequest,
-  createRevision: TestCreateRevision,
-  activeChapterPreview: (
-    revisionId: string,
-    spreadIndex: number,
-  ) => Promise<TestActiveChapterPreview | undefined>,
-): Promise<BrowserReaderViewRevisionResult> {
-  const lineBreaking = request.lineBreaking ?? 'greedy';
-  const preview =
-    request.mode === 'preview' && request.previousRevisionId !== undefined
-      ? await activeChapterPreview(request.previousRevisionId, request.activeSpreadIndex)
-      : undefined;
-  const result =
-    request.previousRevisionId === undefined
-      ? await createRevision(request.layoutConfig, lineBreaking, request.activeSpreadIndex)
-      : await createRevision(
-          request.layoutConfig,
-          lineBreaking,
-          request.activeSpreadIndex,
-          request.previousRevisionId,
-        );
-  const kind =
-    request.mode === 'preview' && request.previousRevisionId !== undefined
-      ? preview === undefined
-        ? 'full'
-        : 'preview'
-      : request.mode;
-  const display =
-    kind === 'preview' && request.previousRevisionId !== undefined ? 'visualPreview' : 'revision';
-  const followUp =
-    kind === 'preview'
-      ? {
-          delayMs: 1000,
-          request: {
-            ...request,
-            mode: 'full' as const,
-            previousRevisionId: request.previousRevisionId ?? result.bundle.revision.revisionId,
-          },
-        }
-      : undefined;
-  return {
-    kind,
-    display,
-    ...(followUp !== undefined ? { followUp } : {}),
-    result: { ...result, preview: kind === 'preview' },
   };
 }
 

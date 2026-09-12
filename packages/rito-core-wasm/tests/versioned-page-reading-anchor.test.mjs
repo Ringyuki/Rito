@@ -136,20 +136,6 @@ test('worker rejects malformed responses and bad requests before dispatch', asyn
     /pageIndex/,
   );
   assert.equal(worker.messages.length, before);
-  await assert.rejects(
-    client.createViewRevision({
-      mode: 'preview',
-      layoutConfig: { pageWidth: 320, pageHeight: 480 },
-      activeSpreadIndex: 0,
-      preserveLocator: {
-        ...pageReadingAnchor().locator,
-        unknown: true,
-      },
-    }),
-    /source locator returned unknown field unknown/,
-  );
-  assert.equal(worker.messages.length, before);
-
   for (const fixture of malformedAnchors()) {
     const pending = client.getPageReadingAnchorAtRevision(anchorHandle(), 4);
     worker.respondLast({

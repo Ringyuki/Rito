@@ -162,17 +162,6 @@ thread_local! {
             catalog_hash_count: 0,
         }) };
 }
-
-#[cfg(test)]
-pub(crate) fn reset_font_face_source_cache_metrics() {
-    FONT_FACE_SOURCE_CACHE_METRICS.with(|metrics| metrics.set(Default::default()));
-}
-
-#[cfg(test)]
-pub(crate) fn font_face_source_cache_metrics() -> FontFaceSourceCacheMetrics {
-    FONT_FACE_SOURCE_CACHE_METRICS.with(std::cell::Cell::get)
-}
-
 #[cfg(test)]
 fn update_test_metrics(update: impl FnOnce(&mut FontFaceSourceCacheMetrics)) {
     FONT_FACE_SOURCE_CACHE_METRICS.with(|metrics| {

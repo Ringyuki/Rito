@@ -61,7 +61,7 @@ pub use chapter_tree_report::{
 use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
 use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
-use navigation::{active_chapter_preview, resolve_href_locator};
+use navigation::resolve_href_locator;
 use page::{page_targets, page_text_positions, text_range_geometry};
 use page_semantics::page_semantics;
 pub use page_semantics::{
@@ -142,12 +142,6 @@ pub struct RuntimeDocument {
     chapter_local_revisions: BTreeMap<String, RuntimeRevision>,
     continuations: continuation::RuntimeContinuationStore,
     cleanup_queue: RuntimeCleanupQueue,
-    /// Whether completed whole-book revisions may hand pagination to the
-    /// fragment engine. Off by default while the fragment backend's
-    /// interaction surface (selection, source locators) is still
-    /// unimplemented: routing would trade working interactions for
-    /// fragment pagination. Probes and tests opt in.
-    fragment_page_table_enabled: bool,
     /// Publication faces the host's font decoder rejected (normalized
     /// family names). The browser cannot paint these faces — its
     /// sanitizer refuses the bytes — so the engine must not shape with
@@ -204,7 +198,6 @@ impl RuntimeDocument {
             chapter_local_revisions: BTreeMap::new(),
             continuations: continuation::RuntimeContinuationStore::default(),
             cleanup_queue: RuntimeCleanupQueue::default(),
-            fragment_page_table_enabled: false,
             unavailable_font_families: std::collections::BTreeSet::new(),
         }
     }
@@ -235,13 +228,6 @@ impl RuntimeDocument {
             self.fragment_engine = OnceCell::new();
             self.applied_host_line_metrics.set(0);
         }
-    }
-
-    /// Opts completed whole-book revisions into fragment-engine
-    /// pagination. See the field's caveats; this is a cutover lever, not
-    /// a stable API.
-    pub fn set_fragment_page_table_enabled(&mut self, enabled: bool) {
-        self.fragment_page_table_enabled = enabled;
     }
 
     pub fn document(&self) -> &LoadedEpubDocument {
@@ -322,22 +308,6 @@ impl RuntimeDocument {
 
     pub fn revision_count(&self) -> usize {
         self.revisions.len() + self.chapter_local_revisions.len()
-    }
-
-    pub(super) fn active_chapter_preview(
-        &self,
-        revision_id: &str,
-        spread_index: usize,
-    ) -> EpubResult<Option<RuntimeActiveChapterPreview>> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        Ok(active_chapter_preview(
-            &self.document,
-            revision,
-            spread_index,
-        ))
     }
 
     pub fn get_resource(

@@ -19,10 +19,7 @@ mod runtime;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use runtime::{
-    build_prepared_loaded_document_runtime_layout, project_prepared_document_styles,
-    PreparedRuntimeLayoutOptions,
-};
+pub(crate) use runtime::{project_prepared_document_styles, PreparedRuntimeLayoutOptions};
 
 use super::{
     fonts::text_measurement_font_assembly_for_layout, open_document, EpubError, EpubPublication,

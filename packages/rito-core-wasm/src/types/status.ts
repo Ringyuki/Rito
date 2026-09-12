@@ -5,12 +5,6 @@ export interface RitoCoreWasmStatus {
   readonly rustFacade: {
     readonly publicationJson: true;
     readonly pinnedFontPolicyJson: true;
-    readonly createFullRevisionBundleJson: true;
-    readonly createInitialPreviewRevisionBundleJson: true;
-    readonly createActiveChapterPreviewRevisionBundleJson: true;
-    readonly createPreviewRevisionBundleJson: true;
-    readonly createViewRevisionBundleJson: true;
-    readonly createViewRevisionBundleBytes: boolean;
     readonly runtimeBundleRitorb1: true;
     readonly frameJson: true;
     readonly packedFrameCommandBuffer: true;

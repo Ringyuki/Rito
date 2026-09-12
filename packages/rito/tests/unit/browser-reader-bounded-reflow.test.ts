@@ -153,7 +153,6 @@ describe('Browser bounded reflow coordinator', () => {
       state.pinnedFonts.policy,
       state.dpr,
       state.pinnedFonts.summary,
-      state.fragmentPagination,
     );
     expect(mocks.createOwner.mock.calls.map(([worker]) => worker.sessionId)).toEqual([
       initial.worker.sessionId,
@@ -248,7 +247,6 @@ describe('Browser bounded reflow coordinator', () => {
       current.state.pinnedFonts.policy,
       current.state.dpr,
       current.state.pinnedFonts.summary,
-      current.state.fragmentPagination,
     );
     const call = mocks.startCandidate.mock.calls[0];
     if (!call) throw new Error('Bounded reflow candidate was not started');

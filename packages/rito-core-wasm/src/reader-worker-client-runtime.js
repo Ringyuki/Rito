@@ -7,7 +7,6 @@ import {
 } from './reader-worker-session-runtime.js';
 import {
   commitReaderSessionCache,
-  createCachedReaderViewRevision,
   normalizeReaderSessionCache,
   prepareReaderSessionCache,
 } from './reader-worker-cache-runtime.js';
@@ -252,8 +251,6 @@ function createRitoCoreWasmReaderClient(
   return {
     sessionId,
     open,
-    createViewRevision: (viewRequest) =>
-      createCachedReaderViewRevision(activeCache, viewRequest, readerRuntimeWire(), request),
     readResource: (revisionId, resourceKind, href) =>
       result(request, { kind: 'readResource', revisionId, resourceKind, href }, 'readResource'),
     warmFrameWindow: (revisionId, spreadIndex) =>
@@ -332,57 +329,15 @@ function createWorkerRequestId(worker) {
   return id;
 }
 
-function readerRuntimeWire() {
-  return globalThis.__RITO_CORE_WASM_READER_WIRE__ === 'ritorb1' ? 'ritorb1' : 'json';
-}
-
 async function handleWorkerMessage(scope, deps, state, message) {
-  const workerStartedAt = wireMetricsRequest(message) ? monotonicNow() : undefined;
   if (!isRequest(message)) return;
   try {
-    const internalPayload = await handleWorkerRequest(deps, state, message);
-    const prepared = prepareWorkerPayload(internalPayload);
-    const transfer = responseTransfer(prepared.payload);
-    const response = { id: message.id, ok: true, payload: prepared.payload };
-    if (workerStartedAt !== undefined) {
-      response.__ritoWireMetrics = completeWorkerWireMetrics(prepared.metrics, workerStartedAt);
-    }
-    scope.postMessage(response, transfer);
+    const payload = await handleWorkerRequest(deps, state, message);
+    const transfer = responseTransfer(payload);
+    scope.postMessage({ id: message.id, ok: true, payload }, transfer);
   } catch (error) {
     scope.postMessage({ id: message.id, ok: false, error: toWorkerError(deps, error) });
   }
-}
-
-function wireMetricsRequest(value) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  return value.kind === 'createViewRevision' && value.__ritoCollectWireMetrics === true;
-}
-
-function prepareWorkerPayload(payload) {
-  if (!Object.hasOwn(payload, '__ritoWireMetrics')) {
-    return { payload, metrics: undefined };
-  }
-  const { __ritoWireMetrics: metrics, ...publicPayload } = payload;
-  return { payload: publicPayload, metrics };
-}
-
-function completeWorkerWireMetrics(metrics, workerStartedAt) {
-  if (metrics === null || typeof metrics !== 'object' || Array.isArray(metrics)) {
-    throw new Error('Rito reader worker did not receive view-revision wire metrics');
-  }
-  return {
-    ...metrics,
-    workerProcessingMs: elapsedMilliseconds(workerStartedAt),
-  };
-}
-
-function monotonicNow() {
-  return globalThis.performance.now();
-}
-
-function elapsedMilliseconds(startedAt) {
-  const elapsed = monotonicNow() - startedAt;
-  return Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : 0;
 }
 
 async function handleWorkerRequest(deps, state, request) {
@@ -528,10 +483,6 @@ function responseTransfer(payload) {
   const chapterLocal = chapterLocalResponseTransfers(payload);
   if (chapterLocal.length > 0) return chapterLocal;
   switch (payload.kind) {
-    case 'createViewRevision':
-      return payload.result.result.frameWindow
-        ? frameWindowTransfers(payload.result.result.frameWindow)
-        : [];
     case 'warmFrameWindow':
       return frameWindowTransfers(payload.result);
     case 'warmFrameWindowAtRevision':

@@ -48,7 +48,6 @@
     "rust:test": "cargo test --workspace",
     "rust:wasm:build": "pnpm --filter @ritojs/core-wasm run build:wasm",
     "rust:wasm:check": "cargo check -p rito-wasm --target wasm32-unknown-unknown",
-    "rust:wasm:smoke": "pnpm --filter @ritojs/core-wasm run smoke:wasm",
     "rust:wasm:verify": "pnpm --filter @ritojs/core-wasm run verify:wasm",
     "typecheck": "pnpm run bootstrap:core-wasm && pnpm -r --workspace-concurrency=1 run typecheck",
     "test": "pnpm run bootstrap:core-wasm && pnpm -r --workspace-concurrency=1 run test",

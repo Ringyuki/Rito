@@ -1,20 +1,9 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    num::NonZeroUsize,
-    sync::Arc,
-};
-
-use crate::{
-    interaction::FootnoteEntry,
-    layout::create_empty_runtime_layout,
-    runtime::frame::{revision_summary, RuntimeRevision},
-};
+use crate::runtime::frame::revision_summary;
 
 use super::{
     metadata::layout_key, RuntimeBoundedRevisionRequest, RuntimeCancelRevisionRequest,
     RuntimeContinuationError, RuntimeContinuationErrorKind, RuntimeContinueRevisionRequest,
-    RuntimeDocument, RuntimeRequiredFontFace, RuntimeRevisionAdvance, RuntimeRevisionExtent,
-    RuntimeRevisionStatus, RuntimeRevisionSummary, RuntimeRevisionWorkBudget,
+    RuntimeDocument, RuntimeRevisionAdvance, RuntimeRevisionStatus, RuntimeRevisionSummary,
 };
 
 mod chapter_local;
@@ -32,21 +21,10 @@ pub(in crate::runtime) use cleanup::{
 use error::{
     checked_budget, continuation_error, engine_error, engine_error_with_revision, unknown_revision,
 };
-use publish::initial_revision_interactions;
 pub(in crate::runtime) use state::{
     RuntimeChapterContinuation, RuntimeContinuationRecord, RuntimeContinuationStore,
     RuntimeContinuationWork,
 };
-
-struct BoundedRevisionPreflight {
-    budget: NonZeroUsize,
-    revision_id: String,
-    layout_key: String,
-    publication_footnotes: Option<Arc<BTreeMap<String, FootnoteEntry>>>,
-    pending_footnote_keys: BTreeSet<String>,
-    footnote_index_complete: bool,
-    required_font_face_catalog: Option<Vec<RuntimeRequiredFontFace>>,
-}
 
 impl RuntimeDocument {
     /// Starts the experimental core-only bounded revision path.
@@ -58,11 +36,7 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeBoundedRevisionRequest,
     ) -> Result<RuntimeRevisionAdvance, RuntimeContinuationError> {
-        if self.fragment_page_table_enabled {
-            return self.create_fragment_bounded_revision(request);
-        }
-        let (continuation, layout_key, budget) = self.initialize_bounded_revision(request)?;
-        self.advance_initial_revision(continuation, budget, &layout_key)
+        self.create_fragment_bounded_revision(request)
     }
 
     /// The fragment-only bounded path: the whole book paginates in one
@@ -73,6 +47,9 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeBoundedRevisionRequest,
     ) -> Result<RuntimeRevisionAdvance, RuntimeContinuationError> {
+        // The whole book paginates in one step, but the request contract
+        // still requires a positive budget.
+        checked_budget(request.budget)?;
         let summary = self
             .create_revision_with_line_breaking(&request.layout_config, request.line_breaking)
             .map_err(|error| {
@@ -94,106 +71,6 @@ impl RuntimeDocument {
             continuation: None,
             revision: summary,
         })
-    }
-
-    fn initialize_bounded_revision(
-        &mut self,
-        request: RuntimeBoundedRevisionRequest,
-    ) -> Result<(RuntimeContinuationRecord, String, NonZeroUsize), RuntimeContinuationError> {
-        let RuntimeBoundedRevisionRequest {
-            layout_config,
-            line_breaking,
-            budget,
-        } = request;
-        let (layout_config, preflight) = self
-            .run_with_owned_layout_config(layout_config, |document, layout_config| {
-                document.preflight_bounded_revision(layout_config, budget)
-            })?;
-        let layout = create_empty_runtime_layout(self.document.chapters.len(), &layout_config);
-        let BoundedRevisionPreflight {
-            budget,
-            revision_id,
-            layout_key,
-            publication_footnotes,
-            pending_footnote_keys,
-            footnote_index_complete,
-            required_font_face_catalog,
-        } = preflight;
-        let mut interactions = initial_revision_interactions(BTreeMap::new());
-        interactions.publication_footnotes = publication_footnotes;
-        interactions.pending_footnote_keys =
-            crate::interaction::FootnoteTargetSet::new(pending_footnote_keys);
-        interactions.footnote_index_complete = footnote_index_complete;
-        let revision = RuntimeRevision::warming(
-            layout,
-            layout_config.clone(),
-            required_font_face_catalog,
-            interactions,
-        );
-        self.insert_new_revision(revision_id.clone(), revision);
-        let continuation = RuntimeContinuationRecord::new(
-            revision_id,
-            layout_key.clone(),
-            layout_config,
-            line_breaking,
-            self.document.chapters.len(),
-        );
-        Ok((continuation, layout_key, budget))
-    }
-
-    fn preflight_bounded_revision(
-        &mut self,
-        layout_config: &crate::layout::LayoutConfig,
-        budget: RuntimeRevisionWorkBudget,
-    ) -> Result<BoundedRevisionPreflight, RuntimeContinuationError> {
-        let budget = checked_budget(budget)?;
-        let revision_id = self.create_revision_id();
-        let layout_key =
-            layout_key(layout_config, &self.pinned_font_policy).map_err(engine_error)?;
-        self.ensure_layout_font_resources(layout_config)
-            .map_err(engine_error)?;
-        let required_font_face_catalog = self.required_font_face_catalog_for_layout(layout_config);
-        let (publication_footnotes, pending_footnote_keys, footnote_index_complete) =
-            self.publication_footnote_snapshot();
-        Ok(BoundedRevisionPreflight {
-            budget,
-            revision_id,
-            layout_key,
-            publication_footnotes,
-            pending_footnote_keys,
-            footnote_index_complete,
-            required_font_face_catalog,
-        })
-    }
-
-    fn advance_initial_revision(
-        &mut self,
-        mut continuation: RuntimeContinuationRecord,
-        budget: std::num::NonZeroUsize,
-        layout_key: &str,
-    ) -> Result<RuntimeRevisionAdvance, RuntimeContinuationError> {
-        let revision_id = continuation.revision_id.clone();
-        let work = match self.advance_record(&mut continuation, budget) {
-            Ok(work) => work,
-            Err(error) => {
-                self.cleanup_queue.enqueue_continuation(continuation);
-                if let Some(revision) = self.revisions.remove(&revision_id) {
-                    self.cleanup_queue.enqueue_revision(revision);
-                }
-                self.service_cleanup_queue();
-                return Err(engine_error(error));
-            }
-        };
-        self.apply_work(
-            continuation,
-            work,
-            RuntimeRevisionExtent {
-                page_count: 0,
-                spread_count: 0,
-            },
-            0,
-            layout_key,
-        )
     }
 
     pub fn continue_revision(
@@ -313,21 +190,5 @@ impl RuntimeDocument {
         let key =
             layout_key(&revision.layout_config, &self.pinned_font_policy).map_err(engine_error)?;
         Ok(revision_summary(revision_id, &key, revision))
-    }
-
-    #[cfg(test)]
-    pub(super) fn continuation_unpublished_page_count(&self, cursor: &str) -> Option<usize> {
-        self.continuations
-            .get(cursor)
-            .and_then(|continuation| continuation.current.as_ref())
-            .map(|chapter| chapter.unpublished_pages.len())
-    }
-
-    #[cfg(test)]
-    pub(super) fn continuation_open_page_block_count(&self, cursor: &str) -> Option<usize> {
-        self.continuations
-            .get(cursor)
-            .and_then(|continuation| continuation.current.as_ref())
-            .map(|chapter| chapter.session.open_page_block_count())
     }
 }

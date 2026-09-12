@@ -13,11 +13,6 @@ use super::LoadedEpubDocument;
 mod layout_profile;
 mod sources;
 
-#[cfg(test)]
-pub(crate) use sources::{
-    font_face_source_cache_metrics, reset_font_face_source_cache_metrics,
-    FontFaceSourceCacheMetrics,
-};
 pub(crate) use sources::{resolve_font_face_sources, ResolvedFontFaceSource};
 
 pub(crate) struct TextMeasurementFontAssembly<'a> {

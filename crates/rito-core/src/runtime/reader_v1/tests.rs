@@ -796,7 +796,6 @@ fn a_chapter_local_page_lays_images_out_with_their_real_dimensions() {
         crate::runtime::tests::fixture::pinned_test_font_policy(),
     )
     .expect("reference document");
-    reference.set_fragment_page_table_enabled(true);
     let reference_revision = reference
         .create_revision(&runtime_layout())
         .expect("full reference layout");
@@ -904,7 +903,6 @@ fn chapter_local_pages_match_the_whole_book_fragment_layout() {
         crate::runtime::tests::fixture::pinned_test_font_policy(),
     )
     .expect("reference document");
-    reference.set_fragment_page_table_enabled(true);
     let reference_revision = reference
         .create_revision(&runtime_layout())
         .expect("full reference layout");
@@ -1610,7 +1608,6 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
             crate::runtime::tests::fixture::pinned_test_font_policy(),
         )
         .expect("document opens");
-        document.set_fragment_page_table_enabled(true);
         let summary = document.create_revision(&layout).expect("revision");
         let frame = document
             .get_frame(&summary.revision_id, 0)

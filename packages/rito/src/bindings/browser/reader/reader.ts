@@ -75,13 +75,7 @@ export async function createReader(
     const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
     if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
     const dpr = options.devicePixelRatio ?? fallbackDevicePixelRatio();
-    const opened = await openBrowserReaderDocument(
-      worker,
-      data,
-      options.pinnedFontPolicy,
-      true,
-      dpr,
-    );
+    const opened = await openBrowserReaderDocument(worker, data, options.pinnedFontPolicy, dpr);
     pinnedFonts = opened.pinnedFonts;
     state = createInitialState(
       worker,
@@ -122,16 +116,15 @@ export async function createReader(
 }
 
 /**
- * The fragment page table attaches when a bounded session completes, but
- * reading alone never completes one. With the lever on, finish the book
- * in the background shortly after the first layout so the takeover
- * happens while the reader is still near the front of the book.
+ * The whole-book page table attaches when a bounded session completes,
+ * but reading alone never completes one: finish the book in the
+ * background shortly after the first layout so book-wide page numbers
+ * arrive while the reader is still near the front of the book.
  */
 function scheduleFragmentPaginationCompletion(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): void {
-  if (!state.fragmentPagination) return;
   setTimeout(() => {
     if (state.disposed) return;
     completeWithHostLineMetrics(state, options).catch((error: unknown) => {
@@ -227,19 +220,11 @@ async function openBrowserReaderDocument(
   worker: BrowserReaderWorkerClient,
   data: ArrayBuffer,
   policy: ReaderOptions['pinnedFontPolicy'],
-  fragmentPagination: boolean,
   renderRatio: number,
 ): Promise<OpenedBrowserReaderDocument> {
   const prepared = prepareBrowserReaderPinnedFonts(policy);
   const documentData = data.slice(0);
-  const openResult = await openBrowserReaderWorker(
-    worker,
-    data,
-    prepared.policy,
-    renderRatio,
-    undefined,
-    fragmentPagination,
-  );
+  const openResult = await openBrowserReaderWorker(worker, data, prepared.policy, renderRatio);
   const pinnedFonts = await registerBrowserReaderPinnedFonts(prepared, openResult.pinnedFontPolicy);
   return { documentData, openResult, pinnedFonts };
 }
@@ -262,7 +247,6 @@ function createInitialState(
     decodeFrameCommandBuffer: module.decodeRitoFrameCommandBuffer,
     documentData,
     pinnedFonts,
-    fragmentPagination: true,
     canvas,
     ctx,
     fontMetrics: createHostFontMetrics(),

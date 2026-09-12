@@ -29,14 +29,6 @@ impl RitoWasmDocument {
         self.inner.publication_json().map_err(error_to_js_value)
     }
 
-    /// Cutover lever: lets completed whole-book revisions hand pagination
-    /// to the fragment engine. Off by default until the fragment
-    /// interaction surface is complete.
-    #[wasm_bindgen(js_name = setFragmentPageTableEnabled)]
-    pub fn set_fragment_page_table_enabled(&mut self, enabled: bool) {
-        self.inner.document.set_fragment_page_table_enabled(enabled);
-    }
-
     /// Injects host-measured `line-height: normal` metrics: a JSON array
     /// of `{family, size, strut, cjk}`. The host (the surrounding
     /// browser) measures normal line heights per (family, size, sample)
@@ -171,76 +163,6 @@ impl RitoWasmDocument {
             .map_err(|error| error_to_js_value(WasmRuntimeError::from_engine(error)))
     }
 
-    /// Which backend owns a revision's pagination ("fragment" or
-    /// "retained"), for diagnostics.
-    #[wasm_bindgen(js_name = revisionPaginationBackend)]
-    pub fn revision_pagination_backend(&self, revision_id: &str) -> Option<String> {
-        self.inner
-            .document
-            .revision_pagination_backend(revision_id)
-            .map(str::to_owned)
-    }
-
-    #[wasm_bindgen(js_name = createFullRevisionBundleJson)]
-    pub fn create_full_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_full_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createInitialPreviewRevisionBundleJson)]
-    pub fn create_initial_preview_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_initial_preview_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createActiveChapterPreviewRevisionBundleJson)]
-    pub fn create_active_chapter_preview_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_active_chapter_preview_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createPreviewRevisionBundleJson)]
-    pub fn create_preview_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_preview_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createViewRevisionBundleJson)]
-    pub fn create_view_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_view_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createViewRevisionBundleBytes)]
-    pub fn create_view_revision_bundle_bytes(
-        &mut self,
-        request_json: &str,
-    ) -> Result<Vec<u8>, JsValue> {
-        self.inner
-            .create_view_revision_bundle_bytes(request_json)
-            .map_err(error_to_js_value)
-    }
-
     #[wasm_bindgen(js_name = createBoundedRevisionJson)]
     pub fn create_bounded_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
         self.inner
@@ -266,40 +188,6 @@ impl RitoWasmDocument {
     pub fn get_revision_summary_json(&self, revision_id: &str) -> Result<String, JsValue> {
         self.inner
             .get_revision_summary_json(revision_id)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createReaderViewRevisionBundleJson)]
-    pub fn create_reader_view_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-        omit_full_indices: bool,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_reader_view_revision_bundle_json(request_json, omit_full_indices)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createReaderViewRevisionBundleBytes)]
-    pub fn create_reader_view_revision_bundle_bytes(
-        &mut self,
-        request_json: &str,
-        omit_full_indices: bool,
-    ) -> Result<Vec<u8>, JsValue> {
-        self.inner
-            .create_reader_view_revision_bundle_bytes(request_json, omit_full_indices)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = measureNextViewRevisionWire)]
-    pub fn measure_next_view_revision_wire(&mut self) {
-        self.inner.measure_next_view_revision_wire();
-    }
-
-    #[wasm_bindgen(js_name = takeViewRevisionWireMetricsJson)]
-    pub fn take_view_revision_wire_metrics_json(&mut self) -> Result<String, JsValue> {
-        self.inner
-            .take_view_revision_wire_metrics_json()
             .map_err(error_to_js_value)
     }
 

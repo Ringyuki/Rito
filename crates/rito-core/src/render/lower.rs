@@ -41,8 +41,6 @@ mod block;
 mod border;
 #[cfg(test)]
 mod json;
-#[cfg(test)]
-mod parity;
 mod path;
 mod primitive;
 mod scale;

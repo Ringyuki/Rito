@@ -10,7 +10,6 @@ import type {
   RitoCoreWasmSourceLocatorResolution,
 } from './interaction';
 import type { RitoCoreWasmTocEntry } from './publication';
-import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resource';
 
 export type RitoCoreWasmRevisionStatus = 'warming' | 'ready' | 'complete' | 'cancelled' | 'failed';
 
@@ -30,13 +29,6 @@ export interface RitoCoreWasmRevisionSummary {
   readonly pageCount: number;
   /** Backward-compatible alias for `knownExtent.spreadCount`. */
   readonly spreadCount: number;
-  /**
-   * Which engine owns this revision's pagination. When this changes on
-   * one revision (a completed book handing pagination to the fragment
-   * engine), every cached frame describes the old page table and must be
-   * dropped.
-   */
-  readonly paginationBackend?: 'fragment' | 'retained' | undefined;
 }
 
 /** Stable identity for one published revision version. */
@@ -209,72 +201,9 @@ export interface RitoCoreWasmRequiredFontFace {
   readonly sourceOrder: number;
 }
 
-export interface RitoCoreWasmInitialPreviewRevisionRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-}
-
-export interface RitoCoreWasmFullRevisionBundleRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly activeSpreadIndex: number;
-  readonly previousRevisionId?: string | undefined;
-}
-
-export interface RitoCoreWasmActiveChapterPreviewRevisionRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly previousRevisionId: string;
-  readonly activeSpreadIndex: number;
-}
-
-export interface RitoCoreWasmPreviewRevisionBundleRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly previousRevisionId?: string | undefined;
-  readonly activeSpreadIndex?: number | undefined;
-}
-
-export type RitoCoreWasmViewRevisionMode = 'preview' | 'full';
-export type RitoCoreWasmViewRevisionKind = 'preview' | 'full';
-export type RitoCoreWasmViewRevisionDisplay = 'revision' | 'visualPreview';
-
-export interface RitoCoreWasmViewRevisionRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly activeSpreadIndex: number;
-  readonly previousRevisionId?: string | undefined;
-  /** Durable source identity to preserve while replacing the current revision. */
-  readonly preserveLocator?: RitoCoreWasmSourceLocator | undefined;
-  readonly mode: RitoCoreWasmViewRevisionMode;
-}
-
-export interface RitoCoreWasmViewRevisionFollowUp {
-  readonly delayMs: number;
-  readonly request: RitoCoreWasmViewRevisionRequest & {
-    readonly mode: 'full';
-    readonly previousRevisionId: string;
-  };
-}
-
 export interface RitoCoreWasmRevisionFrameSelection {
   readonly spreadIndex: number;
   readonly displaySpreadIndex: number;
-}
-
-export interface RitoCoreWasmRevisionBundleResponse {
-  readonly bundle: RitoCoreWasmRevisionBundle;
-  readonly frameSelection?: RitoCoreWasmRevisionFrameSelection | undefined;
-  readonly initialFrameWindow?: RitoCoreWasmPlannedFrameResourcePrefetchResponse | undefined;
-  readonly preview: boolean;
-  readonly releasedPreviousRevisionTransferCount: number;
-}
-
-export interface RitoCoreWasmViewRevisionResponse {
-  readonly kind: RitoCoreWasmViewRevisionKind;
-  readonly display: RitoCoreWasmViewRevisionDisplay;
-  readonly followUp?: RitoCoreWasmViewRevisionFollowUp | undefined;
-  readonly result: RitoCoreWasmRevisionBundleResponse;
 }
 
 export interface RitoCoreWasmChapterPageRange {
