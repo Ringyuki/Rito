@@ -234,3 +234,88 @@ fn word_spacing_folds_outside_the_fixed_point_round_trip() {
         "{origins:?}"
     );
 }
+
+/// A ruby base spread under a wide annotation splits into pieces at the
+/// spread's spacing edit and is re-fused into one fragment: that fragment
+/// carries one origin per base cluster, the later ones stepping by the
+/// spread gap, so the pen draws the gap layout opened (a base drawn as
+/// one origin packed its glyphs and left the gap after them).
+#[test]
+fn a_spread_ruby_base_keeps_one_origin_per_cluster_after_merging() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    let mut inline = InlineStyleTableV1::new(1);
+    let style = inline.intern_for_node(0, style).expect("style interns");
+    let text_item = |text: &str| InlineItem::Text {
+        text: text.to_owned(),
+        style,
+        baseline_shift_px: 0.0,
+        ruby_annotation: None,
+    };
+    let nodes = vec![FormattingNode {
+        style: rito_style_contract::LayoutStyleId::from_raw(0),
+        content: FormattingNodeContent::InlineFlow {
+            items: vec![
+                text_item("「"),
+                InlineItem::Text {
+                    text: "人族".to_owned(),
+                    style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                        text: "Emnetwiht".to_owned(),
+                        size_ratio: 0.5,
+                        align: rito_style_contract::RubyAlign::SpaceAround,
+                    }),
+                },
+                text_item("」"),
+            ],
+        },
+        children: Vec::new(),
+    }];
+    let tree = FormattingTree::with_styles(
+        nodes,
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTableV1::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(600.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let runs = text_runs(&outcome);
+    let base = runs
+        .iter()
+        .find(|run| run.text_start == 3 && run.text_end == 9)
+        .expect("the base 人族 lays out as one fragment");
+    assert!(
+        base.rect.width > 32.0,
+        "the annotation is wider than the base, so the base spreads: {}",
+        base.rect.width
+    );
+    let origins: Vec<f64> = base.clusters.iter().map(|cluster| cluster.x).collect();
+    assert_eq!(origins.len(), 2, "{origins:?}");
+    assert_eq!(origins[0], 0.0);
+    assert!(
+        origins[1] > 16.0 && (origins[1] - (base.rect.width - 16.0)).abs() < 1e-6,
+        "the second glyph steps by the em plus the spread gap: {origins:?} in {}",
+        base.rect.width
+    );
+}

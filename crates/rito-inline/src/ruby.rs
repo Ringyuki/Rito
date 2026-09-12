@@ -1,6 +1,8 @@
 //! Ruby: joining a spread base's fragments so one annotation paints over
 //! one extent.
 
+use rito_fragment::ClusterPosition;
+
 use crate::*;
 
 /// Applies accepted line-end trims as negative letter-spacing on the
@@ -9,9 +11,10 @@ use crate::*;
 /// position-exact. The blank right half collapses; the ink does not move.
 /// Re-fuses the text fragments a ruby spread's letter-spacing edit split
 /// apart, so each spread base paints (and carries its annotation) as one
-/// fragment per line. Only adjacent, byte- and geometry-contiguous
-/// fragments inside a single spread item merge; everything else passes
-/// through untouched.
+/// fragment per line, its cluster origins re-based onto the first
+/// fragment's start so the pen places every base glyph where the spread
+/// laid it. Only adjacent, byte- and geometry-contiguous fragments inside
+/// a single spread item merge; everything else passes through untouched.
 pub(crate) fn merge_ruby_spread_fragments(
     children: &mut Vec<(Fragment, f64)>,
     item_ranges: &[std::ops::Range<usize>],
@@ -36,8 +39,15 @@ pub(crate) fn merge_ruby_spread_fragments(
             if let (Fragment::Text(next), Some((Fragment::Text(previous), _))) =
                 (&fragment, merged.last_mut())
             {
+                let offset = next.rect.x - previous.rect.x;
                 previous.rect.width = next.rect.x + next.rect.width - previous.rect.x;
                 previous.text_end = next.text_end;
+                previous
+                    .clusters
+                    .extend(next.clusters.iter().map(|cluster| ClusterPosition {
+                        byte: cluster.byte,
+                        x: cluster.x + offset,
+                    }));
             }
             continue;
         }
