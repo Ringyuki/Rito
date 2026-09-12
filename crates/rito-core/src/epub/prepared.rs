@@ -1,12 +1,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
-#[cfg(feature = "legacy-css-diagnostics")]
-use std::sync::OnceLock;
 
 use rito_source::SourceArena;
 
-#[cfg(feature = "legacy-css-diagnostics")]
-use crate::{css::CssSummary, style::StylesheetRuleMap};
 use crate::{
     interaction::{
         discover_footnote_targets, extract_footnotes_for_targets, FootnoteFilterChapter,
@@ -48,34 +44,10 @@ impl RawStylesheetSource {
     }
 }
 
-#[cfg(feature = "legacy-css-diagnostics")]
-#[derive(Debug, Clone)]
-pub(crate) struct LegacyStylesheetArtifacts {
-    css: CssSummary,
-    stylesheet_rules: StylesheetRuleMap,
-}
-
-#[cfg(feature = "legacy-css-diagnostics")]
-impl LegacyStylesheetArtifacts {
-    pub(crate) fn css(&self) -> &CssSummary {
-        &self.css
-    }
-
-    pub(crate) fn stylesheet_rules(&self) -> &StylesheetRuleMap {
-        &self.stylesheet_rules
-    }
-}
-
-/// Raw publication CSS plus a single shared compatibility cache.
-///
-/// Creating or cloning this ledger never invokes the legacy CSS parser. The
-/// compatibility artifacts are initialized only when a style backend chooses
-/// the legacy fallback explicitly.
+/// The publication's raw CSS sources, shared by every prepared chapter.
 #[derive(Debug, Clone)]
 pub(crate) struct StylesheetSourceLedger {
     sources: Arc<[RawStylesheetSource]>,
-    #[cfg(feature = "legacy-css-diagnostics")]
-    legacy: Arc<OnceLock<LegacyStylesheetArtifacts>>,
 }
 
 impl StylesheetSourceLedger {
@@ -90,47 +62,11 @@ impl StylesheetSourceLedger {
             .collect::<Vec<_>>();
         Self {
             sources: Arc::from(sources),
-            #[cfg(feature = "legacy-css-diagnostics")]
-            legacy: Arc::new(OnceLock::new()),
         }
     }
 
     pub(crate) fn sources(&self) -> &[RawStylesheetSource] {
         &self.sources
-    }
-
-    #[cfg(feature = "legacy-css-diagnostics")]
-    pub(crate) fn legacy_artifacts(&self) -> &LegacyStylesheetArtifacts {
-        self.legacy.get_or_init(|| {
-            #[cfg(feature = "bench-internals")]
-            let _probe_timer = crate::layout::bounded_work_probe::start_timing(
-                crate::layout::bounded_work_probe::ContinuationTimingStage::PreparedBase,
-            );
-            LegacyStylesheetArtifacts {
-                css: crate::css::summarize_stylesheet_texts(
-                    self.sources
-                        .iter()
-                        .map(|source| (source.href(), source.text())),
-                ),
-                stylesheet_rules: crate::style::stylesheet_rules_from_texts(
-                    self.sources
-                        .iter()
-                        .map(|source| (source.href(), source.text())),
-                ),
-            }
-        })
-    }
-
-    #[cfg(test)]
-    pub(crate) fn legacy_artifacts_if_initialized(&self) -> Option<()> {
-        #[cfg(feature = "legacy-css-diagnostics")]
-        {
-            self.legacy.get().map(|_| ())
-        }
-        #[cfg(not(feature = "legacy-css-diagnostics"))]
-        {
-            None
-        }
     }
 }
 

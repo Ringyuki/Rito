@@ -11,7 +11,6 @@ fn module_boundaries_are_declared_once() {
         vec![
             "epub",
             "xhtml",
-            "css",
             "style",
             "layout",
             "render",

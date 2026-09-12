@@ -39,7 +39,6 @@ pub(crate) fn project_prepared_document_styles<'a>(
     let chapter_style_tables = chapter_style_tables(
         &prepared.stylesheet_ledger,
         &prepared.chapters[chapter_start.min(end)..end],
-        &prepared.filtered_footnote_nodes,
         layout_config,
     )?;
     Ok(ProjectedDocumentStyles {

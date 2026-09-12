@@ -1,13 +1,11 @@
 //! Construction of production Stylo stylesheet inputs.
 //!
-//! This module deliberately inventories CSS with a small lexer instead of
-//! invoking the compatibility parser. Declarations outside the production
-//! style contract are recorded as capability divergences and admitted —
-//! Stylo still parses them, and the typed projection only reads contracted
+//! This module inventories CSS with a small lexer before Stylo parses it.
+//! Declarations outside the production style contract are admitted — Stylo
+//! still parses them, and the typed projection only reads contracted
 //! fields — so a publication is never refused for asking more than the
 //! engine can represent. Only the reserved engine-internal property
-//! namespace keeps a hard rejection. `@page` remains a compatibility no-op;
-//! page-rule projection is a separate migration gate.
+//! namespace keeps a hard rejection.
 
 use rito_source::SourceArena;
 use rito_stylo::StylesheetInput;
@@ -21,103 +19,6 @@ use crate::{
 pub(crate) struct StyloSourceSelection {
     pub(crate) document_url: String,
     pub(crate) stylesheets: Vec<StylesheetInput>,
-    pub(crate) capabilities: StyleCapabilityReport,
-}
-
-/// How a publication's CSS diverges from what this engine can represent.
-///
-/// CSS is designed so that content an engine cannot understand is dropped and
-/// the rest still applies; that is the mechanism which lets stylesheets target
-/// many engines at once. Rito therefore records divergence instead of refusing
-/// the publication, and reserves failure for damage a reader would act on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum StyleCapabilityImpact {
-    /// The declaration cannot change this engine's layout or paint, so
-    /// dropping it renders exactly what a supporting engine would render.
-    Ignored,
-    /// The declaration would have changed rendering. Output stays readable and
-    /// self-consistent, but it is not what the author specified.
-    Degraded,
-}
-
-/// One recorded divergence between a publication's CSS and this engine.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct StyleCapabilityNote {
-    pub(crate) impact: StyleCapabilityImpact,
-    pub(crate) source_index: usize,
-    pub(crate) subject: String,
-}
-
-/// Per-chapter capability observations, ordered and deduplicated so a
-/// publication-level report stays stable and bounded.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct StyleCapabilityReport {
-    notes: Vec<StyleCapabilityNote>,
-    complete: bool,
-}
-
-impl Default for StyleCapabilityReport {
-    fn default() -> Self {
-        Self {
-            notes: Vec::new(),
-            complete: true,
-        }
-    }
-}
-
-impl StyleCapabilityReport {
-    pub(crate) fn record(
-        &mut self,
-        impact: StyleCapabilityImpact,
-        source_index: usize,
-        subject: impl Into<String>,
-    ) {
-        let note = StyleCapabilityNote {
-            impact,
-            source_index,
-            subject: subject.into(),
-        };
-        if let Err(position) = self.notes.binary_search(&note) {
-            self.notes.insert(position, note);
-        }
-    }
-
-    /// Production reads this record through [`Self::summary`]; these expose
-    /// the pre-projection state so tests can lock the classification itself.
-    #[cfg(test)]
-    pub(crate) fn notes(&self) -> &[StyleCapabilityNote] {
-        &self.notes
-    }
-
-    #[cfg(test)]
-    pub(crate) fn is_empty(&self) -> bool {
-        self.notes.is_empty()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn is_complete(&self) -> bool {
-        self.complete
-    }
-
-    pub(crate) fn mark_incomplete(&mut self) {
-        self.complete = false;
-    }
-}
-
-impl Ord for StyleCapabilityNote {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.impact, self.source_index, &self.subject).cmp(&(
-            other.impact,
-            other.source_index,
-            &other.subject,
-        ))
-    }
-}
-
-impl PartialOrd for StyleCapabilityNote {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 /// A stylesheet-selection rejection uses the effective cascade ordinal as
@@ -191,8 +92,6 @@ pub(crate) fn select_stylo_sources(
         stylesheet_ledger.sources().len()
     };
     let mut stylesheets = Vec::with_capacity(author_stylesheets.len() + implicit_source_count);
-    let mut capabilities = StyleCapabilityReport::default();
-
     // Preserve the compatibility contract used by documents constructed
     // through the public LoadedEpubDocument API: when XHTML has no link
     // occurrence, every publication stylesheet precedes embedded sheets.
@@ -205,7 +104,7 @@ pub(crate) fn select_stylo_sources(
                 stylesheet_ledger,
                 &mut vec![normalize_path(source.href())],
             );
-            inventory_selected_css(source_index, source.href(), &expanded, &mut capabilities)?;
+            inventory_selected_css(source_index, &expanded)?;
             stylesheets.push(StylesheetInput::author(
                 expanded,
                 publication_url(source.href()),
@@ -260,136 +159,49 @@ pub(crate) fn select_stylo_sources(
             stylesheet_ledger,
             &mut vec![normalize_path(&import_base)],
         );
-        inventory_selected_css(source_index, &base_url, &expanded, &mut capabilities)?;
+        inventory_selected_css(source_index, &expanded)?;
         stylesheets.push(StylesheetInput::author(expanded, base_url));
     }
     Ok(StyloSourceSelection {
         document_url,
         stylesheets,
-        capabilities,
     })
 }
 
 /// Inventories one selected stylesheet.
 ///
-/// Content this engine cannot represent is recorded rather than rejected: CSS
-/// drops what an engine does not understand and applies the rest, so refusing
-/// the publication would make Rito the only engine that cannot open a book its
-/// author styled for several. Only damage a reader would act on — content this
-/// scanner cannot even traverse, or an injection guard — still fails closed.
-fn inventory_selected_css(
-    source_index: usize,
-    label: &str,
-    css: &str,
-    capabilities: &mut StyleCapabilityReport,
-) -> Result<(), StyloSourceRejection> {
-    let Err(failure) = inventory_css(css) else {
-        return Ok(());
-    };
-    if let Some((impact, subject)) = failure.capability_note() {
-        capabilities.record(impact, source_index, subject);
-        return Ok(());
+/// Content this engine cannot represent is admitted rather than rejected:
+/// CSS drops what an engine does not understand and applies the rest, so
+/// refusing the publication would make Rito the only engine that cannot
+/// open a book its author styled for several. Only an injection guard —
+/// the reserved engine-internal namespace, or an escape that could spell
+/// it past this scanner — still fails closed.
+fn inventory_selected_css(source_index: usize, css: &str) -> Result<(), StyloSourceRejection> {
+    match inventory_css(css) {
+        Err(failure) if failure.fails_closed() => Err(failure.with_source_index(source_index)),
+        _ => Ok(()),
     }
-    if failure.leaves_inventory_incomplete() {
-        capabilities.mark_incomplete();
-        return Ok(());
-    }
-    let _ = label;
-    Err(failure.with_source_index(source_index))
 }
 
-/// Applies the same capability inventory to one `style` attribute. Content
-/// the engine cannot represent is recorded and admitted — Stylo still parses
-/// the attribute, and the typed projection only reads contracted fields — so
-/// only the reserved-namespace escape hatch keeps a hard rejection.
+/// Applies the same inventory to one `style` attribute.
 pub(crate) fn validate_stylo_inline_style(
     source_node_index: usize,
     declarations: &str,
-    capabilities: &mut StyleCapabilityReport,
 ) -> Result<(), StyloSourceRejection> {
-    let wrapped = format!("*{{{declarations}}}");
-    let Err(failure) = inventory_css(&wrapped) else {
-        return Ok(());
-    };
-    if let Some((impact, subject)) = failure.capability_note() {
-        capabilities.record(impact, source_node_index, subject);
-        return Ok(());
-    }
-    if failure.leaves_inventory_incomplete() {
-        capabilities.mark_incomplete();
-        return Ok(());
-    }
-    Err(failure.with_source_index(source_node_index))
+    inventory_selected_css(source_node_index, &format!("*{{{declarations}}}"))
 }
 
-/// Validates source-level inputs that are not stylesheet rules. Legacy
-/// presentational hints and HTML algorithms the DOM-independent adapter
-/// cannot express are recorded as capability divergences and skipped, so a
-/// single attribute never refuses a publication.
+/// Validates the `style` attributes of a source arena the way selected
+/// stylesheets are validated.
 pub(crate) fn validate_stylo_source_arena(
     source_arena: &SourceArena,
-    capabilities: &mut StyleCapabilityReport,
 ) -> Result<(), StyloSourceRejection> {
     for (node_id, node) in source_arena.iter() {
         let Some(element) = node.as_element() else {
             continue;
         };
         if let Some(declarations) = element.attribute("style") {
-            validate_stylo_inline_style(node_id.index(), declarations, capabilities)?;
-        }
-        if element
-            .attribute("dir")
-            .is_some_and(|value| value.trim().eq_ignore_ascii_case("auto"))
-        {
-            // First-strong bidi detection is not implemented; the element
-            // keeps its inherited direction.
-            capabilities.record(
-                StyleCapabilityImpact::Degraded,
-                node_id.index(),
-                "attribute dir=auto",
-            );
-        }
-        if element.name.local_name.eq_ignore_ascii_case("body") {
-            if let Some(value) = element.attribute("bgcolor") {
-                const HTML_NAMESPACE: &str = "http://www.w3.org/1999/xhtml";
-                if element.name.namespace.as_deref() != Some(HTML_NAMESPACE)
-                    || !rito_stylo::supports_body_bgcolor_presentational_hint(value)
-                {
-                    capabilities.record(
-                        StyleCapabilityImpact::Degraded,
-                        node_id.index(),
-                        "attribute body@bgcolor",
-                    );
-                }
-            }
-        }
-        // `width`/`height` on `<svg>` are presentation attributes (SVG 2
-        // §7.2) that the Stylo adapter synthesizes as hints. An invalid
-        // value is ignored by browsers just as it is here, and outside the
-        // SVG namespace neither side applies the attribute, so the only
-        // divergence worth recording is an in-namespace, non-empty value
-        // the adapter cannot represent while a browser's own grammar might.
-        if element.name.local_name == "svg" {
-            const SVG_NAMESPACE: &str = "http://www.w3.org/2000/svg";
-            if element.name.namespace.as_deref() == Some(SVG_NAMESPACE) {
-                for (name, subject) in [
-                    ("width", "attribute svg@width"),
-                    ("height", "attribute svg@height"),
-                ] {
-                    let Some(value) = element.attribute(name) else {
-                        continue;
-                    };
-                    if !value.trim().is_empty()
-                        && !rito_stylo::supports_svg_geometry_presentational_hint(value)
-                    {
-                        capabilities.record(
-                            StyleCapabilityImpact::Degraded,
-                            node_id.index(),
-                            subject,
-                        );
-                    }
-                }
-            }
+            validate_stylo_inline_style(node_id.index(), declarations)?;
         }
     }
     Ok(())
@@ -590,45 +402,20 @@ enum InventoryRejection {
 }
 
 impl InventoryRejection {
-    /// Classifies content this engine cannot represent, or `None` when the
-    /// publication must fail closed.
-    fn capability_note(&self) -> Option<(StyleCapabilityImpact, String)> {
+    /// Whether the publication must fail closed. The reserved engine-internal
+    /// namespace is enforced on raw property names, so an escape that could
+    /// spell one past this scanner is the other case. Everything else — an
+    /// uncontracted property, an unhandled at-rule, a skipped pseudo-element,
+    /// or syntax this crude scanner cannot traverse — is Stylo's to resolve.
+    fn fails_closed(&self) -> bool {
         match self {
-            // The reserved engine-internal namespace must never be
-            // author-declarable, so it keeps a hard rejection.
-            Self::UnsupportedProperty(name) if name.starts_with(RITO_INTERNAL_PROPERTY_PREFIX) => {
-                None
-            }
-            // A property outside the typed contract cannot reach layout or
-            // paint at all, so dropping it matches what CSS itself specifies.
-            Self::UnsupportedProperty(name) => {
-                Some((StyleCapabilityImpact::Ignored, format!("property {name}")))
-            }
-            // An unhandled at-rule may carry declarations that would have
-            // applied, so its content is lost rather than inert.
-            Self::UnsupportedAtRule(name) => {
-                Some((StyleCapabilityImpact::Degraded, format!("@{name}")))
-            }
-            // Generated content is skipped; surrounding text still renders.
-            Self::UnsupportedPseudoElement(pseudo) => {
-                Some((StyleCapabilityImpact::Degraded, format!("pseudo {pseudo}")))
-            }
-            // This crude scanner sits in front of a real CSS parser: Stylo
-            // resolves nesting natively and recovers from syntax this scanner
-            // cannot traverse. Its own limits must not refuse a publication;
-            // they only bound what this report can claim.
-            Self::CssNesting | Self::Syntax(_) => None,
-            // The reserved `--rito-internal-` namespace is enforced on raw
-            // property names, so an escape that could spell one past this
-            // scanner is the one case that must still fail closed.
-            Self::BackslashEscape => None,
+            Self::BackslashEscape => true,
+            Self::UnsupportedProperty(name) => name.starts_with(RITO_INTERNAL_PROPERTY_PREFIX),
+            Self::UnsupportedAtRule(_)
+            | Self::UnsupportedPseudoElement(_)
+            | Self::CssNesting
+            | Self::Syntax(_) => false,
         }
-    }
-
-    /// Whether this scanner simply could not finish, leaving Stylo as the
-    /// only authority on the stylesheet's content.
-    fn leaves_inventory_incomplete(&self) -> bool {
-        matches!(self, Self::CssNesting | Self::Syntax(_))
     }
 
     fn with_source_index(self, source_index: usize) -> StyloSourceRejection {
@@ -1284,8 +1071,7 @@ mod tests {
 
     use super::{
         inventory_css, publication_url, select_stylo_sources, validate_stylo_inline_style,
-        validate_stylo_source_arena, CssInventoryFailure, InventoryRejection,
-        StyleCapabilityImpact, StyleCapabilityNote, StyleCapabilityReport, StyloSourceRejection,
+        CssInventoryFailure, InventoryRejection, StyloSourceRejection,
     };
     use crate::{
         epub::{
@@ -1467,15 +1253,6 @@ mod tests {
         )
         .expect("an unrepresentable property must not refuse the publication");
         assert_eq!(selection.stylesheets.len(), 1);
-        assert!(selection.capabilities.is_complete());
-        assert_eq!(
-            selection.capabilities.notes(),
-            [StyleCapabilityNote {
-                impact: StyleCapabilityImpact::Ignored,
-                source_index: 0,
-                subject: "property cursor".to_owned(),
-            }]
-        );
 
         // Generated content is skipped, which changes rendering, so it is
         // recorded as degraded rather than inert.
@@ -1485,14 +1262,11 @@ mod tests {
             &[embedded("p::before { content: \"x\" }")],
         )
         .expect("a skipped pseudo-element must not refuse the publication");
-        assert_eq!(
-            selection.capabilities.notes()[0].impact,
-            StyleCapabilityImpact::Degraded
-        );
+        assert_eq!(selection.stylesheets.len(), 1);
     }
 
     #[test]
-    fn this_scanner_s_own_limits_only_bound_the_report() {
+    fn this_scanner_s_own_limits_never_refuse_the_publication() {
         let ledger = ledger(&[]);
         // Stylo resolves nesting natively; this crude scanner cannot, so the
         // publication still opens and only the report admits it is partial.
@@ -1505,8 +1279,7 @@ mod tests {
         let selection = select_stylo_sources(&ledger, "Text/chapter.xhtml", &[nested])
             .expect("nesting is Stylo's to resolve, not this scanner's to refuse");
 
-        assert!(!selection.capabilities.is_complete());
-        assert!(selection.capabilities.is_empty());
+        assert_eq!(selection.stylesheets.len(), 1);
     }
 
     #[test]
@@ -1633,36 +1406,24 @@ mod tests {
     }
 
     #[test]
-    fn inventories_inline_style_declarations_without_the_legacy_parser() {
-        let mut capabilities = StyleCapabilityReport::default();
+    fn inventories_inline_style_declarations() {
         assert_eq!(
-            validate_stylo_inline_style(42, "font-size: 1rem; color: navy", &mut capabilities),
+            validate_stylo_inline_style(42, "font-size: 1rem; color: navy"),
             Ok(())
         );
-        assert_eq!(
-            validate_stylo_inline_style(42, "opacity: .5", &mut capabilities),
-            Ok(())
-        );
-        assert!(capabilities.is_empty());
+        assert_eq!(validate_stylo_inline_style(42, "opacity: .5"), Ok(()));
     }
 
     #[test]
-    fn records_and_admits_uncontracted_inline_style_properties() {
-        let mut capabilities = StyleCapabilityReport::default();
+    fn admits_uncontracted_inline_style_properties() {
         assert_eq!(
-            validate_stylo_inline_style(15, "box-sizing: border-box", &mut capabilities),
+            validate_stylo_inline_style(15, "box-sizing: border-box"),
             Ok(())
         );
         assert_eq!(
-            validate_stylo_inline_style(16, "font-variant: small-caps", &mut capabilities),
+            validate_stylo_inline_style(16, "font-variant: small-caps"),
             Ok(())
         );
-        let subjects: Vec<_> = capabilities
-            .notes()
-            .iter()
-            .map(|note| note.subject.as_str())
-            .collect();
-        assert_eq!(subjects, ["property box-sizing", "property font-variant"]);
     }
 
     #[test]
@@ -1675,11 +1436,7 @@ mod tests {
             Ok(())
         );
         assert_eq!(
-            validate_stylo_inline_style(
-                42,
-                "page-break-before: always; break-after: page",
-                &mut StyleCapabilityReport::default()
-            ),
+            validate_stylo_inline_style(42, "page-break-before: always; break-after: page"),
             Ok(())
         );
         for name in [
@@ -1688,65 +1445,12 @@ mod tests {
         ] {
             let declarations = format!("{name}: always");
             assert!(matches!(
-                validate_stylo_inline_style(
-                    42,
-                    &declarations,
-                    &mut StyleCapabilityReport::default()
-                ),
+                validate_stylo_inline_style(42, &declarations),
                 Err(StyloSourceRejection::UnsupportedProperty {
                     source_index: 42,
                     name: rejected,
                 }) if rejected == name
             ));
         }
-    }
-
-    #[test]
-    fn degrades_source_semantics_without_an_exact_stylo_bridge() {
-        for (source, expected_subject) in [
-            (
-                r#"<html><body bgcolor="transparent"><p>text</p></body></html>"#,
-                "attribute body@bgcolor",
-            ),
-            (
-                r#"<html><body><p dir="auto">text</p></body></html>"#,
-                "attribute dir=auto",
-            ),
-        ] {
-            let arena = SourceArena::from_xhtml(source).unwrap();
-            let mut capabilities = StyleCapabilityReport::default();
-            assert_eq!(
-                validate_stylo_source_arena(&arena, &mut capabilities),
-                Ok(())
-            );
-            let subjects: Vec<_> = capabilities
-                .notes()
-                .iter()
-                .map(|note| note.subject.as_str())
-                .collect();
-            assert_eq!(subjects, [expected_subject]);
-        }
-        let supported = SourceArena::from_xhtml(r##"<html xmlns="http://www.w3.org/1999/xhtml"><body bgcolor="#fff"><p>text</p></body></html>"##).unwrap();
-        let mut capabilities = StyleCapabilityReport::default();
-        assert_eq!(
-            validate_stylo_source_arena(&supported, &mut capabilities),
-            Ok(())
-        );
-        assert!(capabilities.is_empty());
-
-        let namespace_mismatch =
-            SourceArena::from_xhtml(r##"<html><body bgcolor="#fff"><p>text</p></body></html>"##)
-                .unwrap();
-        let mut capabilities = StyleCapabilityReport::default();
-        assert_eq!(
-            validate_stylo_source_arena(&namespace_mismatch, &mut capabilities),
-            Ok(())
-        );
-        let subjects: Vec<_> = capabilities
-            .notes()
-            .iter()
-            .map(|note| note.subject.as_str())
-            .collect();
-        assert_eq!(subjects, ["attribute body@bgcolor"]);
     }
 }

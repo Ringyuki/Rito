@@ -4,7 +4,6 @@
 //! pipeline's bridge and paint lowering, display commands, interaction
 //! geometry, resources, and the revision/frame runtime.
 
-pub mod css;
 pub mod epub;
 pub mod fragment_bridge;
 pub(crate) mod fragment_pagination;
@@ -33,10 +32,6 @@ pub const ENGINE_MODULES: &[EngineModule] = &[
     EngineModule {
         name: xhtml::NAME,
         owns: xhtml::OWNS,
-    },
-    EngineModule {
-        name: css::NAME,
-        owns: css::OWNS,
     },
     EngineModule {
         name: style::NAME,
@@ -75,6 +70,6 @@ mod tests {
     #[test]
     fn exposes_engine_identity() {
         assert_eq!(ENGINE_NAME, "rito-core");
-        assert_eq!(engine_modules().len(), 9);
+        assert_eq!(engine_modules().len(), 8);
     }
 }

@@ -43,9 +43,6 @@ path = "examples/anchor_roundtrip_probe.rs"
 name = "layout-engine-bench"
 path = "examples/layout_engine_bench.rs"
 
-[features]
-legacy-css-diagnostics = []
-
 [dependencies]
 rito-block = { path = "../rito-block" }
 rito-fragment = { path = "../rito-fragment" }

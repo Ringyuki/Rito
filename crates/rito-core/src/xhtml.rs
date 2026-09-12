@@ -11,8 +11,6 @@ use rito_source::{NodeId, SourceArena};
 
 pub(crate) use footnote_scan::{scan_epub_type_attribute_hints, EpubTypeAttributeHint};
 pub use parser::parse_xhtml;
-#[cfg(all(test, feature = "legacy-css-diagnostics"))]
-pub(crate) use parser::parse_xhtml_from_source;
 pub(crate) use parser::parse_xhtml_with_source;
 use serde::{Deserialize, Serialize};
 

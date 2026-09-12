@@ -3802,12 +3802,14 @@ fn anonymous_block_style() -> LayoutFormattingStyleV1 {
 mod tests {
     use super::*;
     use crate::{
-        css::CssViewport,
         epub::{
             parsed_loaded_chapter_source, prepare_loaded_document_base, LoadedChapter,
             LoadedEpubDocument, LoadedTextResource, PackageDocument, PackageMetadata,
         },
-        style::{resolve_prepared_chapter_style, ChapterStyleOptions, PreparedStyleChapterInput},
+        style::{
+            resolve_prepared_chapter_style, ChapterStyleOptions, CssViewport,
+            PreparedStyleChapterInput,
+        },
     };
     use rito_block::BlockFormattingContext;
     use rito_fragment::{CancelFlag, ConstraintSpace, FormattingContext, Fragment};
@@ -3934,10 +3936,6 @@ p { margin: 8px 0; }\n\
                 chapter_href: &parsed.source.href,
                 source_arena: parsed.source_arena.as_ref(),
                 body_source_node_id: parsed.parsed.body_source_node_id,
-                nodes: &parsed.parsed.nodes,
-                pagination_nodes: None,
-                #[cfg(feature = "legacy-css-diagnostics")]
-                body_attributes: parsed.parsed.body_attributes.as_ref(),
                 author_stylesheets: &parsed.parsed.author_stylesheets,
             },
             Some(CssViewport::new(420.0, 640.0)),

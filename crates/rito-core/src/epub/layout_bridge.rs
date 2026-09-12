@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::{
     layout::LayoutConfig,
     style::{resolve_prepared_chapter_style, ChapterStyleOptions, PreparedStyleChapterInput},
@@ -27,7 +25,6 @@ pub(crate) fn prepare_runtime_layout_chapter(
     let tables = chapter_style_tables(
         &prepared.stylesheet_ledger,
         &prepared.chapters,
-        &prepared.filtered_footnote_nodes,
         layout_config,
     )?;
     Ok(tables
@@ -46,7 +43,6 @@ pub(crate) fn prepare_runtime_layout_chapter(
 fn chapter_style_tables(
     stylesheet_ledger: &super::StylesheetSourceLedger,
     chapters: &[ParsedLoadedChapterSource],
-    filtered_footnote_nodes: &BTreeMap<String, Vec<crate::xhtml::DocumentNode>>,
     layout_config: &LayoutConfig,
 ) -> EpubResult<Vec<ChapterStyleTable>> {
     // The CSS viewport (vh/vw, media queries) is ONE PAGE's content box,
@@ -55,7 +51,7 @@ fn chapter_style_tables(
     // html element to the column, so `height: 80vh` on a cover means 80%
     // of the page content height — measured: 80vh resolved against the
     // 950px canvas drew the cover 760px tall where the browser draws 680.
-    let viewport = Some(crate::css::CssViewport::new(
+    let viewport = Some(crate::style::CssViewport::new(
         (layout_config.page_width - layout_config.margin_left - layout_config.margin_right)
             .max(1.0),
         (layout_config.page_height - layout_config.margin_top - layout_config.margin_bottom)
@@ -65,9 +61,6 @@ fn chapter_style_tables(
     chapters
         .iter()
         .map(|chapter| -> EpubResult<ChapterStyleTable> {
-            let pagination_nodes = filtered_footnote_nodes
-                .get(&chapter.source.idref)
-                .map(Vec::as_slice);
             if is_recovered_empty_chapter(chapter) {
                 return Ok(ChapterStyleTable {
                     idref: chapter.source.idref.clone(),
@@ -80,8 +73,6 @@ fn chapter_style_tables(
                 chapter_href: &chapter.source.href,
                 source_arena: chapter.source_arena.as_ref(),
                 body_source_node_id: chapter.parsed.body_source_node_id,
-                nodes: &chapter.parsed.nodes,
-                pagination_nodes,
                 author_stylesheets: &chapter.parsed.author_stylesheets,
             };
             let resolved = resolve_prepared_chapter_style(

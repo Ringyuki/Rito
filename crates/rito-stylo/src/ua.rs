@@ -80,12 +80,10 @@ sub { vertical-align: sub; font-size: smaller; }
    css/dist/ReadiumCSS-before.css — `img, svg|svg, video { object-fit:
    contain; ... }`; semantics per CSS Images 3 §5.4. An auto-sized box
    resolves to the raster ratio, where contain equals fill, so only an
-   author box that contradicts the raster changes. The legacy JSON
-   pipeline carries the same policy as a hardcoded default
-   (rito-core stylo_materialize: "Replaced-element defaults are Rito
-   layout policy"); this rule is the cascade-visible, author-overridable
-   form for the fragment pipeline. The pixel-walk truth harness injects
-   the same declaration (guarded by a rito-core integration test). */
+   author box that contradicts the raster changes. This rule is the
+   cascade-visible, author-overridable form of that policy; the pixel-walk
+   truth harness injects the same declaration (guarded by a rito-core
+   integration test). */
 img { object-fit: contain; }
 
 /* Chromium's light-mode UA link styling (measured rgb(0,0,238) on the
