@@ -4,97 +4,25 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { decoderDeclarationFiles, runtimeModules, typeModules } from './emitted-sources.mjs';
 import { documentClassDeclarations } from './document-declarations.mjs';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(packageRoot, '../..');
 const dist = resolve(packageRoot, 'dist');
 const wasmInput = resolve(repoRoot, 'target/wasm32-unknown-unknown/release/rito_wasm.wasm');
-const runtimeSources = [
-  'core-wasm-error-runtime.js',
-  'pinned-font-policy-runtime.js',
-  'core-wasm-document-runtime.js',
-  'core-wasm-versioned-runtime.js',
-  'core-wasm-versioned-mutation-runtime.js',
-  'core-wasm-versioned-validation-runtime.js',
-  'chapter-local-owner-validation-runtime.js',
-  'chapter-local-creation-validation-runtime.js',
-  'chapter-local-frame-validation-runtime.js',
-  'chapter-local-document-runtime.js',
-  'revision-presentation-validation-runtime.js',
-  'required-font-faces-validation-runtime.js',
-  'reader-navigation-runtime.js',
-  'reader-revision-session-runtime.js',
-  'reader-revision-session-support-runtime.js',
-  'reader-worker-cache-runtime.js',
-  'reader-worker-client-runtime.js',
-  'reader-worker-pinned-font-runtime.js',
-  'reader-worker-interaction-validation-runtime.js',
-  'reader-worker-page-target-validation-runtime.js',
-  'reader-worker-page-semantics-validation-runtime.js',
-  'reader-worker-page-semantics-runtime.js',
-  'reader-worker-page-reading-anchor-validation-runtime.js',
-  'reader-worker-page-reading-anchor-runtime.js',
-  'reader-worker-exact-text-interaction-validation-runtime.js',
-  'reader-worker-exact-text-range-validation-runtime.js',
-  'reader-worker-text-source-span-validation-runtime.js',
-  'reader-worker-text-range-from-points-validation-runtime.js',
-  'reader-worker-text-selection-movement-validation-runtime.js',
-  'reader-worker-exact-source-range-validation-runtime.js',
-  'reader-worker-text-geometry-validation-runtime.js',
-  'reader-worker-versioned-read-validation-runtime.js',
-  'reader-worker-session-runtime.js',
-  'reader-worker-versioned-client-runtime.js',
-  'reader-worker-versioned-payload-runtime.js',
-  'reader-worker-chapter-local-client-runtime.js',
-  'reader-worker-chapter-local-payload-runtime.js',
-  'frame-command-buffer-decoder-runtime.js',
-  'reader-session-wire-base-runtime.js',
-  'reader-session-display-paint-runtime.js',
-  'reader-session-display-decoder-runtime.js',
-  'reader-session-primitive-decoder-runtime.js',
-  'reader-session-artifact-decoder-runtime.js',
-  'reader-session-publication-runtime.js',
-  'reader-session-request-runtime.js',
-  'reader-session-foreground-runtime.js',
-  'reader-session-background-runtime.js',
-  'reader-session-worker-runtime.js',
-  'reader-session-worker-client-runtime.js',
-].map((name) => ({
+const runtimeSources = runtimeModules.map((name) => ({
   source: resolve(packageRoot, `src/${name}`),
   target: resolve(dist, name),
 }));
 const errorDeclarationSource = resolve(packageRoot, 'src/core-wasm-error-runtime.d.ts');
 const navigationDeclarationSource = resolve(packageRoot, 'src/reader-navigation-runtime.d.ts');
-const decoderDeclarationSources = [
-  'frame-command-buffer-decoder-runtime.d.ts',
-  'reader-session-runtime.d.ts',
-].map((name) => resolve(packageRoot, `src/${name}`));
-const typeDeclarationSources = [
-  'common',
-  'frame-command',
-  'publication',
-  'revision',
-  'chapter-local',
-  'frame',
-  'resource',
-  'search',
-  'reader-revision-session',
-  'reader-worker',
-  'reader-worker-versioned',
-  'navigation',
-  'page',
-  'interaction-source',
-  'interaction-text',
-  'interaction-movement',
-  'reading-anchor',
-  'status',
-  'pinned-font',
-  'reader-session-display',
-  'reader-session-primitive',
-  'reader-session',
-  'reader-session-worker',
-].map((name) => resolve(packageRoot, `src/types/${name}.ts`));
+const decoderDeclarationSources = decoderDeclarationFiles.map((name) =>
+  resolve(packageRoot, `src/${name}`),
+);
+const typeDeclarationSources = typeModules.map((name) =>
+  resolve(packageRoot, `src/types/${name}.ts`),
+);
 
 ensureWasmBindgen();
 run('cargo', ['build', '-p', 'rito-wasm', '--target', 'wasm32-unknown-unknown', '--release']);
