@@ -1,5 +1,26 @@
 # @ritojs/kit
 
+## 2.0.0
+
+### Major Changes
+
+- 9c981a8: Layout options the engine never acted on are removed instead of being accepted silently: `ReaderOptions.lineBreaking` and `Reader.setLineBreaking()` (one line breaker exists; `'optimal'` always laid out as greedy), `ReaderOptions.paginationPolicy` and the `PaginationPolicy` type (widow/orphan control comes from the book's CSS), and `LayoutConfig.textMeasurement` (shaping is always font-aware). The browser host no longer measures Canvas glyph advances or re-paginates when those measurements change; the engine shapes with the pinned faces and the publication's `@font-face` fonts only, so every such re-pagination produced identical pages. `@ritojs/kit` and `@ritojs/react` drop the `setLineBreaking` action and its `lineBreaking` model field.
+- 0dfd1d8: Every `V1` suffix leaves the API. The repository never carried a second version of any of these types, and the one number that does move (the reader protocol version, now 5) proved the suffix meaningless. `openBrowserReaderV1` is `openBrowserReaderSession`, `createBrowserReaderV1CanvasPresenter` is `createBrowserReaderSessionCanvasPresenter`, `RitoReaderErrorV1` is `RitoReaderError`, and every `…V1` type on the public entry drops it. The reader session protocol's own modules and files carry `reader-session` where they carried `reader-v1`, so the session protocol and the revision worker no longer share a prefix. Only two places still name a version: the wire magic tags, whose trailing digit is the format number a decoder checks, and the numeric protocol and format version constants themselves.
+- e7438ed: `Reader` drops its fabricated page model. `Reader.pages` and the `Page` type are removed: the engine owns page content and geometry, and the projection carried an empty `content` array and a copy of the layout page size. `Spread` is now the engine's navigation record, `{ index, pageIndexes, leftPageIndex, rightPageIndex? }`, instead of a wrapper around fake pages; `Reader.spreads`, `totalSpreads`, `findSpread()` and `findPage()` keep their signatures on that shape, and `Reader.pageCount` is added. `Reader.measurer` and the `TextMeasurer`, `TextMetrics`, `MeasurePaint` and `FontShorthand` types are removed: measurement lives in the engine and the stub measured a fixed 8px per character. `Reader.pagination` and `ReaderIncrementalPagination` are removed: every revision is laid out complete in one step, so `complete` was always `true` and `ensureSpread()` only compared an index against `totalSpreads`.
+
+  In `@ritojs/kit`, `buildHitMap` and `resolveAnnotations` leave the entry point together with the page/hit-map path they served (the synchronous selection engine, link and hit maps, the page-walking accessibility mirror source, and the page-text search index): selection, clicks, search highlights, annotations, and the accessibility mirror read `reader.interactions`, `createController` throws when `reader.interactions.textSelection` is missing, and `ReaderController.pages`, `paginationComplete`, `selectionRange`, `selectionChange.range`, and `ResolvedAnnotationSegment.range` are removed. Growth navigation is removed with it (the pending-growth navigation state, `ensureSelectionSpread`, and the retry of a queued TOC target on layout commit): a target beyond `totalSpreads` is out of range. In `@ritojs/react`, `useSelection()` no longer reports `range`, and `useRitoReader().spreads` is the navigation record.
+
+- 05bbb1d: Every revision is complete the moment it is created, and the public types now say only that: a revision summary is `{ revisionId, revisionVersion, layoutKey, pageCount, spreadCount }` (a chapter-local one `coordinate`, `localPageCount`, `localSpreadCount`) with no `status`, `knownExtent` or `finalExtent`; `createRevision` returns that summary and `createChapterLocalRevision` returns `{ revision, target }` in a mutation result keyed `created`. Reader protocol v1 moves to version 5: `BrowserReaderArtifact` drops `terminalExtent` (every whole-book artifact carries `bookPageIndex` and `bookPageCount`), adjacent availability is `'available' | 'chapter-boundary' | 'terminal'`, the search response drops `scopeComplete`, and a `complete` background advance carries no artifact because the first publication candidate already carries the book page count. Hosts decoding the wire by hand must move their version gate to 5.
+
+### Patch Changes
+
+- Updated dependencies [9c981a8]
+- Updated dependencies [5755997]
+- Updated dependencies [0dfd1d8]
+- Updated dependencies [e7438ed]
+- Updated dependencies [05bbb1d]
+  - @ritojs/core@2.0.0
+
 ## 1.0.1
 
 ### Patch Changes
