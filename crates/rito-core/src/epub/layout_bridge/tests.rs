@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::prepare_runtime_layout_chapter;
 use crate::{
     epub::{
@@ -49,7 +51,7 @@ fn non_empty_chapter_without_source_arena_keeps_typed_error() {
     let document = supported_document();
     let mut prepared = prepare_loaded_document(&document);
     assert!(!prepared.chapters[0].parsed.nodes.is_empty());
-    prepared.chapters[0].source_arena = None;
+    Rc::make_mut(&mut prepared.chapters[0]).source_arena = None;
 
     let error = match prepare_runtime_layout_chapter(&prepared, &layout()) {
         Ok(_) => panic!("non-empty topology without its source arena must fail"),

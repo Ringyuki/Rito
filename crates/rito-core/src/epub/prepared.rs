@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use rito_source::SourceArena;
@@ -23,7 +24,10 @@ pub(crate) struct PreparedLoadedDocumentBase {
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedLoadedDocument {
     pub(crate) stylesheet_ledger: StylesheetSourceLedger,
-    pub(crate) chapters: Vec<ParsedLoadedChapterSource>,
+    /// One handle per spine chapter, shared with the runtime's parsed
+    /// chapter cache: a chapter is parsed once and both stores point at
+    /// the same tree.
+    pub(crate) chapters: Vec<Rc<ParsedLoadedChapterSource>>,
     pub(crate) filtered_footnote_nodes: BTreeMap<String, Vec<crate::xhtml::DocumentNode>>,
     pub(crate) interaction: InteractionSummary,
 }
@@ -87,7 +91,7 @@ pub(crate) fn prepare_loaded_document(document: &LoadedEpubDocument) -> Prepared
         document
             .chapters
             .iter()
-            .map(parse_loaded_chapter_source)
+            .map(|chapter| Rc::new(parse_loaded_chapter_source(chapter)))
             .collect(),
     )
 }
@@ -104,7 +108,7 @@ pub(crate) fn prepare_loaded_document_base(
 
 pub(crate) fn prepare_loaded_document_with_base(
     base: &PreparedLoadedDocumentBase,
-    chapters: Vec<ParsedLoadedChapterSource>,
+    chapters: Vec<Rc<ParsedLoadedChapterSource>>,
 ) -> PreparedLoadedDocument {
     let inputs = footnote_inputs(&chapters);
     let targets = discover_footnote_targets(&inputs);
@@ -113,7 +117,7 @@ pub(crate) fn prepare_loaded_document_with_base(
 
 pub(crate) fn prepare_loaded_document_with_base_and_footnote_targets(
     base: &PreparedLoadedDocumentBase,
-    chapters: Vec<ParsedLoadedChapterSource>,
+    chapters: Vec<Rc<ParsedLoadedChapterSource>>,
     targets: &FootnoteTargetSet,
 ) -> PreparedLoadedDocument {
     debug_assert!(chapters.iter().all(|chapter| {
@@ -147,7 +151,7 @@ pub(crate) fn prepare_loaded_document_with_base_and_footnote_targets(
     }
 }
 
-fn footnote_inputs(chapters: &[ParsedLoadedChapterSource]) -> Vec<FootnoteFilterChapter<'_>> {
+fn footnote_inputs(chapters: &[Rc<ParsedLoadedChapterSource>]) -> Vec<FootnoteFilterChapter<'_>> {
     chapters
         .iter()
         .map(|chapter| FootnoteFilterChapter {

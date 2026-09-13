@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     layout::LayoutConfig,
     style::{resolve_prepared_chapter_style, ChapterStyleOptions, PreparedStyleChapterInput},
@@ -42,7 +44,7 @@ pub(crate) fn prepare_runtime_layout_chapter(
 /// chapter's source arena.
 fn chapter_style_tables(
     stylesheet_ledger: &super::StylesheetSourceLedger,
-    chapters: &[ParsedLoadedChapterSource],
+    chapters: &[Rc<ParsedLoadedChapterSource>],
     layout_config: &LayoutConfig,
 ) -> EpubResult<Vec<ChapterStyleTable>> {
     // The CSS viewport (vh/vw, media queries) is ONE PAGE's content box,

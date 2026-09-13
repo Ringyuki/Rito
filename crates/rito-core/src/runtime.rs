@@ -107,7 +107,7 @@ pub struct RuntimeDocument {
     full_chapter_text_indices: OnceCell<BTreeMap<String, RuntimeChapterTextIndex>>,
     page_target_context: OnceCell<page_target::RuntimePageTargetContext>,
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
-    parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
+    parsed_chapters: BTreeMap<usize, std::rc::Rc<crate::epub::ParsedLoadedChapterSource>>,
     font_face_sources: OnceCell<Vec<crate::epub::ResolvedFontFaceSource>>,
     fragment_engine: OnceCell<Option<std::rc::Rc<fragment_frame::RuntimeFragmentEngine>>>,
     /// Host-measured normal line metrics recorded before the fragment

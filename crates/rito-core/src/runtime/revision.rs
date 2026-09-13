@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 mod bounded;
 mod error;
@@ -144,14 +145,14 @@ impl RuntimeDocument {
         chapter_count: usize,
     ) -> EpubResult<(
         crate::epub::PreparedLoadedDocumentBase,
-        Vec<crate::epub::ParsedLoadedChapterSource>,
+        Vec<Rc<crate::epub::ParsedLoadedChapterSource>>,
     )> {
         let end = chapter_start
             .saturating_add(chapter_count)
             .min(self.document.chapters.len());
         let mut chapters = Vec::new();
         for index in chapter_start..end {
-            chapters.push(self.parsed_chapter(index)?.clone());
+            chapters.push(self.parsed_chapter(index)?);
         }
         let live_resources = crate::epub::loaded_document_resources(&self.document);
         let base = self.prepared_base();
@@ -160,19 +161,21 @@ impl RuntimeDocument {
         Ok((base, chapters))
     }
 
+    /// Parses the chapter on first use and hands out a handle to that one
+    /// parse: the cache and every prepared document that includes the
+    /// chapter share it.
     fn parsed_chapter(
         &mut self,
         index: usize,
-    ) -> EpubResult<&crate::epub::ParsedLoadedChapterSource> {
+    ) -> EpubResult<Rc<crate::epub::ParsedLoadedChapterSource>> {
         let chapter = self
             .document
             .chapters
             .get(index)
             .ok_or_else(|| EpubError::new(format!("chapter index out of range: {index}")))?;
-        Ok(self
-            .parsed_chapters
-            .entry(index)
-            .or_insert_with(|| crate::epub::parsed_loaded_chapter_source(chapter)))
+        Ok(Rc::clone(self.parsed_chapters.entry(index).or_insert_with(
+            || Rc::new(crate::epub::parsed_loaded_chapter_source(chapter)),
+        )))
     }
 
     fn prepared_base(&mut self) -> &mut crate::epub::PreparedLoadedDocumentBase {
@@ -186,13 +189,12 @@ impl RuntimeDocument {
                 .map(|index| {
                     self.parsed_chapter(index)
                         .expect("loaded chapter index must remain valid")
-                        .clone()
                 })
                 .collect::<Vec<_>>();
             let base = self.prepared_base().clone();
-            self.prepared = Some(std::rc::Rc::new(
-                crate::epub::prepare_loaded_document_with_base(&base, chapters),
-            ));
+            self.prepared = Some(Rc::new(crate::epub::prepare_loaded_document_with_base(
+                &base, chapters,
+            )));
         }
     }
 }
@@ -240,13 +242,13 @@ fn runtime_revision_interactions_with_footnotes(
 
 fn chapter_style_table_map(
     tables: Vec<crate::epub::ChapterStyleTable>,
-) -> std::collections::BTreeMap<String, std::rc::Rc<super::frame::RuntimeChapterStyleTables>> {
+) -> std::collections::BTreeMap<String, Rc<super::frame::RuntimeChapterStyleTables>> {
     tables
         .into_iter()
         .map(|chapter| {
             (
                 chapter.idref,
-                std::rc::Rc::new(super::frame::RuntimeChapterStyleTables {
+                Rc::new(super::frame::RuntimeChapterStyleTables {
                     layout: chapter.layout,
                     inline: chapter.inline,
                 }),
