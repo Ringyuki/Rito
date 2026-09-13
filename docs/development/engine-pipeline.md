@@ -128,6 +128,18 @@ plus metadata) and resources against that revision. Interaction reads
 page semantics) are served from the fragment page artifacts, never
 inferred from paint.
 
+Creating a revision paginates the whole book in one call, so page
+numbers are exact from the first frame a host asks for, but the revision
+does not keep the book's pages. The pass records, per chapter, its page
+count and the inputs a rebuild needs, merges the book's anchors, and
+collects each page's text and run offsets for search; then it drops the
+chapter. A page's fragment tree and its artifact are rebuilt when a
+query reaches that page and live in a bounded working set of recently
+read chapters. Rebuilding is exact rather than approximate: a chapter
+lays out the same alone as it does inside a warmed book, which two
+tests pin, and a rebuild whose page count disagrees with the recorded
+one fails the read instead of serving a page the book does not have.
+
 ## Doctrine
 
 - The browser is the oracle. A layout or paint rule is proven by the

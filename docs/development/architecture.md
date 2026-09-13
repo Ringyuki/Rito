@@ -55,6 +55,14 @@ creates a revision; hosts request spread frames and resources against
 that revision. Page and spread indexes are revision-local; durable
 positions use source locators.
 
+A revision holds its page table, not its pages: pagination is
+whole-book, so page numbers are final immediately, while the fragment
+trees and interaction artifacts behind those numbers are rebuilt into a
+bounded working set as queries reach them. Memory is therefore
+proportional to what is being read, not to the length of the book,
+which matters most in the browser, where a WebAssembly heap only grows
+and a peak becomes a floor.
+
 ## Host boundaries
 
 `rito-wasm` is a narrow binding: it serializes typed results and moves
@@ -84,6 +92,8 @@ Assets hook from the tracked Rust source closure.
 - The render module depends on no style, DOM or CSS engine.
 - A frame and every resource lease belong to a revision; a stale revision
   response cannot replace the active one.
+- A page rebuilt into the working set is identical to the page the
+  whole-book pass produced; a disagreement fails the read.
 - Revision and frame caches have explicit lifecycles and budgeted
   cleanup.
 - Public TypeScript exports go through `packages/rito/src/index.ts` and
