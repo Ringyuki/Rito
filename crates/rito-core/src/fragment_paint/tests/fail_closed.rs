@@ -28,7 +28,7 @@ fn a_text_run_crossing_item_boundaries_fails_closed() {
 
 #[test]
 fn unexpressible_pure_paint_approximates_and_still_inks() {
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let mut style = body_style(srgb(0.0, 0.0, 0.0, 1.0));
     style.paint.opacity = UnitInterval::new(0.5).expect("opacity is bounded");
     let translucent = inline.intern_for_node(0, style).expect("style interns");
@@ -43,7 +43,7 @@ fn unexpressible_pure_paint_approximates_and_still_inks() {
         nodes,
         FormattingNodeId(0),
         FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )

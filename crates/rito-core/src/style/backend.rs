@@ -32,8 +32,8 @@ pub(crate) struct PreparedStyleChapterInput<'a> {
 /// One chapter's typed style tables: the interned layout and inline styles
 /// every source node resolved to.
 pub(crate) struct ResolvedPreparedChapterStyle {
-    pub(crate) layout_style_table: rito_style_contract::LayoutStyleTableV1,
-    pub(crate) inline_style_table: rito_style_contract::InlineStyleTableV1,
+    pub(crate) layout_style_table: rito_style_contract::LayoutStyleTable,
+    pub(crate) inline_style_table: rito_style_contract::InlineStyleTable,
 }
 
 /// A typed failure from the Stylo pipeline, retaining the original
@@ -151,7 +151,7 @@ fn try_resolve_with_stylo(
     .map_err(StyleBackendError::DocumentConstruction)?;
     drop(stylesheets);
     let projection = document
-        .resolve_production_slice_v1()
+        .resolve_production_slice()
         .map_err(StyleBackendError::CascadeOrProjection)?;
     let (inline, layout) = projection.into_parts();
     Ok(ResolvedPreparedChapterStyle {

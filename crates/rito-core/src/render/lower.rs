@@ -29,7 +29,7 @@
 use std::{error::Error, fmt};
 
 use super::commands::{
-    contract::{ReaderLengthV1, ReaderSizeV1, ReaderTransformV1},
+    contract::{ReaderLength, ReaderSize, ReaderTransform},
     DisplayCommand,
 };
 
@@ -166,20 +166,20 @@ fn lower_command(
 
 /// A transform's translate lengths resolve here: percentages resolve
 /// against the box, so the renderer never sees a percentage.
-fn lower_transform(transform: &ReaderTransformV1, box_size: &ReaderSizeV1) -> DeviceTransform {
+fn lower_transform(transform: &ReaderTransform, box_size: &ReaderSize) -> DeviceTransform {
     match *transform {
-        ReaderTransformV1::Rotate { radians } => DeviceTransform::Rotate { radians },
-        ReaderTransformV1::Scale { sx, sy } => DeviceTransform::Scale { sx, sy },
-        ReaderTransformV1::Translate { x, y } => DeviceTransform::Translate {
+        ReaderTransform::Rotate { radians } => DeviceTransform::Rotate { radians },
+        ReaderTransform::Scale { sx, sy } => DeviceTransform::Scale { sx, sy },
+        ReaderTransform::Translate { x, y } => DeviceTransform::Translate {
             dx: resolve_length(x, box_size.width),
             dy: resolve_length(y, box_size.height),
         },
     }
 }
 
-fn resolve_length(length: ReaderLengthV1, basis: f64) -> f64 {
+fn resolve_length(length: ReaderLength, basis: f64) -> f64 {
     match length {
-        ReaderLengthV1::Px(value) => value,
-        ReaderLengthV1::Percent(value) => value / 100.0 * basis,
+        ReaderLength::Px(value) => value,
+        ReaderLength::Percent(value) => value / 100.0 * basis,
     }
 }

@@ -14,8 +14,8 @@ use super::{EpubError, EpubResult, ParsedLoadedChapterSource, PreparedLoadedDocu
 /// One chapter's typed style tables, as the fragment bridge consumes them.
 pub(crate) struct PreparedRuntimeLayoutChapter {
     pub(crate) idref: String,
-    pub(crate) layout_style_table: rito_style_contract::LayoutStyleTableV1,
-    pub(crate) inline_style_table: rito_style_contract::InlineStyleTableV1,
+    pub(crate) layout_style_table: rito_style_contract::LayoutStyleTable,
+    pub(crate) inline_style_table: rito_style_contract::InlineStyleTable,
 }
 
 pub(crate) fn prepare_runtime_layout_chapter(
@@ -64,8 +64,8 @@ fn chapter_style_tables(
             if is_recovered_empty_chapter(chapter) {
                 return Ok(ChapterStyleTable {
                     idref: chapter.source.idref.clone(),
-                    layout: rito_style_contract::LayoutStyleTableV1::new(0),
-                    inline: rito_style_contract::InlineStyleTableV1::new(0),
+                    layout: rito_style_contract::LayoutStyleTable::new(0),
+                    inline: rito_style_contract::InlineStyleTable::new(0),
                 });
             }
             let input = PreparedStyleChapterInput {
@@ -99,8 +99,8 @@ fn chapter_style_tables(
 /// pipeline reads directly.
 pub(crate) struct ChapterStyleTable {
     pub(crate) idref: String,
-    pub(crate) layout: rito_style_contract::LayoutStyleTableV1,
-    pub(crate) inline: rito_style_contract::InlineStyleTableV1,
+    pub(crate) layout: rito_style_contract::LayoutStyleTable,
+    pub(crate) inline: rito_style_contract::InlineStyleTable,
 }
 
 /// Formal XHTML parse failures are retained as warning-only empty chapters.

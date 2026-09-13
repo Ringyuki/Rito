@@ -30,7 +30,7 @@ Taffy, Parley, or resource-loading dependencies.
 - Host adapter: a read-only namespace-aware view of `SourceArena`, plus a
   private element style/invalidation sidecar required by Stylo.
 - Output: the typed inline and layout projections of `rito-style-contract`
-  (`InlineStyleTableV1`, `LayoutStyleTableV1`), indexed by source node; no
+  (`InlineStyleTable`, `LayoutStyleTable`), indexed by source node; no
   Stylo type crosses the facade.
 - Traversal: sequential only. The adapter always calls Stylo with no Rayon
   pool.

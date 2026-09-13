@@ -33,7 +33,7 @@ fn an_inline_image_em_width_resolves_against_its_own_font_size() {
                         .layout
                         .style(*layout_style)
                         .expect("image layout style resolves");
-                    if let rito_style_contract::PreferredSizeV1::Value(value) = &resolved.width {
+                    if let rito_style_contract::PreferredSize::Value(value) = &resolved.width {
                         let LengthPercentage::Length(px) = value.value() else {
                             panic!("unexpected width form");
                         };

@@ -6,9 +6,9 @@
 
 use super::NodePaint;
 use crate::render::contract::{
-    ReaderBackgroundPaintV1, ReaderBackgroundPositionV1, ReaderBlockBorderV1, ReaderBlockPaintV1,
-    ReaderBlockRadiusV1, ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderBorderStyleV1,
-    ReaderBoxShadowV1, ReaderColorV1, ReaderLengthV1, ReaderTransformV1,
+    ReaderBackgroundPaint, ReaderBackgroundPosition, ReaderBlockBorder, ReaderBlockPaint,
+    ReaderBlockRadius, ReaderBorderBox, ReaderBorderEdgePaint, ReaderBorderStyle, ReaderBoxShadow,
+    ReaderColor, ReaderLength, ReaderTransform,
 };
 
 /// Paint the fragment display-command producer cannot reproduce on a box
@@ -21,7 +21,7 @@ use crate::render::contract::{
 /// layout style must absorb as padding so the fragment rect becomes the
 /// CSS border box.
 pub(super) fn block_box_paint(
-    style: &rito_style_contract::InlineFormattingStyleV1,
+    style: &rito_style_contract::InlineFormattingStyle,
 ) -> (Option<(NodePaint, [f64; 4])>, Vec<String>) {
     use rito_style_contract as c;
     let mut degradations = Vec::new();
@@ -32,7 +32,7 @@ pub(super) fn block_box_paint(
             degradations.push("box-shadow color unresolvable, shadow skipped".to_owned());
             continue;
         };
-        box_shadows.push(ReaderBoxShadowV1 {
+        box_shadows.push(ReaderBoxShadow {
             offset_x: f64::from(shadow.offset_x.get()),
             offset_y: f64::from(shadow.offset_y.get()),
             blur: f64::from(shadow.blur_radius.get()),
@@ -42,12 +42,12 @@ pub(super) fn block_box_paint(
         });
     }
     let background = match style.paint.background {
-        c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => None,
-        c::ComputedColorV1::Absolute(color) => crate::style::paint_color(color).ok(),
-        c::ComputedColorV1::CurrentColor => crate::style::paint_color(style.paint.foreground).ok(),
+        c::ComputedColor::Absolute(color) if color.alpha().get() == 0.0 => None,
+        c::ComputedColor::Absolute(color) => crate::style::paint_color(color).ok(),
+        c::ComputedColor::CurrentColor => crate::style::paint_color(style.paint.foreground).ok(),
     };
     let mut widths = [0.0; 4];
-    let mut border = ReaderBlockBorderV1::default();
+    let mut border = ReaderBlockBorder::default();
     let mut has_border = false;
     let mut bevels = Vec::new();
     for (index, (edge, name)) in [
@@ -70,10 +70,10 @@ pub(super) fn block_box_paint(
         };
         let mut color = color;
         let stroke = match edge.style {
-            c::BorderStyle::Solid => ReaderBorderStyleV1::Solid,
-            c::BorderStyle::Dashed => ReaderBorderStyleV1::Dashed,
-            c::BorderStyle::Dotted => ReaderBorderStyleV1::Dotted,
-            c::BorderStyle::Double => ReaderBorderStyleV1::Double,
+            c::BorderStyle::Solid => ReaderBorderStyle::Solid,
+            c::BorderStyle::Dashed => ReaderBorderStyle::Dashed,
+            c::BorderStyle::Dotted => ReaderBorderStyle::Dotted,
+            c::BorderStyle::Double => ReaderBorderStyle::Double,
             c::BorderStyle::Ridge | c::BorderStyle::Groove
                 if two_tone_halves(color, edge.style, index).is_some() =>
             {
@@ -81,7 +81,7 @@ pub(super) fn block_box_paint(
                     two_tone_halves(color, edge.style, index).expect("guard checked");
                 color = outer;
                 bevels.push((index, inner));
-                ReaderBorderStyleV1::Solid
+                ReaderBorderStyle::Solid
             }
             c::BorderStyle::Inset | c::BorderStyle::Outset => {
                 // Blink's legacy 3D shading (probed matrix, 2026-08-20):
@@ -93,23 +93,23 @@ pub(super) fn block_box_paint(
                 // border ignores the text color and shades from #EEEEEE
                 // (gray hr rules paint 154/238, red currentColor ones
                 // identically).
-                let base = if matches!(edge.color, c::ComputedColorV1::CurrentColor) {
-                    ReaderColorV1::srgb8(0xee, 0xee, 0xee, 1.0)
+                let base = if matches!(edge.color, c::ComputedColor::CurrentColor) {
+                    ReaderColor::srgb8(0xee, 0xee, 0xee, 1.0)
                 } else {
                     color
                 };
                 let darken = matches!(index, 0 | 3) == matches!(edge.style, c::BorderStyle::Inset);
                 color = inset_outset_shade(base, darken).unwrap_or(base);
-                ReaderBorderStyleV1::Solid
+                ReaderBorderStyle::Solid
             }
             other => {
                 degradations.push(format!("border-{name} style {other:?} drawn solid"));
-                ReaderBorderStyleV1::Solid
+                ReaderBorderStyle::Solid
             }
         };
         widths[index] = width;
         has_border = true;
-        let paint = ReaderBorderEdgePaintV1 {
+        let paint = ReaderBorderEdgePaint {
             color,
             style: stroke,
         };
@@ -122,7 +122,7 @@ pub(super) fn block_box_paint(
     }
     // The lowering requires all four widths whenever a border box is
     // present, zero-filled for unpainted edges.
-    let border_box = has_border.then(|| ReaderBorderBoxV1 {
+    let border_box = has_border.then(|| ReaderBorderBox {
         top_width: widths[0],
         right_width: widths[1],
         bottom_width: widths[2],
@@ -151,9 +151,9 @@ pub(super) fn block_box_paint(
             href,
             crate::style::background_size(image.size),
             crate::style::background_repeat(image.repeat),
-            ReaderBackgroundPositionV1 {
-                x: x.unwrap_or(ReaderLengthV1::Percent(0.0)),
-                y: y.unwrap_or(ReaderLengthV1::Percent(0.0)),
+            ReaderBackgroundPosition {
+                x: x.unwrap_or(ReaderLength::Percent(0.0)),
+                y: y.unwrap_or(ReaderLength::Percent(0.0)),
             },
         ))
     });
@@ -176,14 +176,14 @@ pub(super) fn block_box_paint(
     let radius = if uniform {
         match radii.top_left.horizontal.value() {
             c::LengthPercentage::Length(px) if px.get() > 0.0 => {
-                Some(ReaderBlockRadiusV1::Px(f64::from(px.get())))
+                Some(ReaderBlockRadius::Px(f64::from(px.get())))
             }
             c::LengthPercentage::Percentage(ratio) if ratio.percent() > 0.0 => {
-                Some(ReaderBlockRadiusV1::Percent(f64::from(ratio.percent())))
+                Some(ReaderBlockRadius::Percent(f64::from(ratio.percent())))
             }
             c::LengthPercentage::Linear { length, .. } => {
                 degradations.push("calc() border-radius: percentage component dropped".to_owned());
-                Some(ReaderBlockRadiusV1::Px(f64::from(length.get())))
+                Some(ReaderBlockRadius::Px(f64::from(length.get())))
             }
             _ => None,
         }
@@ -211,7 +211,7 @@ pub(super) fn block_box_paint(
                 "border-radius: elliptical or percentage corner flattened to its length".to_owned(),
             );
         }
-        (px_corners.iter().any(|px| *px > 0.0)).then_some(ReaderBlockRadiusV1::Corners(px_corners))
+        (px_corners.iter().any(|px| *px > 0.0)).then_some(ReaderBlockRadius::Corners(px_corners))
     };
     let transform = (!style.paint.transform.is_none()).then(|| {
         style
@@ -220,7 +220,7 @@ pub(super) fn block_box_paint(
             .as_slice()
             .iter()
             .map(|operation| match operation {
-                c::TransformOperationV1::Rotate { radians } => ReaderTransformV1::Rotate {
+                c::TransformOperation::Rotate { radians } => ReaderTransform::Rotate {
                     radians: f64::from(radians.get()),
                 },
             })
@@ -241,7 +241,7 @@ pub(super) fn block_box_paint(
             }
             None => (None, None, None, None),
         };
-        ReaderBackgroundPaintV1 {
+        ReaderBackgroundPaint {
             color: background,
             image,
             size,
@@ -249,7 +249,7 @@ pub(super) fn block_box_paint(
             position,
         }
     });
-    let paint = ReaderBlockPaintV1 {
+    let paint = ReaderBlockPaint {
         background,
         border: has_border.then_some(border),
         radius,
@@ -275,7 +275,7 @@ pub(super) fn block_box_paint(
 /// against its own dark shade (then `Light()`: channels scaled by
 /// min(1, V + 0.33)/V, black lightening to #545454). Returns `None`
 /// for a translucent colour (it stays base).
-fn inset_outset_shade(base: ReaderColorV1, darken: bool) -> Option<ReaderColorV1> {
+fn inset_outset_shade(base: ReaderColor, darken: bool) -> Option<ReaderColor> {
     let channels = base.opaque_srgb8()?;
     let value = f64::from(*channels.iter().max().expect("three channels")) / 255.0;
     let dark_scale = if value > 0.0 {
@@ -284,7 +284,7 @@ fn inset_outset_shade(base: ReaderColorV1, darken: bool) -> Option<ReaderColorV1
         0.0
     };
     let dark = channels.map(|component| (f64::from(component) * dark_scale).round() as u8);
-    let color = |[red, green, blue]: [u8; 3]| ReaderColorV1::srgb8(red, green, blue, 1.0);
+    let color = |[red, green, blue]: [u8; 3]| ReaderColor::srgb8(red, green, blue, 1.0);
     if darken {
         return Some(color(dark));
     }
@@ -309,7 +309,7 @@ fn inset_outset_shade(base: ReaderColorV1, darken: bool) -> Option<ReaderColorV1
         return Some(color(channels));
     }
     if value == 0.0 {
-        return Some(ReaderColorV1::srgb8(0x54, 0x54, 0x54, 1.0));
+        return Some(ReaderColor::srgb8(0x54, 0x54, 0x54, 1.0));
     }
     let light_scale = (value + 0.33).min(1.0) / value;
     Some(color(channels.map(|component| {
@@ -326,10 +326,10 @@ fn inset_outset_shade(base: ReaderColorV1, darken: bool) -> Option<ReaderColorV1
 /// is ridge inverted. Returns `(outer, inner)` in border-box edge order,
 /// or `None` for a translucent border, which degrades to solid instead.
 fn two_tone_halves(
-    base: ReaderColorV1,
+    base: ReaderColor,
     style: rito_style_contract::BorderStyle,
     edge_index: usize,
-) -> Option<(ReaderColorV1, ReaderColorV1)> {
+) -> Option<(ReaderColor, ReaderColor)> {
     use rito_style_contract::BorderStyle;
     let channels = base.opaque_srgb8()?;
     let value = f64::from(*channels.iter().max().expect("three channels")) / 255.0;
@@ -339,7 +339,7 @@ fn two_tone_halves(
         0.0
     };
     let [red, green, blue] = channels.map(|component| (f64::from(component) * scale).round() as u8);
-    let dark = ReaderColorV1::srgb8(red, green, blue, 1.0);
+    let dark = ReaderColor::srgb8(red, green, blue, 1.0);
     // Edge indices: 0 top, 1 right, 2 bottom, 3 left.
     let raised_outside = matches!(edge_index, 0 | 3) == matches!(style, BorderStyle::Ridge);
     Some(if raised_outside {

@@ -5,10 +5,10 @@
 //! ends in a generic. Also the colour conversion and the fail-closed
 //! error every unpaintable property reports through.
 
-use rito_style_contract::{AbsoluteColor, InlineFormattingStyleV1};
+use rito_style_contract::{AbsoluteColor, InlineFormattingStyle};
 
 use crate::epub::{EpubError, EpubResult};
-use crate::render::contract::ReaderColorV1;
+use crate::render::contract::ReaderColor;
 use crate::style::{paint_color, serialize_font_families};
 
 use super::PaintFamilyPolicy;
@@ -65,7 +65,7 @@ pub(crate) fn measure_family_stack(family_key: &str, policy: &PaintFamilyPolicy)
 
 /// [`PaintFamilyPolicy`]).
 pub(super) fn paint_family_stack(
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
     family_policy: Option<&PaintFamilyPolicy>,
 ) -> EpubResult<String> {
     use rito_style_contract::{FontFamily, FontFamilyNameSyntax, GenericFontFamily};
@@ -143,7 +143,7 @@ pub(super) fn paint_family_stack(
     Ok(parts.join(", "))
 }
 
-pub(super) fn css_color(color: AbsoluteColor) -> EpubResult<ReaderColorV1> {
+pub(super) fn css_color(color: AbsoluteColor) -> EpubResult<ReaderColor> {
     paint_color(color).map_err(|error| not_paintable(&format!("color: {error:?}")))
 }
 

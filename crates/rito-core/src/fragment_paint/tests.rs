@@ -12,7 +12,7 @@ mod vertical_columns;
 
 use super::*;
 use crate::render::contract::{
-    ReaderBlockPaintV1, ReaderBorderStyleV1, ReaderPointV1, ReaderRectV1, ReaderTransformV1,
+    ReaderBlockPaint, ReaderBorderStyle, ReaderPoint, ReaderRect, ReaderTransform,
 };
 use crate::render::test_support::css_color;
 use crate::render::{display_number, display_rect, DisplayTextCommand};
@@ -22,10 +22,10 @@ use rito_fragment::{
 };
 use rito_fragment::{FormattingNodeContent, ImageFragment, InlineItem, LineFragment, TextFragment};
 use rito_inline::plain_paragraph_style;
-use rito_style_contract::{AbsoluteColor, InlineFormattingStyleV1, LengthPercentage};
+use rito_style_contract::{AbsoluteColor, InlineFormattingStyle, LengthPercentage};
 use rito_style_contract::{
-    AbsoluteColorSpace, ColorNoneFlags, FontFamilies, FontFamily, FontFamilyName,
-    InlineStyleTableV1, LayoutStyleId, LayoutStyleTableV1, StyleId, UnitInterval,
+    AbsoluteColorSpace, ColorNoneFlags, FontFamilies, FontFamily, FontFamilyName, InlineStyleTable,
+    LayoutStyleId, LayoutStyleTable, StyleId, UnitInterval,
 };
 
 fn srgb(red: f32, green: f32, blue: f32, alpha: f32) -> AbsoluteColor {
@@ -38,7 +38,7 @@ fn srgb(red: f32, green: f32, blue: f32, alpha: f32) -> AbsoluteColor {
     .expect("test color is finite")
 }
 
-fn body_style(foreground: AbsoluteColor) -> InlineFormattingStyleV1 {
+fn body_style(foreground: AbsoluteColor) -> InlineFormattingStyle {
     let families = FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Tinos"))])
         .expect("family list is non-empty");
     let mut style = plain_paragraph_style(families, 16.0, 0.0);
@@ -54,7 +54,7 @@ struct FlowFixture {
 /// Two-item flow — "Red " in red then "black." in black — so tests can
 /// exercise per-item paint boundaries inside one line.
 fn two_color_flow(build: impl FnOnce(StyleId, StyleId) -> Vec<InlineItem>) -> FlowFixture {
-    let mut inline = InlineStyleTableV1::new(2);
+    let mut inline = InlineStyleTable::new(2);
     let red = inline
         .intern_for_node(0, body_style(srgb(1.0, 0.0, 0.0, 1.0)))
         .expect("red style interns");
@@ -71,7 +71,7 @@ fn two_color_flow(build: impl FnOnce(StyleId, StyleId) -> Vec<InlineItem>) -> Fl
         nodes,
         FormattingNodeId(0),
         FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )

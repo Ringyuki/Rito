@@ -18,7 +18,7 @@ The private `0.0.0` version is a workspace sentinel.
   runtimes, the bounded reader session, the `RITODL1` frame command buffer
   decoder, and the typed shapes of every wire message
 - `tests/` — Node tests of the decoders, the Worker client helpers and the
-  runtime wrappers; `tests/fixtures/reader-v1-primitive-list.hex` holds
+  runtime wrappers; `tests/fixtures/reader-session-primitive-list.hex` holds
   bytes the Rust encoder wrote for one of every primitive
 - `./decoder` — the WASM-free surface the reader's main thread imports:
   the frame command buffer decoder, structured errors and the Worker

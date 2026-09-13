@@ -30,7 +30,7 @@ fn rule_paints_stroke_across_its_sized_box() {
         0u32,
         NodePaint::Rule {
             color: css_color("#445566"),
-            style: ReaderBorderStyleV1::Solid,
+            style: ReaderBorderStyle::Solid,
             thickness: 2.0,
         },
     );
@@ -60,7 +60,7 @@ fn rule_paints_stroke_across_its_sized_box() {
     };
     assert_eq!(*rect, display_rect(13.0, 27.0, 90.0, 2.0));
     assert_eq!(paint.color, css_color("#445566"));
-    assert_eq!(paint.style, ReaderBorderStyleV1::Solid);
+    assert_eq!(paint.style, ReaderBorderStyle::Solid);
 }
 
 /// An inset rule is the browser's fixed two-tone bevel closed on all
@@ -95,7 +95,7 @@ fn an_inset_rule_paints_as_a_two_tone_border_box() {
         0u32,
         NodePaint::Rule {
             color: css_color("#808080"),
-            style: ReaderBorderStyleV1::Inset,
+            style: ReaderBorderStyle::Inset,
             thickness: 1.0,
         },
     );
@@ -132,7 +132,7 @@ fn an_inset_rule_paints_as_a_two_tone_border_box() {
     ] {
         let edge = edge.unwrap_or_else(|| panic!("{side} edge paints"));
         assert_eq!(edge.color, css_color(color), "{side}");
-        assert_eq!(edge.style, ReaderBorderStyleV1::Solid, "{side}");
+        assert_eq!(edge.style, ReaderBorderStyle::Solid, "{side}");
     }
     let widths = border_box.expect("border widths");
     for (key, width) in [

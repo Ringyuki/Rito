@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use rito_style_contract::{
-    ClearV1, ComputedColorV1, FloatV1, InlineFormattingStyleV1, LayoutFormattingStyleV1,
-    LengthPercentage, LineHeight, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, OverflowV1,
-    PageBreakV1, TransformOperationV1,
+    Clear, ComputedColor, Float, InlineFormattingStyle, LayoutFormattingStyle, LengthPercentage,
+    LineHeight, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, TransformOperation,
 };
 
 use crate::{
@@ -102,7 +101,7 @@ fn the_publication_stylesheet_resolves_into_typed_tables() {
     assert!(is_transparent(paragraph.paint.background, paragraph));
     let top = paragraph.fragment.border.top;
     assert_eq!(top.resolved_width.get(), 1.0);
-    assert_eq!(top.color, ComputedColorV1::CurrentColor);
+    assert_eq!(top.color, ComputedColor::CurrentColor);
     assert!(style_backend_metrics().stylo_successes > before.stylo_successes);
 }
 
@@ -155,7 +154,7 @@ fn unrepresentable_declarations_leave_the_representable_ones_intact() {
     let list = resolved.layout_for_tag(&chapter, "ol");
     assert_eq!(
         list.list_style_type,
-        rito_style_contract::ListMarkerStyleV1::None
+        rito_style_contract::ListMarkerStyle::None
     );
 }
 
@@ -173,8 +172,8 @@ fn clear_and_max_width_project_into_the_typed_layout_style() {
 
     let resolved = resolve(&base.stylesheet_ledger, &chapter);
     let paragraph = resolved.layout_for_tag(&chapter, "p");
-    assert_eq!(paragraph.clear, ClearV1::Both);
-    let MaximumSizeV1::Value(max_width) = paragraph.max_width else {
+    assert_eq!(paragraph.clear, Clear::Both);
+    let MaximumSize::Value(max_width) = paragraph.max_width else {
         panic!("max-width projects a value: {:?}", paragraph.max_width);
     };
     let LengthPercentage::Percentage(percentage) = max_width.value() else {
@@ -197,19 +196,19 @@ fn height_float_and_overflow_project_into_the_typed_layout_style() {
 
     let resolved = resolve(&base.stylesheet_ledger, &chapter);
     let paragraph = resolved.layout_for_tag(&chapter, "p");
-    let MinimumHeightV1::Length(min_height) = paragraph.min_height else {
+    let MinimumHeight::Length(min_height) = paragraph.min_height else {
         panic!("min-height keeps its length: {:?}", paragraph.min_height);
     };
     assert_eq!(min_height.get(), 12.0);
-    let MaximumHeightV1::Percentage(max_height) = paragraph.max_height else {
+    let MaximumHeight::Percentage(max_height) = paragraph.max_height else {
         panic!(
             "max-height keeps its percentage: {:?}",
             paragraph.max_height
         );
     };
     assert_eq!(max_height.percent(), 100.0);
-    assert_eq!(paragraph.float, FloatV1::Right);
-    assert_eq!(paragraph.overflow, OverflowV1::Hidden);
+    assert_eq!(paragraph.float, Float::Right);
+    assert_eq!(paragraph.overflow, Overflow::Hidden);
 }
 
 #[test]
@@ -234,14 +233,14 @@ fn only_column_breaks_force_a_break_in_the_reader_column_context() {
     // context; page/always aliases are ignored like Chromium's
     // continuous multicol ignores them.
     let standard = resolved.layout_for_id(&chapter, "standard");
-    assert_eq!(standard.break_before, PageBreakV1::Always);
-    assert_eq!(standard.break_after, PageBreakV1::Auto);
+    assert_eq!(standard.break_before, PageBreak::Always);
+    assert_eq!(standard.break_after, PageBreak::Auto);
     let legacy = resolved.layout_for_id(&chapter, "legacy");
-    assert_eq!(legacy.break_before, PageBreakV1::Auto);
-    assert_eq!(legacy.break_after, PageBreakV1::Always);
+    assert_eq!(legacy.break_before, PageBreak::Auto);
+    assert_eq!(legacy.break_after, PageBreak::Always);
     let inline = resolved.layout_for_id(&chapter, "inline");
-    assert_eq!(inline.break_before, PageBreakV1::Always);
-    assert_eq!(inline.break_after, PageBreakV1::Always);
+    assert_eq!(inline.break_before, PageBreak::Always);
+    assert_eq!(inline.break_after, PageBreak::Always);
 }
 
 #[test]
@@ -271,11 +270,11 @@ fn background_url_cluster_resolves_against_the_stylesheet_base() {
     );
     assert_eq!(
         crate::style::background_repeat(image.repeat),
-        crate::render::contract::ReaderBackgroundRepeatV1::NoRepeat
+        crate::render::contract::ReaderBackgroundRepeat::NoRepeat
     );
     assert_eq!(
         crate::style::background_size(image.size),
-        crate::render::contract::ReaderBackgroundSizeV1::Cover
+        crate::render::contract::ReaderBackgroundSize::Cover
     );
     let LengthPercentage::Percentage(x) = image.position.x else {
         panic!("`center` keeps its percentage: {:?}", image.position.x);
@@ -298,7 +297,7 @@ fn rotate_transforms_project_as_exact_radians() {
 
     let resolved = resolve(&base.stylesheet_ledger, &chapter);
     let badge = resolved.inline_for_tag(&chapter, "span");
-    let [TransformOperationV1::Rotate { radians }] = badge.paint.transform.as_slice() else {
+    let [TransformOperation::Rotate { radians }] = badge.paint.transform.as_slice() else {
         panic!("one rotation projects: {:?}", badge.paint.transform);
     };
     assert!((f64::from(radians.get()) - (-8.0_f64).to_radians()).abs() < 1.0e-6);
@@ -495,8 +494,8 @@ fn invalid_font_family_override_is_rejected_before_stylesheet_injection() {
 
 #[derive(Debug)]
 struct Resolved {
-    layout: rito_style_contract::LayoutStyleTableV1,
-    inline: rito_style_contract::InlineStyleTableV1,
+    layout: rito_style_contract::LayoutStyleTable,
+    inline: rito_style_contract::InlineStyleTable,
 }
 
 impl Resolved {
@@ -504,7 +503,7 @@ impl Resolved {
         &self,
         chapter: &ParsedLoadedChapterSource,
         id: &str,
-    ) -> &InlineFormattingStyleV1 {
+    ) -> &InlineFormattingStyle {
         self.inline
             .style_for_node(node_index_for_id(chapter, id))
             .expect("the node resolved an inline style")
@@ -514,7 +513,7 @@ impl Resolved {
         &self,
         chapter: &ParsedLoadedChapterSource,
         id: &str,
-    ) -> &LayoutFormattingStyleV1 {
+    ) -> &LayoutFormattingStyle {
         self.layout
             .style_for_node(node_index_for_id(chapter, id))
             .expect("the node resolved a layout style")
@@ -524,7 +523,7 @@ impl Resolved {
         &self,
         chapter: &ParsedLoadedChapterSource,
         tag: &str,
-    ) -> &InlineFormattingStyleV1 {
+    ) -> &InlineFormattingStyle {
         self.inline
             .style_for_node(node_index_for_tag(chapter, tag))
             .expect("the element resolved an inline style")
@@ -534,7 +533,7 @@ impl Resolved {
         &self,
         chapter: &ParsedLoadedChapterSource,
         tag: &str,
-    ) -> &LayoutFormattingStyleV1 {
+    ) -> &LayoutFormattingStyle {
         self.layout
             .style_for_node(node_index_for_tag(chapter, tag))
             .expect("the element resolved a layout style")
@@ -569,15 +568,15 @@ fn color(value: rito_style_contract::AbsoluteColor) -> String {
     crate::render::test_support::color_css(paint_color(value).expect("an sRGB colour"))
 }
 
-fn is_transparent(value: ComputedColorV1, style: &InlineFormattingStyleV1) -> bool {
+fn is_transparent(value: ComputedColor, style: &InlineFormattingStyle) -> bool {
     value.resolve(style.paint.foreground).alpha().get() == 0.0
 }
 
-fn families(style: &InlineFormattingStyleV1) -> String {
+fn families(style: &InlineFormattingStyle) -> String {
     serialize_font_families(&style.font).expect("a font-family list")
 }
 
-fn line_height_number(style: &InlineFormattingStyleV1) -> f32 {
+fn line_height_number(style: &InlineFormattingStyle) -> f32 {
     let LineHeight::Number(number) = style.font.line_height else {
         panic!("a unitless line-height: {:?}", style.font.line_height);
     };

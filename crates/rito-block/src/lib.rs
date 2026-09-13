@@ -32,8 +32,8 @@ use rito_fragment::{
     FragmentCache, FragmentRect, FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
 };
 use rito_style_contract::{
-    BoxSizingV1, ClearV1, FloatV1, LayoutFormattingStyleV1, LengthPercentage,
-    LengthPercentageOrAuto, MaximumSizeV1, PageBreakV1, PreferredSizeV1,
+    BoxSizing, Clear, Float, LayoutFormattingStyle, LengthPercentage, LengthPercentageOrAuto,
+    MaximumSize, PageBreak, PreferredSize,
 };
 
 /// Byte budget for the internal inline-outcome cache. Sized for one
@@ -253,7 +253,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // its chain would have collapsed to, whether or not the
             // parent already spent the leading chain.
             let original_top_set = top_set;
-            let leading_spent = leading_margin_armed && child_style.float == FloatV1::None;
+            let leading_spent = leading_margin_armed && child_style.float == Float::None;
             let (top_margin, top_set) = if leading_spent && !child_resumed {
                 (0.0, PendingMargin::ZERO)
             } else {
@@ -266,7 +266,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // Floated children leave the flow: they are placed against the
             // content edges, never advance `y`, and never split. In-flow
             // margins collapse straight through them.
-            if child_style.float != FloatV1::None {
+            if child_style.float != Float::None {
                 let hbox = self.resolve_float_box(tree, *child_id, child_style, content_width)?;
                 let margin_side = |side: LengthPercentageOrAuto| match side {
                     LengthPercentageOrAuto::Auto => 0.0,
@@ -332,7 +332,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         content_width,
                     );
                     placed_floats.push(rito_fragment::EscapedFloat {
-                        right_side: matches!(child_style.float, FloatV1::Right),
+                        right_side: matches!(child_style.float, Float::Right),
                         width: occupy_width,
                         top: fy,
                         bottom: fy + occupy_height,
@@ -458,8 +458,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // fragmentainer here. A break that lands at the top of a fresh
             // fragmentainer is already satisfied, per CSS fragmentation.
             let forces_break_before =
-                pending_forced_break || child_style.break_before == PageBreakV1::Always;
-            pending_forced_break = child_style.break_after == PageBreakV1::Always;
+                pending_forced_break || child_style.break_before == PageBreak::Always;
+            pending_forced_break = child_style.break_after == PageBreak::Always;
             if forces_break_before
                 && space.fragmentainer_remaining.is_some()
                 && !child_resumed
@@ -899,8 +899,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // top+158 in the browser, exactly (765-449)/2).
                         let cross_center = if whole_box_here
                             && child_style.display.inside
-                                == rito_style_contract::LayoutDisplayInsideV1::Flex
-                            && child_style.align_items == rito_style_contract::AlignItemsV1::Center
+                                == rito_style_contract::LayoutDisplayInside::Flex
+                            && child_style.align_items == rito_style_contract::AlignItems::Center
                         {
                             // The flex ITEM is what centers, not the line
                             // box: a replaced item's box excludes the
@@ -1056,7 +1056,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 tree,
                                 *child_id,
                                 grid_width,
-                                matches!(child_style.width, PreferredSizeV1::Value(_)),
+                                matches!(child_style.width, PreferredSize::Value(_)),
                                 cancel,
                             )?,
                             continuation: None,
@@ -1071,7 +1071,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             tree,
                             *child_id,
                             grid_width,
-                            matches!(child_style.width, PreferredSizeV1::Value(_)),
+                            matches!(child_style.width, PreferredSize::Value(_)),
                             (available - pad_top).max(0.0),
                             space.fragmentainer_size,
                             child_token.as_ref(),
@@ -1409,12 +1409,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         &self,
         tree: &FormattingTree,
         child_id: FormattingNodeId,
-        child_style: &LayoutFormattingStyleV1,
+        child_style: &LayoutFormattingStyle,
         content_width: f64,
     ) -> Result<HorizontalBox, LayoutError> {
         let hbox = resolve_horizontal_box(child_style, content_width)?;
-        if !(matches!(child_style.width, PreferredSizeV1::Auto)
-            && child_style.max_width == MaximumSizeV1::None)
+        if !(matches!(child_style.width, PreferredSize::Auto)
+            && child_style.max_width == MaximumSize::None)
         {
             return Ok(hbox);
         }
@@ -2132,10 +2132,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         for (cell_root, content_height) in cell_fragments.iter_mut().zip(&cell_heights) {
             let free = (row_height - content_height).max(0.0);
             let shift = match container_layout_style(tree, cell_root.source)?.vertical_align {
-                rito_style_contract::CellVerticalAlignV1::Middle => free / 2.0,
-                rito_style_contract::CellVerticalAlignV1::Bottom => free,
-                rito_style_contract::CellVerticalAlignV1::Top
-                | rito_style_contract::CellVerticalAlignV1::Baseline => 0.0,
+                rito_style_contract::CellVerticalAlign::Middle => free / 2.0,
+                rito_style_contract::CellVerticalAlign::Bottom => free,
+                rito_style_contract::CellVerticalAlign::Top
+                | rito_style_contract::CellVerticalAlign::Baseline => 0.0,
             };
             if shift > 0.0 {
                 for child in &mut cell_root.children {
@@ -2182,7 +2182,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // part here, and content sizing covers the rest.
         let mut specified = None;
         let mut percentage = None;
-        if let rito_style_contract::PreferredSizeV1::Value(width) = style.width {
+        if let rito_style_contract::PreferredSize::Value(width) = style.width {
             match width.value() {
                 LengthPercentage::Length(px) => specified = Some(f64::from(px.get()) + padding),
                 LengthPercentage::Percentage(ratio) => {
@@ -2310,7 +2310,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
             FormattingNodeContent::Table => {
                 let fill = matches!(
                     container_layout_style(tree, node)?.width,
-                    PreferredSizeV1::Value(_)
+                    PreferredSize::Value(_)
                 );
                 let fragment = self.layout_table(tree, node, space.inline_size, fill, cancel)?;
                 Ok(LayoutOutcome {
@@ -2483,13 +2483,13 @@ fn own_width_contribution(
         LengthPercentage::Length(px) => (f64::from(px.get()) * 64.0).trunc() / 64.0,
         _ => 0.0,
     };
-    if let rito_style_contract::PreferredSizeV1::Value(width) = style.width {
+    if let rito_style_contract::PreferredSize::Value(width) = style.width {
         if let LengthPercentage::Length(px) = width.value() {
             let outer = match style.box_sizing {
-                BoxSizingV1::ContentBox => {
+                BoxSizing::ContentBox => {
                     f64::from(px.get()) + pad(style.padding.left) + pad(style.padding.right)
                 }
-                BoxSizingV1::BorderBox => f64::from(px.get()),
+                BoxSizing::BorderBox => f64::from(px.get()),
             };
             // A definite width fixes the box: it neither shrinks below nor
             // grows beyond it, so both intrinsic contributions are that
@@ -2517,12 +2517,12 @@ fn own_width_contribution(
 /// Whether a container establishes a formatting context, which is what
 /// makes it contain its own floats. Floats and non-visible overflow do it
 /// in CSS, as does `display: flow-root`.
-fn is_flow_root(style: &LayoutFormattingStyleV1) -> bool {
-    style.float != FloatV1::None
-        || style.overflow != rito_style_contract::OverflowV1::Visible
+fn is_flow_root(style: &LayoutFormattingStyle) -> bool {
+    style.float != Float::None
+        || style.overflow != rito_style_contract::Overflow::Visible
         || matches!(
             style.display.inside,
-            rito_style_contract::LayoutDisplayInsideV1::FlowRoot
+            rito_style_contract::LayoutDisplayInside::FlowRoot
         )
 }
 
@@ -2685,12 +2685,12 @@ impl FloatBands {
         })
     }
 
-    fn bottom_for(&self, clear: ClearV1) -> f64 {
+    fn bottom_for(&self, clear: Clear) -> f64 {
         match clear {
-            ClearV1::None => f64::NEG_INFINITY,
-            ClearV1::Left => self.left_bottom(),
-            ClearV1::Right => self.right_bottom(),
-            ClearV1::Both => self.left_bottom().max(self.right_bottom()),
+            Clear::None => f64::NEG_INFINITY,
+            Clear::Left => self.left_bottom(),
+            Clear::Right => self.right_bottom(),
+            Clear::Both => self.left_bottom().max(self.right_bottom()),
         }
     }
 
@@ -2715,7 +2715,7 @@ impl FloatBands {
     /// Returns the margin-box x (content-area relative) and y.
     fn place(
         &mut self,
-        side: FloatV1,
+        side: Float,
         width: f64,
         height: f64,
         flow_y: f64,
@@ -2723,11 +2723,11 @@ impl FloatBands {
     ) -> (f64, f64) {
         let y = self.probe_y(width, flow_y, content_width);
         let x = match side {
-            FloatV1::Left => self.left_edge(y),
-            FloatV1::Right | FloatV1::None => self.right_edge(y, content_width) - width,
+            Float::Left => self.left_edge(y),
+            Float::Right | Float::None => self.right_edge(y, content_width) - width,
         };
         self.boxes.push(PlacedFloatBox {
-            right_side: !matches!(side, FloatV1::Left),
+            right_side: !matches!(side, Float::Left),
             x0: x,
             x1: x + width,
             bottom: y + height,
@@ -2741,7 +2741,7 @@ impl FloatBands {
 fn container_layout_style(
     tree: &FormattingTree,
     node: FormattingNodeId,
-) -> Result<&LayoutFormattingStyleV1, LayoutError> {
+) -> Result<&LayoutFormattingStyle, LayoutError> {
     let styles = tree.styles().ok_or_else(|| {
         LayoutError::Invalid("block layout requires the tree to carry style tables".to_owned())
     })?;
@@ -2774,7 +2774,7 @@ struct HorizontalBox {
 /// with both auto), clamped at zero so over-wide content overflows to the
 /// end side like a browser.
 fn resolve_horizontal_box(
-    style: &LayoutFormattingStyleV1,
+    style: &LayoutFormattingStyle,
     containing_width: f64,
 ) -> Result<HorizontalBox, LayoutError> {
     let resolve = |value: LengthPercentage| resolve_length_percentage(value, containing_width);
@@ -2807,8 +2807,8 @@ fn resolve_horizontal_box(
     let margin_left = margin(style.margin.left);
     let margin_right = margin(style.margin.right);
     let width = match style.width {
-        PreferredSizeV1::Auto => None,
-        PreferredSizeV1::Value(value) => Some(resolve(value.value()).max(0.0)),
+        PreferredSize::Auto => None,
+        PreferredSize::Value(value) => Some(resolve(value.value()).max(0.0)),
         other => {
             return Err(LayoutError::Invalid(format!(
                 "block width {other:?} is not representable yet"
@@ -2819,8 +2819,8 @@ fn resolve_horizontal_box(
     // available space behaves like a specified width (so auto margins can
     // center the capped box, the common `max-width + margin:auto` pattern).
     let max_width = match style.max_width {
-        MaximumSizeV1::None => None,
-        MaximumSizeV1::Value(value) => Some(resolve(value.value()).max(0.0)),
+        MaximumSize::None => None,
+        MaximumSize::Value(value) => Some(resolve(value.value()).max(0.0)),
     };
     let width = match (width, max_width) {
         (Some(width), Some(cap)) => Some(width.min(cap)),
@@ -2829,8 +2829,8 @@ fn resolve_horizontal_box(
             let margin_used = margin_left.unwrap_or(0.0) + margin_right.unwrap_or(0.0);
             let auto_border = (containing_width - margin_used).max(0.0);
             let cap_border = match style.box_sizing {
-                BoxSizingV1::ContentBox => cap + padding_left + padding_right,
-                BoxSizingV1::BorderBox => cap,
+                BoxSizing::ContentBox => cap + padding_left + padding_right,
+                BoxSizing::BorderBox => cap,
             };
             if auto_border > cap_border {
                 Some(cap)
@@ -2857,8 +2857,8 @@ fn resolve_horizontal_box(
         }
         Some(width) => {
             let content_width = match style.box_sizing {
-                BoxSizingV1::ContentBox => width,
-                BoxSizingV1::BorderBox => (width - padding_left - padding_right).max(0.0),
+                BoxSizing::ContentBox => width,
+                BoxSizing::BorderBox => (width - padding_left - padding_right).max(0.0),
             };
             let border_width = padding_left + content_width + padding_right;
             let free = containing_width - border_width;
@@ -3064,7 +3064,7 @@ struct CellIntrinsicSizes {
 /// block: auto margins share the free space the used width leaves, the
 /// same distribution `resolve_horizontal_box` applies to a definite width.
 fn shrink_to_fit_offset(
-    style: &LayoutFormattingStyleV1,
+    style: &LayoutFormattingStyle,
     containing_width: f64,
     used_width: f64,
 ) -> f64 {
@@ -3090,12 +3090,12 @@ fn shrink_to_fit_offset(
 /// Percentages need a definite containing-block height that block flow
 /// does not provide, so they resolve to `None` (auto), per CSS.
 fn resolve_fixed_height(
-    style: &LayoutFormattingStyleV1,
+    style: &LayoutFormattingStyle,
     vertical_padding: f64,
 ) -> Result<Option<f64>, LayoutError> {
     let height = match style.height {
-        PreferredSizeV1::Auto => return Ok(None),
-        PreferredSizeV1::Value(value) => match value.value() {
+        PreferredSize::Auto => return Ok(None),
+        PreferredSize::Value(value) => match value.value() {
             LengthPercentage::Length(px) => f64::from(px.get()),
             // No definite height basis in block flow: behaves as auto.
             LengthPercentage::Percentage(_) | LengthPercentage::Linear { .. } => return Ok(None),
@@ -3107,8 +3107,8 @@ fn resolve_fixed_height(
         }
     };
     Ok(Some(match style.box_sizing {
-        BoxSizingV1::ContentBox => height.max(0.0) + vertical_padding,
-        BoxSizingV1::BorderBox => height.max(0.0),
+        BoxSizing::ContentBox => height.max(0.0) + vertical_padding,
+        BoxSizing::BorderBox => height.max(0.0),
     }))
 }
 
@@ -3153,7 +3153,7 @@ fn through_collapsed_top(
     let styles = tree.styles().ok_or_else(|| {
         LayoutError::Invalid("block layout requires the tree to carry style tables".to_owned())
     })?;
-    let style_of = |id: FormattingNodeId| -> Result<&LayoutFormattingStyleV1, LayoutError> {
+    let style_of = |id: FormattingNodeId| -> Result<&LayoutFormattingStyle, LayoutError> {
         styles
             .layout
             .style(tree.node(id).style)
@@ -3181,7 +3181,7 @@ fn through_collapsed_top(
         let mut first = None;
         let mut float_precedes = false;
         for id in &tree.node(node).children {
-            if style_of(*id)?.float == FloatV1::None {
+            if style_of(*id)?.float == Float::None {
                 first = Some(*id);
                 break;
             }
@@ -3193,7 +3193,7 @@ fn through_collapsed_top(
         // across every spacer/follower margin in the measured matrix).
         if float_precedes
             && first
-                .map(|id| style_of(id).map(|style| style.clear != ClearV1::None))
+                .map(|id| style_of(id).map(|style| style.clear != Clear::None))
                 .transpose()?
                 .unwrap_or(false)
         {
@@ -3378,22 +3378,22 @@ mod tests {
         let mut floats = FloatBands::new();
         let close = |value: f64, expect: f64| (value - expect).abs() < 1e-3;
         // title1: ml 62.719 + w 48; margin box spans mt 25.078 + h 205.875.
-        let (x1, y1) = floats.place(FloatV1::Right, 110.719, 230.953, 0.0, cw);
+        let (x1, y1) = floats.place(Float::Right, 110.719, 230.953, 0.0, cw);
         assert!(close(x1, 516.5) && close(y1, 0.0), "title1 at ({x1}, {y1})");
         // title1-1: ml -81.531 + w 48 (negative outer width!), bottom 163.953.
-        let (x2, y2) = floats.place(FloatV1::Right, -33.531, 163.953, 0.0, cw);
+        let (x2, y2) = floats.place(Float::Right, -33.531, 163.953, 0.0, cw);
         assert!(
             close(x2, 550.031) && close(y2, 0.0),
             "title1-1 at ({x2}, {y2})"
         );
         // title2: same outer shape as title1, bottom 246.844.
-        let (x3, y3) = floats.place(FloatV1::Right, 110.719, 246.844, 0.0, cw);
+        let (x3, y3) = floats.place(Float::Right, 110.719, 246.844, 0.0, cw);
         assert!(
             close(x3, 405.781) && close(y3, 0.0),
             "title2 at ({x3}, {y3})"
         );
         // title3: w 160 + mr -188.156 (right-overhang), bottom 317.5.
-        let (x4, y4) = floats.place(FloatV1::Right, -28.156, 317.5, 0.0, cw);
+        let (x4, y4) = floats.place(Float::Right, -28.156, 317.5, 0.0, cw);
         assert!(
             close(x4, 433.937) && close(y4, 0.0),
             "title3 at ({x4}, {y4})"
@@ -3406,9 +3406,9 @@ mod tests {
     #[test]
     fn an_unfitting_float_steps_below_the_blocking_band() {
         let mut floats = FloatBands::new();
-        let (x1, y1) = floats.place(FloatV1::Left, 300.0, 100.0, 0.0, 400.0);
+        let (x1, y1) = floats.place(Float::Left, 300.0, 100.0, 0.0, 400.0);
         assert!((x1, y1) == (0.0, 0.0));
-        let (x2, y2) = floats.place(FloatV1::Right, 200.0, 50.0, 0.0, 400.0);
+        let (x2, y2) = floats.place(Float::Right, 200.0, 50.0, 0.0, 400.0);
         assert!(
             (x2 - 200.0).abs() < 1e-9 && (y2 - 100.0).abs() < 1e-9,
             "second float steps below the first, got ({x2}, {y2})"
@@ -3419,12 +3419,11 @@ mod tests {
     use rito_fragment::{FormattingNode, FormattingTreeStyles, InlineItem, LineFragment};
     use rito_inline::{plain_paragraph_style, ParleyInlineContext};
     use rito_style_contract::{
-        AlignItemsV1, ClearV1, CssPx, FloatV1, FontFamilies, FontFamily, FontFamilyName,
-        InlineStyleTableV1, JustifyContentV1, LayoutDisplayInsideV1, LayoutDisplayOutsideV1,
-        LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleId, LayoutStyleTableV1,
-        ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1,
-        NonNegativeLengthPercentage, OverflowV1, PageBreakV1, Percentage, PhysicalSides,
-        PositionV1, PreferredSizeV1,
+        AlignItems, Clear, CssPx, Float, FontFamilies, FontFamily, FontFamilyName,
+        InlineStyleTable, JustifyContent, LayoutDisplay, LayoutDisplayInside, LayoutDisplayOutside,
+        LayoutFormattingStyle, LayoutStyleId, LayoutStyleTable, ListMarkerStyle, MaximumHeight,
+        MaximumSize, MinimumHeight, NonNegativeLengthPercentage, Overflow, PageBreak, Percentage,
+        PhysicalSides, Position, PreferredSize,
     };
 
     fn margin_px(value: f64) -> LengthPercentageOrAuto {
@@ -3469,11 +3468,11 @@ mod tests {
     fn block_style(
         margin_top: LengthPercentageOrAuto,
         margin_bottom: LengthPercentageOrAuto,
-    ) -> LayoutFormattingStyleV1 {
-        LayoutFormattingStyleV1 {
-            display: LayoutDisplayV1 {
-                outside: LayoutDisplayOutsideV1::Block,
-                inside: LayoutDisplayInsideV1::Flow,
+    ) -> LayoutFormattingStyle {
+        LayoutFormattingStyle {
+            display: LayoutDisplay {
+                outside: LayoutDisplayOutside::Block,
+                inside: LayoutDisplayInside::Flow,
                 is_list_item: false,
             },
             margin: PhysicalSides {
@@ -3488,47 +3487,47 @@ mod tests {
                 bottom: zero_padding(),
                 left: zero_padding(),
             },
-            box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
-            justify_content: JustifyContentV1::Normal,
-            align_items: AlignItemsV1::Normal,
-            break_before: PageBreakV1::Auto,
-            break_after: PageBreakV1::Auto,
-            width: PreferredSizeV1::Auto,
-            height: PreferredSizeV1::Auto,
-            max_width: MaximumSizeV1::None,
-            min_height: MinimumHeightV1::Auto,
-            max_height: MaximumHeightV1::None,
-            clear: ClearV1::None,
-            float: FloatV1::None,
-            overflow: OverflowV1::Visible,
-            list_style_type: ListMarkerStyleV1::None,
-            position: PositionV1::Static,
+            box_sizing: rito_style_contract::BoxSizing::ContentBox,
+            justify_content: JustifyContent::Normal,
+            align_items: AlignItems::Normal,
+            break_before: PageBreak::Auto,
+            break_after: PageBreak::Auto,
+            width: PreferredSize::Auto,
+            height: PreferredSize::Auto,
+            max_width: MaximumSize::None,
+            min_height: MinimumHeight::Auto,
+            max_height: MaximumHeight::None,
+            clear: Clear::None,
+            float: Float::None,
+            overflow: Overflow::Visible,
+            list_style_type: ListMarkerStyle::None,
+            position: Position::Static,
             inset: PhysicalSides {
                 top: LengthPercentageOrAuto::Auto,
                 right: LengthPercentageOrAuto::Auto,
                 bottom: LengthPercentageOrAuto::Auto,
                 left: LengthPercentageOrAuto::Auto,
             },
-            vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+            vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
             border_spacing: (
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
-            object_fit: rito_style_contract::ObjectFitV1::Fill,
+            object_fit: rito_style_contract::ObjectFit::Fill,
         }
     }
 
     /// One interned zero-margin style for every node slot.
-    fn uniform_layout_table(node_count: usize) -> LayoutStyleTableV1 {
+    fn uniform_layout_table(node_count: usize) -> LayoutStyleTable {
         layout_table_with(node_count, |_| block_style(margin_px(0.0), margin_px(0.0)))
     }
 
     fn layout_table_with(
         node_count: usize,
-        style_for: impl Fn(usize) -> LayoutFormattingStyleV1,
-    ) -> LayoutStyleTableV1 {
-        let mut table = LayoutStyleTableV1::new(node_count);
+        style_for: impl Fn(usize) -> LayoutFormattingStyle,
+    ) -> LayoutStyleTable {
+        let mut table = LayoutStyleTable::new(node_count);
         for index in 0..node_count {
             table
                 .intern_for_node(index, style_for(index))
@@ -3537,7 +3536,7 @@ mod tests {
         table
     }
 
-    fn node_style_id(table: &LayoutStyleTableV1, index: usize) -> LayoutStyleId {
+    fn node_style_id(table: &LayoutStyleTable, index: usize) -> LayoutStyleId {
         table.node_style_id(index).expect("node style assigned")
     }
 
@@ -3608,7 +3607,7 @@ mod tests {
     /// Builds a tree whose container children are paragraphs with the given
     /// line counts (each line 10 px through `FixedLineInline`).
     fn paragraph_counts_tree(line_counts: &[usize]) -> FormattingTree {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -3685,7 +3684,7 @@ mod tests {
     /// the paragraph line counts of each cell (single-line paragraphs
     /// through `FixedLineInline`, so every count is 10 px of content).
     fn table_tree(rows: &[&[&[usize]]]) -> FormattingTree {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -3751,7 +3750,7 @@ mod tests {
             children: vec![table_id],
         });
         let root = FormattingNodeId(node_total as u32);
-        let mut layout = LayoutStyleTableV1::new(0);
+        let mut layout = LayoutStyleTable::new(0);
         let plain = layout
             .intern(block_style(margin_px(0.0), margin_px(0.0)))
             .expect("style interns");
@@ -3763,7 +3762,7 @@ mod tests {
     #[test]
     fn border_spacing_wraps_the_single_row_once_per_side() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -3926,7 +3925,7 @@ mod tests {
     #[test]
     fn a_box_whose_trailing_padding_misses_moves_whole_when_it_can() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -4001,7 +4000,7 @@ mod tests {
     #[test]
     fn trailing_padding_still_defers_when_the_box_opens_the_page() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -4067,7 +4066,7 @@ mod tests {
     #[test]
     fn mixed_sign_margins_collapse_as_a_set_through_empty_blocks() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -4160,7 +4159,7 @@ mod tests {
     #[test]
     fn a_percentage_parent_margin_collapses_with_its_first_child_at_layout() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -4250,7 +4249,7 @@ mod tests {
     #[test]
     fn a_padded_percentage_parent_keeps_its_child_margin_inside() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -4397,7 +4396,7 @@ mod tests {
         // a forced break between them puts each on its own page. A break
         // already satisfied at the top of a fresh fragmentainer never
         // produces an empty page.
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -4409,12 +4408,12 @@ mod tests {
                 ),
             )
             .expect("style interns");
-        let mut layout = LayoutStyleTableV1::new(0);
+        let mut layout = LayoutStyleTable::new(0);
         let plain = layout
             .intern(block_style(margin_px(0.0), margin_px(0.0)))
             .expect("style interns");
         let mut breaking = block_style(margin_px(0.0), margin_px(0.0));
-        breaking.break_before = PageBreakV1::Always;
+        breaking.break_before = PageBreak::Always;
         let breaking = layout.intern(breaking).expect("style interns");
         let paragraph = |style: LayoutStyleId| FormattingNode {
             style,
@@ -4479,7 +4478,7 @@ mod tests {
         // leaf 12px + paragraph 3 lines (30px) through 30px fragmentainers:
         // page 1 = leaf + 1 line (12 + 10 <= 30, second line would overflow),
         // page 2 = remaining 2 lines.
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -4579,7 +4578,7 @@ mod tests {
             FormattingNodeId(1),
             FormattingTreeStyles {
                 layout,
-                inline: InlineStyleTableV1::new(1),
+                inline: InlineStyleTable::new(1),
             },
         )
         .expect("tree builds");
@@ -4630,7 +4629,7 @@ mod tests {
             FormattingNodeId(1),
             FormattingTreeStyles {
                 layout,
-                inline: InlineStyleTableV1::new(1),
+                inline: InlineStyleTable::new(1),
             },
         )
         .expect("tree builds");
@@ -4644,7 +4643,7 @@ mod tests {
     #[test]
     fn a_page_tall_line_breaks_past_a_padding_shortened_opener() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -4751,7 +4750,7 @@ mod tests {
             FormattingNodeId(1),
             FormattingTreeStyles {
                 layout,
-                inline: InlineStyleTableV1::new(0),
+                inline: InlineStyleTable::new(0),
             },
         )
         .expect("tree builds");
@@ -4772,7 +4771,7 @@ mod tests {
             FormattingNodeId(0),
             FormattingTreeStyles {
                 layout: leaf_layout,
-                inline: InlineStyleTableV1::new(0),
+                inline: InlineStyleTable::new(0),
             },
         )
         .expect("leaf tree builds");
@@ -4791,7 +4790,7 @@ mod tests {
     /// Outer container: [paragraph A, inner [paragraph B, paragraph C],
     /// paragraph D], every paragraph two 10px fixed lines.
     fn nested_tree() -> FormattingTree {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -4910,7 +4909,7 @@ mod tests {
     #[test]
     fn three_levels_of_nesting_paginate_losslessly() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5006,7 +5005,7 @@ mod tests {
     fn margined_paragraphs_tree(
         margins: &[(LengthPercentageOrAuto, LengthPercentageOrAuto)],
     ) -> FormattingTree {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5065,7 +5064,7 @@ mod tests {
         // empty box (§8.3.1), and the paragraph sits at max(30, 25) = 30
         // — not 55 (measured: Blink places the first line at 30).
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5142,7 +5141,7 @@ mod tests {
         // The bridge lowers an empty `<h4></h4>` to a childless
         // BlockContainer; it must collapse exactly like the empty flow.
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5273,7 +5272,7 @@ mod tests {
             }
         }
         let context = BlockFormattingContext::new(FractionalLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5462,9 +5461,9 @@ mod tests {
     /// +13.4/+60.8 beyond that.
     #[test]
     fn a_later_float_keeps_its_flow_position_y() {
-        use rito_style_contract::FloatV1;
+        use rito_style_contract::Float;
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5477,12 +5476,12 @@ mod tests {
             )
             .expect("style interns");
         let mut float_one = block_style(margin_px(0.0), margin_px(0.0));
-        float_one.float = FloatV1::Right;
-        float_one.width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+        float_one.float = Float::Right;
+        float_one.width = PreferredSize::Value(NonNegativeLengthPercentage::new(
             LengthPercentage::Length(CssPx::new(48.0).expect("finite")),
         ));
         let mut float_two = block_style(margin_px(100.0), margin_px(0.0));
-        float_two.float = FloatV1::Right;
+        float_two.float = Float::Right;
         float_two.width = float_one.width;
         let layout = layout_table_with(5, |index| match index {
             0 => float_one,
@@ -5563,9 +5562,9 @@ mod tests {
 
     #[test]
     fn paired_float_columns_split_and_resume_side_by_side_across_pages() {
-        use rito_style_contract::{FloatV1, NonNegativeLengthPercentage, Percentage};
+        use rito_style_contract::{Float, NonNegativeLengthPercentage, Percentage};
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5577,15 +5576,15 @@ mod tests {
                 ),
             )
             .expect("style interns");
-        let half_width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+        let half_width = PreferredSize::Value(NonNegativeLengthPercentage::new(
             LengthPercentage::Percentage(Percentage::from_percent(49.0).expect("finite")),
         ));
         let mut column = block_style(margin_px(0.0), margin_px(0.0));
         column.width = half_width;
         let mut left_column = column;
-        left_column.float = FloatV1::Left;
+        left_column.float = Float::Left;
         let mut right_column = column;
-        right_column.float = FloatV1::Right;
+        right_column.float = Float::Right;
         let layout = layout_table_with(5, |index| match index {
             0 => left_column,
             1 => right_column,
@@ -5686,9 +5685,9 @@ mod tests {
     /// back side by side on the next page.
     #[test]
     fn nested_float_columns_resume_side_by_side_across_pages() {
-        use rito_style_contract::{FloatV1, NonNegativeLengthPercentage, Percentage};
+        use rito_style_contract::{Float, NonNegativeLengthPercentage, Percentage};
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5700,15 +5699,15 @@ mod tests {
                 ),
             )
             .expect("style interns");
-        let half_width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+        let half_width = PreferredSize::Value(NonNegativeLengthPercentage::new(
             LengthPercentage::Percentage(Percentage::from_percent(49.0).expect("finite")),
         ));
         let mut column = block_style(margin_px(0.0), margin_px(0.0));
         column.width = half_width;
         let mut left_column = column;
-        left_column.float = FloatV1::Left;
+        left_column.float = Float::Left;
         let mut right_column = column;
-        right_column.float = FloatV1::Right;
+        right_column.float = Float::Right;
         let layout = layout_table_with(5, |index| match index {
             0 => left_column,
             1 => right_column,
@@ -5814,9 +5813,9 @@ mod tests {
     /// page top — and occupies no float band doing it.
     #[test]
     fn negative_top_margins_hoist_floats_above_their_flow_position() {
-        use rito_style_contract::FloatV1;
+        use rito_style_contract::Float;
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5829,7 +5828,7 @@ mod tests {
             )
             .expect("style interns");
         let mut badge = block_style(margin_px(-100.0), margin_px(0.0));
-        badge.float = FloatV1::Right;
+        badge.float = Float::Right;
         let layout = layout_table_with(3, |index| match index {
             0 => badge,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
@@ -5885,9 +5884,9 @@ mod tests {
 
     #[test]
     fn auto_width_floats_shrink_to_their_content() {
-        use rito_style_contract::FloatV1;
+        use rito_style_contract::Float;
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5900,7 +5899,7 @@ mod tests {
             )
             .expect("style interns");
         let mut side_note = block_style(margin_px(0.0), margin_px(0.0));
-        side_note.float = FloatV1::Right;
+        side_note.float = Float::Right;
         let layout = layout_table_with(2, |index| match index {
             0 => side_note,
             _ => block_style(margin_px(0.0), margin_px(0.0)),
@@ -5959,9 +5958,9 @@ mod tests {
 
     #[test]
     fn paired_float_columns_sit_side_by_side() {
-        use rito_style_contract::{FloatV1, NonNegativeLengthPercentage, Percentage};
+        use rito_style_contract::{Float, NonNegativeLengthPercentage, Percentage};
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -5973,15 +5972,15 @@ mod tests {
                 ),
             )
             .expect("style interns");
-        let half_width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+        let half_width = PreferredSize::Value(NonNegativeLengthPercentage::new(
             LengthPercentage::Percentage(Percentage::from_percent(49.0).expect("finite")),
         ));
         let mut column = block_style(margin_px(0.0), margin_px(0.0));
         column.width = half_width;
         let mut left_column = column;
-        left_column.float = FloatV1::Left;
+        left_column.float = Float::Left;
         let mut right_column = column;
-        right_column.float = FloatV1::Right;
+        right_column.float = Float::Right;
         let layout = layout_table_with(3, |index| match index {
             0 => left_column,
             1 => right_column,
@@ -6037,9 +6036,9 @@ mod tests {
 
     #[test]
     fn content_beside_floats_clears_below_them() {
-        use rito_style_contract::{ClearV1, FloatV1, NonNegativeLengthPercentage, Percentage};
+        use rito_style_contract::{Clear, Float, NonNegativeLengthPercentage, Percentage};
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -6051,21 +6050,21 @@ mod tests {
                 ),
             )
             .expect("style interns");
-        let half_width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+        let half_width = PreferredSize::Value(NonNegativeLengthPercentage::new(
             LengthPercentage::Percentage(Percentage::from_percent(40.0).expect("finite")),
         ));
         let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
         float_style.width = half_width;
-        float_style.float = FloatV1::Left;
+        float_style.float = Float::Left;
         let mut cleared = block_style(margin_px(0.0), margin_px(0.0));
-        cleared.clear = ClearV1::Both;
-        let build = |following: LayoutFormattingStyleV1| {
+        cleared.clear = Clear::Both;
+        let build = |following: LayoutFormattingStyle| {
             let layout = layout_table_with(3, move |index| match index {
                 0 => float_style,
                 1 => following,
                 _ => block_style(margin_px(0.0), margin_px(0.0)),
             });
-            let mut inline_table = InlineStyleTableV1::new(1);
+            let mut inline_table = InlineStyleTable::new(1);
             let style_id = inline_table
                 .intern_for_node(
                     0,
@@ -6153,7 +6152,7 @@ mod tests {
 through the quiet forest until the morning light returns.";
         let second_text = "A second paragraph follows the first one and must keep every \
 single line across page boundaries.";
-        let mut inline_table = InlineStyleTableV1::new(2);
+        let mut inline_table = InlineStyleTable::new(2);
         let families = FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Tinos"))])
             .expect("family list");
         let first_style = inline_table
@@ -6256,7 +6255,7 @@ single line across page boundaries.";
     #[test]
     fn padded_float_inline_flow_lays_lines_in_the_content_box() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -6274,9 +6273,9 @@ single line across page boundaries.";
             ))
         };
         let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
-        float_style.float = FloatV1::Left;
+        float_style.float = Float::Left;
         float_style.width =
-            PreferredSizeV1::Value(rito_style_contract::NonNegativeLengthPercentage::new(
+            PreferredSize::Value(rito_style_contract::NonNegativeLengthPercentage::new(
                 LengthPercentage::Length(CssPx::new(400.0).expect("width length")),
             ));
         float_style.padding = PhysicalSides {
@@ -6370,7 +6369,7 @@ single line across page boundaries.";
     #[test]
     fn float_shrink_to_fit_excludes_the_floats_own_margins() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -6383,7 +6382,7 @@ single line across page boundaries.";
             )
             .expect("style interns");
         let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
-        float_style.float = FloatV1::Right;
+        float_style.float = Float::Right;
         float_style.margin.right = margin_px(32.0);
         let layout = layout_table_with(2, |index| {
             if index == 0 {
@@ -6456,7 +6455,7 @@ single line across page boundaries.";
     #[test]
     fn container_float_shrink_to_fit_excludes_its_own_margins() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -6469,7 +6468,7 @@ single line across page boundaries.";
             )
             .expect("style interns");
         let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
-        float_style.float = FloatV1::Right;
+        float_style.float = Float::Right;
         float_style.margin.left = margin_px(7.0);
         let layout = layout_table_with(3, |index| {
             if index == 1 {
@@ -6546,7 +6545,7 @@ single line across page boundaries.";
     #[test]
     fn a_margined_block_after_a_cleared_spacer_keeps_its_full_margin() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -6559,9 +6558,9 @@ single line across page boundaries.";
             )
             .expect("style interns");
         let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
-        float_style.float = FloatV1::Left;
+        float_style.float = Float::Left;
         let mut spacer_style = block_style(margin_px(0.0), margin_px(0.0));
-        spacer_style.clear = ClearV1::Both;
+        spacer_style.clear = Clear::Both;
         let layout = layout_table_with(8, |index| match index {
             0 => block_style(margin_px(0.0), margin_px(0.0)),
             1 => block_style(margin_px(-4.0), margin_px(0.0)),
@@ -6572,13 +6571,13 @@ single line across page boundaries.";
                 let mut badge = block_style(margin_px(16.0), margin_px(16.0));
                 badge.margin.left = LengthPercentageOrAuto::Auto;
                 badge.margin.right = LengthPercentageOrAuto::Auto;
-                badge.width = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+                badge.width = PreferredSize::Value(NonNegativeLengthPercentage::new(
                     LengthPercentage::Length(CssPx::new(67.2).expect("finite")),
                 ));
-                badge.height = PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+                badge.height = PreferredSize::Value(NonNegativeLengthPercentage::new(
                     LengthPercentage::Length(CssPx::new(67.2).expect("finite")),
                 ));
-                badge.overflow = OverflowV1::Hidden;
+                badge.overflow = Overflow::Hidden;
                 badge
             }
             _ => block_style(margin_px(0.0), margin_px(0.0)),
@@ -6683,7 +6682,7 @@ single line across page boundaries.";
     #[test]
     fn float_flow_position_includes_a_clear_paragraphs_margins() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -6696,9 +6695,9 @@ single line across page boundaries.";
             )
             .expect("style interns");
         let mut clear_style = block_style(margin_px(6.4), margin_px(6.4));
-        clear_style.clear = ClearV1::Both;
+        clear_style.clear = Clear::Both;
         let mut hoisted = block_style(margin_px(-100.0), margin_px(0.0));
-        hoisted.float = FloatV1::Left;
+        hoisted.float = Float::Left;
         let layout = layout_table_with(4, |index| match index {
             1 => clear_style,
             2 => hoisted,
@@ -6770,7 +6769,7 @@ single line across page boundaries.";
     #[test]
     fn leading_padding_breaks_alone_when_it_squeezes_a_full_page_line() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -6869,7 +6868,7 @@ single line across page boundaries.";
     #[test]
     fn leading_padding_breaks_even_when_the_line_overflows_a_whole_page() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -6969,7 +6968,7 @@ single line across page boundaries.";
     #[test]
     fn deferred_trailing_padding_opens_the_next_page_and_preserves_the_sibling_margin() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -7081,7 +7080,7 @@ single line across page boundaries.";
     #[test]
     fn clearance_clears_the_floats_margin_edge() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -7094,9 +7093,9 @@ single line across page boundaries.";
             )
             .expect("style interns");
         let mut float_style = block_style(margin_px(0.0), margin_px(8.0));
-        float_style.float = FloatV1::Left;
+        float_style.float = Float::Left;
         let mut clear_style = block_style(margin_px(0.0), margin_px(0.0));
-        clear_style.clear = ClearV1::Both;
+        clear_style.clear = Clear::Both;
         let layout = layout_table_with(4, |index| match index {
             0 => float_style,
             1 => clear_style,
@@ -7173,7 +7172,7 @@ single line across page boundaries.";
     #[test]
     fn a_float_respects_the_preceding_siblings_bottom_margin() {
         let context = BlockFormattingContext::new(FixedLineInline);
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let text_style = inline
             .intern_for_node(
                 0,
@@ -7186,7 +7185,7 @@ single line across page boundaries.";
             )
             .expect("style interns");
         let mut float_style = block_style(margin_px(0.0), margin_px(0.0));
-        float_style.float = FloatV1::Left;
+        float_style.float = Float::Left;
         let layout = layout_table_with(3, |index| match index {
             0 => block_style(margin_px(0.0), margin_px(8.0)),
             1 => float_style,

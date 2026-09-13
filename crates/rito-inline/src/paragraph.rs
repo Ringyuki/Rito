@@ -639,7 +639,7 @@ impl ParleyInlineContext {
                     edge.resolved_width.get()
                 }
             };
-            let author = |style: &InlineFormattingStyleV1| match style.text_flow.letter_spacing {
+            let author = |style: &InlineFormattingStyle| match style.text_flow.letter_spacing {
                 LengthPercentage::Length(px) => px.get(),
                 _ => 0.0,
             };
@@ -1028,7 +1028,7 @@ pub(crate) fn shaping_font_size(size: f32) -> f32 {
 
 /// Cache key for a `line-height: normal` strut: exactly the font inputs
 /// `measure_normal_line_height` shapes with, so equal keys measure equal.
-pub(crate) fn normal_strut_key(style: &InlineFormattingStyleV1) -> u64 {
+pub(crate) fn normal_strut_key(style: &InlineFormattingStyle) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     family_stack_source(style).hash(&mut hasher);
@@ -1049,7 +1049,7 @@ pub(crate) fn normal_strut_key(style: &InlineFormattingStyleV1) -> u64 {
 
 pub(crate) fn push_item_styles(
     builder: &mut SpacingBuilder<'_>,
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
     range: std::ops::Range<usize>,
 ) {
     let stack = family_stack_source(style);
@@ -1146,7 +1146,7 @@ pub(crate) fn push_item_styles(
     }
 }
 
-pub(crate) fn family_stack_source(style: &InlineFormattingStyleV1) -> String {
+pub(crate) fn family_stack_source(style: &InlineFormattingStyle) -> String {
     style
         .font
         .families
@@ -1220,15 +1220,15 @@ pub fn plain_paragraph_style(
     families: rito_style_contract::FontFamilies,
     font_size_px: f32,
     first_line_indent_px: f32,
-) -> InlineFormattingStyleV1 {
+) -> InlineFormattingStyle {
     use rito_style_contract::{
         AbsoluteColor, AbsoluteColorSpace, AlignmentBaseline, BaselineShift, BaselineSource,
         BorderEdge, BorderEdges, BorderRadii, BorderStyle, ColorNoneFlags, CornerRadius, CssPx,
-        Direction, FontStyleV1, FontWeight, InlineBidiV1, InlineFragmentStyleV1,
-        InlinePaintStyleV1, InlineTextFlowV1, LengthPercentageOrAuto, LineBreak, NonNegativeCssPx,
+        Direction, FontStyle, FontWeight, InlineBidi, InlineFragmentStyle, InlinePaintStyle,
+        InlineTextFlow, LengthPercentageOrAuto, LineBreak, NonNegativeCssPx,
         NonNegativeLengthPercentage, OverflowWrap, PhysicalSides, RubyAlign, TextAlign,
         TextDecoration, TextDecorationLines, TextDecorationStyle, TextIndent, TextJustify,
-        TextTransform, TextTransformCase, TextWrapMode, TransformListV1, UnicodeBidi, UnitInterval,
+        TextTransform, TextTransformCase, TextWrapMode, TransformList, UnicodeBidi, UnitInterval,
         WhiteSpaceCollapse, WordBreak, WritingMode,
     };
     use std::sync::Arc;
@@ -1259,8 +1259,8 @@ pub fn plain_paragraph_style(
             left: value,
         }
     }
-    InlineFormattingStyleV1 {
-        font: FontStyleV1 {
+    InlineFormattingStyle {
+        font: FontStyle {
             families,
             is_system_font: false,
             is_initial: false,
@@ -1270,7 +1270,7 @@ pub fn plain_paragraph_style(
             line_height: LineHeight::Normal,
             line_height_is_declared: false,
         },
-        text_flow: InlineTextFlowV1 {
+        text_flow: InlineTextFlow {
             text_align: TextAlign::Start,
             text_justify: TextJustify::Auto,
             text_transform: TextTransform {
@@ -1295,12 +1295,12 @@ pub fn plain_paragraph_style(
             ruby_align: RubyAlign::SpaceAround,
             language: None,
         },
-        bidi: InlineBidiV1 {
+        bidi: InlineBidi {
             direction: Direction::LeftToRight,
             unicode_bidi: UnicodeBidi::Normal,
             writing_mode: WritingMode::HorizontalTopToBottom,
         },
-        fragment: InlineFragmentStyleV1 {
+        fragment: InlineFragmentStyle {
             margin: sides(LengthPercentageOrAuto::Value(zero_length)),
             padding: sides(NonNegativeLengthPercentage::new(zero_length)),
             border: BorderEdges {
@@ -1319,12 +1319,12 @@ pub fn plain_paragraph_style(
             baseline_source: BaselineSource::Auto,
             baseline_shift: BaselineShift::Offset(zero_length),
         },
-        paint: InlinePaintStyleV1 {
+        paint: InlinePaintStyle {
             foreground: black,
             opacity: UnitInterval::new(1.0).expect("opacity is bounded"),
             background: black.into(),
             background_image: None,
-            transform: TransformListV1::none(),
+            transform: TransformList::none(),
             text_decoration: TextDecoration {
                 lines: TextDecorationLines::new(false, false, false, false),
                 style: TextDecorationStyle::Solid,
@@ -1362,7 +1362,7 @@ pub(crate) fn paragraph_alignment(value: TextAlign) -> parley::Alignment {
 /// b20 p018: truth glyph x 39.8125 = base 9.421875 + 30.390625, while
 /// the engine's float 30.4 started 0.009375 right — every glyph's
 /// subpixel phase shifted and the whole line lit up as AA diff).
-pub(crate) fn resolved_text_indent(style: &InlineFormattingStyleV1) -> f32 {
+pub(crate) fn resolved_text_indent(style: &InlineFormattingStyle) -> f32 {
     match style.text_flow.text_indent.value {
         LengthPercentage::Length(px) => layout_unit_trunc(f64::from(px.get())) as f32,
         _ => 0.0,

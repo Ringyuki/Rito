@@ -791,7 +791,7 @@ mod tests {
     };
     use rito_inline::{plain_paragraph_style, ParleyInlineContext};
     use rito_style_contract::{
-        FontFamilies, FontFamily, FontFamilyName, InlineStyleTableV1, LayoutStyleTableV1,
+        FontFamilies, FontFamily, FontFamilyName, InlineStyleTable, LayoutStyleTable,
     };
     use std::collections::BTreeMap;
 
@@ -804,13 +804,13 @@ mod tests {
     }
 
     fn chapter(text: &str) -> ChapterFormattingTree {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let families = FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Tinos"))])
             .expect("family list");
         let style = inline
             .intern_for_node(0, plain_paragraph_style(families, 16.0, 0.0))
             .expect("style interns");
-        let mut layout = LayoutStyleTableV1::new(1);
+        let mut layout = LayoutStyleTable::new(1);
         let block = layout
             .intern_for_node(0, crate::fragment_bridge::tests_block_style())
             .expect("layout style interns");

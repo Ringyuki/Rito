@@ -1,6 +1,6 @@
 use std::cell::OnceCell;
 
-use rito_stylo::{parse_font_faces_v1, FontFaceStylesheetInputV1};
+use rito_stylo::{parse_font_faces, FontFaceStylesheetInput};
 
 use crate::resources::hash_bytes;
 
@@ -46,13 +46,13 @@ pub(crate) fn resolve_font_face_sources(
         .iter()
         .map(|stylesheet| {
             record_stylesheet_parse();
-            FontFaceStylesheetInputV1::author(
+            FontFaceStylesheetInput::author(
                 &stylesheet.text,
                 "https://rito.invalid/publication.css",
             )
         })
         .collect::<Vec<_>>();
-    let Ok(rules) = parse_font_faces_v1(&stylesheet_inputs) else {
+    let Ok(rules) = parse_font_faces(&stylesheet_inputs) else {
         return sources;
     };
     for (source_order, rule) in rules.into_iter().enumerate() {

@@ -18,34 +18,34 @@ export {
   createRitoCoreWasmWorkerReaderClient,
 } from './reader-worker-client-runtime.js';
 export {
-  decodeRitoReaderArtifactV1,
-  decodeRitoReaderResourceV1,
-} from './reader-v1-artifact-decoder-runtime.js';
-export { decodeRitoReaderPublicationV1 } from './reader-v1-publication-runtime.js';
+  decodeRitoReaderArtifact,
+  decodeRitoReaderResource,
+} from './reader-session-artifact-decoder-runtime.js';
+export { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';
 export {
-  decodeRitoReaderPrimitiveListV1,
+  decodeRitoReaderPrimitiveList,
   READER_V1_PRIMITIVE_LIST_FORMAT_VERSION,
-} from './reader-v1-primitive-decoder-runtime.js';
+} from './reader-session-primitive-decoder-runtime.js';
 export {
-  encodeRitoReaderAdjacentRequestV1,
-  encodeRitoReaderArtifactRequestV1,
-} from './reader-v1-request-runtime.js';
+  encodeRitoReaderAdjacentRequest,
+  encodeRitoReaderArtifactRequest,
+} from './reader-session-request-runtime.js';
 export {
-  decodeRitoReaderForegroundHandoffAckV1,
-  encodeRitoReaderForegroundHandoffV1,
-} from './reader-v1-foreground-runtime.js';
+  decodeRitoReaderForegroundHandoffAck,
+  encodeRitoReaderForegroundHandoff,
+} from './reader-session-foreground-runtime.js';
 export {
-  decodeRitoReaderBackgroundAdvanceV1,
-  decodeRitoReaderBackgroundHandoffAckV1,
-  encodeRitoReaderBackgroundHandoffV1,
-  encodeRitoReaderBackgroundRequestV1,
-} from './reader-v1-background-runtime.js';
-export { createRitoCoreWasmReaderV1WorkerHandler } from './reader-v1-worker-runtime.js';
+  decodeRitoReaderBackgroundAdvance,
+  decodeRitoReaderBackgroundHandoffAck,
+  encodeRitoReaderBackgroundHandoff,
+  encodeRitoReaderBackgroundRequest,
+} from './reader-session-background-runtime.js';
+export { createRitoCoreWasmReaderSessionWorkerHandler } from './reader-session-worker-runtime.js';
 export {
-  createRitoCoreWasmReaderV1WorkerClient,
-  RitoReaderErrorV1,
-} from './reader-v1-worker-client-runtime.js';
-export { RitoReaderWireErrorV1 } from './reader-v1-wire-base-runtime.js';
+  createRitoCoreWasmReaderSessionWorkerClient,
+  RitoReaderError,
+} from './reader-session-worker-client-runtime.js';
+export { RitoReaderWireError } from './reader-session-wire-base-runtime.js';
 export { getRitoCoreWasmStatus } from './status';
 export type { RitoCoreWasmErrorCode, RitoCoreWasmErrorOptions } from './core-wasm-error-runtime.js';
 export type * from './types';

@@ -6,10 +6,10 @@ use serde_json::{json, Map, Number, Value};
 
 use super::super::{
     contract::{
-        ReaderBackgroundPaintV1, ReaderBackgroundSizeV1, ReaderBlockBorderV1, ReaderBlockPaintV1,
-        ReaderBlockRadiusV1, ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderBorderStyleV1,
-        ReaderBoxShadowV1, ReaderFontStyleV1, ReaderLengthV1, ReaderRectV1, ReaderRunBorderV1,
-        ReaderRunDecorationKindV1, ReaderRunPaintV1, ReaderTransformV1,
+        ReaderBackgroundPaint, ReaderBackgroundSize, ReaderBlockBorder, ReaderBlockPaint,
+        ReaderBlockRadius, ReaderBorderBox, ReaderBorderEdgePaint, ReaderBorderStyle,
+        ReaderBoxShadow, ReaderFontStyle, ReaderLength, ReaderRect, ReaderRunBorder,
+        ReaderRunDecorationKind, ReaderRunPaint, ReaderTransform,
     },
     DisplayCommand, DisplayTextCommand,
 };
@@ -139,7 +139,7 @@ fn insert_text_fields(fields: &mut Map<String, Value>, text: &DisplayTextCommand
     }
 }
 
-fn run_paint_value(paint: &ReaderRunPaintV1) -> Value {
+fn run_paint_value(paint: &ReaderRunPaint) -> Value {
     let mut output = Map::new();
     output.insert("color".to_owned(), Value::String(color_css(paint.color)));
     output.insert(
@@ -148,8 +148,8 @@ fn run_paint_value(paint: &ReaderRunPaintV1) -> Value {
             "family": paint.font.family,
             "sizePx": number(paint.font.size_px),
             "style": match paint.font.style {
-                ReaderFontStyleV1::Normal => "normal",
-                ReaderFontStyleV1::Italic => "italic",
+                ReaderFontStyle::Normal => "normal",
+                ReaderFontStyle::Italic => "italic",
             },
             "weight": number(paint.font.weight),
         }),
@@ -187,8 +187,8 @@ fn run_paint_value(paint: &ReaderRunPaintV1) -> Value {
             "decoration".to_owned(),
             json!({
                 "kind": match decoration.kind {
-                    ReaderRunDecorationKindV1::Underline => "underline",
-                    ReaderRunDecorationKindV1::LineThrough => "line-through",
+                    ReaderRunDecorationKind::Underline => "underline",
+                    ReaderRunDecorationKind::LineThrough => "line-through",
                 },
                 "y": number(decoration.y),
                 "thickness": number(decoration.thickness),
@@ -227,7 +227,7 @@ fn run_paint_value(paint: &ReaderRunPaintV1) -> Value {
     Value::Object(output)
 }
 
-fn run_border_value(border: &ReaderRunBorderV1) -> Value {
+fn run_border_value(border: &ReaderRunBorder) -> Value {
     let mut output = Map::new();
     for (key, edge) in [
         ("top", border.top),
@@ -248,7 +248,7 @@ fn run_border_value(border: &ReaderRunBorderV1) -> Value {
     Value::Object(output)
 }
 
-fn block_paint_value(paint: &ReaderBlockPaintV1) -> Value {
+fn block_paint_value(paint: &ReaderBlockPaint) -> Value {
     let mut output = Map::new();
     if let Some(background) = &paint.background {
         output.insert("background".to_owned(), background_value(background));
@@ -260,9 +260,9 @@ fn block_paint_value(paint: &ReaderBlockPaintV1) -> Value {
         output.insert(
             "radius".to_owned(),
             match radius {
-                ReaderBlockRadiusV1::Px(value) => json!({ "px": number(value) }),
-                ReaderBlockRadiusV1::Percent(value) => json!({ "pct": number(value) }),
-                ReaderBlockRadiusV1::Corners(corners) => {
+                ReaderBlockRadius::Px(value) => json!({ "px": number(value) }),
+                ReaderBlockRadius::Percent(value) => json!({ "pct": number(value) }),
+                ReaderBlockRadius::Corners(corners) => {
                     json!({ "corners": corners.map(number).to_vec() })
                 }
             },
@@ -277,7 +277,7 @@ fn block_paint_value(paint: &ReaderBlockPaintV1) -> Value {
     Value::Object(output)
 }
 
-fn background_value(background: &ReaderBackgroundPaintV1) -> Value {
+fn background_value(background: &ReaderBackgroundPaint) -> Value {
     let mut output = Map::new();
     if let Some(color) = background.color {
         output.insert("color".to_owned(), Value::String(color_css(color)));
@@ -289,19 +289,19 @@ fn background_value(background: &ReaderBackgroundPaintV1) -> Value {
         output.insert(
             "size".to_owned(),
             match size {
-                ReaderBackgroundSizeV1::Auto => json!("auto"),
-                ReaderBackgroundSizeV1::Cover => json!("cover"),
-                ReaderBackgroundSizeV1::Contain => json!("contain"),
-                ReaderBackgroundSizeV1::Explicit { x, y } => {
+                ReaderBackgroundSize::Auto => json!("auto"),
+                ReaderBackgroundSize::Cover => json!("cover"),
+                ReaderBackgroundSize::Contain => json!("contain"),
+                ReaderBackgroundSize::Explicit { x, y } => {
                     let axis =
-                        |axis: Option<ReaderLengthV1>| axis.map_or(json!("auto"), length_value);
+                        |axis: Option<ReaderLength>| axis.map_or(json!("auto"), length_value);
                     json!({ "x": axis(x), "y": axis(y) })
                 }
             },
         );
     }
     if let Some(repeat) = background.repeat {
-        use super::super::contract::ReaderBackgroundRepeatV1 as Repeat;
+        use super::super::contract::ReaderBackgroundRepeat as Repeat;
         output.insert(
             "repeat".to_owned(),
             json!(match repeat {
@@ -323,7 +323,7 @@ fn background_value(background: &ReaderBackgroundPaintV1) -> Value {
     Value::Object(output)
 }
 
-fn block_border_value(border: &ReaderBlockBorderV1) -> Value {
+fn block_border_value(border: &ReaderBlockBorder) -> Value {
     let mut output = Map::new();
     for (key, edge) in [
         ("top", border.top),
@@ -338,11 +338,11 @@ fn block_border_value(border: &ReaderBlockBorderV1) -> Value {
     Value::Object(output)
 }
 
-fn border_edge_paint_value(paint: &ReaderBorderEdgePaintV1) -> Value {
+fn border_edge_paint_value(paint: &ReaderBorderEdgePaint) -> Value {
     json!({ "color": color_css(paint.color), "style": border_style_name(paint.style) })
 }
 
-fn box_shadow_value(shadow: &ReaderBoxShadowV1) -> Value {
+fn box_shadow_value(shadow: &ReaderBoxShadow) -> Value {
     json!({
         "offsetX": number(shadow.offset_x),
         "offsetY": number(shadow.offset_y),
@@ -353,7 +353,7 @@ fn box_shadow_value(shadow: &ReaderBoxShadowV1) -> Value {
     })
 }
 
-fn border_box_value(border_box: &ReaderBorderBoxV1) -> Value {
+fn border_box_value(border_box: &ReaderBorderBox) -> Value {
     json!({
         "topWidth": number(border_box.top_width),
         "rightWidth": number(border_box.right_width),
@@ -362,43 +362,43 @@ fn border_box_value(border_box: &ReaderBorderBoxV1) -> Value {
     })
 }
 
-fn transform_value(transform: &ReaderTransformV1) -> Value {
+fn transform_value(transform: &ReaderTransform) -> Value {
     match *transform {
-        ReaderTransformV1::Rotate { radians } => {
+        ReaderTransform::Rotate { radians } => {
             json!({ "kind": "rotate", "rad": number(radians) })
         }
-        ReaderTransformV1::Scale { sx, sy } => {
+        ReaderTransform::Scale { sx, sy } => {
             json!({ "kind": "scale", "sx": number(sx), "sy": number(sy) })
         }
-        ReaderTransformV1::Translate { x, y } => {
+        ReaderTransform::Translate { x, y } => {
             json!({ "kind": "translate", "x": length_value(x), "y": length_value(y) })
         }
     }
 }
 
-fn length_value(length: ReaderLengthV1) -> Value {
+fn length_value(length: ReaderLength) -> Value {
     match length {
-        ReaderLengthV1::Px(value) => json!({ "unit": "px", "value": number(value) }),
-        ReaderLengthV1::Percent(value) => json!({ "unit": "percent", "value": number(value) }),
+        ReaderLength::Px(value) => json!({ "unit": "px", "value": number(value) }),
+        ReaderLength::Percent(value) => json!({ "unit": "percent", "value": number(value) }),
     }
 }
 
-fn border_style_name(style: ReaderBorderStyleV1) -> &'static str {
+fn border_style_name(style: ReaderBorderStyle) -> &'static str {
     match style {
-        ReaderBorderStyleV1::None => "none",
-        ReaderBorderStyleV1::Hidden => "hidden",
-        ReaderBorderStyleV1::Dotted => "dotted",
-        ReaderBorderStyleV1::Dashed => "dashed",
-        ReaderBorderStyleV1::Solid => "solid",
-        ReaderBorderStyleV1::Double => "double",
-        ReaderBorderStyleV1::Groove => "groove",
-        ReaderBorderStyleV1::Ridge => "ridge",
-        ReaderBorderStyleV1::Inset => "inset",
-        ReaderBorderStyleV1::Outset => "outset",
+        ReaderBorderStyle::None => "none",
+        ReaderBorderStyle::Hidden => "hidden",
+        ReaderBorderStyle::Dotted => "dotted",
+        ReaderBorderStyle::Dashed => "dashed",
+        ReaderBorderStyle::Solid => "solid",
+        ReaderBorderStyle::Double => "double",
+        ReaderBorderStyle::Groove => "groove",
+        ReaderBorderStyle::Ridge => "ridge",
+        ReaderBorderStyle::Inset => "inset",
+        ReaderBorderStyle::Outset => "outset",
     }
 }
 
-fn rect_value(rect: &ReaderRectV1) -> Value {
+fn rect_value(rect: &ReaderRect) -> Value {
     json!({
         "x": number(rect.x),
         "y": number(rect.y),

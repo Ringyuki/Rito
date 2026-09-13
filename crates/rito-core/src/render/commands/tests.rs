@@ -1,7 +1,7 @@
 use crate::render::{
     contract::{
-        ReaderBackgroundPaintV1, ReaderBlockPaintV1, ReaderFontPaintV1, ReaderPagePaintV1,
-        ReaderRectV1, ReaderRunPaintV1,
+        ReaderBackgroundPaint, ReaderBlockPaint, ReaderFontPaint, ReaderPagePaint, ReaderRect,
+        ReaderRunPaint,
     },
     RunPaint,
 };
@@ -13,8 +13,8 @@ use super::{
     DisplayCommand, DisplayTextCommand,
 };
 
-fn rect() -> ReaderRectV1 {
-    ReaderRectV1 {
+fn rect() -> ReaderRect {
+    ReaderRect {
         x: 0.0,
         y: 0.0,
         width: 1.0,
@@ -26,12 +26,12 @@ fn text(text: &str, family: &str) -> DisplayTextCommand {
     DisplayTextCommand {
         text: text.to_owned(),
         rect: rect(),
-        paint: RunPaint::new(ReaderRunPaintV1 {
-            font: ReaderFontPaintV1 {
+        paint: RunPaint::new(ReaderRunPaint {
+            font: ReaderFontPaint {
                 family: family.to_owned(),
-                ..ReaderRunPaintV1::default().font
+                ..ReaderRunPaint::default().font
             },
-            ..ReaderRunPaintV1::default()
+            ..ReaderRunPaint::default()
         }),
         line_height_px: None,
         href: None,
@@ -64,12 +64,12 @@ fn summarizes_image_refs_from_images_and_block_backgrounds() {
         DisplayCommand::paint_image("images/cover.jpg".to_owned(), rect(), None, None),
         DisplayCommand::PaintBlock {
             rect: rect(),
-            paint: ReaderBlockPaintV1 {
-                background: Some(ReaderBackgroundPaintV1 {
+            paint: ReaderBlockPaint {
+                background: Some(ReaderBackgroundPaint {
                     image: Some("images/bg.png".to_owned()),
-                    ..ReaderBackgroundPaintV1::default()
+                    ..ReaderBackgroundPaint::default()
                 }),
-                ..ReaderBlockPaintV1::default()
+                ..ReaderBlockPaint::default()
             },
             border_box: None,
         },
@@ -113,7 +113,7 @@ fn the_hash_identifies_the_commands_and_moves_with_any_field() {
 
     let mut recoloured = commands;
     if let DisplayCommand::PaintText(text) = &mut recoloured[1] {
-        text.paint = RunPaint::new(ReaderRunPaintV1 {
+        text.paint = RunPaint::new(ReaderRunPaint {
             color: css_color("#ff0000"),
             ..(*text.paint).clone()
         });
@@ -129,7 +129,7 @@ fn display_precision_keeps_every_layout_unit_position_exactly() {
     assert_eq!(display_number(12.000000049), 12.0);
     assert_eq!(
         display_rect(0.1234567, 1.0, 2.0, 3.0),
-        ReaderRectV1 {
+        ReaderRect {
             x: 0.123457,
             y: 1.0,
             width: 2.0,
@@ -150,19 +150,19 @@ fn fixture_json_round_trips_every_command_shape() {
         },
         DisplayCommand::PaintPage {
             rect: rect(),
-            paint: ReaderPagePaintV1 {
+            paint: ReaderPagePaint {
                 background_color: Some(css_color("#ffffff")),
             },
         },
         DisplayCommand::PaintBlock {
             rect: rect(),
-            paint: ReaderBlockPaintV1 {
-                background: Some(ReaderBackgroundPaintV1 {
+            paint: ReaderBlockPaint {
+                background: Some(ReaderBackgroundPaint {
                     color: Some(css_color("rgba(1, 2, 3, 0.5)")),
                     image: Some("images/bg.png".to_owned()),
-                    ..ReaderBackgroundPaintV1::default()
+                    ..ReaderBackgroundPaint::default()
                 }),
-                ..ReaderBlockPaintV1::default()
+                ..ReaderBlockPaint::default()
             },
             border_box: None,
         },

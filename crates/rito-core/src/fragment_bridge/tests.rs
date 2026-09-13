@@ -42,8 +42,8 @@ p { margin: 8px 0; }\n\
 struct ResolvedChapter {
     nodes: Vec<DocumentNode>,
     body_index: usize,
-    layout: LayoutStyleTableV1,
-    inline: InlineStyleTableV1,
+    layout: LayoutStyleTable,
+    inline: InlineStyleTable,
 }
 
 fn no_images() -> BTreeMap<String, (u32, u32)> {

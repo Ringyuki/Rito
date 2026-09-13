@@ -3,11 +3,11 @@
 //! `rito-core` hands this crate a parsed chapter (a `rito-source` arena) with
 //! its stylesheets and gets back the two typed style tables the fragment
 //! engine reads (`rito-style-contract`):
-//! [`StyleDocument::resolve_production_slice_v1`] runs the cascade once and
+//! [`StyleDocument::resolve_production_slice`] runs the cascade once and
 //! projects every element into an inline-formatting style and a layout
 //! style. Around that one path the crate provides:
 //!
-//! - [`parse_font_faces_v1`], which extracts `@font-face` rules from
+//! - [`parse_font_faces`], which extracts `@font-face` rules from
 //!   stylesheets with Stylo's own parser;
 //! - [`epub_ua_stylesheet`], the user-agent stylesheet that supplies the HTML
 //!   box-generation and typography defaults publication content assumes;
@@ -34,11 +34,11 @@ mod session;
 mod traversal;
 mod ua;
 
-pub use font_faces::{parse_font_faces_v1, FontFaceRuleV1, FontFaceStylesheetInputV1};
+pub use font_faces::{parse_font_faces, FontFaceRule, FontFaceStylesheetInput};
 pub use projection::{
-    InlineStyleDispositionV1, InlineStyleFieldV1, InlineStyleProjectionReasonV1,
-    InlineStyleProjectionV1, LayoutStyleDispositionV1, LayoutStyleFieldV1,
-    LayoutStyleProjectionReasonV1, LayoutStyleProjectionV1, ProductionStyleProjectionV1,
+    InlineStyleDisposition, InlineStyleField, InlineStyleProjection, InlineStyleProjectionReason,
+    LayoutStyleDisposition, LayoutStyleField, LayoutStyleProjection, LayoutStyleProjectionReason,
+    ProductionStyleProjection,
 };
 pub use session::{
     canonicalize_font_family_value, ColorScheme, StyleDocument, StyleError, StyleOrigin,

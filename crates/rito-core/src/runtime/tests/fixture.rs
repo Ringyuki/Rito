@@ -579,7 +579,7 @@ pub fn pinned_test_font_policy() -> crate::runtime::RuntimePinnedFontPolicyInput
 
 /// One chapter exercising the breadth of the paint-command domain
 /// (border styles per edge, radius, shadows, hr, lists, table, ruby,
-/// inline decoration, image): every page must survive the reader-v1
+/// inline decoration, image): every page must survive the reader session
 /// display-list encoding, or a styled real book kills the session.
 pub fn paint_command_kitchen_sink_fixture_epub() -> Vec<u8> {
     let chapter = r##"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body style="background-image:url('Images/cover.png');background-repeat:no-repeat;background-position:center bottom;background-size:auto 40%">

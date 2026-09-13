@@ -10,8 +10,8 @@ const requiredFiles = [
   'reader-navigation-runtime.js',
   'reader-worker-client-runtime.js',
   'frame-command-buffer-decoder-runtime.js',
-  'reader-v1-display-decoder-runtime.js',
-  'reader-v1-primitive-decoder-runtime.js',
+  'reader-session-display-decoder-runtime.js',
+  'reader-session-primitive-decoder-runtime.js',
 ];
 
 const missingFiles = [];

@@ -1,41 +1,41 @@
 export { createLayoutConfig, createReader, preloadReaderRuntime } from './reader';
-export { openBrowserReaderV1, RitoReaderErrorV1 } from './bindings/browser/reader-v1';
+export { openBrowserReaderSession, RitoReaderError } from './bindings/browser/reader-session';
 export {
-  BrowserReaderCanvasUnsupportedErrorV1,
-  createBrowserReaderV1CanvasPresenter,
-} from './bindings/browser/reader-v1-canvas';
+  BrowserReaderCanvasUnsupportedError,
+  createBrowserReaderSessionCanvasPresenter,
+} from './bindings/browser/reader-session-canvas';
 export {
   BROWSER_READER_IMAGE_RESOURCE_ERROR_CODE,
   BrowserReaderImageResourceError,
 } from './bindings/browser/image-resource-error';
 export type {
-  BrowserReaderAdjacentDirectionV1,
-  BrowserReaderArtifactRequestV1,
-  BrowserReaderArtifactV1,
-  BrowserReaderBackgroundAdvanceV1,
-  BrowserReaderBackgroundHandoffAckV1,
-  BrowserReaderErrorCodeV1,
-  BrowserReaderForegroundHandoffAckV1,
-  BrowserReaderLayoutV1,
-  BrowserReaderLocatorV1,
-  BrowserReaderPublicationV1,
-  BrowserReaderResourceKindV1,
-  BrowserReaderResourceV1,
-  BrowserReaderSeekOverridesV1,
-  BrowserReaderTextProfileV1,
-  BrowserReaderV1OpenOptions,
-  BrowserReaderV1Session,
-} from './bindings/browser/reader-v1';
+  BrowserReaderAdjacentDirection,
+  BrowserReaderArtifactRequest,
+  BrowserReaderArtifact,
+  BrowserReaderBackgroundAdvance,
+  BrowserReaderBackgroundHandoffAck,
+  BrowserReaderErrorCode,
+  BrowserReaderForegroundHandoffAck,
+  BrowserReaderLayout,
+  BrowserReaderLocator,
+  BrowserReaderPublication,
+  BrowserReaderResourceKind,
+  BrowserReaderResource,
+  BrowserReaderSeekOverrides,
+  BrowserReaderTextProfile,
+  BrowserReaderSessionOpenOptions,
+  BrowserReaderSession,
+} from './bindings/browser/reader-session';
 export type {
   BrowserReaderImageLoadOutcome,
   BrowserReaderImageResourceFailureReason,
 } from './bindings/browser/image-resource-error';
 export type {
-  BrowserReaderCanvasPaintOptionsV1,
-  BrowserReaderCanvasPresenterV1,
-  BrowserReaderCanvasTargetV1,
-  BrowserReaderPreparedCanvasArtifactV1,
-} from './bindings/browser/reader-v1-canvas';
+  BrowserReaderCanvasPaintOptions,
+  BrowserReaderCanvasPresenter,
+  BrowserReaderCanvasTarget,
+  BrowserReaderPreparedCanvasArtifact,
+} from './bindings/browser/reader-session-canvas';
 export type {
   ChapterRange,
   ChapterTextIndex,

@@ -4,19 +4,17 @@ use sha2::{Digest, Sha256};
 
 use super::RunPaint;
 
-mod reader_wire_v1;
+mod reader_wire;
 mod refs;
 #[cfg(test)]
 pub(crate) mod test_support;
 
-pub(crate) use reader_wire_v1::{
-    contract, encode_reader_primitive_list_v1, ReaderEncodedDisplayListV1,
-};
+pub(crate) use reader_wire::{contract, encode_reader_primitive_list, ReaderEncodedDisplayList};
 pub(crate) use refs::{summarize_display_list_font_families, summarize_display_list_resource_refs};
 
 use contract::{
-    ReaderBlockPaintV1, ReaderBorderBoxV1, ReaderCornerRadiusV1, ReaderHorizontalRulePaintV1,
-    ReaderPagePaintV1, ReaderPointV1, ReaderRectV1, ReaderSizeV1, ReaderTransformV1,
+    ReaderBlockPaint, ReaderBorderBox, ReaderCornerRadius, ReaderHorizontalRulePaint,
+    ReaderPagePaint, ReaderPoint, ReaderRect, ReaderSize, ReaderTransform,
 };
 
 /// One command of a frame's display list, in CSS pixels. The painter
@@ -34,35 +32,35 @@ pub(crate) enum DisplayCommand {
         value: f64,
     },
     Transform {
-        origin: ReaderPointV1,
-        box_size: ReaderSizeV1,
-        transforms: Vec<ReaderTransformV1>,
+        origin: ReaderPoint,
+        box_size: ReaderSize,
+        transforms: Vec<ReaderTransform>,
     },
     ClipRect {
-        rect: ReaderRectV1,
-        radius: Option<ReaderCornerRadiusV1>,
+        rect: ReaderRect,
+        radius: Option<ReaderCornerRadius>,
     },
     PaintPage {
-        rect: ReaderRectV1,
-        paint: ReaderPagePaintV1,
+        rect: ReaderRect,
+        paint: ReaderPagePaint,
     },
     PaintBlock {
-        rect: ReaderRectV1,
-        paint: ReaderBlockPaintV1,
-        border_box: Option<ReaderBorderBoxV1>,
+        rect: ReaderRect,
+        paint: ReaderBlockPaint,
+        border_box: Option<ReaderBorderBox>,
     },
     PaintText(DisplayTextCommand),
     PaintRuby(DisplayTextCommand),
     PaintImage {
         src: String,
-        rect: ReaderRectV1,
+        rect: ReaderRect,
         alt: Option<String>,
         href: Option<String>,
-        source_rect: Option<ReaderRectV1>,
+        source_rect: Option<ReaderRect>,
     },
     PaintHorizontalRule {
-        rect: ReaderRectV1,
-        paint: ReaderHorizontalRulePaintV1,
+        rect: ReaderRect,
+        paint: ReaderHorizontalRulePaint,
     },
 }
 
@@ -70,7 +68,7 @@ pub(crate) enum DisplayCommand {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct DisplayTextCommand {
     pub text: String,
-    pub rect: ReaderRectV1,
+    pub rect: ReaderRect,
     pub paint: RunPaint,
     pub line_height_px: Option<f64>,
     pub href: Option<String>,
@@ -97,7 +95,7 @@ impl DisplayCommand {
 
     pub(crate) fn paint_image(
         src: String,
-        rect: ReaderRectV1,
+        rect: ReaderRect,
         alt: Option<String>,
         href: Option<String>,
     ) -> Self {
@@ -114,8 +112,8 @@ impl DisplayCommand {
     /// — the clamp-bleed strip an svg letterbox smears across its sliver.
     pub(crate) fn paint_image_slice(
         src: String,
-        rect: ReaderRectV1,
-        source_rect: ReaderRectV1,
+        rect: ReaderRect,
+        source_rect: ReaderRect,
     ) -> Self {
         Self::PaintImage {
             src,
@@ -161,8 +159,8 @@ pub(crate) fn display_number(value: f64) -> f64 {
 }
 
 /// A command rectangle with every edge at display precision.
-pub(crate) fn display_rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRectV1 {
-    ReaderRectV1 {
+pub(crate) fn display_rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRect {
+    ReaderRect {
         x: display_number(x),
         y: display_number(y),
         width: display_number(width),

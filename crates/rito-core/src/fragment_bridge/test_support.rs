@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use rito_style_contract::LayoutFormattingStyleV1;
+use rito_style_contract::LayoutFormattingStyle;
 
 use super::styles::anonymous_block_style;
 use super::ChapterFormattingTree;
@@ -14,7 +14,7 @@ use super::ChapterFormattingTree;
 /// inside, so the layout slice is fully initial here.
 /// The plain block style in-crate test fixtures intern for containers.
 #[cfg(test)]
-pub(crate) fn tests_block_style() -> LayoutFormattingStyleV1 {
+pub(crate) fn tests_block_style() -> LayoutFormattingStyle {
     anonymous_block_style()
 }
 
@@ -27,15 +27,15 @@ pub(crate) fn tests_chapter_tree(text: &str) -> ChapterFormattingTree {
         FormattingTreeStyles, InlineItem,
     };
     use rito_style_contract::{
-        FontFamilies, FontFamily, FontFamilyName, InlineStyleTableV1, LayoutStyleTableV1,
+        FontFamilies, FontFamily, FontFamilyName, InlineStyleTable, LayoutStyleTable,
     };
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let families = FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Tinos"))])
         .expect("family list");
     let style = inline
         .intern_for_node(0, rito_inline::plain_paragraph_style(families, 16.0, 0.0))
         .expect("style interns");
-    let mut layout = LayoutStyleTableV1::new(1);
+    let mut layout = LayoutStyleTable::new(1);
     let block = layout
         .intern_for_node(0, tests_block_style())
         .expect("layout style interns");

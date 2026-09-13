@@ -11,10 +11,10 @@ use super::*;
 #[test]
 fn the_badge_line_replica_matches_the_truth_comma_position() {
     use rito_style_contract::{
-        AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
-        LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
-        LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1,
-        OverflowV1, PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
+        LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
+        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
+        PhysicalSides, Position, PreferredSize,
     };
     let source_han = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -22,7 +22,7 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
     ))
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let mut style = plain_paragraph_style(
         FontFamilies::new(vec![FontFamily::Generic(
             rito_style_contract::GenericFontFamily::Serif,
@@ -33,17 +33,17 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
     );
     style.text_flow.text_align = TextAlign::Justify;
     let style_id = inline.intern_for_node(0, style).expect("style interns");
-    let mut layout = LayoutStyleTableV1::new(1);
+    let mut layout = LayoutStyleTable::new(1);
     let auto = LengthPercentageOrAuto::Auto;
     let zero_padding =
         NonNegativeLengthPercentage::new(LengthPercentage::Length(CssPx::new(0.0).expect("zero")));
     let image_layout = layout
         .intern_for_node(
             0,
-            LayoutFormattingStyleV1 {
-                display: LayoutDisplayV1 {
-                    outside: LayoutDisplayOutsideV1::Inline,
-                    inside: LayoutDisplayInsideV1::Flow,
+            LayoutFormattingStyle {
+                display: LayoutDisplay {
+                    outside: LayoutDisplayOutside::Inline,
+                    inside: LayoutDisplayInside::Flow,
                     is_list_item: false,
                 },
                 margin: PhysicalSides {
@@ -58,34 +58,34 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
                     bottom: zero_padding,
                     left: zero_padding,
                 },
-                box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
-                justify_content: JustifyContentV1::Normal,
-                align_items: AlignItemsV1::Normal,
-                break_before: PageBreakV1::Auto,
-                break_after: PageBreakV1::Auto,
-                width: PreferredSizeV1::Auto,
-                height: PreferredSizeV1::Auto,
-                max_width: MaximumSizeV1::None,
-                min_height: MinimumHeightV1::Auto,
-                max_height: MaximumHeightV1::None,
-                clear: ClearV1::None,
-                float: FloatV1::None,
-                overflow: OverflowV1::Visible,
-                list_style_type: ListMarkerStyleV1::None,
-                position: PositionV1::Static,
+                box_sizing: rito_style_contract::BoxSizing::ContentBox,
+                justify_content: JustifyContent::Normal,
+                align_items: AlignItems::Normal,
+                break_before: PageBreak::Auto,
+                break_after: PageBreak::Auto,
+                width: PreferredSize::Auto,
+                height: PreferredSize::Auto,
+                max_width: MaximumSize::None,
+                min_height: MinimumHeight::Auto,
+                max_height: MaximumHeight::None,
+                clear: Clear::None,
+                float: Float::None,
+                overflow: Overflow::Visible,
+                list_style_type: ListMarkerStyle::None,
+                position: Position::Static,
                 inset: PhysicalSides {
                     top: auto,
                     right: auto,
                     bottom: auto,
                     left: auto,
                 },
-                vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+                vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
                 border_spacing: (
                     rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 ),
                 border_collapse: false,
-                object_fit: rito_style_contract::ObjectFitV1::Fill,
+                object_fit: rito_style_contract::ObjectFit::Fill,
             },
         )
         .expect("layout style interns");
@@ -107,7 +107,7 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
             baseline_shift_px: 0.0,
             align_top: false,
             fit_contain: false,
-            object_fit: rito_style_contract::ObjectFitV1::Fill,
+            object_fit: rito_style_contract::ObjectFit::Fill,
         },
         InlineItem::Text {
             text: "，有錢人果然猛。不過鶴屋學姊不管做出什麼事好中中中中中".to_owned(),
@@ -203,7 +203,7 @@ fn cjk_punctuation_pairs_trim_half_an_em() {
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
     let shape_width = |text: &str| {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -233,7 +233,7 @@ fn cjk_punctuation_pairs_trim_half_an_em() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -303,7 +303,7 @@ fn consecutive_forced_breaks_keep_an_empty_strut_line() {
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
     let lay = |text: &str| {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -333,7 +333,7 @@ fn consecutive_forced_breaks_keep_an_empty_strut_line() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -388,7 +388,7 @@ fn line_end_closing_punctuation_trims_only_when_the_half_width_fits() {
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
     let lay_indent = |text: &str, width: f64, indent: f32| {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -418,7 +418,7 @@ fn line_end_closing_punctuation_trims_only_when_the_half_width_fits() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -592,7 +592,7 @@ fn named_cjk_publication_fonts_shape_instead_of_the_pinned_fallback() {
         .register_named_font("FZWBKS", kai)
         .expect("named font registers");
     let shape_width = |families: Vec<FontFamily>| {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -615,7 +615,7 @@ fn named_cjk_publication_fonts_shape_instead_of_the_pinned_fallback() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )

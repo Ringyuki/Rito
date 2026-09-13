@@ -29,7 +29,7 @@ pub(crate) fn list_marker_geometry(
     let styles = tree.styles()?;
     let layout_style = styles.layout.style(tree.node(node).style).ok()?;
     if !layout_style.display.is_list_item
-        || layout_style.list_style_type != rito_style_contract::ListMarkerStyleV1::Disc
+        || layout_style.list_style_type != rito_style_contract::ListMarkerStyle::Disc
     {
         return None;
     }
@@ -62,7 +62,7 @@ pub(crate) fn list_marker_geometry(
 pub(crate) fn resolved_marker_font_metrics(
     fonts: &mut FontContext,
     registered_families: &[String],
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
 ) -> Option<(f64, f64)> {
     use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};
     use skrifa::MetadataProvider as _;

@@ -1,11 +1,11 @@
 use crate::{
-    Direction, FontFamilies, FontSlant, FontWeight, InlineFragmentStyleV1, InlinePaintStyleV1,
-    InlineTextFlowV1, LineHeight, NonNegativeCssPx, UnicodeBidi, WritingMode,
+    Direction, FontFamilies, FontSlant, FontWeight, InlineFragmentStyle, InlinePaintStyle,
+    InlineTextFlow, LineHeight, NonNegativeCssPx, UnicodeBidi, WritingMode,
 };
 
 /// Font selection and line-metric inputs for inline formatting.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct FontStyleV1 {
+pub struct FontStyle {
     /// Ordered computed family fallback list.
     pub families: FontFamilies,
     /// Whether the computed family represents a platform system font.
@@ -29,7 +29,7 @@ pub struct FontStyleV1 {
 
 /// Directionality and writing-mode inputs kept separate from physical layout.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct InlineBidiV1 {
+pub struct InlineBidi {
     /// Base inline direction.
     pub direction: Direction,
     /// Unicode embedding, override, or isolation behavior.
@@ -46,15 +46,15 @@ pub struct InlineBidiV1 {
 /// V1 is a migration slice and does not by itself prove full CSS consumer
 /// equivalence for properties not represented here.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct InlineFormattingStyleV1 {
+pub struct InlineFormattingStyle {
     /// Font selection and line metrics.
-    pub font: FontStyleV1,
+    pub font: FontStyle,
     /// Text transformation, spacing, and breaking behavior.
-    pub text_flow: InlineTextFlowV1,
+    pub text_flow: InlineTextFlow,
     /// Directionality and writing mode.
-    pub bidi: InlineBidiV1,
+    pub bidi: InlineBidi,
     /// Inline fragment geometry.
-    pub fragment: InlineFragmentStyleV1,
+    pub fragment: InlineFragmentStyle,
     /// Foreground, background, decoration, and shadow paint.
-    pub paint: InlinePaintStyleV1,
+    pub paint: InlinePaintStyle,
 }

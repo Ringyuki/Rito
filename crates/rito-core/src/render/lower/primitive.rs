@@ -10,9 +10,7 @@
 //! the renderer's until the text laws move here, while their inline box
 //! and decoration line already lower to fills and strokes.
 
-use super::super::commands::contract::{
-    ReaderColorV1, ReaderPointV1, ReaderRectV1, ReaderTextRunV1,
-};
+use super::super::commands::contract::{ReaderColor, ReaderPoint, ReaderRect, ReaderTextRun};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct DevicePoint {
@@ -93,14 +91,14 @@ impl DeviceRect {
     }
 }
 
-impl From<&ReaderPointV1> for DevicePoint {
-    fn from(point: &ReaderPointV1) -> Self {
+impl From<&ReaderPoint> for DevicePoint {
+    fn from(point: &ReaderPoint) -> Self {
         Self::new(point.x, point.y)
     }
 }
 
-impl From<&ReaderRectV1> for DeviceRect {
-    fn from(rect: &ReaderRectV1) -> Self {
+impl From<&ReaderRect> for DeviceRect {
+    fn from(rect: &ReaderRect) -> Self {
         Self::new(rect.x, rect.y, rect.width, rect.height)
     }
 }
@@ -200,19 +198,19 @@ pub(crate) enum Primitive {
     },
     FillRect {
         rect: DeviceRect,
-        color: ReaderColorV1,
+        color: ReaderColor,
         ground: Ground,
     },
     FillPath {
         path: DevicePath,
         rule: FillRule,
-        color: ReaderColorV1,
+        color: ReaderColor,
         ground: Ground,
     },
     StrokePath {
         path: DevicePath,
         width: f64,
-        color: ReaderColorV1,
+        color: ReaderColor,
         cap: StrokeCap,
         dash: Option<DashPattern>,
     },
@@ -223,7 +221,7 @@ pub(crate) enum Primitive {
         shape: DevicePath,
         sigma: f64,
         offset: DevicePoint,
-        color: ReaderColorV1,
+        color: ReaderColor,
         clip_out: Option<DevicePath>,
     },
     /// `src` sampled over `source_rect` (image pixels; the whole image when
@@ -231,7 +229,7 @@ pub(crate) enum Primitive {
     DrawImage {
         src: String,
         dest: DeviceRect,
-        source_rect: Option<ReaderRectV1>,
+        source_rect: Option<ReaderRect>,
         tiles: Option<TilePlan>,
     },
     /// A text run in CSS pixels, drawn under `scale(ratio)`: the
@@ -239,8 +237,8 @@ pub(crate) enum Primitive {
     /// the scale separately. Its inline box and decoration line have
     /// lowered to primitives around it; glyph placement is still the
     /// renderer's.
-    Text(ReaderTextRunV1),
-    Ruby(ReaderTextRunV1),
+    Text(ReaderTextRun),
+    Ruby(ReaderTextRun),
 }
 
 impl Primitive {

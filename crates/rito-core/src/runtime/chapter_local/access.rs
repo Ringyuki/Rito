@@ -43,7 +43,7 @@ impl RuntimeDocument {
     }
 
     /// Retires a chapter-local revision without placing its owners on the
-    /// cooperative cleanup queue. Reader v1 uses this for unpublished
+    /// cooperative cleanup queue. reader session uses this for unpublished
     /// locator-scan revisions so a burst of seeks cannot pile up a cleanup
     /// backlog.
     pub(in crate::runtime) fn release_chapter_local_revision_immediately(

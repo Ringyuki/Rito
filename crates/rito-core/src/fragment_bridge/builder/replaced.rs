@@ -11,7 +11,7 @@ use super::element_source_index;
 use super::inline::resolved_baseline_shift;
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::{InlineCollector, NodePaint, TreeBuilder};
-use crate::render::contract::ReaderBorderStyleV1;
+use crate::render::contract::ReaderBorderStyle;
 use crate::xhtml::{ElementNode, ImageNode};
 
 impl TreeBuilder<'_> {
@@ -42,14 +42,14 @@ impl TreeBuilder<'_> {
             && !matches!(border.style, BorderStyle::None | BorderStyle::Hidden);
         let (thickness, stroke, color) = if use_border {
             let stroke = match border.style {
-                BorderStyle::Dotted => ReaderBorderStyleV1::Dotted,
-                BorderStyle::Dashed => ReaderBorderStyleV1::Dashed,
+                BorderStyle::Dotted => ReaderBorderStyle::Dotted,
+                BorderStyle::Dashed => ReaderBorderStyle::Dashed,
                 // A thin inset rule paints Chromium's fixed 3D bevel pair
                 // (top #9A9A9A, bottom #EEEEEE, border-color ignored —
                 // measured identical for gray, red and slate); the paint
                 // walk expands it into two solid strokes.
-                BorderStyle::Inset | BorderStyle::Groove => ReaderBorderStyleV1::Inset,
-                _ => ReaderBorderStyleV1::Solid,
+                BorderStyle::Inset | BorderStyle::Groove => ReaderBorderStyle::Inset,
+                _ => ReaderBorderStyle::Solid,
             };
             let color = border.color.resolve(resolved.paint.foreground);
             (f64::from(border.resolved_width.get()), stroke, color)
@@ -58,7 +58,7 @@ impl TreeBuilder<'_> {
             // the rule is Chromium's bevel pair over a two-pixel box
             // (b52 profile pages: every block below a bare <hr> sat one
             // pixel high under the old one-pixel model).
-            (1.0, ReaderBorderStyleV1::Inset, resolved.paint.foreground)
+            (1.0, ReaderBorderStyle::Inset, resolved.paint.foreground)
         };
         // The box the rule occupies in flow follows the CSS box model: an
         // author `height` is the content height, and both horizontal
@@ -78,7 +78,7 @@ impl TreeBuilder<'_> {
                 .style(style)
                 .ok()
                 .and_then(|layout_style| match layout_style.height {
-                    rito_style_contract::PreferredSizeV1::Value(value) => match value.value() {
+                    rito_style_contract::PreferredSize::Value(value) => match value.value() {
                         rito_style_contract::LengthPercentage::Length(px) => {
                             Some(f64::from(px.get()))
                         }
@@ -226,14 +226,15 @@ impl TreeBuilder<'_> {
                 .map_err(|error| EpubError::new(format!("image layout style: {error}")))?
                 .object_fit;
             match resolved {
-                rito_style_contract::ObjectFitV1::Fill
-                | rito_style_contract::ObjectFitV1::Contain => resolved,
+                rito_style_contract::ObjectFit::Fill | rito_style_contract::ObjectFit::Contain => {
+                    resolved
+                }
                 other => {
                     self.degrade(format!(
                         "object-fit {other:?} approximated as contain: {}",
                         image.src
                     ));
-                    rito_style_contract::ObjectFitV1::Contain
+                    rito_style_contract::ObjectFit::Contain
                 }
             }
         };

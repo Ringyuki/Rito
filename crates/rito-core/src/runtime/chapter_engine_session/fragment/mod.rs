@@ -26,7 +26,7 @@ use super::super::page_artifact::{
 };
 use crate::layout::SpreadMode;
 use crate::render::{
-    contract::{ReaderBlockPaintV1, ReaderColorV1},
+    contract::{ReaderBlockPaint, ReaderColor},
     display_number, display_rect, DisplayCommand,
 };
 use crate::runtime::spread::build_spread_slots;
@@ -120,7 +120,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
             0.0,
             config.viewport_width,
             config.viewport_height,
-            ReaderColorV1::WHITE,
+            ReaderColor::WHITE,
         ));
         let dual = page_indexes.len() == 2;
         for (slot, page_index) in page_indexes.iter().enumerate() {
@@ -154,7 +154,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 0.0,
                 wash_width,
                 metadata.height,
-                chapter.page_background.unwrap_or(ReaderColorV1::WHITE),
+                chapter.page_background.unwrap_or(ReaderColor::WHITE),
             ));
             if let Some(paint) = &chapter.page_background_image {
                 // The body's box is the page CONTENT box: percentage
@@ -169,9 +169,9 @@ impl<'a> FragmentChapterEngineSession<'a> {
                         metadata.width - config.margin_left - config.margin_right,
                         metadata.height - config.margin_top - config.margin_bottom,
                     ),
-                    paint: ReaderBlockPaintV1 {
+                    paint: ReaderBlockPaint {
                         background: Some(paint.clone()),
-                        ..ReaderBlockPaintV1::default()
+                        ..ReaderBlockPaint::default()
                     },
                     border_box: None,
                 });

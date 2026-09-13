@@ -191,15 +191,12 @@ point. `resolveTextRangeFromPoints()` expands two raw points to complete ICU wor
 or retained logical-flow paragraph units; missing or malformed package-language
 metadata falls back to locale-invariant word boundaries. Paragraph carets remain
 exact text/source positions rather than forging the DOM's structural
-next-block boundary. When the following flow is retained in the same chapter,
-`selectedText` still includes the native paragraph separator; at a bounded
-retention edge that trailing separator can appear only after the following flow
-has been retained.
-`resolveTextRangeToPoint()` is the atomic continuation path for an exact caret
-whose bounded revision has since appended an immutable page prefix. It rebinds
-that opaque caret and resolves the live point against one currently committed
-revision, so callers never combine geometry from two versions. A replacement
-layout, worker session, or unrelated revision still fails closed.
+next-block boundary. When the following flow belongs to the same chapter,
+`selectedText` includes the native paragraph separator.
+`resolveTextRangeToPoint()` rebinds an opaque caret and resolves the live point
+against one currently committed revision, so callers never combine geometry from
+two versions. A replacement layout, worker session, or unrelated revision fails
+closed.
 `resolveTextSelectionMovement()`, when supported, atomically rebinds a fixed
 anchor and live focus, advances the focus by a typed character, word, visual-line,
 line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
@@ -251,15 +248,14 @@ Reader implementations may return `void`, which is also safe to `await`.
 - you want one object that handles loading, pagination, and rendering
 - you do not need custom orchestration between parse/layout/render stages
 
-### Prefer `openBrowserReaderV1()` when
+### Prefer `openBrowserReaderSession()` when
 
 - your host drives the artifact protocol itself: it opens a session,
   prepares each candidate's resources, adopts it with a compare-and-swap
-  on the visible artifact, advances background pagination one quantum at
-  a time and keeps a replaced artifact alive through its own page-turn
-  animation
+  on the visible artifact, drives the background publication step itself
+  and keeps a replaced artifact alive through its own page-turn animation
 - you want the same protocol the Flutter adapter and the C ABI expose,
-  with `createBrowserReaderV1CanvasPresenter()` as the Canvas pen
+  with `createBrowserReaderSessionCanvasPresenter()` as the Canvas pen
 
 ### Prefer `@ritojs/kit` / `@ritojs/react` when
 

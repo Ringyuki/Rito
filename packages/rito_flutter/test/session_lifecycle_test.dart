@@ -603,7 +603,7 @@ void main() {
           isA<RitoNativeException>().having(
             (error) => error.status,
             'status',
-            ritoNativeStatusTargetNotPublishedV1,
+            ritoNativeStatusTargetNotPublished,
           ),
         ),
       );
@@ -679,7 +679,7 @@ void main() {
           isA<RitoNativeException>().having(
             (error) => error.status,
             'status',
-            ritoNativeStatusTargetNotPublishedV1,
+            ritoNativeStatusTargetNotPublished,
           ),
         ),
       );
@@ -1089,7 +1089,7 @@ final class _ResumableSeekGateway extends _MockGateway
     requests += 1;
     if (terminal) {
       throw const RitoNativeException(
-        status: ritoNativeStatusTargetNotPublishedV1,
+        status: ritoNativeStatusTargetNotPublished,
         message: 'exact target is terminal',
       );
     }
@@ -1127,7 +1127,7 @@ final class _ResumableAdjacentGateway extends _MockGateway
     adjacentRequests += 1;
     if (terminal) {
       throw const RitoNativeException(
-        status: ritoNativeStatusTargetNotPublishedV1,
+        status: ritoNativeStatusTargetNotPublished,
         message: 'retained adjacent reached its terminal extent',
       );
     }

@@ -35,7 +35,7 @@ fn horizontal_rules_build_sized_leaves_with_rule_paint() {
         built.node_paints.get(&root.children[0].0),
         Some(&NodePaint::Rule {
             color: css_color("#336699"),
-            style: ReaderBorderStyleV1::Dashed,
+            style: ReaderBorderStyle::Dashed,
             thickness: 2.0,
         }),
     );
@@ -54,7 +54,7 @@ fn horizontal_rules_build_sized_leaves_with_rule_paint() {
         built.node_paints.get(&root.children[1].0),
         Some(&NodePaint::Rule {
             color: css_color("#223344"),
-            style: ReaderBorderStyleV1::Inset,
+            style: ReaderBorderStyle::Inset,
             thickness: 1.0,
         }),
     );
@@ -116,7 +116,7 @@ fn decorated_blocks_carry_box_paint_and_absorb_border_widths() {
     let border = paint.border.expect("the card strokes its border");
     assert_eq!(
         border.top.map(|edge| edge.style),
-        Some(ReaderBorderStyleV1::Solid)
+        Some(ReaderBorderStyle::Solid)
     );
     assert_eq!(
         border.left.map(|edge| edge.color),
@@ -260,7 +260,7 @@ fn double_border_style_reaches_the_painter() {
             .border
             .and_then(|border| border.top)
             .map(|edge| edge.style),
-        Some(ReaderBorderStyleV1::Double)
+        Some(ReaderBorderStyle::Double)
     );
     assert!(
         !built
@@ -299,7 +299,7 @@ fn ridge_borders_split_into_measured_two_tone_halves() {
     let border = paint.border.expect("the frame strokes its border");
     assert_eq!(
         border.top.map(|edge| edge.style),
-        Some(ReaderBorderStyleV1::Solid)
+        Some(ReaderBorderStyle::Solid)
     );
     assert_eq!(
         border.top.map(|edge| edge.color),

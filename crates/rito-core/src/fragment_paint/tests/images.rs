@@ -5,16 +5,15 @@ use super::*;
 fn painted_image_rect(
     intrinsic_width: f64,
     intrinsic_height: f64,
-    object_fit: rito_style_contract::ObjectFitV1,
-) -> ReaderRectV1 {
+    object_fit: rito_style_contract::ObjectFit,
+) -> ReaderRect {
     use rito_style_contract::{
-        AlignItemsV1, BoxSizingV1, ClearV1, CssPx, FloatV1, JustifyContentV1,
-        LayoutDisplayInsideV1, LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1,
-        LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1,
-        NonNegativeLengthPercentage, OverflowV1, PageBreakV1, PhysicalSides, PositionV1,
-        PreferredSizeV1,
+        AlignItems, BoxSizing, Clear, CssPx, Float, JustifyContent, LayoutDisplay,
+        LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto,
+        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeLengthPercentage,
+        Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
     };
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let text_style = inline
         .intern_for_node(0, body_style(srgb(0.0, 0.0, 0.0, 1.0)))
         .expect("style interns");
@@ -27,14 +26,14 @@ fn painted_image_rect(
         bottom: value,
         left: value,
     };
-    let mut layout = LayoutStyleTableV1::new(1);
+    let mut layout = LayoutStyleTable::new(1);
     let image_layout = layout
         .intern_for_node(
             0,
-            LayoutFormattingStyleV1 {
-                display: LayoutDisplayV1 {
-                    outside: LayoutDisplayOutsideV1::Inline,
-                    inside: LayoutDisplayInsideV1::Flow,
+            LayoutFormattingStyle {
+                display: LayoutDisplay {
+                    outside: LayoutDisplayOutside::Inline,
+                    inside: LayoutDisplayInside::Flow,
                     is_list_item: false,
                 },
                 margin: sides(LengthPercentageOrAuto::Auto),
@@ -44,29 +43,29 @@ fn painted_image_rect(
                     bottom: zero_padding,
                     left: zero_padding,
                 },
-                box_sizing: BoxSizingV1::ContentBox,
-                justify_content: JustifyContentV1::Normal,
-                align_items: AlignItemsV1::Normal,
-                break_before: PageBreakV1::Auto,
-                break_after: PageBreakV1::Auto,
-                width: PreferredSizeV1::Auto,
-                height: PreferredSizeV1::Auto,
-                max_width: MaximumSizeV1::None,
-                min_height: MinimumHeightV1::Auto,
-                max_height: MaximumHeightV1::None,
-                clear: ClearV1::None,
-                float: FloatV1::None,
-                overflow: OverflowV1::Visible,
-                list_style_type: ListMarkerStyleV1::None,
-                position: PositionV1::Static,
+                box_sizing: BoxSizing::ContentBox,
+                justify_content: JustifyContent::Normal,
+                align_items: AlignItems::Normal,
+                break_before: PageBreak::Auto,
+                break_after: PageBreak::Auto,
+                width: PreferredSize::Auto,
+                height: PreferredSize::Auto,
+                max_width: MaximumSize::None,
+                min_height: MinimumHeight::Auto,
+                max_height: MaximumHeight::None,
+                clear: Clear::None,
+                float: Float::None,
+                overflow: Overflow::Visible,
+                list_style_type: ListMarkerStyle::None,
+                position: Position::Static,
                 inset: sides(LengthPercentageOrAuto::Auto),
-                vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+                vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
                 border_spacing: (
                     rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 ),
                 border_collapse: false,
-                object_fit: rito_style_contract::ObjectFitV1::Fill,
+                object_fit: rito_style_contract::ObjectFit::Fill,
             },
         )
         .expect("layout style interns");
@@ -116,32 +115,32 @@ fn painted_image_rect(
 
 #[test]
 fn images_paint_with_their_source_reference() {
-    use rito_style_contract::ObjectFitV1;
+    use rito_style_contract::ObjectFit;
     assert_eq!(
-        painted_image_rect(40.0, 30.0, ObjectFitV1::Fill),
+        painted_image_rect(40.0, 30.0, ObjectFit::Fill),
         display_rect(19.0, 28.0, 40.0, 30.0)
     );
 }
 
 #[test]
 fn a_ratio_true_box_paints_identically_under_object_fit_contain() {
-    use rito_style_contract::ObjectFitV1;
+    use rito_style_contract::ObjectFit;
     // The guard band: contain equals fill when the box already has
     // the raster ratio, bit for bit.
     assert_eq!(
-        painted_image_rect(40.0, 30.0, ObjectFitV1::Contain),
+        painted_image_rect(40.0, 30.0, ObjectFit::Contain),
         display_rect(19.0, 28.0, 40.0, 30.0)
     );
 }
 
 #[test]
 fn an_author_box_off_the_raster_ratio_letterboxes_under_contain() {
-    use rito_style_contract::ObjectFitV1;
+    use rito_style_contract::ObjectFit;
     // A portrait 30x40 raster inside the landscape 40x30 box scales
     // by 0.75 to 22.5x30, centered on the inline axis; the box (and
     // its border and background) keeps the author's rect.
     assert_eq!(
-        painted_image_rect(30.0, 40.0, ObjectFitV1::Contain),
+        painted_image_rect(30.0, 40.0, ObjectFit::Contain),
         display_rect(27.75, 28.0, 22.5, 30.0)
     );
 }

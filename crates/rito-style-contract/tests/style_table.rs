@@ -1,18 +1,18 @@
 use std::sync::Arc;
 
 use rito_style_contract::{
-    AbsoluteColor, AbsoluteColorSpace, AlignmentBaseline, BackgroundImagePaintV1,
-    BackgroundImagePositionV1, BackgroundImageRepeatV1, BackgroundImageSizeV1, BaselineShift,
+    AbsoluteColor, AbsoluteColorSpace, AlignmentBaseline, BackgroundImagePaint,
+    BackgroundImagePosition, BackgroundImageRepeat, BackgroundImageSize, BaselineShift,
     BaselineSource, BorderEdge, BorderEdges, BorderRadii, BorderStyle, ColorNoneFlags,
-    CornerRadius, CssPx, Direction, FontFamilies, FontFamily, FontFamilyName, FontSlant,
-    FontStyleV1, FontWeight, GenericFontFamily, InlineBidiV1, InlineFormattingStyleV1,
-    InlineFragmentStyleV1, InlinePaintStyleV1, InlineStyleTableV1, InlineTextFlowV1, LanguageTag,
-    LengthPercentage, LengthPercentageOrAuto, LineBreak, LineHeight, NonNegativeCssPx,
-    NonNegativeLengthPercentage, NonNegativeNumber, OverflowWrap, Percentage, PhysicalSides,
-    ResolvedUrlV1, RubyAlign, StyleId, StyleTableError, TextAlign, TextDecoration,
-    TextDecorationLines, TextDecorationStyle, TextIndent, TextJustify, TextShadow, TextTransform,
-    TextTransformCase, TextWrapMode, TransformListV1, TransformOperationV1, UnicodeBidi,
-    UnitInterval, WhiteSpaceCollapse, WordBreak, WritingMode,
+    CornerRadius, CssPx, Direction, FontFamilies, FontFamily, FontFamilyName, FontSlant, FontStyle,
+    FontWeight, GenericFontFamily, InlineBidi, InlineFormattingStyle, InlineFragmentStyle,
+    InlinePaintStyle, InlineStyleTable, InlineTextFlow, LanguageTag, LengthPercentage,
+    LengthPercentageOrAuto, LineBreak, LineHeight, NonNegativeCssPx, NonNegativeLengthPercentage,
+    NonNegativeNumber, OverflowWrap, Percentage, PhysicalSides, ResolvedUrl, RubyAlign, StyleId,
+    StyleTableError, TextAlign, TextDecoration, TextDecorationLines, TextDecorationStyle,
+    TextIndent, TextJustify, TextShadow, TextTransform, TextTransformCase, TextWrapMode,
+    TransformList, TransformOperation, UnicodeBidi, UnitInterval, WhiteSpaceCollapse, WordBreak,
+    WritingMode,
 };
 
 fn px(value: f32) -> CssPx {
@@ -58,20 +58,20 @@ fn sides<T: Copy>(value: T) -> PhysicalSides<T> {
     }
 }
 
-fn style(seed: f32) -> InlineFormattingStyleV1 {
+fn style(seed: f32) -> InlineFormattingStyle {
     let radius = CornerRadius {
         horizontal: non_negative_length(seed),
         vertical: non_negative_length(seed + 1.0),
     };
-    InlineFormattingStyleV1 {
+    InlineFormattingStyle {
         font: font_style(seed),
         text_flow: text_flow(seed),
-        bidi: InlineBidiV1 {
+        bidi: InlineBidi {
             direction: Direction::LeftToRight,
             unicode_bidi: UnicodeBidi::Normal,
             writing_mode: WritingMode::HorizontalTopToBottom,
         },
-        fragment: InlineFragmentStyleV1 {
+        fragment: InlineFragmentStyle {
             margin: sides(LengthPercentageOrAuto::Value(length(seed))),
             padding: sides(non_negative_length(seed)),
             border: BorderEdges {
@@ -90,12 +90,12 @@ fn style(seed: f32) -> InlineFormattingStyleV1 {
             baseline_source: BaselineSource::Auto,
             baseline_shift: BaselineShift::Offset(length(0.0)),
         },
-        paint: InlinePaintStyleV1 {
+        paint: InlinePaintStyle {
             foreground: color(seed / 10.0),
             opacity: UnitInterval::new(seed / 10.0).expect("fixture opacity is bounded"),
             background: color(seed / 20.0).into(),
             background_image: None,
-            transform: TransformListV1::none(),
+            transform: TransformList::none(),
             text_decoration: TextDecoration {
                 lines: TextDecorationLines::new(true, false, false, false),
                 style: TextDecorationStyle::Solid,
@@ -107,8 +107,8 @@ fn style(seed: f32) -> InlineFormattingStyleV1 {
     }
 }
 
-fn font_style(seed: f32) -> FontStyleV1 {
-    FontStyleV1 {
+fn font_style(seed: f32) -> FontStyle {
+    FontStyle {
         families: FontFamilies::new(vec![
             FontFamily::Named(FontFamilyName::new(format!("Fixture {seed}"))),
             FontFamily::Generic(GenericFontFamily::Serif),
@@ -126,8 +126,8 @@ fn font_style(seed: f32) -> FontStyleV1 {
     }
 }
 
-fn text_flow(seed: f32) -> InlineTextFlowV1 {
-    InlineTextFlowV1 {
+fn text_flow(seed: f32) -> InlineTextFlow {
+    InlineTextFlow {
         text_align: TextAlign::Start,
         text_justify: TextJustify::Auto,
         text_transform: TextTransform {
@@ -158,14 +158,14 @@ fn text_flow(seed: f32) -> InlineTextFlowV1 {
 fn interning_is_value_deduplicated_and_first_seen_deterministic() {
     let first = style(1.0);
     let second = style(2.0);
-    let mut table = InlineStyleTableV1::new(0);
+    let mut table = InlineStyleTable::new(0);
 
     assert_eq!(table.intern(first.clone()), Ok(StyleId::from_raw(0)));
     assert_eq!(table.intern(second.clone()), Ok(StyleId::from_raw(1)));
     assert_eq!(table.intern(first.clone()), Ok(StyleId::from_raw(0)));
     assert_eq!(table.styles(), &[first, second]);
 
-    let mut replay = InlineStyleTableV1::new(0);
+    let mut replay = InlineStyleTable::new(0);
     assert_eq!(replay.intern(style(1.0)), Ok(StyleId::from_raw(0)));
     assert_eq!(replay.intern(style(2.0)), Ok(StyleId::from_raw(1)));
 }
@@ -176,7 +176,7 @@ fn opacity_participates_in_style_interning() {
     opaque.paint.opacity = UnitInterval::new(1.0).unwrap();
     let mut quarter = opaque.clone();
     quarter.paint.opacity = UnitInterval::new(0.25).unwrap();
-    let mut table = InlineStyleTableV1::new(3);
+    let mut table = InlineStyleTable::new(3);
 
     assert_eq!(table.intern(opaque), Ok(StyleId::from_raw(0)));
     assert_eq!(table.intern(quarter.clone()), Ok(StyleId::from_raw(1)));
@@ -185,7 +185,7 @@ fn opacity_participates_in_style_interning() {
 
 #[test]
 fn node_mapping_reports_missing_and_out_of_bounds_states() {
-    let mut table = InlineStyleTableV1::new(2);
+    let mut table = InlineStyleTable::new(2);
     assert_eq!(
         table.node_style_id(0),
         Err(StyleTableError::MissingNodeStyle { node_index: 0 })
@@ -216,7 +216,7 @@ fn node_mapping_reports_missing_and_out_of_bounds_states() {
 
 #[test]
 fn invalid_node_assignment_does_not_mutate_the_intern_table() {
-    let mut table = InlineStyleTableV1::new(1);
+    let mut table = InlineStyleTable::new(1);
     assert_eq!(
         table.intern_for_node(4, style(4.0)),
         Err(StyleTableError::NodeIndexOutOfBounds {
@@ -229,7 +229,7 @@ fn invalid_node_assignment_does_not_mutate_the_intern_table() {
 
 #[test]
 fn duplicate_node_assignment_is_rejected_without_interning_another_style() {
-    let mut table = InlineStyleTableV1::new(1);
+    let mut table = InlineStyleTable::new(1);
     let original_id = table
         .intern_for_node(0, style(1.0))
         .expect("first node assignment succeeds");
@@ -247,16 +247,16 @@ fn duplicate_node_assignment_is_rejected_without_interning_another_style() {
 
 #[test]
 fn debug_output_is_bounded_to_counts() {
-    let table = InlineStyleTableV1::new(3);
+    let table = InlineStyleTable::new(3);
     assert_eq!(
         format!("{table:?}"),
-        "InlineStyleTableV1 { style_count: 0, node_count: 3, assigned_node_count: 0 }"
+        "InlineStyleTable { style_count: 0, node_count: 3, assigned_node_count: 0 }"
     );
 }
 
 #[test]
 fn nested_payloads_are_shared_across_many_unique_outer_styles() {
-    let mut table = InlineStyleTableV1::new(2_048);
+    let mut table = InlineStyleTable::new(2_048);
     let shadow = TextShadow {
         offset_x: px(1.0),
         offset_y: px(2.0),
@@ -267,17 +267,17 @@ fn nested_payloads_are_shared_across_many_unique_outer_styles() {
         let mut value = style(1.0);
         value.text_flow.language = Some(LanguageTag::new(format!("x-{index}")));
         value.paint.text_shadows = Arc::from(vec![shadow]);
-        value.paint.background_image = Some(BackgroundImagePaintV1 {
-            url: ResolvedUrlV1::new("https://example.test/Images/background.jpg")
+        value.paint.background_image = Some(BackgroundImagePaint {
+            url: ResolvedUrl::new("https://example.test/Images/background.jpg")
                 .expect("fixture URL is absolute and bounded"),
-            size: BackgroundImageSizeV1::Cover,
-            repeat: BackgroundImageRepeatV1::NoRepeat,
-            position: BackgroundImagePositionV1 {
+            size: BackgroundImageSize::Cover,
+            repeat: BackgroundImageRepeat::NoRepeat,
+            position: BackgroundImagePosition {
                 x: length(0.0),
                 y: length(0.0),
             },
         });
-        value.paint.transform = TransformListV1::new(vec![TransformOperationV1::Rotate {
+        value.paint.transform = TransformList::new(vec![TransformOperation::Rotate {
             radians: rito_style_contract::FiniteF32::new(0.25).unwrap(),
         }])
         .unwrap();

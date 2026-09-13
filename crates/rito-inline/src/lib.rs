@@ -31,8 +31,8 @@ use rito_fragment::{
     IntrinsicInlineSizes, LayoutError, LayoutOutcome, LineFragment, TextFragment,
 };
 use rito_style_contract::{
-    FontFamily, FontSlant, GenericFontFamily, InlineFormattingStyleV1, LayoutFormattingStyleV1,
-    LengthPercentage, LineHeight, MaximumSizeV1, PreferredSizeV1, TextAlign,
+    FontFamily, FontSlant, GenericFontFamily, InlineFormattingStyle, LayoutFormattingStyle,
+    LengthPercentage, LineHeight, MaximumSize, PreferredSize, TextAlign,
 };
 
 mod breaking;

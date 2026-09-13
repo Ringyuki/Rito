@@ -291,7 +291,7 @@ fn canonical_locator_href(locator: &RuntimeSourceLocator) -> String {
 }
 
 /// Page-scoped footnote classification for hosts that build their own
-/// hit lists (the reader_v1 artifact path) instead of consuming
+/// hit lists (the reader_session artifact path) instead of consuming
 /// [`RuntimePageTarget`]. It resolves the page's chapter once and then
 /// answers per href, so a page's hits classify exactly the way
 /// `runtime_page_targets` would — the two surfaces must never disagree

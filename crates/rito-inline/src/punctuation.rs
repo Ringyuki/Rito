@@ -109,15 +109,15 @@ pub(crate) fn compute_cjk_punctuation_trims(
     registered_families: &[String],
     halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
     text: &str,
-    runs: &[(std::ops::Range<usize>, &InlineFormattingStyleV1, usize)],
+    runs: &[(std::ops::Range<usize>, &InlineFormattingStyle, usize)],
     suppressed_pairs: &[usize],
     inline_box_bytes: &[usize],
 ) -> Vec<PunctuationTrim> {
     fn style_at<'a>(
         cursor: &mut usize,
-        runs: &[(std::ops::Range<usize>, &'a InlineFormattingStyleV1, usize)],
+        runs: &[(std::ops::Range<usize>, &'a InlineFormattingStyle, usize)],
         byte: usize,
-    ) -> Option<&'a InlineFormattingStyleV1> {
+    ) -> Option<&'a InlineFormattingStyle> {
         while *cursor < runs.len() && runs[*cursor].0.end <= byte {
             *cursor += 1;
         }
@@ -221,7 +221,7 @@ pub(crate) fn resolved_font_halt(
     fonts: &mut FontContext,
     registered_families: &[String],
     halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
     character: char,
 ) -> Option<bool> {
     use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};

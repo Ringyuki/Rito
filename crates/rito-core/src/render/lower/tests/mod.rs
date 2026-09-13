@@ -6,15 +6,14 @@ use serde_json::json;
 
 use super::super::commands::{
     contract::{
-        ReaderBackgroundPaintV1, ReaderBackgroundPositionV1, ReaderBackgroundRepeatV1,
-        ReaderBackgroundSizeV1, ReaderBlockBorderV1, ReaderBlockPaintV1, ReaderBlockRadiusV1,
-        ReaderBorderBoxV1, ReaderBorderEdgePaintV1, ReaderBorderStyleV1, ReaderBoxShadowV1,
-        ReaderClusterV1, ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1,
-        ReaderCornerRadiusV1, ReaderFontPaintV1, ReaderFontStyleV1, ReaderHorizontalRulePaintV1,
-        ReaderLengthV1, ReaderPagePaintV1, ReaderPointV1, ReaderRectV1, ReaderRunBorderEdgeV1,
-        ReaderRunBorderV1, ReaderRunDecorationKindV1, ReaderRunDecorationV1, ReaderRunPaintV1,
-        ReaderSizeV1, ReaderSpacingV1, ReaderTextRunPaintV1, ReaderTextRunV1, ReaderTextShadowV1,
-        ReaderTransformV1,
+        ReaderBackgroundPaint, ReaderBackgroundPosition, ReaderBackgroundRepeat,
+        ReaderBackgroundSize, ReaderBlockBorder, ReaderBlockPaint, ReaderBlockRadius,
+        ReaderBorderBox, ReaderBorderEdgePaint, ReaderBorderStyle, ReaderBoxShadow, ReaderCluster,
+        ReaderColor, ReaderColorNoneFlags, ReaderColorSpace, ReaderCornerRadius, ReaderFontPaint,
+        ReaderFontStyle, ReaderHorizontalRulePaint, ReaderLength, ReaderPagePaint, ReaderPoint,
+        ReaderRect, ReaderRunBorder, ReaderRunBorderEdge, ReaderRunDecoration,
+        ReaderRunDecorationKind, ReaderRunPaint, ReaderSize, ReaderSpacing, ReaderTextRun,
+        ReaderTextRunPaint, ReaderTextShadow, ReaderTransform,
     },
     DisplayCommand, DisplayTextCommand,
 };
@@ -25,11 +24,11 @@ use super::{
 };
 use crate::render::RunPaint;
 
-const INK: ReaderColorV1 = ReaderColorV1 {
-    space: ReaderColorSpaceV1::Srgb,
+const INK: ReaderColor = ReaderColor {
+    space: ReaderColorSpace::Srgb,
     components: [0.1, 0.2, 0.3],
     alpha: 1.0,
-    none: ReaderColorNoneFlagsV1 {
+    none: ReaderColorNoneFlags {
         component_0: false,
         component_1: false,
         component_2: false,
@@ -37,7 +36,7 @@ const INK: ReaderColorV1 = ReaderColorV1 {
     },
 };
 
-const TRANSLUCENT: ReaderColorV1 = ReaderColorV1 { alpha: 0.5, ..INK };
+const TRANSLUCENT: ReaderColor = ReaderColor { alpha: 0.5, ..INK };
 
 #[test]
 fn rejects_a_ratio_that_is_not_finite_and_positive() {
@@ -78,17 +77,17 @@ fn state_commands_scale_their_offsets_to_device_pixels() {
 fn transform_resolves_translate_percentages_against_the_device_box() {
     let primitives = lowered(
         vec![DisplayCommand::Transform {
-            origin: ReaderPointV1 { x: 10.0, y: 20.0 },
-            box_size: ReaderSizeV1 {
+            origin: ReaderPoint { x: 10.0, y: 20.0 },
+            box_size: ReaderSize {
                 width: 30.0,
                 height: 40.0,
             },
             transforms: vec![
-                ReaderTransformV1::Rotate { radians: 0.5 },
-                ReaderTransformV1::Scale { sx: 2.0, sy: 3.0 },
-                ReaderTransformV1::Translate {
-                    x: ReaderLengthV1::Px(4.0),
-                    y: ReaderLengthV1::Percent(50.0),
+                ReaderTransform::Rotate { radians: 0.5 },
+                ReaderTransform::Scale { sx: 2.0, sy: 3.0 },
+                ReaderTransform::Translate {
+                    x: ReaderLength::Px(4.0),
+                    y: ReaderLength::Percent(50.0),
                 },
             ],
         }],
@@ -112,7 +111,7 @@ fn clip_without_a_radius_is_a_rect_path() {
     let primitives = lowered(
         vec![DisplayCommand::ClipRect {
             rect: rect(1.0, 2.0, 20.0, 30.0),
-            radius: Some(ReaderCornerRadiusV1 { rx: 0.0, ry: 0.0 }),
+            radius: Some(ReaderCornerRadius { rx: 0.0, ry: 0.0 }),
         }],
         2.0,
     );
@@ -133,7 +132,7 @@ fn clip_with_a_radius_traces_the_rounded_outline_overlap_scaled() {
     let primitives = lowered(
         vec![DisplayCommand::ClipRect {
             rect: rect(0.0, 0.0, 20.0, 30.0),
-            radius: Some(ReaderCornerRadiusV1 { rx: 20.0, ry: 20.0 }),
+            radius: Some(ReaderCornerRadius { rx: 20.0, ry: 20.0 }),
         }],
         1.0,
     );
@@ -169,7 +168,7 @@ fn clip_with_a_radius_traces_the_rounded_outline_overlap_scaled() {
 fn page_fill_declares_the_page_ground_and_stays_unsnapped() {
     let page = |background_color| DisplayCommand::PaintPage {
         rect: rect(0.5, 0.0, 20.0, 30.0),
-        paint: ReaderPagePaintV1 { background_color },
+        paint: ReaderPagePaint { background_color },
     };
     assert_eq!(
         lowered(vec![page(Some(INK))], 2.0),
@@ -269,7 +268,7 @@ fn a_fractional_box_top_moves_the_band_by_the_rounding_rule() {
         let primitives = lowered(
             vec![block(
                 rect(0.0, y, 100.0, 50.0),
-                block_paint(None, Some(top_only(ReaderBorderStyleV1::Solid))),
+                block_paint(None, Some(top_only(ReaderBorderStyle::Solid))),
                 Some(widths(1.0, 0.0, 0.0, 0.0)),
             )],
             1.0,
@@ -283,10 +282,10 @@ fn a_fractional_box_top_moves_the_band_by_the_rounding_rule() {
 #[test]
 fn bevel_styles_take_the_solid_band() {
     for style in [
-        ReaderBorderStyleV1::Groove,
-        ReaderBorderStyleV1::Ridge,
-        ReaderBorderStyleV1::Inset,
-        ReaderBorderStyleV1::Outset,
+        ReaderBorderStyle::Groove,
+        ReaderBorderStyle::Ridge,
+        ReaderBorderStyle::Inset,
+        ReaderBorderStyle::Outset,
     ] {
         let primitives = lowered(
             vec![block(
@@ -309,7 +308,7 @@ fn hidden_edges_missing_paint_or_a_missing_border_box_stroke_nothing() {
     let hidden = lowered(
         vec![block(
             rect(0.0, 0.0, 100.0, 50.0),
-            block_paint(None, Some(top_only(ReaderBorderStyleV1::Hidden))),
+            block_paint(None, Some(top_only(ReaderBorderStyle::Hidden))),
             Some(widths(2.0, 0.0, 0.0, 0.0)),
         )],
         1.0,
@@ -318,7 +317,7 @@ fn hidden_edges_missing_paint_or_a_missing_border_box_stroke_nothing() {
     let unpainted = lowered(
         vec![block(
             rect(0.0, 0.0, 100.0, 50.0),
-            block_paint(None, Some(ReaderBlockBorderV1::default())),
+            block_paint(None, Some(ReaderBlockBorder::default())),
             Some(widths(2.0, 2.0, 2.0, 2.0)),
         )],
         1.0,
@@ -343,7 +342,7 @@ fn double_edges_paint_two_solid_thirds() {
     let primitives = lowered(
         vec![block(
             rect(10.0, 21.0, 100.0, 30.0),
-            block_paint(None, Some(top_only(ReaderBorderStyleV1::Double))),
+            block_paint(None, Some(top_only(ReaderBorderStyle::Double))),
             Some(widths(6.0, 0.0, 0.0, 0.0)),
         )],
         1.0,
@@ -362,7 +361,7 @@ fn dashed_edges_stretch_the_gap_so_full_dashes_land_flush_at_both_ends() {
     let primitives = lowered(
         vec![block(
             rect(0.0, 0.0, 280.0, 10.0),
-            block_paint(None, Some(top_only(ReaderBorderStyleV1::Dashed))),
+            block_paint(None, Some(top_only(ReaderBorderStyle::Dashed))),
             Some(widths(1.0, 0.0, 0.0, 0.0)),
         )],
         1.0,
@@ -384,7 +383,7 @@ fn a_dashed_edge_shorter_than_a_dash_paints_the_whole_span() {
     let primitives = lowered(
         vec![block(
             rect(0.0, 0.0, 2.0, 10.0),
-            block_paint(None, Some(top_only(ReaderBorderStyleV1::Dashed))),
+            block_paint(None, Some(top_only(ReaderBorderStyle::Dashed))),
             Some(widths(1.0, 0.0, 0.0, 0.0)),
         )],
         1.0,
@@ -403,7 +402,7 @@ fn thin_dotted_edges_follow_the_binary_endpoint_table() {
     let width_two = fill_rects(&lowered(
         vec![block(
             rect(0.0, 0.0, 640.0, 10.0),
-            block_paint(None, Some(top_only(ReaderBorderStyleV1::Dotted))),
+            block_paint(None, Some(top_only(ReaderBorderStyle::Dotted))),
             Some(widths(2.0, 0.0, 0.0, 0.0)),
         )],
         1.0,
@@ -420,7 +419,7 @@ fn thin_dotted_edges_follow_the_binary_endpoint_table() {
     let width_one = fill_rects(&lowered(
         vec![block(
             rect(0.0, 0.0, 10.0, 10.0),
-            block_paint(None, Some(top_only(ReaderBorderStyleV1::Dotted))),
+            block_paint(None, Some(top_only(ReaderBorderStyle::Dotted))),
             Some(widths(1.0, 0.0, 0.0, 0.0)),
         )],
         1.0,
@@ -444,7 +443,7 @@ fn thick_dotted_edges_are_round_dots_at_the_measured_pitch() {
     let primitives = lowered(
         vec![block(
             rect(0.0, 0.0, 628.0, 20.0),
-            block_paint(None, Some(top_only(ReaderBorderStyleV1::Dotted))),
+            block_paint(None, Some(top_only(ReaderBorderStyle::Dotted))),
             Some(widths(6.0, 0.0, 0.0, 0.0)),
         )],
         1.0,
@@ -481,14 +480,14 @@ fn thick_dotted_edges_are_round_dots_at_the_measured_pitch() {
 fn horizontal_rules_raster_as_border_edges() {
     let rule = |rect, style| DisplayCommand::PaintHorizontalRule {
         rect,
-        paint: ReaderHorizontalRulePaintV1 { color: INK, style },
+        paint: ReaderHorizontalRulePaint { color: INK, style },
     };
     // Row = round(top): the band, not the rounded half-shifted centerline
     // that sat one device row below the browser's.
     let horizontal = lowered(
         vec![rule(
             rect(20.3, 100.6, 200.0, 1.0),
-            ReaderBorderStyleV1::Solid,
+            ReaderBorderStyle::Solid,
         )],
         1.0,
     );
@@ -498,7 +497,7 @@ fn horizontal_rules_raster_as_border_edges() {
     );
     // Taller than wide: the rule box's vertical bevel edge along y.
     let vertical = lowered(
-        vec![rule(rect(10.2, 5.0, 2.0, 10.0), ReaderBorderStyleV1::Solid)],
+        vec![rule(rect(10.2, 5.0, 2.0, 10.0), ReaderBorderStyle::Solid)],
         1.0,
     );
     assert_eq!(
@@ -511,7 +510,7 @@ fn horizontal_rules_raster_as_border_edges() {
     let scaled = lowered(
         vec![rule(
             rect(20.0, 100.3, 200.0, 0.5),
-            ReaderBorderStyleV1::Solid,
+            ReaderBorderStyle::Solid,
         )],
         2.0,
     );
@@ -526,8 +525,8 @@ fn rounded_backgrounds_fill_the_snapped_box_and_declare_the_unsnapped_ground() {
     let primitives = lowered(
         vec![block(
             rect(10.4, 20.6, 100.2, 50.3),
-            ReaderBlockPaintV1 {
-                radius: Some(ReaderBlockRadiusV1::Px(8.0)),
+            ReaderBlockPaint {
+                radius: Some(ReaderBlockRadius::Px(8.0)),
                 ..block_paint(Some(INK), None)
             },
             None,
@@ -570,8 +569,8 @@ fn percent_and_corner_radii_resolve_against_the_box() {
     let percent = lowered(
         vec![block(
             rect(0.0, 0.0, 20.0, 30.0),
-            ReaderBlockPaintV1 {
-                radius: Some(ReaderBlockRadiusV1::Percent(50.0)),
+            ReaderBlockPaint {
+                radius: Some(ReaderBlockRadius::Percent(50.0)),
                 ..block_paint(Some(INK), None)
             },
             None,
@@ -597,8 +596,8 @@ fn percent_and_corner_radii_resolve_against_the_box() {
     let corners = lowered(
         vec![block(
             rect(0.0, 0.0, 40.0, 40.0),
-            ReaderBlockPaintV1 {
-                radius: Some(ReaderBlockRadiusV1::Corners([10.0, 20.0, 30.0, 40.0])),
+            ReaderBlockPaint {
+                radius: Some(ReaderBlockRadius::Corners([10.0, 20.0, 30.0, 40.0])),
                 ..block_paint(Some(INK), None)
             },
             None,
@@ -618,8 +617,8 @@ fn percent_and_corner_radii_resolve_against_the_box() {
     let square = lowered(
         vec![block(
             rect(0.0, 0.0, 10.0, 20.0),
-            ReaderBlockPaintV1 {
-                radius: Some(ReaderBlockRadiusV1::Corners([0.0; 4])),
+            ReaderBlockPaint {
+                radius: Some(ReaderBlockRadius::Corners([0.0; 4])),
                 ..block_paint(Some(INK), None)
             },
             None,
@@ -635,7 +634,7 @@ fn percent_and_corner_radii_resolve_against_the_box() {
 #[test]
 fn a_uniform_rounded_border_strokes_one_ring_inset_by_half_its_width() {
     let ring = |style, width: f64| {
-        let border = ReaderBlockBorderV1 {
+        let border = ReaderBlockBorder {
             top: edge(style),
             right: edge(style),
             bottom: edge(style),
@@ -644,8 +643,8 @@ fn a_uniform_rounded_border_strokes_one_ring_inset_by_half_its_width() {
         lowered(
             vec![block(
                 rect(0.0, 0.0, 100.0, 60.0),
-                ReaderBlockPaintV1 {
-                    radius: Some(ReaderBlockRadiusV1::Px(10.0)),
+                ReaderBlockPaint {
+                    radius: Some(ReaderBlockRadius::Px(10.0)),
                     ..block_paint(None, Some(border))
                 },
                 Some(widths(width, width, width, width)),
@@ -653,7 +652,7 @@ fn a_uniform_rounded_border_strokes_one_ring_inset_by_half_its_width() {
             1.0,
         )
     };
-    let solid = ring(ReaderBorderStyleV1::Solid, 4.0);
+    let solid = ring(ReaderBorderStyle::Solid, 4.0);
     let [Primitive::StrokePath {
         path,
         width,
@@ -677,7 +676,7 @@ fn a_uniform_rounded_border_strokes_one_ring_inset_by_half_its_width() {
     ));
 
     // A double border is two rings of a third each, at insets 1 and 5.
-    let double = ring(ReaderBorderStyleV1::Double, 6.0);
+    let double = ring(ReaderBorderStyle::Double, 6.0);
     assert_eq!(double.len(), 2);
     let starts: Vec<_> = double
         .iter()
@@ -694,7 +693,7 @@ fn a_uniform_rounded_border_strokes_one_ring_inset_by_half_its_width() {
         ]
     );
 
-    let dotted = ring(ReaderBorderStyleV1::Dotted, 4.0);
+    let dotted = ring(ReaderBorderStyle::Dotted, 4.0);
     let [Primitive::StrokePath {
         width, cap, dash, ..
     }] = dotted.as_slice()
@@ -712,7 +711,7 @@ fn a_uniform_rounded_border_strokes_one_ring_inset_by_half_its_width() {
             })
         )
     );
-    let dashed = ring(ReaderBorderStyleV1::Dashed, 4.0);
+    let dashed = ring(ReaderBorderStyle::Dashed, 4.0);
     let [Primitive::StrokePath { dash, .. }] = dashed.as_slice() else {
         panic!("{dashed:?}");
     };
@@ -724,8 +723,8 @@ fn unequal_solid_rounded_edges_of_one_colour_fill_a_crescent() {
     let primitives = lowered(
         vec![block(
             rect(0.0, 0.0, 100.0, 60.0),
-            ReaderBlockPaintV1 {
-                radius: Some(ReaderBlockRadiusV1::Px(20.0)),
+            ReaderBlockPaint {
+                radius: Some(ReaderBlockRadius::Px(20.0)),
                 ..block_paint(None, Some(solid_border()))
             },
             Some(widths(1.0, 4.0, 1.0, 4.0)),
@@ -760,9 +759,9 @@ fn unequal_solid_rounded_edges_of_one_colour_fill_a_crescent() {
 #[test]
 fn straight_edges_of_two_colours_meet_on_the_miter() {
     let side = |color| {
-        Some(ReaderBorderEdgePaintV1 {
+        Some(ReaderBorderEdgePaint {
             color,
-            style: ReaderBorderStyleV1::Solid,
+            style: ReaderBorderStyle::Solid,
         })
     };
     // An inset rule's box: dark top and left, light bottom and right.
@@ -771,7 +770,7 @@ fn straight_edges_of_two_colours_meet_on_the_miter() {
             rect(0.0, 0.0, 100.0, 2.0),
             block_paint(
                 None,
-                Some(ReaderBlockBorderV1 {
+                Some(ReaderBlockBorder {
                     top: side(INK),
                     right: side(TRANSLUCENT),
                     bottom: side(TRANSLUCENT),
@@ -829,19 +828,19 @@ fn straight_edges_of_two_colours_meet_on_the_miter() {
 #[test]
 fn disagreeing_rounded_edges_each_paint_inside_their_wedge() {
     let side = |color| {
-        Some(ReaderBorderEdgePaintV1 {
+        Some(ReaderBorderEdgePaint {
             color,
-            style: ReaderBorderStyleV1::Solid,
+            style: ReaderBorderStyle::Solid,
         })
     };
     let primitives = lowered(
         vec![block(
             rect(0.0, 0.0, 100.0, 60.0),
-            ReaderBlockPaintV1 {
-                radius: Some(ReaderBlockRadiusV1::Px(10.0)),
+            ReaderBlockPaint {
+                radius: Some(ReaderBlockRadius::Px(10.0)),
                 ..block_paint(
                     None,
-                    Some(ReaderBlockBorderV1 {
+                    Some(ReaderBlockBorder {
                         top: side(INK),
                         right: side(TRANSLUCENT),
                         bottom: side(TRANSLUCENT),
@@ -892,7 +891,7 @@ fn disagreeing_rounded_edges_each_paint_inside_their_wedge() {
 
 #[test]
 fn box_shadows_blur_the_spread_box_outside_the_box_back_to_front() {
-    let shadow = |offset_x, spread, inset| ReaderBoxShadowV1 {
+    let shadow = |offset_x, spread, inset| ReaderBoxShadow {
         offset_x,
         offset_y: 3.0,
         blur: 4.0,
@@ -903,7 +902,7 @@ fn box_shadows_blur_the_spread_box_outside_the_box_back_to_front() {
     let primitives = lowered(
         vec![block(
             rect(10.0, 10.0, 50.0, 40.0),
-            ReaderBlockPaintV1 {
+            ReaderBlockPaint {
                 box_shadows: vec![
                     shadow(2.0, 1.0, false),
                     shadow(9.0, 0.0, true),
@@ -947,7 +946,7 @@ fn box_shadows_blur_the_spread_box_outside_the_box_back_to_front() {
     let scaled = lowered(
         vec![block(
             rect(10.0, 10.0, 50.0, 40.0),
-            ReaderBlockPaintV1 {
+            ReaderBlockPaint {
                 box_shadows: vec![shadow(2.0, 1.0, false)],
                 ..block_paint(None, None)
             },
@@ -970,7 +969,7 @@ fn box_shadows_blur_the_spread_box_outside_the_box_back_to_front() {
 
 #[test]
 fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
-    let paper = |size, repeat, position| ReaderBackgroundPaintV1 {
+    let paper = |size, repeat, position| ReaderBackgroundPaint {
         color: None,
         image: Some("paper.png".to_owned()),
         size,
@@ -981,7 +980,7 @@ fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
         lowered_with(
             vec![block(
                 rect,
-                ReaderBlockPaintV1 {
+                ReaderBlockPaint {
                     background: Some(background),
                     ..block_paint(None, None)
                 },
@@ -996,8 +995,8 @@ fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
     let cover = imaged(
         rect(100.0, 50.0, 40.0, 20.0),
         paper(
-            Some(ReaderBackgroundSizeV1::Cover),
-            Some(ReaderBackgroundRepeatV1::NoRepeat),
+            Some(ReaderBackgroundSize::Cover),
+            Some(ReaderBackgroundRepeat::NoRepeat),
             None,
         ),
         1.0,
@@ -1044,14 +1043,14 @@ fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
     let explicit = imaged(
         rect(0.0, 0.0, 40.0, 20.0),
         paper(
-            Some(ReaderBackgroundSizeV1::Explicit {
-                x: Some(ReaderLengthV1::Px(10.0)),
+            Some(ReaderBackgroundSize::Explicit {
+                x: Some(ReaderLength::Px(10.0)),
                 y: None,
             }),
-            Some(ReaderBackgroundRepeatV1::NoRepeat),
-            Some(ReaderBackgroundPositionV1 {
-                x: ReaderLengthV1::Percent(50.0),
-                y: ReaderLengthV1::Px(4.0),
+            Some(ReaderBackgroundRepeat::NoRepeat),
+            Some(ReaderBackgroundPosition {
+                x: ReaderLength::Percent(50.0),
+                y: ReaderLength::Px(4.0),
             }),
         ),
         2.0,
@@ -1069,9 +1068,9 @@ fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
     // The clip follows the box outline, unsnapped.
     let rounded = imaged(
         rect(0.5, 0.0, 40.0, 20.0),
-        ReaderBackgroundPaintV1 {
+        ReaderBackgroundPaint {
             color: Some(INK),
-            ..paper(None, Some(ReaderBackgroundRepeatV1::NoRepeat), None)
+            ..paper(None, Some(ReaderBackgroundRepeat::NoRepeat), None)
         },
         1.0,
     );
@@ -1089,8 +1088,8 @@ fn background_images_size_place_clip_and_tile_against_the_unsnapped_box() {
     let unknown = lowered(
         vec![block(
             rect(0.0, 0.0, 40.0, 20.0),
-            ReaderBlockPaintV1 {
-                background: Some(ReaderBackgroundPaintV1 {
+            ReaderBlockPaint {
+                background: Some(ReaderBackgroundPaint {
                     color: Some(INK),
                     ..paper(None, None, None)
                 }),
@@ -1171,7 +1170,7 @@ fn a_bare_text_run_passes_through_in_css_pixels_at_any_ratio() {
     // with the CSS size it is asked for, so the device size on the device
     // grid rasters different ink than the browser's.
     let bare = DisplayTextCommand {
-        paint: RunPaint::new(ReaderRunPaintV1 {
+        paint: RunPaint::new(ReaderRunPaint {
             background_color: None,
             background_radius: None,
             decoration: None,
@@ -1203,7 +1202,7 @@ fn a_background_band_snaps_each_edge_and_declares_the_ground() {
     let band = |box_offsets, padding| {
         DisplayCommand::PaintText(DisplayTextCommand {
             rect: rect(10.4, 20.0, 50.2, 16.0),
-            paint: RunPaint::new(ReaderRunPaintV1 {
+            paint: RunPaint::new(ReaderRunPaint {
                 background_color: Some(INK),
                 background_radius: None,
                 decoration: None,
@@ -1242,7 +1241,7 @@ fn a_background_band_snaps_each_edge_and_declares_the_ground() {
     let primitives = lowered(
         vec![band(
             None,
-            Some(ReaderSpacingV1 {
+            Some(ReaderSpacing {
                 top: 2.0,
                 right: 0.0,
                 bottom: 3.0,
@@ -1266,7 +1265,7 @@ fn a_split_inline_box_squares_its_open_end() {
     let primitives = lowered(
         vec![DisplayCommand::PaintText(DisplayTextCommand {
             rect: rect(10.0, 20.0, 40.0, 16.0),
-            paint: RunPaint::new(ReaderRunPaintV1 {
+            paint: RunPaint::new(ReaderRunPaint {
                 background_color: Some(INK),
                 background_radius: Some(3.0),
                 decoration: None,
@@ -1300,11 +1299,11 @@ fn the_decoration_line_rounds_its_top_and_floors_its_thickness() {
     let primitives = lowered(
         vec![DisplayCommand::PaintText(DisplayTextCommand {
             rect: rect(10.0, 20.3, 40.0, 16.0),
-            paint: RunPaint::new(ReaderRunPaintV1 {
+            paint: RunPaint::new(ReaderRunPaint {
                 background_color: None,
                 background_radius: None,
-                decoration: Some(ReaderRunDecorationV1 {
-                    kind: ReaderRunDecorationKindV1::Underline,
+                decoration: Some(ReaderRunDecoration {
+                    kind: ReaderRunDecorationKind::Underline,
                     y: 17.125,
                     thickness: 1.4,
                     color: INK,
@@ -1336,11 +1335,11 @@ fn one_inline_box_draws_one_decoration_line_across_its_runs() {
     let run = |x: f64, width: f64, start: bool, end: bool| {
         DisplayCommand::PaintText(DisplayTextCommand {
             rect: rect(x, 20.3, width, 16.0),
-            paint: RunPaint::new(ReaderRunPaintV1 {
+            paint: RunPaint::new(ReaderRunPaint {
                 background_color: None,
                 background_radius: None,
-                decoration: Some(ReaderRunDecorationV1 {
-                    kind: ReaderRunDecorationKindV1::Underline,
+                decoration: Some(ReaderRunDecoration {
+                    kind: ReaderRunDecorationKind::Underline,
                     y: 14.3,
                     thickness: 1.0,
                     color: INK,
@@ -1424,7 +1423,7 @@ fn images_draw_at_the_scaled_destination_with_the_source_rect_untouched() {
 fn page_fills_scale_to_the_device_grid() {
     let commands = [DisplayCommand::PaintPage {
         rect: rect(0.0, 0.0, 20.0, 30.0),
-        paint: ReaderPagePaintV1 {
+        paint: ReaderPagePaint {
             background_color: Some(INK),
         },
     }];
@@ -1453,7 +1452,7 @@ fn json_form_mirrors_the_decoded_wire_shape() {
             // A bare run: the inline box and decoration lower to
             // their own primitives, covered by their own tests.
             DisplayCommand::PaintText(DisplayTextCommand {
-                paint: RunPaint::new(ReaderRunPaintV1 {
+                paint: RunPaint::new(ReaderRunPaint {
                     background_color: None,
                     background_radius: None,
                     decoration: None,
@@ -1562,8 +1561,8 @@ fn fill_rects(primitives: &[Primitive]) -> Vec<DeviceRect> {
         .collect()
 }
 
-fn rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRectV1 {
-    ReaderRectV1 {
+fn rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRect {
+    ReaderRect {
         x,
         y,
         width,
@@ -1571,8 +1570,8 @@ fn rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRectV1 {
     }
 }
 
-fn widths(top: f64, right: f64, bottom: f64, left: f64) -> ReaderBorderBoxV1 {
-    ReaderBorderBoxV1 {
+fn widths(top: f64, right: f64, bottom: f64, left: f64) -> ReaderBorderBox {
+    ReaderBorderBox {
         top_width: top,
         right_width: right,
         bottom_width: bottom,
@@ -1580,32 +1579,32 @@ fn widths(top: f64, right: f64, bottom: f64, left: f64) -> ReaderBorderBoxV1 {
     }
 }
 
-fn edge(style: ReaderBorderStyleV1) -> Option<ReaderBorderEdgePaintV1> {
-    Some(ReaderBorderEdgePaintV1 { color: INK, style })
+fn edge(style: ReaderBorderStyle) -> Option<ReaderBorderEdgePaint> {
+    Some(ReaderBorderEdgePaint { color: INK, style })
 }
 
-fn solid_border() -> ReaderBlockBorderV1 {
-    ReaderBlockBorderV1 {
-        top: edge(ReaderBorderStyleV1::Solid),
-        right: edge(ReaderBorderStyleV1::Solid),
-        bottom: edge(ReaderBorderStyleV1::Solid),
-        left: edge(ReaderBorderStyleV1::Solid),
+fn solid_border() -> ReaderBlockBorder {
+    ReaderBlockBorder {
+        top: edge(ReaderBorderStyle::Solid),
+        right: edge(ReaderBorderStyle::Solid),
+        bottom: edge(ReaderBorderStyle::Solid),
+        left: edge(ReaderBorderStyle::Solid),
     }
 }
 
-fn top_only(style: ReaderBorderStyleV1) -> ReaderBlockBorderV1 {
-    ReaderBlockBorderV1 {
+fn top_only(style: ReaderBorderStyle) -> ReaderBlockBorder {
+    ReaderBlockBorder {
         top: edge(style),
-        ..ReaderBlockBorderV1::default()
+        ..ReaderBlockBorder::default()
     }
 }
 
 fn block_paint(
-    background: Option<ReaderColorV1>,
-    border: Option<ReaderBlockBorderV1>,
-) -> ReaderBlockPaintV1 {
-    ReaderBlockPaintV1 {
-        background: background.map(|color| ReaderBackgroundPaintV1 {
+    background: Option<ReaderColor>,
+    border: Option<ReaderBlockBorder>,
+) -> ReaderBlockPaint {
+    ReaderBlockPaint {
+        background: background.map(|color| ReaderBackgroundPaint {
             color: Some(color),
             image: None,
             size: None,
@@ -1619,9 +1618,9 @@ fn block_paint(
 }
 
 fn block(
-    rect: ReaderRectV1,
-    paint: ReaderBlockPaintV1,
-    border_box: Option<ReaderBorderBoxV1>,
+    rect: ReaderRect,
+    paint: ReaderBlockPaint,
+    border_box: Option<ReaderBorderBox>,
 ) -> DisplayCommand {
     DisplayCommand::PaintBlock {
         rect,
@@ -1631,12 +1630,12 @@ fn block(
 }
 
 /// `text()` as the wire carries it: glyph paint only.
-fn text_run() -> ReaderTextRunV1 {
+fn text_run() -> ReaderTextRun {
     let text = text();
-    ReaderTextRunV1 {
+    ReaderTextRun {
         text: text.text,
         rect: text.rect,
-        paint: ReaderTextRunPaintV1 {
+        paint: ReaderTextRunPaint {
             font: text.paint.font.clone(),
             color: text.paint.color,
             text_shadows: text.paint.text_shadows.clone(),
@@ -1648,7 +1647,7 @@ fn text_run() -> ReaderTextRunV1 {
         clusters: text
             .clusters
             .iter()
-            .map(|&(byte, x, y)| ReaderClusterV1 { byte, x, y })
+            .map(|&(byte, x, y)| ReaderCluster { byte, x, y })
             .collect(),
     }
 }
@@ -1657,42 +1656,42 @@ fn text() -> DisplayTextCommand {
     DisplayTextCommand {
         text: "run".to_owned(),
         rect: rect(5.5, 2.0, 10.0, 20.0),
-        paint: RunPaint::new(ReaderRunPaintV1 {
-            font: ReaderFontPaintV1 {
+        paint: RunPaint::new(ReaderRunPaint {
+            font: ReaderFontPaint {
                 family: "Rito Serif".to_owned(),
                 size_px: 16.0,
                 weight: 400.0,
-                style: ReaderFontStyleV1::Italic,
+                style: ReaderFontStyle::Italic,
             },
             color: INK,
             word_spacing_px: Some(1.0),
             letter_spacing_px: Some(0.5),
             background_color: Some(TRANSLUCENT),
             background_radius: Some(2.0),
-            text_shadows: vec![ReaderTextShadowV1 {
+            text_shadows: vec![ReaderTextShadow {
                 offset_x: 1.0,
                 offset_y: 2.0,
                 blur: 3.0,
                 color: INK,
             }],
-            decoration: Some(ReaderRunDecorationV1 {
-                kind: ReaderRunDecorationKindV1::Underline,
+            decoration: Some(ReaderRunDecoration {
+                kind: ReaderRunDecorationKind::Underline,
                 y: 18.0,
                 thickness: 1.0,
                 color: INK,
             }),
-            padding: Some(ReaderSpacingV1 {
+            padding: Some(ReaderSpacing {
                 top: 1.0,
                 right: 2.0,
                 bottom: 3.0,
                 left: 4.0,
             }),
-            border: Some(ReaderRunBorderV1 {
-                top: Some(ReaderRunBorderEdgeV1 {
+            border: Some(ReaderRunBorder {
+                top: Some(ReaderRunBorderEdge {
                     width_px: 1.0,
-                    paint: ReaderBorderEdgePaintV1 {
+                    paint: ReaderBorderEdgePaint {
                         color: INK,
-                        style: ReaderBorderStyleV1::Solid,
+                        style: ReaderBorderStyle::Solid,
                     },
                 }),
                 bottom: None,

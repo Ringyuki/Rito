@@ -143,7 +143,7 @@ impl ParleyInlineContext {
     /// text run, measured through the host's own font fallback.
     pub(crate) fn host_normal_line(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
         sample: &str,
     ) -> Option<HostNormalLineMetric> {
         self.host_normal_line_sized(style, f64::from(style.font.size.get()), sample)
@@ -153,7 +153,7 @@ impl ParleyInlineContext {
     /// the base family at half size, a size no interned style carries.
     pub(crate) fn host_normal_line_sized(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
         size: f64,
         sample: &str,
     ) -> Option<HostNormalLineMetric> {
@@ -173,7 +173,7 @@ impl ParleyInlineContext {
     /// those paths have measured the style anyway.
     pub(crate) fn host_normal_line_peek(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
         sample: &str,
     ) -> Option<HostNormalLineMetric> {
         let key = (
@@ -191,7 +191,7 @@ impl ParleyInlineContext {
     /// grow with the book's character inventory instead of its fonts.
     pub(crate) fn run_sample(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
         font: &parley::FontData,
         first_char: char,
     ) -> String {
@@ -315,7 +315,7 @@ pub(crate) fn host_size_key(size: f64) -> u64 {
 pub(crate) const HOST_CHAR_ADVANCE_SENTINEL: &str = "\u{e00e}";
 
 /// Serializes a computed family list into the key the host measures with.
-pub(crate) fn host_family_key(style: &InlineFormattingStyleV1) -> String {
+pub(crate) fn host_family_key(style: &InlineFormattingStyle) -> String {
     style
         .font
         .families

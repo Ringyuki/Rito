@@ -3,10 +3,10 @@ import { drawCanvasRubyFragment, drawCanvasTextFragment } from './canvas-text/re
 import type { CanvasTextColorOverride } from './canvas-text/types';
 import { applyTransform, drawImage, drawShadow, strokePath, tracePath } from './primitive-blits';
 import {
-  convertReaderRubyV1,
-  convertReaderTextV1,
-  toCanvasColorV1,
-} from './reader-v1-canvas-converter';
+  convertReaderRuby,
+  convertReaderText,
+  toCanvasColor,
+} from './reader-session-canvas-converter';
 import { isBookOwnedPageGround } from './theme/text-color';
 
 type Primitive = CoreReaderPrimitive;
@@ -235,7 +235,7 @@ function renderPrimitive(
  * box it covers for the ink typeset over it (the engine only declares
  * opaque ones). */
 function declareGround(primitive: FillPrimitive, state: RenderState): string {
-  const color = toCanvasColorV1(primitive.color);
+  const color = toCanvasColor(primitive.color);
   if (primitive.ground === 'page') {
     state.blockGrounds.length = 0;
     state.bookOwnedPageGround = undefined;
@@ -282,7 +282,7 @@ function renderText(
   try {
     if (state.ratio !== 1) ctx.scale(state.ratio, state.ratio);
     if (primitive.kind === 'text') {
-      const command = convertReaderTextV1(primitive);
+      const command = convertReaderText(primitive);
       drawCanvasTextFragment(
         ctx,
         {
@@ -296,7 +296,7 @@ function renderText(
       );
       return;
     }
-    const command = convertReaderRubyV1(primitive);
+    const command = convertReaderRuby(primitive);
     drawCanvasRubyFragment(
       ctx,
       {

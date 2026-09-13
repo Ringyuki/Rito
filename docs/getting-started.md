@@ -128,7 +128,7 @@ reader.dispose();
 
 - Use `createReader()` from `@ritojs/core` for the standard browser reader
   flow.
-- Use `openBrowserReaderV1()` from `@ritojs/core` when your host drives the
+- Use `openBrowserReaderSession()` from `@ritojs/core` when your host drives the
   artifact protocol itself (candidates, adoption, background advance) —
   the same protocol Flutter and the C ABI expose.
 - Use `@ritojs/kit` when you want transitions, overlays, pointer and

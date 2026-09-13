@@ -30,7 +30,7 @@ Primitives (device pixels)
   │  crates/rito-core/src/render/lower
   ▼
 RITODL1 format 2
-  │  crates/rito-core/src/render/commands/reader_wire_v1
+  │  crates/rito-core/src/render/commands/reader_wire
   ▼
 Hosts blit: web Canvas pen, Flutter pen
 ```
@@ -52,8 +52,8 @@ publication's stylesheets, the reading-system UA stylesheet (`ua.rs`,
 the single place reading-system defaults such as `img { object-fit:
 contain }` are declared) and presentational hints. Stylo types never
 leave that crate. The result is projected into the typed tables of
-`rito-style-contract`: a layout table (`LayoutStyleTableV1`) and an
-inline table (`InlineStyleTableV1`), both indexed by source node. Every
+`rito-style-contract`: a layout table (`LayoutStyleTable`) and an
+inline table (`InlineStyleTable`), both indexed by source node. Every
 consumer downstream reads those tables; nothing re-parses CSS.
 
 Colours reach paint as 8-bit sRGB (`style/paint_values.rs`), the way a

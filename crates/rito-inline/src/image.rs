@@ -29,7 +29,7 @@ pub(crate) enum PercentageImageSizing {
 pub(crate) fn image_display_size(
     intrinsic_width: f64,
     intrinsic_height: f64,
-    layout_style: &LayoutFormattingStyleV1,
+    layout_style: &LayoutFormattingStyle,
     available_inline_size: Option<f64>,
     available_block_size: Option<f64>,
     containing_block_size: Option<f64>,
@@ -90,10 +90,10 @@ pub(crate) fn image_display_size(
         }
     };
     let preferred =
-        |value: PreferredSizeV1, axis: &str, block: bool| -> Result<Option<f64>, LayoutError> {
+        |value: PreferredSize, axis: &str, block: bool| -> Result<Option<f64>, LayoutError> {
             match value {
-                PreferredSizeV1::Auto => Ok(None),
-                PreferredSizeV1::Value(value) => Ok(if block {
+                PreferredSize::Auto => Ok(None),
+                PreferredSize::Value(value) => Ok(if block {
                     resolve_block(value.value())
                 } else {
                     resolve(value.value())
@@ -123,7 +123,7 @@ pub(crate) fn image_display_size(
     // A percentage `max-width` makes the element just as shrinkable as a
     // percentage `width` does, so it collapses the same way when there is
     // no basis to resolve against.
-    if let MaximumSizeV1::Value(cap) = layout_style.max_width {
+    if let MaximumSize::Value(cap) = layout_style.max_width {
         let _ = resolve(cap.value());
     }
     let width_percentage_without_basis = percentage_without_basis.get();
@@ -154,7 +154,7 @@ pub(crate) fn image_display_size(
         let _ = width_percentage_without_basis;
         return Ok((0.0, 0.0));
     }
-    if let MaximumSizeV1::Value(cap) = layout_style.max_width {
+    if let MaximumSize::Value(cap) = layout_style.max_width {
         if let Some(cap) = resolve(cap.value()) {
             if width > cap && width > 0.0 {
                 let scale = cap / width;
@@ -175,9 +175,9 @@ pub(crate) fn image_display_size(
     // percentage binds only against a definite containing height. The
     // clamp rescales only the AUTO cross axis, like the max-width arm.
     let max_height_cap = match layout_style.max_height {
-        rito_style_contract::MaximumHeightV1::None => None,
-        rito_style_contract::MaximumHeightV1::Length(px) => Some(f64::from(px.get())),
-        rito_style_contract::MaximumHeightV1::Percentage(ratio) => {
+        rito_style_contract::MaximumHeight::None => None,
+        rito_style_contract::MaximumHeight::Length(px) => Some(f64::from(px.get())),
+        rito_style_contract::MaximumHeight::Percentage(ratio) => {
             containing_block_size.map(|basis| f64::from(ratio.ratio()) * basis)
         }
     };

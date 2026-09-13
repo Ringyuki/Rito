@@ -1,4 +1,4 @@
-use rito_stylo::{parse_font_faces_v1, FontFaceStylesheetInputV1};
+use rito_stylo::{parse_font_faces, FontFaceStylesheetInput};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -58,13 +58,13 @@ pub(super) fn runtime_font_faces(document: &LoadedEpubDocument) -> Vec<RuntimeFo
         .stylesheets
         .iter()
         .map(|stylesheet| {
-            FontFaceStylesheetInputV1::author(
+            FontFaceStylesheetInput::author(
                 &stylesheet.text,
                 "https://rito.invalid/publication.css",
             )
         })
         .collect::<Vec<_>>();
-    let Ok(rules) = parse_font_faces_v1(&stylesheet_inputs) else {
+    let Ok(rules) = parse_font_faces(&stylesheet_inputs) else {
         return faces;
     };
     for rule in rules {

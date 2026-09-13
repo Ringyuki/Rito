@@ -33,7 +33,7 @@ export function createRitoCoreWasmStatus(npmWasmArtifact: boolean): RitoCoreWasm
       boundedRevisionControl: true,
       chapterLocalRevisionControl: true,
       boundedSessionController: true,
-      readerSessionV1: false,
+      readerSession: false,
       wasmBindgen: true,
       npmWasmArtifact,
     },

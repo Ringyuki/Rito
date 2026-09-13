@@ -12,7 +12,7 @@ use crate::*;
 pub(crate) fn stack_covers_character(
     fonts: &mut FontContext,
     registered_families: &[String],
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
     character: char,
 ) -> bool {
     use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};
@@ -55,7 +55,7 @@ pub(crate) fn stack_covers_character(
 pub(crate) fn stack_notdef_advance_px(
     fonts: &mut FontContext,
     registered_families: &[String],
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
     size: f32,
 ) -> Option<f64> {
     use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};

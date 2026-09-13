@@ -4,10 +4,9 @@
 //! lowering's final pass scales the result to the device.
 
 use super::super::commands::contract::{
-    ReaderBackgroundPaintV1, ReaderBackgroundRepeatV1, ReaderBackgroundSizeV1, ReaderBlockBorderV1,
-    ReaderBlockPaintV1, ReaderBlockRadiusV1, ReaderBorderBoxV1, ReaderBorderEdgePaintV1,
-    ReaderBorderStyleV1, ReaderBoxShadowV1, ReaderColorV1, ReaderLengthV1, ReaderRunBorderEdgeV1,
-    ReaderRunBorderV1,
+    ReaderBackgroundPaint, ReaderBackgroundRepeat, ReaderBackgroundSize, ReaderBlockBorder,
+    ReaderBlockPaint, ReaderBlockRadius, ReaderBorderBox, ReaderBorderEdgePaint, ReaderBorderStyle,
+    ReaderBoxShadow, ReaderColor, ReaderLength, ReaderRunBorder, ReaderRunBorderEdge,
 };
 use super::{
     border::{band_thickness, stroke_edge, stroke_outline, Edge, BLACK},
@@ -24,8 +23,8 @@ const MAX_BACKGROUND_TILES: f64 = 4096.0;
 
 pub(super) fn lower_block(
     rect: DeviceRect,
-    paint: &ReaderBlockPaintV1,
-    border_box: Option<&ReaderBorderBoxV1>,
+    paint: &ReaderBlockPaint,
+    border_box: Option<&ReaderBorderBox>,
     images: &dyn Fn(&str) -> Option<ImageSize>,
     out: &mut Vec<Primitive>,
 ) {
@@ -61,10 +60,10 @@ pub(super) fn lower_block(
 /// run's ink always finds its own band whatever the font's descent.
 pub(super) fn lower_inline_box(
     rect: DeviceRect,
-    background: Option<ReaderColorV1>,
+    background: Option<ReaderColor>,
     radius: Option<f64>,
     closed: (bool, bool),
-    border: Option<&ReaderRunBorderV1>,
+    border: Option<&ReaderRunBorder>,
     ground: DeviceRect,
     out: &mut Vec<Primitive>,
 ) {
@@ -93,9 +92,9 @@ struct Radius {
 }
 
 impl Radius {
-    fn resolve(radius: Option<ReaderBlockRadiusV1>, rect: DeviceRect) -> Self {
+    fn resolve(radius: Option<ReaderBlockRadius>, rect: DeviceRect) -> Self {
         match radius {
-            Some(ReaderBlockRadiusV1::Corners(corners))
+            Some(ReaderBlockRadius::Corners(corners))
                 if corners.iter().any(|corner| *corner > 0.0) =>
             {
                 Self {
@@ -104,12 +103,12 @@ impl Radius {
                     corners: Some(corners),
                 }
             }
-            Some(ReaderBlockRadiusV1::Percent(percent)) => Self {
+            Some(ReaderBlockRadius::Percent(percent)) => Self {
                 rx: percent / 100.0 * rect.width,
                 ry: percent / 100.0 * rect.height,
                 corners: None,
             },
-            Some(ReaderBlockRadiusV1::Px(value)) => Self {
+            Some(ReaderBlockRadius::Px(value)) => Self {
                 rx: value,
                 ry: value,
                 corners: None,
@@ -161,7 +160,7 @@ impl Radius {
 fn lower_shadow(
     rect: DeviceRect,
     radius: Radius,
-    shadow: &ReaderBoxShadowV1,
+    shadow: &ReaderBoxShadow,
     out: &mut Vec<Primitive>,
 ) {
     if shadow.inset {
@@ -199,7 +198,7 @@ fn lower_shadow(
 fn background_fill(
     rect: DeviceRect,
     radius: Radius,
-    color: ReaderColorV1,
+    color: ReaderColor,
     ground: DeviceRect,
     out: &mut Vec<Primitive>,
 ) {
@@ -234,7 +233,7 @@ fn background_fill(
 fn background_image(
     rect: DeviceRect,
     radius: Radius,
-    background: &ReaderBackgroundPaintV1,
+    background: &ReaderBackgroundPaint,
     href: &str,
     images: &dyn Fn(&str) -> Option<ImageSize>,
     out: &mut Vec<Primitive>,
@@ -255,8 +254,8 @@ fn background_image(
     );
     // The image's origin: the box origin for auto sizing, its centre once
     // the image is scaled to the box.
-    let sized = !matches!(background.size, None | Some(ReaderBackgroundSizeV1::Auto));
-    let default_axis = ReaderLengthV1::Percent(if sized { 50.0 } else { 0.0 });
+    let sized = !matches!(background.size, None | Some(ReaderBackgroundSize::Auto));
+    let default_axis = ReaderLength::Percent(if sized { 50.0 } else { 0.0 });
     let (position_x, position_y) = background
         .position
         .map_or((default_axis, default_axis), |position| {
@@ -269,7 +268,7 @@ fn background_image(
     out.push(Primitive::ClipPath {
         path: radius.outline(rect),
     });
-    let repeats = !matches!(background.repeat, Some(ReaderBackgroundRepeatV1::NoRepeat))
+    let repeats = !matches!(background.repeat, Some(ReaderBackgroundRepeat::NoRepeat))
         && draw_width > 0.0
         && draw_height > 0.0;
     if repeats {
@@ -321,26 +320,26 @@ fn tile_count(start: f64, step: f64, end: f64) -> f64 {
 /// resolves against the box, an auto axis derives from the intrinsic
 /// ratio once the other axis resolves.
 fn image_size(
-    size: Option<ReaderBackgroundSizeV1>,
+    size: Option<ReaderBackgroundSize>,
     image_width: f64,
     image_height: f64,
     box_width: f64,
     box_height: f64,
 ) -> (f64, f64) {
     match size {
-        Some(ReaderBackgroundSizeV1::Cover) => {
+        Some(ReaderBackgroundSize::Cover) => {
             let scale = (box_width / image_width).max(box_height / image_height);
             (image_width * scale, image_height * scale)
         }
-        Some(ReaderBackgroundSizeV1::Contain) => {
+        Some(ReaderBackgroundSize::Contain) => {
             let scale = (box_width / image_width).min(box_height / image_height);
             (image_width * scale, image_height * scale)
         }
-        Some(ReaderBackgroundSizeV1::Explicit { x, y }) => {
-            let axis = |axis: Option<ReaderLengthV1>, extent: f64| {
+        Some(ReaderBackgroundSize::Explicit { x, y }) => {
+            let axis = |axis: Option<ReaderLength>, extent: f64| {
                 axis.map(|length| match length {
-                    ReaderLengthV1::Px(value) => value,
-                    ReaderLengthV1::Percent(percent) => extent * percent / 100.0,
+                    ReaderLength::Px(value) => value,
+                    ReaderLength::Percent(percent) => extent * percent / 100.0,
                 })
             };
             let explicit_width = axis(x, box_width);
@@ -355,14 +354,14 @@ fn image_size(
                 }),
             )
         }
-        None | Some(ReaderBackgroundSizeV1::Auto) => (image_width, image_height),
+        None | Some(ReaderBackgroundSize::Auto) => (image_width, image_height),
     }
 }
 
-fn position_offset(length: ReaderLengthV1, free_space: f64) -> f64 {
+fn position_offset(length: ReaderLength, free_space: f64) -> f64 {
     match length {
-        ReaderLengthV1::Px(value) => value,
-        ReaderLengthV1::Percent(percent) => free_space * percent / 100.0,
+        ReaderLength::Px(value) => value,
+        ReaderLength::Percent(percent) => free_space * percent / 100.0,
     }
 }
 
@@ -377,13 +376,13 @@ struct Edges {
 }
 
 impl Edges {
-    fn resolve(border: &ReaderBlockBorderV1, widths: &ReaderBorderBoxV1) -> Self {
-        let edge = |paint: Option<ReaderBorderEdgePaintV1>, width: f64| match paint {
+    fn resolve(border: &ReaderBlockBorder, widths: &ReaderBorderBox) -> Self {
+        let edge = |paint: Option<ReaderBorderEdgePaint>, width: f64| match paint {
             Some(paint)
                 if width > 0.0
                     && !matches!(
                         paint.style,
-                        ReaderBorderStyleV1::None | ReaderBorderStyleV1::Hidden
+                        ReaderBorderStyle::None | ReaderBorderStyle::Hidden
                     ) =>
             {
                 Edge {
@@ -404,13 +403,13 @@ impl Edges {
 
     /// A run's inline box edges: its start edge is the left one, its end
     /// edge the right one; an open end carries no edge at all.
-    fn from_run(border: &ReaderRunBorderV1) -> Self {
-        let edge = |edge: Option<ReaderRunBorderEdgeV1>| match edge {
+    fn from_run(border: &ReaderRunBorder) -> Self {
+        let edge = |edge: Option<ReaderRunBorderEdge>| match edge {
             Some(edge)
                 if edge.width_px > 0.0
                     && !matches!(
                         edge.paint.style,
-                        ReaderBorderStyleV1::None | ReaderBorderStyleV1::Hidden
+                        ReaderBorderStyle::None | ReaderBorderStyle::Hidden
                     ) =>
             {
                 Edge {
@@ -449,7 +448,7 @@ impl Edges {
 const ZERO_EDGE: Edge = Edge {
     width: 0.0,
     color: BLACK,
-    style: ReaderBorderStyleV1::Solid,
+    style: ReaderBorderStyle::Solid,
 };
 
 /// The browser paints a straight border box's edges top, bottom, left,
@@ -482,10 +481,10 @@ fn straight_borders(snapped: DeviceRect, edges: &Edges, out: &mut Vec<Primitive>
             0.0
         }
     };
-    let fills_band = |style: ReaderBorderStyleV1| {
+    let fills_band = |style: ReaderBorderStyle| {
         !matches!(
             style,
-            ReaderBorderStyleV1::Dotted | ReaderBorderStyleV1::Dashed | ReaderBorderStyleV1::Double
+            ReaderBorderStyle::Dotted | ReaderBorderStyle::Dashed | ReaderBorderStyle::Double
         )
     };
     let (left, top, right, bottom) = (snapped.x, snapped.y, snapped.right(), snapped.bottom());
@@ -645,11 +644,11 @@ fn uniform_ring(snapped: DeviceRect, radius: Radius, edge: Edge, out: &mut Vec<P
             (radius.ry - inset).max(0.0),
         )
     };
-    if edge.style == ReaderBorderStyleV1::Double {
+    if edge.style == ReaderBorderStyle::Double {
         let third = edge.width / 3.0;
         let line = Edge {
             width: third,
-            style: ReaderBorderStyleV1::Solid,
+            style: ReaderBorderStyle::Solid,
             ..edge
         };
         for inset in [third / 2.0, edge.width - third / 2.0] {
@@ -670,7 +669,7 @@ fn crescent(snapped: DeviceRect, radius: Radius, edges: &Edges, out: &mut Vec<Pr
     if !edges
         .all()
         .iter()
-        .all(|edge| edge.style == ReaderBorderStyleV1::Solid && edge.color == color)
+        .all(|edge| edge.style == ReaderBorderStyle::Solid && edge.color == color)
     {
         return false;
     }
@@ -765,7 +764,7 @@ fn each_side(snapped: DeviceRect, radius: Radius, edges: &Edges, out: &mut Vec<P
         out.push(Primitive::ClipPath {
             path: triangle(center, from, to),
         });
-        if edge.style == ReaderBorderStyleV1::Solid {
+        if edge.style == ReaderBorderStyle::Solid {
             let mut path = rounded_rect(snapped, corner_rx, corner_ry);
             if !inner.is_empty() {
                 path.ops

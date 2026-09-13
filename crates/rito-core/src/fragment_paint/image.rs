@@ -100,7 +100,7 @@ pub(super) fn append_image_command(
         // keeps every ratio-true image bit-identical to the plain fill
         // it always painted (the pixel-walk zero books stay zero). Only
         // a box the author forced off the raster ratio letterboxes.
-        if *object_fit == rito_style_contract::ObjectFitV1::Contain
+        if *object_fit == rito_style_contract::ObjectFit::Contain
             && *intrinsic_width > 0.0
             && *intrinsic_height > 0.0
             && image.rect.width > 0.0

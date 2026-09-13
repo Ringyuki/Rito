@@ -1,7 +1,7 @@
 import {
   READER_V1_PRIMITIVE_LIST_FORMAT_VERSION,
-  decodeRitoReaderPrimitiveListV1,
-} from './reader-v1-primitive-decoder-runtime.js';
+  decodeRitoReaderPrimitiveList,
+} from './reader-session-primitive-decoder-runtime.js';
 
 // A cached frame's bytes are its display commands lowered to the device
 // grid: the `RITODL1` format-2 primitive list. The metadata beside them
@@ -32,7 +32,7 @@ export function validateFrameCommandBufferMetadata(metadata, bytes) {
 
 export function decodeRitoFrameCommandBuffer(metadata, bytes) {
   validateFrameCommandBufferMetadata(metadata, bytes);
-  const list = decodeRitoReaderPrimitiveListV1(bytes);
+  const list = decodeRitoReaderPrimitiveList(bytes);
   if (list.ratio !== metadata.ratio) {
     throw new Error('Rito frame command buffer ratio does not match metadata.');
   }

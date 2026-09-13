@@ -84,14 +84,14 @@ pub struct AbsoluteColor {
 /// used-value / paint time. Keeping that dependency symbolic lets inherited
 /// shadow templates remain shared across elements with different foregrounds.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum ComputedColorV1 {
+pub enum ComputedColor {
     /// A color independent of the element foreground.
     Absolute(AbsoluteColor),
     /// The CSS `currentColor` keyword.
     CurrentColor,
 }
 
-impl ComputedColorV1 {
+impl ComputedColor {
     /// Resolves the symbolic color for painting.
     pub const fn resolve(self, current_color: AbsoluteColor) -> AbsoluteColor {
         match self {
@@ -101,7 +101,7 @@ impl ComputedColorV1 {
     }
 }
 
-impl From<AbsoluteColor> for ComputedColorV1 {
+impl From<AbsoluteColor> for ComputedColor {
     fn from(value: AbsoluteColor) -> Self {
         Self::Absolute(value)
     }

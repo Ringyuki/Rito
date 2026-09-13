@@ -2,24 +2,24 @@
 //! keywords and `color()` functions, parsed to the typed colour and
 //! written back.
 
-use super::super::contract::{ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1};
+use super::super::contract::{ReaderColor, ReaderColorNoneFlags, ReaderColorSpace};
 use super::FixtureError;
 
 /// A typed colour from fixture text; panics on text no fixture spells.
-pub(crate) fn css_color(source: &str) -> ReaderColorV1 {
+pub(crate) fn css_color(source: &str) -> ReaderColor {
     parse_color(source, "test colour").unwrap_or_else(|error| panic!("{source}: {error:?}"))
 }
 
 pub(crate) fn parse_color(
     source: &str,
     context: &'static str,
-) -> Result<ReaderColorV1, FixtureError> {
+) -> Result<ReaderColor, FixtureError> {
     let source = source.trim();
     if source.eq_ignore_ascii_case("currentcolor") {
         return Err(FixtureError::UnsupportedValue("color.currentColor"));
     }
     if source.eq_ignore_ascii_case("transparent") {
-        return absolute(ReaderColorSpaceV1::Srgb, [0.0; 3], 0.0);
+        return absolute(ReaderColorSpace::Srgb, [0.0; 3], 0.0);
     }
     if let Some(color) = named_color(source) {
         return Ok(color);
@@ -38,12 +38,12 @@ pub(crate) fn parse_color(
 
 /// The fixture text for a typed colour: `#rrggbb` for an opaque sRGB
 /// colour, `rgba()` for a translucent one, `color()` elsewhere.
-pub(crate) fn color_css(color: ReaderColorV1) -> String {
+pub(crate) fn color_css(color: ReaderColor) -> String {
     if let Some([red, green, blue]) = color.opaque_srgb8() {
         return format!("#{red:02x}{green:02x}{blue:02x}");
     }
     let none = color.none;
-    if color.space == ReaderColorSpaceV1::Srgb
+    if color.space == ReaderColorSpace::Srgb
         && !(none.component_0 || none.component_1 || none.component_2 || none.alpha)
     {
         let [red, green, blue] = color
@@ -68,7 +68,7 @@ pub(crate) fn color_css(color: ReaderColorV1) -> String {
     )
 }
 
-fn parse_hex(source: &str) -> Option<ReaderColorV1> {
+fn parse_hex(source: &str) -> Option<ReaderColor> {
     let (red, green, blue, alpha) = match source.len() {
         3 => (
             duplicate_nibble(source, 0)?,
@@ -96,10 +96,10 @@ fn parse_hex(source: &str) -> Option<ReaderColorV1> {
         ),
         _ => return None,
     };
-    Some(ReaderColorV1::srgb8(red, green, blue, channel(alpha)))
+    Some(ReaderColor::srgb8(red, green, blue, channel(alpha)))
 }
 
-fn parse_rgb(body: &str, context: &'static str) -> Result<ReaderColorV1, FixtureError> {
+fn parse_rgb(body: &str, context: &'static str) -> Result<ReaderColor, FixtureError> {
     let parts = components(body);
     if !(3..=4).contains(&parts.len()) {
         return Err(FixtureError::InvalidColor(context));
@@ -114,27 +114,27 @@ fn parse_rgb(body: &str, context: &'static str) -> Result<ReaderColorV1, Fixture
         .map(|value| alpha_component(value, context))
         .transpose()?
         .unwrap_or(1.0);
-    absolute(ReaderColorSpaceV1::Srgb, components, alpha)
+    absolute(ReaderColorSpace::Srgb, components, alpha)
 }
 
-fn parse_color_function(body: &str, context: &'static str) -> Result<ReaderColorV1, FixtureError> {
+fn parse_color_function(body: &str, context: &'static str) -> Result<ReaderColor, FixtureError> {
     let parts = components(body);
     if !(4..=5).contains(&parts.len()) {
         return Err(FixtureError::InvalidColor(context));
     }
     let space = match parts[0].to_ascii_lowercase().as_str() {
-        "srgb" => ReaderColorSpaceV1::Srgb,
-        "srgb-linear" => ReaderColorSpaceV1::SrgbLinear,
-        "display-p3" => ReaderColorSpaceV1::DisplayP3,
-        "display-p3-linear" => ReaderColorSpaceV1::DisplayP3Linear,
-        "a98-rgb" => ReaderColorSpaceV1::A98Rgb,
-        "prophoto-rgb" => ReaderColorSpaceV1::ProphotoRgb,
-        "rec2020" => ReaderColorSpaceV1::Rec2020,
-        "xyz-d50" => ReaderColorSpaceV1::XyzD50,
-        "xyz" | "xyz-d65" => ReaderColorSpaceV1::XyzD65,
+        "srgb" => ReaderColorSpace::Srgb,
+        "srgb-linear" => ReaderColorSpace::SrgbLinear,
+        "display-p3" => ReaderColorSpace::DisplayP3,
+        "display-p3-linear" => ReaderColorSpace::DisplayP3Linear,
+        "a98-rgb" => ReaderColorSpace::A98Rgb,
+        "prophoto-rgb" => ReaderColorSpace::ProphotoRgb,
+        "rec2020" => ReaderColorSpace::Rec2020,
+        "xyz-d50" => ReaderColorSpace::XyzD50,
+        "xyz" | "xyz-d65" => ReaderColorSpace::XyzD65,
         _ => return Err(FixtureError::UnsupportedValue("color.space")),
     };
-    let mut none = ReaderColorNoneFlagsV1::default();
+    let mut none = ReaderColorNoneFlags::default();
     let values = [
         color_component(&parts[1], &mut none.component_0, context)?,
         color_component(&parts[2], &mut none.component_1, context)?,
@@ -152,14 +152,14 @@ fn parse_color_function(body: &str, context: &'static str) -> Result<ReaderColor
 }
 
 fn typed_absolute(
-    space: ReaderColorSpaceV1,
+    space: ReaderColorSpace,
     components: [f32; 3],
     alpha: f32,
-    none: ReaderColorNoneFlagsV1,
+    none: ReaderColorNoneFlags,
     context: &'static str,
-) -> Result<ReaderColorV1, FixtureError> {
+) -> Result<ReaderColor, FixtureError> {
     if components.iter().all(|value| value.is_finite()) && alpha.is_finite() {
-        Ok(ReaderColorV1 {
+        Ok(ReaderColor {
             space,
             components,
             alpha: alpha.clamp(0.0, 1.0),
@@ -171,20 +171,20 @@ fn typed_absolute(
 }
 
 fn absolute(
-    space: ReaderColorSpaceV1,
+    space: ReaderColorSpace,
     components: [f32; 3],
     alpha: f32,
-) -> Result<ReaderColorV1, FixtureError> {
+) -> Result<ReaderColor, FixtureError> {
     typed_absolute(
         space,
         components,
         alpha,
-        ReaderColorNoneFlagsV1::default(),
+        ReaderColorNoneFlags::default(),
         "color",
     )
 }
 
-fn named_color(source: &str) -> Option<ReaderColorV1> {
+fn named_color(source: &str) -> Option<ReaderColor> {
     let rgba: u32 = match source.to_ascii_lowercase().as_str() {
         "black" => 0x000000ff,
         "silver" => 0xc0c0c0ff,
@@ -206,7 +206,7 @@ fn named_color(source: &str) -> Option<ReaderColorV1> {
         "rebeccapurple" => 0x663399ff,
         _ => return None,
     };
-    Some(ReaderColorV1::srgb8(
+    Some(ReaderColor::srgb8(
         (rgba >> 24) as u8,
         (rgba >> 16) as u8,
         (rgba >> 8) as u8,

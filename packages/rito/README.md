@@ -44,7 +44,7 @@ reader.renderSpread(0);
 
 - the root entry only: `createReader()`, `preloadReaderRuntime()`,
   `createLayoutConfig()`, the `Reader` facade and its types
-- `openBrowserReaderV1()` and `createBrowserReaderV1CanvasPresenter()` for
+- `openBrowserReaderSession()` and `createBrowserReaderSessionCanvasPresenter()` for
   hosts that drive the artifact protocol directly
 - browser binding internals for WASM loading, the Worker, resource
   transfer, font registration, image decoding and Canvas blitting

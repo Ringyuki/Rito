@@ -23,7 +23,7 @@ fn actor_registry_does_not_store_core_sessions() {
     let text = fs::read_to_string(source).expect("registry source is readable");
     assert!(text.contains("actors: HashMap<u64, RegisteredActor>"));
     assert!(text.contains("handle: ActorHandle"));
-    assert!(!text.contains("ReaderSessionV1"));
+    assert!(!text.contains("ReaderSession"));
     assert!(!text.contains("RuntimeDocument"));
 }
 
@@ -31,7 +31,7 @@ fn actor_registry_does_not_store_core_sessions() {
 fn actor_mailbox_stays_bounded_and_non_blocking_at_admission() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/actor.rs");
     let text = fs::read_to_string(source).expect("actor source is readable");
-    assert!(text.contains("RITO_ACTOR_MAX_IN_FLIGHT_V1"));
+    assert!(text.contains("RITO_ACTOR_MAX_IN_FLIGHT"));
     assert!(text.contains("mpsc::sync_channel(ACTOR_QUEUE_CAPACITY)"));
     assert!(text.contains("sender.try_send(envelope)"));
     assert!(!text.contains("mpsc::channel()"));
@@ -76,11 +76,11 @@ fn publication_metadata_is_binary_bounded_and_fifo() {
     let header =
         fs::read_to_string(manifest.join("include/rito_ffi.h")).expect("public header is readable");
     assert!(actor.contains("ActorCommand::ReadPublication"));
-    assert!(actor.contains("encode_reader_publication_v1(session.publication_v1())"));
+    assert!(actor.contains("encode_reader_publication(session.publication())"));
     assert!(!actor.contains("queued_publication"));
     assert!(!actor.contains("publication_json"));
-    assert!(header.contains("RITO_PUBLICATION_WIRE_BYTES_MAX_V1 UINT64_C(16777216)"));
-    assert!(header.contains("rito_read_publication_v1"));
+    assert!(header.contains("RITO_PUBLICATION_WIRE_BYTES_MAX UINT64_C(16777216)"));
+    assert!(header.contains("rito_read_publication"));
 }
 
 #[test]
@@ -93,17 +93,17 @@ fn open_is_one_pass_and_adjacent_pending_requires_core_owned_state() {
     let header =
         fs::read_to_string(manifest.join("include/rito_ffi.h")).expect("public header is readable");
 
-    assert!(actor.contains("error.status == RITO_STATUS_TARGET_NOT_PUBLISHED_V1"));
-    assert!(actor.contains("error.status = RITO_STATUS_ADJACENT_PENDING_V1"));
-    assert!(actor.contains("session.has_pending_adjacent_v1()"));
+    assert!(actor.contains("error.status == RITO_STATUS_TARGET_NOT_PUBLISHED"));
+    assert!(actor.contains("error.status = RITO_STATUS_ADJACENT_PENDING"));
+    assert!(actor.contains("session.has_pending_adjacent()"));
     assert!(actor.contains("InitialArtifactReply::Ready(artifact)"));
     assert!(actor.contains("InitialArtifactReply::Failed(error)"));
     assert!(registry.contains("InitialArtifactReply::Ready(artifact)"));
     assert!(registry.contains("InitialArtifactReply::Failed(error)"));
-    assert!(header.contains("RITO_STATUS_ADJACENT_PENDING_V1"));
+    assert!(header.contains("RITO_STATUS_ADJACENT_PENDING"));
     assert!(header.contains("paginated whole in\n * this one call"));
     assert!(header.contains("without\n * a pinned font policy fails closed"));
-    assert!(header.contains("RITO_STATUS_TARGET_NOT_PUBLISHED_V1 is terminal"));
+    assert!(header.contains("RITO_STATUS_TARGET_NOT_PUBLISHED is terminal"));
 }
 
 #[test]
@@ -130,25 +130,25 @@ fn fixed_handoff_and_background_messages_are_validated_before_actor_admission() 
     let text = fs::read_to_string(source).expect("ABI source is readable");
     assert_before_admission(
         &text,
-        "pub extern \"C\" fn rito_adopt_foreground_candidate_v1",
+        "pub extern \"C\" fn rito_adopt_foreground_candidate",
         "input::foreground_handoff",
     );
     assert_before_admission(
         &text,
-        "pub extern \"C\" fn rito_advance_background_v1",
+        "pub extern \"C\" fn rito_advance_background",
         "input::background_request",
     );
     assert_before_admission(
         &text,
-        "pub extern \"C\" fn rito_adopt_background_candidate_v1",
+        "pub extern \"C\" fn rito_adopt_background_candidate",
         "input::background_handoff",
     );
     let header =
         fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("include/rito_ffi.h"))
             .expect("public header is readable");
-    assert!(header.contains("RITO_FOREGROUND_HANDOFF_WIRE_BYTES_V1 UINT64_C(48)"));
-    assert!(header.contains("RITO_FOREGROUND_HANDOFF_ACK_WIRE_BYTES_V1 UINT64_C(48)"));
-    assert!(header.contains("rito_adopt_foreground_candidate_v1"));
+    assert!(header.contains("RITO_FOREGROUND_HANDOFF_WIRE_BYTES UINT64_C(48)"));
+    assert!(header.contains("RITO_FOREGROUND_HANDOFF_ACK_WIRE_BYTES UINT64_C(48)"));
+    assert!(header.contains("rito_adopt_foreground_candidate"));
 }
 
 fn assert_before_admission(source: &str, function: &str, validation: &str) {

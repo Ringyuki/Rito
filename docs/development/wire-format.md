@@ -5,11 +5,11 @@ list lowered to device pixels at the host's render ratio. The host
 decodes and blits; every raster decision was made in the engine.
 
 The Rust encoder is the definition
-(`crates/rito-core/src/render/commands/reader_wire_v1/encode/`). Two
+(`crates/rito-core/src/render/commands/reader_wire/encode/`). Two
 production decoders are kept in the same commit as the encoder: the
 JavaScript one in `packages/rito-core-wasm/src/frame-command-buffer-decoder-runtime.js`
 and the Dart one in `packages/rito_flutter/lib/src/protocol/primitive_decoder.dart`.
-`packages/rito-core-wasm/tests/fixtures/reader-v1-primitive-list.hex`
+`packages/rito-core-wasm/tests/fixtures/reader-session-primitive-list.hex`
 holds bytes the live encoder wrote for one of every primitive, and a
 Rust test keeps it in step. There is no cross-version compatibility
 guarantee: engine and decoder come from the same commit.

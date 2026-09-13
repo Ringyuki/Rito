@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use rito_style_contract::{InlineStyleTableV1, LayoutStyleTableV1};
+use rito_style_contract::{InlineStyleTable, LayoutStyleTable};
 use serde_json::{Number, Value};
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
     interaction::{FootnoteEntry, FootnoteTargetSet},
     layout::LayoutConfig,
     render::{
-        count_display_commands, encode_reader_primitive_list_v1, hash_display_commands, lower,
+        count_display_commands, encode_reader_primitive_list, hash_display_commands, lower,
         summarize_display_list_font_families, summarize_display_list_resource_refs, DisplayCommand,
         ImageSize,
     },
@@ -36,8 +36,8 @@ pub(super) enum RuntimeRevisionCoordinateSpace {
 /// The typed style tables one resolved chapter retains.
 #[derive(Debug)]
 pub(super) struct RuntimeChapterStyleTables {
-    pub(super) layout: LayoutStyleTableV1,
-    pub(super) inline: InlineStyleTableV1,
+    pub(super) layout: LayoutStyleTable,
+    pub(super) inline: InlineStyleTable,
 }
 
 /// One paginated revision: the page table the fragment engine built for
@@ -232,12 +232,12 @@ fn lower_frame_commands(
     commands: &[DisplayCommand],
     ratio: f64,
     document: &mut LoadedEpubDocument,
-) -> EpubResult<crate::render::ReaderEncodedDisplayListV1> {
+) -> EpubResult<crate::render::ReaderEncodedDisplayList> {
     document.ensure_frame_image_sizes(commands)?;
     let images = |href: &str| find_image_size(&document.images, href);
     let lowered =
         lower(commands, ratio, &images).map_err(|error| EpubError::new(error.to_string()))?;
-    encode_reader_primitive_list_v1(&lowered).map_err(|error| EpubError::new(error.to_string()))
+    encode_reader_primitive_list(&lowered).map_err(|error| EpubError::new(error.to_string()))
 }
 
 impl LoadedEpubDocument {

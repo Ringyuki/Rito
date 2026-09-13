@@ -172,7 +172,7 @@ impl PublicationFootnoteProgress {
 
 impl RuntimeDocument {
     /// Explicit compatibility API. It drains the cooperative index to a final
-    /// immutable snapshot; Reader-v1 foreground paths never call this method.
+    /// immutable snapshot; reader session foreground paths never call this method.
     pub(super) fn publication_footnote_index(&mut self) -> EpubResult<&PublicationFootnoteIndex> {
         while self.publication_footnotes.get().is_none() {
             self.advance_publication_footnote_index_once()?;

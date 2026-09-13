@@ -5,13 +5,13 @@
 //! thickness, and the inline box padding and border edges, gated on
 //! whether the run opens or closes its box.
 
-use rito_style_contract::{FontSlant, InlineFormattingStyleV1, LengthPercentage};
+use rito_style_contract::{FontSlant, InlineFormattingStyle, LengthPercentage};
 
 use crate::epub::EpubResult;
 use crate::render::contract::{
-    ReaderBorderEdgePaintV1, ReaderBorderStyleV1, ReaderFontPaintV1, ReaderFontStyleV1,
-    ReaderRunBorderEdgeV1, ReaderRunBorderV1, ReaderRunDecorationKindV1, ReaderRunDecorationV1,
-    ReaderRunPaintV1, ReaderSpacingV1, ReaderTextShadowV1,
+    ReaderBorderEdgePaint, ReaderBorderStyle, ReaderFontPaint, ReaderFontStyle, ReaderRunBorder,
+    ReaderRunBorderEdge, ReaderRunDecoration, ReaderRunDecorationKind, ReaderRunPaint,
+    ReaderSpacing, ReaderTextShadow,
 };
 use crate::render::RunPaint;
 
@@ -23,7 +23,7 @@ use super::{PaintFamilyPolicy, CANVAS_TOP_ASCENT_RATIO};
 /// unexpressible effects (transforms, box shadows, background images,
 /// partial opacity) drop while the ink itself always paints.
 pub(super) fn run_paint(
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
     family_policy: Option<&PaintFamilyPolicy>,
     justify_px: f64,
     box_start: bool,
@@ -42,7 +42,7 @@ pub(super) fn run_paint(
         .text_shadows
         .iter()
         .map(|shadow| {
-            Ok(ReaderTextShadowV1 {
+            Ok(ReaderTextShadow {
                 offset_x: f64::from(shadow.offset_x.get()),
                 offset_y: f64::from(shadow.offset_y.get()),
                 blur: f64::from(shadow.blur_radius.get()),
@@ -50,8 +50,8 @@ pub(super) fn run_paint(
             })
         })
         .collect::<EpubResult<Vec<_>>>()?;
-    Ok(RunPaint::new(ReaderRunPaintV1 {
-        font: ReaderFontPaintV1 {
+    Ok(RunPaint::new(ReaderRunPaint {
+        font: ReaderFontPaint {
             family: paint_family_stack(style, family_policy)?,
             size_px: font_size,
             weight: f64::from(style.font.weight.get()),
@@ -59,8 +59,8 @@ pub(super) fn run_paint(
             // as italic, exactly as the canvas font string would coerce
             // it.
             style: match style.font.slant {
-                FontSlant::Normal => ReaderFontStyleV1::Normal,
-                FontSlant::Italic | FontSlant::Oblique(_) => ReaderFontStyleV1::Italic,
+                FontSlant::Normal => ReaderFontStyle::Normal,
+                FontSlant::Italic | FontSlant::Oblique(_) => ReaderFontStyle::Italic,
             },
         },
         color,
@@ -98,16 +98,16 @@ pub(super) fn run_paint(
 /// length. The painter grows the inline box outward from the run rect by
 /// these values; percentages have no inline expression and drop to zero.
 fn run_box_padding(
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
     box_start: bool,
     box_end: bool,
-) -> Option<ReaderSpacingV1> {
+) -> Option<ReaderSpacing> {
     let side = |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
         LengthPercentage::Length(px) => f64::from(px.get()),
         _ => 0.0,
     };
     let padding = &style.fragment.padding;
-    let spacing = ReaderSpacingV1 {
+    let spacing = ReaderSpacing {
         top: side(&padding.top),
         right: if box_end { side(&padding.right) } else { 0.0 },
         bottom: side(&padding.bottom),
@@ -120,32 +120,31 @@ fn run_box_padding(
 /// Inline box border edges for a run's paint. Exotic stroke patterns
 /// paint solid, exactly as block borders degrade.
 fn run_box_border(
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
     box_start: bool,
     box_end: bool,
-) -> EpubResult<Option<ReaderRunBorderV1>> {
+) -> EpubResult<Option<ReaderRunBorder>> {
     use rito_style_contract::BorderStyle;
-    let edge =
-        |edge: &rito_style_contract::BorderEdge| -> EpubResult<Option<ReaderRunBorderEdgeV1>> {
-            let width = f64::from(edge.resolved_width.get());
-            if width <= 0.0 || matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
-                return Ok(None);
-            }
-            let line = match edge.style {
-                BorderStyle::Dotted => ReaderBorderStyleV1::Dotted,
-                BorderStyle::Dashed => ReaderBorderStyleV1::Dashed,
-                _ => ReaderBorderStyleV1::Solid,
-            };
-            Ok(Some(ReaderRunBorderEdgeV1 {
-                width_px: width,
-                paint: ReaderBorderEdgePaintV1 {
-                    color: css_color(edge.color.resolve(style.paint.foreground))?,
-                    style: line,
-                },
-            }))
+    let edge = |edge: &rito_style_contract::BorderEdge| -> EpubResult<Option<ReaderRunBorderEdge>> {
+        let width = f64::from(edge.resolved_width.get());
+        if width <= 0.0 || matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
+            return Ok(None);
+        }
+        let line = match edge.style {
+            BorderStyle::Dotted => ReaderBorderStyle::Dotted,
+            BorderStyle::Dashed => ReaderBorderStyle::Dashed,
+            _ => ReaderBorderStyle::Solid,
         };
+        Ok(Some(ReaderRunBorderEdge {
+            width_px: width,
+            paint: ReaderBorderEdgePaint {
+                color: css_color(edge.color.resolve(style.paint.foreground))?,
+                style: line,
+            },
+        }))
+    };
     let border = &style.fragment.border;
-    let run = ReaderRunBorderV1 {
+    let run = ReaderRunBorder {
         top: edge(&border.top)?,
         bottom: edge(&border.bottom)?,
         start: if box_start { edge(&border.left)? } else { None },
@@ -159,9 +158,9 @@ fn run_box_border(
 
 /// Maps computed text-decoration onto the protocol's single solid stroke.
 fn run_decoration(
-    style: &InlineFormattingStyleV1,
+    style: &InlineFormattingStyle,
     font_size: f64,
-) -> EpubResult<Option<ReaderRunDecorationV1>> {
+) -> EpubResult<Option<ReaderRunDecoration>> {
     let decoration = &style.paint.text_decoration;
     let lines = decoration.lines;
     if lines.is_empty() {
@@ -185,14 +184,14 @@ fn run_decoration(
         let thickness = (font_size / 10.0).floor().max(1.0);
         let top_offset = (font_size / 16.0).round();
         (
-            ReaderRunDecorationKindV1::Underline,
+            ReaderRunDecorationKind::Underline,
             CANVAS_TOP_ASCENT_RATIO * font_size + top_offset + thickness / 2.0,
             thickness,
         )
     } else {
-        (ReaderRunDecorationKindV1::LineThrough, font_size * 0.5, 1.0)
+        (ReaderRunDecorationKind::LineThrough, font_size * 0.5, 1.0)
     };
-    Ok(Some(ReaderRunDecorationV1 {
+    Ok(Some(ReaderRunDecoration {
         kind,
         y,
         thickness,

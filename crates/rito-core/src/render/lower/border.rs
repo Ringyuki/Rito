@@ -10,8 +10,8 @@
 //! one CSS row, two device rows at 2×), so no rule here reads the ratio.
 
 use super::super::commands::contract::{
-    ReaderBorderStyleV1, ReaderColorNoneFlagsV1, ReaderColorSpaceV1, ReaderColorV1,
-    ReaderHorizontalRulePaintV1,
+    ReaderBorderStyle, ReaderColor, ReaderColorNoneFlags, ReaderColorSpace,
+    ReaderHorizontalRulePaint,
 };
 use super::{
     DashPattern, DevicePath, DevicePoint, DeviceRect, FillRule, Ground, PathOp, Primitive,
@@ -21,15 +21,15 @@ use super::{
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Edge {
     pub width: f64,
-    pub color: ReaderColorV1,
-    pub style: ReaderBorderStyleV1,
+    pub color: ReaderColor,
+    pub style: ReaderBorderStyle,
 }
 
-pub(super) const BLACK: ReaderColorV1 = ReaderColorV1 {
-    space: ReaderColorSpaceV1::Srgb,
+pub(super) const BLACK: ReaderColor = ReaderColor {
+    space: ReaderColorSpace::Srgb,
     components: [0.0; 3],
     alpha: 1.0,
-    none: ReaderColorNoneFlagsV1 {
+    none: ReaderColorNoneFlags {
         component_0: false,
         component_1: false,
         component_2: false,
@@ -42,7 +42,7 @@ pub(super) const BLACK: ReaderColorV1 = ReaderColorV1 {
 /// on and 2w off, anything else strokes solid at full width.
 pub(super) fn stroke_outline(edge: Edge, path: DevicePath, out: &mut Vec<Primitive>) {
     let (width, cap, dash) = match edge.style {
-        ReaderBorderStyleV1::Dotted => (
+        ReaderBorderStyle::Dotted => (
             edge.width * 0.75,
             StrokeCap::Round,
             Some(DashPattern {
@@ -50,7 +50,7 @@ pub(super) fn stroke_outline(edge: Edge, path: DevicePath, out: &mut Vec<Primiti
                 off: edge.width * 1.5,
             }),
         ),
-        ReaderBorderStyleV1::Dashed => (
+        ReaderBorderStyle::Dashed => (
             edge.width,
             StrokeCap::Butt,
             Some(DashPattern {
@@ -74,7 +74,7 @@ pub(super) fn stroke_outline(edge: Edge, path: DevicePath, out: &mut Vec<Primiti
 /// is the rule box's vertical bevel edge and runs along y.
 pub(super) fn lower_horizontal_rule(
     rect: DeviceRect,
-    paint: &ReaderHorizontalRulePaintV1,
+    paint: &ReaderHorizontalRulePaint,
     out: &mut Vec<Primitive>,
 ) {
     let edge = |width| Edge {
@@ -111,29 +111,29 @@ pub(super) fn stroke_edge(
     if edge.width <= 0.0
         || matches!(
             edge.style,
-            ReaderBorderStyleV1::None | ReaderBorderStyleV1::Hidden
+            ReaderBorderStyle::None | ReaderBorderStyle::Hidden
         )
     {
         return;
     }
     let span = Span::new(from, to);
     match edge.style {
-        ReaderBorderStyleV1::Dotted if edge.width.round() >= 1.0 => {
+        ReaderBorderStyle::Dotted if edge.width.round() >= 1.0 => {
             if edge.width.round() <= 3.0 {
                 binary_dotted(edge, span, out);
             } else {
                 dot_circles(edge, span, out);
             }
         }
-        ReaderBorderStyleV1::Dashed => dashed(edge, span, out),
-        ReaderBorderStyleV1::Double => {
+        ReaderBorderStyle::Dashed => dashed(edge, span, out),
+        ReaderBorderStyle::Double => {
             // Two lines of a third each with a third of gap: their
             // centerlines sit at ±width/3 around the band's (width/6 and
             // 5·width/6 from the outer edge), each its own solid band.
             let third = edge.width / 3.0;
             let line = Edge {
                 width: third,
-                style: ReaderBorderStyleV1::Solid,
+                style: ReaderBorderStyle::Solid,
                 ..edge
             };
             let (dx, dy) = if span.horizontal {
@@ -213,7 +213,7 @@ pub(super) fn band_thickness(width: f64) -> f64 {
     width.floor().max(1.0)
 }
 
-fn fill(out: &mut Vec<Primitive>, rect: DeviceRect, color: ReaderColorV1) {
+fn fill(out: &mut Vec<Primitive>, rect: DeviceRect, color: ReaderColor) {
     if rect.is_empty() {
         return;
     }

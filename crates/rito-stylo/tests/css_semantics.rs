@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use rito_source::{NodeId, SourceArena};
 use rito_style_contract::{
-    BoxSizingV1, Direction, FontSlant, InlineFormattingStyleV1, LayoutDisplayInsideV1,
-    LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LengthPercentageOrAuto,
-    LineHeight, TextWrapMode, UnicodeBidi, WhiteSpaceCollapse,
+    BoxSizing, Direction, FontSlant, InlineFormattingStyle, LayoutDisplay, LayoutDisplayInside,
+    LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto, LineHeight, TextWrapMode,
+    UnicodeBidi, WhiteSpaceCollapse,
 };
 use rito_stylo::{
     epub_ua_stylesheet, ColorScheme, StyleDocument, StyleOrigin, StylesheetInput, Viewport,
@@ -335,7 +335,7 @@ fn epub_ua_stylesheet_supplies_html_box_generation_semantics() {
           </html>"#,
     );
     let (_, layout) = epub_document(&source, "")
-        .resolve_production_slice_v1()
+        .resolve_production_slice()
         .expect("resolved styles")
         .into_parts();
     let display_of = |id: &str| layout_style(layout.table(), &source, id).display;
@@ -343,80 +343,64 @@ fn epub_ua_stylesheet_supplies_html_box_generation_semantics() {
     assert_eq!(
         display_of("article"),
         display(
-            LayoutDisplayOutsideV1::Block,
-            LayoutDisplayInsideV1::Flow,
+            LayoutDisplayOutside::Block,
+            LayoutDisplayInside::Flow,
             false
         )
     );
     assert_eq!(
         display_of("span"),
         display(
-            LayoutDisplayOutsideV1::Inline,
-            LayoutDisplayInsideV1::Flow,
+            LayoutDisplayOutside::Inline,
+            LayoutDisplayInside::Flow,
             false
         )
     );
     assert_eq!(
         display_of("item"),
-        display(
-            LayoutDisplayOutsideV1::Block,
-            LayoutDisplayInsideV1::Flow,
-            true
-        )
+        display(LayoutDisplayOutside::Block, LayoutDisplayInside::Flow, true)
     );
     assert_eq!(
         display_of("table"),
         display(
-            LayoutDisplayOutsideV1::Block,
-            LayoutDisplayInsideV1::Table,
+            LayoutDisplayOutside::Block,
+            LayoutDisplayInside::Table,
             false
         )
     );
     assert_eq!(
         display_of("cell"),
         display(
-            LayoutDisplayOutsideV1::InternalTable,
-            LayoutDisplayInsideV1::TableCell,
+            LayoutDisplayOutside::InternalTable,
+            LayoutDisplayInside::TableCell,
             false,
         )
     );
     assert_eq!(
         display_of("head"),
-        display(
-            LayoutDisplayOutsideV1::None,
-            LayoutDisplayInsideV1::None,
-            false
-        )
+        display(LayoutDisplayOutside::None, LayoutDisplayInside::None, false)
     );
     assert_eq!(
         display_of("closed-dialog"),
-        display(
-            LayoutDisplayOutsideV1::None,
-            LayoutDisplayInsideV1::None,
-            false
-        )
+        display(LayoutDisplayOutside::None, LayoutDisplayInside::None, false)
     );
     assert_eq!(
         display_of("open-dialog"),
         display(
-            LayoutDisplayOutsideV1::Block,
-            LayoutDisplayInsideV1::Flow,
+            LayoutDisplayOutside::Block,
+            LayoutDisplayInside::Flow,
             false
         )
     );
     assert_eq!(
         display_of("summary"),
-        display(
-            LayoutDisplayOutsideV1::Block,
-            LayoutDisplayInsideV1::Flow,
-            true
-        )
+        display(LayoutDisplayOutside::Block, LayoutDisplayInside::Flow, true)
     );
     assert_eq!(
         display_of("second-summary"),
         display(
-            LayoutDisplayOutsideV1::Block,
-            LayoutDisplayInsideV1::Flow,
+            LayoutDisplayOutside::Block,
+            LayoutDisplayInside::Flow,
             false
         )
     );
@@ -424,8 +408,8 @@ fn epub_ua_stylesheet_supplies_html_box_generation_semantics() {
     assert_eq!(
         display_of("svg-hidden"),
         display(
-            LayoutDisplayOutsideV1::Inline,
-            LayoutDisplayInsideV1::Flow,
+            LayoutDisplayOutside::Inline,
+            LayoutDisplayInside::Flow,
             false
         )
     );
@@ -437,14 +421,14 @@ fn author_display_overrides_epub_ua_origin() {
         r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target" hidden="hidden">Text</p></body></html>"#,
     );
     let (_, layout) = epub_document(&source, "p[hidden] { display: inline }")
-        .resolve_production_slice_v1()
+        .resolve_production_slice()
         .expect("resolved styles")
         .into_parts();
     assert_eq!(
         layout_style(layout.table(), &source, "target").display,
         display(
-            LayoutDisplayOutsideV1::Inline,
-            LayoutDisplayInsideV1::Flow,
+            LayoutDisplayOutside::Inline,
+            LayoutDisplayInside::Flow,
             false
         )
     );
@@ -467,7 +451,7 @@ fn html_dir_is_an_inherited_zero_specificity_presentational_hint() {
         &source,
         "#overridden { direction: ltr; unicode-bidi: normal } #embed { unicode-bidi: embed } #bidi-override { unicode-bidi: bidi-override }",
     )
-    .resolve_production_slice_v1()
+    .resolve_production_slice()
     .expect("resolved styles")
     .into_parts();
     let bidi_of = |id: &str| inline_style(inline.table(), &source, id).bidi;
@@ -503,13 +487,13 @@ fn shorthands_and_keywords_project_into_the_production_tables() {
           line-height: normal;
         }"#,
     )
-    .resolve_production_slice_v1()
+    .resolve_production_slice()
     .expect("resolved styles")
     .into_parts();
     let inline = inline_style(inline.table(), &source, "target");
     let layout = layout_style(layout.table(), &source, "target");
 
-    assert_eq!(layout.box_sizing, BoxSizingV1::BorderBox);
+    assert_eq!(layout.box_sizing, BoxSizing::BorderBox);
     assert_eq!(layout.margin.left, LengthPercentageOrAuto::Auto);
     assert!(matches!(
         layout.margin.right,
@@ -564,7 +548,7 @@ fn target_font_size_px(
         16.0,
         stylesheets,
     )?;
-    let (inline, _) = document.resolve_production_slice_v1()?.into_parts();
+    let (inline, _) = document.resolve_production_slice()?.into_parts();
     Ok(inline
         .table()
         .style_for_node(target.index())?
@@ -596,31 +580,31 @@ fn element(source: &SourceArena, id: &str) -> NodeId {
 }
 
 fn inline_style<'a>(
-    table: &'a rito_style_contract::InlineStyleTableV1,
+    table: &'a rito_style_contract::InlineStyleTable,
     source: &SourceArena,
     id: &str,
-) -> &'a InlineFormattingStyleV1 {
+) -> &'a InlineFormattingStyle {
     table
         .style_for_node(element(source, id).index())
         .unwrap_or_else(|error| panic!("#{id} inline style: {error}"))
 }
 
 fn layout_style(
-    table: &rito_style_contract::LayoutStyleTableV1,
+    table: &rito_style_contract::LayoutStyleTable,
     source: &SourceArena,
     id: &str,
-) -> LayoutFormattingStyleV1 {
+) -> LayoutFormattingStyle {
     *table
         .style_for_node(element(source, id).index())
         .unwrap_or_else(|error| panic!("#{id} layout style: {error}"))
 }
 
 fn display(
-    outside: LayoutDisplayOutsideV1,
-    inside: LayoutDisplayInsideV1,
+    outside: LayoutDisplayOutside,
+    inside: LayoutDisplayInside,
     is_list_item: bool,
-) -> LayoutDisplayV1 {
-    LayoutDisplayV1 {
+) -> LayoutDisplay {
+    LayoutDisplay {
         outside,
         inside,
         is_list_item,

@@ -8,7 +8,7 @@ const FORBIDDEN_RENDER_DEPENDENCIES: &[(&str, &str)] = &[
     ("rito_style_contract", "the style-engine contract crate"),
     ("crate::style", "the legacy style module"),
     (
-        "InlineFormattingStyleV1",
+        "InlineFormattingStyle",
         "the computed inline-style contract",
     ),
     ("ComputedValues", "Stylo computed values"),

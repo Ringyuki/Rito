@@ -3,12 +3,12 @@
 //! background image fields as publication hrefs and typed lengths.
 
 use rito_style_contract::{
-    AbsoluteColor, AbsoluteColorSpace, BackgroundImageRepeatV1, BackgroundImageSizeV1,
-    BackgroundSizeAxisV1, FontFamily, FontFamilyNameSyntax, GenericFontFamily, LengthPercentage,
+    AbsoluteColor, AbsoluteColorSpace, BackgroundImageRepeat, BackgroundImageSize,
+    BackgroundSizeAxis, FontFamily, FontFamilyNameSyntax, GenericFontFamily, LengthPercentage,
 };
 
 use crate::render::contract::{
-    ReaderBackgroundRepeatV1, ReaderBackgroundSizeV1, ReaderColorV1, ReaderLengthV1,
+    ReaderBackgroundRepeat, ReaderBackgroundSize, ReaderColor, ReaderLength,
 };
 
 const PUBLICATION_URL_PREFIX: &str = "https://rito.invalid/publication/";
@@ -27,7 +27,7 @@ pub(crate) enum BackgroundPaintError {
 
 /// The `font-family` list as CSS text; an empty stack spells the UA serif.
 pub(crate) fn serialize_font_families(
-    style: &rito_style_contract::FontStyleV1,
+    style: &rito_style_contract::FontStyle,
 ) -> Result<String, PaintValueError> {
     if style.families.as_slice().is_empty() {
         return Ok("serif".to_owned());
@@ -65,7 +65,7 @@ fn generic_family(value: GenericFontFamily) -> &'static str {
 /// An sRGB colour as the paint model carries it: channels quantized to
 /// 8 bits the way a browser stores a legacy colour, `none` components
 /// counting as zero and out-of-gamut channels clamped.
-pub(crate) fn paint_color(value: AbsoluteColor) -> Result<ReaderColorV1, PaintValueError> {
+pub(crate) fn paint_color(value: AbsoluteColor) -> Result<ReaderColor, PaintValueError> {
     if value.space() != AbsoluteColorSpace::Srgb {
         return Err(PaintValueError::NonSrgbColor);
     }
@@ -86,7 +86,7 @@ pub(crate) fn paint_color(value: AbsoluteColor) -> Result<ReaderColorV1, PaintVa
     } else {
         value.alpha().get().clamp(0.0, 1.0)
     };
-    Ok(ReaderColorV1::srgb8(red, green, blue, alpha))
+    Ok(ReaderColor::srgb8(red, green, blue, alpha))
 }
 
 /// The publication-relative href behind a resolved stylesheet URL.
@@ -100,49 +100,49 @@ pub(crate) fn background_publication_href(url: &str) -> Result<&str, BackgroundP
     Ok(href)
 }
 
-pub(crate) fn background_repeat(value: BackgroundImageRepeatV1) -> ReaderBackgroundRepeatV1 {
+pub(crate) fn background_repeat(value: BackgroundImageRepeat) -> ReaderBackgroundRepeat {
     match value {
-        BackgroundImageRepeatV1::Repeat => ReaderBackgroundRepeatV1::Repeat,
-        BackgroundImageRepeatV1::NoRepeat => ReaderBackgroundRepeatV1::NoRepeat,
+        BackgroundImageRepeat::Repeat => ReaderBackgroundRepeat::Repeat,
+        BackgroundImageRepeat::NoRepeat => ReaderBackgroundRepeat::NoRepeat,
     }
 }
 
-pub(crate) fn background_size(value: BackgroundImageSizeV1) -> ReaderBackgroundSizeV1 {
+pub(crate) fn background_size(value: BackgroundImageSize) -> ReaderBackgroundSize {
     match value {
-        BackgroundImageSizeV1::Auto => ReaderBackgroundSizeV1::Auto,
-        BackgroundImageSizeV1::Cover => ReaderBackgroundSizeV1::Cover,
-        BackgroundImageSizeV1::Contain => ReaderBackgroundSizeV1::Contain,
-        BackgroundImageSizeV1::Explicit { x, y } => ReaderBackgroundSizeV1::Explicit {
+        BackgroundImageSize::Auto => ReaderBackgroundSize::Auto,
+        BackgroundImageSize::Cover => ReaderBackgroundSize::Cover,
+        BackgroundImageSize::Contain => ReaderBackgroundSize::Contain,
+        BackgroundImageSize::Explicit { x, y } => ReaderBackgroundSize::Explicit {
             x: size_axis(x),
             y: size_axis(y),
         },
     }
 }
 
-fn size_axis(axis: BackgroundSizeAxisV1) -> Option<ReaderLengthV1> {
+fn size_axis(axis: BackgroundSizeAxis) -> Option<ReaderLength> {
     match axis {
-        BackgroundSizeAxisV1::Auto => None,
-        BackgroundSizeAxisV1::Value(LengthPercentage::Length(value)) => {
-            Some(ReaderLengthV1::Px(f64::from(value.get())))
+        BackgroundSizeAxis::Auto => None,
+        BackgroundSizeAxis::Value(LengthPercentage::Length(value)) => {
+            Some(ReaderLength::Px(f64::from(value.get())))
         }
-        BackgroundSizeAxisV1::Value(LengthPercentage::Percentage(value)) => {
-            Some(ReaderLengthV1::Percent(f64::from(value.percent())))
+        BackgroundSizeAxis::Value(LengthPercentage::Percentage(value)) => {
+            Some(ReaderLength::Percent(f64::from(value.percent())))
         }
         // calc() keeps its length component, the sizing policy used
         // throughout the bridge.
-        BackgroundSizeAxisV1::Value(LengthPercentage::Linear { length, .. }) => {
-            Some(ReaderLengthV1::Px(f64::from(length.get())))
+        BackgroundSizeAxis::Value(LengthPercentage::Linear { length, .. }) => {
+            Some(ReaderLength::Px(f64::from(length.get())))
         }
     }
 }
 
 pub(crate) fn background_position_axis(
     value: LengthPercentage,
-) -> Result<ReaderLengthV1, BackgroundPaintError> {
+) -> Result<ReaderLength, BackgroundPaintError> {
     match value {
-        LengthPercentage::Length(value) => Ok(ReaderLengthV1::Px(f64::from(value.get()))),
+        LengthPercentage::Length(value) => Ok(ReaderLength::Px(f64::from(value.get()))),
         LengthPercentage::Percentage(value) => {
-            Ok(ReaderLengthV1::Percent(f64::from(value.percent())))
+            Ok(ReaderLength::Percent(f64::from(value.percent())))
         }
         LengthPercentage::Linear { .. } => Err(BackgroundPaintError::LinearPosition),
     }
@@ -175,26 +175,26 @@ mod tests {
     #[test]
     fn background_fields_map_to_their_typed_paint_values() {
         assert_eq!(
-            background_repeat(BackgroundImageRepeatV1::Repeat),
-            ReaderBackgroundRepeatV1::Repeat
+            background_repeat(BackgroundImageRepeat::Repeat),
+            ReaderBackgroundRepeat::Repeat
         );
         assert_eq!(
-            background_repeat(BackgroundImageRepeatV1::NoRepeat),
-            ReaderBackgroundRepeatV1::NoRepeat
+            background_repeat(BackgroundImageRepeat::NoRepeat),
+            ReaderBackgroundRepeat::NoRepeat
         );
         assert_eq!(
-            background_size(BackgroundImageSizeV1::Cover),
-            ReaderBackgroundSizeV1::Cover
+            background_size(BackgroundImageSize::Cover),
+            ReaderBackgroundSize::Cover
         );
         assert_eq!(
             background_position_axis(LengthPercentage::Percentage(
                 Percentage::from_percent(50.0).unwrap()
             )),
-            Ok(ReaderLengthV1::Percent(50.0))
+            Ok(ReaderLength::Percent(50.0))
         );
         assert_eq!(
             background_position_axis(LengthPercentage::Length(CssPx::new(12.0).unwrap())),
-            Ok(ReaderLengthV1::Px(12.0))
+            Ok(ReaderLength::Px(12.0))
         );
     }
 }

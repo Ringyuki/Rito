@@ -6,9 +6,7 @@
 //! constraints shared by every box, text-level and box-level inline fields,
 //! and box decoration the painter cannot reproduce outside a block box.
 
-use rito_style_contract::{
-    LayoutDisplayOutsideV1, LayoutFormattingStyleV1, LayoutStyleId, StyleId,
-};
+use rito_style_contract::{LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleId, StyleId};
 
 use super::length_percentage_is_zero;
 use crate::epub::{EpubError, EpubResult};
@@ -53,7 +51,7 @@ impl TreeBuilder<'_> {
                 .style(style)
                 .map_err(|error| EpubError::new(format!("image style resolves: {error}")))?;
             (
-                resolved.float != rito_style_contract::FloatV1::None,
+                resolved.float != rito_style_contract::Float::None,
                 shared_box_capability_violation(resolved),
             )
         };
@@ -106,7 +104,7 @@ impl TreeBuilder<'_> {
 
 /// Block-box whitelist: `None` means every field is implemented; `Some`
 /// names the first violating field and value.
-fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String> {
+fn block_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
     use rito_style_contract as c;
     if let Some(reason) = shared_box_capability_violation(style) {
         return Some(reason);
@@ -114,9 +112,9 @@ fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String>
     match style.display {
         // A list item lays out as plain block flow; its outside marker
         // paints from the `list_markers` table without touching layout.
-        c::LayoutDisplayV1 {
-            outside: LayoutDisplayOutsideV1::Block,
-            inside: c::LayoutDisplayInsideV1::Flow | c::LayoutDisplayInsideV1::FlowRoot,
+        c::LayoutDisplay {
+            outside: LayoutDisplayOutside::Block,
+            inside: c::LayoutDisplayInside::Flow | c::LayoutDisplayInside::FlowRoot,
             is_list_item: _,
         } => {}
         other => return Some(format!("display {other:?}")),
@@ -125,20 +123,20 @@ fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String>
     // and box-sizing resolve through the block context's horizontal box
     // model; the remaining sizing constraints are still unimplemented.
     match style.width {
-        c::PreferredSizeV1::Auto | c::PreferredSizeV1::Value(_) => {}
+        c::PreferredSize::Auto | c::PreferredSize::Value(_) => {}
         other => return Some(format!("block width {other:?}")),
     }
     // Fixed heights resolve in the block context (content overflowing a
     // fixed box still fails closed at layout time); max-width caps the
     // horizontal box model.
     match style.height {
-        c::PreferredSizeV1::Auto | c::PreferredSizeV1::Value(_) => {}
+        c::PreferredSize::Auto | c::PreferredSize::Value(_) => {}
         other => return Some(format!("block height {other:?}")),
     }
-    if style.min_height != c::MinimumHeightV1::Auto {
+    if style.min_height != c::MinimumHeight::Auto {
         return Some(format!("block min-height {:?}", style.min_height));
     }
-    if style.max_height != c::MaximumHeightV1::None {
+    if style.max_height != c::MaximumHeight::None {
         return Some(format!("block max-height {:?}", style.max_height));
     }
     // list-style-type inherits everywhere but only paints on
@@ -148,15 +146,15 @@ fn block_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String>
 }
 
 /// Constraints shared by every box the engine lays out, replaced or not.
-fn shared_box_capability_violation(style: &LayoutFormattingStyleV1) -> Option<String> {
+fn shared_box_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
     use rito_style_contract as c;
     // Floated blocks lay out as placed float boxes: a resolvable width is
     // used directly, and an auto width shrinks to fit its content.
     // Floated images (line-box wrapping) stay rejected at collection.
     // `clear` is implemented as clearance past active floats.
     match style.position {
-        c::PositionV1::Static => {}
-        c::PositionV1::Relative => {
+        c::Position::Static => {}
+        c::Position::Relative => {
             let inset_is_inert = [
                 style.inset.top,
                 style.inset.right,
@@ -169,7 +167,7 @@ fn shared_box_capability_violation(style: &LayoutFormattingStyleV1) -> Option<St
                 return Some("relative position with a non-auto inset".to_owned());
             }
         }
-        c::PositionV1::Absolute => return Some("absolute position".to_owned()),
+        c::Position::Absolute => return Some("absolute position".to_owned()),
     }
 
     // justify-content / align-items only affect flex containers, which the
@@ -181,7 +179,7 @@ fn shared_box_capability_violation(style: &LayoutFormattingStyleV1) -> Option<St
 /// Every field either holds an implemented value or provably cannot affect
 /// layout (paint-only properties pass).
 fn inline_text_capability_violation(
-    style: &rito_style_contract::InlineFormattingStyleV1,
+    style: &rito_style_contract::InlineFormattingStyle,
 ) -> Option<String> {
     use rito_style_contract as c;
     // font: families/size/weight/slant/line-height all wired into Parley.
@@ -254,7 +252,7 @@ fn inline_text_capability_violation(
 /// through `block_box_paint`; backgrounds and borders are checked
 /// separately, so they are not this function's concern.
 pub(super) fn box_decoration_violation(
-    style: &rito_style_contract::InlineFormattingStyleV1,
+    style: &rito_style_contract::InlineFormattingStyle,
 ) -> Option<String> {
     if !style.paint.box_shadows.is_empty() {
         return Some("box-shadow".to_owned());
@@ -266,11 +264,11 @@ pub(super) fn box_decoration_violation(
 /// actual inline box (a styled element or an image), never to a text run
 /// borrowing its ancestor's style.
 fn inline_box_capability_violation(
-    style: &rito_style_contract::InlineFormattingStyleV1,
+    style: &rito_style_contract::InlineFormattingStyle,
 ) -> Option<String> {
     use rito_style_contract as c;
     match style.paint.background {
-        c::ComputedColorV1::Absolute(color) if color.alpha().get() == 0.0 => {}
+        c::ComputedColor::Absolute(color) if color.alpha().get() == 0.0 => {}
         other => return Some(format!("inline background {other:?}")),
     }
     if let Some(reason) = box_decoration_violation(style) {

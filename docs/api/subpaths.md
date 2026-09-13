@@ -3,7 +3,7 @@
 `@ritojs/core` exposes the root entry and `./package.json` only.
 
 ```ts
-import { createReader, preloadReaderRuntime, openBrowserReaderV1 } from '@ritojs/core';
+import { createReader, preloadReaderRuntime, openBrowserReaderSession } from '@ritojs/core';
 ```
 
 There are no package subpaths. Controller-level selection, search,

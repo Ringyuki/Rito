@@ -42,7 +42,7 @@ fn break_all_splits_the_dash_pair_and_keeps_parley_relaxations() {
             0.0,
         );
         style.text_flow.word_break = rito_style_contract::WordBreak::BreakAll;
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style_id = inline.intern_for_node(0, style).expect("style interns");
         let nodes = vec![FormattingNode {
             style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -60,7 +60,7 @@ fn break_all_splits_the_dash_pair_and_keeps_parley_relaxations() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -130,7 +130,7 @@ fn a_trailing_ideographic_space_run_hangs_out_of_alignment() {
             0.0,
         );
         style.text_flow.text_align = align;
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style_id = inline.intern_for_node(0, style).expect("style interns");
         let nodes = vec![FormattingNode {
             style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -148,7 +148,7 @@ fn a_trailing_ideographic_space_run_hangs_out_of_alignment() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -209,7 +209,7 @@ fn the_b52_title_cell_centers_its_ink_with_the_tail_hung() {
     ))
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(4);
+    let mut inline = InlineStyleTable::new(4);
     let families = || {
         rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
             "NoSuchFace",
@@ -245,7 +245,7 @@ fn the_b52_title_cell_centers_its_ink_with_the_tail_hung() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -294,7 +294,7 @@ fn observe_adjacent_bordered_span_run_boxes() {
     ))
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(4);
+    let mut inline = InlineStyleTable::new(4);
     let families = || {
         rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
             "NoSuchFace",
@@ -336,7 +336,7 @@ fn observe_adjacent_bordered_span_run_boxes() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -404,7 +404,7 @@ fn observe_symbol_fallback_advances() {
         16.0,
         0.0,
     );
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let style_id = inline.intern_for_node(0, style).expect("style interns");
     let nodes = vec![FormattingNode {
         style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -422,7 +422,7 @@ fn observe_symbol_fallback_advances() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -468,7 +468,7 @@ fn an_inline_margin_indents_its_forced_break_line() {
     ))
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(2);
+    let mut inline = InlineStyleTable::new(2);
     let families = || {
         rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
             "NoSuchFace",
@@ -510,7 +510,7 @@ fn an_inline_margin_indents_its_forced_break_line() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -551,18 +551,18 @@ fn an_inline_margin_indents_its_forced_break_line() {
 #[test]
 fn the_page_clamp_scales_the_authored_image_box_uniformly() {
     use rito_style_contract::{
-        AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
-        LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LengthPercentageOrAuto,
-        ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, OverflowV1,
-        PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
+        LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto, ListMarkerStyle,
+        MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let auto = LengthPercentageOrAuto::Auto;
     let zero_padding =
         NonNegativeLengthPercentage::new(LengthPercentage::Length(CssPx::new(0.0).expect("zero")));
-    let style = LayoutFormattingStyleV1 {
-        display: LayoutDisplayV1 {
-            outside: LayoutDisplayOutsideV1::Inline,
-            inside: LayoutDisplayInsideV1::Flow,
+    let style = LayoutFormattingStyle {
+        display: LayoutDisplay {
+            outside: LayoutDisplayOutside::Inline,
+            inside: LayoutDisplayInside::Flow,
             is_list_item: false,
         },
         margin: PhysicalSides {
@@ -577,38 +577,38 @@ fn the_page_clamp_scales_the_authored_image_box_uniformly() {
             bottom: zero_padding,
             left: zero_padding,
         },
-        box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
-        justify_content: JustifyContentV1::Normal,
-        align_items: AlignItemsV1::Normal,
-        break_before: PageBreakV1::Auto,
-        break_after: PageBreakV1::Auto,
-        width: PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+        box_sizing: rito_style_contract::BoxSizing::ContentBox,
+        justify_content: JustifyContent::Normal,
+        align_items: AlignItems::Normal,
+        break_before: PageBreak::Auto,
+        break_after: PageBreak::Auto,
+        width: PreferredSize::Value(NonNegativeLengthPercentage::new(
             LengthPercentage::Percentage(
                 rito_style_contract::Percentage::from_ratio(1.0).expect("finite"),
             ),
         )),
-        height: PreferredSizeV1::Auto,
-        max_width: MaximumSizeV1::None,
-        min_height: MinimumHeightV1::Auto,
-        max_height: MaximumHeightV1::None,
-        clear: ClearV1::None,
-        float: FloatV1::None,
-        overflow: OverflowV1::Visible,
-        list_style_type: ListMarkerStyleV1::None,
-        position: PositionV1::Static,
+        height: PreferredSize::Auto,
+        max_width: MaximumSize::None,
+        min_height: MinimumHeight::Auto,
+        max_height: MaximumHeight::None,
+        clear: Clear::None,
+        float: Float::None,
+        overflow: Overflow::Visible,
+        list_style_type: ListMarkerStyle::None,
+        position: Position::Static,
         inset: PhysicalSides {
             top: auto,
             right: auto,
             bottom: auto,
             left: auto,
         },
-        vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+        vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
         border_spacing: (
             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
         ),
         border_collapse: false,
-        object_fit: rito_style_contract::ObjectFitV1::Fill,
+        object_fit: rito_style_contract::ObjectFit::Fill,
     };
     let (width, height) = image_display_size(
         705.0,
@@ -651,7 +651,7 @@ fn a_cj_starter_may_open_a_line_unless_strict() {
             0.0,
         );
         style.text_flow.line_break = line_break;
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style_id = inline.intern_for_node(0, style).expect("style interns");
         let nodes = vec![FormattingNode {
             style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -669,7 +669,7 @@ fn a_cj_starter_may_open_a_line_unless_strict() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -731,7 +731,7 @@ fn named_publication_fonts_shape_instead_of_the_pinned_fallback() {
         .expect("named font registers");
 
     let shape_width = |families: Vec<FontFamily>| {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -754,7 +754,7 @@ fn named_publication_fonts_shape_instead_of_the_pinned_fallback() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -806,7 +806,7 @@ fn an_opener_pair_trim_never_lends_width_to_the_previous_line() {
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
     let lay = |text: &str, width: f64| {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -836,7 +836,7 @@ fn an_opener_pair_trim_never_lends_width_to_the_previous_line() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -881,7 +881,7 @@ fn line_natural_probe() {
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
     let shape_width = |text: &str| {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -911,7 +911,7 @@ fn line_natural_probe() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -971,7 +971,7 @@ fn a_number_line_height_floors_and_a_length_rounds() {
         );
         style.font.line_height = line_height;
         style.font.line_height_is_declared = true;
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let interned = inline.intern_for_node(0, style).expect("style interns");
         let tree = FormattingTree::with_styles(
             vec![FormattingNode {
@@ -988,7 +988,7 @@ fn a_number_line_height_floors_and_a_length_rounds() {
             }],
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -1072,7 +1072,7 @@ fn a_line_break_severs_the_trailing_kern_pair() {
     .expect("pinned serif reads");
     let context =
         ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let mut style = plain_paragraph_style(
         FontFamilies::new(vec![FontFamily::Generic(
             rito_style_contract::GenericFontFamily::Serif,
@@ -1099,7 +1099,7 @@ fn a_line_break_severs_the_trailing_kern_pair() {
         }],
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -1157,7 +1157,7 @@ fn a_latin_preceded_space_keeps_the_words_trailing_kern() {
     .expect("pinned serif reads");
     let context =
         ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let style_id = inline
         .intern_for_node(
             0,
@@ -1186,7 +1186,7 @@ fn a_latin_preceded_space_keeps_the_words_trailing_kern() {
         }],
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -1229,7 +1229,7 @@ fn a_fullwidth_comma_keeps_its_following_opening_quote() {
     .expect("pinned serif reads");
     let context =
         ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let mut style = plain_paragraph_style(
         FontFamilies::new(vec![FontFamily::Generic(
             rito_style_contract::GenericFontFamily::Serif,
@@ -1256,7 +1256,7 @@ fn a_fullwidth_comma_keeps_its_following_opening_quote() {
         }],
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -1306,7 +1306,7 @@ fn a_closing_quote_breaks_before_a_dash_pair() {
     .expect("pinned serif reads");
     let context =
         ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let mut style = plain_paragraph_style(
         FontFamilies::new(vec![FontFamily::Generic(
             rito_style_contract::GenericFontFamily::Serif,
@@ -1333,7 +1333,7 @@ fn a_closing_quote_breaks_before_a_dash_pair() {
         }],
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )

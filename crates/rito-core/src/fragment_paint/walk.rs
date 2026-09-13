@@ -11,9 +11,9 @@ use rito_fragment::{FormattingTree, Fragment};
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::NodePaint;
 use crate::render::contract::{
-    ReaderBackgroundPaintV1, ReaderBlockBorderV1, ReaderBlockPaintV1, ReaderBorderBoxV1,
-    ReaderBorderEdgePaintV1, ReaderBorderStyleV1, ReaderColorV1, ReaderHorizontalRulePaintV1,
-    ReaderLengthV1, ReaderPointV1, ReaderSizeV1, ReaderTransformV1,
+    ReaderBackgroundPaint, ReaderBlockBorder, ReaderBlockPaint, ReaderBorderBox,
+    ReaderBorderEdgePaint, ReaderBorderStyle, ReaderColor, ReaderHorizontalRulePaint, ReaderLength,
+    ReaderPoint, ReaderSize, ReaderTransform,
 };
 use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand};
 
@@ -67,19 +67,19 @@ pub(super) fn append_fragment_display_commands_inner(
                 let ops = if snap_dx == 0.0 && snap_dy == 0.0 {
                     transforms.clone()
                 } else {
-                    let mut ops = vec![ReaderTransformV1::Translate {
-                        x: ReaderLengthV1::Px(display_number(snap_dx)),
-                        y: ReaderLengthV1::Px(display_number(snap_dy)),
+                    let mut ops = vec![ReaderTransform::Translate {
+                        x: ReaderLength::Px(display_number(snap_dx)),
+                        y: ReaderLength::Px(display_number(snap_dy)),
                     }];
                     ops.extend(transforms.iter().copied());
                     ops
                 };
                 commands.push(DisplayCommand::Transform {
-                    origin: ReaderPointV1 {
+                    origin: ReaderPoint {
                         x: display_number(box_x + fragment.rect.width / 2.0),
                         y: display_number(box_y + fragment.rect.height / 2.0),
                     },
-                    box_size: ReaderSizeV1 {
+                    box_size: ReaderSize {
                         width: display_number(fragment.rect.width),
                         height: display_number(fragment.rect.height),
                     },
@@ -106,15 +106,15 @@ pub(super) fn append_fragment_display_commands_inner(
                         // corners the border lowering miters where the
                         // colours meet.
                         let thickness = thickness.min(fragment.rect.height);
-                        if *style == ReaderBorderStyleV1::Inset {
-                            let edge = |color: ReaderColorV1| {
-                                Some(ReaderBorderEdgePaintV1 {
+                        if *style == ReaderBorderStyle::Inset {
+                            let edge = |color: ReaderColor| {
+                                Some(ReaderBorderEdgePaint {
                                     color,
-                                    style: ReaderBorderStyleV1::Solid,
+                                    style: ReaderBorderStyle::Solid,
                                 })
                             };
-                            let dark = ReaderColorV1::srgb8(0x9a, 0x9a, 0x9a, 1.0);
-                            let light = ReaderColorV1::srgb8(0xee, 0xee, 0xee, 1.0);
+                            let dark = ReaderColor::srgb8(0x9a, 0x9a, 0x9a, 1.0);
+                            let light = ReaderColor::srgb8(0xee, 0xee, 0xee, 1.0);
                             let width = display_number(thickness);
                             commands.push(DisplayCommand::PaintBlock {
                                 rect: display_rect(
@@ -123,16 +123,16 @@ pub(super) fn append_fragment_display_commands_inner(
                                     fragment.rect.width,
                                     fragment.rect.height,
                                 ),
-                                paint: ReaderBlockPaintV1 {
-                                    border: Some(ReaderBlockBorderV1 {
+                                paint: ReaderBlockPaint {
+                                    border: Some(ReaderBlockBorder {
                                         top: edge(dark),
                                         right: edge(light),
                                         bottom: edge(light),
                                         left: edge(dark),
                                     }),
-                                    ..ReaderBlockPaintV1::default()
+                                    ..ReaderBlockPaint::default()
                                 },
-                                border_box: Some(ReaderBorderBoxV1 {
+                                border_box: Some(ReaderBorderBox {
                                     top_width: width,
                                     right_width: width,
                                     bottom_width: width,
@@ -147,7 +147,7 @@ pub(super) fn append_fragment_display_commands_inner(
                                     fragment.rect.width,
                                     thickness,
                                 ),
-                                paint: ReaderHorizontalRulePaintV1 {
+                                paint: ReaderHorizontalRulePaint {
                                     color: *color,
                                     style: *style,
                                 },
@@ -249,12 +249,12 @@ pub(super) fn append_fragment_display_commands_inner(
                                 if strip.2 > 0.0 && strip.3 > 0.0 {
                                     commands.push(DisplayCommand::PaintBlock {
                                         rect: display_rect(strip.0, strip.1, strip.2, strip.3),
-                                        paint: ReaderBlockPaintV1 {
-                                            background: Some(ReaderBackgroundPaintV1 {
+                                        paint: ReaderBlockPaint {
+                                            background: Some(ReaderBackgroundPaint {
                                                 color: Some(*inner_color),
-                                                ..ReaderBackgroundPaintV1::default()
+                                                ..ReaderBackgroundPaint::default()
                                             }),
-                                            ..ReaderBlockPaintV1::default()
+                                            ..ReaderBlockPaint::default()
                                         },
                                         border_box: None,
                                     });
@@ -412,8 +412,8 @@ pub(super) fn append_fragment_display_commands_inner(
 /// the block paint; solid edges stay, since a continuous band has no
 /// phase to restart.
 fn split_collapsed_horizontal_edges(
-    paint: &mut ReaderBlockPaintV1,
-    border_box: &mut Option<ReaderBorderBoxV1>,
+    paint: &mut ReaderBlockPaint,
+    border_box: &mut Option<ReaderBorderBox>,
     fragment: &rito_fragment::BoxFragment,
     origin_x: f64,
     origin_y: f64,
@@ -434,7 +434,7 @@ fn split_collapsed_horizontal_edges(
         else {
             continue;
         };
-        if side.style != ReaderBorderStyleV1::Dotted && side.style != ReaderBorderStyleV1::Dashed {
+        if side.style != ReaderBorderStyle::Dotted && side.style != ReaderBorderStyle::Dashed {
             continue;
         }
         let width = border_box.map_or(0.0, |widths| {
@@ -477,7 +477,7 @@ fn split_collapsed_horizontal_edges(
             if cut > start {
                 segments.push(DisplayCommand::PaintHorizontalRule {
                     rect: display_rect(start, y, cut - start, width),
-                    paint: ReaderHorizontalRulePaintV1 {
+                    paint: ReaderHorizontalRulePaint {
                         color: side.color,
                         style: side.style,
                     },

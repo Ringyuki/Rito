@@ -34,7 +34,7 @@ export 'pending_adjacent.dart'
     show
         RitoPendingAdjacentDriver,
         RitoPendingAdjacentLimitException,
-        ritoPendingAdjacentContinuationCapV1;
+        ritoPendingAdjacentContinuationCap;
 export 'pinned_font_policy.dart'
     show RitoPinnedFontFace, RitoPinnedFontGenericRole, RitoPinnedFontPolicy;
 export 'session_lane.dart'
@@ -434,7 +434,7 @@ final class RitoIsolateGateway
         ),
       );
     } on RitoNativeException catch (error) {
-      if (error.status == ritoNativeStatusTargetNotPublishedV1) {
+      if (error.status == ritoNativeStatusTargetNotPublished) {
         return null;
       }
       rethrow;
@@ -990,12 +990,12 @@ final class RitoIsolateGateway
 
   static bool _isAdjacentPending(Object error) {
     return error is RitoNativeException &&
-        error.status == ritoNativeStatusAdjacentPendingV1;
+        error.status == ritoNativeStatusAdjacentPending;
   }
 
   static bool _isTargetNotPublished(Object error) {
     return error is RitoNativeException &&
-        error.status == ritoNativeStatusTargetNotPublishedV1;
+        error.status == ritoNativeStatusTargetNotPublished;
   }
 
   static Future<void> _yieldHostTurn() {
@@ -1044,19 +1044,19 @@ final class RitoIsolateGateway
       // prove whether the actor committed the mutation before transport died.
       return true;
     }
-    if (error.status == ritoNativeStatusSessionTerminatedV1 ||
-        error.status == ritoNativeStatusPanicV1) {
+    if (error.status == ritoNativeStatusSessionTerminated ||
+        error.status == ritoNativeStatusPanic) {
       return true;
     }
-    return error.status != ritoNativeStatusInvalidArgumentV1 &&
-        error.status != ritoNativeStatusNotFoundV1 &&
-        error.status != ritoNativeStatusAlreadyExistsV1 &&
-        error.status != ritoNativeStatusEngineErrorV1 &&
-        error.status != ritoNativeStatusStaleRequestV1 &&
-        error.status != ritoNativeStatusTargetNotPublishedV1 &&
-        error.status != ritoNativeStatusUnsupportedProfileV1 &&
-        error.status != ritoNativeStatusBusyV1 &&
-        error.status != ritoNativeStatusAdjacentPendingV1;
+    return error.status != ritoNativeStatusInvalidArgument &&
+        error.status != ritoNativeStatusNotFound &&
+        error.status != ritoNativeStatusAlreadyExists &&
+        error.status != ritoNativeStatusEngineError &&
+        error.status != ritoNativeStatusStaleRequest &&
+        error.status != ritoNativeStatusTargetNotPublished &&
+        error.status != ritoNativeStatusUnsupportedProfile &&
+        error.status != ritoNativeStatusBusy &&
+        error.status != ritoNativeStatusAdjacentPending;
   }
 
   Future<T> _decodeSessionWire<T>({

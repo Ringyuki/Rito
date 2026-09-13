@@ -18,13 +18,13 @@ use crate::{config::initialize_global_preferences, StyleError, StyleOrigin};
 /// Unlike [`crate::StylesheetInput`], this type does not copy stylesheet text
 /// merely to feed the parser. It is an engine-neutral crate-to-crate contract.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct FontFaceStylesheetInputV1<'a> {
+pub struct FontFaceStylesheetInput<'a> {
     css: &'a str,
     base_url: &'a str,
     origin: StyleOrigin,
 }
 
-impl<'a> FontFaceStylesheetInputV1<'a> {
+impl<'a> FontFaceStylesheetInput<'a> {
     pub fn new(css: &'a str, base_url: &'a str, origin: StyleOrigin) -> Self {
         Self {
             css,
@@ -40,7 +40,7 @@ impl<'a> FontFaceStylesheetInputV1<'a> {
 
 /// Rito-owned projection of one parsed `@font-face` rule.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FontFaceRuleV1 {
+pub struct FontFaceRule {
     pub stylesheet_index: usize,
     pub family: String,
     pub src: String,
@@ -54,9 +54,9 @@ pub struct FontFaceRuleV1 {
 /// The first valid URL source is selected, matching Rito's current embedded
 /// font assembly contract. URL resolution remains the caller's responsibility;
 /// `src` is the decoded specified value rather than Stylo's resolved URL.
-pub fn parse_font_faces_v1(
-    stylesheets: &[FontFaceStylesheetInputV1<'_>],
-) -> Result<Vec<FontFaceRuleV1>, StyleError> {
+pub fn parse_font_faces(
+    stylesheets: &[FontFaceStylesheetInput<'_>],
+) -> Result<Vec<FontFaceRule>, StyleError> {
     initialize_global_preferences();
     let lock = SharedRwLock::new();
     let mut faces = Vec::new();
@@ -71,7 +71,7 @@ pub fn parse_font_faces_v1(
 }
 
 fn parse_stylesheet(
-    input: &FontFaceStylesheetInputV1<'_>,
+    input: &FontFaceStylesheetInput<'_>,
     lock: &SharedRwLock,
 ) -> Result<DocumentStyleSheet, StyleError> {
     let base_url = url::Url::parse(input.base_url).map_err(|error| StyleError::InvalidUrl {
@@ -97,7 +97,7 @@ fn collect_font_faces(
     rules: &[CssRule],
     guard: &SharedRwLockReadGuard,
     stylesheet_index: usize,
-    faces: &mut Vec<FontFaceRuleV1>,
+    faces: &mut Vec<FontFaceRule>,
 ) {
     for rule in rules {
         if let CssRule::FontFace(rule) = rule {
@@ -114,7 +114,7 @@ fn collect_font_faces(
 fn project_font_face(
     descriptors: &style::font_face::Descriptors,
     stylesheet_index: usize,
-) -> Option<FontFaceRuleV1> {
+) -> Option<FontFaceRule> {
     let family = descriptors.font_family.as_ref()?.name.to_string();
     let src = descriptors
         .src
@@ -125,7 +125,7 @@ fn project_font_face(
             Source::Url(source) => specified_url(&source.url),
             Source::Local(_) => None,
         })?;
-    Some(FontFaceRuleV1 {
+    Some(FontFaceRule {
         stylesheet_index,
         family,
         src,
@@ -147,23 +147,23 @@ fn specified_url(url: &style::values::specified::url::SpecifiedUrl) -> Option<St
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_font_faces_v1, FontFaceStylesheetInputV1};
+    use super::{parse_font_faces, FontFaceStylesheetInput};
 
     #[test]
     fn parses_typed_faces_and_preserves_stylesheet_rule_order() {
         let stylesheets = [
-            FontFaceStylesheetInputV1::author(
+            FontFaceStylesheetInput::author(
                 r#"@font-face { font-family: "First"; src: local("First"), url("../Fonts/first.woff2") format("woff2"); font-style: italic; font-weight: 700; }
                    @font-face { font-family: MissingSrc; }"#,
                 "https://rito.invalid/OPS/A/main.css",
             ),
-            FontFaceStylesheetInputV1::author(
+            FontFaceStylesheetInput::author(
                 r#"@font-face { font-family: Second; src: url(second.ttf), url(fallback.ttf); font-weight: 400 700; }"#,
                 "https://rito.invalid/OPS/B/extra.css",
             ),
         ];
 
-        let faces = parse_font_faces_v1(&stylesheets).expect("valid stylesheets");
+        let faces = parse_font_faces(&stylesheets).expect("valid stylesheets");
 
         assert_eq!(faces.len(), 2);
         assert_eq!(faces[0].stylesheet_index, 0);
@@ -179,12 +179,12 @@ mod tests {
 
     #[test]
     fn decodes_css_escaped_urls_from_stylo_serialization() {
-        let stylesheets = [FontFaceStylesheetInputV1::author(
+        let stylesheets = [FontFaceStylesheetInput::author(
             r#"@font-face { font-family: Escaped; src: url("../Fonts/My\ Font.woff2"); }"#,
             "https://rito.invalid/OPS/main.css",
         )];
 
-        let faces = parse_font_faces_v1(&stylesheets).expect("valid stylesheet");
+        let faces = parse_font_faces(&stylesheets).expect("valid stylesheet");
 
         assert_eq!(faces[0].src, "../Fonts/My Font.woff2");
     }

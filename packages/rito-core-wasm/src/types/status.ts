@@ -26,7 +26,7 @@ export interface RitoCoreWasmStatus {
     readonly boundedRevisionControl: true;
     readonly chapterLocalRevisionControl: true;
     readonly boundedSessionController: true;
-    readonly readerSessionV1: boolean;
+    readonly readerSession: boolean;
     readonly wasmBindgen: true;
     readonly npmWasmArtifact: boolean;
   };

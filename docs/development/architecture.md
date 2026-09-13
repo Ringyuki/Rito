@@ -62,7 +62,7 @@ bytes across the boundary, and owns no reader policy. `rito-ffi` runs a
 session on one actor thread and exchanges fixed-width values and owned
 byte buffers; the artifact protocol (open, seek, adjacent turn,
 candidate adoption, background advance, resources) is the same one
-`openBrowserReaderV1()` exposes in the browser.
+`openBrowserReaderSession()` exposes in the browser.
 
 `packages/rito/src/bindings/browser/**` is the only place browser APIs
 live: it loads the WASM module, runs the document runtime in a Worker,
@@ -84,8 +84,8 @@ Assets hook from the tracked Rust source closure.
 - The render module depends on no style, DOM or CSS engine.
 - A frame and every resource lease belong to a revision; a stale revision
   response cannot replace the active one.
-- Revision and frame caches have explicit bounded lifecycles and
-  budgeted cleanup.
+- Revision and frame caches have explicit lifecycles and budgeted
+  cleanup.
 - Public TypeScript exports go through `packages/rito/src/index.ts` and
   stay small.
 - Engine, wire encoder and every decoder come from the same commit.

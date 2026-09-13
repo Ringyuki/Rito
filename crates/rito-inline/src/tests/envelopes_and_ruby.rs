@@ -11,7 +11,7 @@ fn a_super_shifted_span_uses_the_host_measured_line_envelope() {
     // size ratio and the strut's used line-height; once the host
     // answers, the measured envelope replaces the computed one.
     let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(2);
+    let mut inline = InlineStyleTable::new(2);
     let mut main_style = tinos_style(0.0);
     main_style.font.line_height = LineHeight::Length(
         rito_style_contract::NonNegativeCssPx::new(20.796875).expect("finite line height"),
@@ -68,7 +68,7 @@ fn a_super_shifted_span_uses_the_host_measured_line_envelope() {
         }],
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -133,13 +133,13 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
     // pixel oracle validates the same model end-to-end against Blink
     // with the production metric set (the page diffs to zero).
     use rito_style_contract::{
-        AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
-        LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
-        LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1,
-        OverflowV1, PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
+        LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
+        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
+        PhysicalSides, Position, PreferredSize,
     };
     let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(2);
+    let mut inline = InlineStyleTable::new(2);
     let mut style_1922 = tinos_style(0.0);
     style_1922.font.line_height = LineHeight::Length(
         rito_style_contract::NonNegativeCssPx::new(19.2).expect("finite line height"),
@@ -176,17 +176,17 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
             advance: None,
         },
     );
-    let mut layout = LayoutStyleTableV1::new(1);
+    let mut layout = LayoutStyleTable::new(1);
     let auto = LengthPercentageOrAuto::Auto;
     let zero_padding =
         NonNegativeLengthPercentage::new(LengthPercentage::Length(CssPx::new(0.0).expect("zero")));
     let image_layout = layout
         .intern_for_node(
             0,
-            LayoutFormattingStyleV1 {
-                display: LayoutDisplayV1 {
-                    outside: LayoutDisplayOutsideV1::Inline,
-                    inside: LayoutDisplayInsideV1::Flow,
+            LayoutFormattingStyle {
+                display: LayoutDisplay {
+                    outside: LayoutDisplayOutside::Inline,
+                    inside: LayoutDisplayInside::Flow,
                     is_list_item: false,
                 },
                 margin: PhysicalSides {
@@ -201,36 +201,36 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
                     bottom: zero_padding,
                     left: zero_padding,
                 },
-                box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
-                justify_content: JustifyContentV1::Normal,
-                align_items: AlignItemsV1::Normal,
-                break_before: PageBreakV1::Auto,
-                break_after: PageBreakV1::Auto,
-                width: PreferredSizeV1::Auto,
-                height: PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+                box_sizing: rito_style_contract::BoxSizing::ContentBox,
+                justify_content: JustifyContent::Normal,
+                align_items: AlignItems::Normal,
+                break_before: PageBreak::Auto,
+                break_after: PageBreak::Auto,
+                width: PreferredSize::Auto,
+                height: PreferredSize::Value(NonNegativeLengthPercentage::new(
                     LengthPercentage::Length(CssPx::new(14.390625).expect("finite")),
                 )),
-                max_width: MaximumSizeV1::None,
-                min_height: MinimumHeightV1::Auto,
-                max_height: MaximumHeightV1::None,
-                clear: ClearV1::None,
-                float: FloatV1::None,
-                overflow: OverflowV1::Visible,
-                list_style_type: ListMarkerStyleV1::None,
-                position: PositionV1::Static,
+                max_width: MaximumSize::None,
+                min_height: MinimumHeight::Auto,
+                max_height: MaximumHeight::None,
+                clear: Clear::None,
+                float: Float::None,
+                overflow: Overflow::Visible,
+                list_style_type: ListMarkerStyle::None,
+                position: Position::Static,
                 inset: PhysicalSides {
                     top: auto,
                     right: auto,
                     bottom: auto,
                     left: auto,
                 },
-                vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+                vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
                 border_spacing: (
                     rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 ),
                 border_collapse: false,
-                object_fit: rito_style_contract::ObjectFitV1::Fill,
+                object_fit: rito_style_contract::ObjectFit::Fill,
             },
         )
         .expect("layout style interns");
@@ -252,7 +252,7 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
                     style: image_inline_style,
                     layout_style: image_layout,
                     fit_contain: false,
-                    object_fit: rito_style_contract::ObjectFitV1::Fill,
+                    object_fit: rito_style_contract::ObjectFit::Fill,
                     viewport: None,
                     baseline_shift_px: 6.328125,
                     align_top: false,
@@ -307,27 +307,27 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
 #[test]
 fn images_lay_out_as_atomic_inlines_with_display_geometry() {
     use rito_style_contract::{
-        AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
-        LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
-        LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1,
-        OverflowV1, PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
+        LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
+        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
+        PhysicalSides, Position, PreferredSize,
     };
     let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let text_style = inline
         .intern_for_node(0, tinos_style(0.0))
         .expect("style interns");
-    let mut layout = LayoutStyleTableV1::new(1);
+    let mut layout = LayoutStyleTable::new(1);
     let auto = LengthPercentageOrAuto::Auto;
     let zero_padding =
         NonNegativeLengthPercentage::new(LengthPercentage::Length(CssPx::new(0.0).expect("zero")));
     let image_layout = layout
         .intern_for_node(
             0,
-            LayoutFormattingStyleV1 {
-                display: LayoutDisplayV1 {
-                    outside: LayoutDisplayOutsideV1::Inline,
-                    inside: LayoutDisplayInsideV1::Flow,
+            LayoutFormattingStyle {
+                display: LayoutDisplay {
+                    outside: LayoutDisplayOutside::Inline,
+                    inside: LayoutDisplayInside::Flow,
                     is_list_item: false,
                 },
                 margin: PhysicalSides {
@@ -342,34 +342,34 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
                     bottom: zero_padding,
                     left: zero_padding,
                 },
-                box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
-                justify_content: JustifyContentV1::Normal,
-                align_items: AlignItemsV1::Normal,
-                break_before: PageBreakV1::Auto,
-                break_after: PageBreakV1::Auto,
-                width: PreferredSizeV1::Auto,
-                height: PreferredSizeV1::Auto,
-                max_width: MaximumSizeV1::None,
-                min_height: MinimumHeightV1::Auto,
-                max_height: MaximumHeightV1::None,
-                clear: ClearV1::None,
-                float: FloatV1::None,
-                overflow: OverflowV1::Visible,
-                list_style_type: ListMarkerStyleV1::None,
-                position: PositionV1::Static,
+                box_sizing: rito_style_contract::BoxSizing::ContentBox,
+                justify_content: JustifyContent::Normal,
+                align_items: AlignItems::Normal,
+                break_before: PageBreak::Auto,
+                break_after: PageBreak::Auto,
+                width: PreferredSize::Auto,
+                height: PreferredSize::Auto,
+                max_width: MaximumSize::None,
+                min_height: MinimumHeight::Auto,
+                max_height: MaximumHeight::None,
+                clear: Clear::None,
+                float: Float::None,
+                overflow: Overflow::Visible,
+                list_style_type: ListMarkerStyle::None,
+                position: Position::Static,
                 inset: PhysicalSides {
                     top: auto,
                     right: auto,
                     bottom: auto,
                     left: auto,
                 },
-                vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+                vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
                 border_spacing: (
                     rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                     rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 ),
                 border_collapse: false,
-                object_fit: rito_style_contract::ObjectFitV1::Fill,
+                object_fit: rito_style_contract::ObjectFit::Fill,
             },
         )
         .expect("layout style interns");
@@ -391,7 +391,7 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
                     style: text_style,
                     layout_style: image_layout,
                     fit_contain: false,
-                    object_fit: rito_style_contract::ObjectFitV1::Fill,
+                    object_fit: rito_style_contract::ObjectFit::Fill,
                     viewport: None,
                     baseline_shift_px: 0.0,
                     align_top: false,
@@ -462,7 +462,7 @@ fn glyph_runs_split_at_item_boundaries_even_with_identical_measure_styles() {
     // span). The per-item brush must still keep their runs apart so a
     // paint consumer can map each run to its item by byte range.
     let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let style = inline
         .intern_for_node(0, tinos_style(0.0))
         .expect("style interns");
@@ -490,7 +490,7 @@ fn glyph_runs_split_at_item_boundaries_even_with_identical_measure_styles() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -600,7 +600,7 @@ fn a_ruby_base_breaks_across_lines_like_plain_text() {
         32.0,
         0.0,
     );
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let interned = inline.intern_for_node(0, style).expect("style interns");
     let nodes = vec![FormattingNode {
         style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -630,7 +630,7 @@ fn a_ruby_base_breaks_across_lines_like_plain_text() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -674,7 +674,7 @@ fn a_ruby_split_whose_annotation_overflows_rewinds_to_the_item_start() {
         32.0,
         0.0,
     );
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let interned = inline.intern_for_node(0, style).expect("style interns");
     let nodes = vec![FormattingNode {
         style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -710,7 +710,7 @@ fn a_ruby_split_whose_annotation_overflows_rewinds_to_the_item_start() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -757,7 +757,7 @@ fn zero_line_height_paragraph_still_emits_its_line() {
     style.font.line_height = rito_style_contract::LineHeight::Length(
         rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero line height"),
     );
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let interned = inline.intern_for_node(0, style).expect("style interns");
     let nodes = vec![FormattingNode {
         style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -775,7 +775,7 @@ fn zero_line_height_paragraph_still_emits_its_line() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -844,7 +844,7 @@ fn a_wide_ruby_annotation_spreads_its_base_with_interior_gaps() {
     let inset = layout_unit_trunc(inset_full / 2.0);
     let share = space - inset_full;
 
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let interned = inline
         .intern_for_node(0, style.clone())
         .expect("style interns");
@@ -876,7 +876,7 @@ fn a_wide_ruby_annotation_spreads_its_base_with_interior_gaps() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -958,7 +958,7 @@ fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
     );
     style.text_flow.text_align = TextAlign::Justify;
     style.text_flow.ruby_align = RubyAlign::Center;
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let style = inline.intern_for_node(0, style).expect("style interns");
     let text = |t: &str| InlineItem::Text {
         text: t.to_owned(),
@@ -990,7 +990,7 @@ fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )

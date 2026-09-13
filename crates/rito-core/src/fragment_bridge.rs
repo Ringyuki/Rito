@@ -19,14 +19,14 @@ use rito_fragment::{
     FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree, FormattingTreeStyles,
     InlineItem,
 };
-use rito_style_contract::{InlineStyleTableV1, LayoutStyleId, LayoutStyleTableV1, StyleId};
+use rito_style_contract::{InlineStyleTable, LayoutStyleId, LayoutStyleTable, StyleId};
 
 use std::collections::BTreeMap;
 
 use crate::epub::{EpubError, EpubResult};
 use crate::render::contract::{
-    ReaderBackgroundPaintV1, ReaderBlockPaintV1, ReaderBorderBoxV1, ReaderBorderStyleV1,
-    ReaderColorV1, ReaderTransformV1,
+    ReaderBackgroundPaint, ReaderBlockPaint, ReaderBorderBox, ReaderBorderStyle, ReaderColor,
+    ReaderTransform,
 };
 use crate::xhtml::DocumentNode;
 
@@ -66,11 +66,11 @@ pub struct ChapterFormattingTree {
     /// the page background — the frame producer washes each page with it
     /// — matching how the retained pipeline hoists a body background onto
     /// the page rather than painting a content-box rectangle.
-    pub(crate) page_background: Option<ReaderColorV1>,
+    pub(crate) page_background: Option<ReaderColor>,
     /// The chapter body's background image, painted across the full page
     /// like the CSS body-background canvas propagation. The block
     /// background paint, colour stripped (the wash owns it).
-    pub(crate) page_background_image: Option<ReaderBackgroundPaintV1>,
+    pub(crate) page_background_image: Option<ReaderBackgroundPaint>,
     /// Per inline-flow node: each item's interaction source, index-aligned
     /// with the flow's `InlineItem` list. Page artifacts join laid-out
     /// runs back to links, images, and source nodes through this table.
@@ -223,9 +223,9 @@ pub(crate) enum NodePaint {
     /// A horizontal rule's stroke across the node's box.
     Rule {
         /// Colour of the stroke.
-        color: ReaderColorV1,
+        color: ReaderColor,
         /// Stroke pattern the lowering understands.
-        style: ReaderBorderStyleV1,
+        style: ReaderBorderStyle,
         /// Stroke thickness. The node's box can be taller (an author
         /// `height` plus both borders flows as the box size, like a
         /// browser's `<hr>`), while the visible stroke keeps the border
@@ -238,18 +238,18 @@ pub(crate) enum NodePaint {
     /// fragment rect is the CSS border box and the renderer strokes edges
     /// inside it.
     Box {
-        paint: ReaderBlockPaintV1,
-        border_box: Option<ReaderBorderBoxV1>,
+        paint: ReaderBlockPaint,
+        border_box: Option<ReaderBorderBox>,
         /// The box's computed transform list in paint order, painted as a
         /// stacking wrapper around the box and its whole subtree (origin =
         /// border-box center, CSS transform-origin default).
-        transform: Option<Vec<ReaderTransformV1>>,
+        transform: Option<Vec<ReaderTransform>>,
         /// Ridge/groove edges paint two-tone: the border entry strokes
         /// the edge's OUTER half color across the full width and each
         /// entry here overlays the INNER half (the strip adjacent to the
         /// content) with the opposite tone. Keyed by edge index in
         /// border-box order (0 top, 1 right, 2 bottom, 3 left).
-        bevels: Vec<(usize, ReaderColorV1)>,
+        bevels: Vec<(usize, ReaderColor)>,
         /// A collapsed table's dashed/dotted horizontal edges paint per
         /// CELL segment (the collapsed border belongs to the cells and
         /// the dash phase restarts at each cell edge); the painter
@@ -267,8 +267,8 @@ pub(crate) enum NodePaint {
 pub fn build_chapter_formatting_tree(
     nodes: &[DocumentNode],
     body_source_node_index: usize,
-    layout: &LayoutStyleTableV1,
-    inline: &InlineStyleTableV1,
+    layout: &LayoutStyleTable,
+    inline: &InlineStyleTable,
     image_dimensions: &BTreeMap<String, (u32, u32)>,
 ) -> EpubResult<ChapterFormattingTree> {
     let mut layout = layout.clone();
@@ -332,7 +332,7 @@ pub fn build_chapter_formatting_tree(
             let background = paint
                 .background
                 .filter(|background| background.image.is_some())?;
-            Some(ReaderBackgroundPaintV1 {
+            Some(ReaderBackgroundPaint {
                 color: None,
                 ..background
             })
@@ -379,8 +379,8 @@ pub fn build_chapter_formatting_tree(
 }
 
 struct TreeBuilder<'a> {
-    layout: &'a mut LayoutStyleTableV1,
-    inline: &'a mut InlineStyleTableV1,
+    layout: &'a mut LayoutStyleTable,
+    inline: &'a mut InlineStyleTable,
     image_dimensions: &'a BTreeMap<String, (u32, u32)>,
     anonymous_style: LayoutStyleId,
     /// The style a node falls back to when the projection retained no
@@ -440,7 +440,7 @@ struct InlineCollector {
 }
 
 pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
-    let mut layout = LayoutStyleTableV1::new(1);
+    let mut layout = LayoutStyleTable::new(1);
     let style = layout
         .intern(anonymous_block_style())
         .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))?;
@@ -453,7 +453,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         FormattingNodeId(0),
         FormattingTreeStyles {
             layout,
-            inline: InlineStyleTableV1::new(1),
+            inline: InlineStyleTable::new(1),
         },
     )
     .map_err(EpubError::new)?;

@@ -1,10 +1,10 @@
 use std::{fmt, sync::Arc};
 
-use crate::{FiniteF32, INLINE_STYLE_LIST_ITEM_LIMIT_V1};
+use crate::{FiniteF32, INLINE_STYLE_LIST_ITEM_LIMIT};
 
 /// One exactly represented operation in the computed `transform` list.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum TransformOperationV1 {
+pub enum TransformOperation {
     /// A two-dimensional rotation around the element's default center origin.
     Rotate {
         /// Clockwise angle in radians.
@@ -14,7 +14,7 @@ pub enum TransformOperationV1 {
 
 /// Error returned when a computed transform list violates the V1 resource cap.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TransformListErrorV1 {
+pub enum TransformListError {
     /// The ordered operation list exceeded the shared inline-style item limit.
     ItemLimitExceeded {
         /// Actual operation count.
@@ -24,7 +24,7 @@ pub enum TransformListErrorV1 {
     },
 }
 
-impl fmt::Display for TransformListErrorV1 {
+impl fmt::Display for TransformListError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ItemLimitExceeded { item_count, limit } => {
@@ -37,19 +37,19 @@ impl fmt::Display for TransformListErrorV1 {
     }
 }
 
-impl std::error::Error for TransformListErrorV1 {}
+impl std::error::Error for TransformListError {}
 
 /// A bounded, ordered computed transform list; an empty list represents `none`.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct TransformListV1(Arc<[TransformOperationV1]>);
+pub struct TransformList(Arc<[TransformOperation]>);
 
-impl TransformListV1 {
+impl TransformList {
     /// Validates and owns an ordered computed transform list.
-    pub fn new(operations: Vec<TransformOperationV1>) -> Result<Self, TransformListErrorV1> {
-        if operations.len() > INLINE_STYLE_LIST_ITEM_LIMIT_V1 {
-            return Err(TransformListErrorV1::ItemLimitExceeded {
+    pub fn new(operations: Vec<TransformOperation>) -> Result<Self, TransformListError> {
+        if operations.len() > INLINE_STYLE_LIST_ITEM_LIMIT {
+            return Err(TransformListError::ItemLimitExceeded {
                 item_count: operations.len(),
-                limit: INLINE_STYLE_LIST_ITEM_LIMIT_V1,
+                limit: INLINE_STYLE_LIST_ITEM_LIMIT,
             });
         }
         Ok(Self(Arc::from(operations)))
@@ -61,7 +61,7 @@ impl TransformListV1 {
     }
 
     /// Returns operations in CSS application order.
-    pub fn as_slice(&self) -> &[TransformOperationV1] {
+    pub fn as_slice(&self) -> &[TransformOperation] {
         &self.0
     }
 
@@ -75,7 +75,7 @@ impl TransformListV1 {
     }
 }
 
-impl Default for TransformListV1 {
+impl Default for TransformList {
     fn default() -> Self {
         Self::none()
     }
@@ -83,27 +83,27 @@ impl Default for TransformListV1 {
 
 #[cfg(test)]
 mod tests {
-    use super::{TransformListErrorV1, TransformListV1, TransformOperationV1};
-    use crate::{FiniteF32, INLINE_STYLE_LIST_ITEM_LIMIT_V1};
+    use super::{TransformList, TransformListError, TransformOperation};
+    use crate::{FiniteF32, INLINE_STYLE_LIST_ITEM_LIMIT};
 
     #[test]
     fn empty_transform_list_canonically_represents_none() {
-        let value = TransformListV1::new(Vec::new()).unwrap();
+        let value = TransformList::new(Vec::new()).unwrap();
         assert!(value.is_none());
         assert!(value.as_slice().is_empty());
     }
 
     #[test]
     fn transform_list_is_bounded() {
-        let rotate = TransformOperationV1::Rotate {
+        let rotate = TransformOperation::Rotate {
             radians: FiniteF32::new(0.0).unwrap(),
         };
-        let operations = vec![rotate; INLINE_STYLE_LIST_ITEM_LIMIT_V1 + 1];
+        let operations = vec![rotate; INLINE_STYLE_LIST_ITEM_LIMIT + 1];
         assert_eq!(
-            TransformListV1::new(operations),
-            Err(TransformListErrorV1::ItemLimitExceeded {
-                item_count: INLINE_STYLE_LIST_ITEM_LIMIT_V1 + 1,
-                limit: INLINE_STYLE_LIST_ITEM_LIMIT_V1,
+            TransformList::new(operations),
+            Err(TransformListError::ItemLimitExceeded {
+                item_count: INLINE_STYLE_LIST_ITEM_LIMIT + 1,
+                limit: INLINE_STYLE_LIST_ITEM_LIMIT,
             })
         );
     }

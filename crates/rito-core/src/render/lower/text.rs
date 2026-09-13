@@ -21,8 +21,8 @@
 
 use super::super::commands::{
     contract::{
-        ReaderClusterV1, ReaderRectV1, ReaderRunBorderEdgeV1, ReaderRunDecorationV1,
-        ReaderSpacingV1, ReaderTextRunPaintV1, ReaderTextRunV1,
+        ReaderCluster, ReaderRect, ReaderRunBorderEdge, ReaderRunDecoration, ReaderSpacing,
+        ReaderTextRun, ReaderTextRunPaint,
     },
     DisplayTextCommand,
 };
@@ -105,13 +105,13 @@ fn inline_box(text: &DisplayTextCommand) -> Option<DeviceRect> {
     if paint.background_color.is_none() && paint.padding.is_none() && paint.border.is_none() {
         return None;
     }
-    let padding = paint.padding.unwrap_or(ReaderSpacingV1 {
+    let padding = paint.padding.unwrap_or(ReaderSpacing {
         top: 0.0,
         right: 0.0,
         bottom: 0.0,
         left: 0.0,
     });
-    let width = |edge: Option<ReaderRunBorderEdgeV1>| edge.map_or(0.0, |edge| edge.width_px);
+    let width = |edge: Option<ReaderRunBorderEdge>| edge.map_or(0.0, |edge| edge.width_px);
     let (border_top, border_bottom, border_start, border_end) =
         paint.border.map_or((0.0, 0.0, 0.0, 0.0), |border| {
             (
@@ -146,7 +146,7 @@ fn union(a: DeviceRect, b: DeviceRect) -> DeviceRect {
     DeviceRect::new(left, top, right - left, bottom - top)
 }
 
-fn decoration_line(rect: &ReaderRectV1, decoration: ReaderRunDecorationV1) -> Primitive {
+fn decoration_line(rect: &ReaderRect, decoration: ReaderRunDecoration) -> Primitive {
     let thickness = decoration.thickness.floor().max(1.0);
     let top = (rect.y + decoration.y - decoration.thickness / 2.0).round();
     Primitive::FillRect {
@@ -156,12 +156,12 @@ fn decoration_line(rect: &ReaderRectV1, decoration: ReaderRunDecorationV1) -> Pr
     }
 }
 
-fn text_run(text: &DisplayTextCommand) -> ReaderTextRunV1 {
+fn text_run(text: &DisplayTextCommand) -> ReaderTextRun {
     let paint = &text.paint;
-    ReaderTextRunV1 {
+    ReaderTextRun {
         text: text.text.clone(),
         rect: text.rect,
-        paint: ReaderTextRunPaintV1 {
+        paint: ReaderTextRunPaint {
             font: paint.font.clone(),
             color: paint.color,
             text_shadows: paint.text_shadows.clone(),
@@ -173,7 +173,7 @@ fn text_run(text: &DisplayTextCommand) -> ReaderTextRunV1 {
         clusters: text
             .clusters
             .iter()
-            .map(|&(byte, x, y)| ReaderClusterV1 { byte, x, y })
+            .map(|&(byte, x, y)| ReaderCluster { byte, x, y })
             .collect(),
     }
 }

@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::{FlowItemSource, NodePaint};
 use crate::render::contract::{
-    ReaderBackgroundPaintV1, ReaderBlockPaintV1, ReaderBlockRadiusV1, ReaderColorV1,
+    ReaderBackgroundPaint, ReaderBlockPaint, ReaderBlockRadius, ReaderColor,
 };
 use crate::render::{display_rect, DisplayCommand};
 
@@ -69,7 +69,7 @@ pub(super) fn append_line_commands(
             .and_then(|style| styles.inline.style(style).ok())
             .map(|style| css_color(style.paint.foreground))
             .transpose()?
-            .unwrap_or(ReaderColorV1::BLACK);
+            .unwrap_or(ReaderColor::BLACK);
         commands.push(DisplayCommand::PaintBlock {
             rect: display_rect(
                 line_x + marker.x,
@@ -77,13 +77,13 @@ pub(super) fn append_line_commands(
                 marker.diameter,
                 marker.diameter,
             ),
-            paint: ReaderBlockPaintV1 {
-                background: Some(ReaderBackgroundPaintV1 {
+            paint: ReaderBlockPaint {
+                background: Some(ReaderBackgroundPaint {
                     color: Some(color),
-                    ..ReaderBackgroundPaintV1::default()
+                    ..ReaderBackgroundPaint::default()
                 }),
-                radius: Some(ReaderBlockRadiusV1::Px(marker.diameter / 2.0)),
-                ..ReaderBlockPaintV1::default()
+                radius: Some(ReaderBlockRadius::Px(marker.diameter / 2.0)),
+                ..ReaderBlockPaint::default()
             },
             border_box: None,
         });

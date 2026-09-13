@@ -7,7 +7,7 @@ use crate::{
 
 /// Outer display role retained from the computed CSS display pair.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum LayoutDisplayOutsideV1 {
+pub enum LayoutDisplayOutside {
     None,
     Inline,
     Block,
@@ -17,7 +17,7 @@ pub enum LayoutDisplayOutsideV1 {
 
 /// Inner display role retained from the computed CSS display pair.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum LayoutDisplayInsideV1 {
+pub enum LayoutDisplayInside {
     None,
     Contents,
     Flow,
@@ -36,9 +36,9 @@ pub enum LayoutDisplayInsideV1 {
 
 /// Computed `display`, without flattening two-keyword or list-item semantics.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct LayoutDisplayV1 {
-    pub outside: LayoutDisplayOutsideV1,
-    pub inside: LayoutDisplayInsideV1,
+pub struct LayoutDisplay {
+    pub outside: LayoutDisplayOutside,
+    pub inside: LayoutDisplayInside,
     pub is_list_item: bool,
 }
 
@@ -47,7 +47,7 @@ pub struct LayoutDisplayV1 {
 /// V1 only carries values that are either inert for non-flex layout (`normal`)
 /// or implemented exactly by the single-item flex consumer (`center`).
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum JustifyContentV1 {
+pub enum JustifyContent {
     Normal,
     Center,
 }
@@ -57,7 +57,7 @@ pub enum JustifyContentV1 {
 /// Other box-alignment values stay outside V1 until the layout consumer can
 /// implement their used-value semantics without approximation.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum AlignItemsV1 {
+pub enum AlignItems {
     Normal,
     Center,
 }
@@ -67,14 +67,14 @@ pub enum AlignItemsV1 {
 /// Standard `break-before` / `break-after` and their legacy page-break
 /// aliases converge on this consumer contract after the Stylo cascade.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum PageBreakV1 {
+pub enum PageBreak {
     Auto,
     Always,
 }
 
 /// Exact V1 subset of the computed value used by `width` and `height`.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum PreferredSizeV1 {
+pub enum PreferredSize {
     Auto,
     Value(NonNegativeLengthPercentage),
     MaxContent,
@@ -91,7 +91,7 @@ pub enum PreferredSizeV1 {
 /// this contract revision. Producers must reject them instead of flattening
 /// them to `none` or an arbitrary length.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum MaximumSizeV1 {
+pub enum MaximumSize {
     None,
     Value(NonNegativeLengthPercentage),
 }
@@ -101,7 +101,7 @@ pub enum MaximumSizeV1 {
 /// Logical `inline-start` / `inline-end` values require writing-mode-aware
 /// float clearance and are intentionally rejected by the V1 producer.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum ClearV1 {
+pub enum Clear {
     None,
     Left,
     Right,
@@ -113,7 +113,7 @@ pub enum ClearV1 {
 /// Logical float sides stay outside V1 until layout resolves them against
 /// writing mode and direction.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum FloatV1 {
+pub enum Float {
     None,
     Left,
     Right,
@@ -124,7 +124,7 @@ pub enum FloatV1 {
 /// The consumer owns one `overflow` field, so producers must reject differing
 /// computed axes and scrolling/clip modes instead of flattening them.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum OverflowV1 {
+pub enum Overflow {
     Visible,
     Hidden,
 }
@@ -134,7 +134,7 @@ pub enum OverflowV1 {
 /// Percentages remain distinct even though the consumer currently applies the
 /// legacy compatibility policy of omitting them without a height basis.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum MinimumHeightV1 {
+pub enum MinimumHeight {
     Auto,
     Length(NonNegativeCssPx),
     Percentage(Percentage),
@@ -142,9 +142,9 @@ pub enum MinimumHeightV1 {
 
 /// Computed `max-height` values retained at the current consumer boundary.
 ///
-/// Percentages remain distinct from `none`; see [`MinimumHeightV1`].
+/// Percentages remain distinct from `none`; see [`MinimumHeight`].
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum MaximumHeightV1 {
+pub enum MaximumHeight {
     None,
     Length(NonNegativeCssPx),
     Percentage(Percentage),
@@ -155,7 +155,7 @@ pub enum MaximumHeightV1 {
 /// Producers must reject other counter-style names, strings, and `symbols()`
 /// until the marker consumer receives a richer engine-neutral contract.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum ListMarkerStyleV1 {
+pub enum ListMarkerStyle {
     None,
     Disc,
     Circle,
@@ -169,36 +169,36 @@ pub enum ListMarkerStyleV1 {
 
 /// First engine-neutral block/layout migration slice.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct LayoutFormattingStyleV1 {
-    pub display: LayoutDisplayV1,
+pub struct LayoutFormattingStyle {
+    pub display: LayoutDisplay,
     /// Physical box margins. Percentages resolve against the containing
     /// block's inline size (including the vertical sides, per CSS).
     pub margin: PhysicalSides<LengthPercentageOrAuto>,
     /// Physical box padding.
     pub padding: PhysicalSides<NonNegativeLengthPercentage>,
     /// How `width`/`height` map onto the box model.
-    pub box_sizing: BoxSizingV1,
-    pub justify_content: JustifyContentV1,
-    pub align_items: AlignItemsV1,
-    pub break_before: PageBreakV1,
-    pub break_after: PageBreakV1,
-    pub width: PreferredSizeV1,
-    pub height: PreferredSizeV1,
-    pub max_width: MaximumSizeV1,
-    pub min_height: MinimumHeightV1,
-    pub max_height: MaximumHeightV1,
-    pub clear: ClearV1,
-    pub float: FloatV1,
-    pub overflow: OverflowV1,
-    pub list_style_type: ListMarkerStyleV1,
+    pub box_sizing: BoxSizing,
+    pub justify_content: JustifyContent,
+    pub align_items: AlignItems,
+    pub break_before: PageBreak,
+    pub break_after: PageBreak,
+    pub width: PreferredSize,
+    pub height: PreferredSize,
+    pub max_width: MaximumSize,
+    pub min_height: MinimumHeight,
+    pub max_height: MaximumHeight,
+    pub clear: Clear,
+    pub float: Float,
+    pub overflow: Overflow,
+    pub list_style_type: ListMarkerStyle,
     /// Positioning scheme. Only the schemes Rito's flow consumer implements
     /// are representable; anything else fails closed.
-    pub position: PositionV1,
+    pub position: Position,
     /// Physical box offsets, meaningful only for a positioned box.
     pub inset: PhysicalSides<LengthPercentageOrAuto>,
     /// Computed `vertical-align` reduced to the alignments a table cell
     /// applies to its content box inside the row.
-    pub vertical_align: CellVerticalAlignV1,
+    pub vertical_align: CellVerticalAlign,
     /// Used horizontal/vertical separation between table cells, already
     /// accounting for `border-collapse`: a collapsed table reports zero.
     /// Inherited like its CSS source, and meaningful only on a table box.
@@ -211,12 +211,12 @@ pub struct LayoutFormattingStyleV1 {
     /// Computed `object-fit` (CSS Images 3 §5.4): how a replaced
     /// element's content fits its box. Meaningful only on replaced
     /// elements; the UA stylesheet sets `contain` on `img`.
-    pub object_fit: ObjectFitV1,
+    pub object_fit: ObjectFit,
 }
 
 /// Computed `object-fit` values (CSS Images 3 §5.4).
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum ObjectFitV1 {
+pub enum ObjectFit {
     Fill,
     Contain,
     Cover,
@@ -226,7 +226,7 @@ pub enum ObjectFitV1 {
 
 /// How a table cell aligns its content box within the row box.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum CellVerticalAlignV1 {
+pub enum CellVerticalAlign {
     /// Align cell baselines across the row (the CSS initial value).
     Baseline,
     /// Align with the row's top edge.
@@ -239,7 +239,7 @@ pub enum CellVerticalAlignV1 {
 
 /// Computed `box-sizing`: how `width`/`height` map onto the box model.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum BoxSizingV1 {
+pub enum BoxSizing {
     ContentBox,
     BorderBox,
 }
@@ -249,7 +249,7 @@ pub enum BoxSizingV1 {
 /// `static` and `relative` participate in flow; `absolute` is removed from it.
 /// `fixed` and `sticky` have no paginated meaning here and fail closed.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum PositionV1 {
+pub enum Position {
     Static,
     Relative,
     Absolute,
@@ -334,16 +334,16 @@ impl std::error::Error for LayoutStyleTableError {}
 
 /// Deterministically interned layout styles plus a dense source-node mapping.
 #[derive(Clone)]
-pub struct LayoutStyleTableV1 {
-    styles: Vec<LayoutFormattingStyleV1>,
-    interned: HashMap<LayoutFormattingStyleV1, LayoutStyleId>,
+pub struct LayoutStyleTable {
+    styles: Vec<LayoutFormattingStyle>,
+    interned: HashMap<LayoutFormattingStyle, LayoutStyleId>,
     node_styles: Vec<Option<LayoutStyleId>>,
 }
 
-impl fmt::Debug for LayoutStyleTableV1 {
+impl fmt::Debug for LayoutStyleTable {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("LayoutStyleTableV1")
+            .debug_struct("LayoutStyleTable")
             .field("style_count", &self.styles.len())
             .field("node_count", &self.node_styles.len())
             .field(
@@ -354,7 +354,7 @@ impl fmt::Debug for LayoutStyleTableV1 {
     }
 }
 
-impl LayoutStyleTableV1 {
+impl LayoutStyleTable {
     pub fn new(node_count: usize) -> Self {
         Self {
             styles: Vec::new(),
@@ -367,7 +367,7 @@ impl LayoutStyleTableV1 {
     /// boxes (anonymous block boxes) that have no source element.
     pub fn intern(
         &mut self,
-        style: LayoutFormattingStyleV1,
+        style: LayoutFormattingStyle,
     ) -> Result<LayoutStyleId, LayoutStyleTableError> {
         if let Some(style_id) = self.interned.get(&style) {
             return Ok(*style_id);
@@ -383,7 +383,7 @@ impl LayoutStyleTableV1 {
     pub fn intern_for_node(
         &mut self,
         node_index: usize,
-        style: LayoutFormattingStyleV1,
+        style: LayoutFormattingStyle,
     ) -> Result<LayoutStyleId, LayoutStyleTableError> {
         if node_index >= self.node_styles.len() {
             return Err(LayoutStyleTableError::NodeIndexOutOfBounds {
@@ -414,7 +414,7 @@ impl LayoutStyleTableV1 {
     pub fn style(
         &self,
         style_id: LayoutStyleId,
-    ) -> Result<&LayoutFormattingStyleV1, LayoutStyleTableError> {
+    ) -> Result<&LayoutFormattingStyle, LayoutStyleTableError> {
         self.styles
             .get(style_id.index())
             .ok_or(LayoutStyleTableError::StyleIdOutOfBounds {
@@ -426,7 +426,7 @@ impl LayoutStyleTableV1 {
     pub fn style_for_node(
         &self,
         node_index: usize,
-    ) -> Result<&LayoutFormattingStyleV1, LayoutStyleTableError> {
+    ) -> Result<&LayoutFormattingStyle, LayoutStyleTableError> {
         let style_id = self.node_style_id(node_index)?;
         self.style(style_id)
     }
@@ -441,7 +441,7 @@ impl LayoutStyleTableV1 {
         slot.ok_or(LayoutStyleTableError::MissingNodeStyle { node_index })
     }
 
-    pub fn styles(&self) -> &[LayoutFormattingStyleV1] {
+    pub fn styles(&self) -> &[LayoutFormattingStyle] {
         &self.styles
     }
 

@@ -146,15 +146,14 @@ mod tests {
     };
     use rito_inline::{plain_paragraph_style, ParleyInlineContext};
     use rito_style_contract::{
-        AlignItemsV1, BoxSizingV1, ClearV1, CssPx, FloatV1, FontFamilies, FontFamily,
-        FontFamilyName, InlineStyleTableV1, JustifyContentV1, LayoutDisplayInsideV1,
-        LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
-        LengthPercentage, LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1,
-        MaximumSizeV1, MinimumHeightV1, NonNegativeLengthPercentage, OverflowV1, PageBreakV1,
-        PhysicalSides, PositionV1, PreferredSizeV1,
+        AlignItems, BoxSizing, Clear, CssPx, Float, FontFamilies, FontFamily, FontFamilyName,
+        InlineStyleTable, JustifyContent, LayoutDisplay, LayoutDisplayInside, LayoutDisplayOutside,
+        LayoutFormattingStyle, LayoutStyleTable, LengthPercentage, LengthPercentageOrAuto,
+        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeLengthPercentage,
+        Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
     };
 
-    fn plain_block_layout_style() -> LayoutFormattingStyleV1 {
+    fn plain_block_layout_style() -> LayoutFormattingStyle {
         let zero = LengthPercentageOrAuto::Value(LengthPercentage::Length(
             CssPx::new(0.0).expect("zero length"),
         ));
@@ -167,10 +166,10 @@ mod tests {
             bottom: value,
             left: value,
         };
-        LayoutFormattingStyleV1 {
-            display: LayoutDisplayV1 {
-                outside: LayoutDisplayOutsideV1::Block,
-                inside: LayoutDisplayInsideV1::Flow,
+        LayoutFormattingStyle {
+            display: LayoutDisplay {
+                outside: LayoutDisplayOutside::Block,
+                inside: LayoutDisplayInside::Flow,
                 is_list_item: false,
             },
             margin: sides(zero),
@@ -180,29 +179,29 @@ mod tests {
                 bottom: zero_padding,
                 left: zero_padding,
             },
-            box_sizing: BoxSizingV1::ContentBox,
-            justify_content: JustifyContentV1::Normal,
-            align_items: AlignItemsV1::Normal,
-            break_before: PageBreakV1::Auto,
-            break_after: PageBreakV1::Auto,
-            width: PreferredSizeV1::Auto,
-            height: PreferredSizeV1::Auto,
-            max_width: MaximumSizeV1::None,
-            min_height: MinimumHeightV1::Auto,
-            max_height: MaximumHeightV1::None,
-            clear: ClearV1::None,
-            float: FloatV1::None,
-            overflow: OverflowV1::Visible,
-            list_style_type: ListMarkerStyleV1::None,
-            position: PositionV1::Static,
+            box_sizing: BoxSizing::ContentBox,
+            justify_content: JustifyContent::Normal,
+            align_items: AlignItems::Normal,
+            break_before: PageBreak::Auto,
+            break_after: PageBreak::Auto,
+            width: PreferredSize::Auto,
+            height: PreferredSize::Auto,
+            max_width: MaximumSize::None,
+            min_height: MinimumHeight::Auto,
+            max_height: MaximumHeight::None,
+            clear: Clear::None,
+            float: Float::None,
+            overflow: Overflow::Visible,
+            list_style_type: ListMarkerStyle::None,
+            position: Position::Static,
             inset: sides(LengthPercentageOrAuto::Auto),
-            vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+            vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
             border_spacing: (
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
-            object_fit: rito_style_contract::ObjectFitV1::Fill,
+            object_fit: rito_style_contract::ObjectFit::Fill,
         }
     }
 
@@ -215,13 +214,13 @@ mod tests {
     }
 
     fn paragraph_tree(text: &str) -> FormattingTree {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let families = FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Tinos"))])
             .expect("family list is non-empty");
         let style = inline
             .intern_for_node(0, plain_paragraph_style(families, 16.0, 0.0))
             .expect("style interns");
-        let mut layout = LayoutStyleTableV1::new(1);
+        let mut layout = LayoutStyleTable::new(1);
         let block = layout
             .intern_for_node(0, plain_block_layout_style())
             .expect("layout style interns");

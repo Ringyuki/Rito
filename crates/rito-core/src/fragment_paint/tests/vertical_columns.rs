@@ -7,7 +7,7 @@ use super::*;
 /// marks, a rubied base, and a second column of leaders, a dash and
 /// Latin at a letter-spaced style.
 fn vertical_column_commands() -> Vec<DisplayCommand> {
-    let mut inline = InlineStyleTableV1::new(3);
+    let mut inline = InlineStyleTable::new(3);
     let black = inline
         .intern_for_node(0, body_style(srgb(0.0, 0.0, 0.0, 1.0)))
         .expect("black style interns");
@@ -43,7 +43,7 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
         }],
         FormattingNodeId(0),
         FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )
@@ -198,7 +198,7 @@ fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
     assert_eq!((origin.x, origin.y), (204.0, 28.0));
     assert_eq!(
         transforms,
-        &vec![ReaderTransformV1::Rotate {
+        &vec![ReaderTransform::Rotate {
             radians: std::f64::consts::FRAC_PI_2
         }]
     );

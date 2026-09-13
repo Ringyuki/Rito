@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
-  RitoReaderColorV1,
-  RitoReaderPrimitiveListV1,
-  RitoReaderPrimitiveV1,
+  RitoReaderColor,
+  RitoReaderPrimitiveList,
+  RitoReaderPrimitive,
 } from '@ritojs/core-wasm';
 
 import { renderReaderPrimitivesToCanvas } from '../../src/bindings/browser/primitive-renderer';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 
-function srgb(r: number, g: number, b: number, alpha = 1): RitoReaderColorV1 {
+function srgb(r: number, g: number, b: number, alpha = 1): RitoReaderColor {
   return {
     space: 'srgb',
     component0: r,
@@ -23,7 +23,7 @@ const INK = srgb(0, 0, 0);
 const PAPER = srgb(1, 1, 1);
 const SLATE = srgb(0.1, 0.1, 0.1);
 
-function list(commands: readonly RitoReaderPrimitiveV1[], ratio = 1): RitoReaderPrimitiveListV1 {
+function list(commands: readonly RitoReaderPrimitive[], ratio = 1): RitoReaderPrimitiveList {
   return { formatVersion: 2, ratio, commandCount: commands.length, commands };
 }
 
@@ -107,7 +107,7 @@ describe('browser primitive renderer', () => {
   });
 
   it('takes the theme override decision on the page ground and keeps declared block grounds', () => {
-    const page = (color: RitoReaderColorV1): RitoReaderPrimitiveV1 => ({
+    const page = (color: RitoReaderColor): RitoReaderPrimitive => ({
       kind: 'fill-rect',
       rect: { x: 0, y: 0, width: 100, height: 150 },
       color,

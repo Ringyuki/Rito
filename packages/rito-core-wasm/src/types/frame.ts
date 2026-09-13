@@ -1,4 +1,4 @@
-import type { RitoReaderPrimitiveV1 } from './reader-v1-primitive';
+import type { RitoReaderPrimitive } from './reader-session-primitive';
 
 export interface RitoCoreWasmFrameCommandBufferMetadata extends RitoFrameCommandBufferMetadata {
   readonly revisionId: string;
@@ -37,5 +37,5 @@ export interface DecodedRitoFrameCommandBuffer {
   readonly commandHash: string;
   readonly resourceRefCount: number;
   readonly resourceTable: readonly string[];
-  readonly commands: readonly RitoReaderPrimitiveV1[];
+  readonly commands: readonly RitoReaderPrimitive[];
 }

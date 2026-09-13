@@ -15,23 +15,21 @@ mod registry;
 mod tests;
 
 pub use abi::{
-    rito_adopt_background_candidate_v1, rito_adopt_foreground_candidate_v1,
-    rito_advance_background_v1, rito_buffer_free_v1, rito_commit_peeked_artifact_v1,
-    rito_dispose_v1, rito_get_text_range_geometry_v1, rito_open_v1, rito_open_with_pinned_fonts_v1,
-    rito_peek_adjacent_v1, rito_read_footnote_v1, rito_read_publication_v1, rito_read_resource_v1,
-    rito_release_artifact_v1, rito_request_adjacent_v1, rito_request_artifact_v1, rito_search_v1,
+    rito_adopt_background_candidate, rito_adopt_foreground_candidate, rito_advance_background,
+    rito_buffer_free, rito_commit_peeked_artifact, rito_dispose, rito_get_text_range_geometry,
+    rito_open, rito_open_with_pinned_fonts, rito_peek_adjacent, rito_read_footnote,
+    rito_read_publication, rito_read_resource, rito_release_artifact, rito_request_adjacent,
+    rito_request_artifact, rito_search,
 };
 pub use abi::{
-    RitoOwnedBufferV1, RitoPinnedFontFaceV1, RITO_ABI_VERSION_V1,
-    RITO_PINNED_FONT_ROLE_MONOSPACE_V1, RITO_PINNED_FONT_ROLE_SANS_SERIF_V1,
-    RITO_PINNED_FONT_ROLE_SERIF_V1, RITO_PUBLICATION_WIRE_BYTES_MAX_V1, RITO_RESOURCE_KIND_FONT_V1,
-    RITO_RESOURCE_KIND_IMAGE_V1, RITO_RESOURCE_KIND_STYLESHEET_V1,
+    RitoOwnedBuffer, RitoPinnedFontFace, RITO_ABI_VERSION, RITO_PINNED_FONT_ROLE_MONOSPACE,
+    RITO_PINNED_FONT_ROLE_SANS_SERIF, RITO_PINNED_FONT_ROLE_SERIF, RITO_PUBLICATION_WIRE_BYTES_MAX,
+    RITO_RESOURCE_KIND_FONT, RITO_RESOURCE_KIND_IMAGE, RITO_RESOURCE_KIND_STYLESHEET,
 };
-pub use actor::RITO_ACTOR_MAX_IN_FLIGHT_V1;
+pub use actor::RITO_ACTOR_MAX_IN_FLIGHT;
 pub use error::{
-    RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_ALREADY_EXISTS_V1, RITO_STATUS_BUSY_V1,
-    RITO_STATUS_ENGINE_ERROR_V1, RITO_STATUS_INVALID_ARGUMENT_V1, RITO_STATUS_NOT_FOUND_V1,
-    RITO_STATUS_OK_V1, RITO_STATUS_PANIC_V1, RITO_STATUS_QUEUE_FULL_V1,
-    RITO_STATUS_SESSION_TERMINATED_V1, RITO_STATUS_STALE_REQUEST_V1,
-    RITO_STATUS_TARGET_NOT_PUBLISHED_V1, RITO_STATUS_UNSUPPORTED_PROFILE_V1,
+    RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_ALREADY_EXISTS, RITO_STATUS_BUSY,
+    RITO_STATUS_ENGINE_ERROR, RITO_STATUS_INVALID_ARGUMENT, RITO_STATUS_NOT_FOUND, RITO_STATUS_OK,
+    RITO_STATUS_PANIC, RITO_STATUS_QUEUE_FULL, RITO_STATUS_SESSION_TERMINATED,
+    RITO_STATUS_STALE_REQUEST, RITO_STATUS_TARGET_NOT_PUBLISHED, RITO_STATUS_UNSUPPORTED_PROFILE,
 };

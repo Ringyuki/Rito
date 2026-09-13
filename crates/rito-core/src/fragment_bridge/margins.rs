@@ -6,8 +6,8 @@
 
 use rito_fragment::{FormattingNode, FormattingNodeContent, FormattingNodeId};
 use rito_style_contract::{
-    ClearV1, FloatV1, LayoutStyleTableV1, LengthPercentage, LengthPercentageOrAuto,
-    MinimumHeightV1, NonNegativeLengthPercentage, OverflowV1, PreferredSizeV1,
+    Clear, Float, LayoutStyleTable, LengthPercentage, LengthPercentageOrAuto, MinimumHeight,
+    NonNegativeLengthPercentage, Overflow, PreferredSize,
 };
 
 use crate::epub::{EpubError, EpubResult};
@@ -33,7 +33,7 @@ use crate::epub::{EpubError, EpubResult};
 pub(super) fn fold_through_collapsing_margins(
     nodes: &mut [FormattingNode],
     root: FormattingNodeId,
-    layout: &mut LayoutStyleTableV1,
+    layout: &mut LayoutStyleTable,
 ) -> EpubResult<()> {
     fn resolved_px(value: LengthPercentageOrAuto) -> Option<f64> {
         match value {
@@ -64,7 +64,7 @@ pub(super) fn fold_through_collapsing_margins(
         a.max(0.0).max(b.max(0.0)) + a.min(0.0).min(b.min(0.0))
     }
     fn set_margin(
-        layout: &mut LayoutStyleTableV1,
+        layout: &mut LayoutStyleTable,
         nodes: &mut [FormattingNode],
         node: FormattingNodeId,
         top: Option<f64>,
@@ -93,7 +93,7 @@ pub(super) fn fold_through_collapsing_margins(
     fn fold(
         nodes: &mut [FormattingNode],
         node: FormattingNodeId,
-        layout: &mut LayoutStyleTableV1,
+        layout: &mut LayoutStyleTable,
         is_root: bool,
     ) -> EpubResult<()> {
         let children = nodes[node.0 as usize].children.clone();
@@ -111,7 +111,7 @@ pub(super) fn fold_through_collapsing_margins(
         let style = *layout
             .style(nodes[node.0 as usize].style)
             .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
-        if style.overflow != OverflowV1::Visible {
+        if style.overflow != Overflow::Visible {
             return Ok(());
         }
         // A flow root seals its margins: a FLOAT (or explicit flow-root)
@@ -120,22 +120,22 @@ pub(super) fn fold_through_collapsing_margins(
         // onto it (bridge-level replica: a float holding a 21px-margined
         // h1 must sit at flow position 0 with the heading 21px inside —
         // the unguarded fold parked the float itself at 21).
-        if style.float != FloatV1::None
+        if style.float != Float::None
             || matches!(
                 style.display.inside,
-                rito_style_contract::LayoutDisplayInsideV1::FlowRoot
+                rito_style_contract::LayoutDisplayInside::FlowRoot
             )
         {
             return Ok(());
         }
         fn in_flow(
             nodes: &[FormattingNode],
-            layout: &mut LayoutStyleTableV1,
+            layout: &mut LayoutStyleTable,
             id: FormattingNodeId,
         ) -> bool {
             layout
                 .style(nodes[id.0 as usize].style)
-                .map(|child| child.float == FloatV1::None)
+                .map(|child| child.float == Float::None)
                 .unwrap_or(false)
         }
         // At the ROOT container only: a float before the first in-flow
@@ -155,7 +155,7 @@ pub(super) fn fold_through_collapsing_margins(
                     in_flow(nodes, layout, *id)
                         || layout
                             .style(nodes[id.0 as usize].style)
-                            .map(|child| child.float != FloatV1::None)
+                            .map(|child| child.float != Float::None)
                             .unwrap_or(false)
                 })
                 .is_some_and(|id| !in_flow(nodes, layout, id));
@@ -170,7 +170,7 @@ pub(super) fn fold_through_collapsing_margins(
             // where the browser collapses the whole set to 30.
             fn is_self_collapsing_empty(
                 nodes: &[FormattingNode],
-                layout: &mut LayoutStyleTableV1,
+                layout: &mut LayoutStyleTable,
                 id: FormattingNodeId,
                 zero_padding: &impl Fn(NonNegativeLengthPercentage) -> bool,
             ) -> bool {
@@ -185,8 +185,8 @@ pub(super) fn fold_through_collapsing_margins(
                     .map(|style| {
                         zero_padding(style.padding.top)
                             && zero_padding(style.padding.bottom)
-                            && style.height == PreferredSizeV1::Auto
-                            && style.min_height == MinimumHeightV1::Auto
+                            && style.height == PreferredSize::Auto
+                            && style.min_height == MinimumHeight::Auto
                     })
                     .unwrap_or(false)
             }
@@ -218,7 +218,7 @@ pub(super) fn fold_through_collapsing_margins(
                 // follower top) - spacer top), 32-case browser matrix),
                 // so the fold must leave them in place for the layout
                 // pass instead of hoisting them onto the container.
-                if child_clear != ClearV1::None
+                if child_clear != Clear::None
                     && is_self_collapsing_empty(nodes, layout, child, &zero_padding)
                     && children
                         .iter()
@@ -227,7 +227,7 @@ pub(super) fn fold_through_collapsing_margins(
                         .any(|id| {
                             layout
                                 .style(nodes[id.0 as usize].style)
-                                .map(|sibling| sibling.float != FloatV1::None)
+                                .map(|sibling| sibling.float != Float::None)
                                 .unwrap_or(false)
                         })
                 {
@@ -269,8 +269,8 @@ pub(super) fn fold_through_collapsing_margins(
         }
         let bottom_open = !is_root
             && zero_padding(style.padding.bottom)
-            && style.height == PreferredSizeV1::Auto
-            && style.min_height == MinimumHeightV1::Auto;
+            && style.height == PreferredSize::Auto
+            && style.min_height == MinimumHeight::Auto;
         if bottom_open {
             let last = children
                 .iter()
@@ -325,7 +325,7 @@ pub(super) fn fold_through_collapsing_margins(
     fn root_margins_to_padding(
         nodes: &mut [FormattingNode],
         root: FormattingNodeId,
-        layout: &mut LayoutStyleTableV1,
+        layout: &mut LayoutStyleTable,
     ) -> EpubResult<()> {
         let mut style = *layout
             .style(nodes[root.0 as usize].style)

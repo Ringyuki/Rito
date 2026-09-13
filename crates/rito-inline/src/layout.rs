@@ -2012,8 +2012,8 @@ impl FormattingContext for ParleyInlineContext {
                 // font alone (measured: 19.2px over Tinos+SourceHan puts
                 // the baseline at 15 for empty, Latin and CJK samples
                 // alike).
-                let mut entries: Vec<(&InlineFormattingStyleV1, &str, f64, bool)> = Vec::new();
-                let mut strut_resolved: Option<&InlineFormattingStyleV1> = None;
+                let mut entries: Vec<(&InlineFormattingStyle, &str, f64, bool)> = Vec::new();
+                let mut strut_resolved: Option<&InlineFormattingStyle> = None;
                 match tree.strut_style(root).or_else(|| {
                     item_line_heights
                         .iter()

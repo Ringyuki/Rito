@@ -5,7 +5,7 @@
 use serde_json::{json, Map, Number, Value};
 
 use super::super::commands::contract::{
-    ReaderColorV1, ReaderRectV1, ReaderTextRunPaintV1, ReaderTextRunV1,
+    ReaderColor, ReaderRect, ReaderTextRun, ReaderTextRunPaint,
 };
 use super::{
     DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, PathOp,
@@ -224,7 +224,7 @@ fn insert_ground(object: &mut Map<String, Value>, ground: Ground) {
     }
 }
 
-fn text(kind: &str, command: &ReaderTextRunV1) -> Value {
+fn text(kind: &str, command: &ReaderTextRun) -> Value {
     let mut object = object([
         ("kind", json!(kind)),
         ("text", json!(command.text)),
@@ -254,7 +254,7 @@ fn text(kind: &str, command: &ReaderTextRunV1) -> Value {
     Value::Object(object)
 }
 
-fn run_paint(paint: &ReaderTextRunPaintV1) -> Value {
+fn run_paint(paint: &ReaderTextRunPaint) -> Value {
     let mut object = object([
         (
             "font",
@@ -287,7 +287,7 @@ fn run_paint(paint: &ReaderTextRunPaintV1) -> Value {
     Value::Object(object)
 }
 
-fn color(color: &ReaderColorV1) -> Value {
+fn color(color: &ReaderColor) -> Value {
     json!({
         "space": color.space.tag_name(),
         "component0": number(f64::from(color.components[0])),
@@ -311,7 +311,7 @@ fn device_rect(rect: DeviceRect) -> Value {
     Value::Object(rect_fields(rect.x, rect.y, rect.width, rect.height))
 }
 
-fn reader_rect(rect: &ReaderRectV1) -> Value {
+fn reader_rect(rect: &ReaderRect) -> Value {
     Value::Object(rect_fields(rect.x, rect.y, rect.width, rect.height))
 }
 

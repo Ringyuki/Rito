@@ -10,7 +10,7 @@
 
 use rito_fragment::{FormattingNode, FormattingNodeContent, InlineItem};
 use rito_style_contract::{
-    LayoutDisplayInsideV1, LayoutDisplayOutsideV1, LayoutStyleId, StyleId, WhiteSpaceCollapse,
+    LayoutDisplayInside, LayoutDisplayOutside, LayoutStyleId, StyleId, WhiteSpaceCollapse,
 };
 
 use super::{element_source_index, inline_items_have_substance};
@@ -136,8 +136,8 @@ impl TreeBuilder<'_> {
                     .layout
                     .style(layout_style_id)
                     .map(|resolved| {
-                        resolved.display.outside == LayoutDisplayOutsideV1::Inline
-                            && resolved.display.inside == LayoutDisplayInsideV1::FlowRoot
+                        resolved.display.outside == LayoutDisplayOutside::Inline
+                            && resolved.display.inside == LayoutDisplayInside::FlowRoot
                     })
                     .unwrap_or(false);
                 if is_inline_block
@@ -385,22 +385,22 @@ impl TreeBuilder<'_> {
 /// (1/64 px) floor. The offsets do not depend on the shifted box's own
 /// font size.
 pub(super) fn resolved_baseline_shift(
-    style: &rito_style_contract::InlineFormattingStyleV1,
+    style: &rito_style_contract::InlineFormattingStyle,
     parent_font_size_px: f64,
 ) -> f64 {
     resolved_baseline_shift_with_parent(style, parent_font_size_px, None)
 }
 
 fn resolved_baseline_shift_with_parent(
-    style: &rito_style_contract::InlineFormattingStyleV1,
+    style: &rito_style_contract::InlineFormattingStyle,
     parent_font_size_px: f64,
-    parent: Option<&rito_style_contract::InlineFormattingStyleV1>,
+    parent: Option<&rito_style_contract::InlineFormattingStyle>,
 ) -> f64 {
     let layout_unit_floor = |value: f64| (value * 64.0).floor() / 64.0;
     // The box's half of the line box below (or above) the baseline:
     // half-leading plus the descent (ascent) share of the em, on the
     // 0.88/0.12 split the super/sub offsets already assume.
-    let line_height_px = |s: &rito_style_contract::InlineFormattingStyleV1| {
+    let line_height_px = |s: &rito_style_contract::InlineFormattingStyle| {
         let fs = f64::from(s.font.size.get());
         match s.font.line_height {
             rito_style_contract::LineHeight::Number(n) => f64::from(n.get()) * fs,
@@ -408,11 +408,11 @@ fn resolved_baseline_shift_with_parent(
             rito_style_contract::LineHeight::Normal => fs * 1.2,
         }
     };
-    let below = |s: &rito_style_contract::InlineFormattingStyleV1| {
+    let below = |s: &rito_style_contract::InlineFormattingStyle| {
         let fs = f64::from(s.font.size.get());
         (line_height_px(s) - fs) / 2.0 + 0.12 * fs
     };
-    let above = |s: &rito_style_contract::InlineFormattingStyleV1| {
+    let above = |s: &rito_style_contract::InlineFormattingStyle| {
         let fs = f64::from(s.font.size.get());
         (line_height_px(s) - fs) / 2.0 + 0.88 * fs
     };

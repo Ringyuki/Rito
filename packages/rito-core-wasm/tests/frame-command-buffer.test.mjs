@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { decodeRitoFrameCommandBuffer } from '../src/frame-command-buffer-decoder-runtime.js';
-import { primitiveListFixture } from './reader-v1-primitive-list-wire.test.mjs';
+import { primitiveListFixture } from './reader-session-primitive-list-wire.test.mjs';
 
 function metadataFor(bytes, overrides = {}) {
   return {

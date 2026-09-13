@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter_native.dart';
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 
-/// The Reader v1 protocol version lives in one Rust constant and is
+/// The reader session protocol version lives in one Rust constant and is
 /// mirrored by hand into every decoder. A bump that misses one mirror
 /// bricks that message type at runtime while hand-built fixtures keep
 /// agreeing with the stale gate, so this reads the real constant out of
@@ -29,10 +29,10 @@ void main() {
 
   int rustProtocolVersion() {
     final source = File(
-      '$repoRoot/crates/rito-core/src/runtime/reader_v1.rs',
+      '$repoRoot/crates/rito-core/src/runtime/reader_session.rs',
     ).readAsStringSync();
     final match = RegExp(
-      r'READER_PROTOCOL_VERSION_V1:\s*u32\s*=\s*(\d+)',
+      r'READER_PROTOCOL_VERSION:\s*u32\s*=\s*(\d+)',
     ).firstMatch(source);
     expect(match, isNotNull, reason: 'the Rust constant must be findable');
     return int.parse(match!.group(1)!);
@@ -61,10 +61,10 @@ void main() {
   test('every JavaScript decoder gates on the Rust protocol version', () {
     final expected = rustProtocolVersion();
     final base = File(
-      '$repoRoot/packages/rito-core-wasm/src/reader-v1-wire-base-runtime.js',
+      '$repoRoot/packages/rito-core-wasm/src/reader-session-wire-base-runtime.js',
     ).readAsStringSync();
     final match = RegExp(
-      r'READER_V1_PROTOCOL_VERSION\s*=\s*(\d+)',
+      r'READER_PROTOCOL_VERSION\s*=\s*(\d+)',
     ).firstMatch(base);
     expect(match, isNotNull, reason: 'the JS mirror constant must exist');
     expect(int.parse(match!.group(1)!), expected);
@@ -72,8 +72,8 @@ void main() {
     // Both JS decoders must reference that constant rather than a
     // literal of their own.
     for (final name in const [
-      'reader-v1-artifact-decoder-runtime.js',
-      'reader-v1-publication-runtime.js',
+      'reader-session-artifact-decoder-runtime.js',
+      'reader-session-publication-runtime.js',
     ]) {
       final source = File(
         '$repoRoot/packages/rito-core-wasm/src/$name',
@@ -83,13 +83,13 @@ void main() {
         isFalse,
         reason: '$name must not gate on a literal version',
       );
-      expect(source, contains('READER_V1_PROTOCOL_VERSION'), reason: name);
+      expect(source, contains('READER_PROTOCOL_VERSION'), reason: name);
     }
   });
 
   test('every primitive-list decoder gates on the Rust format version', () {
     final source = File(
-      '$repoRoot/crates/rito-core/src/render/commands/reader_wire_v1.rs',
+      '$repoRoot/crates/rito-core/src/render/commands/reader_wire.rs',
     ).readAsStringSync();
     final match = RegExp(
       r'READER_PRIMITIVE_LIST_FORMAT_VERSION:\s*u32\s*=\s*(\d+)',
@@ -99,7 +99,7 @@ void main() {
     expect(RitoPrimitiveListDecoder.formatVersion, expected);
 
     final js = File(
-      '$repoRoot/packages/rito-core-wasm/src/reader-v1-primitive-decoder-runtime.js',
+      '$repoRoot/packages/rito-core-wasm/src/reader-session-primitive-decoder-runtime.js',
     ).readAsStringSync();
     final jsMatch = RegExp(
       r'READER_V1_PRIMITIVE_LIST_FORMAT_VERSION\s*=\s*(\d+)',

@@ -1,16 +1,16 @@
 use std::borrow::Cow;
 
-use rito_style_contract::PageBreakV1;
+use rito_style_contract::PageBreak;
 use style::{custom_properties::Name, properties::ComputedValues, Atom};
 use style_traits::ToCss;
 
 pub(crate) const REGISTRATION_STYLESHEET: &str = r#"
-@property --rito-internal-break-before-v1 {
+@property --rito-internal-break-before {
   syntax: "auto | always | page | avoid | left | right | column";
   inherits: false;
   initial-value: auto;
 }
-@property --rito-internal-break-after-v1 {
+@property --rito-internal-break-after {
   syntax: "auto | always | page | avoid | left | right | column";
   inherits: false;
   initial-value: auto;
@@ -32,8 +32,8 @@ pub(crate) const REGISTRATION_STYLESHEET: &str = r#"
 }
 "#;
 
-const BEFORE_CSS_NAME: &str = "--rito-internal-break-before-v1";
-const AFTER_CSS_NAME: &str = "--rito-internal-break-after-v1";
+const BEFORE_CSS_NAME: &str = "--rito-internal-break-before";
+const AFTER_CSS_NAME: &str = "--rito-internal-break-after";
 // Stylo's Servo profile implements neither table border property, so they
 // travel as registered custom properties exactly like the break controls.
 const BORDER_COLLAPSE_CSS_NAME: &str = "--rito-internal-border-collapse-v1";
@@ -44,8 +44,8 @@ const RUBY_ALIGN_CSS_NAME: &str = "--rito-internal-ruby-align-v1";
 const BORDER_COLLAPSE_ATOM_NAME: &str = "rito-internal-border-collapse-v1";
 const BORDER_SPACING_ATOM_NAME: &str = "rito-internal-border-spacing-v1";
 const RUBY_ALIGN_ATOM_NAME: &str = "rito-internal-ruby-align-v1";
-const BEFORE_ATOM_NAME: &str = "rito-internal-break-before-v1";
-const AFTER_ATOM_NAME: &str = "rito-internal-break-after-v1";
+const BEFORE_ATOM_NAME: &str = "rito-internal-break-before";
+const AFTER_ATOM_NAME: &str = "rito-internal-break-after";
 
 #[derive(Clone, Copy)]
 pub(crate) enum BreakEdge {
@@ -53,13 +53,13 @@ pub(crate) enum BreakEdge {
     After,
 }
 
-pub(crate) fn project(styles: &ComputedValues, edge: BreakEdge) -> Option<PageBreakV1> {
+pub(crate) fn project(styles: &ComputedValues, edge: BreakEdge) -> Option<PageBreak> {
     let name = custom_property_name(edge);
     let value = styles.custom_properties().non_inherited.get(&name)?;
     let value = value.to_css_string();
     let value = value.trim();
     if value.eq_ignore_ascii_case("auto") {
-        Some(PageBreakV1::Auto)
+        Some(PageBreak::Auto)
     } else if value.eq_ignore_ascii_case("always") || value.eq_ignore_ascii_case("page") {
         // The reader's fragmentainer is a COLUMN context (the pixel
         // oracle's multicol truth). Measured: Chromium's continuous
@@ -69,9 +69,9 @@ pub(crate) fn project(styles: &ComputedValues, edge: BreakEdge) -> Option<PageBr
         // `column` keyword breaks. Honoring them sealed a fragmentainer
         // per mid-chapter plate (b2's .illus: one blank page before and
         // one after every interior illustration, chapter drift -6).
-        Some(PageBreakV1::Auto)
+        Some(PageBreak::Auto)
     } else if value.eq_ignore_ascii_case("column") {
-        Some(PageBreakV1::Always)
+        Some(PageBreak::Always)
     } else {
         // The retired consumer ignored avoid/left/right. Reject them instead
         // of pretending they have ordinary forced-page semantics.

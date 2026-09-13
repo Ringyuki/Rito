@@ -19,17 +19,17 @@ export 'src/image/image_limits.dart'
 export 'src/native/bindings.dart'
     show
         RitoNativeException,
-        ritoNativeStatusAdjacentPendingV1,
-        ritoNativeStatusAlreadyExistsV1,
-        ritoNativeStatusBusyV1,
-        ritoNativeStatusEngineErrorV1,
-        ritoNativeStatusInvalidArgumentV1,
-        ritoNativeStatusNotFoundV1,
-        ritoNativeStatusPanicV1,
-        ritoNativeStatusSessionTerminatedV1,
-        ritoNativeStatusStaleRequestV1,
-        ritoNativeStatusTargetNotPublishedV1,
-        ritoNativeStatusUnsupportedProfileV1;
+        ritoNativeStatusAdjacentPending,
+        ritoNativeStatusAlreadyExists,
+        ritoNativeStatusBusy,
+        ritoNativeStatusEngineError,
+        ritoNativeStatusInvalidArgument,
+        ritoNativeStatusNotFound,
+        ritoNativeStatusPanic,
+        ritoNativeStatusSessionTerminated,
+        ritoNativeStatusStaleRequest,
+        ritoNativeStatusTargetNotPublished,
+        ritoNativeStatusUnsupportedProfile;
 export 'src/native/gateway.dart';
 export 'src/protocol/artifact_models.dart';
 export 'src/protocol/display_models.dart'

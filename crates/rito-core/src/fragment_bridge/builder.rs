@@ -11,8 +11,8 @@
 
 use rito_fragment::{FormattingNode, FormattingNodeContent, FormattingNodeId, InlineItem};
 use rito_style_contract::{
-    JustifyContentV1, LayoutDisplayInsideV1, LayoutDisplayOutsideV1, LayoutStyleId,
-    LengthPercentage, NonNegativeLengthPercentage, StyleId,
+    JustifyContent, LayoutDisplayInside, LayoutDisplayOutside, LayoutStyleId, LengthPercentage,
+    NonNegativeLengthPercentage, StyleId,
 };
 
 use capability::box_decoration_violation;
@@ -21,7 +21,7 @@ use super::box_paint::block_box_paint;
 use super::styles::list_marker_text;
 use super::{InlineCollector, ListMarkerPaint, NodePaint, TreeBuilder};
 use crate::epub::{EpubError, EpubResult};
-use crate::render::contract::ReaderColorV1;
+use crate::render::contract::ReaderColor;
 use crate::xhtml::{DocumentNode, ElementNode};
 
 mod capability;
@@ -75,7 +75,7 @@ impl TreeBuilder<'_> {
 
     fn is_display_none(&mut self, source_index: usize, what: &str) -> bool {
         match self.layout.style_for_node(source_index) {
-            Ok(style) => style.display.outside == LayoutDisplayOutsideV1::None,
+            Ok(style) => style.display.outside == LayoutDisplayOutside::None,
             Err(_) => {
                 self.degrade(format!("<{what}> layout style missing: treated as visible"));
                 false
@@ -143,7 +143,7 @@ impl TreeBuilder<'_> {
         let Ok(anchor_layout) = self.layout.style_for_node(anchor_id.index()) else {
             return Ok(None);
         };
-        if anchor_layout.display.outside != LayoutDisplayOutsideV1::Block {
+        if anchor_layout.display.outside != LayoutDisplayOutside::Block {
             return Ok(None);
         }
         // The hoist preserved the anchor's whitespace-only text nodes
@@ -256,7 +256,7 @@ impl TreeBuilder<'_> {
                 .layout
                 .style(style)
                 .map_err(|error| EpubError::new(format!("block style resolves: {error}")))?;
-            if resolved.display.inside == LayoutDisplayInsideV1::Table {
+            if resolved.display.inside == LayoutDisplayInside::Table {
                 // `build_table` absorbs the table's border into padding
                 // itself (and registers the decoration paint); absorbing
                 // here too counted the border twice — every 2px-framed
@@ -454,8 +454,8 @@ impl TreeBuilder<'_> {
         let Ok(layout_style) = self.layout.style_for_node(source_index) else {
             return Ok(strut);
         };
-        if layout_style.display.inside != LayoutDisplayInsideV1::Flex
-            || layout_style.justify_content != JustifyContentV1::Center
+        if layout_style.display.inside != LayoutDisplayInside::Flex
+            || layout_style.justify_content != JustifyContent::Center
         {
             return Ok(strut);
         }
@@ -655,7 +655,7 @@ impl TreeBuilder<'_> {
     pub(super) fn chapter_body_background(
         &mut self,
         source_index: usize,
-    ) -> EpubResult<Option<ReaderColorV1>> {
+    ) -> EpubResult<Option<ReaderColor>> {
         let style = self.inline_style_id(source_index, "chapter body");
         let (background, bordered, decoration) = {
             let resolved = self
@@ -663,12 +663,12 @@ impl TreeBuilder<'_> {
                 .style(style)
                 .map_err(|error| EpubError::new(format!("chapter body style resolves: {error}")))?;
             let background = match resolved.paint.background {
-                rito_style_contract::ComputedColorV1::Absolute(color)
+                rito_style_contract::ComputedColor::Absolute(color)
                     if color.alpha().get() > 0.0 =>
                 {
                     crate::style::paint_color(color).ok()
                 }
-                rito_style_contract::ComputedColorV1::CurrentColor => {
+                rito_style_contract::ComputedColor::CurrentColor => {
                     crate::style::paint_color(resolved.paint.foreground).ok()
                 }
                 _ => None,

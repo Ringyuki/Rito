@@ -25,7 +25,7 @@ use crate::{
     config::initialize_global_preferences,
     device::make_device,
     dom::DomStorage,
-    projection::{self, ProductionStyleProjectionV1},
+    projection::{self, ProductionStyleProjection},
     traversal,
 };
 
@@ -157,18 +157,16 @@ impl StyleDocument {
 
     /// Runs the cascade once and projects both production style tables from
     /// the retained computed styles.
-    pub fn resolve_production_slice_v1(
-        &mut self,
-    ) -> Result<ProductionStyleProjectionV1, StyleError> {
+    pub fn resolve_production_slice(&mut self) -> Result<ProductionStyleProjection, StyleError> {
         traversal::resolve(
             &self.dom,
             &mut self.stylist,
             &self.animations,
             &mut self.snapshots,
         );
-        let inline = projection::project_inline_v1(&self.dom)?;
-        let layout = projection::project_layout_v1(&self.dom)?;
-        Ok(ProductionStyleProjectionV1::new(inline, layout))
+        let inline = projection::project_inline(&self.dom)?;
+        let layout = projection::project_layout(&self.dom)?;
+        Ok(ProductionStyleProjection::new(inline, layout))
     }
 }
 
@@ -313,8 +311,8 @@ mod tests {
 
     use rito_source::SourceArena;
     use rito_style_contract::{
-        AbsoluteColorSpace, InlineFormattingStyleV1, LayoutDisplayInsideV1, LayoutDisplayOutsideV1,
-        LayoutFormattingStyleV1, LineHeight,
+        AbsoluteColorSpace, InlineFormattingStyle, LayoutDisplayInside, LayoutDisplayOutside,
+        LayoutFormattingStyle, LineHeight,
     };
 
     use super::{canonicalize_font_family_value, StyleDocument, StylesheetInput, Viewport};
@@ -333,7 +331,7 @@ mod tests {
         source: &Arc<SourceArena>,
         root_font_size: f32,
         css: &str,
-    ) -> (InlineFormattingStyleV1, LayoutFormattingStyleV1) {
+    ) -> (InlineFormattingStyle, LayoutFormattingStyle) {
         let target = source.find_element_by_id("target").unwrap();
         let mut document = StyleDocument::from_source_with_root_font_size(
             Arc::clone(source),
@@ -343,7 +341,7 @@ mod tests {
             &[StylesheetInput::author(css, URL)],
         )
         .unwrap();
-        let (inline, layout) = document.resolve_production_slice_v1().unwrap().into_parts();
+        let (inline, layout) = document.resolve_production_slice().unwrap().into_parts();
         let inline_style = inline
             .table()
             .style_for_node(target.index())
@@ -360,8 +358,8 @@ mod tests {
         );
         let (inline, layout) =
             target_styles(&source, 16.0, "p { display: block; font-size: 21px }");
-        assert_eq!(layout.display.outside, LayoutDisplayOutsideV1::Block);
-        assert_eq!(layout.display.inside, LayoutDisplayInsideV1::Flow);
+        assert_eq!(layout.display.outside, LayoutDisplayOutside::Block);
+        assert_eq!(layout.display.inside, LayoutDisplayInside::Flow);
         assert_eq!(inline.font.size.get(), 27.0);
     }
 
@@ -406,8 +404,8 @@ mod tests {
             inline.font.line_height,
             LineHeight::Number(value) if value.get() == 1.5
         ));
-        assert_eq!(layout.display.outside, LayoutDisplayOutsideV1::Inline);
-        assert_eq!(layout.display.inside, LayoutDisplayInsideV1::FlowRoot);
+        assert_eq!(layout.display.outside, LayoutDisplayOutside::Inline);
+        assert_eq!(layout.display.inside, LayoutDisplayInside::FlowRoot);
         assert!(!layout.display.is_list_item);
         let color = inline.paint.foreground;
         assert_eq!(color.space(), AbsoluteColorSpace::Srgb);

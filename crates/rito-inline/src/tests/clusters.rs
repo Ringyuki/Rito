@@ -67,7 +67,7 @@ fn an_all_cjk_run_at_a_fractional_size_takes_the_grid_law() {
             size,
             0.0,
         );
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline.intern_for_node(0, style).expect("style interns");
         let nodes = vec![FormattingNode {
             style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -85,7 +85,7 @@ fn an_all_cjk_run_at_a_fractional_size_takes_the_grid_law() {
             nodes,
             FormattingNodeId(0),
             rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )
@@ -255,7 +255,7 @@ fn a_spread_ruby_base_keeps_one_origin_per_cluster_after_merging() {
         0.0,
     );
     let annotation_advance = context.measure_styled_advance(&style, Some(8.0), "Emnetwiht");
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let style = inline.intern_for_node(0, style).expect("style interns");
     let text_item = |text: &str| InlineItem::Text {
         text: text.to_owned(),
@@ -287,7 +287,7 @@ fn a_spread_ruby_base_keeps_one_origin_per_cluster_after_merging() {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )

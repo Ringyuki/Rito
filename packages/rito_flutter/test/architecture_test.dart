@@ -60,10 +60,10 @@ void main() {
     expect(gateway, contains('_adjacentIntentKey(request)'));
     expect(pending, contains('quantum < maxContinuationQuanta'));
     expect(pending, contains('RitoPendingAdjacentLimitException('));
-    expect(pending, contains('ritoPendingAdjacentContinuationCapV1 = 4096'));
+    expect(pending, contains('ritoPendingAdjacentContinuationCap = 4096'));
     expect(pending, isNot(contains('.message')));
-    expect(bindings, contains('ritoNativeStatusAdjacentPendingV1 = 10'));
-    expect(bindings, contains('ritoNativeStatusSessionTerminatedV1 = 11'));
+    expect(bindings, contains('ritoNativeStatusAdjacentPending = 10'));
+    expect(bindings, contains('ritoNativeStatusSessionTerminated = 11'));
     expect(bindings, contains('_terminatedSessionResultError('));
     expect(
       bindings,
@@ -83,10 +83,10 @@ void main() {
     );
     expect(
       gateway,
-      contains('error.status == ritoNativeStatusSessionTerminatedV1'),
+      contains('error.status == ritoNativeStatusSessionTerminated'),
     );
-    expect(gateway, contains('error.status != ritoNativeStatusNotFoundV1'));
-    expect(gateway, contains('error.status != ritoNativeStatusEngineErrorV1'));
+    expect(gateway, contains('error.status != ritoNativeStatusNotFound'));
+    expect(gateway, contains('error.status != ritoNativeStatusEngineError'));
   });
 
   test('large native bytes cross isolates through transferable transport', () {
@@ -118,11 +118,11 @@ void main() {
     final binding = File('lib/src/native/bindings.dart').readAsStringSync();
     expect(binding, contains('@Native<_OpenNative>'));
     expect(binding, contains('assetId: ritoNativeAssetId'));
-    expect(binding, contains("symbol: 'rito_request_adjacent_v1'"));
-    expect(binding, contains("symbol: 'rito_read_publication_v1'"));
-    expect(binding, contains("symbol: 'rito_adopt_foreground_candidate_v1'"));
-    expect(binding, contains("symbol: 'rito_advance_background_v1'"));
-    expect(binding, contains("symbol: 'rito_adopt_background_candidate_v1'"));
+    expect(binding, contains("symbol: 'rito_request_adjacent'"));
+    expect(binding, contains("symbol: 'rito_read_publication'"));
+    expect(binding, contains("symbol: 'rito_adopt_foreground_candidate'"));
+    expect(binding, contains("symbol: 'rito_advance_background'"));
+    expect(binding, contains("symbol: 'rito_adopt_background_candidate'"));
     expect(binding, contains('RitoNativeBindings.fromDynamicLibrary'));
 
     final gateway = File('lib/src/native/gateway.dart').readAsStringSync();

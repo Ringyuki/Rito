@@ -88,7 +88,7 @@ pub enum BaselineShift {
 
 /// Inline fragment geometry retained before basis and writing-mode resolution.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct InlineFragmentStyleV1 {
+pub struct InlineFragmentStyle {
     /// Physical margins; percentages use the containing block's inline basis.
     pub margin: PhysicalSides<LengthPercentageOrAuto>,
     /// Physical padding with non-negative range constraints retained.

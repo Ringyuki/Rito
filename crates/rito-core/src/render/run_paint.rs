@@ -1,24 +1,24 @@
 use std::{ops::Deref, sync::Arc};
 
-use super::commands::contract::{ReaderFontPaintV1, ReaderRunPaintV1};
+use super::commands::contract::{ReaderFontPaint, ReaderRunPaint};
 
 /// A text run's paint, shared by reference between the runs of one
 /// inline box: the typed run paint behind an `Arc`, cloned on write.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RunPaint {
-    data: Arc<ReaderRunPaintV1>,
+    data: Arc<ReaderRunPaint>,
 }
 
 impl Deref for RunPaint {
-    type Target = ReaderRunPaintV1;
+    type Target = ReaderRunPaint;
 
-    fn deref(&self) -> &ReaderRunPaintV1 {
+    fn deref(&self) -> &ReaderRunPaint {
         &self.data
     }
 }
 
 impl RunPaint {
-    pub(crate) fn new(data: ReaderRunPaintV1) -> Self {
+    pub(crate) fn new(data: ReaderRunPaint) -> Self {
         Self {
             data: Arc::new(data),
         }
@@ -75,15 +75,15 @@ impl RunPaint {
     /// annotation size and its colour, nothing else.
     pub(crate) fn for_ruby(&self, font_size: f64) -> Self {
         let font = &self.data.font;
-        Self::new(ReaderRunPaintV1 {
-            font: ReaderFontPaintV1 {
+        Self::new(ReaderRunPaint {
+            font: ReaderFontPaint {
                 family: font.family.clone(),
                 size_px: font_size,
                 weight: font.weight,
                 style: font.style,
             },
             color: self.data.color,
-            ..ReaderRunPaintV1::default()
+            ..ReaderRunPaint::default()
         })
     }
 
@@ -103,7 +103,7 @@ impl RunPaint {
 
 impl Default for RunPaint {
     fn default() -> Self {
-        Self::new(ReaderRunPaintV1::default())
+        Self::new(ReaderRunPaint::default())
     }
 }
 

@@ -1,20 +1,20 @@
 use rito_core::runtime::{
-    decode_reader_adjacent_request_v1, decode_reader_artifact_request_v1,
-    decode_reader_background_handoff_v1, decode_reader_background_request_v1,
-    decode_reader_foreground_handoff_v1, decode_reader_search_request_v1,
-    decode_reader_text_range_request_v1, ReaderAdjacentRequestV1, ReaderArtifactRequestV1,
-    ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderForegroundHandoffV1,
-    ReaderResourceKindV1, ReaderSearchRequestV1, ReaderTextRangeRequestV1,
-    RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag,
-    RuntimePinnedFontPolicyInput, READER_BACKGROUND_HANDOFF_WIRE_BYTES_V1,
-    READER_BACKGROUND_REQUEST_WIRE_BYTES_V1, READER_FOREGROUND_HANDOFF_WIRE_BYTES_V1,
+    decode_reader_adjacent_request, decode_reader_artifact_request,
+    decode_reader_background_handoff, decode_reader_background_request,
+    decode_reader_foreground_handoff, decode_reader_search_request,
+    decode_reader_text_range_request, ReaderAdjacentRequest, ReaderArtifactRequest,
+    ReaderBackgroundHandoff, ReaderBackgroundRequest, ReaderForegroundHandoff, ReaderResourceKind,
+    ReaderSearchRequest, ReaderTextRangeRequest, RuntimePinnedFontFaceInput,
+    RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput,
+    READER_BACKGROUND_HANDOFF_WIRE_BYTES, READER_BACKGROUND_REQUEST_WIRE_BYTES,
+    READER_FOREGROUND_HANDOFF_WIRE_BYTES,
 };
 
 use crate::{
     abi::{
-        copy_bytes, RitoPinnedFontFaceV1, RITO_PINNED_FONT_ROLE_MONOSPACE_V1,
-        RITO_PINNED_FONT_ROLE_SANS_SERIF_V1, RITO_PINNED_FONT_ROLE_SERIF_V1,
-        RITO_RESOURCE_KIND_FONT_V1, RITO_RESOURCE_KIND_IMAGE_V1, RITO_RESOURCE_KIND_STYLESHEET_V1,
+        copy_bytes, RitoPinnedFontFace, RITO_PINNED_FONT_ROLE_MONOSPACE,
+        RITO_PINNED_FONT_ROLE_SANS_SERIF, RITO_PINNED_FONT_ROLE_SERIF, RITO_RESOURCE_KIND_FONT,
+        RITO_RESOURCE_KIND_IMAGE, RITO_RESOURCE_KIND_STYLESHEET,
     },
     error::FfiError,
 };
@@ -33,71 +33,71 @@ pub(crate) fn publication(source: *const u8, len: u64) -> Result<Vec<u8>, FfiErr
     copy_bytes(source, len, MAX_EPUB_BYTES, "EPUB input")
 }
 
-pub(crate) fn request(source: *const u8, len: u64) -> Result<ReaderArtifactRequestV1, FfiError> {
+pub(crate) fn request(source: *const u8, len: u64) -> Result<ReaderArtifactRequest, FfiError> {
     if len == 0 {
         return Err(FfiError::invalid("RITOREQ1 input must not be empty"));
     }
     let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "RITOREQ1 input")?;
-    decode_reader_artifact_request_v1(&bytes).map_err(FfiError::from)
+    decode_reader_artifact_request(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn adjacent_request(
     source: *const u8,
     len: u64,
-) -> Result<ReaderAdjacentRequestV1, FfiError> {
+) -> Result<ReaderAdjacentRequest, FfiError> {
     if len == 0 {
         return Err(FfiError::invalid("RITONAV1 input must not be empty"));
     }
     let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "RITONAV1 input")?;
-    decode_reader_adjacent_request_v1(&bytes).map_err(FfiError::from)
+    decode_reader_adjacent_request(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn background_request(
     source: *const u8,
     len: u64,
-) -> Result<ReaderBackgroundRequestV1, FfiError> {
+) -> Result<ReaderBackgroundRequest, FfiError> {
     if len == 0 {
         return Err(FfiError::invalid("RITOBGQ1 input must not be empty"));
     }
     let bytes = copy_bytes(
         source,
         len,
-        u64::from(READER_BACKGROUND_REQUEST_WIRE_BYTES_V1),
+        u64::from(READER_BACKGROUND_REQUEST_WIRE_BYTES),
         "RITOBGQ1 input",
     )?;
-    decode_reader_background_request_v1(&bytes).map_err(FfiError::from)
+    decode_reader_background_request(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn foreground_handoff(
     source: *const u8,
     len: u64,
-) -> Result<ReaderForegroundHandoffV1, FfiError> {
+) -> Result<ReaderForegroundHandoff, FfiError> {
     if len == 0 {
         return Err(FfiError::invalid("RITOFGH1 input must not be empty"));
     }
     let bytes = copy_bytes(
         source,
         len,
-        u64::from(READER_FOREGROUND_HANDOFF_WIRE_BYTES_V1),
+        u64::from(READER_FOREGROUND_HANDOFF_WIRE_BYTES),
         "RITOFGH1 input",
     )?;
-    decode_reader_foreground_handoff_v1(&bytes).map_err(FfiError::from)
+    decode_reader_foreground_handoff(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn background_handoff(
     source: *const u8,
     len: u64,
-) -> Result<ReaderBackgroundHandoffV1, FfiError> {
+) -> Result<ReaderBackgroundHandoff, FfiError> {
     if len == 0 {
         return Err(FfiError::invalid("RITOHOF1 input must not be empty"));
     }
     let bytes = copy_bytes(
         source,
         len,
-        u64::from(READER_BACKGROUND_HANDOFF_WIRE_BYTES_V1),
+        u64::from(READER_BACKGROUND_HANDOFF_WIRE_BYTES),
         "RITOHOF1 input",
     )?;
-    decode_reader_background_handoff_v1(&bytes).map_err(FfiError::from)
+    decode_reader_background_handoff(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn resource_href(source: *const u8, len: u64) -> Result<String, FfiError> {
@@ -108,20 +108,17 @@ pub(crate) fn resource_href(source: *const u8, len: u64) -> Result<String, FfiEr
     String::from_utf8(bytes).map_err(|_| FfiError::invalid("resource href must be valid UTF-8"))
 }
 
-pub(crate) fn search_request(
-    source: *const u8,
-    len: u64,
-) -> Result<ReaderSearchRequestV1, FfiError> {
+pub(crate) fn search_request(source: *const u8, len: u64) -> Result<ReaderSearchRequest, FfiError> {
     let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "search request")?;
-    decode_reader_search_request_v1(&bytes).map_err(FfiError::from)
+    decode_reader_search_request(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn text_range_request(
     source: *const u8,
     len: u64,
-) -> Result<ReaderTextRangeRequestV1, FfiError> {
+) -> Result<ReaderTextRangeRequest, FfiError> {
     let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "text range request")?;
-    decode_reader_text_range_request_v1(&bytes).map_err(FfiError::from)
+    decode_reader_text_range_request(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn footnote_key(source: *const u8, len: u64) -> Result<String, FfiError> {
@@ -132,21 +129,21 @@ pub(crate) fn footnote_key(source: *const u8, len: u64) -> Result<String, FfiErr
     String::from_utf8(bytes).map_err(|_| FfiError::invalid("footnote key must be valid UTF-8"))
 }
 
-pub(crate) fn resource_kind(value: u32) -> Result<ReaderResourceKindV1, FfiError> {
+pub(crate) fn resource_kind(value: u32) -> Result<ReaderResourceKind, FfiError> {
     match value {
-        RITO_RESOURCE_KIND_IMAGE_V1 => Ok(ReaderResourceKindV1::Image),
-        RITO_RESOURCE_KIND_FONT_V1 => Ok(ReaderResourceKindV1::Font),
-        RITO_RESOURCE_KIND_STYLESHEET_V1 => Ok(ReaderResourceKindV1::Stylesheet),
+        RITO_RESOURCE_KIND_IMAGE => Ok(ReaderResourceKind::Image),
+        RITO_RESOURCE_KIND_FONT => Ok(ReaderResourceKind::Font),
+        RITO_RESOURCE_KIND_STYLESHEET => Ok(ReaderResourceKind::Stylesheet),
         value => Err(FfiError::invalid(format!("unknown resource kind: {value}"))),
     }
 }
 
 /// Copies and validates the pinned-font face array crossing
-/// `rito_open_with_pinned_fonts_v1`. Byte-level face validation
+/// `rito_open_with_pinned_fonts`. Byte-level face validation
 /// (SHA-256 match, shapeability) stays in the runtime policy
 /// constructor; this only enforces ABI shape and limits.
 pub(crate) fn pinned_font_policy(
-    faces: *const RitoPinnedFontFaceV1,
+    faces: *const RitoPinnedFontFace,
     face_count: u32,
 ) -> Result<RuntimePinnedFontPolicyInput, FfiError> {
     if face_count == 0 {
@@ -183,9 +180,9 @@ pub(crate) fn pinned_font_policy(
                 ))
             })?;
         let generic_role = match face.generic_role {
-            RITO_PINNED_FONT_ROLE_SERIF_V1 => RuntimePinnedFontGenericRole::Serif,
-            RITO_PINNED_FONT_ROLE_SANS_SERIF_V1 => RuntimePinnedFontGenericRole::SansSerif,
-            RITO_PINNED_FONT_ROLE_MONOSPACE_V1 => RuntimePinnedFontGenericRole::Monospace,
+            RITO_PINNED_FONT_ROLE_SERIF => RuntimePinnedFontGenericRole::Serif,
+            RITO_PINNED_FONT_ROLE_SANS_SERIF => RuntimePinnedFontGenericRole::SansSerif,
+            RITO_PINNED_FONT_ROLE_MONOSPACE => RuntimePinnedFontGenericRole::Monospace,
             other => {
                 return Err(FfiError::invalid(format!(
                     "pinned font face {index} has an unknown generic role: {other}"

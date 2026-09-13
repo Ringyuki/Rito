@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::FlowItemSource;
-use crate::render::contract::{ReaderPointV1, ReaderRectV1, ReaderSizeV1, ReaderTransformV1};
+use crate::render::contract::{ReaderPoint, ReaderRect, ReaderSize, ReaderTransform};
 use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint};
 
 use super::run_style::run_paint;
@@ -41,7 +41,7 @@ fn append_vertical_run_commands(
     href: Option<String>,
 ) {
     let step = font_size + paint.letter_spacing_px.unwrap_or(0.0);
-    let run = |text: String, rect: ReaderRectV1, clusters: Vec<(u32, f64, f64)>| {
+    let run = |text: String, rect: ReaderRect, clusters: Vec<(u32, f64, f64)>| {
         DisplayCommand::PaintText(DisplayTextCommand {
             text,
             rect,
@@ -81,15 +81,15 @@ fn append_vertical_run_commands(
             let center_y = pen_y - 0.3 * font_size;
             commands.push(DisplayCommand::PushState);
             commands.push(DisplayCommand::Transform {
-                origin: ReaderPointV1 {
+                origin: ReaderPoint {
                     x: display_number(center_x),
                     y: display_number(center_y),
                 },
-                box_size: ReaderSizeV1 {
+                box_size: ReaderSize {
                     width: display_number(font_size),
                     height: display_number(font_size),
                 },
-                transforms: vec![ReaderTransformV1::Rotate {
+                transforms: vec![ReaderTransform::Rotate {
                     radians: std::f64::consts::FRAC_PI_2,
                 }],
             });

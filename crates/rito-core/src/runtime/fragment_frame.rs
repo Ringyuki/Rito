@@ -8,7 +8,7 @@ use rito_inline::ParleyInlineContext;
 
 use crate::fragment_paint::PaintFamilyPolicy;
 use crate::render::{
-    contract::ReaderColorV1, contract::ReaderPagePaintV1, display_rect, DisplayCommand,
+    contract::ReaderColor, contract::ReaderPagePaint, display_rect, DisplayCommand,
 };
 
 use super::{RuntimeDocument, RuntimeRevision};
@@ -138,11 +138,11 @@ pub(super) fn paint_rect_command(
     y: f64,
     width: f64,
     height: f64,
-    color: ReaderColorV1,
+    color: ReaderColor,
 ) -> DisplayCommand {
     DisplayCommand::PaintPage {
         rect: display_rect(x, y, width, height),
-        paint: ReaderPagePaintV1 {
+        paint: ReaderPagePaint {
             background_color: Some(color),
         },
     }

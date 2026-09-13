@@ -5,7 +5,7 @@
 //! (a collapsed table marks its horizontal edges for per-cell segmentation).
 
 use rito_fragment::{FormattingNode, FormattingNodeContent, FormattingNodeId};
-use rito_style_contract::{LayoutDisplayInsideV1, LayoutStyleId};
+use rito_style_contract::{LayoutDisplayInside, LayoutStyleId};
 
 use super::element_source_index;
 use crate::epub::EpubResult;
@@ -93,16 +93,16 @@ impl TreeBuilder<'_> {
                 self.layout
                     .style(style_id)
                     .map(|resolved| resolved.display.inside)
-                    .unwrap_or(LayoutDisplayInsideV1::Flow)
+                    .unwrap_or(LayoutDisplayInside::Flow)
             };
             match inside {
-                LayoutDisplayInsideV1::TableRow => rows.push(inner),
-                LayoutDisplayInsideV1::TableRowGroup
-                | LayoutDisplayInsideV1::TableHeaderGroup
-                | LayoutDisplayInsideV1::TableFooterGroup => {
+                LayoutDisplayInside::TableRow => rows.push(inner),
+                LayoutDisplayInside::TableRowGroup
+                | LayoutDisplayInside::TableHeaderGroup
+                | LayoutDisplayInside::TableFooterGroup => {
                     self.collect_table_rows(&inner.children, rows)?;
                 }
-                LayoutDisplayInsideV1::TableColumn | LayoutDisplayInsideV1::TableColumnGroup => {}
+                LayoutDisplayInside::TableColumn | LayoutDisplayInside::TableColumnGroup => {}
                 _ => {
                     self.degrade(format!(
                         "<{}> inside a table is not a row; skipped",

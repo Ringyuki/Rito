@@ -182,7 +182,7 @@ fn validate_face(input: RuntimePinnedFontFaceInput) -> EpubResult<RuntimePinnedF
         .map_err(|_| EpubError::new("pinned font face is not a parseable TTF/OTF face 0"))?;
     if !parsed.variation_axes().is_empty() {
         return Err(EpubError::new(
-            "pinned font policy v1 does not support variable font faces",
+            "the pinned font policy does not support variable font faces",
         ));
     }
     if rustybuzz::Face::from_slice(&input.bytes, 0).is_none() {
@@ -254,7 +254,7 @@ fn policy_identity(faces: &[RuntimePinnedFontFace]) -> Vec<u8> {
         identity.push(role_identity(face.summary.generic_role));
         identity.push(face.summary.language.len() as u8);
         identity.extend_from_slice(face.summary.language.as_bytes());
-        identity.push(0); // v1 style: normal
+        identity.push(0); // style: normal
         identity.extend_from_slice(&PINNED_FONT_WEIGHT.to_be_bytes());
         identity.extend_from_slice(&face.sha256_bytes);
     }

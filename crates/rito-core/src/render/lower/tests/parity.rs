@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 
 use super::super::{lower, ImageSize};
 use crate::render::{
-    commands::encode_reader_primitive_list_v1, test_support::parse_display_command, DisplayCommand,
+    commands::encode_reader_primitive_list, test_support::parse_display_command, DisplayCommand,
 };
 use rito_inline::{plain_paragraph_style, ParleyInlineContext};
 use rito_style_contract::{
@@ -79,7 +79,7 @@ fn lower_paint_parity_fixtures() {
             .collect();
         let lowered = lower(&commands, ratio, &synthetic_image_size)
             .unwrap_or_else(|error| panic!("{name}: {error}"));
-        let encoded = encode_reader_primitive_list_v1(&lowered)
+        let encoded = encode_reader_primitive_list(&lowered)
             .unwrap_or_else(|error| panic!("{name}: {error}"));
         fs::write(lowered_dir.join(format!("{name}.ritodl")), &encoded.bytes)
             .expect("write the lowered list");

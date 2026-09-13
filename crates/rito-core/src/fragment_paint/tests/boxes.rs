@@ -12,9 +12,9 @@ fn a_transformed_box_wraps_its_subtree_in_a_transform_state() {
     node_paints.insert(
         0,
         NodePaint::Box {
-            paint: ReaderBlockPaintV1::default(),
+            paint: ReaderBlockPaint::default(),
             border_box: None,
-            transform: Some(vec![ReaderTransformV1::Rotate { radians: 0.05 }]),
+            transform: Some(vec![ReaderTransform::Rotate { radians: 0.05 }]),
             bevels: Vec::new(),
             segment_horizontal_edges: false,
         },
@@ -46,11 +46,8 @@ fn a_transformed_box_wraps_its_subtree_in_a_transform_state() {
         panic!("expected a transform command, got {:?}", commands.get(1));
     };
     // Box rect is (10, 20, 100, 20): center (60, 30).
-    assert_eq!(origin, &ReaderPointV1 { x: 60.0, y: 30.0 });
-    assert_eq!(
-        transforms,
-        &vec![ReaderTransformV1::Rotate { radians: 0.05 }]
-    );
+    assert_eq!(origin, &ReaderPoint { x: 60.0, y: 30.0 });
+    assert_eq!(transforms, &vec![ReaderTransform::Rotate { radians: 0.05 }]);
     assert!(matches!(commands.last(), Some(DisplayCommand::PopState)));
     // The empty paint object strokes nothing: no paintBlock between.
     assert!(commands
@@ -67,7 +64,7 @@ fn a_transformed_box_wraps_its_subtree_in_a_transform_state() {
 /// it.
 #[test]
 fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let mut item_style = body_style(srgb(0.0, 0.0, 0.0, 1.0));
     item_style.paint.background = srgb(1.0, 1.0, 0.0, 1.0).into();
     let style = inline
@@ -83,7 +80,7 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
         }],
         FormattingNodeId(0),
         FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )

@@ -13,7 +13,7 @@
 //! sub-pixel phases match its raster.
 
 use rito_fragment::ClusterPosition;
-use rito_style_contract::{InlineFormattingStyleV1, LengthPercentage};
+use rito_style_contract::{InlineFormattingStyle, LengthPercentage};
 
 use crate::*;
 
@@ -152,7 +152,7 @@ impl ParleyInlineContext {
     /// painted run is placed: each cluster's origin under the cluster
     /// laws above, with the style's own letter and word spacing folded in
     /// and no justification.
-    pub fn measure_run(&self, style: &InlineFormattingStyleV1, text: &str) -> MeasuredRun {
+    pub fn measure_run(&self, style: &InlineFormattingStyle, text: &str) -> MeasuredRun {
         self.shaped_run(style, None, true, text)
     }
 
@@ -172,7 +172,7 @@ impl ParleyInlineContext {
     /// annotation sit 16px apart; a book face's 8.8px annotation 15px.
     pub fn measure_ruby_annotation(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
         annotation_size: f32,
         base_text: &str,
         text: &str,
@@ -198,7 +198,7 @@ impl ParleyInlineContext {
     /// them to Blink.
     fn em_height(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
         size_override: Option<f32>,
         text: &str,
     ) -> EmHeight {
@@ -267,7 +267,7 @@ impl ParleyInlineContext {
     /// metrics from.
     fn primary_font(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
     ) -> Option<(parley::fontique::Blob<u8>, u32)> {
         use parley::fontique::GenericFamily;
         let mut fonts = self.fonts.borrow_mut();
@@ -308,7 +308,7 @@ impl ParleyInlineContext {
 
     fn shaped_run(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
         size_override: Option<f32>,
         spacing: bool,
         text: &str,

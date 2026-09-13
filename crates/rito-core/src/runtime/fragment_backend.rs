@@ -18,7 +18,7 @@ use crate::fragment_pagination::{paginate_chapter, paint_chapter_page};
 use crate::fragment_paint::{FragmentPaintContext, PaintFamilyPolicy};
 use crate::layout::LayoutConfig;
 use crate::render::{
-    contract::{ReaderBackgroundPaintV1, ReaderColorV1},
+    contract::{ReaderBackgroundPaint, ReaderColor},
     DisplayCommand,
 };
 
@@ -38,9 +38,9 @@ pub(super) struct FragmentBackendChapter {
     pub(super) block_count: usize,
     /// The chapter body's background color, painted as this chapter's
     /// page wash.
-    pub(super) page_background: Option<ReaderColorV1>,
+    pub(super) page_background: Option<ReaderColor>,
     /// The body's background image painted across the full page.
-    pub(super) page_background_image: Option<ReaderBackgroundPaintV1>,
+    pub(super) page_background_image: Option<ReaderBackgroundPaint>,
     pub(super) pages: Vec<FragmentBackendPage>,
 }
 

@@ -5,11 +5,11 @@ use rito_fragment::{BreakToken, BreakTokenStage, FormattingNode, FragmentCache};
 use rito_style_contract::{
     AbsoluteColor, AbsoluteColorSpace, AlignmentBaseline, BaselineShift, BaselineSource,
     BorderEdge, BorderEdges, BorderRadii, BorderStyle, ColorNoneFlags, CornerRadius, CssPx,
-    FontFamilies, FontFamilyName, FontStyleV1, FontWeight, InlineBidiV1, InlineFragmentStyleV1,
-    InlinePaintStyleV1, InlineStyleTableV1, InlineTextFlowV1, LayoutStyleTableV1,
-    LengthPercentageOrAuto, NonNegativeCssPx, NonNegativeLengthPercentage, PhysicalSides,
-    RubyAlign, TextAlign, TextDecoration, TextDecorationLines, TextDecorationStyle, TextIndent,
-    TextJustify, TextTransform, TextTransformCase, TextWrapMode, TransformListV1, UnitInterval,
+    FontFamilies, FontFamilyName, FontStyle, FontWeight, InlineBidi, InlineFragmentStyle,
+    InlinePaintStyle, InlineStyleTable, InlineTextFlow, LayoutStyleTable, LengthPercentageOrAuto,
+    NonNegativeCssPx, NonNegativeLengthPercentage, PhysicalSides, RubyAlign, TextAlign,
+    TextDecoration, TextDecorationLines, TextDecorationStyle, TextIndent, TextJustify,
+    TextTransform, TextTransformCase, TextWrapMode, TransformList, UnitInterval,
     WhiteSpaceCollapse, WordBreak,
 };
 use rito_style_contract::{Direction, LineBreak, OverflowWrap, UnicodeBidi, WritingMode};
@@ -54,7 +54,7 @@ fn sides<T: Copy>(value: T) -> PhysicalSides<T> {
     }
 }
 
-fn tinos_style(indent_px: f32) -> InlineFormattingStyleV1 {
+fn tinos_style(indent_px: f32) -> InlineFormattingStyle {
     let border = BorderEdge {
         resolved_width: px(0.0),
         style: BorderStyle::None,
@@ -68,8 +68,8 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyleV1 {
             CssPx::new(0.0).expect("zero radius"),
         )),
     };
-    InlineFormattingStyleV1 {
-        font: FontStyleV1 {
+    InlineFormattingStyle {
+        font: FontStyle {
             families: FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Tinos"))])
                 .expect("family list is non-empty"),
             is_system_font: false,
@@ -80,7 +80,7 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyleV1 {
             line_height: LineHeight::Normal,
             line_height_is_declared: false,
         },
-        text_flow: InlineTextFlowV1 {
+        text_flow: InlineTextFlow {
             text_align: TextAlign::Start,
             text_justify: TextJustify::Auto,
             text_transform: TextTransform {
@@ -103,12 +103,12 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyleV1 {
             ruby_align: RubyAlign::SpaceAround,
             language: None,
         },
-        bidi: InlineBidiV1 {
+        bidi: InlineBidi {
             direction: Direction::LeftToRight,
             unicode_bidi: UnicodeBidi::Normal,
             writing_mode: WritingMode::HorizontalTopToBottom,
         },
-        fragment: InlineFragmentStyleV1 {
+        fragment: InlineFragmentStyle {
             margin: sides(LengthPercentageOrAuto::Value(LengthPercentage::Length(
                 CssPx::new(0.0).expect("zero margin"),
             ))),
@@ -133,12 +133,12 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyleV1 {
                 CssPx::new(0.0).expect("zero shift"),
             )),
         },
-        paint: InlinePaintStyleV1 {
+        paint: InlinePaintStyle {
             foreground: transparent(),
             opacity: UnitInterval::new(1.0).expect("opacity is bounded"),
             background: transparent().into(),
             background_image: None,
-            transform: TransformListV1::none(),
+            transform: TransformList::none(),
             text_decoration: TextDecoration {
                 lines: TextDecorationLines::new(false, false, false, false),
                 style: TextDecorationStyle::Solid,
@@ -151,7 +151,7 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyleV1 {
 }
 
 fn paragraph_tree(text: &str, indent_px: f32) -> (FormattingTree, String) {
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let style = inline
         .intern_for_node(0, tinos_style(indent_px))
         .expect("style interns");
@@ -171,7 +171,7 @@ fn paragraph_tree(text: &str, indent_px: f32) -> (FormattingTree, String) {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )

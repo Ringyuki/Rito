@@ -6,7 +6,7 @@
 // nothing to the raster beyond the optional background fill both pens
 // share.
 import { renderReaderPrimitivesToCanvas } from '../../../packages/rito/src/bindings/browser/primitive-renderer';
-import { decodeRitoReaderPrimitiveListV1 } from '../../../packages/rito-core-wasm/src/reader-v1-primitive-decoder-runtime.js';
+import { decodeRitoReaderPrimitiveList } from '../../../packages/rito-core-wasm/src/reader-session-primitive-decoder-runtime.js';
 
 // Synthetic image sources shared with the Flutter renderer. Pixel
 // definitions are integer-exact; any drift between the two generators
@@ -96,7 +96,7 @@ function renderLoweredFixture(fixture: LoweredFixture, base64: string): string {
   const raw = atob(base64);
   const bytes = new Uint8Array(raw.length);
   for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
-  const list = decodeRitoReaderPrimitiveListV1(bytes);
+  const list = decodeRitoReaderPrimitiveList(bytes);
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(fixture.width * fixture.ratio);
   canvas.height = Math.round(fixture.height * fixture.ratio);

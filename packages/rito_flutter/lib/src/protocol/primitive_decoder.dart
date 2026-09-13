@@ -6,7 +6,7 @@ final class RitoPrimitiveListDecoder {
   const RitoPrimitiveListDecoder();
 
   /// Mirrors `READER_PRIMITIVE_LIST_FORMAT_VERSION` in
-  /// crates/rito-core/src/render/commands/reader_wire_v1.rs.
+  /// crates/rito-core/src/render/commands/reader_wire.rs.
   static const int formatVersion = 2;
   static final List<int> _magic = ascii.encode('RITODL1');
 

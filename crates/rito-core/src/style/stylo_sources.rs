@@ -1289,7 +1289,7 @@ mod tests {
         // could spell one past this scanner must not be admitted.
         let escaped = AuthorStylesheetSource::Embedded {
             source_node_id: source_id(),
-            css: "p { \\2D\\2D rito-internal-break-before-v1: always }".to_owned(),
+            css: "p { \\2D\\2D rito-internal-break-before: always }".to_owned(),
             selection_issues: Vec::new(),
             media_environment_issues: Vec::new(),
         };
@@ -1440,8 +1440,8 @@ mod tests {
             Ok(())
         );
         for name in [
-            "--rito-internal-break-before-v1",
-            "--rito-internal-break-after-v1",
+            "--rito-internal-break-before",
+            "--rito-internal-break-after",
         ] {
             let declarations = format!("{name}: always");
             assert!(matches!(

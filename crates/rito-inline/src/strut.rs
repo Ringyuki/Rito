@@ -60,7 +60,7 @@ impl ParleyInlineContext {
     /// line height from the engine itself.
     pub(crate) fn measure_normal_line_height(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
     ) -> Result<f64, LayoutError> {
         let mut fonts = self.fonts.borrow_mut();
         let mut layouts = self.layouts.borrow_mut();
@@ -83,7 +83,7 @@ impl ParleyInlineContext {
     /// inheriting everything else) and the base against each other.
     pub(crate) fn measure_styled_advance(
         &self,
-        style: &InlineFormattingStyleV1,
+        style: &InlineFormattingStyle,
         size_override: Option<f32>,
         text: &str,
     ) -> f64 {
@@ -199,7 +199,7 @@ pub(crate) fn fixed_line_baseline(height: f64, ascent: f64, descent: f64) -> f64
 /// Without a host grid metric the anchor is withheld; the measure →
 /// inject → reflow loop converges it the same way line metrics do.
 pub(crate) fn item_box_snap(
-    resolved: &InlineFormattingStyleV1,
+    resolved: &InlineFormattingStyle,
     metric: Option<HostNormalLineMetric>,
 ) -> Option<rito_fragment::BoxSnap> {
     use rito_style_contract::BorderStyle;

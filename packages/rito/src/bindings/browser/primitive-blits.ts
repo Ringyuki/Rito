@@ -1,12 +1,12 @@
-import type { RitoReaderPathOpV1, RitoReaderPrimitiveV1 } from '@ritojs/core-wasm/decoder';
+import type { RitoReaderPathOp, RitoReaderPrimitive } from '@ritojs/core-wasm/decoder';
 
 import type { CanvasImageResolver } from './primitive-renderer';
-import { toCanvasColorV1 } from './reader-v1-canvas-converter';
+import { toCanvasColor } from './reader-session-canvas-converter';
 
-type TransformPrimitive = Extract<RitoReaderPrimitiveV1, { readonly kind: 'transform' }>;
-type StrokePrimitive = Extract<RitoReaderPrimitiveV1, { readonly kind: 'stroke-path' }>;
-type ShadowPrimitive = Extract<RitoReaderPrimitiveV1, { readonly kind: 'shadow' }>;
-type ImagePrimitive = Extract<RitoReaderPrimitiveV1, { readonly kind: 'draw-image' }>;
+type TransformPrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'transform' }>;
+type StrokePrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'stroke-path' }>;
+type ShadowPrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'shadow' }>;
+type ImagePrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'draw-image' }>;
 
 // A shadow's exclusion clip is the whole plane less the excluded shape;
 // this reach stands in for the plane on any page a reader can lay out.
@@ -16,7 +16,7 @@ const CLIP_REACH = 1 << 20;
  * device-resolved primitive on the canvas exactly as the engine
  * resolved it. */
 
-export function tracePath(ctx: CanvasRenderingContext2D, ops: readonly RitoReaderPathOpV1[]): void {
+export function tracePath(ctx: CanvasRenderingContext2D, ops: readonly RitoReaderPathOp[]): void {
   for (const op of ops) {
     switch (op.op) {
       case 'move-to':
@@ -57,7 +57,7 @@ export function applyTransform(ctx: CanvasRenderingContext2D, primitive: Transfo
 }
 
 export function strokePath(ctx: CanvasRenderingContext2D, primitive: StrokePrimitive): void {
-  ctx.strokeStyle = toCanvasColorV1(primitive.color);
+  ctx.strokeStyle = toCanvasColor(primitive.color);
   ctx.lineWidth = primitive.width;
   ctx.lineCap = primitive.cap;
   ctx.setLineDash(primitive.dash ? [primitive.dash.on, primitive.dash.off] : []);
@@ -77,7 +77,7 @@ export function drawShadow(ctx: CanvasRenderingContext2D, primitive: ShadowPrimi
       tracePath(ctx, primitive.clipOut);
       ctx.clip('evenodd');
     }
-    const color = toCanvasColorV1(primitive.color);
+    const color = toCanvasColor(primitive.color);
     ctx.shadowColor = color;
     ctx.shadowBlur = primitive.sigma * 2;
     ctx.shadowOffsetX = primitive.offset.x;

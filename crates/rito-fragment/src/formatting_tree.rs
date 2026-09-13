@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 
-use rito_style_contract::{InlineStyleTableV1, LayoutStyleId, LayoutStyleTableV1, StyleId};
+use rito_style_contract::{InlineStyleTable, LayoutStyleId, LayoutStyleTable, StyleId};
 
 /// Stable identity of one node in a [`FormattingTree`].
 ///
@@ -278,7 +278,7 @@ pub enum InlineItem {
         /// letterboxes the raster inside it. Distinct from
         /// `fit_contain`, which is the SVG-fold geometry (two-stage
         /// viewBox + raster placement with clamp-bleed slivers).
-        object_fit: rito_style_contract::ObjectFitV1,
+        object_fit: rito_style_contract::ObjectFit,
     },
     /// An inline-block whose content is itself inline-only: an atomic
     /// inline laid out as its own mini paragraph (shrink-to-fit width,
@@ -368,9 +368,9 @@ pub struct FormattingNode {
 #[derive(Debug)]
 pub struct FormattingTreeStyles {
     /// Interned block/layout styles referenced by `FormattingNode::style`.
-    pub layout: LayoutStyleTableV1,
+    pub layout: LayoutStyleTable,
     /// Interned inline styles referenced by [`InlineItem::Text`].
-    pub inline: InlineStyleTableV1,
+    pub inline: InlineStyleTable,
 }
 
 /// The engine-input side of the durable layout contract.
@@ -915,10 +915,10 @@ mod tests {
 
     use super::*;
     use rito_style_contract::{
-        AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
-        LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LengthPercentageOrAuto,
-        ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, OverflowV1,
-        PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1, RubyAlign,
+        AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
+        LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto, ListMarkerStyle,
+        MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize, RubyAlign,
     };
 
     fn zero_padding() -> rito_style_contract::NonNegativeLengthPercentage {
@@ -929,11 +929,11 @@ mod tests {
         )
     }
 
-    fn layout_style(break_before: PageBreakV1) -> LayoutFormattingStyleV1 {
-        LayoutFormattingStyleV1 {
-            display: LayoutDisplayV1 {
-                outside: LayoutDisplayOutsideV1::Block,
-                inside: LayoutDisplayInsideV1::Flow,
+    fn layout_style(break_before: PageBreak) -> LayoutFormattingStyle {
+        LayoutFormattingStyle {
+            display: LayoutDisplay {
+                outside: LayoutDisplayOutside::Block,
+                inside: LayoutDisplayInside::Flow,
                 is_list_item: false,
             },
             margin: PhysicalSides {
@@ -948,28 +948,28 @@ mod tests {
                 bottom: zero_padding(),
                 left: zero_padding(),
             },
-            box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
-            justify_content: JustifyContentV1::Normal,
-            align_items: AlignItemsV1::Normal,
+            box_sizing: rito_style_contract::BoxSizing::ContentBox,
+            justify_content: JustifyContent::Normal,
+            align_items: AlignItems::Normal,
             break_before,
-            break_after: PageBreakV1::Auto,
-            width: PreferredSizeV1::Auto,
-            height: PreferredSizeV1::Auto,
-            max_width: MaximumSizeV1::None,
-            min_height: MinimumHeightV1::Auto,
-            max_height: MaximumHeightV1::None,
-            clear: ClearV1::None,
-            float: FloatV1::None,
-            overflow: OverflowV1::Visible,
-            list_style_type: ListMarkerStyleV1::None,
-            position: PositionV1::Static,
-            vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+            break_after: PageBreak::Auto,
+            width: PreferredSize::Auto,
+            height: PreferredSize::Auto,
+            max_width: MaximumSize::None,
+            min_height: MinimumHeight::Auto,
+            max_height: MaximumHeight::None,
+            clear: Clear::None,
+            float: Float::None,
+            overflow: Overflow::Visible,
+            list_style_type: ListMarkerStyle::None,
+            position: Position::Static,
+            vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
             border_spacing: (
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
-            object_fit: rito_style_contract::ObjectFitV1::Fill,
+            object_fit: rito_style_contract::ObjectFit::Fill,
             inset: PhysicalSides {
                 top: LengthPercentageOrAuto::Auto,
                 right: LengthPercentageOrAuto::Auto,
@@ -987,14 +987,14 @@ mod tests {
         }
     }
 
-    fn styles_with(break_before: PageBreakV1) -> FormattingTreeStyles {
-        let mut layout = LayoutStyleTableV1::new(1);
+    fn styles_with(break_before: PageBreak) -> FormattingTreeStyles {
+        let mut layout = LayoutStyleTable::new(1);
         layout
             .intern_for_node(0, layout_style(break_before))
             .expect("style interns");
         FormattingTreeStyles {
             layout,
-            inline: InlineStyleTableV1::new(0),
+            inline: InlineStyleTable::new(0),
         }
     }
 
@@ -1026,8 +1026,8 @@ mod tests {
             nodes,
             FormattingNodeId(0),
             FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
-                inline: InlineStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
+                inline: InlineStyleTable::new(0),
             },
         )
         .is_err());
@@ -1038,13 +1038,13 @@ mod tests {
         let first = FormattingTree::with_styles(
             vec![block_node()],
             FormattingNodeId(0),
-            styles_with(PageBreakV1::Auto),
+            styles_with(PageBreak::Auto),
         )
         .expect("first tree builds");
         let second = FormattingTree::with_styles(
             vec![block_node()],
             FormattingNodeId(0),
-            styles_with(PageBreakV1::Always),
+            styles_with(PageBreak::Always),
         )
         .expect("second tree builds");
         assert_ne!(
@@ -1056,7 +1056,7 @@ mod tests {
         let repeat = FormattingTree::with_styles(
             vec![block_node()],
             FormattingNodeId(0),
-            styles_with(PageBreakV1::Auto),
+            styles_with(PageBreak::Auto),
         )
         .expect("repeat tree builds");
         assert_eq!(first.fingerprint(), repeat.fingerprint());

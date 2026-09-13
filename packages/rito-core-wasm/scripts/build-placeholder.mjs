@@ -42,17 +42,17 @@ const runtimeSources = [
   'reader-worker-chapter-local-client-runtime.js',
   'reader-worker-chapter-local-payload-runtime.js',
   'frame-command-buffer-decoder-runtime.js',
-  'reader-v1-wire-base-runtime.js',
-  'reader-v1-display-paint-runtime.js',
-  'reader-v1-display-decoder-runtime.js',
-  'reader-v1-primitive-decoder-runtime.js',
-  'reader-v1-artifact-decoder-runtime.js',
-  'reader-v1-publication-runtime.js',
-  'reader-v1-request-runtime.js',
-  'reader-v1-foreground-runtime.js',
-  'reader-v1-background-runtime.js',
-  'reader-v1-worker-runtime.js',
-  'reader-v1-worker-client-runtime.js',
+  'reader-session-wire-base-runtime.js',
+  'reader-session-display-paint-runtime.js',
+  'reader-session-display-decoder-runtime.js',
+  'reader-session-primitive-decoder-runtime.js',
+  'reader-session-artifact-decoder-runtime.js',
+  'reader-session-publication-runtime.js',
+  'reader-session-request-runtime.js',
+  'reader-session-foreground-runtime.js',
+  'reader-session-background-runtime.js',
+  'reader-session-worker-runtime.js',
+  'reader-session-worker-client-runtime.js',
 ].map((name) => ({
   source: new URL(`../src/${name}`, import.meta.url),
   target: new URL(name, dist),
@@ -64,7 +64,7 @@ const navigationDeclarationSource = new URL(
 );
 const decoderDeclarationSources = [
   'frame-command-buffer-decoder-runtime.d.ts',
-  'reader-v1-runtime.d.ts',
+  'reader-session-runtime.d.ts',
 ].map((name) => new URL(`../src/${name}`, import.meta.url));
 const typeDeclarationSources = [
   'common',
@@ -86,10 +86,10 @@ const typeDeclarationSources = [
   'reading-anchor',
   'status',
   'pinned-font',
-  'reader-v1-display',
-  'reader-v1-primitive',
-  'reader-v1',
-  'reader-v1-worker',
+  'reader-session-display',
+  'reader-session-primitive',
+  'reader-session',
+  'reader-session-worker',
 ].map((name) => new URL(`../src/types/${name}.ts`, import.meta.url));
 
 await mkdir(dist, { recursive: true });
@@ -135,7 +135,7 @@ function decoderEntry() {
     "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
     "export { createRitoCoreWasmBoundedReaderSession } from './reader-bounded-session-runtime.js';",
     "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
-    ...readerV1RuntimeExports(),
+    ...readerSessionRuntimeExports(),
     "export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error-runtime.js';",
     '',
   ].join('\n');
@@ -147,7 +147,7 @@ function indexEntry() {
     "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
     "export { createRitoCoreWasmBoundedReaderSession } from './reader-bounded-session-runtime.js';",
     "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
-    ...readerV1RuntimeExports(),
+    ...readerSessionRuntimeExports(),
     "export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error-runtime.js';",
     '',
     'export async function initRitoCoreWasmEngine() {',
@@ -183,7 +183,7 @@ function indexEntry() {
     '      boundedRevisionControl: true,',
     '      chapterLocalRevisionControl: true,',
     '      boundedSessionController: true,',
-    '      readerSessionV1: false,',
+    '      readerSession: false,',
     '      wasmBindgen: true,',
     '      npmWasmArtifact: false,',
     '    },',
@@ -193,17 +193,17 @@ function indexEntry() {
   ].join('\n');
 }
 
-function readerV1RuntimeExports() {
+function readerSessionRuntimeExports() {
   return [
-    "export { decodeRitoReaderArtifactV1, decodeRitoReaderResourceV1 } from './reader-v1-artifact-decoder-runtime.js';",
-    "export { decodeRitoReaderPublicationV1 } from './reader-v1-publication-runtime.js';",
-    "export { decodeRitoReaderPrimitiveListV1, READER_V1_PRIMITIVE_LIST_FORMAT_VERSION } from './reader-v1-primitive-decoder-runtime.js';",
-    "export { encodeRitoReaderAdjacentRequestV1, encodeRitoReaderArtifactRequestV1 } from './reader-v1-request-runtime.js';",
-    "export { decodeRitoReaderForegroundHandoffAckV1, encodeRitoReaderForegroundHandoffV1 } from './reader-v1-foreground-runtime.js';",
-    "export { decodeRitoReaderBackgroundAdvanceV1, decodeRitoReaderBackgroundHandoffAckV1, encodeRitoReaderBackgroundHandoffV1, encodeRitoReaderBackgroundRequestV1 } from './reader-v1-background-runtime.js';",
-    "export { createRitoCoreWasmReaderV1WorkerHandler } from './reader-v1-worker-runtime.js';",
-    "export { createRitoCoreWasmReaderV1WorkerClient, RitoReaderErrorV1 } from './reader-v1-worker-client-runtime.js';",
-    "export { RitoReaderWireErrorV1 } from './reader-v1-wire-base-runtime.js';",
+    "export { decodeRitoReaderArtifact, decodeRitoReaderResource } from './reader-session-artifact-decoder-runtime.js';",
+    "export { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';",
+    "export { decodeRitoReaderPrimitiveList, READER_V1_PRIMITIVE_LIST_FORMAT_VERSION } from './reader-session-primitive-decoder-runtime.js';",
+    "export { encodeRitoReaderAdjacentRequest, encodeRitoReaderArtifactRequest } from './reader-session-request-runtime.js';",
+    "export { decodeRitoReaderForegroundHandoffAck, encodeRitoReaderForegroundHandoff } from './reader-session-foreground-runtime.js';",
+    "export { decodeRitoReaderBackgroundAdvance, decodeRitoReaderBackgroundHandoffAck, encodeRitoReaderBackgroundHandoff, encodeRitoReaderBackgroundRequest } from './reader-session-background-runtime.js';",
+    "export { createRitoCoreWasmReaderSessionWorkerHandler } from './reader-session-worker-runtime.js';",
+    "export { createRitoCoreWasmReaderSessionWorkerClient, RitoReaderError } from './reader-session-worker-client-runtime.js';",
+    "export { RitoReaderWireError } from './reader-session-wire-base-runtime.js';",
   ];
 }
 

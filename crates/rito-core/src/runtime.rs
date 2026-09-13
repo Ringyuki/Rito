@@ -23,7 +23,7 @@ mod page_semantics;
 mod page_target;
 mod pinned_font_policy;
 mod publication_footnotes;
-mod reader_v1;
+mod reader_session;
 mod resource;
 mod revision;
 mod revision_fonts;
@@ -63,7 +63,7 @@ pub use pinned_font_policy::{
     RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
 };
 use publication_footnotes::{PublicationFootnoteIndex, PublicationFootnoteProgress};
-pub use reader_v1::*;
+pub use reader_session::*;
 use resource::{
     find_binary_resource_metadata, find_text_resource, resource_not_found, runtime_binary_resource,
     runtime_text_resource,

@@ -1,5 +1,5 @@
 // Decodes and replays bytes the live Rust encoder wrote
-// (packages/rito-core-wasm/tests/fixtures/reader-v1-primitive-list.hex,
+// (packages/rito-core-wasm/tests/fixtures/reader-session-primitive-list.hex,
 // kept in step by crates/rito-core's
 // cross_language_wire_fixture_matches_the_encoder test). A hand-built fixture can agree with a stale reading of the wire;
 // these cannot.
@@ -30,7 +30,7 @@ void main() {
     // The fixture is lowered at ratio 2, but a text run keeps its CSS
     // lengths: the pen paints it under the ratio.
     final list = const RitoPrimitiveListDecoder().decode(
-      _fixture('reader-v1-primitive-list.hex'),
+      _fixture('reader-session-primitive-list.hex'),
     );
     final text = (list.commands[11] as RitoPrimitiveText).command;
     expect(text.paint.font.sizePx, 16);
@@ -50,7 +50,7 @@ void main() {
 
   test('decodes every primitive the Rust encoder writes', () {
     final list = const RitoPrimitiveListDecoder().decode(
-      _fixture('reader-v1-primitive-list.hex'),
+      _fixture('reader-session-primitive-list.hex'),
     );
     expect(list.formatVersion, RitoPrimitiveListDecoder.formatVersion);
     expect(list.ratio, 2);
@@ -105,7 +105,7 @@ void main() {
 
   test('rejects format 1, every truncated prefix and trailing bytes', () {
     const decoder = RitoPrimitiveListDecoder();
-    final fixture = _fixture('reader-v1-primitive-list.hex');
+    final fixture = _fixture('reader-session-primitive-list.hex');
     final formatOne = Uint8List.fromList(fixture)
       ..setRange(7, 11, <int>[1, 0, 0, 0]);
     expect(() => decoder.decode(formatOne), throwsA(isA<RitoWireException>()));
@@ -122,7 +122,7 @@ void main() {
 
   test('replays every primitive in order and blits it onto a canvas', () {
     final list = const RitoPrimitiveListDecoder().decode(
-      _fixture('reader-v1-primitive-list.hex'),
+      _fixture('reader-session-primitive-list.hex'),
     );
     final recording = _RecordingTarget();
     const RitoPrimitiveListReplayer().replay(list, recording);

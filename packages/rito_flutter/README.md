@@ -80,7 +80,7 @@ chapter is paginated whole in one native call, so the result is either the
 exact artifact or a terminal error.
 
 An unpublished adjacent turn is cooperative. Only
-`RITO_STATUS_ADJACENT_PENDING_V1` resumes the retained source/direction
+`RITO_STATUS_ADJACENT_PENDING` resumes the retained source/direction
 intent, with one native call per asynchronous host turn and a
 4096-continuation hard cap; plain `TARGET_NOT_PUBLISHED` is terminal. These
 continuations consume request IDs, so subsequent navigation should use
@@ -91,7 +91,7 @@ live after the final candidate is prepared and adopted so page-turn animation
 can finish.
 
 `turn` always emits the fixed 48-byte `RITONAV1` request and calls
-`rito_request_adjacent_v1` on the persistent worker isolate. It does not call
+`rito_request_adjacent` on the persistent worker isolate. It does not call
 `requestArtifact` or repeat locator seek/layout. `requestArtifact` remains an
 explicit API for seek or reflow requests. Image hrefs are passed to
 `RitoImageResolver` exactly as declared by the artifact, including relative
@@ -108,7 +108,7 @@ or downloads a toolchain itself.
 
 `RitoNativeBindings` is the blocking low-level ABI projection and is exposed
 from `package:rito_flutter/rito_flutter_native.dart` for custom embedders. It
-copies every native output before calling `rito_buffer_free_v1`; applications
+copies every native output before calling `rito_buffer_free`; applications
 should normally use the isolate gateway. Tests and embedder diagnostics may opt
 out of Native Assets with `RitoIsolateGateway(diagnosticLibrary: ...)` or
 `RitoNativeBindings.fromDynamicLibrary(...)`.

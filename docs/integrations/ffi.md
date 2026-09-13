@@ -38,7 +38,7 @@ paint domain grows, and a stale decoder misreads the byte stream.
   reports what actually resolved. Only an unknown href fails an open.
 - **Candidates are invisible until adopted.** Every foreground result
   is a candidate; commit it through
-  `rito_adopt_foreground_candidate_v1` with the compare-and-swap
+  `rito_adopt_foreground_candidate` with the compare-and-swap
   expectation, exactly as the header describes.
 - **Taps resolve against the artifact's hits, not its paint commands.**
   Each page's hit entries are the engine's account of links, note
@@ -54,7 +54,7 @@ paint domain grows, and a stale decoder misreads the byte stream.
 The Dart decoder in `packages/rito_flutter/lib/src/protocol/` is the
 reference implementation of the wire reader and is updated in the same
 commit as any engine-side encoding change. When you bump your pinned
-commit, diff that directory (and `render/commands/reader_wire_v1/` on
+commit, diff that directory (and `render/commands/reader_wire/` on
 the Rust side) against your bridge.
 
 `RITODL1` is written at format version 2 only: the device-resolved
@@ -89,9 +89,9 @@ boxes — border bands and dash cadences, rounded rings, box shadows,
 background sizing and tiling, decoration lines — is resolved in the
 engine on the CSS grid and scaled last; a host blits paths, draws
 images, and rasters glyphs at the origins it is given.
-The Rust encoder (`reader_wire_v1/encode/lowered.rs`) and the Dart
+The Rust encoder (`reader_wire/encode/lowered.rs`) and the Dart
 decoder (`protocol/primitive_decoder.dart`) are the reference;
-`packages/rito-core-wasm/tests/fixtures/reader-v1-primitive-list.hex`
+`packages/rito-core-wasm/tests/fixtures/reader-session-primitive-list.hex`
 holds bytes the live encoder wrote for one of every primitive, and a
 Rust test keeps it in step. Format 1, the semantic display list, is no
 longer written; a decoder rejects it by its version field. The same

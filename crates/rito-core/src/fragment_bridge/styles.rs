@@ -3,11 +3,10 @@
 //! it, and the outside list-marker text per `list-style-type`.
 
 use rito_style_contract::{
-    AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
-    LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LengthPercentage,
-    LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1,
-    NonNegativeLengthPercentage, OverflowV1, PageBreakV1, PhysicalSides, PositionV1,
-    PreferredSizeV1,
+    AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
+    LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentage, LengthPercentageOrAuto,
+    ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeLengthPercentage,
+    Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
 };
 
 /// The marker text for one list item, or `None` when the list style
@@ -15,10 +14,10 @@ use rito_style_contract::{
 /// formatting; the symbol styles use the marker glyphs the browser
 /// paints.
 pub(super) fn list_marker_text(
-    style: rito_style_contract::ListMarkerStyleV1,
+    style: rito_style_contract::ListMarkerStyle,
     ordinal: u32,
 ) -> Option<String> {
-    use rito_style_contract::ListMarkerStyleV1 as M;
+    use rito_style_contract::ListMarkerStyle as M;
     let text = match style {
         M::None => return None,
         M::Disc => "\u{2022}".to_owned(),
@@ -80,7 +79,7 @@ fn roman_ordinal(mut n: u32) -> String {
 /// The inline style a node degrades to when the projection retained no
 /// entry for it: an undecorated 16px generic-serif paragraph. Inherited
 /// context is lost, but the text renders.
-pub(super) fn fallback_inline_formatting_style() -> rito_style_contract::InlineFormattingStyleV1 {
+pub(super) fn fallback_inline_formatting_style() -> rito_style_contract::InlineFormattingStyle {
     let mut style = rito_inline::plain_paragraph_style(
         rito_style_contract::FontFamilies::new(vec![rito_style_contract::FontFamily::Generic(
             rito_style_contract::GenericFontFamily::Serif,
@@ -102,17 +101,17 @@ pub(super) fn fallback_inline_formatting_style() -> rito_style_contract::InlineF
     style
 }
 
-pub(super) fn anonymous_block_style() -> LayoutFormattingStyleV1 {
+pub(super) fn anonymous_block_style() -> LayoutFormattingStyle {
     let zero = LengthPercentageOrAuto::Value(LengthPercentage::Length(
         rito_style_contract::CssPx::new(0.0).expect("zero length is finite"),
     ));
     let zero_padding = NonNegativeLengthPercentage::new(LengthPercentage::Length(
         rito_style_contract::CssPx::new(0.0).expect("zero length is finite"),
     ));
-    LayoutFormattingStyleV1 {
-        display: LayoutDisplayV1 {
-            outside: LayoutDisplayOutsideV1::Block,
-            inside: LayoutDisplayInsideV1::Flow,
+    LayoutFormattingStyle {
+        display: LayoutDisplay {
+            outside: LayoutDisplayOutside::Block,
+            inside: LayoutDisplayInside::Flow,
             is_list_item: false,
         },
         margin: PhysicalSides {
@@ -127,33 +126,33 @@ pub(super) fn anonymous_block_style() -> LayoutFormattingStyleV1 {
             bottom: zero_padding,
             left: zero_padding,
         },
-        box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
-        justify_content: JustifyContentV1::Normal,
-        align_items: AlignItemsV1::Normal,
-        break_before: PageBreakV1::Auto,
-        break_after: PageBreakV1::Auto,
-        width: PreferredSizeV1::Auto,
-        height: PreferredSizeV1::Auto,
-        max_width: MaximumSizeV1::None,
-        min_height: MinimumHeightV1::Auto,
-        max_height: MaximumHeightV1::None,
-        clear: ClearV1::None,
-        float: FloatV1::None,
-        overflow: OverflowV1::Visible,
-        list_style_type: ListMarkerStyleV1::None,
-        position: PositionV1::Static,
+        box_sizing: rito_style_contract::BoxSizing::ContentBox,
+        justify_content: JustifyContent::Normal,
+        align_items: AlignItems::Normal,
+        break_before: PageBreak::Auto,
+        break_after: PageBreak::Auto,
+        width: PreferredSize::Auto,
+        height: PreferredSize::Auto,
+        max_width: MaximumSize::None,
+        min_height: MinimumHeight::Auto,
+        max_height: MaximumHeight::None,
+        clear: Clear::None,
+        float: Float::None,
+        overflow: Overflow::Visible,
+        list_style_type: ListMarkerStyle::None,
+        position: Position::Static,
         inset: PhysicalSides {
             top: LengthPercentageOrAuto::Auto,
             right: LengthPercentageOrAuto::Auto,
             bottom: LengthPercentageOrAuto::Auto,
             left: LengthPercentageOrAuto::Auto,
         },
-        vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+        vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
         border_spacing: (
             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
         ),
         border_collapse: false,
-        object_fit: rito_style_contract::ObjectFitV1::Fill,
+        object_fit: rito_style_contract::ObjectFit::Fill,
     }
 }

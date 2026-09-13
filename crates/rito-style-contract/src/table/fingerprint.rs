@@ -4,12 +4,12 @@ use std::{
     sync::Arc,
 };
 
-use crate::InlineFormattingStyleV1;
+use crate::InlineFormattingStyle;
 
 /// Builds a process-local lookup accelerator after nested payloads have been
 /// canonicalized. Pointer identities are never persisted or exposed; equality
 /// still decides matches, and first-seen input order still decides style IDs.
-pub(super) fn style_fingerprint(style: &InlineFormattingStyleV1) -> u64 {
+pub(super) fn style_fingerprint(style: &InlineFormattingStyle) -> u64 {
     let mut hasher = DefaultHasher::new();
     hash_font(style, &mut hasher);
     hash_text_flow(style, &mut hasher);
@@ -19,7 +19,7 @@ pub(super) fn style_fingerprint(style: &InlineFormattingStyleV1) -> u64 {
     hasher.finish()
 }
 
-fn hash_font(style: &InlineFormattingStyleV1, hasher: &mut impl Hasher) {
+fn hash_font(style: &InlineFormattingStyle, hasher: &mut impl Hasher) {
     style.font.families.storage_identity().hash(hasher);
     style.font.is_system_font.hash(hasher);
     style.font.is_initial.hash(hasher);
@@ -29,7 +29,7 @@ fn hash_font(style: &InlineFormattingStyleV1, hasher: &mut impl Hasher) {
     style.font.line_height.hash(hasher);
 }
 
-fn hash_text_flow(style: &InlineFormattingStyleV1, hasher: &mut impl Hasher) {
+fn hash_text_flow(style: &InlineFormattingStyle, hasher: &mut impl Hasher) {
     let text = &style.text_flow;
     text.text_align.hash(hasher);
     text.text_justify.hash(hasher);
@@ -48,7 +48,7 @@ fn hash_text_flow(style: &InlineFormattingStyleV1, hasher: &mut impl Hasher) {
         .hash(hasher);
 }
 
-fn hash_paint(style: &InlineFormattingStyleV1, hasher: &mut impl Hasher) {
+fn hash_paint(style: &InlineFormattingStyle, hasher: &mut impl Hasher) {
     style.paint.foreground.hash(hasher);
     style.paint.opacity.hash(hasher);
     style.paint.background.hash(hasher);

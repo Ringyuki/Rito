@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use rito_source::SourceArena;
 use rito_style_contract::{
-    AbsoluteColor, AbsoluteColorSpace, ColorNoneFlags, ComputedColorV1, CssPx, LengthPercentage,
-    NonNegativeLengthPercentage, Percentage, PreferredSizeV1,
+    AbsoluteColor, AbsoluteColorSpace, ColorNoneFlags, ComputedColor, CssPx, LengthPercentage,
+    NonNegativeLengthPercentage, Percentage, PreferredSize,
 };
 use rito_stylo::{
     epub_ua_stylesheet, StyleDocument, StyleError, StyleOrigin, StylesheetInput, Viewport,
@@ -55,7 +55,7 @@ fn bgcolor_on_non_body_elements_is_not_a_body_hint() {
     let target = source.find_element_by_id("target").expect("target node");
     let (inline, _) = epub_document(&source, "")
         .expect("style document")
-        .resolve_production_slice_v1()
+        .resolve_production_slice()
         .expect("projection")
         .into_parts();
 
@@ -95,8 +95,8 @@ fn author_size_rules_override_the_zero_specificity_svg_geometry_hint() {
 fn invalid_svg_geometry_values_are_ignored_like_a_browser_ignores_them() {
     for attributes in [r#"width="-5""#, r#"width="abc""#, r#"width=" ""#] {
         let (width, height) = projected_svg_size(attributes, "");
-        assert_eq!(width, PreferredSizeV1::Auto, "{attributes:?}");
-        assert_eq!(height, PreferredSizeV1::Auto, "{attributes:?}");
+        assert_eq!(width, PreferredSize::Auto, "{attributes:?}");
+        assert_eq!(height, PreferredSize::Auto, "{attributes:?}");
     }
 }
 
@@ -108,24 +108,24 @@ fn svg_geometry_attributes_outside_the_svg_namespace_are_not_hints() {
     let target = source.find_element_by_id("target").expect("target node");
     let (_, layout) = epub_document(&source, "")
         .expect("style document")
-        .resolve_production_slice_v1()
+        .resolve_production_slice()
         .expect("projection")
         .into_parts();
     let style = layout
         .table()
         .style_for_node(target.index())
         .expect("target layout style");
-    assert_eq!(style.width, PreferredSizeV1::Auto);
+    assert_eq!(style.width, PreferredSize::Auto);
 }
 
-fn projected_svg_size(attributes: &str, css: &str) -> (PreferredSizeV1, PreferredSizeV1) {
+fn projected_svg_size(attributes: &str, css: &str) -> (PreferredSize, PreferredSize) {
     let source = source(&format!(
         r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><figure><svg xmlns="http://www.w3.org/2000/svg" id="target" {attributes} viewBox="0 0 1000 1500"/></figure></body></html>"#
     ));
     let target = source.find_element_by_id("target").expect("svg node");
     let (_, layout) = epub_document(&source, css)
         .expect("style document")
-        .resolve_production_slice_v1()
+        .resolve_production_slice()
         .expect("projection")
         .into_parts();
     let style = layout
@@ -135,26 +135,26 @@ fn projected_svg_size(attributes: &str, css: &str) -> (PreferredSizeV1, Preferre
     (style.width, style.height)
 }
 
-fn percent(value: f32) -> PreferredSizeV1 {
-    PreferredSizeV1::Value(NonNegativeLengthPercentage::new(
+fn percent(value: f32) -> PreferredSize {
+    PreferredSize::Value(NonNegativeLengthPercentage::new(
         LengthPercentage::Percentage(Percentage::from_percent(value).expect("valid percentage")),
     ))
 }
 
-fn px(value: f32) -> PreferredSizeV1 {
-    PreferredSizeV1::Value(NonNegativeLengthPercentage::new(LengthPercentage::Length(
+fn px(value: f32) -> PreferredSize {
+    PreferredSize::Value(NonNegativeLengthPercentage::new(LengthPercentage::Length(
         CssPx::new(value).expect("valid px length"),
     )))
 }
 
-fn projected_body_background(value: &str, css: &str) -> ComputedColorV1 {
+fn projected_body_background(value: &str, css: &str) -> ComputedColor {
     let source = source(&format!(
         r#"<html xmlns="http://www.w3.org/1999/xhtml"><body id="body" bgcolor="{value}"/></html>"#
     ));
     let body = source.find_element_by_id("body").expect("body node");
     let (inline, _) = epub_document(&source, css)
         .expect("style document")
-        .resolve_production_slice_v1()
+        .resolve_production_slice()
         .expect("projection")
         .into_parts();
     inline
@@ -184,8 +184,8 @@ fn source(xhtml: &str) -> Arc<SourceArena> {
     Arc::new(SourceArena::from_xhtml(xhtml).expect("valid XHTML"))
 }
 
-fn srgb(red: f32, green: f32, blue: f32) -> ComputedColorV1 {
-    ComputedColorV1::Absolute(
+fn srgb(red: f32, green: f32, blue: f32) -> ComputedColor {
+    ComputedColor::Absolute(
         AbsoluteColor::new(
             AbsoluteColorSpace::Srgb,
             [red, green, blue],
@@ -196,8 +196,8 @@ fn srgb(red: f32, green: f32, blue: f32) -> ComputedColorV1 {
     )
 }
 
-fn transparent() -> ComputedColorV1 {
-    ComputedColorV1::Absolute(
+fn transparent() -> ComputedColor {
+    ComputedColor::Absolute(
         AbsoluteColor::new(
             AbsoluteColorSpace::Srgb,
             [0.0, 0.0, 0.0],
