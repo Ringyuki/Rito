@@ -101,6 +101,20 @@ a document without one cannot paginate. The reader pins
   unavailable, and resolutions left pending.
 - `layout-engine-bench <epub> <serif-font-path>` — one whole-book
   pagination at 420×640; prints wall-clock milliseconds and page count.
+- `open-timeline.mjs <epub> [url]` (in `tools/corpus-oracle/`) — times one
+  book's open in the running reader, printing every worker message the page
+  sends and receives on one clock. It is how the two whole-book pagination
+  passes of an open were found: the first discovers which
+  `line-height: normal` metrics the engine needs, the host measures them,
+  and a second worker lays the book out again.
+- `host-metric-dump.mjs <epub> [url]` (same directory) — the
+  `line-height: normal` values the browser measured and injected, keyed by
+  family stack, size and sample. The Flutter host has no such channel, so
+  these are the values the two hosts disagree about.
+- `metric-delta.mjs <epub> [url]` (same directory) — opens the same book
+  twice at the same geometry, once with those metrics and once with them
+  withheld, and reports how many text primitives moved. It measures what a
+  host without a metric channel renders differently.
 - `memory-stage-probe <epub> <serif-font-path>` — resident bytes after
   each stage of opening and paginating one book, then after releasing
   the revision, paginating a second time, and dropping the document.

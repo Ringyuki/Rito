@@ -1,3 +1,39 @@
+## Unreleased
+
+Breaking. The retired bounded-work surface leaves the session, so three
+types and two parameters go with it, and the artifact protocol is
+version 5.
+
+- `RitoWorkBudget` is removed. `peek()` and `turn()` no longer take a
+  `work:` argument — drop it at every call site. The session never read
+  the budget: a target chapter is paginated whole in one native call, so
+  there was nothing to bound.
+- `RitoPendingExactSeekDriver` and `RitoPendingExactSeekLimitException`
+  are removed with the exact-seek retry loop they drove, and the status
+  constant `ritoNativeStatusExactSeekPendingV1` leaves the barrel. An
+  exact open or seek now returns either the artifact or a terminal
+  error; there is nothing to retry. `RitoResumableExactSeekGateway`
+  stays: a seek issued while a superseded adjacent turn consumed native
+  request ids still needs a substituted id.
+- `RitoArtifact.terminalExtent` is removed. It was always true once a
+  revision was created complete.
+- `RitoAdjacentAvailability` loses `pending` and `blocked`; the three
+  remaining values are `available`, `chapterBoundary` and `terminal`.
+  Their wire tags renumbered, which is part of the protocol bump.
+- `RitoSearchResponse.scopeComplete` is removed; a search always covers
+  the whole book.
+- Every `V1` suffix leaves the Dart API, matching the engine and the C
+  ABI. The names are otherwise unchanged.
+- `RitoArtifactDecoder.protocolVersion` is 5 (was 3). A hand-written
+  decoder must follow both steps: version 4 removed the work record from
+  the artifact and adjacent requests, version 5 removed the artifact's
+  terminal-extent flag and the search response's scope flag, and
+  renumbered the adjacent availability tags.
+
+Not breaking, but worth knowing: a paginated book now keeps its page
+table rather than its pages, so a 2624-page book paginates in 239 MB
+instead of 471, and a whole-book search runs in 94 ms instead of 1888.
+
 ## 0.3.0 - 2026-09-07
 
 - `RitoHitResolver` resolves taps against the artifact's hit entries — the

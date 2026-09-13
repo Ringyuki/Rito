@@ -89,6 +89,7 @@ reader.dispose();
 - [Documentation Index](./docs/README.md)
 - [Getting Started](./docs/getting-started.md)
 - [Reader API](./docs/api/reader.md)
+- [Migrating to 2.0](./docs/migration/v2.md)
 - [Capabilities](./docs/capabilities.md)
 - [Limitations](./docs/limitations.md)
 - [Using `@ritojs/kit`](./docs/integrations/kit.md)
