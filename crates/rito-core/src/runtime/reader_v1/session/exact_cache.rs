@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::{
-    engine_error, runtime_locator, ReaderErrorV1, ReaderRevisionBackingV1, ReaderSessionV1,
+    errors::engine_error, runtime_locator, ReaderErrorV1, ReaderRevisionBackingV1, ReaderSessionV1,
     ResolvedArtifactOwnerV1, ResolvedArtifactTarget, READER_LIVE_ARTIFACT_CAP_V1,
 };
 
